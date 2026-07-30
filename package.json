@@ -1,0 +1,16 @@
+{
+  "name": "markover",
+  "version": "0.1.0",
+  "description": "A tiny structured Markdown review tool for giving feedback to agent threads.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "test": "node --test",
+    "check": "node --check scripts/start.js && node --check src/main.js && node --check src/preload.js && node --check src/tree.js && node --check src/navigation.js && node --check src/renderer.js"
+  },
+  "author": "lastobelus",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "43.2.0"
+  }
+}

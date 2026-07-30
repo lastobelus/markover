@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markover</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark">M/</span>
+        <div>
+          <h1>Markover</h1>
+          <p>Structured review for Markdown</p>
+        </div>
+      </div>
+      <div class="document-actions">
+        <div class="document-meta">
+          <strong id="document-name">sample.md</strong>
+          <span id="document-checksum">Loading…</span>
+        </div>
+        <button id="open-button" class="button button-secondary">Open Markdown</button>
+        <button id="copy-tree-button" class="button button-secondary">Copy tree JSON</button>
+        <button id="copy-feedback-button" class="button button-primary">Copy feedback</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section id="preview-pane" class="pane preview-pane" tabindex="0">
+        <div class="pane-header">
+          <div>
+            <span class="eyebrow">Document tree</span>
+            <h2>Markdown</h2>
+          </div>
+          <span id="parse-status" class="status-pill">0 blocks</span>
+        </div>
+        <div id="tree" class="tree"></div>
+        <div class="keyboard-help">
+          <kbd>↑</kbd><kbd>↓</kbd> siblings
+          <span>·</span>
+          <kbd>←</kbd> parent
+          <span>·</span>
+          <kbd>→</kbd> child / next
+        </div>
+      </section>
+
+      <aside id="annotation-pane" class="pane annotation-pane" tabindex="-1">
+        <div class="pane-header">
+          <div>
+            <span class="eyebrow">Selected block</span>
+            <h2 id="selected-title">Select a block</h2>
+          </div>
+          <span id="selected-location" class="status-pill">—</span>
+        </div>
+
+        <div id="source-card" class="source-card">
+          <span class="source-label">Source</span>
+          <pre id="selected-source"></pre>
+        </div>
+
+        <label class="annotation-label" for="annotation-input">
+          Feedback
+          <span id="annotation-state">Not annotated</span>
+        </label>
+        <textarea
+          id="annotation-input"
+          placeholder="What should the agent change, clarify, keep, or reconsider?"
+          spellcheck="true"
+        ></textarea>
+
+        <div class="annotation-footer">
+          <p>Annotations stay in memory. Copy feedback or the full tree when you’re done.</p>
+          <span id="annotation-count">0 annotations</span>
+        </div>
+      </aside>
+    </main>
+
+    <div id="toast" class="toast" aria-hidden="true"></div>
+
+    <script src="tree.js"></script>
+    <script src="navigation.js"></script>
+    <script src="renderer.js"></script>
+  </body>
+</html>
