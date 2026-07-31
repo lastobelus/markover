@@ -6,9 +6,26 @@ const path = require('node:path')
 const {
   discoverCodexThread,
   discoverGitMetadata,
+  discoverRepositoryRoot,
   discoverReviewMetadata,
   sanitizeRemoteUrl
 } = require('../src/metadata-discovery')
+
+test('discovers a repository root with one Git query', async () => {
+  const calls = []
+  const root = await discoverRepositoryRoot('/repo/docs/plan.md', {
+    async runGit(args, cwd) {
+      calls.push({ args, cwd })
+      return '/repo'
+    }
+  })
+
+  assert.equal(root, '/repo')
+  assert.deepEqual(calls, [{
+    args: ['rev-parse', '--show-toplevel'],
+    cwd: '/repo/docs'
+  }])
+})
 
 test('discovers Git metadata and records each source', async () => {
   const answers = new Map([

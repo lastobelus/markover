@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markover</title>
     <link rel="stylesheet" href="styles.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "preact": "../node_modules/preact/dist/preact.mjs",
+          "preact/hooks": "../node_modules/preact/hooks/dist/hooks.mjs",
+          "preact/jsx-runtime": "../node_modules/preact/jsx-runtime/dist/jsxRuntime.mjs",
+          "preact-render-to-string": "../node_modules/preact-render-to-string/dist/index.mjs"
+        }
+      }
+    </script>
   </head>
   <body>
     <header class="app-header">
@@ -40,9 +50,24 @@
       </div>
     </header>
 
-    <nav id="document-tabs" class="document-tabs" role="tablist" aria-label="Open reviews" hidden></nav>
+    <nav id="document-tabs" class="document-tabs" role="tablist" aria-label="Recent reviews" hidden></nav>
 
-    <main class="workspace">
+    <main id="workspace" class="workspace">
+      <aside id="review-sidebar" class="review-sidebar" hidden>
+        <header class="review-sidebar-header">
+          <span>Reviews</span>
+          <button
+            id="review-sidebar-toggle"
+            class="review-sidebar-toggle"
+            type="button"
+            title="Collapse review sidebar"
+            aria-label="Collapse review sidebar"
+            aria-expanded="true"
+          >‹</button>
+        </header>
+        <div id="review-sidebar-tree" class="review-sidebar-tree"></div>
+      </aside>
+
       <section id="preview-pane" class="pane preview-pane" tabindex="0">
         <div class="pane-header">
           <span class="eyebrow">Document tree</span>

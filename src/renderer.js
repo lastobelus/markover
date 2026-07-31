@@ -64,7 +64,11 @@ const elements = {
   reviewContextFields: document.querySelector('#review-context-fields'),
   reviewContextSummary: document.querySelector('#review-context-summary'),
   reviewContextTitle: document.querySelector('#review-context-title'),
-  reviewStateBanner: document.querySelector('#review-state-banner')
+  reviewSidebar: document.querySelector('#review-sidebar'),
+  reviewSidebarToggle: document.querySelector('#review-sidebar-toggle'),
+  reviewSidebarTree: document.querySelector('#review-sidebar-tree'),
+  reviewStateBanner: document.querySelector('#review-state-banner'),
+  workspace: document.querySelector('#workspace')
 }
 
 const state = {
@@ -83,6 +87,26 @@ const state = {
 }
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
 const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
+const MAX_VISIBLE_TABS = 6
+let ReviewFileTree = null
+let reviewSidebarModel = null
+let reviewSidebarCollapsed = false
+let reviewSidebarRenderQueued = false
+let sidebarPathToReviewId = new Map()
+let sidebarReviewIdToPath = new Map()
+let sidebarSortOrder = new Map()
+let sidebarDecorations = new Map()
+let sidebarProjectPaths = []
+
+import('../node_modules/@pierre/trees/dist/index.js')
+  .then(({ FileTree }) => {
+    ReviewFileTree = FileTree
+    renderReviewSidebar()
+  })
+  .catch((error) => {
+    console.error('Failed to load review tree', error)
+    elements.reviewSidebarTree.textContent = `Review list unavailable: ${error.message}`
+  })
 
 const bridge = window.markover || {
   async checksum(source) {
@@ -810,57 +834,286 @@ function closeReviewContext(restoreFocus = true) {
   }
 }
 
-function renderDocumentTabs() {
+function treePathSegment(value) {
+  return String(value || '')
+    .replace(/[\\/]/g, '∕')
+    .replace(/[\u0000-\u001f]/g, '')
+    .trim() || 'Untitled'
+}
+
+function buildReviewSidebarProjection() {
+  const groups = reviewSessions.projectGroups()
+  const nameCounts = new Map()
+  for (const group of groups) {
+    nameCounts.set(group.name, (nameCounts.get(group.name) || 0) + 1)
+  }
+  const duplicateIndices = new Map()
+  for (const name of nameCounts.keys()) {
+    const matches = groups
+      .filter((group) => group.name === name)
+      .sort((left, right) => left.key.localeCompare(right.key))
+    matches.forEach((group, index) => duplicateIndices.set(group.key, index + 1))
+  }
+  const paths = []
+  const projectPaths = []
+  const pathToReviewId = new Map()
+  const reviewIdToPath = new Map()
+  const sortOrder = new Map()
+  const decorations = new Map()
+
+  groups.forEach((group, groupIndex) => {
+    const duplicateSuffix = nameCounts.get(group.name) > 1
+      ? ` · ${duplicateIndices.get(group.key)}`
+      : ''
+    const projectPath = `${treePathSegment(group.name)}${duplicateSuffix}/`
+    projectPaths.push(projectPath)
+    sortOrder.set(projectPath, groupIndex)
+    decorations.set(
+      projectPath,
+      `${group.sessions.length} review${group.sessions.length === 1 ? '' : 's'}`
+    )
+
+    group.sessions.forEach((session, sessionIndex) => {
+      const leaf = `${treePathSegment(session.documentName)} · ${session.reviewId.slice(4)}`
+      const path = `${projectPath}${leaf}`
+      paths.push(path)
+      pathToReviewId.set(path, session.reviewId)
+      reviewIdToPath.set(session.reviewId, path)
+      sortOrder.set(path, sessionIndex)
+      decorations.set(path, reviewStatusLabel(session.tree.review.status))
+    })
+  })
+
+  return {
+    decorations,
+    paths,
+    pathToReviewId,
+    projectPaths,
+    reviewIdToPath,
+    sortOrder
+  }
+}
+
+function reviewSidebarSort(left, right) {
+  const leftRank = sidebarSortOrder.get(left.path) ?? Number.MAX_SAFE_INTEGER
+  const rightRank = sidebarSortOrder.get(right.path) ?? Number.MAX_SAFE_INTEGER
+  return leftRank - rightRank || left.basename.localeCompare(right.basename)
+}
+
+function selectActiveReviewInSidebar() {
+  if (!reviewSidebarModel || !state.reviewId) return
+  const activePath = sidebarReviewIdToPath.get(state.reviewId)
+  if (!activePath) return
+  const activeProjectPath = activePath.slice(0, activePath.lastIndexOf('/') + 1)
+  const activeProject = reviewSidebarModel.getItem(activeProjectPath)
+  if (activeProject?.isDirectory() && !activeProject.isExpanded()) {
+    activeProject.expand()
+  }
+  for (const selectedPath of reviewSidebarModel.getSelectedPaths()) {
+    if (selectedPath !== activePath) {
+      reviewSidebarModel.getItem(selectedPath)?.deselect()
+    }
+  }
+  const activeItem = reviewSidebarModel.getItem(activePath)
+  if (!activeItem?.isSelected()) activeItem?.select()
+  reviewSidebarModel.scrollToPath(activePath, { focus: false, offset: 'nearest' })
+}
+
+function renderReviewSidebar() {
   const sessions = reviewSessions.list()
+  elements.reviewSidebar.hidden = sessions.length === 0
+  elements.workspace.classList.toggle('has-review-sidebar', sessions.length > 0)
+  if (!sessions.length || !ReviewFileTree) {
+    reviewSidebarRenderQueued = !ReviewFileTree && sessions.length > 0
+    return
+  }
+
+  const projection = buildReviewSidebarProjection()
+  const newProjectPaths = projection.projectPaths.filter(
+    (path) => !sidebarProjectPaths.includes(path)
+  )
+  const previouslyExpanded = reviewSidebarModel
+    ? sidebarProjectPaths.filter((path) => (
+        reviewSidebarModel.getItem(path)?.isDirectory() &&
+        reviewSidebarModel.getItem(path)?.isExpanded()
+      ))
+    : projection.projectPaths
+
+  sidebarPathToReviewId = projection.pathToReviewId
+  sidebarReviewIdToPath = projection.reviewIdToPath
+  sidebarSortOrder = projection.sortOrder
+  sidebarDecorations = projection.decorations
+  sidebarProjectPaths = projection.projectPaths
+
+  if (!reviewSidebarModel) {
+    reviewSidebarModel = new ReviewFileTree({
+      density: 'compact',
+      flattenEmptyDirectories: false,
+      icons: 'minimal',
+      initialExpandedPaths: projection.projectPaths,
+      itemHeight: 22,
+      onSelectionChange(selectedPaths) {
+        const reviewId = sidebarPathToReviewId.get(selectedPaths.at(-1))
+        if (reviewId && reviewId !== state.reviewId) activateReview(reviewId)
+      },
+      paths: projection.paths,
+      renderRowDecoration({ row }) {
+        const text = sidebarDecorations.get(row.path)
+        return text ? { text, title: text } : null
+      },
+      sort: reviewSidebarSort,
+      stickyFolders: true,
+      unsafeCSS: `
+        :host {
+          --trees-bg-override: transparent;
+          --trees-bg-muted-override: rgb(217 82 54 / 7%);
+          --trees-border-color-override: transparent;
+          --trees-fg-override: #756f65;
+          --trees-fg-muted-override: #9b958c;
+          --trees-selected-bg-override: #fffdfa;
+          --trees-selected-fg-override: #24211d;
+          --trees-selected-focused-border-color-override: transparent;
+          --trees-font-family-override: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          --trees-font-size-override: 10.5px;
+          --trees-font-weight-semibold-override: 700;
+          --trees-item-margin-x-override: 3px;
+          --trees-item-padding-x-override: 4px;
+          --trees-item-row-gap-override: 4px;
+          --trees-level-gap-override: 7px;
+          --trees-padding-inline-override: 1px;
+          --trees-scrollbar-gutter-override: 5px;
+        }
+        button[data-type='item'] { border-radius: 6px; }
+        [data-item-section='decoration'] {
+          color: #9b958c;
+          font-size: 8.5px;
+          white-space: nowrap;
+        }
+        button[data-item-type='folder'] {
+          color: #4b4741;
+          font-size: 11.5px;
+        }
+      `
+    })
+    reviewSidebarModel.render({ containerWrapper: elements.reviewSidebarTree })
+  } else {
+    reviewSidebarModel.resetPaths(projection.paths, {
+      initialExpandedPaths: [
+        ...previouslyExpanded.filter(
+          (path) => projection.projectPaths.includes(path)
+        ),
+        ...newProjectPaths
+      ]
+    })
+  }
+
+  reviewSidebarRenderQueued = false
+  selectActiveReviewInSidebar()
+}
+
+function closeTabOverflow() {
+  elements.documentTabs
+    .querySelector('.document-tab-overflow')
+    ?.classList.remove('is-open')
+}
+
+function createDocumentTab(session) {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = [
+    'document-tab',
+    session.reviewId === state.reviewId ? 'is-active' : ''
+  ].filter(Boolean).join(' ')
+  button.role = 'tab'
+  button.ariaSelected = String(session.reviewId === state.reviewId)
+  button.tabIndex = session.reviewId === state.reviewId ? 0 : -1
+  button.title = `${session.documentName} · ${session.reviewId}`
+
+  const name = document.createElement('span')
+  name.className = 'document-tab-name'
+  name.textContent = `${session.documentName} · ${session.reviewId.slice(4)}`
+  button.append(name)
+
+  const status = document.createElement('span')
+  status.className = [
+    'document-tab-status',
+    session.tree.review.status !== 'editing' ? 'is-pending' : ''
+  ].filter(Boolean).join(' ')
+  status.textContent = reviewStatusLabel(session.tree.review.status)
+  button.append(status)
+
+  button.addEventListener('click', () => activateReview(session.reviewId))
+  button.addEventListener('keydown', (event) => {
+    const offset = event.key === 'ArrowLeft'
+      ? -1
+      : event.key === 'ArrowRight'
+        ? 1
+        : 0
+    if (!offset) return
+    event.preventDefault()
+    const adjacent = reviewSessions.adjacent(session.reviewId, offset)
+    if (!adjacent) return
+    activateReview(adjacent.reviewId)
+    requestAnimationFrame(() => {
+      elements.documentTabs
+        .querySelector(`[data-review-id="${adjacent.reviewId}"]`)
+        ?.focus()
+    })
+  })
+  button.dataset.reviewId = session.reviewId
+  return button
+}
+
+function renderDocumentTabs() {
+  const sessions = reviewSessions.recent()
+  const visibleSessions = sessions.slice(0, MAX_VISIBLE_TABS)
+  const overflowSessions = sessions.slice(MAX_VISIBLE_TABS)
   elements.documentTabs.hidden = sessions.length === 0
   elements.documentTabs.replaceChildren()
 
-  for (const session of sessions) {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = [
-      'document-tab',
-      session.reviewId === state.reviewId ? 'is-active' : ''
-    ].filter(Boolean).join(' ')
-    button.role = 'tab'
-    button.ariaSelected = String(session.reviewId === state.reviewId)
-    button.tabIndex = session.reviewId === state.reviewId ? 0 : -1
-    button.title = `${session.documentName} · ${session.reviewId}`
-
-    const name = document.createElement('span')
-    name.className = 'document-tab-name'
-    name.textContent = `${session.documentName} · ${session.reviewId.slice(4)}`
-    button.append(name)
-
-    const status = document.createElement('span')
-    status.className = [
-      'document-tab-status',
-      session.tree.review.status !== 'editing' ? 'is-pending' : ''
-    ].filter(Boolean).join(' ')
-    status.textContent = reviewStatusLabel(session.tree.review.status)
-    button.append(status)
-
-    button.addEventListener('click', () => activateReview(session.reviewId))
-    button.addEventListener('keydown', (event) => {
-      const offset = event.key === 'ArrowLeft'
-        ? -1
-        : event.key === 'ArrowRight'
-          ? 1
-          : 0
-      if (!offset) return
-      event.preventDefault()
-      const adjacent = reviewSessions.adjacent(session.reviewId, offset)
-      if (!adjacent) return
-      activateReview(adjacent.reviewId)
-      requestAnimationFrame(() => {
-        elements.documentTabs
-          .querySelector(`[data-review-id="${adjacent.reviewId}"]`)
-          ?.focus()
-      })
-    })
-    button.dataset.reviewId = session.reviewId
-    elements.documentTabs.append(button)
+  for (const session of visibleSessions) {
+    elements.documentTabs.append(createDocumentTab(session))
   }
+
+  if (overflowSessions.length) {
+    const overflow = document.createElement('div')
+    overflow.className = 'document-tab-overflow'
+
+    const trigger = document.createElement('button')
+    trigger.type = 'button'
+    trigger.className = 'document-tab-overflow-trigger'
+    trigger.textContent = '⋮'
+    trigger.title = `${overflowSessions.length} more reviews`
+    trigger.ariaLabel = `${overflowSessions.length} more reviews`
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation()
+      overflow.classList.toggle('is-open')
+    })
+    overflow.append(trigger)
+
+    const menu = document.createElement('div')
+    menu.className = 'document-tab-overflow-menu'
+    for (const session of overflowSessions) {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.className = 'document-tab-overflow-item'
+      item.title = session.documentPath || session.documentName
+
+      const label = document.createElement('span')
+      label.textContent = `${session.documentName} · ${session.reviewId.slice(4)}`
+      item.append(label)
+
+      const context = document.createElement('small')
+      context.textContent = `${session.projectName} · ${reviewStatusLabel(session.tree.review.status)}`
+      item.append(context)
+      item.addEventListener('click', () => activateReview(session.reviewId))
+      menu.append(item)
+    }
+    overflow.append(menu)
+    elements.documentTabs.append(overflow)
+  }
+
+  renderReviewSidebar()
 }
 
 function activateReview(reviewId) {
@@ -1096,9 +1349,31 @@ elements.reviewContextButton.addEventListener('click', () => {
   else closeReviewContext()
 })
 elements.reviewContextClose.addEventListener('click', () => closeReviewContext())
+elements.reviewSidebarToggle.addEventListener('click', () => {
+  reviewSidebarCollapsed = !reviewSidebarCollapsed
+  elements.reviewSidebar.classList.toggle(
+    'is-collapsed',
+    reviewSidebarCollapsed
+  )
+  elements.reviewSidebarToggle.textContent = reviewSidebarCollapsed ? '›' : '‹'
+  elements.reviewSidebarToggle.title = reviewSidebarCollapsed
+    ? 'Expand review sidebar'
+    : 'Collapse review sidebar'
+  elements.reviewSidebarToggle.setAttribute(
+    'aria-label',
+    elements.reviewSidebarToggle.title
+  )
+  elements.reviewSidebarToggle.setAttribute(
+    'aria-expanded',
+    String(!reviewSidebarCollapsed)
+  )
+})
 
 elements.tree.addEventListener('scroll', updatePinnedSelection)
 window.addEventListener('resize', updatePinnedSelection)
+document.addEventListener('click', (event) => {
+  if (!elements.documentTabs.contains(event.target)) closeTabOverflow()
+})
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Control') {
@@ -1111,6 +1386,13 @@ document.addEventListener('keydown', (event) => {
   }
   if (event.key === 'Escape' && !elements.reviewContextDrawer.hidden) {
     closeReviewContext()
+    return
+  }
+  if (
+    event.key === 'Escape' &&
+    elements.documentTabs.querySelector('.document-tab-overflow.is-open')
+  ) {
+    closeTabOverflow()
     return
   }
 

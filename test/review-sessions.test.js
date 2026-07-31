@@ -2,19 +2,21 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const {
   isTreeEditable,
+  projectIdentity,
   ReviewMutationTracker,
   ReviewSessions
 } = require('../src/review-sessions')
 const { parseMarkdown } = require('../src/tree')
 
-function document(reviewId, name) {
+function document(reviewId, name, repositoryRoot = null) {
   const tree = parseMarkdown(`# ${name}\n\n- One\n- Two\n`, `sha256:${reviewId}`, {
     name,
     path: `/tmp/${name}`
   })
   tree.review = {
     id: reviewId,
-    status: 'editing'
+    status: 'editing',
+    git: repositoryRoot ? { repositoryRoot } : null
   }
   return {
     reviewId,
@@ -75,6 +77,88 @@ test('adjacent review navigation wraps in either direction', () => {
   assert.equal(sessions.adjacent(first.reviewId, -1), third)
   assert.equal(sessions.adjacent(third.reviewId, 1), first)
   assert.equal(sessions.adjacent('mko_missing1', 1), null)
+})
+
+test('recent reviews are ordered by last activation', () => {
+  const sessions = new ReviewSessions()
+  const first = sessions.add(document('mko_first11', 'first.md'))
+  const second = sessions.add(document('mko_second2', 'second.md'))
+  const third = sessions.add(document('mko_third33', 'third.md'))
+
+  assert.deepEqual(
+    sessions.recent(2).map((session) => session.reviewId),
+    [third.reviewId, second.reviewId]
+  )
+
+  sessions.activate(first.reviewId)
+
+  assert.deepEqual(
+    sessions.recent().map((session) => session.reviewId),
+    [first.reviewId, third.reviewId, second.reviewId]
+  )
+  assert.equal(sessions.adjacent(first.reviewId, 1), second)
+})
+
+test('reviews group by repository basename in project recency order', () => {
+  const sessions = new ReviewSessions()
+  const alpha = sessions.add(document(
+    'mko_alpha111',
+    'alpha.md',
+    '/Users/example/projects/alpha'
+  ))
+  const beta = sessions.add(document(
+    'mko_beta2222',
+    'beta.md',
+    '/Users/example/projects/beta'
+  ))
+  const alphaRecent = sessions.add(document(
+    'mko_alpha333',
+    'decisions.md',
+    '/Users/example/projects/alpha/'
+  ))
+
+  assert.deepEqual(
+    sessions.projectGroups().map((group) => ({
+      key: group.key,
+      name: group.name,
+      reviews: group.sessions.map((session) => session.reviewId)
+    })),
+    [
+      {
+        key: '/Users/example/projects/alpha',
+        name: 'alpha',
+        reviews: [alphaRecent.reviewId, alpha.reviewId]
+      },
+      {
+        key: '/Users/example/projects/beta',
+        name: 'beta',
+        reviews: [beta.reviewId]
+      }
+    ]
+  )
+})
+
+test('project identity falls back to the source directory and then Other', () => {
+  assert.deepEqual(
+    projectIdentity({
+      path: '/tmp/fallback/notes.md',
+      projectRoot: '/Users/example/projects/markover',
+      tree: {}
+    }),
+    {
+      key: '/Users/example/projects/markover',
+      name: 'markover',
+      root: '/Users/example/projects/markover'
+    }
+  )
+  assert.deepEqual(
+    projectIdentity({ path: '/tmp/project/notes.md', tree: {} }),
+    { key: '/tmp/project', name: 'project', root: '/tmp/project' }
+  )
+  assert.deepEqual(
+    projectIdentity({ path: null, tree: {} }),
+    { key: 'unassigned', name: 'Other', root: null }
+  )
 })
 
 test('an inactive review snapshot includes its latest in-memory feedback', () => {

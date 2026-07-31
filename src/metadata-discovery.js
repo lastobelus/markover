@@ -25,13 +25,16 @@ async function runGit(args, workingDirectory) {
   }
 }
 
+async function discoverRepositoryRoot(sourcePath, options = {}) {
+  const git = options.runGit || runGit
+  const workingDirectory = path.dirname(path.resolve(sourcePath))
+  return git(['rev-parse', '--show-toplevel'], workingDirectory)
+}
+
 async function discoverGitMetadata(sourcePath, options = {}) {
   const git = options.runGit || runGit
   const workingDirectory = path.dirname(path.resolve(sourcePath))
-  const repositoryRoot = await git(
-    ['rev-parse', '--show-toplevel'],
-    workingDirectory
-  )
+  const repositoryRoot = await discoverRepositoryRoot(sourcePath, { runGit: git })
   if (!repositoryRoot) return null
 
   const [branch, commit, remoteUrl] = await Promise.all([
@@ -273,6 +276,7 @@ module.exports = {
   containsHandoffKey,
   discoverCodexThread,
   discoverGitMetadata,
+  discoverRepositoryRoot,
   discoverReviewMetadata,
   HANDOFF_KEY_PATTERN,
   sanitizeRemoteUrl,

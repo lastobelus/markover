@@ -10,6 +10,7 @@ const crypto = require('node:crypto')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 const { startLocalService } = require('./local-service')
+const { discoverRepositoryRoot } = require('./metadata-discovery')
 const { ReviewStore } = require('./review-store')
 
 function argumentValue(option) {
@@ -41,6 +42,7 @@ let snapshotSequence = 0
 let statusSequence = 0
 const pendingSnapshots = new Map()
 const pendingStatuses = new Map()
+const projectRoots = new Map()
 
 function checksum(source) {
   return `sha256:${crypto.createHash('sha256').update(source, 'utf8').digest('hex')}`
@@ -284,16 +286,34 @@ function createWindow() {
   return mainWindow
 }
 
-function managedDocument(artifact) {
+function managedDocument(artifact, projectRoot = null) {
   return {
     reviewId: artifact.review.id,
     name: artifact.sourceDocument.name,
     path: artifact.sourceDocument.path,
     source: artifact.sourceDocument.content,
     checksum: artifact.sourceDocument.checksum,
+    projectRoot: artifact.review.git?.repositoryRoot || projectRoot,
     tree: artifact,
     durable: true
   }
+}
+
+async function managedDocuments(artifacts) {
+  return Promise.all(artifacts.map(async (artifact) => {
+    const existingRoot = artifact.review.git?.repositoryRoot
+    const sourcePath = artifact.sourceDocument.path
+    if (existingRoot || !sourcePath) return managedDocument(artifact)
+
+    const sourceDirectory = path.dirname(path.resolve(sourcePath))
+    if (!projectRoots.has(sourceDirectory)) {
+      projectRoots.set(
+        sourceDirectory,
+        discoverRepositoryRoot(sourcePath).catch(() => null)
+      )
+    }
+    return managedDocument(artifact, await projectRoots.get(sourceDirectory))
+  }))
 }
 
 function sendManagedReview(artifact) {
@@ -411,7 +431,7 @@ if (!hasSingleInstanceLock) {
     ipcMain.handle('review:list', async () => (
       reviewMode
         ? []
-        : (await reviewStore.list()).map(managedDocument)
+        : managedDocuments(await reviewStore.list())
     ))
     ipcMain.on('review:snapshot-response', (_event, response) => {
       const pending = pendingSnapshots.get(response.requestId)
