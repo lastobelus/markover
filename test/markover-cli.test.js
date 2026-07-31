@@ -23,7 +23,10 @@ test('parses open, get, and edit commands', () => {
     {
       command: 'open',
       sourcePath: 'plan.md',
-      contextSummary: 'Review the plan.'
+      contextSummary: 'Review the plan.',
+      branch: null,
+      pullRequestNumber: null,
+      threadId: null
     }
   )
   assert.deepEqual(
@@ -33,6 +36,64 @@ test('parses open, get, and edit commands', () => {
   assert.deepEqual(
     parseCommandArguments(['edit', 'mko_aaa11111']),
     { command: 'edit', reviewId: 'mko_aaa11111' }
+  )
+})
+
+test('parses explicit review metadata', () => {
+  assert.deepEqual(
+    parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review the plan.',
+      '--branch',
+      'feature/review-inbox',
+      '--pr',
+      '42',
+      '--thread-id',
+      'thread-123'
+    ]),
+    {
+      command: 'open',
+      sourcePath: 'plan.md',
+      contextSummary: 'Review the plan.',
+      branch: 'feature/review-inbox',
+      pullRequestNumber: 42,
+      threadId: 'thread-123'
+    }
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--pr',
+      'not-a-number'
+    ]),
+    /positive integer/
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--branch',
+      '   '
+    ]),
+    /branch requires a non-empty value/
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--thread-id',
+      '   '
+    ]),
+    /thread-id requires a non-empty value/
   )
 })
 
@@ -92,7 +153,10 @@ test('executes CLI commands against the local service', async (t) => {
     await executeCommand({
       command: 'open',
       sourcePath,
-      contextSummary: 'Review exact source.'
+      contextSummary: 'Review exact source.',
+      branch: 'feature/review-inbox',
+      pullRequestNumber: 42,
+      threadId: 'thread-123'
     }, options),
     { reviewId: 'mko_aaa11111', status: 'editing' }
   )
@@ -106,6 +170,15 @@ test('executes CLI commands against the local service', async (t) => {
     '# Plan\r\n\r\nKeep this exact.\r\n'
   )
   assert.equal(handedOff.review.contextSummary, 'Review exact source.')
+  assert.deepEqual(handedOff.review.git, {
+    branch: 'feature/review-inbox'
+  })
+  assert.deepEqual(handedOff.review.pullRequest, { number: 42 })
+  assert.deepEqual(handedOff.review.agentThread, {
+    provider: 'codex',
+    id: 'thread-123',
+    discovery: 'explicit'
+  })
 
   assert.deepEqual(
     await executeCommand({

@@ -58,6 +58,12 @@ const elements = {
   toast: document.querySelector('#toast'),
   tree: document.querySelector('#tree'),
   reviewActions: document.querySelector('#review-actions'),
+  reviewContextButton: document.querySelector('#review-context-button'),
+  reviewContextClose: document.querySelector('#review-context-close'),
+  reviewContextDrawer: document.querySelector('#review-context-drawer'),
+  reviewContextFields: document.querySelector('#review-context-fields'),
+  reviewContextSummary: document.querySelector('#review-context-summary'),
+  reviewContextTitle: document.querySelector('#review-context-title'),
   reviewStateBanner: document.querySelector('#review-state-banner')
 }
 
@@ -712,6 +718,77 @@ function reviewStatusLabel(status) {
   return status === 'pending-agent' ? 'With agent' : 'Editing'
 }
 
+function addReviewContextField(label, value) {
+  if (value === null || value === undefined || value === '') return
+  const term = document.createElement('dt')
+  term.textContent = label
+  const description = document.createElement('dd')
+  description.textContent = String(value)
+  elements.reviewContextFields.append(term, description)
+}
+
+function renderReviewContext() {
+  const review = state.tree?.review
+  elements.reviewContextButton.hidden = !review
+  if (!review) {
+    closeReviewContext(false)
+    return
+  }
+
+  elements.reviewContextTitle.textContent = state.documentName
+  elements.reviewContextSummary.innerHTML = inlineMarkdown.render(
+    review.contextSummary
+  )
+  elements.reviewContextFields.replaceChildren()
+  addReviewContextField('Review ID', review.id)
+  addReviewContextField('Status', reviewStatusLabel(review.status))
+  addReviewContextField('Source', state.documentPath)
+  addReviewContextField('Created', review.createdAt)
+  addReviewContextField('Branch', review.git?.branch)
+  addReviewContextField('Commit', review.git?.commit)
+  addReviewContextField('Repository', review.git?.repositoryUrl)
+  addReviewContextField(
+    'Pull request',
+    review.pullRequest?.number
+      ? `#${review.pullRequest.number}`
+      : review.pullRequest?.url
+  )
+  addReviewContextField('Pull request URL', review.pullRequest?.url)
+  addReviewContextField(
+    'Agent thread',
+    review.agentThread?.id
+      ? [
+          review.agentThread.provider,
+          review.agentThread.id
+        ].filter(Boolean).join(' · ')
+      : null
+  )
+  addReviewContextField('Thread source', review.agentThread?.discovery)
+}
+
+function openReviewContext() {
+  if (!state.tree?.review) return
+  renderReviewContext()
+  elements.reviewContextDrawer.hidden = false
+  elements.reviewContextButton.setAttribute('aria-expanded', 'true')
+  elements.reviewContextClose.focus()
+}
+
+function closeReviewContext(restoreFocus = true) {
+  const drawerHadFocus = elements.reviewContextDrawer.contains(
+    document.activeElement
+  )
+  elements.reviewContextDrawer.hidden = true
+  elements.reviewContextButton.setAttribute('aria-expanded', 'false')
+  if (
+    restoreFocus &&
+    drawerHadFocus &&
+    !elements.reviewContextButton.hidden
+  ) {
+    elements.reviewContextButton.focus()
+  }
+}
+
 function renderDocumentTabs() {
   const sessions = reviewSessions.list()
   elements.documentTabs.hidden = sessions.length === 0
@@ -800,6 +877,7 @@ function activateReview(reviewId) {
   const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
   if (selected) renderAnnotation(selected)
   renderDocumentTabs()
+  renderReviewContext()
 }
 
 function addManagedReview(documentData, activate = true) {
@@ -992,6 +1070,11 @@ elements.imagePreviewClose.addEventListener('click', closeImagePreview)
 elements.imagePreview.addEventListener('click', (event) => {
   if (event.target === elements.imagePreview) closeImagePreview()
 })
+elements.reviewContextButton.addEventListener('click', () => {
+  if (elements.reviewContextDrawer.hidden) openReviewContext()
+  else closeReviewContext()
+})
+elements.reviewContextClose.addEventListener('click', () => closeReviewContext())
 
 elements.tree.addEventListener('scroll', updatePinnedSelection)
 window.addEventListener('resize', updatePinnedSelection)
@@ -1005,6 +1088,10 @@ document.addEventListener('keydown', (event) => {
     closeImagePreview()
     return
   }
+  if (event.key === 'Escape' && !elements.reviewContextDrawer.hidden) {
+    closeReviewContext()
+    return
+  }
 
   if (event.key === 'Tab' && event.ctrlKey && reviewSessions.list().length) {
     event.preventDefault()
@@ -1013,6 +1100,12 @@ document.addEventListener('keydown', (event) => {
       event.shiftKey ? -1 : 1
     )
     if (adjacent) activateReview(adjacent.reviewId)
+    return
+  }
+
+  if (event.key === 'Tab' && !elements.reviewContextDrawer.hidden) {
+    event.preventDefault()
+    elements.reviewContextClose.focus()
     return
   }
 
@@ -1079,6 +1172,7 @@ async function initialize() {
     if (reviewId === state.reviewId) {
       const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
       if (selected) renderAnnotation(selected)
+      renderReviewContext()
     }
   })
   bridge.onReviewSnapshotRequested(async (reviewId) => {
@@ -1096,6 +1190,7 @@ async function initialize() {
     if (reviewId === state.reviewId) {
       const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
       if (selected) renderAnnotation(selected)
+      renderReviewContext()
       if (paneHadFocus) focusAnnotationPane()
     }
     await reviewMutations.wait(reviewId)

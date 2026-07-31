@@ -31,14 +31,33 @@ function parseCommandArguments(args) {
 
   let sourcePath = null
   let contextSummary = null
+  let branch = null
+  let pullRequestNumber = null
+  let threadId = null
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index]
-    if (argument === '--summary') {
+    if (
+      argument === '--summary' ||
+      argument === '--branch' ||
+      argument === '--pr' ||
+      argument === '--thread-id'
+    ) {
       const value = rest[index + 1]
       if (!value || value.startsWith('--')) {
-        throw new Error('--summary requires text.')
+        throw new Error(`${argument} requires a value.`)
       }
-      contextSummary = value
+      if (argument === '--summary') contextSummary = value
+      if (argument === '--branch') branch = value
+      if (argument === '--thread-id') threadId = value
+      if (argument === '--pr') {
+        pullRequestNumber = Number(value)
+        if (
+          !Number.isSafeInteger(pullRequestNumber) ||
+          pullRequestNumber < 1
+        ) {
+          throw new Error('--pr requires a positive integer.')
+        }
+      }
       index += 1
       continue
     }
@@ -53,7 +72,22 @@ function parseCommandArguments(args) {
   if (!contextSummary?.trim()) {
     throw new Error('open requires --summary <text>.')
   }
-  return { command, sourcePath, contextSummary }
+  if (branch !== null) {
+    branch = branch.trim()
+    if (!branch) throw new Error('--branch requires a non-empty value.')
+  }
+  if (threadId !== null) {
+    threadId = threadId.trim()
+    if (!threadId) throw new Error('--thread-id requires a non-empty value.')
+  }
+  return {
+    command,
+    sourcePath,
+    contextSummary,
+    branch,
+    pullRequestNumber,
+    threadId
+  }
 }
 
 function checksum(source) {
@@ -180,7 +214,20 @@ async function executeCommand(
     return requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       metadata: {
-        contextSummary: parsed.contextSummary
+        contextSummary: parsed.contextSummary,
+        agentThread: parsed.threadId
+          ? {
+              provider: 'codex',
+              id: parsed.threadId,
+              discovery: 'explicit'
+            }
+          : null,
+        git: parsed.branch
+          ? { branch: parsed.branch }
+          : null,
+        pullRequest: parsed.pullRequestNumber
+          ? { number: parsed.pullRequestNumber }
+          : null
       }
     })
   }

@@ -20,6 +20,15 @@
           <strong id="document-name">sample.md</strong>
           <span id="document-checksum">Loading…</span>
         </div>
+        <button
+          id="review-context-button"
+          class="review-context-button"
+          type="button"
+          title="Review context"
+          aria-label="Show review context"
+          aria-expanded="false"
+          hidden
+        >i</button>
         <div id="standard-actions" class="action-group">
           <button id="open-button" class="button button-secondary">Open Markdown</button>
           <button id="copy-tree-button" class="button button-primary">Copy feedback JSON</button>
@@ -106,6 +115,22 @@
       <button id="image-preview-close" class="image-preview-close" type="button">×</button>
       <img id="image-preview-content" alt="Pasted screenshot preview">
     </div>
+    <aside id="review-context-drawer" class="review-context-drawer" hidden>
+      <header>
+        <div>
+          <span class="eyebrow">Review context</span>
+          <h2 id="review-context-title">—</h2>
+        </div>
+        <button
+          id="review-context-close"
+          class="review-context-close"
+          type="button"
+          aria-label="Close review context"
+        >×</button>
+      </header>
+      <div id="review-context-summary" class="review-context-summary"></div>
+      <dl id="review-context-fields" class="review-context-fields"></dl>
+    </aside>
 
     <script src="../node_modules/markdown-it/dist/markdown-it.js"></script>
     <script src="tree.js"></script>

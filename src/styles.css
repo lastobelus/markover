@@ -129,6 +129,27 @@ p {
   font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.review-context-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgb(255 253 250 / 76%);
+  cursor: pointer;
+  font: 800 12px/1 ui-serif, Georgia, serif;
+}
+
+.review-context-button:hover,
+.review-context-button[aria-expanded="true"] {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  background: white;
+}
+
 .button {
   min-height: 36px;
   padding: 0 13px;
@@ -990,6 +1011,96 @@ body.is-control-pressed .attachment-remove:hover {
   cursor: pointer;
   font-size: 22px;
   line-height: 1;
+}
+
+.review-context-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  width: min(420px, 46vw);
+  overflow: auto;
+  padding: 22px;
+  border-left: 1px solid var(--line);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: -14px 0 40px rgb(36 33 29 / 18%);
+}
+
+.review-context-drawer header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-context-drawer h2 {
+  margin-top: 5px;
+  font-size: 18px;
+}
+
+.review-context-close {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--paper);
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.review-context-close:hover {
+  color: white;
+  background: var(--accent);
+}
+
+.review-context-summary {
+  margin: 18px 0;
+  padding: 14px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.review-context-summary > :first-child {
+  margin-top: 0;
+}
+
+.review-context-summary > :last-child {
+  margin-bottom: 0;
+}
+
+.review-context-fields {
+  display: grid;
+  grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+  margin: 0;
+  gap: 0;
+  font-size: 11px;
+}
+
+.review-context-fields dt,
+.review-context-fields dd {
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-context-fields dt {
+  padding-right: 16px;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.review-context-fields dd {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @media (max-width: 900px) {
