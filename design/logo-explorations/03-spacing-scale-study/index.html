@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Spacing and scale studies for the pinned Warm and Olive Markover identities."
+    >
+    <title>Markover — Spacing & Scale Study</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1b1a17;
+        --muted: #73716a;
+        --paper: #f0eee8;
+        --surface: #fff;
+        --line: #d8d4ca;
+        --warm: #ad4b28;
+        --olive: #66741d;
+        --shadow: 0 16px 46px rgb(40 35 28 / 8%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgb(173 75 40 / 6%) 0 50%, rgb(102 116 29 / 6%) 50%),
+          var(--paper);
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .page {
+        width: min(1760px, calc(100% - 48px));
+        margin: 0 auto;
+        padding: 66px 0 88px;
+      }
+
+      .masthead {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 540px);
+        gap: 48px;
+        align-items: end;
+        margin-bottom: 42px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 16px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 30px;
+        height: 3px;
+        content: "";
+        background: linear-gradient(90deg, var(--warm) 0 50%, var(--olive) 50%);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 940px;
+        font-size: clamp(48px, 7vw, 96px);
+        font-weight: 730;
+        line-height: 0.94;
+        letter-spacing: -0.06em;
+      }
+
+      .summary {
+        padding-bottom: 5px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+
+      .summary strong {
+        color: var(--ink);
+      }
+
+      .families {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 30px;
+        align-items: start;
+      }
+
+      .family {
+        min-width: 0;
+      }
+
+      .family-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 13px;
+        padding: 0 4px;
+      }
+
+      .family-heading h2 {
+        font-size: 22px;
+        letter-spacing: -0.03em;
+      }
+
+      .family-heading span {
+        font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .warm .family-heading span,
+      .warm .code {
+        color: var(--warm);
+      }
+
+      .olive .family-heading span,
+      .olive .code {
+        color: var(--olive);
+      }
+
+      .pinned {
+        margin-bottom: 20px;
+      }
+
+      .variations {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        transition: transform 180ms ease, box-shadow 180ms ease;
+      }
+
+      .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 22px 56px rgb(40 35 28 / 13%);
+      }
+
+      .artwork {
+        position: relative;
+        display: block;
+        overflow: hidden;
+        aspect-ratio: 16 / 9.5;
+        border-bottom: 1px solid var(--line);
+        background: #faf9f6;
+      }
+
+      .artwork img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transition: transform 260ms ease;
+      }
+
+      .card:hover .artwork img {
+        transform: scale(1.012);
+      }
+
+      .badge {
+        position: absolute;
+        top: 13px;
+        left: 13px;
+        padding: 6px 9px;
+        border-radius: 999px;
+        color: white;
+        background: var(--ink);
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        box-shadow: 0 5px 16px rgb(0 0 0 / 16%);
+      }
+
+      .card-body {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 12px;
+        padding: 16px 17px 18px;
+      }
+
+      .code {
+        padding-top: 3px;
+        font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 18px;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+
+      .traits {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .traits li {
+        padding: 4px 7px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: #fafafa;
+        font-size: 9px;
+        font-weight: 700;
+      }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 34px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      footer strong {
+        color: var(--ink);
+      }
+
+      @media (max-width: 1120px) {
+        .families {
+          grid-template-columns: 1fr;
+          gap: 42px;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .page {
+          width: min(100% - 28px, 650px);
+          padding-top: 42px;
+        }
+
+        .masthead {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+
+        .variations {
+          grid-template-columns: 1fr;
+        }
+
+        footer {
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card,
+        .artwork img {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="masthead">
+        <div>
+          <span class="eyebrow">Lockup geometry study</span>
+          <h1>Touch, scale,<br>and alignment.</h1>
+        </div>
+        <p class="summary">
+          Pinned finalists <strong>10 and 12</strong>, each followed by four controlled
+          lockup studies: zero-gap contact, full-pane cap height, cutout-aligned cap
+          height, and cutout alignment with a 20%-wider first pane.
+        </p>
+      </header>
+
+      <section class="families" aria-label="Spacing and scale logo studies">
+        <section class="family warm" aria-labelledby="warm-study">
+          <header class="family-heading">
+            <h2 id="warm-study">Warm study</h2>
+            <span>Pinned 10</span>
+          </header>
+
+          <article class="card pinned">
+            <a class="artwork" href="01-pinned-warm.png" aria-label="Open pinned Warm identity at full size">
+              <img src="01-pinned-warm.png" alt="Pinned Warm two-tone condensed Markover identity">
+              <span class="badge">Pinned 10</span>
+            </a>
+            <div class="card-body">
+              <span class="code">W0</span>
+              <div>
+                <h3>Warm pinned</h3>
+                <ul class="traits" aria-label="Design traits">
+                  <li>Original spacing</li>
+                  <li>Original scale</li>
+                  <li>42:58 mark</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <div class="variations">
+            <article class="card">
+              <a class="artwork" href="02-warm-touch.png" aria-label="Open Warm Touch at full size">
+                <img src="02-warm-touch.png" alt="Warm Markover lockup with logo touching wordmark">
+              </a>
+              <div class="card-body">
+                <span class="code">W1</span>
+                <div>
+                  <h3>Touch</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>Zero gap</li>
+                    <li>Logo meets M</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <a class="artwork" href="03-warm-m-full-height.png" aria-label="Open Warm Full Pane Height at full size">
+                <img src="03-warm-m-full-height.png" alt="Warm Markover lockup with M matching full left-pane height">
+              </a>
+              <div class="card-body">
+                <span class="code">W2</span>
+                <div>
+                  <h3>Full-pane M</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>M = left pane</li>
+                    <li>Pinned gap</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <a class="artwork" href="04-warm-m-short-height.png" aria-label="Open Warm Cutout Height at full size">
+                <img src="04-warm-m-short-height.png" alt="Warm Markover lockup with M aligned to triangle cutout">
+              </a>
+              <div class="card-body">
+                <span class="code">W3</span>
+                <div>
+                  <h3>Cutout-height M</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>M = short side</li>
+                    <li>Pinned gap</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <a class="artwork" href="05-warm-m-short-left-wide.png" aria-label="Open Warm Wide First Pane at full size">
+                <img src="05-warm-m-short-left-wide.png" alt="Warm Markover cutout-height lockup with wider first pane">
+              </a>
+              <div class="card-body">
+                <span class="code">W4</span>
+                <div>
+                  <h3>Cutout M + wide pane</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>M = short side</li>
+                    <li>Left pane +20%</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="family olive" aria-labelledby="olive-study">
+          <header class="family-heading">
+            <h2 id="olive-study">Olive study</h2>
+            <span>Pinned 12</span>
+          </header>
+
+          <article class="card pinned">
+            <a class="artwork" href="06-pinned-olive.png" aria-label="Open pinned Olive identity at full size">
+              <img src="06-pinned-olive.png" alt="Pinned Olive two-tone condensed Markover identity">
+              <span class="badge">Pinned 12</span>
+            </a>
+            <div class="card-body">
+              <span class="code">O0</span>
+              <div>
+                <h3>Olive pinned</h3>
+                <ul class="traits" aria-label="Design traits">
+                  <li>Original spacing</li>
+                  <li>Original scale</li>
+                  <li>Near-square mark</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <div class="variations">
+            <article class="card">
+              <a class="artwork" href="07-olive-touch.png" aria-label="Open Olive Touch at full size">
+                <img src="07-olive-touch.png" alt="Olive Markover lockup with logo touching wordmark">
+              </a>
+              <div class="card-body">
+                <span class="code">O1</span>
+                <div>
+                  <h3>Touch</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>Zero gap</li>
+                    <li>Logo meets M</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <a class="artwork" href="08-olive-m-full-height.png" aria-label="Open Olive Full Pane Height at full size">
+                <img src="08-olive-m-full-height.png" alt="Olive Markover lockup with M matching full left-pane height">
+              </a>
+              <div class="card-body">
+                <span class="code">O2</span>
+                <div>
+                  <h3>Full-pane M</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>M = left pane</li>
+                    <li>Pinned gap</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <a class="artwork" href="09-olive-m-short-height.png" aria-label="Open Olive Cutout Height at full size">
+                <img src="09-olive-m-short-height.png" alt="Olive Markover lockup with M aligned to clipped corner">
+              </a>
+              <div class="card-body">
+                <span class="code">O3</span>
+                <div>
+                  <h3>Cutout-height M</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>M = short side</li>
+                    <li>Pinned gap</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <a class="artwork" href="10-olive-m-short-left-wide.png" aria-label="Open Olive Wide First Pane at full size">
+                <img src="10-olive-m-short-left-wide.png" alt="Olive Markover cutout-height lockup with wider first pane">
+              </a>
+              <div class="card-body">
+                <span class="code">O4</span>
+                <div>
+                  <h3>Cutout M + wide pane</h3>
+                  <ul class="traits" aria-label="Design traits">
+                    <li>M = short side</li>
+                    <li>Left pane +20%</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <footer>
+        <span><strong>Markover</strong> — spacing and scale study</span>
+        <span>Select any board to inspect the full-resolution artwork.</span>
+      </footer>
+    </main>
+  </body>
+</html>
