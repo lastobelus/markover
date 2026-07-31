@@ -1,19 +1,19 @@
 (function exposeTree(globalScope) {
-  const headingPattern = /^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/
-  const listPattern = /^([ \t]*)([-+*]|\d+[.)])[ \t]+(.+)$/
-  const fencePattern = /^([ \t]*)(`{3,}|~{3,})(.*)$/
+  const MarkdownIt = typeof require === 'function'
+    ? require('markdown-it')
+    : globalScope.markdownit
+  const markdown = MarkdownIt('commonmark', {
+    html: false,
+    linkify: false,
+    typographer: false
+  })
+  markdown.enable('table')
 
-  function indentationWidth(value) {
-    let width = 0
-    for (const character of value) {
-      width += character === '\t' ? 4 : 1
-    }
-    return width
-  }
-
-  function parseMarkdown(source, checksum = '') {
+  function parseMarkdown(source, checksum = '', document = {}) {
     const lines = source.replace(/\r\n?/g, '\n').split('\n')
+    const tokens = markdown.parse(source, {})
     let sequence = 0
+    let listSequence = 0
 
     const root = {
       id: 'document',
@@ -22,29 +22,36 @@
       raw: source,
       lineStart: 1,
       lineEnd: lines.length,
-      annotation: '',
+      feedback: '',
       collapsed: false,
       children: []
     }
 
     const tree = {
-      format: 'markover-tree',
+      format: 'markover-review',
       version: 1,
-      checksum,
-      source,
+      sourceDocument: {
+        name: document.name || null,
+        path: document.path || null,
+        content: source,
+        checksum
+      },
       unsupported: [],
       root
     }
 
     const headingStack = []
+    const listItemStack = []
     const listStack = []
     let currentSection = root
+    let pendingHeading = null
+    let pendingParagraph = null
 
     function createNode(properties) {
       sequence += 1
       return {
         id: `block-${sequence}`,
-        annotation: '',
+        feedback: '',
         collapsed: false,
         children: [],
         ...properties
@@ -55,53 +62,77 @@
       parent.children.push(node)
     }
 
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index]
-      const lineNumber = index + 1
-      const fenceMatch = line.match(fencePattern)
+    function rawFromMap(map) {
+      if (!map) return ''
+      return lines.slice(map[0], map[1]).join('\n')
+    }
 
-      if (fenceMatch) {
-        const markerCharacter = fenceMatch[2][0]
-        const minimumLength = fenceMatch[2].length
-        const closingPattern = new RegExp(
-          `^[ \\t]*${markerCharacter === '`' ? '`' : '~'}{${minimumLength},}[ \\t]*$`
+    function addUnsupported(map) {
+      if (!map) return
+      for (let index = map[0]; index < map[1]; index += 1) {
+        if (
+          lines[index].trim() &&
+          !tree.unsupported.some((entry) => entry.line === index + 1)
+        ) {
+          tree.unsupported.push({ line: index + 1, text: lines[index] })
+        }
+      }
+    }
+
+    function findClosingToken(startIndex, openType, closeType) {
+      let depth = 0
+      for (let index = startIndex; index < tokens.length; index += 1) {
+        if (tokens[index].type === openType) depth += 1
+        if (tokens[index].type === closeType) depth -= 1
+        if (depth === 0) return index
+      }
+      return startIndex
+    }
+
+    function addMappedNode(type, token, properties = {}) {
+      const parent = listItemStack.length
+        ? listItemStack[listItemStack.length - 1]
+        : currentSection
+      const raw = rawFromMap(token.map)
+      addChild(parent, createNode({
+        type,
+        text: raw,
+        raw,
+        lineStart: token.map[0] + 1,
+        lineEnd: token.map[1],
+        ...properties
+      }))
+    }
+
+    for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+      const token = tokens[tokenIndex]
+
+      if (token.type === 'blockquote_open') {
+        addMappedNode('blockquote', token)
+        tokenIndex = findClosingToken(
+          tokenIndex,
+          'blockquote_open',
+          'blockquote_close'
         )
-        const codeLines = []
-        let endIndex = index
-
-        for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
-          endIndex = cursor
-          if (closingPattern.test(lines[cursor])) break
-          codeLines.push(lines[cursor])
-        }
-
-        const isClosed = endIndex > index && closingPattern.test(lines[endIndex])
-        if (!isClosed) endIndex = lines.length - 1
-
-        const indent = indentationWidth(fenceMatch[1])
-        while (listStack.length && indent <= listStack[listStack.length - 1].indent) {
-          listStack.pop()
-        }
-        const parent = listStack.length
-          ? listStack[listStack.length - 1].node
-          : currentSection
-
-        addChild(parent, createNode({
-          type: 'code',
-          text: codeLines.join('\n'),
-          raw: lines.slice(index, endIndex + 1).join('\n'),
-          language: fenceMatch[3].trim(),
-          lineStart: lineNumber,
-          lineEnd: endIndex + 1
-        }))
-
-        index = endIndex
         continue
       }
 
-      const headingMatch = line.match(headingPattern)
-      if (headingMatch) {
-        const level = headingMatch[1].length
+      if (token.type === 'table_open') {
+        addMappedNode('table', token)
+        tokenIndex = findClosingToken(tokenIndex, 'table_open', 'table_close')
+        continue
+      }
+
+      if (token.type === 'heading_open') {
+        pendingHeading = {
+          level: Number(token.tag.slice(1)),
+          map: token.map
+        }
+        continue
+      }
+
+      if (token.type === 'inline' && pendingHeading) {
+        const { level, map } = pendingHeading
         while (
           headingStack.length &&
           headingStack[headingStack.length - 1].level >= level
@@ -115,48 +146,134 @@
         const node = createNode({
           type: 'heading',
           level,
-          text: headingMatch[2],
-          raw: line,
-          lineStart: lineNumber,
-          lineEnd: lineNumber
+          text: token.content,
+          raw: rawFromMap(map),
+          lineStart: map[0] + 1,
+          lineEnd: map[1]
         })
 
         addChild(parent, node)
         headingStack.push({ level, node })
         currentSection = node
-        listStack.length = 0
+        pendingHeading = null
         continue
       }
 
-      const listMatch = line.match(listPattern)
-      if (listMatch) {
-        const indent = indentationWidth(listMatch[1])
-        while (listStack.length && indent <= listStack[listStack.length - 1].indent) {
-          listStack.pop()
-        }
+      if (token.type === 'paragraph_open' && !listItemStack.length) {
+        pendingParagraph = { map: token.map }
+        continue
+      }
 
-        const parent = listStack.length
-          ? listStack[listStack.length - 1].node
+      if (token.type === 'inline' && pendingParagraph) {
+        const { map } = pendingParagraph
+        addChild(currentSection, createNode({
+          type: 'paragraph',
+          text: token.content,
+          raw: rawFromMap(map),
+          lineStart: map[0] + 1,
+          lineEnd: map[1]
+        }))
+        pendingParagraph = null
+        continue
+      }
+
+      if (token.type === 'paragraph_close') {
+        pendingParagraph = null
+        continue
+      }
+
+      if (token.type === 'ordered_list_open' || token.type === 'bullet_list_open') {
+        const ordered = token.type === 'ordered_list_open'
+        listSequence += 1
+        listStack.push({
+          id: `list-${listSequence}`,
+          ordered,
+          nextIndex: ordered ? Number(token.attrGet('start') || 1) : null,
+          nodes: []
+        })
+        continue
+      }
+
+      if (token.type === 'ordered_list_close' || token.type === 'bullet_list_close') {
+        const list = listStack.pop()
+        for (const node of list.nodes) node.listLength = list.nodes.length
+        continue
+      }
+
+      if (token.type === 'list_item_open') {
+        const list = listStack[listStack.length - 1]
+        const parent = listItemStack.length
+          ? listItemStack[listItemStack.length - 1]
           : currentSection
-        const ordered = /^\d/.test(listMatch[2])
+        const marker = list.ordered ? `${list.nextIndex}.` : token.markup
+        if (list.ordered) list.nextIndex += 1
+
         const node = createNode({
-          type: ordered ? 'ordered-item' : 'unordered-item',
-          marker: listMatch[2],
-          text: listMatch[3],
-          raw: line,
-          lineStart: lineNumber,
-          lineEnd: lineNumber
+          type: list.ordered ? 'ordered-item' : 'unordered-item',
+          marker,
+          listId: list.id,
+          listPosition: list.nodes.length + 1,
+          listLength: null,
+          text: '',
+          raw: rawFromMap(token.map),
+          lineStart: token.map[0] + 1,
+          lineEnd: token.map[1]
         })
 
         addChild(parent, node)
-        listStack.push({ indent, node })
+        list.nodes.push(node)
+        listItemStack.push(node)
         continue
       }
 
-      if (line.trim() === '') continue
+      if (token.type === 'list_item_close') {
+        listItemStack.pop()
+        continue
+      }
 
-      listStack.length = 0
-      tree.unsupported.push({ line: lineNumber, text: line })
+      if (token.type === 'inline' && listItemStack.length) {
+        const node = listItemStack[listItemStack.length - 1]
+        const firstInline = node.text === ''
+        let text = token.content
+        if (firstInline) {
+          const task = text.match(/^\[([ xX])\]\s+([\s\S]*)$/)
+          if (task) {
+            node.task = true
+            node.checked = task[1].toLowerCase() === 'x'
+            text = task[2]
+          }
+        }
+        node.text += `${firstInline ? '' : '\n\n'}${text}`
+        if (firstInline) {
+          node.raw = rawFromMap(token.map)
+          node.lineEnd = token.map[1]
+        }
+        continue
+      }
+
+      if (token.type === 'fence' || token.type === 'code_block') {
+        const parent = listItemStack.length
+          ? listItemStack[listItemStack.length - 1]
+          : currentSection
+        addChild(parent, createNode({
+          type: 'code',
+          text: token.content.replace(/\n$/, ''),
+          raw: rawFromMap(token.map),
+          language: token.info.trim(),
+          lineStart: token.map[0] + 1,
+          lineEnd: token.map[1]
+        }))
+        continue
+      }
+
+      if (token.type === 'hr') {
+        addMappedNode('thematic-break', token)
+        continue
+      }
+
+      if (token.map && token.nesting === 0) {
+        addUnsupported(token.map)
+      }
     }
 
     return tree
