@@ -21,3 +21,11 @@ response merely to reach the threshold.
 Durable reviews autosave under `.markover/reviews/<review-id>/review.json`. If
 the application closes unexpectedly, reopen the same review with
 `npm --silent run review:open -- --resume <review-id>`.
+
+## Git checkpoints
+
+Commit completed work at natural checkpoints. In particular, when the user
+confirms that something is working and moves on to the next feature, preserve
+that accepted state in a commit before starting the next feature. Also commit a
+completed implementation slice after its tests pass and its requested review
+findings have been addressed.

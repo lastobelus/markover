@@ -9,6 +9,8 @@ const {
 const crypto = require('node:crypto')
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const { startLocalService } = require('./local-service')
+const { ReviewStore } = require('./review-store')
 
 function argumentValue(option) {
   const index = process.argv.indexOf(option)
@@ -17,13 +19,25 @@ function argumentValue(option) {
 
 const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') || Boolean(reviewConfigPath)
+const projectDirectory = path.resolve(__dirname, '..')
+const markoverDirectory = path.join(projectDirectory, '.markover')
+const endpointPath = path.join(markoverDirectory, 'service.json')
+const reviewStore = reviewMode
+  ? null
+  : new ReviewStore(path.join(markoverDirectory, 'reviews'))
+const hasSingleInstanceLock = reviewMode || app.requestSingleInstanceLock()
 let reviewDocumentPromise = null
 let reviewFinished = false
 let reviewConfigPromise = null
 let attachmentDirectoryPromise = null
 let attachmentSequence = 0
+let mainWindow = null
+let activeManagedReview = null
+let localService = null
 let pendingAutosave = null
 let autosaveWriter = null
+let snapshotSequence = 0
+const pendingSnapshots = new Map()
 
 function checksum(source) {
   return `sha256:${crypto.createHash('sha256').update(source, 'utf8').digest('hex')}`
@@ -61,9 +75,22 @@ async function loadReviewConfig() {
 
 async function atomicWrite(filePath, contents) {
   await fs.mkdir(path.dirname(filePath), { recursive: true })
-  const temporaryPath = `${filePath}.tmp`
-  await fs.writeFile(temporaryPath, contents, 'utf8')
-  await fs.rename(temporaryPath, filePath)
+  const temporaryPath = path.join(
+    path.dirname(filePath),
+    `.${path.basename(filePath)}-${process.pid}-${crypto.randomBytes(6).toString('hex')}.tmp`
+  )
+  try {
+    await fs.writeFile(temporaryPath, contents, {
+      encoding: 'utf8',
+      flag: 'wx',
+      flush: true
+    })
+    await fs.rename(temporaryPath, filePath)
+  } finally {
+    await fs.unlink(temporaryPath).catch((error) => {
+      if (error.code !== 'ENOENT') throw error
+    })
+  }
 }
 
 function startAutosaveWriter() {
@@ -121,7 +148,7 @@ async function attachmentDirectory() {
   return attachmentDirectoryPromise
 }
 
-async function saveAttachment(_event, attachment) {
+async function saveAttachment(_event, attachment, reviewId = null) {
   const extensions = new Map([
     ['image/jpeg', 'jpg'],
     ['image/png', 'png']
@@ -135,11 +162,23 @@ async function saveAttachment(_event, attachment) {
   const image = nativeImage.createFromBuffer(buffer)
   if (image.isEmpty()) throw new Error('The pasted image could not be decoded.')
 
-  attachmentSequence += 1
-  const id = `img-${attachmentSequence}`
-  const directory = await attachmentDirectory()
+  let id
+  let directory
+  if (reviewId && reviewStore) {
+    const saved = await reviewStore.saveAttachmentFile(
+      reviewId,
+      extension,
+      buffer
+    )
+    id = saved.id
+    directory = path.dirname(saved.path)
+  } else {
+    attachmentSequence += 1
+    id = `img-${attachmentSequence}`
+    directory = await attachmentDirectory()
+  }
   const filePath = path.join(directory, `${id}.${extension}`)
-  await fs.writeFile(filePath, buffer)
+  if (!reviewId || !reviewStore) await fs.writeFile(filePath, buffer)
 
   const size = image.getSize()
   return {
@@ -209,7 +248,7 @@ async function openMarkdown() {
 }
 
 function createWindow() {
-  const window = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1180,
     height: 760,
     minWidth: 760,
@@ -223,56 +262,194 @@ function createWindow() {
     }
   })
 
-  window.loadFile(path.join(__dirname, 'index.html'))
+  mainWindow.loadFile(path.join(__dirname, 'index.html'))
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
 
   if (reviewMode) {
-    window.on('close', (event) => {
+    mainWindow.on('close', (event) => {
       if (reviewFinished) return
       event.preventDefault()
       reviewFinished = true
       flushReviewAutosave().finally(() => app.exit(2))
     })
   }
+  return mainWindow
 }
 
-app.whenReady().then(() => {
-  if (reviewMode) reviewDocumentPromise = loadReviewDocument()
+function managedDocument(artifact) {
+  return {
+    reviewId: artifact.review.id,
+    name: artifact.sourceDocument.name,
+    path: artifact.sourceDocument.path,
+    source: artifact.sourceDocument.content,
+    checksum: artifact.sourceDocument.checksum,
+    tree: artifact,
+    durable: true
+  }
+}
 
-  ipcMain.handle('document:open', openMarkdown)
-  ipcMain.handle('document:checksum', (_event, source) => checksum(source))
-  ipcMain.handle('attachment:save', saveAttachment)
-  ipcMain.handle('clipboard:read-image', readClipboardImage)
-  ipcMain.handle('review:initial-document', () => reviewDocumentPromise)
-  ipcMain.on('clipboard:write', (_event, text) => clipboard.writeText(text))
-  ipcMain.on('review:autosave', (_event, tree) => {
-    queueReviewAutosave(tree).catch((error) => {
-      process.stderr.write(`markover autosave: ${error.message}\n`)
+function sendManagedReview(artifact) {
+  activeManagedReview = artifact
+  if (!mainWindow) createWindow()
+  const send = () => {
+    mainWindow?.webContents.send('review:opened', managedDocument(artifact))
+    if (mainWindow?.isMinimized()) mainWindow.restore()
+    mainWindow?.show()
+    mainWindow?.focus()
+  }
+  if (mainWindow.webContents.isLoadingMainFrame()) {
+    mainWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
+function sendManagedStatus(artifact) {
+  if (activeManagedReview?.review.id === artifact.review.id) {
+    activeManagedReview = artifact
+    mainWindow?.webContents.send('review:status', {
+      reviewId: artifact.review.id,
+      status: artifact.review.status
+    })
+  }
+}
+
+function requestRendererSnapshot(reviewId) {
+  if (
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    activeManagedReview?.review.id !== reviewId
+  ) {
+    return Promise.resolve(null)
+  }
+
+  snapshotSequence += 1
+  const requestId = `snapshot-${snapshotSequence}`
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingSnapshots.delete(requestId)
+      reject(new Error(`Timed out capturing review ${reviewId}.`))
+    }, 5000)
+    pendingSnapshots.set(requestId, { reject, resolve, reviewId, timeout })
+    mainWindow.webContents.send('review:snapshot-request', {
+      requestId,
+      reviewId
     })
   })
-  ipcMain.on('review:done', async (_event, tree) => {
-    if (!reviewMode || reviewFinished) return
-    reviewFinished = true
-    await queueReviewAutosave(tree)
-    await flushReviewAutosave()
-    process.stdout.write(`${JSON.stringify(tree)}\n`, () => app.exit(0))
-  })
-  ipcMain.on('review:cancel', () => {
-    if (!reviewMode || reviewFinished) return
-    reviewFinished = true
-    app.exit(2)
-  })
+}
 
-  createWindow()
+async function flushManagedReview(reviewId) {
+  const tree = await requestRendererSnapshot(reviewId)
+  if (tree) await reviewStore.updateTree(reviewId, tree)
+}
 
-  app.on('activate', () => {
-    if (!reviewMode && BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
-
-app.on('window-all-closed', () => {
-  if (reviewMode) {
-    if (!reviewFinished) app.exit(2)
-    return
+async function removeOwnEndpoint() {
+  try {
+    const endpoint = JSON.parse(await fs.readFile(endpointPath, 'utf8'))
+    if (endpoint.pid === process.pid) await fs.unlink(endpointPath)
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      process.stderr.write(`markover service cleanup: ${error.message}\n`)
+    }
   }
-  if (process.platform !== 'darwin') app.quit()
-})
+}
+
+if (!hasSingleInstanceLock) {
+  app.quit()
+} else {
+  if (!reviewMode) {
+    app.on('second-instance', () => {
+      if (!mainWindow) createWindow()
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    })
+  }
+
+  app.whenReady().then(async () => {
+    if (reviewMode) reviewDocumentPromise = loadReviewDocument()
+
+    ipcMain.handle('document:open', openMarkdown)
+    ipcMain.handle('document:checksum', (_event, source) => checksum(source))
+    ipcMain.handle('attachment:save', saveAttachment)
+    ipcMain.handle('clipboard:read-image', readClipboardImage)
+    ipcMain.handle('review:initial-document', () => (
+      reviewMode
+        ? reviewDocumentPromise
+        : activeManagedReview && managedDocument(activeManagedReview)
+    ))
+    ipcMain.on('review:snapshot-response', (_event, response) => {
+      const pending = pendingSnapshots.get(response.requestId)
+      if (!pending || pending.reviewId !== response.reviewId) return
+      clearTimeout(pending.timeout)
+      pendingSnapshots.delete(response.requestId)
+      if (response.error) pending.reject(new Error(response.error))
+      else pending.resolve(response.tree)
+    })
+    ipcMain.on('clipboard:write', (_event, text) => clipboard.writeText(text))
+    ipcMain.on('review:autosave', (_event, reviewId, tree) => {
+      const autosave = reviewMode
+        ? queueReviewAutosave(tree)
+        : reviewStore.updateTree(reviewId, tree).then((artifact) => {
+            if (activeManagedReview?.review.id === reviewId) {
+              activeManagedReview = artifact
+            }
+          })
+      autosave.catch((error) => {
+        process.stderr.write(`markover autosave: ${error.message}\n`)
+      })
+    })
+    ipcMain.on('review:done', async (_event, tree) => {
+      if (!reviewMode || reviewFinished) return
+      reviewFinished = true
+      await queueReviewAutosave(tree)
+      await flushReviewAutosave()
+      process.stdout.write(`${JSON.stringify(tree)}\n`, () => app.exit(0))
+    })
+    ipcMain.on('review:cancel', () => {
+      if (!reviewMode || reviewFinished) return
+      reviewFinished = true
+      app.exit(2)
+    })
+
+    createWindow()
+
+    if (!reviewMode) {
+      localService = await startLocalService({
+        store: reviewStore,
+        beforeAction: flushManagedReview,
+        onChange(artifact, action) {
+          if (action === 'created') sendManagedReview(artifact)
+          else sendManagedStatus(artifact)
+        }
+      })
+      await atomicWrite(endpointPath, `${JSON.stringify({
+        version: 1,
+        port: localService.port,
+        pid: process.pid
+      }, null, 2)}\n`)
+    }
+
+    app.on('activate', () => {
+      if (!reviewMode && BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  }).catch((error) => {
+    process.stderr.write(`markover: ${error.stack || error.message}\n`)
+    app.quit()
+  })
+
+  app.on('before-quit', () => {
+    if (localService) localService.close().catch(() => {})
+    removeOwnEndpoint()
+  })
+
+  app.on('window-all-closed', () => {
+    if (reviewMode) {
+      if (!reviewFinished) app.exit(2)
+      return
+    }
+    if (process.platform !== 'darwin') app.quit()
+  })
+}

@@ -170,6 +170,47 @@ test('tree updates cannot change the source snapshot or block structure', async 
   )
 })
 
+test('attachment allocation is owned, editable, and serialized by the store', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Check attachments.'
+  })
+  const [first, second] = await Promise.all([
+    store.saveAttachmentFile(created.review.id, 'png', Buffer.from('first')),
+    store.saveAttachmentFile(created.review.id, 'png', Buffer.from('second'))
+  ])
+
+  assert.deepEqual([first.id, second.id], ['img-1', 'img-2'])
+  assert.equal(await fs.readFile(first.path, 'utf8'), 'first')
+  assert.equal(await fs.readFile(second.path, 'utf8'), 'second')
+
+  await store.handoff(created.review.id)
+  await assert.rejects(
+    store.saveAttachmentFile(
+      created.review.id,
+      'png',
+      Buffer.from('pending')
+    ),
+    (error) => error.code === 'NOT_EDITABLE'
+  )
+  await assert.rejects(
+    store.saveAttachmentFile(
+      'mko_missing1',
+      'png',
+      Buffer.from('missing')
+    ),
+    (error) => error.code === 'NOT_FOUND'
+  )
+  await assert.rejects(
+    fs.access(path.join(directory, 'mko_missing1'))
+  )
+})
+
 test('a new store restores sessions from disk without sharing mutable state', async (t) => {
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111'

@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "description": "A tiny structured Markdown review tool for giving feedback to agent threads.",
   "main": "src/main.js",
+  "bin": {
+    "markover": "scripts/markover.js"
+  },
   "scripts": {
+    "markover": "node scripts/markover.js",
     "start": "node scripts/start.js",
     "review": "node scripts/review.js",
     "review:open": "node scripts/open-review.js",
     "test": "node --test",
-    "check": "node --check scripts/open-review.js && node --check scripts/review.js && node --check scripts/start.js && node --check src/main.js && node --check src/preload.js && node --check src/review-store.js && node --check src/tree.js && node --check src/navigation.js && node --check src/renderer.js"
+    "check": "node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/review.js && node --check scripts/start.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/preload.js && node --check src/review-store.js && node --check src/tree.js && node --check src/navigation.js && node --check src/renderer.js"
   },
   "author": "lastobelus",
   "license": "MIT",

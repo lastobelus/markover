@@ -231,6 +231,38 @@ class ReviewStore {
     })
   }
 
+  async saveAttachmentFile(reviewId, extension, bytes) {
+    assertReviewId(reviewId)
+    if (!/^[a-z0-9]+$/.test(extension)) {
+      throw new ReviewStoreError(
+        'INVALID_ATTACHMENT',
+        `Invalid attachment extension: ${extension}`
+      )
+    }
+
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      if (current.review.status !== 'editing') {
+        throw new ReviewStoreError(
+          'NOT_EDITABLE',
+          `Review ${reviewId} is with the agent and read only.`
+        )
+      }
+
+      const directory = path.join(this.reviewDirectory(reviewId), 'attachments')
+      await fs.mkdir(directory, { recursive: true })
+      const entries = await fs.readdir(directory)
+      const sequence = entries.reduce((maximum, entry) => {
+        const match = /^img-(\d+)\./.exec(entry)
+        return match ? Math.max(maximum, Number(match[1])) : maximum
+      }, 0) + 1
+      const id = `img-${sequence}`
+      const filePath = path.join(directory, `${id}.${extension}`)
+      await fs.writeFile(filePath, bytes, { flag: 'wx', flush: true })
+      return { id, path: filePath }
+    })
+  }
+
   async handoff(reviewId) {
     return this.transition(reviewId, 'pending-agent')
   }

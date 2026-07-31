@@ -65,6 +65,8 @@ const state = {
   durableReview: false,
   fallbackAttachmentSequence: 0,
   hoveredId: null,
+  pendingMutation: Promise.resolve(),
+  reviewId: null,
   reviewMode: false,
   selectedId: null,
   sourceCollapsed: false,
@@ -107,6 +109,9 @@ const bridge = window.markover || {
   async getInitialReview() {
     return null
   },
+  onReviewOpened() {},
+  onReviewSnapshotRequested() {},
+  onReviewStatus() {},
   autosaveReview() {},
   finishReview() {},
   cancelReview() {}
@@ -599,7 +604,7 @@ function showToast(message) {
 
 function autosaveReview() {
   if (!state.reviewMode || !state.tree) return
-  bridge.autosaveReview(state.tree)
+  bridge.autosaveReview(state.reviewId, state.tree)
 }
 
 async function loadDocument(documentData) {
@@ -614,6 +619,7 @@ async function loadDocument(documentData) {
       path: documentData.path
     }
   )
+  state.reviewId = documentData.reviewId || state.tree.review?.id || null
   state.selectedId = state.tree.root.children[0]?.id || null
 
   elements.name.textContent = state.documentName
@@ -644,7 +650,7 @@ elements.annotationInput.addEventListener('input', () => {
   elements.annotationInput.focus()
 })
 
-elements.annotationInput.addEventListener('paste', async (event) => {
+async function pasteImages(event) {
   const imageItems = [...(event.clipboardData?.items || [])]
     .filter((item) => item.type.startsWith('image/'))
   const pastedImages = []
@@ -679,10 +685,13 @@ elements.annotationInput.addEventListener('paste', async (event) => {
 
   for (const pastedImage of pastedImages) {
     try {
-      const attachment = await bridge.saveAttachment({
-        bytes: pastedImage.bytes,
-        mimeType: pastedImage.mimeType
-      })
+      const attachment = await bridge.saveAttachment(
+        {
+          bytes: pastedImage.bytes,
+          mimeType: pastedImage.mimeType
+        },
+        state.reviewId
+      )
       node.attachments ||= []
       node.attachments.push(attachment)
       state.attachmentPreviewUrls.set(
@@ -708,6 +717,11 @@ elements.annotationInput.addEventListener('paste', async (event) => {
   updateAnnotationCount()
   autosaveReview()
   elements.annotationInput.focus()
+}
+
+elements.annotationInput.addEventListener('paste', (event) => {
+  const operation = pasteImages(event)
+  state.pendingMutation = operation.catch(() => {})
 })
 
 elements.openButton.addEventListener('click', async () => {
@@ -807,6 +821,28 @@ elements.previewPane.addEventListener('focus', () => {
 })
 
 async function initialize() {
+  bridge.onReviewOpened(async (reviewDocument) => {
+    state.reviewMode = true
+    state.durableReview = true
+    elements.openButton.hidden = true
+    elements.standardActions.hidden = false
+    elements.reviewActions.hidden = true
+    elements.annotationGuidance.textContent =
+      'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
+    await loadDocument(reviewDocument)
+    elements.previewPane.focus()
+  })
+  bridge.onReviewStatus(({ reviewId, status }) => {
+    if (state.reviewId === reviewId && state.tree.review) {
+      state.tree.review.status = status
+    }
+  })
+  bridge.onReviewSnapshotRequested(async (reviewId) => {
+    await state.pendingMutation
+    if (state.reviewId !== reviewId) return null
+    return structuredClone(state.tree)
+  })
+
   const reviewDocument = await bridge.getInitialReview()
   if (reviewDocument) {
     state.reviewMode = true
