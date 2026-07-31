@@ -333,25 +333,27 @@ p {
 }
 
 .workspace {
-  --review-sidebar-width: 0px;
+  --documents-list-column-width: 0px;
+  --documents-list-width: 248px;
   display: grid;
   grid-template-columns:
-    var(--review-sidebar-width)
+    var(--documents-list-column-width)
     minmax(0, 1.3fr)
     minmax(320px, 0.7fr);
   min-height: 0;
   flex: 1;
 }
 
-.workspace.has-review-sidebar {
-  --review-sidebar-width: 228px;
+.workspace.has-documents-list {
+  --documents-list-column-width: var(--documents-list-width);
 }
 
-.workspace:has(.review-sidebar.is-collapsed) {
-  --review-sidebar-width: 31px;
+.workspace:has(.documents-list-sidebar.is-collapsed) {
+  --documents-list-column-width: 0px;
 }
 
-.review-sidebar {
+.documents-list-sidebar {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -361,7 +363,7 @@ p {
   background: rgb(255 253 250 / 42%);
 }
 
-.review-sidebar-header {
+.documents-list-header {
   display: flex;
   height: var(--pane-header-height);
   min-height: var(--pane-header-height);
@@ -377,10 +379,10 @@ p {
   text-transform: uppercase;
 }
 
-.review-sidebar-toggle {
+.documents-list-disclosure {
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -391,12 +393,12 @@ p {
   font: 700 18px/1 ui-sans-serif, sans-serif;
 }
 
-.review-sidebar-toggle:hover {
+.documents-list-disclosure:hover {
   color: var(--ink);
   background: rgb(255 255 255 / 70%);
 }
 
-.review-sidebar-tree {
+.documents-list-tree {
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -405,19 +407,44 @@ p {
   font-size: 10px;
 }
 
-.review-sidebar-tree > file-tree {
+.documents-list-tree > file-tree {
   width: 100%;
   height: 100%;
 }
 
-.review-sidebar.is-collapsed .review-sidebar-header {
-  justify-content: center;
-  padding: 0;
+.documents-list-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
 }
 
-.review-sidebar.is-collapsed .review-sidebar-header > span,
-.review-sidebar.is-collapsed .review-sidebar-tree {
-  display: none;
+.documents-list-resizer::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  content: "";
+}
+
+.documents-list-resizer:hover::after,
+.is-resizing-documents-list .documents-list-resizer::after {
+  background: var(--accent-deep);
+}
+
+.documents-list-sidebar.is-collapsed {
+  visibility: hidden;
+}
+
+.is-resizing-documents-list {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .pane {
@@ -436,6 +463,24 @@ p {
   justify-content: space-between;
   padding: 0 22px;
   border-bottom: 1px solid var(--line);
+}
+
+.pane-header-leading {
+  position: absolute;
+  top: 0;
+  left: 22px;
+  display: flex;
+  height: 22px;
+  align-items: center;
+  gap: 2px;
+}
+
+.pane-header-leading:has(.documents-list-disclosure:not([hidden])) {
+  left: 4px;
+}
+
+.pane-header-leading .eyebrow {
+  position: static;
 }
 
 .pane-header::before {
@@ -1277,12 +1322,8 @@ body.is-control-pressed .attachment-remove:hover {
 
   .workspace {
     grid-template-columns:
-      var(--review-sidebar-width)
+      var(--documents-list-column-width)
       minmax(0, 1fr)
       340px;
-  }
-
-  .workspace.has-review-sidebar {
-    --review-sidebar-width: 190px;
   }
 }

@@ -53,24 +53,42 @@
     <nav id="document-tabs" class="document-tabs" role="tablist" aria-label="Recent reviews" hidden></nav>
 
     <main id="workspace" class="workspace">
-      <aside id="review-sidebar" class="review-sidebar" hidden>
-        <header class="review-sidebar-header">
-          <span>Reviews</span>
+      <aside id="documents-list-sidebar" class="documents-list-sidebar" hidden>
+        <header class="documents-list-header">
+          <span>Documents</span>
           <button
-            id="review-sidebar-toggle"
-            class="review-sidebar-toggle"
+            id="documents-list-collapse"
+            class="documents-list-disclosure"
             type="button"
-            title="Collapse review sidebar"
-            aria-label="Collapse review sidebar"
+            title="Collapse documents list sidebar"
+            aria-label="Collapse documents list sidebar"
             aria-expanded="true"
           >‹</button>
         </header>
-        <div id="review-sidebar-tree" class="review-sidebar-tree"></div>
+        <div id="documents-list-tree" class="documents-list-tree"></div>
+        <div
+          id="documents-list-resizer"
+          class="documents-list-resizer"
+          role="separator"
+          aria-label="Resize documents list sidebar"
+          aria-orientation="vertical"
+        ></div>
       </aside>
 
       <section id="preview-pane" class="pane preview-pane" tabindex="0">
         <div class="pane-header">
-          <span class="eyebrow">Document tree</span>
+          <div class="pane-header-leading">
+            <button
+              id="documents-list-open"
+              class="documents-list-disclosure"
+              type="button"
+              title="Expand documents list sidebar"
+              aria-label="Expand documents list sidebar"
+              aria-expanded="false"
+              hidden
+            >›</button>
+            <span class="eyebrow">Document tree</span>
+          </div>
           <span id="parse-status" class="status-pill">0 blocks</span>
         </div>
         <div id="pinned-selection" class="pinned-selection" hidden></div>

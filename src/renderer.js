@@ -64,9 +64,11 @@ const elements = {
   reviewContextFields: document.querySelector('#review-context-fields'),
   reviewContextSummary: document.querySelector('#review-context-summary'),
   reviewContextTitle: document.querySelector('#review-context-title'),
-  reviewSidebar: document.querySelector('#review-sidebar'),
-  reviewSidebarToggle: document.querySelector('#review-sidebar-toggle'),
-  reviewSidebarTree: document.querySelector('#review-sidebar-tree'),
+  documentsListCollapse: document.querySelector('#documents-list-collapse'),
+  documentsListOpen: document.querySelector('#documents-list-open'),
+  documentsListResizer: document.querySelector('#documents-list-resizer'),
+  documentsListSidebar: document.querySelector('#documents-list-sidebar'),
+  documentsListTree: document.querySelector('#documents-list-tree'),
   reviewStateBanner: document.querySelector('#review-state-banner'),
   workspace: document.querySelector('#workspace')
 }
@@ -88,24 +90,27 @@ const state = {
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
 const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
 const MAX_VISIBLE_TABS = 6
-let ReviewFileTree = null
-let reviewSidebarModel = null
-let reviewSidebarCollapsed = false
-let reviewSidebarRenderQueued = false
-let sidebarPathToReviewId = new Map()
-let sidebarReviewIdToPath = new Map()
-let sidebarSortOrder = new Map()
-let sidebarDecorations = new Map()
-let sidebarProjectPaths = []
+let DocumentsListFileTree = null
+let documentsListModel = null
+let documentsListObserver = null
+let documentsListClockTimer = null
+let documentsListCollapsed = false
+let documentsListWidth = 248
+let documentsListPathToReviewId = new Map()
+let documentsListReviewIdToPath = new Map()
+let documentsListSortOrder = new Map()
+let documentsListDecorations = new Map()
+let documentsListProjectPaths = []
+let documentsListStatuses = new Map()
 
 import('../node_modules/@pierre/trees/dist/index.js')
   .then(({ FileTree }) => {
-    ReviewFileTree = FileTree
-    renderReviewSidebar()
+    DocumentsListFileTree = FileTree
+    renderDocumentsList()
   })
   .catch((error) => {
-    console.error('Failed to load review tree', error)
-    elements.reviewSidebarTree.textContent = `Review list unavailable: ${error.message}`
+    console.error('Failed to load documents list tree', error)
+    elements.documentsListTree.textContent = `Documents list unavailable: ${error.message}`
   })
 
 const bridge = window.markover || {
@@ -841,7 +846,31 @@ function treePathSegment(value) {
     .trim() || 'Untitled'
 }
 
-function buildReviewSidebarProjection() {
+const DOCUMENT_STATUS_SPRITE = `
+  <svg xmlns="http://www.w3.org/2000/svg" data-icon-sprite aria-hidden="true" width="0" height="0">
+    <symbol id="markover-status-editing" viewBox="0 0 10 10">
+      <circle cx="5" cy="5" r="4" fill="#2f6d62" />
+    </symbol>
+    <symbol id="markover-status-pending" viewBox="0 0 10 10">
+      <circle cx="5" cy="5" r="4" fill="#d95236" />
+    </symbol>
+    <symbol id="markover-status-progress" viewBox="0 0 10 10">
+      <circle cx="5" cy="5" r="4" fill="#d89b35" />
+    </symbol>
+    <symbol id="markover-status-other" viewBox="0 0 10 10">
+      <circle cx="5" cy="5" r="4" fill="#9b958c" />
+    </symbol>
+  </svg>
+`
+
+function documentsListStatusIcon(status) {
+  if (status === 'editing') return 'markover-status-editing'
+  if (status === 'pending-agent') return 'markover-status-pending'
+  if (status === 'handoff-in-progress') return 'markover-status-progress'
+  return 'markover-status-other'
+}
+
+function buildDocumentsListProjection() {
   const groups = reviewSessions.projectGroups()
   const nameCounts = new Map()
   for (const group of groups) {
@@ -860,6 +889,8 @@ function buildReviewSidebarProjection() {
   const reviewIdToPath = new Map()
   const sortOrder = new Map()
   const decorations = new Map()
+  const statuses = new Map()
+  const byFileName = {}
 
   groups.forEach((group, groupIndex) => {
     const duplicateSuffix = nameCounts.get(group.name) > 1
@@ -868,100 +899,174 @@ function buildReviewSidebarProjection() {
     const projectPath = `${treePathSegment(group.name)}${duplicateSuffix}/`
     projectPaths.push(projectPath)
     sortOrder.set(projectPath, groupIndex)
-    decorations.set(
-      projectPath,
-      `${group.sessions.length} review${group.sessions.length === 1 ? '' : 's'}`
-    )
 
     group.sessions.forEach((session, sessionIndex) => {
       const leaf = `${treePathSegment(session.documentName)} · ${session.reviewId.slice(4)}`
       const path = `${projectPath}${leaf}`
+      const status = session.tree.review.status
       paths.push(path)
       pathToReviewId.set(path, session.reviewId)
       reviewIdToPath.set(session.reviewId, path)
       sortOrder.set(path, sessionIndex)
-      decorations.set(path, reviewStatusLabel(session.tree.review.status))
+      decorations.set(
+        path,
+        MarkoverReviewSessions.formatRelativeTime(session.lastViewedAt)
+      )
+      statuses.set(path, status)
+      byFileName[leaf.toLowerCase()] = {
+        name: documentsListStatusIcon(status),
+        width: 10,
+        height: 10,
+        viewBox: '0 0 10 10'
+      }
     })
   })
 
   return {
     decorations,
+    icons: {
+      set: 'minimal',
+      colored: false,
+      spriteSheet: DOCUMENT_STATUS_SPRITE,
+      byFileName
+    },
     paths,
     pathToReviewId,
     projectPaths,
     reviewIdToPath,
-    sortOrder
+    sortOrder,
+    statuses
   }
 }
 
-function reviewSidebarSort(left, right) {
-  const leftRank = sidebarSortOrder.get(left.path) ?? Number.MAX_SAFE_INTEGER
-  const rightRank = sidebarSortOrder.get(right.path) ?? Number.MAX_SAFE_INTEGER
+function documentsListSort(left, right) {
+  const leftRank = documentsListSortOrder.get(left.path) ?? Number.MAX_SAFE_INTEGER
+  const rightRank = documentsListSortOrder.get(right.path) ?? Number.MAX_SAFE_INTEGER
   return leftRank - rightRank || left.basename.localeCompare(right.basename)
 }
 
-function selectActiveReviewInSidebar() {
-  if (!reviewSidebarModel || !state.reviewId) return
-  const activePath = sidebarReviewIdToPath.get(state.reviewId)
+function applyDocumentsListRowMetadata() {
+  const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
+  if (!shadowRoot) return
+  for (const row of shadowRoot.querySelectorAll(
+    'button[data-item-type="file"][data-item-path]'
+  )) {
+    const status = documentsListStatuses.get(row.dataset.itemPath)
+    const icon = row.querySelector('[data-item-section="icon"]')
+    const content = row.querySelector('[data-item-section="content"]')
+    if (icon) icon.title = reviewStatusLabel(status)
+    if (content) {
+      content.dataset.documentsListLabel = row.getAttribute('aria-label') || ''
+    }
+  }
+}
+
+function scheduleDocumentsListRowMetadata() {
+  requestAnimationFrame(applyDocumentsListRowMetadata)
+}
+
+function observeDocumentsListRows() {
+  if (documentsListObserver) return
+  const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
+  if (!shadowRoot) return
+  documentsListObserver = new MutationObserver(
+    scheduleDocumentsListRowMetadata
+  )
+  documentsListObserver.observe(shadowRoot, {
+    childList: true,
+    subtree: true
+  })
+}
+
+function scheduleDocumentsListClockRefresh(sessions) {
+  clearTimeout(documentsListClockTimer)
+  documentsListClockTimer = null
+  const delay = MarkoverReviewSessions.relativeTimeRefreshDelay(
+    sessions.map((session) => session.lastViewedAt)
+  )
+  if (delay === null) return
+  documentsListClockTimer = setTimeout(() => {
+    documentsListClockTimer = null
+    renderDocumentsList()
+  }, delay)
+}
+
+function selectActiveReviewInDocumentsList() {
+  if (!documentsListModel || !state.reviewId) return
+  const activePath = documentsListReviewIdToPath.get(state.reviewId)
   if (!activePath) return
   const activeProjectPath = activePath.slice(0, activePath.lastIndexOf('/') + 1)
-  const activeProject = reviewSidebarModel.getItem(activeProjectPath)
+  const activeProject = documentsListModel.getItem(activeProjectPath)
   if (activeProject?.isDirectory() && !activeProject.isExpanded()) {
     activeProject.expand()
   }
-  for (const selectedPath of reviewSidebarModel.getSelectedPaths()) {
+  for (const selectedPath of documentsListModel.getSelectedPaths()) {
     if (selectedPath !== activePath) {
-      reviewSidebarModel.getItem(selectedPath)?.deselect()
+      documentsListModel.getItem(selectedPath)?.deselect()
     }
   }
-  const activeItem = reviewSidebarModel.getItem(activePath)
+  const activeItem = documentsListModel.getItem(activePath)
   if (!activeItem?.isSelected()) activeItem?.select()
-  reviewSidebarModel.scrollToPath(activePath, { focus: false, offset: 'nearest' })
+  documentsListModel.scrollToPath(activePath, {
+    focus: false,
+    offset: 'nearest'
+  })
 }
 
-function renderReviewSidebar() {
+function renderDocumentsList() {
   const sessions = reviewSessions.list()
-  elements.reviewSidebar.hidden = sessions.length === 0
-  elements.workspace.classList.toggle('has-review-sidebar', sessions.length > 0)
-  if (!sessions.length || !ReviewFileTree) {
-    reviewSidebarRenderQueued = !ReviewFileTree && sessions.length > 0
+  scheduleDocumentsListClockRefresh(sessions)
+  elements.documentsListSidebar.hidden = sessions.length === 0
+  elements.documentsListOpen.hidden = sessions.length === 0 || !documentsListCollapsed
+  elements.workspace.classList.toggle('has-documents-list', sessions.length > 0)
+  if (!sessions.length || !DocumentsListFileTree) {
     return
   }
 
-  const projection = buildReviewSidebarProjection()
+  const projection = buildDocumentsListProjection()
   const newProjectPaths = projection.projectPaths.filter(
-    (path) => !sidebarProjectPaths.includes(path)
+    (path) => !documentsListProjectPaths.includes(path)
   )
-  const previouslyExpanded = reviewSidebarModel
-    ? sidebarProjectPaths.filter((path) => (
-        reviewSidebarModel.getItem(path)?.isDirectory() &&
-        reviewSidebarModel.getItem(path)?.isExpanded()
+  const previouslyExpanded = documentsListModel
+    ? documentsListProjectPaths.filter((path) => (
+        documentsListModel.getItem(path)?.isDirectory() &&
+        documentsListModel.getItem(path)?.isExpanded()
       ))
     : projection.projectPaths
 
-  sidebarPathToReviewId = projection.pathToReviewId
-  sidebarReviewIdToPath = projection.reviewIdToPath
-  sidebarSortOrder = projection.sortOrder
-  sidebarDecorations = projection.decorations
-  sidebarProjectPaths = projection.projectPaths
+  documentsListPathToReviewId = projection.pathToReviewId
+  documentsListReviewIdToPath = projection.reviewIdToPath
+  documentsListSortOrder = projection.sortOrder
+  documentsListDecorations = projection.decorations
+  documentsListProjectPaths = projection.projectPaths
+  documentsListStatuses = projection.statuses
 
-  if (!reviewSidebarModel) {
-    reviewSidebarModel = new ReviewFileTree({
+  if (!documentsListModel) {
+    documentsListModel = new DocumentsListFileTree({
       density: 'compact',
       flattenEmptyDirectories: false,
-      icons: 'minimal',
+      icons: projection.icons,
       initialExpandedPaths: projection.projectPaths,
       itemHeight: 22,
       onSelectionChange(selectedPaths) {
-        const reviewId = sidebarPathToReviewId.get(selectedPaths.at(-1))
+        const reviewId = documentsListPathToReviewId.get(selectedPaths.at(-1))
         if (reviewId && reviewId !== state.reviewId) activateReview(reviewId)
       },
       paths: projection.paths,
       renderRowDecoration({ row }) {
-        const text = sidebarDecorations.get(row.path)
-        return text ? { text, title: text } : null
+        const text = documentsListDecorations.get(row.path)
+        const reviewId = documentsListPathToReviewId.get(row.path)
+        const viewedAt = reviewId
+          ? reviewSessions.get(reviewId)?.lastViewedAt
+          : null
+        return text
+          ? {
+              text,
+              title: viewedAt ? new Date(viewedAt).toLocaleString() : text
+            }
+          : null
       },
-      sort: reviewSidebarSort,
+      sort: documentsListSort,
       stickyFolders: true,
       unsafeCSS: `
         :host {
@@ -976,18 +1081,38 @@ function renderReviewSidebar() {
           --trees-font-family-override: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           --trees-font-size-override: 10.5px;
           --trees-font-weight-semibold-override: 700;
+          --trees-icon-width-override: 10px;
           --trees-item-margin-x-override: 3px;
           --trees-item-padding-x-override: 4px;
-          --trees-item-row-gap-override: 4px;
+          --trees-item-row-gap-override: 6px;
           --trees-level-gap-override: 7px;
           --trees-padding-inline-override: 1px;
           --trees-scrollbar-gutter-override: 5px;
         }
         button[data-type='item'] { border-radius: 6px; }
-        [data-item-section='decoration'] {
-          color: #9b958c;
-          font-size: 8.5px;
+        button[data-item-type='file'] [data-item-section='content'] {
+          flex: 1 1 auto;
+          margin-right: 7px;
           white-space: nowrap;
+        }
+        button[data-item-type='file'] [data-item-section='content'] > * {
+          display: none;
+        }
+        button[data-item-type='file'] [data-item-section='content']::before {
+          content: attr(data-documents-list-label);
+          display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        [data-item-section='decoration'] {
+          flex: 0 0 auto;
+          color: #9b958c;
+          font-size: 9px;
+          white-space: nowrap;
+        }
+        button[data-item-type='file'] [data-item-section='icon'] {
+          cursor: help;
         }
         button[data-item-type='folder'] {
           color: #4b4741;
@@ -995,9 +1120,14 @@ function renderReviewSidebar() {
         }
       `
     })
-    reviewSidebarModel.render({ containerWrapper: elements.reviewSidebarTree })
+    documentsListModel.subscribe(scheduleDocumentsListRowMetadata)
+    documentsListModel.render({
+      containerWrapper: elements.documentsListTree
+    })
+    observeDocumentsListRows()
   } else {
-    reviewSidebarModel.resetPaths(projection.paths, {
+    documentsListModel.setIcons(projection.icons)
+    documentsListModel.resetPaths(projection.paths, {
       initialExpandedPaths: [
         ...previouslyExpanded.filter(
           (path) => projection.projectPaths.includes(path)
@@ -1007,8 +1137,64 @@ function renderReviewSidebar() {
     })
   }
 
-  reviewSidebarRenderQueued = false
-  selectActiveReviewInSidebar()
+  selectActiveReviewInDocumentsList()
+  scheduleDocumentsListRowMetadata()
+}
+
+function applyDocumentsListWidth() {
+  documentsListWidth = MarkoverReviewSessions.clampDocumentsListWidth(
+    documentsListWidth,
+    elements.workspace.clientWidth || window.innerWidth
+  )
+  elements.workspace.style.setProperty(
+    '--documents-list-width',
+    `${documentsListWidth}px`
+  )
+  elements.documentsListResizer.setAttribute(
+    'aria-valuenow',
+    String(Math.round(documentsListWidth))
+  )
+}
+
+function setDocumentsListCollapsed(collapsed) {
+  documentsListCollapsed = collapsed
+  elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
+  elements.documentsListOpen.hidden = !collapsed || reviewSessions.list().length === 0
+  elements.documentsListCollapse.setAttribute(
+    'aria-expanded',
+    String(!collapsed)
+  )
+  elements.documentsListOpen.setAttribute(
+    'aria-expanded',
+    String(!collapsed)
+  )
+}
+
+function beginDocumentsListResize(event) {
+  if (event.button !== 0) return
+  event.preventDefault()
+  const workspaceLeft = elements.workspace.getBoundingClientRect().left
+  const pointerId = event.pointerId
+  elements.documentsListResizer.setPointerCapture(pointerId)
+  document.body.classList.add('is-resizing-documents-list')
+
+  const resize = (moveEvent) => {
+    documentsListWidth = moveEvent.clientX - workspaceLeft
+    applyDocumentsListWidth()
+  }
+  const finish = () => {
+    elements.documentsListResizer.removeEventListener('pointermove', resize)
+    elements.documentsListResizer.removeEventListener('pointerup', finish)
+    elements.documentsListResizer.removeEventListener('pointercancel', finish)
+    document.body.classList.remove('is-resizing-documents-list')
+    if (elements.documentsListResizer.hasPointerCapture(pointerId)) {
+      elements.documentsListResizer.releasePointerCapture(pointerId)
+    }
+  }
+
+  elements.documentsListResizer.addEventListener('pointermove', resize)
+  elements.documentsListResizer.addEventListener('pointerup', finish)
+  elements.documentsListResizer.addEventListener('pointercancel', finish)
 }
 
 function closeTabOverflow() {
@@ -1113,7 +1299,7 @@ function renderDocumentTabs() {
     elements.documentTabs.append(overflow)
   }
 
-  renderReviewSidebar()
+  renderDocumentsList()
 }
 
 function activateReview(reviewId) {
@@ -1349,28 +1535,22 @@ elements.reviewContextButton.addEventListener('click', () => {
   else closeReviewContext()
 })
 elements.reviewContextClose.addEventListener('click', () => closeReviewContext())
-elements.reviewSidebarToggle.addEventListener('click', () => {
-  reviewSidebarCollapsed = !reviewSidebarCollapsed
-  elements.reviewSidebar.classList.toggle(
-    'is-collapsed',
-    reviewSidebarCollapsed
-  )
-  elements.reviewSidebarToggle.textContent = reviewSidebarCollapsed ? '›' : '‹'
-  elements.reviewSidebarToggle.title = reviewSidebarCollapsed
-    ? 'Expand review sidebar'
-    : 'Collapse review sidebar'
-  elements.reviewSidebarToggle.setAttribute(
-    'aria-label',
-    elements.reviewSidebarToggle.title
-  )
-  elements.reviewSidebarToggle.setAttribute(
-    'aria-expanded',
-    String(!reviewSidebarCollapsed)
-  )
+elements.documentsListCollapse.addEventListener('click', () => {
+  setDocumentsListCollapsed(true)
 })
+elements.documentsListOpen.addEventListener('click', () => {
+  setDocumentsListCollapsed(false)
+})
+elements.documentsListResizer.addEventListener(
+  'pointerdown',
+  beginDocumentsListResize
+)
 
 elements.tree.addEventListener('scroll', updatePinnedSelection)
-window.addEventListener('resize', updatePinnedSelection)
+window.addEventListener('resize', () => {
+  applyDocumentsListWidth()
+  updatePinnedSelection()
+})
 document.addEventListener('click', (event) => {
   if (!elements.documentTabs.contains(event.target)) closeTabOverflow()
 })
@@ -1538,4 +1718,6 @@ async function initialize() {
   elements.previewPane.focus()
 }
 
+applyDocumentsListWidth()
+setDocumentsListCollapsed(false)
 initialize()

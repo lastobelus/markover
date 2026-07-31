@@ -1,8 +1,11 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {
+  clampDocumentsListWidth,
+  formatRelativeTime,
   isTreeEditable,
   projectIdentity,
+  relativeTimeRefreshDelay,
   ReviewMutationTracker,
   ReviewSessions
 } = require('../src/review-sessions')
@@ -80,7 +83,8 @@ test('adjacent review navigation wraps in either direction', () => {
 })
 
 test('recent reviews are ordered by last activation', () => {
-  const sessions = new ReviewSessions()
+  let now = Date.parse('2026-07-31T12:00:00.000Z')
+  const sessions = new ReviewSessions({ now: () => now })
   const first = sessions.add(document('mko_first11', 'first.md'))
   const second = sessions.add(document('mko_second2', 'second.md'))
   const third = sessions.add(document('mko_third33', 'third.md'))
@@ -90,6 +94,7 @@ test('recent reviews are ordered by last activation', () => {
     [third.reviewId, second.reviewId]
   )
 
+  now += 60000
   sessions.activate(first.reviewId)
 
   assert.deepEqual(
@@ -97,6 +102,37 @@ test('recent reviews are ordered by last activation', () => {
     [first.reviewId, third.reviewId, second.reviewId]
   )
   assert.equal(sessions.adjacent(first.reviewId, 1), second)
+  assert.equal(first.lastViewedAt, now)
+})
+
+test('relative review times use compact T3-style units', () => {
+  const now = Date.parse('2026-07-31T12:00:00.000Z')
+  assert.equal(formatRelativeTime(now, now), 'now')
+  assert.equal(formatRelativeTime(now - 9 * 60000, now), '9m ago')
+  assert.equal(formatRelativeTime(now - 3 * 3600000, now), '3h ago')
+  assert.equal(formatRelativeTime(now - 31 * 86400000, now), '31d ago')
+  assert.equal(formatRelativeTime(now - 800 * 86400000, now), '2y ago')
+})
+
+test('relative review time refreshes at the next visible unit boundary', () => {
+  const now = Date.parse('2026-07-31T12:00:00.000Z')
+  assert.equal(relativeTimeRefreshDelay([now], now), 60000)
+  assert.equal(
+    relativeTimeRefreshDelay([now - 9.5 * 60000], now),
+    30000
+  )
+  assert.equal(
+    relativeTimeRefreshDelay([now - 3.25 * 3600000], now),
+    45 * 60000
+  )
+  assert.equal(relativeTimeRefreshDelay([], now), null)
+})
+
+test('documents list width leaves room for the two review panes', () => {
+  assert.equal(clampDocumentsListWidth(40, 1180), 150)
+  assert.equal(clampDocumentsListWidth(280, 1180), 280)
+  assert.equal(clampDocumentsListWidth(800, 1180), 440)
+  assert.equal(clampDocumentsListWidth(400, 760), 200)
 })
 
 test('reviews group by repository basename in project recency order', () => {
