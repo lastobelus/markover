@@ -7,6 +7,10 @@ const os = require('node:os')
 const path = require('node:path')
 const electronPath = require('electron')
 const { requestJson } = require('../src/local-client')
+const {
+  discoverReviewMetadata,
+  HANDOFF_KEY_PATTERN
+} = require('../src/metadata-discovery')
 const { parseMarkdown } = require('../src/tree')
 
 const projectDirectory = path.resolve(__dirname, '..')
@@ -32,6 +36,7 @@ function parseCommandArguments(args) {
   let sourcePath = null
   let contextSummary = null
   let branch = null
+  let handoffKey = null
   let pullRequestNumber = null
   let threadId = null
   for (let index = 0; index < rest.length; index += 1) {
@@ -39,6 +44,7 @@ function parseCommandArguments(args) {
     if (
       argument === '--summary' ||
       argument === '--branch' ||
+      argument === '--handoff-key' ||
       argument === '--pr' ||
       argument === '--thread-id'
     ) {
@@ -48,6 +54,7 @@ function parseCommandArguments(args) {
       }
       if (argument === '--summary') contextSummary = value
       if (argument === '--branch') branch = value
+      if (argument === '--handoff-key') handoffKey = value
       if (argument === '--thread-id') threadId = value
       if (argument === '--pr') {
         pullRequestNumber = Number(value)
@@ -80,11 +87,20 @@ function parseCommandArguments(args) {
     threadId = threadId.trim()
     if (!threadId) throw new Error('--thread-id requires a non-empty value.')
   }
+  if (handoffKey !== null) {
+    handoffKey = handoffKey.trim()
+    if (!HANDOFF_KEY_PATTERN.test(handoffKey)) {
+      throw new Error(
+        '--handoff-key must match mko_handoff_ followed by 16–64 letters or digits.'
+      )
+    }
+  }
   return {
     command,
     sourcePath,
     contextSummary,
     branch,
+    handoffKey,
     pullRequestNumber,
     threadId
   }
@@ -197,7 +213,8 @@ async function executeCommand(
   parsed,
   {
     endpointPath = defaultEndpointPath,
-    ensure = () => ensureService({ endpointPath })
+    ensure = () => ensureService({ endpointPath }),
+    discoverMetadata = discoverReviewMetadata
   } = {}
 ) {
   await ensure()
@@ -211,23 +228,18 @@ async function executeCommand(
       name: path.basename(sourcePath),
       path: sourcePath
     })
+    const metadata = await discoverMetadata({
+      sourcePath,
+      branch: parsed.branch,
+      pullRequestNumber: parsed.pullRequestNumber,
+      threadId: parsed.threadId,
+      handoffKey: parsed.handoffKey
+    })
     return requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       metadata: {
         contextSummary: parsed.contextSummary,
-        agentThread: parsed.threadId
-          ? {
-              provider: 'codex',
-              id: parsed.threadId,
-              discovery: 'explicit'
-            }
-          : null,
-        git: parsed.branch
-          ? { branch: parsed.branch }
-          : null,
-        pullRequest: parsed.pullRequestNumber
-          ? { number: parsed.pullRequestNumber }
-          : null
+        ...metadata
       }
     })
   }

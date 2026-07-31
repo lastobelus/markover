@@ -25,6 +25,7 @@ test('parses open, get, and edit commands', () => {
       sourcePath: 'plan.md',
       contextSummary: 'Review the plan.',
       branch: null,
+      handoffKey: null,
       pullRequestNumber: null,
       threadId: null
     }
@@ -48,6 +49,8 @@ test('parses explicit review metadata', () => {
       'Review the plan.',
       '--branch',
       'feature/review-inbox',
+      '--handoff-key',
+      'mko_handoff_0123456789abcdef',
       '--pr',
       '42',
       '--thread-id',
@@ -58,6 +61,7 @@ test('parses explicit review metadata', () => {
       sourcePath: 'plan.md',
       contextSummary: 'Review the plan.',
       branch: 'feature/review-inbox',
+      handoffKey: 'mko_handoff_0123456789abcdef',
       pullRequestNumber: 42,
       threadId: 'thread-123'
     }
@@ -94,6 +98,17 @@ test('parses explicit review metadata', () => {
       '   '
     ]),
     /thread-id requires a non-empty value/
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--handoff-key',
+      '   '
+    ]),
+    /handoff-key must match/
   )
 })
 
@@ -148,7 +163,28 @@ test('executes CLI commands against the local service', async (t) => {
     await fs.rm(directory, { recursive: true, force: true })
   })
 
-  const options = { endpointPath, ensure: async () => {} }
+  const options = {
+    endpointPath,
+    ensure: async () => {},
+    async discoverMetadata(parsed) {
+      assert.equal(parsed.sourcePath, sourcePath)
+      return {
+        git: {
+          branch: parsed.branch,
+          sources: { branch: 'explicit' }
+        },
+        pullRequest: {
+          number: parsed.pullRequestNumber,
+          discovery: 'explicit'
+        },
+        agentThread: {
+          provider: 'codex',
+          id: parsed.threadId,
+          discovery: 'explicit'
+        }
+      }
+    }
+  }
   assert.deepEqual(
     await executeCommand({
       command: 'open',
@@ -171,9 +207,13 @@ test('executes CLI commands against the local service', async (t) => {
   )
   assert.equal(handedOff.review.contextSummary, 'Review exact source.')
   assert.deepEqual(handedOff.review.git, {
-    branch: 'feature/review-inbox'
+    branch: 'feature/review-inbox',
+    sources: { branch: 'explicit' }
   })
-  assert.deepEqual(handedOff.review.pullRequest, { number: 42 })
+  assert.deepEqual(handedOff.review.pullRequest, {
+    number: 42,
+    discovery: 'explicit'
+  })
   assert.deepEqual(handedOff.review.agentThread, {
     provider: 'codex',
     id: 'thread-123',

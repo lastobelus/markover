@@ -744,9 +744,16 @@ function renderReviewContext() {
   addReviewContextField('Status', reviewStatusLabel(review.status))
   addReviewContextField('Source', state.documentPath)
   addReviewContextField('Created', review.createdAt)
+  addReviewContextField('Repository root', review.git?.repositoryRoot)
   addReviewContextField('Branch', review.git?.branch)
   addReviewContextField('Commit', review.git?.commit)
   addReviewContextField('Repository', review.git?.repositoryUrl)
+  addReviewContextField(
+    'Git sources',
+    review.git?.sources
+      ? [...new Set(Object.values(review.git.sources))].join(', ')
+      : null
+  )
   addReviewContextField(
     'Pull request',
     review.pullRequest?.number
@@ -754,6 +761,10 @@ function renderReviewContext() {
       : review.pullRequest?.url
   )
   addReviewContextField('Pull request URL', review.pullRequest?.url)
+  addReviewContextField(
+    'Pull request source',
+    review.pullRequest?.discovery
+  )
   addReviewContextField(
     'Agent thread',
     review.agentThread?.id
@@ -764,6 +775,16 @@ function renderReviewContext() {
       : null
   )
   addReviewContextField('Thread source', review.agentThread?.discovery)
+  addReviewContextField('Thread cwd', review.agentThread?.cwd)
+  addReviewContextField('Session log', review.agentThread?.logPath)
+  addReviewContextField(
+    'Parent thread',
+    review.agentThread?.parentThreadId
+  )
+  addReviewContextField(
+    'Forked from',
+    review.agentThread?.forkedFromId
+  )
 }
 
 function openReviewContext() {
