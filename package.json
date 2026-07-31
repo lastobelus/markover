@@ -12,7 +12,7 @@
     "review": "node scripts/review.js",
     "review:open": "node scripts/open-review.js",
     "test": "node --test",
-    "check": "node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/review.js && node --check scripts/start.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/preload.js && node --check src/review-store.js && node --check src/tree.js && node --check src/navigation.js && node --check src/renderer.js"
+    "check": "node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/review.js && node --check scripts/start.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/preload.js && node --check src/review-sessions.js && node --check src/review-store.js && node --check src/tree.js && node --check src/navigation.js && node --check src/renderer.js"
   },
   "author": "lastobelus",
   "license": "MIT",

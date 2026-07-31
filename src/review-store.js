@@ -196,7 +196,12 @@ class ReviewStore {
       try {
         return await this.load(reviewId)
       } catch (error) {
-        if (error.code === 'NOT_FOUND') return null
+        if (
+          error.code === 'NOT_FOUND' ||
+          error.code === 'UNMANAGED_REVIEW'
+        ) {
+          return null
+        }
         throw error
       }
     }))
@@ -299,8 +304,13 @@ class ReviewStore {
         await fs.readFile(this.reviewPath(reviewId), 'utf8')
       )
       assertTree(artifact)
+      if (!artifact.review) {
+        throw new ReviewStoreError(
+          'UNMANAGED_REVIEW',
+          `Review ${reviewId} predates the managed review envelope.`
+        )
+      }
       if (
-        !artifact.review ||
         artifact.review.id !== reviewId ||
         !REVIEW_STATUSES.has(artifact.review.status)
       ) {

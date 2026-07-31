@@ -9,11 +9,24 @@ contextBridge.exposeInMainWorld('markover', {
     ipcRenderer.invoke('attachment:save', attachment, reviewId)
   ),
   getInitialReview: () => ipcRenderer.invoke('review:initial-document'),
+  getReviews: () => ipcRenderer.invoke('review:list'),
   onReviewOpened: (callback) => {
     ipcRenderer.on('review:opened', (_event, document) => callback(document))
   },
   onReviewStatus: (callback) => {
-    ipcRenderer.on('review:status', (_event, status) => callback(status))
+    ipcRenderer.on('review:status', async (_event, status) => {
+      try {
+        await callback(status)
+        ipcRenderer.send('review:status-response', {
+          requestId: status.requestId
+        })
+      } catch (error) {
+        ipcRenderer.send('review:status-response', {
+          requestId: status.requestId,
+          error: error.message
+        })
+      }
+    })
   },
   onReviewSnapshotRequested: (callback) => {
     ipcRenderer.on('review:snapshot-request', async (_event, request) => {
@@ -33,6 +46,7 @@ contextBridge.exposeInMainWorld('markover', {
       }
     })
   },
+  activateReview: (reviewId) => ipcRenderer.send('review:activate', reviewId),
   autosaveReview: (reviewId, tree) => (
     ipcRenderer.send('review:autosave', reviewId, tree)
   ),

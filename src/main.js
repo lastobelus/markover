@@ -33,11 +33,14 @@ let attachmentDirectoryPromise = null
 let attachmentSequence = 0
 let mainWindow = null
 let activeManagedReview = null
+let activeManagedReviewId = null
 let localService = null
 let pendingAutosave = null
 let autosaveWriter = null
 let snapshotSequence = 0
+let statusSequence = 0
 const pendingSnapshots = new Map()
+const pendingStatuses = new Map()
 
 function checksum(source) {
   return `sha256:${crypto.createHash('sha256').update(source, 'utf8').digest('hex')}`
@@ -263,6 +266,9 @@ function createWindow() {
   })
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'))
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.setTitle(reviewMode ? 'Markover Review' : 'Markover Inbox')
+  })
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -292,6 +298,7 @@ function managedDocument(artifact) {
 
 function sendManagedReview(artifact) {
   activeManagedReview = artifact
+  activeManagedReviewId = artifact.review.id
   if (!mainWindow) createWindow()
   const send = () => {
     mainWindow?.webContents.send('review:opened', managedDocument(artifact))
@@ -307,20 +314,31 @@ function sendManagedReview(artifact) {
 }
 
 function sendManagedStatus(artifact) {
-  if (activeManagedReview?.review.id === artifact.review.id) {
+  if (activeManagedReviewId === artifact.review.id) {
     activeManagedReview = artifact
-    mainWindow?.webContents.send('review:status', {
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) return Promise.resolve()
+
+  statusSequence += 1
+  const requestId = `status-${statusSequence}`
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingStatuses.delete(requestId)
+      reject(new Error(`Timed out updating review ${artifact.review.id}.`))
+    }, 5000)
+    pendingStatuses.set(requestId, { reject, resolve, timeout })
+    mainWindow.webContents.send('review:status', {
+      requestId,
       reviewId: artifact.review.id,
       status: artifact.review.status
     })
-  }
+  })
 }
 
 function requestRendererSnapshot(reviewId) {
   if (
     !mainWindow ||
-    mainWindow.isDestroyed() ||
-    activeManagedReview?.review.id !== reviewId
+    mainWindow.isDestroyed()
   ) {
     return Promise.resolve(null)
   }
@@ -380,6 +398,11 @@ if (!hasSingleInstanceLock) {
         ? reviewDocumentPromise
         : activeManagedReview && managedDocument(activeManagedReview)
     ))
+    ipcMain.handle('review:list', async () => (
+      reviewMode
+        ? []
+        : (await reviewStore.list()).map(managedDocument)
+    ))
     ipcMain.on('review:snapshot-response', (_event, response) => {
       const pending = pendingSnapshots.get(response.requestId)
       if (!pending || pending.reviewId !== response.reviewId) return
@@ -388,12 +411,31 @@ if (!hasSingleInstanceLock) {
       if (response.error) pending.reject(new Error(response.error))
       else pending.resolve(response.tree)
     })
+    ipcMain.on('review:status-response', (_event, response) => {
+      const pending = pendingStatuses.get(response.requestId)
+      if (!pending) return
+      clearTimeout(pending.timeout)
+      pendingStatuses.delete(response.requestId)
+      if (response.error) pending.reject(new Error(response.error))
+      else pending.resolve()
+    })
     ipcMain.on('clipboard:write', (_event, text) => clipboard.writeText(text))
+    ipcMain.on('review:activate', (_event, reviewId) => {
+      if (reviewMode) return
+      activeManagedReviewId = reviewId
+      reviewStore.load(reviewId).then((artifact) => {
+        if (activeManagedReviewId === reviewId) {
+          activeManagedReview = artifact
+        }
+      }).catch((error) => {
+        process.stderr.write(`markover activate: ${error.message}\n`)
+      })
+    })
     ipcMain.on('review:autosave', (_event, reviewId, tree) => {
       const autosave = reviewMode
         ? queueReviewAutosave(tree)
         : reviewStore.updateTree(reviewId, tree).then((artifact) => {
-            if (activeManagedReview?.review.id === reviewId) {
+            if (activeManagedReviewId === reviewId) {
               activeManagedReview = artifact
             }
           })
@@ -420,9 +462,9 @@ if (!hasSingleInstanceLock) {
       localService = await startLocalService({
         store: reviewStore,
         beforeAction: flushManagedReview,
-        onChange(artifact, action) {
+        async onChange(artifact, action) {
           if (action === 'created') sendManagedReview(artifact)
-          else sendManagedStatus(artifact)
+          else await sendManagedStatus(artifact)
         }
       })
       await atomicWrite(endpointPath, `${JSON.stringify({

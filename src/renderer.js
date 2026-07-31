@@ -37,6 +37,7 @@ const elements = {
   cancelReviewButton: document.querySelector('#cancel-review-button'),
   checksum: document.querySelector('#document-checksum'),
   copyTreeButton: document.querySelector('#copy-tree-button'),
+  documentTabs: document.querySelector('#document-tabs'),
   doneReviewButton: document.querySelector('#done-review-button'),
   imagePreview: document.querySelector('#image-preview'),
   imagePreviewClose: document.querySelector('#image-preview-close'),
@@ -65,13 +66,14 @@ const state = {
   durableReview: false,
   fallbackAttachmentSequence: 0,
   hoveredId: null,
-  pendingMutation: Promise.resolve(),
+  pendingMutation: null,
   reviewId: null,
   reviewMode: false,
   selectedId: null,
   sourceCollapsed: false,
   tree: null
 }
+const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
 
 const bridge = window.markover || {
   async checksum(source) {
@@ -109,9 +111,13 @@ const bridge = window.markover || {
   async getInitialReview() {
     return null
   },
+  async getReviews() {
+    return []
+  },
   onReviewOpened() {},
   onReviewSnapshotRequested() {},
   onReviewStatus() {},
+  activateReview() {},
   autosaveReview() {},
   finishReview() {},
   cancelReview() {}
@@ -603,12 +609,140 @@ function showToast(message) {
 }
 
 function autosaveReview() {
-  if (!state.reviewMode || !state.tree) return
-  bridge.autosaveReview(state.reviewId, state.tree)
+  autosaveTree(state.reviewId, state.tree)
+}
+
+function autosaveTree(reviewId, tree) {
+  if (!state.reviewMode || !tree) return
+  bridge.autosaveReview(reviewId, tree)
+}
+
+function captureActiveSession() {
+  const session = reviewSessions.active()
+  if (!session || session.reviewId !== state.reviewId) return
+  session.selectedId = state.selectedId
+  session.sourceCollapsed = state.sourceCollapsed
+  session.attachmentPreviewUrls = state.attachmentPreviewUrls
+}
+
+function reviewStatusLabel(status) {
+  return status === 'pending-agent' ? 'With agent' : 'Editing'
+}
+
+function renderDocumentTabs() {
+  const sessions = reviewSessions.list()
+  elements.documentTabs.hidden = sessions.length === 0
+  elements.documentTabs.replaceChildren()
+
+  for (const session of sessions) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = [
+      'document-tab',
+      session.reviewId === state.reviewId ? 'is-active' : ''
+    ].filter(Boolean).join(' ')
+    button.role = 'tab'
+    button.ariaSelected = String(session.reviewId === state.reviewId)
+    button.tabIndex = session.reviewId === state.reviewId ? 0 : -1
+    button.title = `${session.documentName} · ${session.reviewId}`
+
+    const name = document.createElement('span')
+    name.className = 'document-tab-name'
+    name.textContent = `${session.documentName} · ${session.reviewId.slice(4)}`
+    button.append(name)
+
+    const status = document.createElement('span')
+    status.className = [
+      'document-tab-status',
+      session.tree.review.status === 'pending-agent' ? 'is-pending' : ''
+    ].filter(Boolean).join(' ')
+    status.textContent = reviewStatusLabel(session.tree.review.status)
+    button.append(status)
+
+    button.addEventListener('click', () => activateReview(session.reviewId))
+    button.addEventListener('keydown', (event) => {
+      const offset = event.key === 'ArrowLeft'
+        ? -1
+        : event.key === 'ArrowRight'
+          ? 1
+          : 0
+      if (!offset) return
+      event.preventDefault()
+      const adjacent = reviewSessions.adjacent(session.reviewId, offset)
+      if (!adjacent) return
+      activateReview(adjacent.reviewId)
+      requestAnimationFrame(() => {
+        elements.documentTabs
+          .querySelector(`[data-review-id="${adjacent.reviewId}"]`)
+          ?.focus()
+      })
+    })
+    button.dataset.reviewId = session.reviewId
+    elements.documentTabs.append(button)
+  }
+}
+
+function activateReview(reviewId) {
+  if (state.pendingMutation) {
+    const pending = state.pendingMutation
+    pending.finally(() => activateReview(reviewId))
+    return
+  }
+
+  captureActiveSession()
+  const session = reviewSessions.activate(reviewId)
+  state.reviewId = session.reviewId
+  state.documentName = session.documentName
+  state.documentPath = session.documentPath
+  state.tree = session.tree
+  state.selectedId = session.selectedId
+  state.sourceCollapsed = session.sourceCollapsed
+  state.attachmentPreviewUrls = session.attachmentPreviewUrls
+  state.hoveredId = null
+  bridge.activateReview(reviewId)
+
+  elements.name.textContent = session.documentName
+  elements.name.title = session.documentPath || session.documentName
+  elements.checksum.textContent = session.checksum.slice(0, 20) + '…'
+  elements.checksum.title = session.checksum
+  elements.sourceToggle.setAttribute(
+    'aria-expanded',
+    String(!state.sourceCollapsed)
+  )
+  elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
+  elements.selectedSource.hidden = state.sourceCollapsed
+  closeImagePreview()
+  renderTree()
+
+  const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (selected) renderAnnotation(selected)
+  renderDocumentTabs()
+}
+
+function addManagedReview(documentData, activate = true) {
+  const session = reviewSessions.add(documentData)
+  if (activate) activateReview(session.reviewId)
+  else renderDocumentTabs()
+  return session
+}
+
+function configureManagedMode() {
+  state.reviewMode = true
+  state.durableReview = true
+  elements.openButton.hidden = true
+  elements.standardActions.hidden = false
+  elements.reviewActions.hidden = true
+  elements.annotationGuidance.textContent =
+    'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
 }
 
 async function loadDocument(documentData) {
   const checksum = documentData.checksum || await bridge.checksum(documentData.source)
+  if (documentData.reviewId && documentData.tree?.review) {
+    addManagedReview({ ...documentData, checksum })
+    return
+  }
+
   state.documentName = documentData.name
   state.documentPath = documentData.path || null
   state.tree = documentData.tree || MarkoverTree.parseMarkdown(
@@ -651,6 +785,13 @@ elements.annotationInput.addEventListener('input', () => {
 })
 
 async function pasteImages(event) {
+  const originReviewId = state.reviewId
+  const originTree = state.tree
+  const originPreviewUrls = state.attachmentPreviewUrls
+  const originSelectedId = state.selectedId
+  const node = MarkoverTree.findNode(originTree.root, originSelectedId)
+  if (!node) return
+
   const imageItems = [...(event.clipboardData?.items || [])]
     .filter((item) => item.type.startsWith('image/'))
   const pastedImages = []
@@ -680,8 +821,6 @@ async function pasteImages(event) {
   if (!pastedImages.length) return
 
   event.preventDefault()
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
-  if (!node) return
 
   for (const pastedImage of pastedImages) {
     try {
@@ -690,11 +829,11 @@ async function pasteImages(event) {
           bytes: pastedImage.bytes,
           mimeType: pastedImage.mimeType
         },
-        state.reviewId
+        originReviewId
       )
       node.attachments ||= []
       node.attachments.push(attachment)
-      state.attachmentPreviewUrls.set(
+      originPreviewUrls.set(
         attachment.id,
         URL.createObjectURL(pastedImage.preview)
       )
@@ -709,19 +848,24 @@ async function pasteImages(event) {
     }
   }
 
+  autosaveTree(originReviewId, originTree)
+  if (state.reviewId !== originReviewId) return
+
   elements.annotationState.textContent = hasAnnotation(node)
     ? 'Annotated'
     : 'Not annotated'
   renderAttachmentList(node)
   renderTree()
   updateAnnotationCount()
-  autosaveReview()
   elements.annotationInput.focus()
 }
 
 elements.annotationInput.addEventListener('paste', (event) => {
   const operation = pasteImages(event)
-  state.pendingMutation = operation.catch(() => {})
+  const tracked = operation.catch(() => {}).finally(() => {
+    if (state.pendingMutation === tracked) state.pendingMutation = null
+  })
+  state.pendingMutation = tracked
 })
 
 elements.openButton.addEventListener('click', async () => {
@@ -776,6 +920,16 @@ document.addEventListener('keydown', (event) => {
     return
   }
 
+  if (event.key === 'Tab' && event.ctrlKey && reviewSessions.list().length) {
+    event.preventDefault()
+    const adjacent = reviewSessions.adjacent(
+      state.reviewId,
+      event.shiftKey ? -1 : 1
+    )
+    if (adjacent) activateReview(adjacent.reviewId)
+    return
+  }
+
   if (event.key === 'Tab') {
     event.preventDefault()
     if (document.activeElement === elements.annotationInput || elements.annotationPane.contains(document.activeElement)) {
@@ -822,29 +976,28 @@ elements.previewPane.addEventListener('focus', () => {
 
 async function initialize() {
   bridge.onReviewOpened(async (reviewDocument) => {
-    state.reviewMode = true
-    state.durableReview = true
-    elements.openButton.hidden = true
-    elements.standardActions.hidden = false
-    elements.reviewActions.hidden = true
-    elements.annotationGuidance.textContent =
-      'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
+    configureManagedMode()
     await loadDocument(reviewDocument)
     elements.previewPane.focus()
   })
   bridge.onReviewStatus(({ reviewId, status }) => {
-    if (state.reviewId === reviewId && state.tree.review) {
-      state.tree.review.status = status
+    if (!reviewSessions.updateStatus(reviewId, status)) {
+      throw new Error(`Cannot update missing review ${reviewId}.`)
     }
+    renderDocumentTabs()
   })
   bridge.onReviewSnapshotRequested(async (reviewId) => {
-    await state.pendingMutation
-    if (state.reviewId !== reviewId) return null
-    return structuredClone(state.tree)
+    if (state.pendingMutation) await state.pendingMutation
+    return reviewSessions.snapshot(reviewId)
   })
 
   const reviewDocument = await bridge.getInitialReview()
-  if (reviewDocument) {
+  if (reviewDocument?.reviewId && reviewDocument.tree?.review) {
+    configureManagedMode()
+    const reviews = await bridge.getReviews()
+    for (const document of reviews) addManagedReview(document, false)
+    await loadDocument(reviewDocument)
+  } else if (reviewDocument) {
     state.reviewMode = true
     state.durableReview = Boolean(reviewDocument.durable)
     if (state.durableReview) {
@@ -861,10 +1014,17 @@ async function initialize() {
     }
     await loadDocument(reviewDocument)
   } else {
-    await loadDocument({
-      name: 'sample.md',
-      source: SAMPLE_MARKDOWN
-    })
+    const reviews = await bridge.getReviews()
+    if (reviews.length) {
+      configureManagedMode()
+      for (const document of reviews) addManagedReview(document, false)
+      activateReview(reviews[reviews.length - 1].reviewId)
+    } else {
+      await loadDocument({
+        name: 'sample.md',
+        source: SAMPLE_MARKDOWN
+      })
+    }
   }
   elements.previewPane.focus()
 }

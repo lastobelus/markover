@@ -297,6 +297,35 @@ test('publishes complete sessions and ignores incomplete review directories', as
   )
 })
 
+test('listing leaves legacy durable reviews untouched and unmanaged', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const legacyDirectory = path.join(directory, 'mko_legacy1')
+  await fs.mkdir(legacyDirectory)
+  await fs.writeFile(
+    path.join(legacyDirectory, 'review.json'),
+    JSON.stringify(tree('# Legacy\n'))
+  )
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Review managed listing.'
+  })
+
+  assert.deepEqual(
+    (await store.list()).map((review) => review.review.id),
+    [created.review.id]
+  )
+  assert.equal(
+    JSON.parse(
+      await fs.readFile(path.join(legacyDirectory, 'review.json'), 'utf8')
+    ).sourceDocument.content,
+    '# Legacy\n'
+  )
+})
+
 test('retries an ID collision without disturbing the existing review', async (t) => {
   const ids = ['mko_aaa11111', 'mko_aaa11111', 'mko_bbb22222']
   const { directory, store } = await temporaryStore({

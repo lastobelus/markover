@@ -163,6 +163,69 @@ p {
   background: #000;
 }
 
+.document-tabs {
+  display: flex;
+  min-height: 38px;
+  padding: 0 14px;
+  gap: 4px;
+  align-items: end;
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: rgb(255 253 250 / 55%);
+}
+
+.document-tab {
+  display: flex;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.document-tab:hover {
+  color: var(--ink);
+  background: rgb(255 255 255 / 50%);
+}
+
+.document-tab.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.document-tab-name {
+  max-width: 190px;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-tab-status {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--focus);
+  background: rgb(47 109 98 / 10%);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.document-tab-status.is-pending {
+  color: var(--muted);
+  background: rgb(117 111 101 / 12%);
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);

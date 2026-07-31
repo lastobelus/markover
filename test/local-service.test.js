@@ -20,8 +20,9 @@ async function serviceFixture(t, options = {}) {
   const service = await startLocalService({
     store,
     beforeAction: options.beforeAction,
-    onChange(artifact, action) {
+    async onChange(artifact, action) {
       changes.push({ artifact, action })
+      await options.onChange?.(artifact, action)
     }
   })
   await fs.writeFile(endpointPath, JSON.stringify({
@@ -148,4 +149,27 @@ test('handoff waits for the latest renderer snapshot barrier', async (t) => {
     'The final unsaved sentence.'
   )
   assert.equal(handedOff.review.status, 'pending-agent')
+})
+
+test('handoff waits for the renderer to apply its status', async (t) => {
+  let statusApplied = false
+  const fixture = await serviceFixture(t, {
+    async onChange() {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      statusApplied = true
+    }
+  })
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Review status acknowledgement.' }
+  })
+  statusApplied = false
+
+  await requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff'
+  )
+
+  assert.equal(statusApplied, true)
 })

@@ -83,7 +83,7 @@ async function startLocalService({
           tree: body?.tree,
           ...(body?.metadata || {})
         })
-        onChange(artifact, 'created')
+        await onChange(artifact, 'created')
         sendJson(response, 201, {
           reviewId: artifact.review.id,
           status: artifact.review.status
@@ -111,7 +111,7 @@ async function startLocalService({
         const artifact = route.action === 'handoff'
           ? await store.handoff(route.reviewId)
           : await store.edit(route.reviewId)
-        onChange(artifact, route.action)
+        await onChange(artifact, route.action)
         sendJson(
           response,
           200,
