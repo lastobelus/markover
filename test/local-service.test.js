@@ -173,3 +173,78 @@ test('handoff waits for the renderer to apply its status', async (t) => {
 
   assert.equal(statusApplied, true)
 })
+
+test('a failed handoff rolls the renderer back to editing', async (t) => {
+  let rolledBack = false
+  const fixture = await serviceFixture(t, {
+    async beforeAction() {
+      return async () => {
+        rolledBack = true
+      }
+    }
+  })
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Review handoff rollback.' }
+  })
+  fixture.store.handoff = async () => {
+    throw new Error('simulated write failure')
+  }
+
+  await assert.rejects(
+    requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/handoff'
+    ),
+    (error) => error.statusCode === 500
+  )
+  assert.equal(rolledBack, true)
+})
+
+test('handoff and edit serialize across the renderer snapshot', async (t) => {
+  let releaseSnapshot
+  let snapshotStarted
+  const snapshotReady = new Promise((resolve) => {
+    snapshotStarted = resolve
+  })
+  const snapshotBarrier = new Promise((resolve) => {
+    releaseSnapshot = resolve
+  })
+  const fixture = await serviceFixture(t, {
+    async beforeAction() {
+      snapshotStarted()
+      await snapshotBarrier
+    }
+  })
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Review concurrent actions.' }
+  })
+
+  const handoff = requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff'
+  )
+  await snapshotReady
+  const edit = requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/edit'
+  )
+  releaseSnapshot()
+
+  const handedOff = await handoff
+  const reopened = await edit
+  assert.equal(handedOff.review.status, 'pending-agent')
+  assert.equal(reopened.status, 'editing')
+  assert.deepEqual(
+    fixture.changes.slice(-2).map((change) => change.action),
+    ['handoff', 'edit']
+  )
+  assert.equal(
+    (await fixture.store.load('mko_aaa11111')).review.status,
+    'editing'
+  )
+})

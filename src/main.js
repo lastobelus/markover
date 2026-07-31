@@ -359,8 +359,18 @@ function requestRendererSnapshot(reviewId) {
 }
 
 async function flushManagedReview(reviewId) {
-  const tree = await requestRendererSnapshot(reviewId)
-  if (tree) await reviewStore.updateTree(reviewId, tree)
+  try {
+    const tree = await requestRendererSnapshot(reviewId)
+    if (tree) await reviewStore.updateTree(reviewId, tree)
+  } catch (error) {
+    try {
+      await sendManagedStatus(await reviewStore.load(reviewId))
+    } catch {}
+    throw error
+  }
+  return async () => {
+    await sendManagedStatus(await reviewStore.load(reviewId))
+  }
 }
 
 async function removeOwnEndpoint() {

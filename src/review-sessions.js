@@ -1,4 +1,35 @@
 (function exposeReviewSessions(globalScope) {
+  function isTreeEditable(tree) {
+    return !tree?.review || tree.review.status === 'editing'
+  }
+
+  class ReviewMutationTracker {
+    constructor() {
+      this.byReview = new Map()
+    }
+
+    track(reviewId, operation) {
+      const operations = this.byReview.get(reviewId) || new Set()
+      this.byReview.set(reviewId, operations)
+      const tracked = Promise.resolve(operation).finally(() => {
+        operations.delete(tracked)
+        if (!operations.size) this.byReview.delete(reviewId)
+      })
+      operations.add(tracked)
+      return tracked
+    }
+
+    has(reviewId) {
+      return Boolean(this.byReview.get(reviewId)?.size)
+    }
+
+    async wait(reviewId) {
+      while (this.has(reviewId)) {
+        await Promise.allSettled([...this.byReview.get(reviewId)])
+      }
+    }
+  }
+
   class ReviewSessions {
     constructor() {
       this.byId = new Map()
@@ -66,7 +97,7 @@
     }
   }
 
-  const api = { ReviewSessions }
+  const api = { isTreeEditable, ReviewMutationTracker, ReviewSessions }
   globalScope.MarkoverReviewSessions = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

@@ -1,6 +1,10 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { ReviewSessions } = require('../src/review-sessions')
+const {
+  isTreeEditable,
+  ReviewMutationTracker,
+  ReviewSessions
+} = require('../src/review-sessions')
 const { parseMarkdown } = require('../src/tree')
 
 function document(reviewId, name) {
@@ -91,4 +95,51 @@ test('an inactive review snapshot includes its latest in-memory feedback', () =>
     first.tree.root.children[0].feedback,
     'Latest feedback before switching.'
   )
+})
+
+test('only managed editing trees are editable', () => {
+  assert.equal(isTreeEditable({}), true)
+  assert.equal(isTreeEditable({ review: { status: 'editing' } }), true)
+  assert.equal(isTreeEditable({ review: { status: 'pending-agent' } }), false)
+  assert.equal(isTreeEditable({ review: { status: 'unknown' } }), false)
+})
+
+test('mutation tracking waits for every overlapping operation', async () => {
+  const tracker = new ReviewMutationTracker()
+  let finishFirst
+  let finishSecond
+  const first = new Promise((resolve) => {
+    finishFirst = resolve
+  })
+  const second = new Promise((resolve) => {
+    finishSecond = resolve
+  })
+  tracker.track('mko_review1', first)
+  tracker.track('mko_review1', second)
+
+  let settled = false
+  const waiting = tracker.wait('mko_review1').then(() => {
+    settled = true
+  })
+  finishSecond()
+  await Promise.resolve()
+  assert.equal(tracker.has('mko_review1'), true)
+  assert.equal(settled, false)
+
+  finishFirst()
+  await waiting
+  assert.equal(tracker.has('mko_review1'), false)
+  assert.equal(settled, true)
+})
+
+test('mutation tracking is isolated by review', async () => {
+  const tracker = new ReviewMutationTracker()
+  let finishOther
+  tracker.track('mko_other1', new Promise((resolve) => {
+    finishOther = resolve
+  }))
+
+  await tracker.wait('mko_current1')
+  assert.equal(tracker.has('mko_other1'), true)
+  finishOther()
 })

@@ -63,6 +63,18 @@ async function startLocalService({
   beforeAction = async () => {},
   onChange = () => {}
 }) {
+  const actionQueues = new Map()
+  function serializeReviewAction(reviewId, operation) {
+    const previous = actionQueues.get(reviewId) || Promise.resolve()
+    const current = previous.catch(() => {}).then(operation)
+    actionQueues.set(reviewId, current)
+    return current.finally(() => {
+      if (actionQueues.get(reviewId) === current) {
+        actionQueues.delete(reviewId)
+      }
+    })
+  }
+
   const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, 'http://127.0.0.1')
@@ -102,16 +114,26 @@ async function startLocalService({
         request.method === 'POST' &&
         (route.action === 'handoff' || route.action === 'edit')
       ) {
-        if (route.action === 'handoff') {
-          const current = await store.load(route.reviewId)
-          if (current.review.status === 'editing') {
-            await beforeAction(route.reviewId, route.action)
+        const artifact = await serializeReviewAction(route.reviewId, async () => {
+          let rollbackHandoff = null
+          if (route.action === 'handoff') {
+            const current = await store.load(route.reviewId)
+            if (current.review.status === 'editing') {
+              rollbackHandoff = await beforeAction(route.reviewId, route.action)
+            }
           }
-        }
-        const artifact = route.action === 'handoff'
-          ? await store.handoff(route.reviewId)
-          : await store.edit(route.reviewId)
-        await onChange(artifact, route.action)
+          let changed
+          try {
+            changed = route.action === 'handoff'
+              ? await store.handoff(route.reviewId)
+              : await store.edit(route.reviewId)
+          } catch (error) {
+            await rollbackHandoff?.()
+            throw error
+          }
+          await onChange(changed, route.action)
+          return changed
+        })
         sendJson(
           response,
           200,

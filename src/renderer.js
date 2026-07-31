@@ -32,6 +32,7 @@ const elements = {
   annotationGuidance: document.querySelector('#annotation-guidance'),
   annotationInput: document.querySelector('#annotation-input'),
   annotationPane: document.querySelector('#annotation-pane'),
+  annotationReadonly: document.querySelector('#annotation-readonly'),
   annotationState: document.querySelector('#annotation-state'),
   attachmentList: document.querySelector('#attachment-list'),
   cancelReviewButton: document.querySelector('#cancel-review-button'),
@@ -56,7 +57,8 @@ const elements = {
   standardActions: document.querySelector('#standard-actions'),
   toast: document.querySelector('#toast'),
   tree: document.querySelector('#tree'),
-  reviewActions: document.querySelector('#review-actions')
+  reviewActions: document.querySelector('#review-actions'),
+  reviewStateBanner: document.querySelector('#review-state-banner')
 }
 
 const state = {
@@ -65,8 +67,8 @@ const state = {
   documentPath: null,
   durableReview: false,
   fallbackAttachmentSequence: 0,
+  finishAttachmentLabelEdit: null,
   hoveredId: null,
-  pendingMutation: null,
   reviewId: null,
   reviewMode: false,
   selectedId: null,
@@ -74,6 +76,7 @@ const state = {
   tree: null
 }
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
+const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
 
 const bridge = window.markover || {
   async checksum(source) {
@@ -196,6 +199,10 @@ function attachmentCountInSubtree(node) {
 
 function hasAnnotation(node) {
   return node.feedback.trim() || hasAttachments(node)
+}
+
+function isCurrentReviewEditable() {
+  return MarkoverReviewSessions.isTreeEditable(state.tree)
 }
 
 function annotatedNodes() {
@@ -433,8 +440,11 @@ function attachmentReference(attachment) {
 }
 
 function beginAttachmentLabelEdit(node, attachment, item, details) {
-  if (item.classList.contains('is-editing')) return
+  if (!isCurrentReviewEditable() || item.classList.contains('is-editing')) return
 
+  state.finishAttachmentLabelEdit?.(true)
+  const originReviewId = state.reviewId
+  const originTree = state.tree
   const previousReference = attachmentReference(attachment)
   const input = document.createElement('input')
   input.className = 'attachment-label-input'
@@ -449,17 +459,26 @@ function beginAttachmentLabelEdit(node, attachment, item, details) {
   function finish(commit) {
     if (finished) return
     finished = true
-    if (commit) {
+    if (state.finishAttachmentLabelEdit === finish) {
+      state.finishAttachmentLabelEdit = null
+    }
+    if (
+      commit &&
+      MarkoverReviewSessions.isTreeEditable(originTree)
+    ) {
       attachment.label = input.value.trim()
       const nextReference = attachmentReference(attachment)
       node.feedback = node.feedback
         .split(`[!${previousReference}]`)
         .join(`[!${nextReference}]`)
-      elements.annotationInput.value = node.feedback
-      autosaveReview()
+      autosaveTree(originReviewId, originTree)
     }
-    renderAttachmentList(node)
+    if (state.reviewId === originReviewId) {
+      elements.annotationInput.value = node.feedback
+      renderAttachmentList(node)
+    }
   }
+  state.finishAttachmentLabelEdit = finish
 
   input.addEventListener('keydown', (event) => {
     event.stopPropagation()
@@ -479,7 +498,7 @@ function beginAttachmentLabelEdit(node, attachment, item, details) {
 }
 
 function openImagePreview(attachment) {
-  const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
+  const previewUrl = attachmentPreviewUrl(attachment)
   if (!previewUrl) {
     showToast('Preview unavailable in this session')
     return
@@ -489,12 +508,24 @@ function openImagePreview(attachment) {
   elements.imagePreview.hidden = false
 }
 
+function attachmentPreviewUrl(attachment) {
+  const sessionUrl = state.attachmentPreviewUrls.get(attachment.id)
+  if (sessionUrl) return sessionUrl
+  if (!attachment.path?.startsWith('/')) return null
+  const encodedPath = attachment.path
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/')
+  return `file://${encodedPath}`
+}
+
 function closeImagePreview() {
   elements.imagePreview.hidden = true
   elements.imagePreviewContent.removeAttribute('src')
 }
 
 function removeAttachment(node, attachment) {
+  if (!isCurrentReviewEditable()) return
   node.attachments = node.attachments.filter((item) => item.id !== attachment.id)
   const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
   if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -518,28 +549,35 @@ function renderAttachmentList(node) {
   elements.attachmentList.hidden = attachments.length === 0
 
   for (const attachment of attachments) {
+    const editable = isCurrentReviewEditable()
     const item = document.createElement('div')
     item.className = 'attachment-item'
-    item.title = `${attachment.id} · Control-click anywhere to label`
-    item.addEventListener('pointerdown', (event) => {
-      if (!event.ctrlKey) return
-      event.preventDefault()
-      event.stopPropagation()
-      const details = item.querySelector('.attachment-details')
-      if (details) beginAttachmentLabelEdit(node, attachment, item, details)
-    }, true)
-    item.addEventListener('contextmenu', (event) => {
-      event.preventDefault()
-      const details = item.querySelector('.attachment-details')
-      if (details) beginAttachmentLabelEdit(node, attachment, item, details)
-    })
+    item.title = editable
+      ? `${attachment.id} · Control-click anywhere to label`
+      : attachment.path || attachment.id
+    if (editable) {
+      item.addEventListener('pointerdown', (event) => {
+        if (!event.ctrlKey) return
+        event.preventDefault()
+        event.stopPropagation()
+        const details = item.querySelector('.attachment-details')
+        if (details) beginAttachmentLabelEdit(node, attachment, item, details)
+      }, true)
+      item.addEventListener('contextmenu', (event) => {
+        event.preventDefault()
+        const details = item.querySelector('.attachment-details')
+        if (details) beginAttachmentLabelEdit(node, attachment, item, details)
+      })
+    }
 
     const thumbnail = document.createElement('button')
     thumbnail.type = 'button'
     thumbnail.className = 'attachment-thumbnail'
-    thumbnail.title = `${attachment.id} · click to preview · Control-click to label`
+    thumbnail.title = editable
+      ? `${attachment.id} · click to preview · Control-click to label`
+      : `${attachment.id} · click to preview`
 
-    const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
+    const previewUrl = attachmentPreviewUrl(attachment)
     if (previewUrl) {
       const image = document.createElement('img')
       image.src = previewUrl
@@ -552,7 +590,7 @@ function renderAttachmentList(node) {
     }
 
     thumbnail.addEventListener('click', (event) => {
-      if (event.ctrlKey) return
+      if (event.ctrlKey && editable) return
       openImagePreview(attachment)
     })
     item.append(thumbnail)
@@ -563,19 +601,57 @@ function renderAttachmentList(node) {
     details.title = attachment.path || attachment.id
     item.append(details)
 
-    const removeButton = document.createElement('button')
-    removeButton.type = 'button'
-    removeButton.className = 'attachment-remove'
-    removeButton.textContent = '×'
-    removeButton.title = `Remove ${attachment.id}`
-    removeButton.addEventListener('click', (event) => {
-      if (event.ctrlKey) return
-      removeAttachment(node, attachment)
-    })
-    item.append(removeButton)
+    if (editable) {
+      const removeButton = document.createElement('button')
+      removeButton.type = 'button'
+      removeButton.className = 'attachment-remove'
+      removeButton.textContent = '×'
+      removeButton.title = `Remove ${attachment.id}`
+      removeButton.addEventListener('click', (event) => {
+        if (event.ctrlKey) return
+        removeAttachment(node, attachment)
+      })
+      item.append(removeButton)
+    }
 
     elements.attachmentList.append(item)
   }
+}
+
+function renderReviewEditability() {
+  const managed = Boolean(state.tree?.review?.id)
+  const editable = isCurrentReviewEditable()
+  const readonly = managed && !editable
+  const paneHadFocus = elements.annotationPane.contains(document.activeElement)
+  elements.annotationPane.classList.toggle('is-read-only', readonly)
+  elements.reviewStateBanner.hidden = !readonly
+  elements.annotationInput.hidden = readonly
+  elements.annotationReadonly.hidden = !readonly
+
+  if (readonly) {
+    elements.annotationGuidance.textContent =
+      'The agent has this review. Ask it to return the review to editing if you need to add more.'
+  } else if (managed) {
+    elements.annotationGuidance.textContent =
+      'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
+  }
+  if (paneHadFocus) focusAnnotationPane()
+}
+
+function renderReadonlyFeedback(node) {
+  if (node.feedback.trim()) {
+    elements.annotationReadonly.classList.remove('is-empty')
+    elements.annotationReadonly.innerHTML = inlineMarkdown.render(node.feedback)
+  } else {
+    elements.annotationReadonly.classList.add('is-empty')
+    elements.annotationReadonly.textContent = 'No feedback on this block.'
+  }
+}
+
+function focusAnnotationPane() {
+  elements.annotationPane.classList.add('focus-within')
+  if (isCurrentReviewEditable()) elements.annotationInput.focus()
+  else elements.annotationReadonly.focus()
 }
 
 function renderAnnotation(node) {
@@ -585,10 +661,12 @@ function renderAnnotation(node) {
     : `Lines ${node.lineStart}–${node.lineEnd}`
   elements.selectedSource.textContent = node.raw
   elements.annotationInput.value = node.feedback
+  renderReadonlyFeedback(node)
   elements.annotationState.textContent = hasAnnotation(node)
     ? 'Annotated'
     : 'Not annotated'
   renderAttachmentList(node)
+  renderReviewEditability()
   updateAnnotationCount()
 }
 
@@ -613,7 +691,11 @@ function autosaveReview() {
 }
 
 function autosaveTree(reviewId, tree) {
-  if (!state.reviewMode || !tree) return
+  if (
+    !state.reviewMode ||
+    !tree ||
+    !MarkoverReviewSessions.isTreeEditable(tree)
+  ) return
   bridge.autosaveReview(reviewId, tree)
 }
 
@@ -626,6 +708,7 @@ function captureActiveSession() {
 }
 
 function reviewStatusLabel(status) {
+  if (status === 'handoff-in-progress') return 'Handing off'
   return status === 'pending-agent' ? 'With agent' : 'Editing'
 }
 
@@ -654,7 +737,7 @@ function renderDocumentTabs() {
     const status = document.createElement('span')
     status.className = [
       'document-tab-status',
-      session.tree.review.status === 'pending-agent' ? 'is-pending' : ''
+      session.tree.review.status !== 'editing' ? 'is-pending' : ''
     ].filter(Boolean).join(' ')
     status.textContent = reviewStatusLabel(session.tree.review.status)
     button.append(status)
@@ -683,9 +766,9 @@ function renderDocumentTabs() {
 }
 
 function activateReview(reviewId) {
-  if (state.pendingMutation) {
-    const pending = state.pendingMutation
-    pending.finally(() => activateReview(reviewId))
+  state.finishAttachmentLabelEdit?.(true)
+  if (reviewMutations.has(state.reviewId)) {
+    reviewMutations.wait(state.reviewId).then(() => activateReview(reviewId))
     return
   }
 
@@ -769,6 +852,7 @@ async function loadDocument(documentData) {
 }
 
 elements.annotationInput.addEventListener('input', () => {
+  if (!isCurrentReviewEditable()) return
   const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
   if (!node) return
   const wasAnnotated = Boolean(hasAnnotation(node))
@@ -785,6 +869,11 @@ elements.annotationInput.addEventListener('input', () => {
 })
 
 async function pasteImages(event) {
+  if (!isCurrentReviewEditable()) {
+    event.preventDefault()
+    showToast('This review is with the agent and read only')
+    return
+  }
   const originReviewId = state.reviewId
   const originTree = state.tree
   const originPreviewUrls = state.attachmentPreviewUrls
@@ -857,15 +946,12 @@ async function pasteImages(event) {
   renderAttachmentList(node)
   renderTree()
   updateAnnotationCount()
-  elements.annotationInput.focus()
+  focusAnnotationPane()
 }
 
 elements.annotationInput.addEventListener('paste', (event) => {
-  const operation = pasteImages(event)
-  const tracked = operation.catch(() => {}).finally(() => {
-    if (state.pendingMutation === tracked) state.pendingMutation = null
-  })
-  state.pendingMutation = tracked
+  const reviewId = state.reviewId
+  reviewMutations.track(reviewId, pasteImages(event)).catch(() => {})
 })
 
 elements.openButton.addEventListener('click', async () => {
@@ -936,8 +1022,7 @@ document.addEventListener('keydown', (event) => {
       elements.annotationPane.classList.remove('focus-within')
       elements.previewPane.focus()
     } else {
-      elements.annotationPane.classList.add('focus-within')
-      elements.annotationInput.focus()
+      focusAnnotationPane()
     }
     return
   }
@@ -980,14 +1065,40 @@ async function initialize() {
     await loadDocument(reviewDocument)
     elements.previewPane.focus()
   })
-  bridge.onReviewStatus(({ reviewId, status }) => {
-    if (!reviewSessions.updateStatus(reviewId, status)) {
+  bridge.onReviewStatus(async ({ reviewId, status }) => {
+    let session = reviewSessions.updateStatus(reviewId, status)
+    if (!session) {
+      const reviews = await bridge.getReviews()
+      for (const document of reviews) addManagedReview(document, false)
+      session = reviewSessions.updateStatus(reviewId, status)
+    }
+    if (!session) {
       throw new Error(`Cannot update missing review ${reviewId}.`)
     }
     renderDocumentTabs()
+    if (reviewId === state.reviewId) {
+      const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+      if (selected) renderAnnotation(selected)
+    }
   })
   bridge.onReviewSnapshotRequested(async (reviewId) => {
-    if (state.pendingMutation) await state.pendingMutation
+    const paneHadFocus = (
+      reviewId === state.reviewId &&
+      elements.annotationPane.contains(document.activeElement)
+    )
+    if (reviewId === state.reviewId) {
+      state.finishAttachmentLabelEdit?.(true)
+    }
+    const session = reviewSessions.get(reviewId)
+    if (!session) throw new Error(`Cannot snapshot missing review ${reviewId}.`)
+    reviewSessions.updateStatus(reviewId, 'handoff-in-progress')
+    renderDocumentTabs()
+    if (reviewId === state.reviewId) {
+      const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+      if (selected) renderAnnotation(selected)
+      if (paneHadFocus) focusAnnotationPane()
+    }
+    await reviewMutations.wait(reviewId)
     return reviewSessions.snapshot(reviewId)
   })
 
