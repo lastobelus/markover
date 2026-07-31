@@ -1,0 +1,78 @@
+MARKOVER — SWISS PANES VARIATION PROMPTS
+
+Mode: built-in image generation
+Reference image for every generated variation:
+../03-swiss-panes.png
+
+COMMON PROMPT
+
+Use case: logo-brand
+Asset type: Markover logo and favicon variation board
+Input images: Image 1 is the parent identity reference. Preserve its core identity
+grammar: two adjacent vertical panes, the right pane reading as a folded-corner
+document, plus a clean horizontal wordmark and matching square favicon.
+Subject: show exactly three coordinated elements on one clean board: large standalone
+mark, horizontal lockup, compact square favicon/app icon.
+Style/medium: crisp flat vector-logo aesthetic, precise negative space, no mockup
+scene.
+Text (verbatim): “Markover” — spell exactly M-A-R-K-O-V-E-R.
+Constraints: preserve the recognizable two-pane folded-document construction and
+family resemblance; exact spelling; favicon must use the same mark; flat colors;
+crisp edges; legible at small size.
+Avoid: redesigning into an unrelated symbol, extra icons, gradients, shadows, 3D,
+photography, stationery, captions, slogans, watermarks, and extraneous text.
+
+02 — WARM EDITORIAL
+
+Create a warm editorial interpretation. Make the left pane about 42% and the right
+folded pane about 58% of the mark width, slightly shorter and broader than the
+reference. Use burnt terracotta, deep burgundy, warm parchment, and a dark espresso
+wordmark. Set “Markover” in a sophisticated low-contrast contemporary slab serif,
+avoiding a vintage-Western feel.
+
+03 — NORDIC GREEN
+
+Create a restrained Scandinavian variation with panes about 20% taller and 18%
+narrower than the reference, more air between them, and a small precise fold. Use
+deep pine green, fresh mint, near-black blue, and cool off-white. Set “Markover” in
+an open humanist sans with softly flared terminals and generous tracking. Avoid leaf
+imagery and environmental-brand clichés.
+
+04 — MONOCHROME WIDE
+
+Create an austere black-and-ivory Swiss variation. Make the mark roughly 35% wider
+and 18% shorter, with a 55:45 pane-width ratio, generous internal gap, and a bold
+triangular fold cutout. Use carbon black and warm ivory only. Set “Markover” in a
+precise medium-weight, slightly extended neo-grotesk with tight refined kerning.
+
+05 — PLUM + TANGERINE
+
+Create a friendlier geometric variation with equal-width, medium-height panes. Round
+the two lower outer corners and the upper-left corner of the left pane while keeping
+the fold triangular and sharp. Use saturated aubergine, vivid tangerine, deep plum,
+and pale lilac-white. Set “Markover” in a medium-bold rounded geometric sans with
+circular counters and slightly loose tracking. Avoid a sticky-note appearance.
+
+06 — OCEAN TECHNICAL
+
+Create a composed developer-tool variation with an asymmetric 65:35 colored-width
+ratio, medium-height panes, a thin deliberate channel, and a compact fold cutout.
+Use dark petrol teal, luminous cyan-aqua, very dark navy, and icy off-white. Set
+“Markover” in a medium-weight semi-condensed technical grotesk with subtly squared
+curves. Avoid ocean imagery and coding brackets.
+
+07 — DARK MODE
+
+Create a high-contrast dark-mode variation with equal-width panes about 25% shorter
+and broader than the reference, a medium gap, and a slightly oversized fold cutout.
+Use warm white for the left pane, bright coral-red for the right pane, warm-white
+type, and a midnight navy background. Set “Markover” in a bold semi-condensed
+grotesk with tall x-height and tight spacing. Avoid neon, glow, and glass effects.
+
+08 — OLIVE MONO
+
+Create a publishing-meets-code variation with broad, almost-square panes, the right
+pane slightly narrower, a generous gap, and a shallow clipped fold. Use dark olive,
+acid chartreuse, deep ink, and warm off-white. Set “Markover” in a medium-weight
+contemporary monospaced sans with slightly expanded tracking. Avoid raw Markdown
+characters, terminal UI, and military styling.
