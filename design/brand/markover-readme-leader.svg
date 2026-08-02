@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 210" role="img" aria-labelledby="leader-title leader-description">
   <title id="leader-title">Markover</title>
-  <desc id="leader-description">Structured Markdown review for agent threads.</desc>
+  <desc id="leader-description">Structured review for Markdown.</desc>
   <style>
-    .descriptor {
+    .tagline {
       fill: #756d67;
-      font: 700 18px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 500 32px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     @media (prefers-color-scheme: dark) {
-      .descriptor { fill: #c9d1d9; }
+      .tagline { fill: #c9d1d9; }
     }
   </style>
   <svg x="100" y="22" width="560" height="93" viewBox="0 0 1889 313" aria-hidden="true" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2">
@@ -46,5 +46,5 @@
         </g>
       </g>
   </svg>
-  <text class="descriptor" x="380" y="166" text-anchor="middle">Structured Markdown review for agent threads.</text>
+  <text class="tagline" x="100" y="164">Structured review for Markdown.</text>
 </svg>
