@@ -931,54 +931,67 @@ p {
   justify-content: space-between;
   gap: 12px;
   padding: 7px 10px;
-  border-bottom: 1px solid var(--line);
 }
 
 .rendered-annotation-identity {
   display: flex;
+  width: 100%;
   min-width: 0;
-  align-items: baseline;
+  align-items: center;
   gap: 7px;
 }
 
 .rendered-annotation-identity strong {
+  min-width: 0;
+  overflow: hidden;
   color: var(--brand-orange);
-  font: 800 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rendered-annotation-identity span {
+  margin-left: auto;
+  flex: none;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 7.5px;
 }
 
 .rendered-annotation-body {
+  position: relative;
   padding: 9px 10px 10px;
-  font-size: 12px;
+  font-size: 8.5px;
   line-height: 1.45;
 }
 
-.rendered-annotation-body.is-empty {
+.rendered-annotation-body.has-edit {
+  padding-right: 44px;
+}
+
+.rendered-annotation-content.is-empty {
   color: var(--muted);
   font-style: italic;
 }
 
-.rendered-annotation-body > :first-child {
+.rendered-annotation-content > :first-child {
   margin-top: 0;
 }
 
-.rendered-annotation-body > :last-child {
+.rendered-annotation-content > :last-child {
   margin-bottom: 0;
 }
 
-.rendered-annotation-body p,
-.rendered-annotation-body ul,
-.rendered-annotation-body ol,
-.rendered-annotation-body pre,
-.rendered-annotation-body blockquote {
+.rendered-annotation-content p,
+.rendered-annotation-content ul,
+.rendered-annotation-content ol,
+.rendered-annotation-content pre,
+.rendered-annotation-content blockquote {
   margin: 0 0 0.7em;
 }
 
-.rendered-annotation-body pre {
+.rendered-annotation-content pre {
   padding: 8px;
   overflow: auto;
   border-radius: 6px;
@@ -987,11 +1000,23 @@ p {
   font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.rendered-annotation-body code:not(pre code) {
+.rendered-annotation-content code:not(pre code) {
   padding: 1px 3px;
   border-radius: 3px;
   color: var(--brand-burgundy);
   background: var(--brand-soft);
+}
+
+.rendered-annotation--list .rendered-annotation-content {
+  max-height: 17.4em;
+  overflow: hidden;
+}
+
+.rendered-annotation-overflow {
+  height: 1.45em;
+  color: var(--brand-orange);
+  font-weight: 800;
+  line-height: 1.1;
 }
 
 .rendered-annotation-attachments {
@@ -1001,13 +1026,45 @@ p {
   gap: 5px;
 }
 
-.rendered-annotation-attachments span {
-  padding: 3px 6px;
+.rendered-annotation-attachment {
+  display: grid;
+  width: 58px;
+  min-width: 0;
+  padding: 3px;
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--muted);
   background: var(--paper);
+  font: inherit;
+  text-align: left;
+}
+
+button.rendered-annotation-attachment {
+  cursor: zoom-in;
+}
+
+.rendered-annotation-attachment img,
+.rendered-annotation-attachment i {
+  display: grid;
+  width: 50px;
+  height: 30px;
+  place-items: center;
+  border-radius: 3px;
+  background: #e7e2d9;
+  object-fit: cover;
+}
+
+.rendered-annotation-attachment i {
+  font-style: normal;
+}
+
+.rendered-annotation-attachment span {
+  overflow: hidden;
+  padding: 2px 1px 0;
   font-size: 9px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .descendant-annotation-dot {
@@ -1127,11 +1184,6 @@ kbd {
   opacity: 0.45;
 }
 
-.annotation-view-tabs span {
-  margin-left: 3px;
-  font-size: 9px;
-}
-
 .selected-annotation-view {
   display: flex;
   min-height: 0;
@@ -1175,6 +1227,9 @@ kbd {
 }
 
 .rendered-annotation-edit {
+  position: absolute;
+  top: 9px;
+  right: 10px;
   display: grid;
   width: 24px;
   height: 24px;

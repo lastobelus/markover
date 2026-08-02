@@ -8,7 +8,8 @@ const {
   create,
   createList,
   model,
-  popoverPosition
+  popoverPosition,
+  updateTruncation
 } = require('../src/annotation-block')
 
 test('builds one annotation view model for previews and list entries', () => {
@@ -23,11 +24,23 @@ test('builds one annotation view model for previews and list entries', () => {
       { id: 'img-2', label: '' }
     ]
   }, { descriptor: '<p>' }), {
-    attachmentLabels: ['diagram', 'img-2'],
-    descriptor: '<p>',
+    attachments: [
+      { attachment: { id: 'img-1', label: 'diagram' }, label: 'diagram' },
+      { attachment: { id: 'img-2', label: '' }, label: 'img-2' }
+    ],
     feedback: '**Keep** the real feedback.',
-    lineLabel: 'Lines 8–10'
+    lineLabel: 'Lines 8–10',
+    sourceTitle: 'The source block text'
   })
+
+  assert.equal(model({
+    text: 'Old heading',
+    raw: '## Old heading',
+    sourceEdit: { current: '## New heading\n\nMore detail' },
+    feedback: '',
+    lineStart: 1,
+    lineEnd: 1
+  }).sourceTitle, 'New heading')
 })
 
 test('positions a preview beside its marker and clamps it to the viewport', () => {
@@ -44,7 +57,7 @@ test('positions a preview beside its marker and clamps it to the viewport', () =
   ), { x: 530, y: 410 })
 })
 
-test('the shared component renders Markdown feedback rather than source text', () => {
+test('the shared component renders Markdown feedback with concise source context', () => {
   const { document } = (new JSDOM()).window
   const renderedValues = []
   const block = create(document, {
@@ -58,6 +71,7 @@ test('the shared component renders Markdown feedback rather than source text', (
     },
     context: { descriptor: '<p>' },
     mode: 'peek',
+    attachmentUrl: (attachment) => `file:///tmp/${attachment.id}.png`,
     renderMarkdown: (value) => {
       renderedValues.push(value)
       return '<p><strong>Actual feedback</strong></p>'
@@ -66,9 +80,41 @@ test('the shared component renders Markdown feedback rather than source text', (
 
   assert.deepEqual(renderedValues, ['**Actual feedback**'])
   assert.equal(block.classList.contains('rendered-annotation--peek'), true)
-  assert.equal(block.querySelector('.rendered-annotation-body strong').textContent, 'Actual feedback')
-  assert.equal(block.textContent.includes('Source context only'), false)
-  assert.equal(block.querySelector('.rendered-annotation-attachments').textContent, '▧ diagram')
+  assert.equal(block.querySelector('.rendered-annotation-content strong').textContent, 'Actual feedback')
+  assert.equal(block.querySelector('.rendered-annotation-identity strong').textContent, 'Source context only')
+  assert.equal(block.querySelector('.rendered-annotation-attachment img').src, 'file:///tmp/img-1.png')
+  assert.equal(block.querySelector('.rendered-annotation-attachment span').textContent, 'diagram')
+})
+
+test('inline Markdown images are static in peeks and interactive when requested', () => {
+  const { document } = (new JSDOM()).window
+  const node = {
+    id: 'block-3',
+    text: 'Source',
+    feedback: '![diagram](diagram.png)',
+    lineStart: 8,
+    lineEnd: 8
+  }
+  const renderMarkdown = () => (
+    '<button class="inline-image" data-image-source="diagram.png" data-image-label="diagram">▧ diagram</button>'
+  )
+  const peek = create(document, {
+    node,
+    mode: 'peek',
+    renderMarkdown
+  })
+  assert.equal(peek.querySelector('button.inline-image'), null)
+  assert.equal(peek.querySelector('span.inline-image.is-static').textContent, '▧ diagram')
+
+  const calls = []
+  const list = create(document, {
+    node,
+    mode: 'list',
+    onInlineImage: (source, label) => calls.push(`${source}:${label}`),
+    renderMarkdown
+  })
+  list.querySelector('button.inline-image').click()
+  assert.deepEqual(calls, ['diagram.png:diagram'])
 })
 
 test('only a bound own marker opens a preview and leave or scroll closes it', () => {
@@ -116,13 +162,22 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
   const calls = []
   const nodes = [
     { id: 'block-1', text: 'First source', feedback: 'First note', lineStart: 1, lineEnd: 1 },
-    { id: 'block-2', text: 'Second source', feedback: 'Second note', lineStart: 2, lineEnd: 2 }
+    {
+      id: 'block-2',
+      text: 'Second source',
+      feedback: 'Second note',
+      lineStart: 2,
+      lineEnd: 2,
+      attachments: [{ id: 'img-2', label: 'detail' }]
+    }
   ]
   const list = createList(window.document, {
     nodes,
     selectedId: 'block-2',
     context: () => ({ descriptor: '<p>' }),
+    attachmentUrl: (attachment) => `file:///tmp/${attachment.id}.png`,
     renderMarkdown: (value) => `<p>${value}</p>`,
+    onAttachment: (attachment) => calls.push(`open:${attachment.id}`),
     onSelect: (node) => calls.push(`select:${node.id}`),
     onEdit: (node) => calls.push(`edit:${node.id}`)
   })
@@ -130,10 +185,19 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
   const blocks = list.querySelectorAll('.rendered-annotation--list')
   assert.equal(blocks.length, 2)
   assert.equal(blocks[1].classList.contains('is-selected'), true)
-  assert.equal(blocks[1].querySelector('.rendered-annotation-body').textContent, 'Second note')
+  assert.equal(blocks[1].querySelector('.rendered-annotation-content p').textContent, 'Second note')
+  assert.equal(
+    blocks[1].querySelector('.rendered-annotation-edit').parentElement.className,
+    'rendered-annotation-body has-edit'
+  )
+  assert.equal(
+    blocks[1].querySelector('.rendered-annotation-attachment img').src,
+    'file:///tmp/img-2.png'
+  )
   blocks[1].click()
+  blocks[1].querySelector('.rendered-annotation-attachment').click()
   blocks[1].querySelector('.rendered-annotation-edit').click()
-  assert.deepEqual(calls, ['select:block-2', 'edit:block-2'])
+  assert.deepEqual(calls, ['select:block-2', 'open:img-2', 'edit:block-2'])
 
   const readonlyList = createList(window.document, {
     nodes,
@@ -143,4 +207,27 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
     onSelect: () => {}
   })
   assert.equal(readonlyList.querySelector('.rendered-annotation-edit'), null)
+})
+
+test('annotation list truncation indicators reflect measured content overflow', () => {
+  const { document } = (new JSDOM()).window
+  const list = createList(document, {
+    nodes: [{ id: 'block-1', text: 'Source', feedback: 'Long note', lineStart: 1, lineEnd: 1 }],
+    selectedId: 'block-1',
+    context: () => ({}),
+    renderMarkdown: (value) => `<p>${value}</p>`
+  })
+  const content = list.querySelector('.rendered-annotation-content')
+  const overflow = list.querySelector('.rendered-annotation-overflow')
+  Object.defineProperties(content, {
+    clientHeight: { configurable: true, value: 100 },
+    scrollHeight: { configurable: true, value: 140 }
+  })
+
+  updateTruncation(list)
+  assert.equal(overflow.hidden, false)
+
+  Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 100 })
+  updateTruncation(list)
+  assert.equal(overflow.hidden, true)
 })

@@ -181,16 +181,20 @@ inlineMarkdown.renderer.rules.image = (tokens, index) => {
   return `<button type="button" class="inline-image" data-image-source="${escapedSource}" data-image-label="${escapedLabel}" title="Preview ${escapedLabel}">▧ ${escapedLabel}</button>`
 }
 
+function openSourceImagePreview(source, label) {
+  openImagePreview({
+    url: MarkoverImagePreview.sourceUrl(source, state.documentPath),
+    label,
+    id: MarkoverImagePreview.sourceLabel(source, '')
+  })
+}
+
 function wireSourceImagePreviews(content) {
   for (const button of content.querySelectorAll('[data-image-source]')) {
     button.addEventListener('click', (event) => {
       event.stopPropagation()
       const source = button.dataset.imageSource || ''
-      openImagePreview({
-        url: MarkoverImagePreview.sourceUrl(source, state.documentPath),
-        label: button.dataset.imageLabel,
-        id: MarkoverImagePreview.sourceLabel(source, '')
-      })
+      openSourceImagePreview(source, button.dataset.imageLabel)
     })
   }
 }
@@ -247,6 +251,8 @@ function createRenderedAnnotation(node, options = {}) {
       descriptor: nodeDescriptor(node)
     },
     mode: options.mode,
+    attachmentUrl: attachmentPreviewUrl,
+    onAttachment: options.mode === 'peek' ? null : openImagePreview,
     onEdit: options.onEdit,
     onSelect: options.onSelect,
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
@@ -948,6 +954,9 @@ function renderAnnotationList() {
     nodes,
     selectedId: state.selectedId,
     context: (node) => ({ descriptor: nodeDescriptor(node) }),
+    attachmentUrl: attachmentPreviewUrl,
+    onAttachment: openImagePreview,
+    onInlineImage: openSourceImagePreview,
     onSelect: selectAnnotationFromList,
     onEdit: isCurrentReviewEditable() ? editAnnotationFromList : null,
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
@@ -956,6 +965,7 @@ function renderAnnotationList() {
 
   if (state.annotationView === 'list') {
     requestAnimationFrame(() => {
+      MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
       elements.annotationList
         .querySelector('.rendered-annotation.is-selected')
         ?.scrollIntoView({ block: 'nearest' })
@@ -976,7 +986,7 @@ function renderAnnotationPaneView(node) {
   elements.annotationViewSelected.setAttribute('aria-selected', String(!listVisible))
   elements.annotationViewList.setAttribute('aria-selected', String(listVisible))
   elements.annotationViewList.disabled = nodes.length === 0
-  elements.annotationViewList.querySelector('span').textContent = String(nodes.length)
+    elements.annotationViewList.textContent = `All Annotations (${nodes.length})`
 
   elements.annotationPaneEyebrow.textContent = listVisible
     ? 'Annotations'
@@ -1037,7 +1047,7 @@ function renderAnnotation(node) {
 function updateAnnotationCount() {
   const count = annotatedNodes().length
   elements.annotationCount.textContent = `${count} annotation${count === 1 ? '' : 's'}`
-  elements.annotationViewList.querySelector('span').textContent = String(count)
+  elements.annotationViewList.textContent = `All Annotations (${count})`
   elements.annotationViewList.disabled = count === 0
 }
 
@@ -1948,6 +1958,9 @@ MarkoverAnnotationBlock.bindListKeyboard(elements.annotationListView, {
     if (next) selectAnnotationFromList(next)
   }
 })
+new ResizeObserver(() => {
+  MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
+}).observe(elements.annotationListView)
 
 elements.sourceEdit.addEventListener('click', () => {
   const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
@@ -2014,6 +2027,7 @@ window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
   applyDocumentsListWidth()
   updatePinnedSelection()
+  MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
 })
 document.addEventListener('click', (event) => {
   if (!elements.documentTabs.contains(event.target)) closeTabOverflow()

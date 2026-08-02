@@ -1,16 +1,24 @@
 (function exposeAnnotationBlock(globalScope) {
   function model(node, context = {}) {
+    const editedSource = typeof node.sourceEdit?.current === 'string'
+      ? node.sourceEdit.current
+      : ''
+    const sourceTitle = String(editedSource || node.text || node.raw || context.descriptor || '')
+      .trim()
+      .split(/\r?\n/, 1)[0]
+      .replace(/^ {0,3}(?:#{1,6}\s+|[-+*]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|>\s*)/, '')
     return {
-      attachmentLabels: (node.attachments || []).map((attachment) => (
-        String(attachment.label || '').trim() || attachment.id
-      )),
-      descriptor: context.descriptor || '',
+      attachments: (node.attachments || []).map((attachment) => ({
+        attachment,
+        label: String(attachment.label || '').trim() || attachment.id
+      })),
       feedback: String(node.feedback || ''),
       lineLabel: context.lineLabel || (
         node.lineStart === node.lineEnd
           ? `Line ${node.lineStart}`
           : `Lines ${node.lineStart}–${node.lineEnd}`
-      )
+      ),
+      sourceTitle
     }
   }
 
@@ -38,7 +46,7 @@
     identity.className = 'rendered-annotation-identity'
 
     const descriptor = document.createElement('strong')
-    descriptor.textContent = view.descriptor
+    descriptor.textContent = view.sourceTitle
     identity.append(descriptor)
 
     const location = document.createElement('span')
@@ -46,7 +54,46 @@
     identity.append(location)
     header.append(identity)
 
+    article.append(header)
+
+    const body = document.createElement('div')
+    body.className = 'rendered-annotation-body'
+    const content = document.createElement('div')
+    content.className = 'rendered-annotation-content'
+    if (view.feedback.trim()) {
+      content.innerHTML = options.renderMarkdown(view.feedback)
+    } else {
+      content.classList.add('is-empty')
+      content.textContent = 'Image-only annotation.'
+    }
+    for (const image of content.querySelectorAll('[data-image-source]')) {
+      if (options.onInlineImage) {
+        image.addEventListener('click', (event) => {
+          event.stopPropagation()
+          options.onInlineImage(
+            image.dataset.imageSource || '',
+            image.dataset.imageLabel || ''
+          )
+        })
+      } else {
+        const label = image.dataset.imageLabel || image.textContent
+        const replacement = document.createElement('span')
+        replacement.className = `${image.className} is-static`
+        replacement.title = label
+        replacement.textContent = image.textContent
+        image.replaceWith(replacement)
+      }
+    }
+    body.append(content)
+    if ((options.mode || 'list') === 'list') {
+      const overflow = document.createElement('div')
+      overflow.className = 'rendered-annotation-overflow'
+      overflow.hidden = true
+      overflow.textContent = '…'
+      body.append(overflow)
+    }
     if (options.onEdit) {
+      body.classList.add('has-edit')
       const edit = document.createElement('button')
       edit.className = 'rendered-annotation-edit'
       edit.type = 'button'
@@ -57,26 +104,40 @@
         event.stopPropagation()
         options.onEdit(options.node)
       })
-      header.append(edit)
-    }
-    article.append(header)
-
-    const body = document.createElement('div')
-    body.className = 'rendered-annotation-body'
-    if (view.feedback.trim()) {
-      body.innerHTML = options.renderMarkdown(view.feedback)
-    } else {
-      body.classList.add('is-empty')
-      body.textContent = 'Image-only annotation.'
+      body.append(edit)
     }
     article.append(body)
 
-    if (view.attachmentLabels.length) {
+    if (view.attachments.length) {
       const attachments = document.createElement('div')
       attachments.className = 'rendered-annotation-attachments'
-      for (const label of view.attachmentLabels) {
-        const item = document.createElement('span')
-        item.textContent = `▧ ${label}`
+      for (const { attachment, label } of view.attachments) {
+        const item = document.createElement(options.onAttachment ? 'button' : 'span')
+        item.className = 'rendered-annotation-attachment'
+        item.title = label
+        if (options.onAttachment) {
+          item.type = 'button'
+          item.addEventListener('click', (event) => {
+            event.stopPropagation()
+            options.onAttachment(attachment)
+          })
+        }
+
+        const previewUrl = options.attachmentUrl?.(attachment)
+        if (previewUrl) {
+          const image = document.createElement('img')
+          image.src = previewUrl
+          image.alt = label
+          item.append(image)
+        } else {
+          const placeholder = document.createElement('i')
+          placeholder.textContent = '▧'
+          item.append(placeholder)
+        }
+
+        const caption = document.createElement('span')
+        caption.textContent = label
+        item.append(caption)
         attachments.append(item)
       }
       article.append(attachments)
@@ -89,6 +150,15 @@
     return article
   }
 
+  function updateTruncation(root) {
+    for (const article of root.querySelectorAll('.rendered-annotation--list')) {
+      const content = article.querySelector('.rendered-annotation-content')
+      const overflow = article.querySelector('.rendered-annotation-overflow')
+      if (!content || !overflow) continue
+      overflow.hidden = content.scrollHeight <= content.clientHeight + 1
+    }
+  }
+
   function createList(document, options) {
     const list = document.createElement('div')
     list.className = 'rendered-annotation-list'
@@ -97,6 +167,9 @@
         node,
         context: options.context(node),
         mode: 'list',
+        attachmentUrl: options.attachmentUrl,
+        onAttachment: options.onAttachment,
+        onInlineImage: options.onInlineImage,
         onSelect: options.onSelect,
         onEdit: options.onEdit,
         renderMarkdown: options.renderMarkdown
@@ -143,7 +216,8 @@
     create,
     createList,
     model,
-    popoverPosition
+    popoverPosition,
+    updateTruncation
   }
   globalScope.MarkoverAnnotationBlock = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
