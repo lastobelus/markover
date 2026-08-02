@@ -118,12 +118,13 @@ a { color: inherit; text-underline-offset: .18em; }
 .workflow { width: min(1040px, calc(100% - 48px)); margin: 130px auto; display: grid; grid-template-columns: .8fr 1.2fr; gap: 100px; align-items: start; }
 .workflow h2 { margin: 13px 0 0; font-size: 42px; line-height: 1.05; letter-spacing: -.04em; }
 .workflow ol { margin: 0; padding: 0; list-style: none; counter-reset: workflow; }
-.workflow li { counter-increment: workflow; padding: 20px 0; border-top: 1px solid var(--line); color: var(--muted); line-height: 1.6; }
-.workflow li::before { content: "0" counter(workflow); display: inline-block; width: 40px; color: var(--brand-orange); font: 750 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.workflow li { counter-increment: workflow; padding: 20px 0; display: grid; grid-template-columns: 40px minmax(0, 1fr); border-top: 1px solid var(--line); color: var(--muted); line-height: 1.6; }
+.workflow li::before { content: "0" counter(workflow); grid-column: 1; color: var(--brand-orange); font: 750 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.workflow li p { grid-column: 2; margin: 0; }
 .workflow li span { color: var(--ink); font-weight: 750; }
 
 .site-footer { width: min(1180px, calc(100% - 48px)); min-height: 110px; margin: 0 auto; display: flex; align-items: center; gap: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
-.footer-brand { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 800; text-decoration: none; }
+.footer-brand { display: flex; align-items: flex-end; gap: 8px; color: var(--ink); font-weight: 800; text-decoration: none; }
 .footer-brand img { width: 28px; }
 .site-footer p { margin-right: auto; }
 
