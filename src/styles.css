@@ -560,7 +560,7 @@ p {
 .pinned-selection {
   position: absolute;
   top: calc(var(--pane-header-height) - 1px);
-  right: 1px;
+  right: -1px;
   left: 0;
   z-index: 5;
   pointer-events: none;
@@ -597,6 +597,11 @@ p {
 .scrollbar-row-cover.is-hovered {
   border-color: #e8e2d8;
   background: rgb(255 255 255 / 96%);
+}
+
+.scrollbar-row-cover:not(.is-hovered) {
+  right: -1px;
+  width: 17px;
 }
 
 .scrollbar-row-cover.is-code {
