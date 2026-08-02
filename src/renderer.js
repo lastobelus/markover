@@ -1194,6 +1194,44 @@ function setDocumentsListCollapsed(collapsed) {
   )
 }
 
+function focusedPane() {
+  const active = document.activeElement
+  if (elements.documentsListSidebar.contains(active)) return 'documents'
+  if (elements.annotationPane.contains(active)) return 'annotation'
+  return 'preview'
+}
+
+function focusDocumentsList() {
+  const activePath = documentsListReviewIdToPath.get(state.reviewId)
+  if (activePath && documentsListModel) {
+    documentsListModel.scrollToPath(activePath, {
+      focus: true,
+      offset: 'nearest'
+    })
+    const focusActiveRow = () => {
+      const shadowRoot = documentsListModel.getFileTreeContainer()?.shadowRoot
+      const row = [...(shadowRoot?.querySelectorAll(
+        'button[data-item-path]'
+      ) || [])].find((button) => (
+        button.dataset.itemPath === activePath &&
+        button.dataset.itemParked !== 'true'
+      ))
+      const target = row || shadowRoot?.querySelector('[role="tree"]')
+      target?.focus()
+    }
+    focusActiveRow()
+    requestAnimationFrame(focusActiveRow)
+    return
+  }
+  elements.documentsListCollapse.focus()
+}
+
+function focusPane(pane) {
+  if (pane === 'documents') focusDocumentsList()
+  else if (pane === 'annotation') focusAnnotationPane()
+  else elements.previewPane.focus()
+}
+
 function beginDocumentsListResize(event) {
   if (event.button !== 0) return
   event.preventDefault()
@@ -1618,12 +1656,14 @@ document.addEventListener('keydown', (event) => {
 
   if (event.key === 'Tab') {
     event.preventDefault()
-    if (document.activeElement === elements.annotationInput || elements.annotationPane.contains(document.activeElement)) {
-      elements.annotationPane.classList.remove('focus-within')
-      elements.previewPane.focus()
-    } else {
-      focusAnnotationPane()
-    }
+    const documentsVisible = reviewSessions.list().length > 0 && !documentsListCollapsed
+    const pane = MarkoverNavigation.nextPane(
+      focusedPane(),
+      event.shiftKey ? -1 : 1,
+      documentsVisible
+    )
+    elements.annotationPane.classList.remove('focus-within')
+    focusPane(pane)
     return
   }
 

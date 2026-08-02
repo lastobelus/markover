@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { parseMarkdown } = require('../src/tree')
-const { move } = require('../src/navigation')
+const { move, nextPane } = require('../src/navigation')
 
 const tree = parseMarkdown(`# Root
 
@@ -31,4 +31,14 @@ test('up and down navigate siblings and climb at boundaries', () => {
   assert.equal(move(tree.root, second.id, 'up'), first.id)
   assert.equal(move(tree.root, child.id, 'up'), first.id)
   assert.equal(move(tree.root, child.id, 'down'), second.id)
+})
+
+test('cycles focus through three panes and skips a collapsed documents list', () => {
+  assert.equal(nextPane('documents', 1, true), 'preview')
+  assert.equal(nextPane('preview', 1, true), 'annotation')
+  assert.equal(nextPane('annotation', 1, true), 'documents')
+  assert.equal(nextPane('documents', -1, true), 'annotation')
+  assert.equal(nextPane('preview', -1, true), 'documents')
+  assert.equal(nextPane('annotation', -1, false), 'preview')
+  assert.equal(nextPane('preview', 1, false), 'annotation')
 })

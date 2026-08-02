@@ -40,7 +40,16 @@
     return currentId
   }
 
-  const api = { findContext, move }
+  function nextPane(current, direction, documentsVisible) {
+    const panes = documentsVisible
+      ? ['documents', 'preview', 'annotation']
+      : ['preview', 'annotation']
+    const currentIndex = panes.indexOf(current)
+    const start = currentIndex === -1 ? 0 : currentIndex
+    return panes[(start + direction + panes.length) % panes.length]
+  }
+
+  const api = { findContext, move, nextPane }
   globalScope.MarkoverNavigation = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)
