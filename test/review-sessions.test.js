@@ -39,6 +39,7 @@ test('switching among three reviews preserves independent view and review state'
   sessions.activate(first.reviewId)
   first.selectedId = 'block-2'
   first.annotatedOnly = true
+  first.annotationView = 'list'
   first.sourceEditingId = 'block-2'
   first.sourceDrafts.set('block-2', 'A proposed source edit')
   first.tree.root.children[0].collapsed = true
@@ -55,6 +56,7 @@ test('switching among three reviews preserves independent view and review state'
   assert.equal(sessions.list().length, 3)
   assert.equal(sessions.activate(first.reviewId).selectedId, 'block-2')
   assert.equal(sessions.activate(first.reviewId).annotatedOnly, true)
+  assert.equal(sessions.activate(first.reviewId).annotationView, 'list')
   assert.equal(first.sourceEditingId, 'block-2')
   assert.equal(first.sourceDrafts.get('block-2'), 'A proposed source edit')
   assert.equal(first.tree.root.children[0].collapsed, true)

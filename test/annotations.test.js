@@ -5,7 +5,8 @@ const {
   annotationPosition,
   navigationRoot,
   nearestAnnotatedId,
-  normalizeFilter
+  normalizeFilter,
+  revealAnnotation
 } = require('../src/annotations')
 
 function node(id, children = [], feedback = '', attachments = []) {
@@ -119,4 +120,19 @@ test('normalizes annotation removals including attachment-only annotations', () 
     enabled: false,
     selectedId: finalAnnotation.id
   })
+})
+
+test('reveals a selected annotation without changing unrelated collapse state', () => {
+  const root = fixture()
+  const heading = root.children[0]
+  const branch = heading.children[2]
+  heading.collapsed = true
+  branch.collapsed = true
+  root.children[2].collapsed = true
+
+  assert.equal(revealAnnotation(root, 'annotated-image'), true)
+  assert.equal(heading.collapsed, false)
+  assert.equal(branch.collapsed, false)
+  assert.equal(root.children[2].collapsed, true)
+  assert.equal(revealAnnotation(root, 'annotated-image'), false)
 })

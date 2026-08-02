@@ -3,10 +3,15 @@ const elements = {
   annotationCount: document.querySelector('#annotation-count'),
   annotationGuidance: document.querySelector('#annotation-guidance'),
   annotationInput: document.querySelector('#annotation-input'),
+  annotationList: document.querySelector('#annotation-list'),
+  annotationListView: document.querySelector('#annotation-list-view'),
   annotationPane: document.querySelector('#annotation-pane'),
+  annotationPaneEyebrow: document.querySelector('#annotation-pane-eyebrow'),
   annotationReadonly: document.querySelector('#annotation-readonly'),
   annotationSneakPeek: document.querySelector('#annotation-sneak-peek'),
   annotationState: document.querySelector('#annotation-state'),
+  annotationViewList: document.querySelector('#annotation-view-list'),
+  annotationViewSelected: document.querySelector('#annotation-view-selected'),
   attachmentList: document.querySelector('#attachment-list'),
   cancelReviewButton: document.querySelector('#cancel-review-button'),
   checksum: document.querySelector('#document-checksum'),
@@ -25,6 +30,7 @@ const elements = {
   pinnedSelection: document.querySelector('#pinned-selection'),
   previewPane: document.querySelector('#preview-pane'),
   selectedLocation: document.querySelector('#selected-location'),
+  selectedAnnotationView: document.querySelector('#selected-annotation-view'),
   selectedSource: document.querySelector('#selected-source'),
   selectedTitle: document.querySelector('#selected-title'),
   scrollbarRowCover: document.querySelector('#scrollbar-row-cover'),
@@ -72,6 +78,7 @@ const state = {
   reviewMode: false,
   selectedId: null,
   annotatedOnly: false,
+  annotationView: 'selected',
   sourceCollapsed: false,
   sourceDrafts: new Map(),
   sourceEditingId: null,
@@ -818,7 +825,8 @@ function renderReadonlyFeedback(node) {
 
 function focusAnnotationPane() {
   elements.annotationPane.classList.add('focus-within')
-  if (isCurrentReviewEditable()) elements.annotationInput.focus()
+  if (state.annotationView === 'list') elements.annotationListView.focus()
+  else if (isCurrentReviewEditable()) elements.annotationInput.focus()
   else elements.annotationReadonly.focus()
 }
 
@@ -913,11 +921,107 @@ function revertSourceEdit(node) {
   autosaveReview()
 }
 
-function renderAnnotation(node) {
-  elements.selectedTitle.textContent = nodeDescriptor(node)
+function selectAnnotationFromList(node) {
+  const revealed = MarkoverAnnotations.revealAnnotation(state.tree.root, node.id)
+  selectNode(node.id)
+  if (revealed) autosaveReview()
+  focusAnnotationPane()
+}
+
+function editAnnotationFromList(node) {
+  state.annotationView = 'selected'
+  selectAnnotationFromList(node)
+}
+
+function renderAnnotationList() {
+  const nodes = annotatedNodes()
+  elements.annotationList.replaceChildren()
+  if (!nodes.length) {
+    const empty = document.createElement('p')
+    empty.className = 'annotation-list-empty'
+    empty.textContent = 'No annotations yet.'
+    elements.annotationList.append(empty)
+    return
+  }
+
+  const list = MarkoverAnnotationBlock.createList(document, {
+    nodes,
+    selectedId: state.selectedId,
+    context: (node) => ({ descriptor: nodeDescriptor(node) }),
+    onSelect: selectAnnotationFromList,
+    onEdit: isCurrentReviewEditable() ? editAnnotationFromList : null,
+    renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
+  })
+  elements.annotationList.replaceChildren(...list.childNodes)
+
+  if (state.annotationView === 'list') {
+    requestAnimationFrame(() => {
+      elements.annotationList
+        .querySelector('.rendered-annotation.is-selected')
+        ?.scrollIntoView({ block: 'nearest' })
+    })
+  }
+}
+
+function renderAnnotationPaneView(node) {
+  const nodes = annotatedNodes()
+  if (state.annotationView === 'list' && !nodes.length) {
+    state.annotationView = 'selected'
+  }
+  const listVisible = state.annotationView === 'list'
+  elements.selectedAnnotationView.hidden = listVisible
+  elements.annotationListView.hidden = !listVisible
+  elements.annotationViewSelected.classList.toggle('is-active', !listVisible)
+  elements.annotationViewList.classList.toggle('is-active', listVisible)
+  elements.annotationViewSelected.setAttribute('aria-selected', String(!listVisible))
+  elements.annotationViewList.setAttribute('aria-selected', String(listVisible))
+  elements.annotationViewList.disabled = nodes.length === 0
+  elements.annotationViewList.querySelector('span').textContent = String(nodes.length)
+
+  elements.annotationPaneEyebrow.textContent = listVisible
+    ? 'Annotations'
+    : 'Selected block'
+  if (listVisible) {
+    const position = MarkoverAnnotations.annotationPosition(
+      state.tree.root,
+      state.selectedId
+    )
+    elements.selectedTitle.textContent = position.index
+      ? `${position.index} of ${position.total}`
+      : `${position.total} total`
+  } else {
+    elements.selectedTitle.textContent = nodeDescriptor(node)
+  }
   elements.selectedLocation.textContent = node.lineStart === node.lineEnd
     ? `Line ${node.lineStart}`
     : `Lines ${node.lineStart}–${node.lineEnd}`
+  renderAnnotationList()
+}
+
+function setAnnotationView(view) {
+  if (view === 'list') {
+    const nextId = MarkoverAnnotations.nearestAnnotatedId(
+      state.tree.root,
+      state.selectedId
+    )
+    if (!nextId) return
+    const revealed = MarkoverAnnotations.revealAnnotation(state.tree.root, nextId)
+    state.selectedId = nextId
+    state.annotationView = 'list'
+    renderTree()
+    elements.tree
+      .querySelector(`[data-node-id="${nextId}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+    if (revealed) autosaveReview()
+  } else {
+    state.annotationView = 'selected'
+  }
+  const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (selected) renderAnnotation(selected)
+  focusAnnotationPane()
+}
+
+function renderAnnotation(node) {
   renderSourcePanel(node)
   elements.annotationInput.value = node.feedback
   renderReadonlyFeedback(node)
@@ -925,6 +1029,7 @@ function renderAnnotation(node) {
     ? 'Annotated'
     : 'Not annotated'
   renderAttachmentList(node)
+  renderAnnotationPaneView(node)
   renderReviewEditability()
   updateAnnotationCount()
 }
@@ -932,6 +1037,8 @@ function renderAnnotation(node) {
 function updateAnnotationCount() {
   const count = annotatedNodes().length
   elements.annotationCount.textContent = `${count} annotation${count === 1 ? '' : 's'}`
+  elements.annotationViewList.querySelector('span').textContent = String(count)
+  elements.annotationViewList.disabled = count === 0
 }
 
 function showToast(message) {
@@ -963,6 +1070,7 @@ function captureActiveSession() {
   if (!session || session.reviewId !== state.reviewId) return
   session.selectedId = state.selectedId
   session.annotatedOnly = state.annotatedOnly
+  session.annotationView = state.annotationView
   session.sourceCollapsed = state.sourceCollapsed
   session.sourceDrafts = state.sourceDrafts
   session.sourceEditingId = state.sourceEditingId
@@ -1583,6 +1691,7 @@ function activateReview(reviewId) {
   state.tree = session.tree
   state.selectedId = session.selectedId
   state.annotatedOnly = session.annotatedOnly
+  state.annotationView = session.annotationView
   state.sourceCollapsed = session.sourceCollapsed
   state.sourceDrafts = session.sourceDrafts
   state.sourceEditingId = session.sourceEditingId
@@ -1647,6 +1756,7 @@ async function loadDocument(documentData) {
   state.reviewId = documentData.reviewId || state.tree.review?.id || null
   state.selectedId = state.tree.root.children[0]?.id || null
   state.annotatedOnly = false
+  state.annotationView = 'selected'
   state.sourceCollapsed = false
   state.sourceDrafts = new Map()
   state.sourceEditingId = null
@@ -1811,6 +1921,33 @@ elements.sourceToggle.addEventListener('click', () => {
 
 elements.treeViewAll.addEventListener('click', () => setAnnotatedOnly(false))
 elements.treeViewAnnotated.addEventListener('click', () => setAnnotatedOnly(true))
+elements.annotationViewSelected.addEventListener('click', () => {
+  setAnnotationView('selected')
+})
+elements.annotationViewList.addEventListener('click', () => {
+  setAnnotationView('list')
+})
+MarkoverAnnotationBlock.bindListKeyboard(elements.annotationListView, {
+  edit() {
+    const selected = elements.annotationList.querySelector(
+      '.rendered-annotation.is-selected'
+    )
+    if (!selected) return
+    const edit = selected?.querySelector('.rendered-annotation-edit')
+    if (edit) edit.click()
+    else setAnnotationView('selected')
+  },
+  move(offset) {
+    const nodes = annotatedNodes()
+    const currentId = MarkoverAnnotations.nearestAnnotatedId(
+      state.tree.root,
+      state.selectedId
+    )
+    const index = nodes.findIndex((node) => node.id === currentId)
+    const next = nodes[Math.max(0, Math.min(nodes.length - 1, index + offset))]
+    if (next) selectAnnotationFromList(next)
+  }
+})
 
 elements.sourceEdit.addEventListener('click', () => {
   const node = MarkoverTree.findNode(state.tree.root, state.selectedId)

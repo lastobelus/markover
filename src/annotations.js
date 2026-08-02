@@ -74,6 +74,24 @@
     }
   }
 
+  function revealAnnotation(root, id) {
+    let changed = false
+    function reveal(node) {
+      if (node.id === id) return true
+      for (const child of node.children || []) {
+        if (!reveal(child)) continue
+        if (node !== root && node.collapsed) {
+          node.collapsed = false
+          changed = true
+        }
+        return true
+      }
+      return false
+    }
+    reveal(root)
+    return changed
+  }
+
   function normalizeFilter(root, selectedId, enabled) {
     if (!enabled) return { enabled: false, selectedId }
     const projection = annotatedProjection(root)
@@ -100,7 +118,8 @@
     hasAnnotation,
     navigationRoot,
     nearestAnnotatedId,
-    normalizeFilter
+    normalizeFilter,
+    revealAnnotation
   }
   globalScope.MarkoverAnnotations = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api

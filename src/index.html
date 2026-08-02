@@ -121,16 +121,33 @@
       <aside id="annotation-pane" class="pane annotation-pane" tabindex="-1">
         <div class="pane-header">
           <div>
-            <span class="eyebrow">Selected block</span>
+            <span id="annotation-pane-eyebrow" class="eyebrow">Selected block</span>
             <h2 id="selected-title">—</h2>
           </div>
           <span id="selected-location" class="status-pill">—</span>
         </div>
-        <div id="review-state-banner" class="review-state-banner" hidden>
-          With agent · Read only
+        <div class="annotation-view-tabs" role="tablist" aria-label="Annotation pane view">
+          <button
+            id="annotation-view-selected"
+            class="is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+          >Selected</button>
+          <button
+            id="annotation-view-list"
+            type="button"
+            role="tab"
+            aria-selected="false"
+          >Annotations <span>0</span></button>
         </div>
 
-        <section class="source-panel">
+        <div id="selected-annotation-view" class="selected-annotation-view">
+          <div id="review-state-banner" class="review-state-banner" hidden>
+            With agent · Read only
+          </div>
+
+          <section class="source-panel">
           <div class="source-header">
             <button
               id="source-toggle"
@@ -166,29 +183,40 @@
               </span>
             </div>
           </div>
-        </section>
+          </section>
 
-        <label class="annotation-label" for="annotation-input">
-          Feedback
-          <span id="annotation-state">Not annotated</span>
-        </label>
-        <textarea
-          id="annotation-input"
-          placeholder="What should the agent change, clarify, keep, or reconsider?"
-          spellcheck="true"
-        ></textarea>
-        <div
-          id="annotation-readonly"
-          class="annotation-readonly"
-          tabindex="0"
-          hidden
-        ></div>
-        <div id="attachment-list" class="attachment-list" hidden></div>
+          <label class="annotation-label" for="annotation-input">
+            Feedback
+            <span id="annotation-state">Not annotated</span>
+          </label>
+          <textarea
+            id="annotation-input"
+            placeholder="What should the agent change, clarify, keep, or reconsider?"
+            spellcheck="true"
+          ></textarea>
+          <div
+            id="annotation-readonly"
+            class="annotation-readonly"
+            tabindex="0"
+            hidden
+          ></div>
+          <div id="attachment-list" class="attachment-list" hidden></div>
 
-        <div class="annotation-footer">
-          <p id="annotation-guidance">Annotations stay in memory. Copy feedback JSON when you’re done.</p>
-          <span id="annotation-count">0 annotations</span>
+          <div class="annotation-footer">
+            <p id="annotation-guidance">Annotations stay in memory. Copy feedback JSON when you’re done.</p>
+            <span id="annotation-count">0 annotations</span>
+          </div>
         </div>
+
+        <section
+          id="annotation-list-view"
+          class="annotation-list-view"
+          tabindex="0"
+          aria-label="All annotations"
+          hidden
+        >
+          <div id="annotation-list" class="annotation-list"></div>
+        </section>
       </aside>
     </main>
 

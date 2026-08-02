@@ -3,8 +3,10 @@ const assert = require('node:assert/strict')
 const { JSDOM } = require('jsdom')
 const {
   bindDismiss,
+  bindListKeyboard,
   bindSneakPeek,
   create,
+  createList,
   model,
   popoverPosition
 } = require('../src/annotation-block')
@@ -23,7 +25,6 @@ test('builds one annotation view model for previews and list entries', () => {
   }, { descriptor: '<p>' }), {
     attachmentLabels: ['diagram', 'img-2'],
     descriptor: '<p>',
-    excerpt: 'The source block text',
     feedback: '**Keep** the real feedback.',
     lineLabel: 'Lines 8–10'
   })
@@ -66,7 +67,7 @@ test('the shared component renders Markdown feedback rather than source text', (
   assert.deepEqual(renderedValues, ['**Actual feedback**'])
   assert.equal(block.classList.contains('rendered-annotation--peek'), true)
   assert.equal(block.querySelector('.rendered-annotation-body strong').textContent, 'Actual feedback')
-  assert.equal(block.querySelector('.rendered-annotation-excerpt').textContent, 'Source context only')
+  assert.equal(block.textContent.includes('Source context only'), false)
   assert.equal(block.querySelector('.rendered-annotation-attachments').textContent, '▧ diagram')
 })
 
@@ -91,4 +92,55 @@ test('only a bound own marker opens a preview and leave or scroll closes it', ()
   own.dispatchEvent(new window.Event('mouseleave'))
   tree.dispatchEvent(new window.Event('scroll'))
   assert.deepEqual(calls, ['show:block-3:own', 'hide', 'hide'])
+})
+
+test('list keyboard navigation moves selection and Enter fires the edit button', () => {
+  const { window } = new JSDOM('<section tabindex="0"><button>Edit</button></section>')
+  const list = window.document.querySelector('section')
+  const edit = window.document.querySelector('button')
+  const calls = []
+  edit.addEventListener('click', () => calls.push('edit-clicked'))
+  bindListKeyboard(list, {
+    edit: () => edit.click(),
+    move: (offset) => calls.push(`move:${offset}`)
+  })
+
+  list.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowUp' }))
+  list.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown' }))
+  list.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }))
+  assert.deepEqual(calls, ['move:-1', 'move:1', 'edit-clicked'])
+})
+
+test('annotation lists reuse rendered annotation blocks and track selection', () => {
+  const { window } = new JSDOM()
+  const calls = []
+  const nodes = [
+    { id: 'block-1', text: 'First source', feedback: 'First note', lineStart: 1, lineEnd: 1 },
+    { id: 'block-2', text: 'Second source', feedback: 'Second note', lineStart: 2, lineEnd: 2 }
+  ]
+  const list = createList(window.document, {
+    nodes,
+    selectedId: 'block-2',
+    context: () => ({ descriptor: '<p>' }),
+    renderMarkdown: (value) => `<p>${value}</p>`,
+    onSelect: (node) => calls.push(`select:${node.id}`),
+    onEdit: (node) => calls.push(`edit:${node.id}`)
+  })
+
+  const blocks = list.querySelectorAll('.rendered-annotation--list')
+  assert.equal(blocks.length, 2)
+  assert.equal(blocks[1].classList.contains('is-selected'), true)
+  assert.equal(blocks[1].querySelector('.rendered-annotation-body').textContent, 'Second note')
+  blocks[1].click()
+  blocks[1].querySelector('.rendered-annotation-edit').click()
+  assert.deepEqual(calls, ['select:block-2', 'edit:block-2'])
+
+  const readonlyList = createList(window.document, {
+    nodes,
+    selectedId: 'block-1',
+    context: () => ({ descriptor: '<p>' }),
+    renderMarkdown: (value) => `<p>${value}</p>`,
+    onSelect: () => {}
+  })
+  assert.equal(readonlyList.querySelector('.rendered-annotation-edit'), null)
 })

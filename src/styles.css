@@ -950,17 +950,6 @@ p {
   font-size: 9px;
 }
 
-.rendered-annotation-excerpt {
-  overflow: hidden;
-  margin: 0;
-  padding: 7px 10px 0;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .rendered-annotation-body {
   padding: 9px 10px 10px;
   font-size: 12px;
@@ -1098,6 +1087,120 @@ kbd {
 
 .annotation-pane.is-read-only {
   background: #ece9e2;
+}
+
+.annotation-view-tabs {
+  display: grid;
+  min-height: 34px;
+  padding: 5px 22px;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  border-bottom: 1px solid var(--line);
+  background: rgb(255 253 249 / 42%);
+}
+
+.annotation-view-tabs button {
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.annotation-view-tabs button:hover:not(:disabled) {
+  color: var(--ink);
+  background: rgb(255 253 249 / 72%);
+}
+
+.annotation-view-tabs button.is-active {
+  color: white;
+  background: var(--brand-orange);
+}
+
+.annotation-view-tabs button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.annotation-view-tabs span {
+  margin-left: 3px;
+  font-size: 9px;
+}
+
+.selected-annotation-view {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.annotation-list-view {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  outline: none;
+  background: rgb(255 253 249 / 35%);
+}
+
+.annotation-list {
+  display: grid;
+  align-content: start;
+}
+
+.annotation-list .rendered-annotation {
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+.annotation-list .rendered-annotation.is-selectable {
+  cursor: pointer;
+}
+
+.annotation-list .rendered-annotation.is-selectable:hover {
+  background: rgb(255 253 249 / 72%);
+}
+
+.annotation-list .rendered-annotation.is-selected {
+  background: var(--brand-soft);
+  box-shadow: inset 3px 0 0 var(--brand-orange);
+}
+
+.annotation-list-view:focus .rendered-annotation.is-selected {
+  box-shadow: inset 4px 0 0 var(--brand-orange);
+}
+
+.rendered-annotation-edit {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--brand-burgundy);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.rendered-annotation-edit:hover,
+.rendered-annotation-edit:active {
+  border-color: var(--brand-orange);
+  color: white;
+  background: var(--brand-orange);
+}
+
+.annotation-list-empty {
+  padding: 28px 22px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
 }
 
 .review-state-banner {

@@ -5,7 +5,6 @@
         String(attachment.label || '').trim() || attachment.id
       )),
       descriptor: context.descriptor || '',
-      excerpt: context.excerpt || node.text || '',
       feedback: String(node.feedback || ''),
       lineLabel: context.lineLabel || (
         node.lineStart === node.lineEnd
@@ -62,13 +61,6 @@
     }
     article.append(header)
 
-    if (view.excerpt) {
-      const excerpt = document.createElement('p')
-      excerpt.className = 'rendered-annotation-excerpt'
-      excerpt.textContent = view.excerpt.replace(/\s+/g, ' ').trim()
-      article.append(excerpt)
-    }
-
     const body = document.createElement('div')
     body.className = 'rendered-annotation-body'
     if (view.feedback.trim()) {
@@ -97,6 +89,24 @@
     return article
   }
 
+  function createList(document, options) {
+    const list = document.createElement('div')
+    list.className = 'rendered-annotation-list'
+    for (const node of options.nodes) {
+      const block = create(document, {
+        node,
+        context: options.context(node),
+        mode: 'list',
+        onSelect: options.onSelect,
+        onEdit: options.onEdit,
+        renderMarkdown: options.renderMarkdown
+      })
+      block.classList.toggle('is-selected', node.id === options.selectedId)
+      list.append(block)
+    }
+    return list
+  }
+
   function bindSneakPeek(marker, node, handlers) {
     const show = () => handlers.show(node, marker)
     marker.addEventListener('mouseenter', show)
@@ -112,7 +122,29 @@
     return () => target.removeEventListener(eventName, hide)
   }
 
-  const api = { bindDismiss, bindSneakPeek, create, model, popoverPosition }
+  function bindListKeyboard(target, handlers) {
+    const keydown = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        handlers.edit()
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault()
+        handlers.move(event.key === 'ArrowUp' ? -1 : 1)
+      }
+    }
+    target.addEventListener('keydown', keydown)
+    return () => target.removeEventListener('keydown', keydown)
+  }
+
+  const api = {
+    bindDismiss,
+    bindListKeyboard,
+    bindSneakPeek,
+    create,
+    createList,
+    model,
+    popoverPosition
+  }
   globalScope.MarkoverAnnotationBlock = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

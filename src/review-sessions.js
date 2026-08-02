@@ -133,6 +133,7 @@
         lastViewedAt: Number.isFinite(reviewedAt) ? reviewedAt : this.now(),
         selectedId: document.tree.root.children[0]?.id || null,
         annotatedOnly: false,
+        annotationView: 'selected',
         sourceCollapsed: false,
         sourceDrafts: new Map(),
         sourceEditingId: null,
