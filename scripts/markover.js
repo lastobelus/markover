@@ -20,15 +20,88 @@ const defaultEndpointPath = path.join(
   'service.json'
 )
 
+const helpAliases = new Set(['help', 'info', '--help', '-h'])
+const recoveryHint =
+  'Run "npm --silent run markover -- help" for complete usage.'
+
+function commandError(message, usage) {
+  const error = new Error(message)
+  error.usage = usage
+  return error
+}
+
+function helpPayload() {
+  return {
+    format: 'markover-help',
+    version: 1,
+    purpose: 'Review Markdown as a block tree and return structured feedback to an agent.',
+    invocation: 'npm --silent run markover -- <command>',
+    workflow: [
+      'Create the Markdown file before opening it.',
+      'Run open once, then retain the returned reviewId in the agent thread.',
+      'Give the user the review ID and wait for them to say "Check Markover."',
+      'Run get once after that instruction; it returns the frozen markover-review JSON.',
+      'If the user wants to add feedback afterward, run edit before asking them to continue.'
+    ],
+    commands: [
+      {
+        name: 'open',
+        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number>] [--thread-id <id>] [--handoff-key <key>]',
+        purpose: 'Open a durable, non-blocking review and print {reviewId,status} as JSON.'
+      },
+      {
+        name: 'get',
+        usage: 'get <review-id>',
+        purpose: 'Freeze one review and print its complete markover-review JSON.'
+      },
+      {
+        name: 'edit',
+        usage: 'edit <review-id>',
+        purpose: 'Return a frozen review to editing so the user can add or change feedback.'
+      },
+      {
+        name: 'help',
+        aliases: ['info', '--help', '-h'],
+        usage: 'help',
+        purpose: 'Print this machine-readable help without starting Markover.'
+      }
+    ],
+    stdout: 'Success writes exactly one JSON value to stdout. Diagnostics use stderr and a non-zero exit status.',
+    persistence: '.markover/reviews/<review-id>/review.json'
+  }
+}
+
+function formatCommandError(error) {
+  const lines = [`markover: ${error.message}`]
+  if (error.usage) lines.push(`Usage: ${error.usage}`)
+  lines.push(recoveryHint)
+  return `${lines.join('\n')}\n`
+}
+
 function parseCommandArguments(args) {
   const [command, ...rest] = args
+  if (!command || helpAliases.has(command)) {
+    if (rest.length) {
+      throw commandError(
+        `${command} does not accept arguments.`,
+        'markover help'
+      )
+    }
+    return { command: 'help' }
+  }
   if (!['open', 'get', 'edit'].includes(command)) {
-    throw new Error('Expected: markover <open|get|edit> ...')
+    throw commandError(
+      `Unknown command: ${command}`,
+      'markover <open|get|edit|help> ...'
+    )
   }
 
   if (command === 'get' || command === 'edit') {
     if (rest.length !== 1 || rest[0].startsWith('--')) {
-      throw new Error(`${command} requires exactly one review ID.`)
+      throw commandError(
+        `${command} requires exactly one review ID.`,
+        `markover ${command} <review-id>`
+      )
     }
     return { command, reviewId: rest[0] }
   }
@@ -50,7 +123,10 @@ function parseCommandArguments(args) {
     ) {
       const value = rest[index + 1]
       if (!value || value.startsWith('--')) {
-        throw new Error(`${argument} requires a value.`)
+        throw commandError(
+          `${argument} requires a value.`,
+          'markover open <markdown-path> --summary <text>'
+        )
       }
       if (argument === '--summary') contextSummary = value
       if (argument === '--branch') branch = value
@@ -62,36 +138,66 @@ function parseCommandArguments(args) {
           !Number.isSafeInteger(pullRequestNumber) ||
           pullRequestNumber < 1
         ) {
-          throw new Error('--pr requires a positive integer.')
+          throw commandError(
+            '--pr requires a positive integer.',
+            'markover open <markdown-path> --summary <text> --pr <number>'
+          )
         }
       }
       index += 1
       continue
     }
     if (argument.startsWith('--')) {
-      throw new Error(`Unknown option: ${argument}`)
+      throw commandError(
+        `Unknown option for open: ${argument}`,
+        'markover open <markdown-path> --summary <text>'
+      )
     }
-    if (sourcePath) throw new Error('open requires exactly one Markdown path.')
+    if (sourcePath) {
+      throw commandError(
+        'open requires exactly one Markdown path.',
+        'markover open <markdown-path> --summary <text>'
+      )
+    }
     sourcePath = argument
   }
 
-  if (!sourcePath) throw new Error('open requires a Markdown path.')
+  if (!sourcePath) {
+    throw commandError(
+      'open requires a Markdown path.',
+      'markover open <markdown-path> --summary <text>'
+    )
+  }
   if (!contextSummary?.trim()) {
-    throw new Error('open requires --summary <text>.')
+    throw commandError(
+      'open requires --summary <text>.',
+      'markover open <markdown-path> --summary <text>'
+    )
   }
   if (branch !== null) {
     branch = branch.trim()
-    if (!branch) throw new Error('--branch requires a non-empty value.')
+    if (!branch) {
+      throw commandError(
+        '--branch requires a non-empty value.',
+        'markover open <markdown-path> --summary <text> --branch <name>'
+      )
+    }
   }
   if (threadId !== null) {
     threadId = threadId.trim()
-    if (!threadId) throw new Error('--thread-id requires a non-empty value.')
+    if (!threadId) {
+      throw commandError(
+        '--thread-id requires a non-empty value.',
+        'markover open <markdown-path> --summary <text> --thread-id <id>'
+      )
+    }
   }
   if (handoffKey !== null) {
     handoffKey = handoffKey.trim()
     if (!HANDOFF_KEY_PATTERN.test(handoffKey)) {
-      throw new Error(
-        '--handoff-key must match mko_handoff_ followed by 16–64 letters or digits.'
+      throw commandError(
+        '--handoff-key must match mko_handoff_ followed by 16–64 letters or digits.',
+        'markover open <markdown-path> --summary <text> --handoff-key <key>'
       )
     }
   }
@@ -217,11 +323,22 @@ async function executeCommand(
     discoverMetadata = discoverReviewMetadata
   } = {}
 ) {
-  await ensure()
+  if (parsed.command === 'help') return helpPayload()
 
   if (parsed.command === 'open') {
     const sourcePath = path.resolve(parsed.sourcePath)
-    const stats = await fs.stat(sourcePath)
+    let stats
+    try {
+      stats = await fs.stat(sourcePath)
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw commandError(
+          `Markdown file does not exist: ${sourcePath}`,
+          'markover open <markdown-path> --summary <text>'
+        )
+      }
+      throw error
+    }
     if (!stats.isFile()) throw new Error(`Not a file: ${sourcePath}`)
     const source = await fs.readFile(sourcePath, 'utf8')
     const tree = parseMarkdown(source, checksum(source), {
@@ -235,6 +352,7 @@ async function executeCommand(
       threadId: parsed.threadId,
       handoffKey: parsed.handoffKey
     })
+    await ensure()
     return requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       metadata: {
@@ -244,6 +362,7 @@ async function executeCommand(
     })
   }
 
+  await ensure()
   const reviewId = encodeURIComponent(parsed.reviewId)
   if (parsed.command === 'get') {
     return requestJson(
@@ -261,7 +380,7 @@ async function main() {
     const result = await executeCommand(parsed)
     process.stdout.write(`${JSON.stringify(result)}\n`)
   } catch (error) {
-    process.stderr.write(`markover: ${error.message}\n`)
+    process.stderr.write(formatCommandError(error))
     process.exitCode = 1
   }
 }
@@ -274,6 +393,8 @@ module.exports = {
   defaultEndpointPath,
   ensureService,
   executeCommand,
+  formatCommandError,
+  helpPayload,
   parseCommandArguments,
   startDetachedApp
 }

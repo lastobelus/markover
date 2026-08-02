@@ -3,10 +3,12 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs/promises')
 const os = require('node:os')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 const {
   applicationLabel,
   ensureService,
   executeCommand,
+  helpPayload,
   parseCommandArguments
 } = require('../scripts/markover')
 const { startLocalService } = require('../src/local-service')
@@ -37,6 +39,41 @@ test('parses open, get, and edit commands', () => {
   assert.deepEqual(
     parseCommandArguments(['edit', 'mko_aaa11111']),
     { command: 'edit', reviewId: 'mko_aaa11111' }
+  )
+})
+
+test('help and info aliases return service-free machine-readable guidance', async () => {
+  for (const args of [[], ['help'], ['info'], ['--help'], ['-h']]) {
+    const parsed = parseCommandArguments(args)
+    assert.deepEqual(parsed, { command: 'help' })
+    let ensured = false
+    const result = await executeCommand(parsed, {
+      ensure: async () => { ensured = true }
+    })
+    assert.deepEqual(result, helpPayload())
+    assert.equal(ensured, false)
+  }
+})
+
+test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
+  const cliPath = path.resolve(__dirname, '../scripts/markover.js')
+  const help = spawnSync(process.execPath, [cliPath, 'help'], {
+    encoding: 'utf8'
+  })
+  assert.equal(help.status, 0)
+  assert.equal(help.stderr, '')
+  assert.deepEqual(JSON.parse(help.stdout), helpPayload())
+
+  const misuse = spawnSync(process.execPath, [cliPath, 'wat'], {
+    encoding: 'utf8'
+  })
+  assert.equal(misuse.status, 1)
+  assert.equal(misuse.stdout, '')
+  assert.match(misuse.stderr, /Unknown command: wat/)
+  assert.match(misuse.stderr, /Usage: markover <open\|get\|edit\|help>/)
+  assert.match(
+    misuse.stderr,
+    /Run "npm --silent run markover -- help" for complete usage\./
   )
 })
 
@@ -257,4 +294,27 @@ test('waits for internally started service without external polling', async (t) 
   })
 
   assert.ok(service)
+})
+
+test('open validates and reads the source before starting Markover', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-missing-source-test-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  let ensured = false
+  await assert.rejects(
+    executeCommand({
+      command: 'open',
+      sourcePath: path.join(directory, 'missing.md'),
+      contextSummary: 'Review the missing source.',
+      branch: null,
+      handoffKey: null,
+      pullRequestNumber: null,
+      threadId: null
+    }, {
+      ensure: async () => { ensured = true }
+    }),
+    /Markdown file does not exist/
+  )
+  assert.equal(ensured, false)
 })
