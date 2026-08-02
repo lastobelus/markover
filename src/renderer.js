@@ -5,6 +5,7 @@ const elements = {
   annotationInput: document.querySelector('#annotation-input'),
   annotationPane: document.querySelector('#annotation-pane'),
   annotationReadonly: document.querySelector('#annotation-readonly'),
+  annotationSneakPeek: document.querySelector('#annotation-sneak-peek'),
   annotationState: document.querySelector('#annotation-state'),
   attachmentList: document.querySelector('#attachment-list'),
   cancelReviewButton: document.querySelector('#cancel-review-button'),
@@ -232,6 +233,40 @@ function nodeDescriptor(node) {
   return node.language ? `<code:${node.language}>` : '<code>'
 }
 
+function createRenderedAnnotation(node, options = {}) {
+  return MarkoverAnnotationBlock.create(document, {
+    node,
+    context: {
+      descriptor: nodeDescriptor(node)
+    },
+    mode: options.mode,
+    onEdit: options.onEdit,
+    onSelect: options.onSelect,
+    renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
+  })
+}
+
+function hideAnnotationSneakPeek() {
+  elements.annotationSneakPeek.hidden = true
+  elements.annotationSneakPeek.replaceChildren()
+}
+
+function showAnnotationSneakPeek(node, marker) {
+  elements.annotationSneakPeek.replaceChildren(
+    createRenderedAnnotation(node, { mode: 'peek' })
+  )
+  elements.annotationSneakPeek.hidden = false
+  const anchor = marker.getBoundingClientRect()
+  const popover = elements.annotationSneakPeek.getBoundingClientRect()
+  const position = MarkoverAnnotationBlock.popoverPosition(
+    anchor,
+    popover,
+    { width: window.innerWidth, height: window.innerHeight }
+  )
+  elements.annotationSneakPeek.style.left = `${position.x}px`
+  elements.annotationSneakPeek.style.top = `${position.y}px`
+}
+
 function hasAttachments(node) {
   return Array.isArray(node.attachments) && node.attachments.length > 0
 }
@@ -439,7 +474,11 @@ function renderNode(entry, depth) {
   if (hasAnnotation(node)) {
     const dot = document.createElement('span')
     dot.className = 'annotation-dot'
-    dot.title = 'Annotated'
+    dot.title = 'Preview annotation'
+    MarkoverAnnotationBlock.bindSneakPeek(dot, node, {
+      show: showAnnotationSneakPeek,
+      hide: hideAnnotationSneakPeek
+    })
     row.append(dot)
   } else {
     row.append(document.createElement('span'))
@@ -506,6 +545,7 @@ function renderNode(entry, depth) {
 }
 
 function renderTree() {
+  hideAnnotationSneakPeek()
   elements.tree.replaceChildren()
   const projection = state.annotatedOnly
     ? MarkoverAnnotations.annotatedProjection(state.tree.root)
@@ -1829,8 +1869,12 @@ elements.documentsListResizer.addEventListener(
   beginDocumentsListResize
 )
 
-elements.tree.addEventListener('scroll', updatePinnedSelection)
+MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
+  hideAnnotationSneakPeek()
+  updatePinnedSelection()
+})
 window.addEventListener('resize', () => {
+  hideAnnotationSneakPeek()
   applyDocumentsListWidth()
   updatePinnedSelection()
 })

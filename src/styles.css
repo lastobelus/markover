@@ -901,6 +901,123 @@ p {
   border-radius: 999px;
   background: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+  cursor: help;
+}
+
+.annotation-sneak-peek {
+  position: fixed;
+  z-index: 90;
+  width: min(360px, calc(100vw - 20px));
+  max-height: min(320px, calc(100vh - 20px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--brand-orange);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 14px 34px rgb(109 33 31 / 16%);
+  pointer-events: none;
+}
+
+.rendered-annotation {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.rendered-annotation > header {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rendered-annotation-identity {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.rendered-annotation-identity strong {
+  color: var(--brand-orange);
+  font: 800 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.rendered-annotation-identity span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.rendered-annotation-excerpt {
+  overflow: hidden;
+  margin: 0;
+  padding: 7px 10px 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rendered-annotation-body {
+  padding: 9px 10px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.rendered-annotation-body.is-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.rendered-annotation-body > :first-child {
+  margin-top: 0;
+}
+
+.rendered-annotation-body > :last-child {
+  margin-bottom: 0;
+}
+
+.rendered-annotation-body p,
+.rendered-annotation-body ul,
+.rendered-annotation-body ol,
+.rendered-annotation-body pre,
+.rendered-annotation-body blockquote {
+  margin: 0 0 0.7em;
+}
+
+.rendered-annotation-body pre {
+  padding: 8px;
+  overflow: auto;
+  border-radius: 6px;
+  color: #f8f4ef;
+  background: var(--code);
+  font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.rendered-annotation-body code:not(pre code) {
+  padding: 1px 3px;
+  border-radius: 3px;
+  color: var(--brand-burgundy);
+  background: var(--brand-soft);
+}
+
+.rendered-annotation-attachments {
+  display: flex;
+  padding: 0 10px 10px;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.rendered-annotation-attachments span {
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  background: var(--paper);
+  font-size: 9px;
 }
 
 .descendant-annotation-dot {
