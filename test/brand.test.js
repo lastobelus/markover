@@ -58,8 +58,10 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   const main = read('src/main.js')
 
   for (const token of [
-    '--brand-orange: #c94e1f',
-    '--brand-burgundy: #6d211f',
+    '--markover-primary: #c94e1f',
+    '--markover-secondary: #6d211f',
+    '--brand-orange: var(--markover-primary)',
+    '--brand-burgundy: var(--markover-secondary)',
     '--ink: #26211e',
     '--muted: #756d67',
     '--paper: #eee8e0',
@@ -68,8 +70,17 @@ test('the application palette matches the brand brief at startup and in CSS', ()
     '--brand-soft: #f5e3da'
   ]) assert.match(styles, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 
+  for (const token of [
+    '--markover-primary: #075b7a',
+    '--markover-secondary: #02b7e3',
+    '--markover-primary: #4e5828',
+    '--markover-secondary: #b5d52a'
+  ]) assert.match(styles, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+
+  assert.match(styles, /:root\[data-appearance="dark"\]/)
+
   assert.match(styles, /@media \(max-width: 900px\)[\s\S]*\.brand-logotype \{\s*display: none;/)
-  assert.match(main, /backgroundColor: '#eee8e0'/)
+  assert.match(main, /backgroundColor: windowBackground\(/)
 })
 
 test('the working header aligns the brand and uses the primary action color', () => {

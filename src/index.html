@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markover</title>
+    <script>
+      const startupTheme = new URLSearchParams(window.location.search)
+      document.documentElement.dataset.palette = startupTheme.get('palette') || 'ember'
+      document.documentElement.dataset.appearance = startupTheme.get('appearance') || 'light'
+    </script>
     <link rel="stylesheet" href="styles.css">
     <script type="importmap">
       {
@@ -243,6 +248,81 @@
     </aside>
     <div id="annotation-sneak-peek" class="annotation-sneak-peek" hidden></div>
 
+    <dialog id="settings-dialog" class="settings-dialog">
+      <form id="settings-form" method="dialog">
+        <header class="settings-header">
+          <div>
+            <span class="eyebrow">Markover</span>
+            <h2>Settings</h2>
+          </div>
+          <button
+            id="settings-close"
+            class="settings-close"
+            type="button"
+            aria-label="Close settings"
+          >×</button>
+        </header>
+        <div class="settings-content">
+          <label class="settings-field">
+            <span><strong>Palette</strong><small>Choose the accent family used throughout Markover.</small></span>
+            <select name="palette">
+              <option value="ember">Ember</option>
+              <option value="ocean">Ocean</option>
+              <option value="olive">Olive</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span><strong>Appearance</strong><small>Follow macOS or choose a fixed light or dark appearance.</small></span>
+            <select name="appearance">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span><strong>Document tree density</strong><small>Adjust the vertical spacing between Markdown blocks.</small></span>
+            <select name="treeDensity">
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span><strong>Annotation text size</strong><small>Set the editing and rendered-feedback text size.</small></span>
+            <select name="annotationTextSize">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </label>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Show keyboard navigation help</strong><small>Keep the arrow-key reminder at the bottom of the document tree.</small></span>
+            <input name="showKeyboardHelp" type="checkbox" role="switch">
+          </label>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Open documents list on launch</strong><small>Start each app session with the projects and documents sidebar visible.</small></span>
+            <input name="openDocumentsSidebar" type="checkbox" role="switch">
+          </label>
+          <label class="settings-field">
+            <span><strong>Default document tree view</strong><small>Show every block or begin with only annotated blocks.</small></span>
+            <select name="defaultTreeView">
+              <option value="all">All blocks</option>
+              <option value="annotated">Annotated only</option>
+            </select>
+          </label>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Confirm screenshot removal</strong><small>Ask before removing an attached screenshot and its marker.</small></span>
+            <input name="confirmAttachmentRemoval" type="checkbox" role="switch">
+          </label>
+        </div>
+        <footer class="settings-footer">
+          <button id="settings-reset" class="button button-secondary" type="button">
+            Restore defaults
+          </button>
+          <button class="button button-primary" type="submit">Done</button>
+        </footer>
+      </form>
+    </dialog>
+
     <script src="../node_modules/markdown-it/dist/markdown-it.js"></script>
     <script src="tree.js"></script>
     <script src="annotations.js"></script>
@@ -250,6 +330,7 @@
     <script src="navigation.js"></script>
     <script src="review-sessions.js"></script>
     <script src="image-preview.js"></script>
+    <script src="settings.js"></script>
     <script src="vendor/pierre-diffs.js"></script>
     <script src="renderer.js"></script>
   </body>

@@ -23,6 +23,7 @@ const elements = {
   imagePreviewClose: document.querySelector('#image-preview-close'),
   imagePreviewContent: document.querySelector('#image-preview-content'),
   imagePreviewLabel: document.querySelector('#image-preview-label'),
+  keyboardHelp: document.querySelector('.keyboard-help'),
   name: document.querySelector('#document-name'),
   openButton: document.querySelector('#open-button'),
   parseStatus: document.querySelector('#parse-status'),
@@ -62,6 +63,10 @@ const elements = {
   documentsListSidebar: document.querySelector('#documents-list-sidebar'),
   documentsListTree: document.querySelector('#documents-list-tree'),
   reviewStateBanner: document.querySelector('#review-state-banner'),
+  settingsClose: document.querySelector('#settings-close'),
+  settingsDialog: document.querySelector('#settings-dialog'),
+  settingsForm: document.querySelector('#settings-form'),
+  settingsReset: document.querySelector('#settings-reset'),
   workspace: document.querySelector('#workspace')
 }
 
@@ -99,6 +104,8 @@ let documentsListDecorations = new Map()
 let documentsListProjectPaths = []
 let documentsListStatuses = new Map()
 let sourceDiffCleanup = null
+let preferences = MarkoverSettings.normalizeSettings()
+let resolvedAppearance = 'light'
 
 import('../node_modules/@pierre/trees/dist/index.js')
   .then(({ FileTree }) => {
@@ -122,9 +129,21 @@ const bridge = window.markover || {
   async openMarkdown() {
     return null
   },
+  onOpenMarkdownRequested() {},
   copyText(text) {
     navigator.clipboard.writeText(text)
   },
+  async getSettings() {
+    return { ...MarkoverSettings.DEFAULT_SETTINGS, resolvedAppearance: 'light' }
+  },
+  async updateSettings(patch) {
+    return {
+      ...MarkoverSettings.updateSettings(preferences, patch),
+      resolvedAppearance
+    }
+  },
+  onSettingsOpen() {},
+  onSettingsChanged() {},
   async saveAttachment(attachment) {
     state.fallbackAttachmentSequence += 1
     const id = `img-${state.fallbackAttachmentSequence}`
@@ -790,6 +809,13 @@ function renderAttachmentList(node) {
       removeButton.title = `Remove ${attachment.id}`
       removeButton.addEventListener('click', (event) => {
         if (event.ctrlKey) return
+        if (
+          !MarkoverSettings.confirmScreenshotRemoval(
+            preferences,
+            attachment.label || attachment.id,
+            window.confirm
+          )
+        ) return
         removeAttachment(node, attachment)
       })
       item.append(removeButton)
@@ -1414,12 +1440,12 @@ function renderDocumentsList() {
       unsafeCSS: `
         :host {
           --trees-bg-override: transparent;
-          --trees-bg-muted-override: rgb(201 78 31 / 7%);
+          --trees-bg-muted-override: rgb(var(--accent-rgb) / 9%);
           --trees-border-color-override: transparent;
-          --trees-fg-override: #756d67;
-          --trees-fg-muted-override: #756d67;
-          --trees-selected-bg-override: #fffdf9;
-          --trees-selected-fg-override: #26211e;
+          --trees-fg-override: var(--muted);
+          --trees-fg-muted-override: var(--muted);
+          --trees-selected-bg-override: var(--surface);
+          --trees-selected-fg-override: var(--ink);
           --trees-selected-focused-border-color-override: transparent;
           --trees-font-family-override: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           --trees-font-size-override: 10.5px;
@@ -1450,7 +1476,7 @@ function renderDocumentsList() {
         }
         [data-item-section='decoration'] {
           flex: 0 0 auto;
-          color: #756d67;
+          color: var(--muted);
           font-size: 9px;
           white-space: nowrap;
         }
@@ -1458,7 +1484,7 @@ function renderDocumentsList() {
           cursor: help;
         }
         button[data-item-type='folder'] {
-          color: #26211e;
+          color: var(--ink);
           font-size: 11.5px;
         }
       `
@@ -1512,6 +1538,50 @@ function setDocumentsListCollapsed(collapsed) {
     String(!collapsed)
   )
 }
+
+function applySettings(next, options = {}) {
+  const previous = preferences
+  const applied = MarkoverSettings.applySettingsToView(next, {
+    root: document.documentElement,
+    keyboardHelp: elements.keyboardHelp,
+    form: elements.settingsForm
+  })
+  preferences = applied.preferences
+  resolvedAppearance = applied.appearance
+
+  if (MarkoverSettings.sidebarPreferenceChanged(
+    previous,
+    preferences,
+    options.initial
+  )) {
+    setDocumentsListCollapsed(!preferences.openDocumentsSidebar)
+  }
+}
+
+function openSettings() {
+  MarkoverSettings.applySettingsToView(
+    { ...preferences, resolvedAppearance },
+    {
+      root: document.documentElement,
+      keyboardHelp: elements.keyboardHelp,
+      form: elements.settingsForm
+    }
+  )
+  if (!elements.settingsDialog.open) elements.settingsDialog.showModal()
+  elements.settingsForm.elements.namedItem('palette').focus()
+}
+
+elements.settingsClose.addEventListener('click', () => {
+  elements.settingsDialog.close()
+})
+elements.settingsReset.addEventListener('click', async () => {
+  applySettings(await bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS))
+})
+elements.settingsForm.addEventListener('change', async (event) => {
+  const control = event.target
+  const value = control.type === 'checkbox' ? control.checked : control.value
+  applySettings(await bridge.updateSettings({ [control.name]: value }))
+})
 
 function focusedPane() {
   const active = document.activeElement
@@ -1729,7 +1799,17 @@ function activateReview(reviewId) {
 }
 
 function addManagedReview(documentData, activate = true) {
+  const existed = Boolean(reviewSessions.get(documentData.reviewId))
   const session = reviewSessions.add(documentData)
+  if (!existed) {
+    const normalized = MarkoverAnnotations.normalizeFilter(
+      session.tree.root,
+      session.selectedId,
+      preferences.defaultTreeView === 'annotated'
+    )
+    session.annotatedOnly = normalized.enabled
+    session.selectedId = normalized.selectedId
+  }
   if (activate) activateReview(session.reviewId)
   else renderDocumentTabs()
   return session
@@ -1765,7 +1845,13 @@ async function loadDocument(documentData) {
   )
   state.reviewId = documentData.reviewId || state.tree.review?.id || null
   state.selectedId = state.tree.root.children[0]?.id || null
-  state.annotatedOnly = false
+  const normalizedFilter = MarkoverAnnotations.normalizeFilter(
+    state.tree.root,
+    state.selectedId,
+    preferences.defaultTreeView === 'annotated'
+  )
+  state.annotatedOnly = normalizedFilter.enabled
+  state.selectedId = normalizedFilter.selectedId
   state.annotationView = 'selected'
   state.sourceCollapsed = false
   state.sourceDrafts = new Map()
@@ -2038,6 +2124,8 @@ document.addEventListener('keydown', (event) => {
     document.body.classList.add('is-control-pressed')
   }
 
+  if (elements.settingsDialog.open) return
+
   if (event.key === 'Escape' && !elements.imagePreview.hidden) {
     closeImagePreview()
     return
@@ -2124,6 +2212,11 @@ elements.previewPane.addEventListener('focus', () => {
 })
 
 async function initialize() {
+  bridge.onOpenMarkdownRequested(() => openMarkdownDocument())
+  bridge.onSettingsOpen(openSettings)
+  bridge.onSettingsChanged((settings) => applySettings(settings))
+  applySettings(await bridge.getSettings(), { initial: true })
+
   bridge.onReviewOpened(async (reviewDocument) => {
     configureManagedMode()
     await loadDocument(reviewDocument)
@@ -2205,5 +2298,4 @@ async function initialize() {
 }
 
 applyDocumentsListWidth()
-setDocumentsListCollapsed(false)
 initialize()

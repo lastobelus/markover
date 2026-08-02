@@ -4,14 +4,22 @@ const {
   clipboard,
   dialog,
   ipcMain,
-  nativeImage
+  Menu,
+  nativeImage,
+  nativeTheme
 } = require('electron')
 const crypto = require('node:crypto')
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const { applicationMenuTemplate } = require('./app-menu')
 const { startLocalService } = require('./local-service')
 const { discoverRepositoryRoot } = require('./metadata-discovery')
 const { ReviewStore } = require('./review-store')
+const { SettingsStore } = require('./settings-store')
+const { DEFAULT_SETTINGS, windowBackground } = require('./settings')
+
+app.setName('Markover')
+process.title = 'Markover'
 
 function argumentValue(option) {
   const index = process.argv.indexOf(option)
@@ -36,6 +44,8 @@ let mainWindow = null
 let activeManagedReview = null
 let activeManagedReviewId = null
 let localService = null
+let settingsStore = null
+let settingsUnsubscribe = null
 let pendingAutosave = null
 let autosaveWriter = null
 let snapshotSequence = 0
@@ -43,6 +53,46 @@ let statusSequence = 0
 const pendingSnapshots = new Map()
 const pendingStatuses = new Map()
 const projectRoots = new Map()
+
+function settingsEnvelope(settings) {
+  return {
+    ...settings,
+    resolvedAppearance: nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  }
+}
+
+function applyMainSettings(settings, broadcast = true) {
+  nativeTheme.themeSource = settings.appearance
+  const envelope = settingsEnvelope(settings)
+  mainWindow?.setBackgroundColor(
+    windowBackground(settings, envelope.resolvedAppearance)
+  )
+  if (broadcast) mainWindow?.webContents.send('settings:changed', envelope)
+  return envelope
+}
+
+function sendRendererEvent(channel, value) {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+  const send = () => mainWindow?.webContents.send(channel, value)
+  if (mainWindow.webContents.isLoadingMainFrame()) {
+    mainWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+function installApplicationMenu() {
+  const template = applicationMenuTemplate({
+    appName: 'Markover',
+    reviewMode,
+    onOpen: () => sendRendererEvent('document:open-request'),
+    onSettings: () => sendRendererEvent('settings:open')
+  })
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
 
 function checksum(source) {
   return `sha256:${crypto.createHash('sha256').update(source, 'utf8').digest('hex')}`
@@ -253,12 +303,18 @@ async function openMarkdown() {
 }
 
 function createWindow() {
+  const startupSettings = settingsEnvelope(
+    settingsStore?.settings || DEFAULT_SETTINGS
+  )
   mainWindow = new BrowserWindow({
     width: 1180,
     height: 760,
     minWidth: 760,
     minHeight: 520,
-    backgroundColor: '#eee8e0',
+    backgroundColor: windowBackground(
+      startupSettings,
+      startupSettings.resolvedAppearance
+    ),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -267,7 +323,12 @@ function createWindow() {
     }
   })
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'))
+  mainWindow.loadFile(path.join(__dirname, 'index.html'), {
+    query: {
+      palette: startupSettings.palette,
+      appearance: startupSettings.resolvedAppearance
+    }
+  })
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.setTitle(reviewMode ? 'Markover Review' : 'Markover Inbox')
   })
@@ -419,10 +480,25 @@ if (!hasSingleInstanceLock) {
   app.whenReady().then(async () => {
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
 
+    settingsStore = new SettingsStore(
+      path.join(app.getPath('userData'), 'settings.json')
+    )
+    const initialSettings = await settingsStore.load()
+    nativeTheme.themeSource = initialSettings.appearance
+    settingsUnsubscribe = await settingsStore.subscribe((settings) => {
+      applyMainSettings(settings)
+    })
+    installApplicationMenu()
+
     ipcMain.handle('document:open', openMarkdown)
     ipcMain.handle('document:checksum', (_event, source) => checksum(source))
     ipcMain.handle('attachment:save', saveAttachment)
     ipcMain.handle('clipboard:read-image', readClipboardImage)
+    ipcMain.handle('settings:get', () => settingsEnvelope(settingsStore.settings))
+    ipcMain.handle('settings:update', async (_event, patch) => {
+      const settings = await settingsStore.update(patch)
+      return applyMainSettings(settings)
+    })
     ipcMain.handle('review:initial-document', () => (
       reviewMode
         ? reviewDocumentPromise
@@ -488,6 +564,14 @@ if (!hasSingleInstanceLock) {
 
     createWindow()
 
+    nativeTheme.on('updated', () => {
+      const envelope = settingsEnvelope(settingsStore.settings)
+      mainWindow?.setBackgroundColor(
+        windowBackground(settingsStore.settings, envelope.resolvedAppearance)
+      )
+      mainWindow?.webContents.send('settings:changed', envelope)
+    })
+
     if (!reviewMode) {
       localService = await startLocalService({
         store: reviewStore,
@@ -513,6 +597,7 @@ if (!hasSingleInstanceLock) {
   })
 
   app.on('before-quit', () => {
+    settingsUnsubscribe?.()
     if (localService) localService.close().catch(() => {})
     removeOwnEndpoint()
   })
