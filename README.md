@@ -1,4 +1,14 @@
-# Markover
+<p align="center">
+  <img src="./design/brand/markover-lockup.svg" width="560" alt="Markover">
+</p>
+
+<p align="center"><strong>Structured Markdown review for agent threads.</strong></p>
+
+<p align="center">
+  <a href="https://lastobelus.github.io/markover/">Website</a>
+  ·
+  <a href="https://lastobelus.github.io/markover/guide/">Documentation</a>
+</p>
 
 Markover is a deliberately small Electron prototype for reviewing Markdown as a
 tree and attaching feedback to individual blocks.

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#eee8e0">
+    <meta name="description" content="Markover is a structured Markdown review tool for precise feedback and agent handoffs.">
+    <title>Markover — Structured Markdown review</title>
+    <link rel="icon" href="./assets/markover-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-brand" href="./" aria-label="Markover home">
+        <img class="brand-mark" src="./assets/markover-mark.svg" alt="">
+        <img class="brand-logotype" src="./assets/markover-logotype.svg" alt="Markover">
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="./guide/">Docs</a>
+        <a href="https://github.com/lastobelus/markover">GitHub</a>
+        <a class="button button-small button-deep" href="./guide/#run">Get started</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Markdown review, made structural</p>
+          <h1>Mark up the document.<br>Hand back the decisions.</h1>
+          <p class="hero-summary">Review Markdown as a navigable tree, attach precise feedback to individual blocks, and return one structured handoff to your agent.</p>
+          <div class="hero-actions">
+            <a class="button button-deep" href="./guide/">Read the guide</a>
+            <a class="button button-outline" href="https://github.com/lastobelus/markover">View on GitHub</a>
+          </div>
+        </div>
+
+        <a class="product-preview-trigger" href="./assets/markover-app.png" aria-haspopup="dialog" aria-controls="product-preview">
+          <div class="product-frame" aria-hidden="true">
+            <div class="window-titlebar"><span></span><span></span><span></span></div>
+            <div class="product-toolbar">
+              <img src="./assets/markover-mark.svg" alt="">
+              <div class="document-identity"><strong>proposal.md</strong><span>mko_8f3a2c · editing</span></div>
+              <span class="mock-action">Copy feedback</span>
+            </div>
+            <div class="product-workspace">
+              <div class="tree-preview">
+                <p class="pane-label">Document tree</p>
+                <div class="tree-row selected"><i></i><span></span></div>
+                <div class="tree-row"><i></i><span></span></div>
+                <div class="tree-row nested"><i></i><span></span></div>
+                <div class="tree-row nested short"><i></i><span></span></div>
+                <div class="tree-row"><i></i><span></span></div>
+              </div>
+              <div class="feedback-preview">
+                <p class="pane-label">Selected block</p>
+                <div class="source-line"></div>
+                <div class="feedback-box"><span>Clarify this decision before implementation.</span></div>
+                <div class="annotation-state"><b></b> Annotated</div>
+              </div>
+            </div>
+          </div>
+          <span class="preview-invitation">Open real screenshot <span aria-hidden="true">↗</span></span>
+          <span class="visually-hidden">Open a larger screenshot of the real Markover application</span>
+        </a>
+      </section>
+
+      <section class="feature-grid" aria-label="What Markover does">
+        <article>
+          <span class="feature-number">01</span>
+          <h2>Navigate structure</h2>
+          <p>Move through headings, lists, paragraphs, code, tables and block quotes as a deterministic tree.</p>
+        </article>
+        <article>
+          <span class="feature-number">02</span>
+          <h2>Annotate precisely</h2>
+          <p>Attach feedback and screenshots to the exact Markdown block that needs attention.</p>
+        </article>
+        <article>
+          <span class="feature-number">03</span>
+          <h2>Return one handoff</h2>
+          <p>Send a complete, durable review back to the agent without flattening the document’s structure.</p>
+        </article>
+      </section>
+
+      <section class="workflow">
+        <div>
+          <p class="eyebrow">Agent-friendly by design</p>
+          <h2>A review has a clear owner.</h2>
+        </div>
+        <ol>
+          <li><span>Agent</span> opens a Markdown document for review.</li>
+          <li><span>Reviewer</span> navigates, annotates and attaches evidence.</li>
+          <li><span>Agent</span> retrieves one frozen structured handoff.</li>
+        </ol>
+      </section>
+    </main>
+
+    <dialog id="product-preview" class="product-dialog" aria-labelledby="product-preview-title">
+      <div class="product-dialog-header">
+        <div>
+          <p class="eyebrow">Real application</p>
+          <h2 id="product-preview-title">Markover in review</h2>
+        </div>
+        <button class="dialog-close" type="button" aria-label="Close screenshot preview">Close</button>
+      </div>
+      <figure>
+        <img src="./assets/markover-app.png" width="1180" height="760" alt="The Markover desktop app showing a Markdown document tree and its annotation list side by side.">
+        <figcaption>Current Markover inbox with a structured design brief and two annotations.</figcaption>
+      </figure>
+    </dialog>
+
+    <footer class="site-footer">
+      <a class="footer-brand" href="./" aria-label="Markover home"><img src="./assets/markover-mark.svg" alt=""><span>Markover</span></a>
+      <p>Structured review for Markdown.</p>
+      <a href="https://github.com/lastobelus/markover">Source on GitHub</a>
+    </footer>
+    <script src="./site.js"></script>
+  </body>
+</html>
