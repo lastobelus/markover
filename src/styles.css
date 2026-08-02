@@ -1312,11 +1312,11 @@ kbd {
 
 .annotation-list .rendered-annotation.is-selected {
   background: var(--brand-soft);
-  box-shadow: inset 3px 0 0 var(--brand-orange);
+  box-shadow: inset -3px 0 0 var(--brand-orange);
 }
 
 .annotation-list-view:focus .rendered-annotation.is-selected {
-  box-shadow: inset 4px 0 0 var(--brand-orange);
+  box-shadow: inset -4px 0 0 var(--brand-orange);
 }
 
 .rendered-annotation-edit {

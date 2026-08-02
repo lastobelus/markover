@@ -1594,7 +1594,9 @@ function createDocumentTab(session) {
   button.role = 'tab'
   button.ariaSelected = String(session.reviewId === state.reviewId)
   button.tabIndex = session.reviewId === state.reviewId ? 0 : -1
-  button.title = `${session.documentName} · ${session.reviewId}`
+  if (session.reviewId !== state.reviewId) {
+    button.title = `${session.documentName}\n${session.checksum}`
+  }
 
   const name = document.createElement('span')
   name.className = 'document-tab-name'
