@@ -255,6 +255,7 @@ function createRenderedAnnotation(node, options = {}) {
     onAttachment: options.mode === 'peek' ? null : openImagePreview,
     onEdit: options.onEdit,
     onSelect: options.onSelect,
+    renderTitle: (title) => inlineMarkdown.renderInline(title),
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
   })
 }
@@ -959,6 +960,7 @@ function renderAnnotationList() {
     onInlineImage: openSourceImagePreview,
     onSelect: selectAnnotationFromList,
     onEdit: isCurrentReviewEditable() ? editAnnotationFromList : null,
+    renderTitle: (title) => inlineMarkdown.renderInline(title),
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
   })
   elements.annotationList.replaceChildren(...list.childNodes)

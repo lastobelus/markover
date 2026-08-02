@@ -219,7 +219,7 @@ p {
   display: flex;
   min-height: 30px;
   padding: 0 14px;
-  gap: 4px;
+  gap: 0;
   align-items: end;
   overflow: visible;
   border-top: 1px solid var(--line);
@@ -231,10 +231,11 @@ p {
   display: flex;
   flex: 1 1 0;
   min-width: 0;
-  max-width: 248px;
+  max-width: 320px;
   height: 30px;
   padding: 0 8px;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   border: 0;
   border-top: 3px solid transparent;
@@ -242,6 +243,10 @@ p {
   background: transparent;
   cursor: pointer;
   font-size: 10px;
+}
+
+.document-tab + .document-tab {
+  border-left: 1px solid var(--surface);
 }
 
 .document-tab:hover {
@@ -256,9 +261,10 @@ p {
 }
 
 .document-tab-name {
-  max-width: 190px;
+  max-width: calc(100% - 58px);
   overflow: hidden;
-  font-weight: 500;
+  flex: 0 1 auto;
+  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -956,7 +962,7 @@ p {
   min-width: 0;
   overflow: hidden;
   color: var(--brand-orange);
-  font-size: 8.5px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -1024,8 +1030,9 @@ p {
 }
 
 .rendered-annotation-overflow {
-  height: 1.45em;
+  height: 1.1em;
   color: var(--brand-orange);
+  font-size: 15px;
   font-weight: 800;
   line-height: 1.1;
 }
@@ -1076,6 +1083,16 @@ button.rendered-annotation-attachment {
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rendered-annotation--list .rendered-annotation-attachment {
+  width: 52px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.rendered-annotation--list .rendered-annotation-attachment span {
+  display: none;
 }
 
 .descendant-annotation-dot {
@@ -1247,19 +1264,19 @@ kbd {
   place-items: center;
   padding: 0;
   flex: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--brand-orange);
   border-radius: 5px;
-  color: var(--brand-burgundy);
-  background: var(--surface);
+  color: white;
+  background: var(--brand-orange);
   cursor: pointer;
   font-size: 13px;
 }
 
 .rendered-annotation-edit:hover,
 .rendered-annotation-edit:active {
-  border-color: var(--brand-orange);
+  border-color: var(--brand-burgundy);
   color: white;
-  background: var(--brand-orange);
+  background: var(--brand-burgundy);
 }
 
 .annotation-list-empty {

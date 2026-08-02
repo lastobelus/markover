@@ -46,7 +46,8 @@
     identity.className = 'rendered-annotation-identity'
 
     const descriptor = document.createElement('strong')
-    descriptor.textContent = view.sourceTitle
+    if (options.renderTitle) descriptor.innerHTML = options.renderTitle(view.sourceTitle)
+    else descriptor.textContent = view.sourceTitle
     identity.append(descriptor)
 
     const location = document.createElement('span')
@@ -172,6 +173,7 @@
         onInlineImage: options.onInlineImage,
         onSelect: options.onSelect,
         onEdit: options.onEdit,
+        renderTitle: options.renderTitle,
         renderMarkdown: options.renderMarkdown
       })
       block.classList.toggle('is-selected', node.id === options.selectedId)

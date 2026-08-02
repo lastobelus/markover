@@ -1,5 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
 const { JSDOM } = require('jsdom')
 const {
   bindDismiss,
@@ -11,6 +13,8 @@ const {
   popoverPosition,
   updateTruncation
 } = require('../src/annotation-block')
+
+const styles = fs.readFileSync(path.join(__dirname, '../src/styles.css'), 'utf8')
 
 test('builds one annotation view model for previews and list entries', () => {
   assert.deepEqual(model({
@@ -72,6 +76,7 @@ test('the shared component renders Markdown feedback with concise source context
     context: { descriptor: '<p>' },
     mode: 'peek',
     attachmentUrl: (attachment) => `file:///tmp/${attachment.id}.png`,
+    renderTitle: (title) => `<em>${title}</em>`,
     renderMarkdown: (value) => {
       renderedValues.push(value)
       return '<p><strong>Actual feedback</strong></p>'
@@ -80,6 +85,7 @@ test('the shared component renders Markdown feedback with concise source context
 
   assert.deepEqual(renderedValues, ['**Actual feedback**'])
   assert.equal(block.classList.contains('rendered-annotation--peek'), true)
+  assert.equal(block.querySelector('.rendered-annotation-identity em').textContent, 'Source context only')
   assert.equal(block.querySelector('.rendered-annotation-content strong').textContent, 'Actual feedback')
   assert.equal(block.querySelector('.rendered-annotation-identity strong').textContent, 'Source context only')
   assert.equal(block.querySelector('.rendered-annotation-attachment img').src, 'file:///tmp/img-1.png')
@@ -230,4 +236,12 @@ test('annotation list truncation indicators reflect measured content overflow', 
   Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 100 })
   updateTruncation(list)
   assert.equal(overflow.hidden, true)
+})
+
+test('annotation list cards use scannable titles, compact thumbnails, and primary edit actions', () => {
+  assert.match(styles, /\.rendered-annotation-identity strong \{[^}]*font-size: 14px;/)
+  assert.match(styles, /\.rendered-annotation-overflow \{[^}]*font-size: 15px;/)
+  assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment \{[^}]*padding: 0;/)
+  assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment span \{[^}]*display: none;/)
+  assert.match(styles, /\.rendered-annotation-edit \{[^}]*color: white;[^}]*background: var\(--brand-orange\);/)
 })
