@@ -156,7 +156,10 @@
     <div id="toast" class="toast" aria-hidden="true"></div>
     <div id="image-preview" class="image-preview" hidden>
       <button id="image-preview-close" class="image-preview-close" type="button">×</button>
-      <img id="image-preview-content" alt="Pasted screenshot preview">
+      <div class="image-preview-frame">
+        <img id="image-preview-content" alt="Pasted screenshot preview">
+        <span id="image-preview-label" class="image-preview-label"></span>
+      </div>
     </div>
     <aside id="review-context-drawer" class="review-context-drawer" hidden>
       <header>
@@ -179,6 +182,7 @@
     <script src="tree.js"></script>
     <script src="navigation.js"></script>
     <script src="review-sessions.js"></script>
+    <script src="image-preview.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

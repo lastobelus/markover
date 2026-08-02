@@ -43,6 +43,7 @@ const elements = {
   imagePreview: document.querySelector('#image-preview'),
   imagePreviewClose: document.querySelector('#image-preview-close'),
   imagePreviewContent: document.querySelector('#image-preview-content'),
+  imagePreviewLabel: document.querySelector('#image-preview-label'),
   name: document.querySelector('#document-name'),
   openButton: document.querySelector('#open-button'),
   parseStatus: document.querySelector('#parse-status'),
@@ -542,8 +543,10 @@ function openImagePreview(attachment) {
     showToast('Preview unavailable in this session')
     return
   }
+  const label = MarkoverImagePreview.labelFor(attachment)
   elements.imagePreviewContent.src = previewUrl
-  elements.imagePreviewContent.alt = attachment.label || attachment.id
+  elements.imagePreviewContent.alt = label
+  elements.imagePreviewLabel.textContent = label
   elements.imagePreview.hidden = false
 }
 
@@ -561,6 +564,7 @@ function attachmentPreviewUrl(attachment) {
 function closeImagePreview() {
   elements.imagePreview.hidden = true
   elements.imagePreviewContent.removeAttribute('src')
+  elements.imagePreviewLabel.textContent = ''
 }
 
 function removeAttachment(node, attachment) {
