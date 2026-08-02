@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markover — Brand usage mockups</title>
+    <style>
+      :root {
+        --orange: #c94e1f;
+        --burgundy: #6d211f;
+        --ink: #26211e;
+        --muted: #756d67;
+        --paper: #eee8e0;
+        --surface: #fffdf9;
+        --line: #ddd5cc;
+        --soft: #f5e3da;
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      button { font: inherit; }
+      img { display: block; }
+
+      .board { width: min(1480px, 100%); margin: 0 auto; padding: 64px 56px 90px; }
+      .board-header { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 48px; margin-bottom: 42px; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { margin-top: 10px; font-size: 64px; line-height: .98; letter-spacing: -.05em; }
+      .intro { max-width: 650px; margin-top: 16px; color: var(--muted); font-size: 18px; line-height: 1.5; }
+      .kicker, .label, .eyebrow { color: var(--orange); font: 750 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
+      .palette { display: flex; gap: 9px; align-items: center; color: var(--muted); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .swatch { width: 38px; height: 38px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 8%); }
+      .swatch.orange { background: var(--orange); }
+      .swatch.burgundy { margin-left: 8px; background: var(--burgundy); }
+
+      .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 22px; }
+      .specimen { overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 12px 40px rgb(72 44 34 / 7%); }
+      .specimen-head { display: flex; align-items: center; justify-content: space-between; padding: 17px 20px; border-bottom: 1px solid var(--line); }
+      .note { color: var(--muted); font-size: 12px; }
+      .icons { grid-column: span 4; }
+      .readme { grid-column: span 8; }
+      .pages { grid-column: span 8; }
+      .docs { grid-column: 1 / -1; }
+      .desktop { grid-column: 1 / -1; }
+
+      .icons-stage { min-height: 375px; display: grid; place-items: center; padding: 32px; background: radial-gradient(circle at 20% 14%, rgb(201 78 31 / 13%), transparent 36%), #f7f2eb; }
+      .icon-row { display: flex; align-items: end; gap: 18px; }
+      .app-icon-wrap { text-align: center; }
+      .app-icon { width: 148px; height: 148px; display: grid; place-items: center; padding: 31px 24px; border-radius: 34px; background: #fffaf4; box-shadow: inset 0 0 0 1px rgb(109 33 31 / 11%), 0 22px 38px rgb(75 42 33 / 18%), 0 2px 5px rgb(75 42 33 / 12%); }
+      .app-icon img { width: 100%; }
+      .size { display: block; margin-top: 14px; color: var(--muted); font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .favicons { display: flex; align-items: end; gap: 9px; padding-bottom: 24px; }
+      .favicon { display: grid; place-items: center; border: 1px solid #d9d0c7; border-radius: 7px; background: white; box-shadow: 0 5px 12px rgb(75 42 33 / 10%); }
+      .favicon img { width: 100%; }
+      .f32 { width: 48px; height: 48px; padding: 9px 7px; }
+      .f16 { width: 30px; height: 30px; padding: 6px 5px; border-radius: 5px; }
+
+      .readme-stage { padding: 38px; background: #f6f8fa; }
+      .github { overflow: hidden; border: 1px solid #d0d7de; border-radius: 10px; background: white; box-shadow: 0 12px 24px rgb(31 35 40 / 8%); }
+      .github-bar { height: 40px; border-bottom: 1px solid #d0d7de; background: #f6f8fa; }
+      .github-body { padding: 42px 54px 46px; text-align: center; }
+      .github-body img { width: min(500px, 88%); margin: 0 auto; }
+      .github-body p { margin: 22px auto 19px; color: #57606a; font-size: 16px; }
+      .badges { display: flex; justify-content: center; gap: 7px; }
+      .badge { padding: 5px 9px; border: 1px solid #afb8c1; border-radius: 999px; color: #57606a; background: #f6f8fa; font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      .hero-stage { min-height: 510px; background: #fbf7f1; }
+      .site-nav { display: flex; align-items: center; justify-content: space-between; padding: 21px 28px; border-bottom: 1px solid var(--line); }
+      .nav-brand { display: flex; align-items: center; gap: 9px; }
+      .nav-brand .mark { width: 32px; }
+      .nav-brand .word { width: 128px; }
+      .nav-links { display: flex; align-items: center; gap: 22px; color: #5e554f; font-size: 13px; }
+      .nav-cta { padding: 9px 12px; border-radius: 8px; color: white; background: var(--burgundy); }
+      .hero-body { display: grid; grid-template-columns: 1.08fr .92fr; align-items: center; gap: 32px; padding: 54px 40px 60px; }
+      .hero-copy h2 { max-width: 560px; margin-top: 12px; font-size: 44px; line-height: .99; letter-spacing: -.045em; }
+      .hero-copy p { max-width: 510px; margin-top: 19px; color: var(--muted); font-size: 15px; line-height: 1.55; }
+      .hero-actions { display: flex; gap: 9px; margin-top: 25px; }
+      .hero-actions button { padding: 10px 15px; border-radius: 9px; border: 1px solid var(--burgundy); font-weight: 700; }
+      .hero-actions .primary { color: white; background: var(--burgundy); }
+      .hero-actions .secondary { color: var(--burgundy); background: transparent; }
+      .mini-app { overflow: hidden; border: 1px solid #d4ccc3; border-radius: 13px; background: white; box-shadow: 0 22px 45px rgb(79 50 39 / 15%); }
+      .mini-titlebar { height: 25px; background: #ece7e0; }
+      .mini-body { display: grid; grid-template-columns: 1fr .82fr; min-height: 210px; }
+      .mini-tree { padding: 21px 18px; border-right: 1px solid #ded8cf; }
+      .line { height: 9px; margin-bottom: 13px; border-radius: 999px; background: #d8d1ca; }
+      .line.accent { width: 86%; background: var(--orange); opacity: .78; }
+      .line.short { width: 61%; }
+      .line.indent { width: 72%; margin-left: 14%; }
+      .mini-note { padding: 22px 17px; background: #fffaf5; }
+      .note-area { height: 88px; margin-top: 16px; border: 1px solid #ded8cf; border-radius: 8px; background: white; }
+
+      .docs-comparison { display: grid; grid-template-columns: .8fr 1.2fr; gap: 22px; padding: 30px; background: #f3eee7; }
+      .docs-window { min-height: 440px; display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: white; box-shadow: 0 12px 28px rgb(75 42 33 / 8%); }
+      .docs-window.collapsed { grid-template-columns: 92px 1fr; }
+      .docs-window.expanded { grid-template-columns: 270px 1fr; }
+      .docs-rail { padding: 23px 17px; border-right: 1px solid var(--line); background: #fbf8f4; }
+      .docs-rail > img { width: 41px; margin: 0 auto 40px; }
+      .docs-expanded-brand { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+      .docs-expanded-brand .brand-row { display: flex; align-items: center; gap: 9px; }
+      .docs-expanded-brand .mark { width: 38px; }
+      .docs-expanded-brand .word { width: 127px; }
+      .docs-expanded-brand p { margin: 8px 0 0 47px; color: var(--muted); font-size: 10px; }
+      .toc { margin-top: 24px; }
+      .toc-item { margin-bottom: 10px; padding: 7px 9px; border-radius: 7px; color: var(--muted); font-size: 12px; }
+      .toc-item.active { color: var(--burgundy); background: var(--soft); font-weight: 750; }
+      .rail-dot { width: 27px; height: 8px; margin: 0 auto 17px; border-radius: 99px; background: #d8d0c8; }
+      .rail-dot.active { background: var(--orange); }
+      .docs-copy { padding: 41px 31px; }
+      .docs-copy h3 { margin: 12px 0 17px; font-size: 29px; letter-spacing: -.03em; }
+      .docs-copy p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+      .code { margin-top: 23px; padding: 16px; border-radius: 10px; color: #f8f4ef; background: #2c2927; font: 11px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+      .rule { height: 1px; margin: 24px 0; background: var(--line); }
+
+      .desktop-stage { padding: 34px; background: #e9e4dc; }
+      .app-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+      .app-variant { min-width: 0; }
+      .variant-caption { margin: 0 0 9px 3px; color: var(--muted); font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; text-transform: uppercase; }
+      .window { overflow: hidden; border: 1px solid #d0c8bd; border-radius: 14px; background: #f4f1ea; box-shadow: 0 28px 55px rgb(67 49 39 / 19%); }
+      .titlebar { height: 29px; background: #e1ddd6; }
+      .app-header { min-height: 84px; padding: 18px 22px 14px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+      .app-brand { display: flex; align-items: center; gap: 12px; }
+      .app-brand .mark { width: 42px; }
+      .app-brand .small-word { width: auto; height: 19px; }
+      .document-actions { display: flex; align-items: center; gap: 8px; }
+      .document-meta { margin-right: 7px; text-align: right; }
+      .document-meta strong { display: block; font-size: 12px; }
+      .document-meta span { color: var(--muted); font: 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .app-button { padding: 9px 12px; border: 1px solid #d8d0c7; border-radius: 8px; color: #5c554f; background: #fffdfa; font-size: 11px; font-weight: 700; }
+      .app-button.primary { border-color: var(--orange); color: white; background: var(--orange); }
+      .workspace { display: grid; grid-template-columns: 1.2fr .8fr; min-height: 270px; border-top: 1px solid var(--line); }
+      .workspace > div { padding: 27px; }
+      .workspace > div + div { border-left: 1px solid var(--line); background: #fffdfa; }
+      .workspace .active-row { width: 78%; background: var(--soft); box-shadow: inset 4px 0 var(--orange); }
+      .empty-example { margin-top: 24px; }
+      .empty-window { overflow: hidden; border: 1px solid #d0c8bd; border-radius: 14px; background: #f4f1ea; box-shadow: 0 20px 40px rgb(67 49 39 / 13%); }
+      .empty-header { min-height: 62px; display: flex; align-items: center; justify-content: flex-end; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+      .empty-state { min-height: 230px; display: grid; place-items: center; text-align: center; background: radial-gradient(circle at center, rgb(201 78 31 / 8%), transparent 45%); }
+      .empty-state img { width: 330px; max-width: 70%; margin: 0 auto; }
+      .empty-state p { margin-top: 13px; color: var(--muted); font-size: 13px; }
+
+      @media (max-width: 980px) {
+        .board { padding: 42px 24px 72px; }
+        .board-header { grid-template-columns: 1fr; }
+        .icons, .readme, .pages, .docs { grid-column: 1 / -1; }
+        .docs-comparison, .app-comparison { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="board">
+      <header class="board-header">
+        <div>
+          <div class="kicker">Markover / visual assets pass</div>
+          <h1>One identity, six contexts.</h1>
+          <p class="intro">Usage mockups built from the final Affinity vectors. Public surfaces use the complete lockup; dense product navigation uses the mark and logotype as separate responsive pieces.</p>
+        </div>
+        <div class="palette"><span class="swatch orange"></span><span>#c94e1f</span><span class="swatch burgundy"></span><span>#6d211f</span></div>
+      </header>
+
+      <div class="grid">
+        <section class="specimen icons">
+          <header class="specimen-head"><span class="label">01 / app + favicon</span><span class="note">mark only</span></header>
+          <div class="icons-stage">
+            <div class="icon-row">
+              <div class="app-icon-wrap"><div class="app-icon"><img src="../markover-mark.svg" alt="Markover"></div><span class="size">APP ICON / 1024 MASTER</span></div>
+              <div class="favicons">
+                <div><div class="favicon f32"><img src="../markover-mark.svg" alt=""></div><span class="size">32</span></div>
+                <div><div class="favicon f16"><img src="../markover-mark.svg" alt=""></div><span class="size">16</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="specimen readme">
+          <header class="specimen-head"><span class="label">02 / GitHub repository</span><span class="note">README leader</span></header>
+          <div class="readme-stage">
+            <div class="github">
+              <div class="github-bar"></div>
+              <div class="github-body">
+                <img src="../markover-lockup.svg" alt="Markover">
+                <p>Structured Markdown review for agent threads.</p>
+                <div class="badges"><span class="badge">Electron</span><span class="badge">CommonMark</span><span class="badge">MIT</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="specimen pages">
+          <header class="specimen-head"><span class="label">03 / GitHub Pages</span><span class="note">hero + navigation</span></header>
+          <div class="hero-stage">
+            <nav class="site-nav">
+              <div class="nav-brand"><img class="mark" src="../markover-mark.svg" alt=""><img class="word" src="../markover-logotype.svg" alt="Markover"></div>
+              <div class="nav-links"><span>Docs</span><span>GitHub</span><span class="nav-cta">Get Markover</span></div>
+            </nav>
+            <div class="hero-body">
+              <div class="hero-copy">
+                <span class="eyebrow">Markdown review, made structural</span>
+                <h2>Mark up the document. Hand back the decisions.</h2>
+                <p>Review Markdown as a navigable tree, attach precise feedback to individual blocks, then return one structured handoff to your agent.</p>
+                <div class="hero-actions"><button class="primary">Get started</button><button class="secondary">View on GitHub</button></div>
+              </div>
+              <div class="mini-app">
+                <div class="mini-titlebar"></div>
+                <div class="mini-body">
+                  <div class="mini-tree"><div class="line accent"></div><div class="line short"></div><div class="line indent"></div><div class="line"></div><div class="line indent short"></div><div class="line"></div></div>
+                  <div class="mini-note"><div class="eyebrow">Selected block</div><div class="line short" style="margin-top:17px"></div><div class="note-area"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="specimen docs">
+          <header class="specimen-head"><span class="label">04 / documentation</span><span class="note">collapsed + expanded table of contents</span></header>
+          <div class="docs-comparison">
+            <div class="docs-window collapsed">
+              <aside class="docs-rail"><img src="../markover-mark.svg" alt="Markover"><div class="rail-dot active"></div><div class="rail-dot"></div><div class="rail-dot"></div><div class="rail-dot"></div></aside>
+              <article class="docs-copy"><span class="eyebrow">Collapsed</span><h3>Open a review</h3><p>The mark remains as the compact navigation anchor.</p><div class="code">markover open ./document.md</div></article>
+            </div>
+            <div class="docs-window expanded">
+              <aside class="docs-rail">
+                <div class="docs-expanded-brand"><div class="brand-row"><img class="mark" src="../markover-mark.svg" alt=""><img class="word" src="../markover-logotype.svg" alt="Markover"></div><p>Structured review for Markdown</p></div>
+                <nav class="toc"><div class="toc-item">Introduction</div><div class="toc-item active">Open a review</div><div class="toc-item">Add feedback</div><div class="toc-item">Return the handoff</div><div class="toc-item">CLI reference</div></nav>
+              </aside>
+              <article class="docs-copy"><span class="eyebrow">Guide</span><h3>Open a review</h3><p>Create a durable review and hand its ID back to the agent thread.</p><div class="code">npm --silent run markover -- open ./document.md</div><div class="rule"></div><p>The expanded table of contents has enough room for the complete identity and descriptor.</p></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="specimen desktop">
+          <header class="specimen-head"><span class="label">05 / desktop app</span><span class="note">working headers + empty state</span></header>
+          <div class="desktop-stage">
+            <div class="app-comparison">
+              <div class="app-variant">
+                <div class="variant-caption">A / mark + restrained logotype</div>
+                <div class="window">
+                  <div class="titlebar"></div>
+                  <header class="app-header"><div class="app-brand"><img class="mark" src="../markover-mark.svg" alt=""><img class="small-word" src="../markover-logotype.svg" alt="Markover"></div><div class="document-actions"><div class="document-meta"><strong>visual-assets-pass.md</strong><span>mko_8f3a2c · editing</span></div><button class="app-button primary">Copy feedback</button></div></header>
+                  <div class="workspace"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
+                </div>
+              </div>
+              <div class="app-variant">
+                <div class="variant-caption">B / mark only</div>
+                <div class="window">
+                  <div class="titlebar"></div>
+                  <header class="app-header"><div class="app-brand"><img class="mark" src="../markover-mark.svg" alt="Markover"></div><div class="document-actions"><div class="document-meta"><strong>visual-assets-pass.md</strong><span>mko_8f3a2c · editing</span></div><button class="app-button primary">Copy feedback</button></div></header>
+                  <div class="workspace"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="empty-example">
+              <div class="variant-caption">No document open / full identity belongs in the empty workspace</div>
+              <div class="empty-window"><div class="titlebar"></div><header class="empty-header"><button class="app-button">Open Markdown</button></header><div class="empty-state"><div><img src="../markover-lockup.svg" alt="Markover"><p>Structured review for Markdown</p></div></div></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
