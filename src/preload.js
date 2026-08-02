@@ -2,6 +2,9 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('markover', {
   openMarkdown: () => ipcRenderer.invoke('document:open'),
+  onOpenMarkdownRequested: (callback) => {
+    ipcRenderer.on('document:open-request', () => callback())
+  },
   checksum: (source) => ipcRenderer.invoke('document:checksum', source),
   copyText: (text) => ipcRenderer.send('clipboard:write', text),
   readClipboardImage: () => ipcRenderer.invoke('clipboard:read-image'),
@@ -51,5 +54,13 @@ contextBridge.exposeInMainWorld('markover', {
     ipcRenderer.send('review:autosave', reviewId, tree)
   ),
   finishReview: (tree) => ipcRenderer.send('review:done', tree),
-  cancelReview: () => ipcRenderer.send('review:cancel')
+  cancelReview: () => ipcRenderer.send('review:cancel'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
+  onSettingsOpen: (callback) => {
+    ipcRenderer.on('settings:open', () => callback())
+  },
+  onSettingsChanged: (callback) => {
+    ipcRenderer.on('settings:changed', (_event, settings) => callback(settings))
+  }
 })
