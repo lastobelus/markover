@@ -11,12 +11,13 @@ foundation for a production architecture.
 2. **Node IDs are document-order IDs.** IDs such as `block-7` are deterministic
    for an exact document. No attempt is made to preserve annotations across
    edits; a changed checksum means a different review target.
-3. **Parsing uses markdown-it's CommonMark preset.** Its token stream and source
-   maps provide proven block parsing, exact line ranges, hard-wrapped list-item
-   content, and room for extensions without maintaining a Markdown grammar.
-   Markover currently turns paragraphs, headings, ordered and unordered list
-   items, thematic breaks, and code blocks into selectable nodes. The built-in
-   table rule is enabled explicitly.
+3. **Parsing is delegated to the third-party `markdown-it` parser using its
+   CommonMark preset.** Markover does not maintain a Markdown grammar. It maps
+   `markdown-it`'s token stream and source ranges into review blocks, gaining
+   proven block parsing, exact line ranges, hard-wrapped list-item content, and
+   room for extensions. Markover currently turns paragraphs, headings, ordered
+   and unordered list items, thematic breaks, and code blocks into selectable
+   nodes. The built-in table rule is enabled explicitly.
 4. **Heading and list structure share one tree.** Lower-level headings become
    children of the nearest higher-level heading. Nested list items become
    children of the preceding less-indented list item.
