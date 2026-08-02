@@ -100,11 +100,10 @@ a { color: inherit; text-underline-offset: .18em; }
 
 .product-dialog { width: min(1180px, calc(100vw - 48px)); max-width: none; max-height: calc(100vh - 48px); padding: 0; overflow: hidden; border: 1px solid #cfc4ba; border-radius: 16px; color: var(--ink); background: var(--surface); box-shadow: 0 32px 90px rgb(38 33 30 / 32%); }
 .product-dialog::backdrop { background: rgb(38 33 30 / 72%); backdrop-filter: blur(4px); }
-.product-dialog-header { min-height: 76px; padding: 15px 18px 14px 22px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); background: #f8f3ed; }
-.product-dialog-header h2 { margin: 5px 0 0; font-size: 19px; letter-spacing: -.02em; }
-.dialog-close { min-height: 36px; padding: 0 13px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); cursor: pointer; font-weight: 750; }
-.dialog-close:hover { border-color: var(--brand-orange); color: var(--brand-burgundy); }
-.dialog-close:focus-visible { outline: 3px solid var(--brand-orange); outline-offset: 2px; }
+.product-dialog-header { min-height: 52px; padding: 8px 10px; display: flex; align-items: center; justify-content: flex-end; background: var(--brand-burgundy); }
+.dialog-close { min-height: 32px; padding: 0 10px; border: 0; border-radius: 7px; color: var(--surface); background: transparent; cursor: pointer; font-weight: 750; }
+.dialog-close:hover { color: var(--surface); background: rgb(255 253 249 / 12%); }
+.dialog-close:focus-visible { outline: 0; background: rgb(255 253 249 / 20%); }
 .product-dialog figure { margin: 0; overflow: auto; }
 .product-dialog figure img { width: 100%; height: auto; }
 .product-dialog figcaption { padding: 11px 18px 13px; color: var(--muted); background: var(--surface); font-size: 11px; }
@@ -177,7 +176,7 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
   .feedback-preview { border-top: 1px solid var(--line); border-left: 0; }
   .preview-invitation { right: 11px; bottom: 11px; }
   .product-dialog { width: calc(100vw - 24px); max-height: calc(100vh - 24px); }
-  .product-dialog-header { min-height: 68px; padding-inline: 14px 12px; }
+  .product-dialog-header { min-height: 48px; padding: 7px 8px; }
   .product-dialog figcaption { display: none; }
   .workflow { margin-block: 90px; }
   .site-footer { padding: 28px 0; flex-wrap: wrap; }
