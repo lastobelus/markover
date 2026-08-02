@@ -34,7 +34,7 @@
           </div>
         </div>
 
-        <a class="product-preview-trigger" href="./assets/markover-app.png" aria-haspopup="dialog" aria-controls="product-preview">
+        <a class="product-preview-trigger" href="./assets/markover-review-editor@2x.png" aria-haspopup="dialog" aria-controls="product-preview">
           <div class="product-frame" aria-hidden="true">
             <div class="window-titlebar"><span></span><span></span><span></span></div>
             <div class="product-toolbar">
@@ -97,12 +97,29 @@
 
     <dialog id="product-preview" class="product-dialog" aria-label="Markover application screenshot">
       <div class="product-dialog-header">
+        <span id="gallery-position" class="gallery-position" aria-live="polite">1 / 4</span>
         <button class="dialog-close" type="button" aria-label="Close screenshot preview">Close</button>
       </div>
-      <figure>
-        <img src="./assets/markover-app.png" width="1180" height="760" alt="The Markover desktop app showing a Markdown document tree and its annotation list side by side.">
-        <figcaption>Current Markover inbox with a structured design brief and two annotations.</figcaption>
-      </figure>
+      <div class="product-dialog-gallery">
+        <button class="gallery-control gallery-previous" type="button" aria-label="Previous screenshot">‹</button>
+        <figure class="product-slide">
+          <img data-src="./assets/markover-review-editor@2x.png" width="2360" height="1520" alt="Markover showing a multi-project document inbox, a structured launch brief, and an annotation editor with two labeled screenshot attachments.">
+          <figcaption><strong>Review in context.</strong> Switch among projects, navigate representative Markdown blocks, and attach labeled screenshots to precise feedback.</figcaption>
+        </figure>
+        <figure class="product-slide" hidden>
+          <img data-src="./assets/markover-annotation-browser@2x.png" width="2360" height="1520" alt="Markover showing a read-only list of every rendered annotation in the active document.">
+          <figcaption><strong>Browse every annotation.</strong> Scan rendered feedback, jump between blocks, and return to editing with one click.</figcaption>
+        </figure>
+        <figure class="product-slide" hidden>
+          <img data-src="./assets/markover-source-edit@2x.png" width="2360" height="1520" alt="Markover showing a word-level stacked diff for a proposed source edit.">
+          <figcaption><strong>Propose exact source changes.</strong> Keep the immutable review target while showing the agent a precise word-level edit.</figcaption>
+        </figure>
+        <figure class="product-slide" hidden>
+          <img data-src="./assets/markover-review-context@2x.png" width="2360" height="1520" alt="Markover showing review context including review ID, branch, pull request, and agent thread metadata.">
+          <figcaption><strong>Keep the handoff discoverable.</strong> Review purpose, source, Git state, pull request, and agent-thread provenance stay one drawer away.</figcaption>
+        </figure>
+        <button class="gallery-control gallery-next" type="button" aria-label="Next screenshot">›</button>
+      </div>
     </dialog>
 
     <footer class="site-footer">
