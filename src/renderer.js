@@ -348,6 +348,7 @@ function fullTreeEntry(node) {
 function selectNode(id, focusPreview = false) {
   const node = MarkoverTree.findNode(state.tree.root, id)
   if (!node) return
+  if (!finishActiveSourceEdit(id)) return
   state.selectedId = id
   renderTree()
   renderAnnotation(node)
@@ -378,6 +379,7 @@ function normalizeAnnotatedSelection() {
 
 function setAnnotatedOnly(enabled) {
   if (enabled && !annotatedNodes().length) return
+  if (!finishActiveSourceEdit()) return
   state.annotatedOnly = enabled
   normalizeAnnotatedSelection()
   renderTree()
@@ -878,7 +880,7 @@ function renderSourcePanel(node) {
   const editable = isCurrentReviewEditable()
   const editing = editable && state.sourceEditingId === node.id
   const draft = state.sourceDrafts.get(node.id)
-  const savedSource = node.sourceEdit?.current || node.raw
+  const savedSource = MarkoverSourceEdits.savedSource(node)
   const currentDraft = draft ?? savedSource
   const dirty = editing && currentDraft !== savedSource
 
@@ -919,10 +921,8 @@ function renderSourcePanel(node) {
 
 function beginSourceEdit(node) {
   if (!isCurrentReviewEditable()) return
-  if (!state.sourceDrafts.has(node.id)) {
-    state.sourceDrafts.set(node.id, node.sourceEdit?.current || node.raw)
-  }
-  state.sourceEditingId = node.id
+  if (!finishActiveSourceEdit(node.id)) return
+  MarkoverSourceEdits.begin(state, node)
   state.sourceCollapsed = false
   elements.sourceToggle.setAttribute('aria-expanded', 'true')
   elements.sourceToggleIcon.textContent = '▼'
@@ -931,24 +931,47 @@ function beginSourceEdit(node) {
 }
 
 function cancelSourceEdit(node) {
-  state.sourceDrafts.delete(node.id)
-  if (state.sourceEditingId === node.id) state.sourceEditingId = null
+  MarkoverSourceEdits.cancel(state, node)
   renderSourcePanel(node)
 }
 
 function saveSourceEdit(node) {
-  const current = state.sourceDrafts.get(node.id)
-  if (typeof current !== 'string' || !current.trim()) {
+  const result = MarkoverSourceEdits.commit(state, node)
+  if (!result.ok) {
     showToast('Proposed source cannot be empty')
-    return
+    return false
   }
-  if (current === node.raw) delete node.sourceEdit
-  else node.sourceEdit = { original: node.raw, current }
-  state.sourceDrafts.delete(node.id)
-  state.sourceEditingId = null
   renderTreePreservingScroll()
   renderAnnotation(node)
-  autosaveReview()
+  if (result.changed) autosaveReview()
+  return true
+}
+
+function finishActiveSourceEdit(nextId = null) {
+  const editingId = state.sourceEditingId
+  if (!editingId || editingId === nextId) return true
+  const node = MarkoverTree.findNode(state.tree.root, editingId)
+  if (!node) {
+    state.sourceDrafts.delete(editingId)
+    state.sourceEditingId = null
+    return true
+  }
+
+  const result = MarkoverSourceEdits.commit(state, node)
+  if (!result.ok) {
+    state.selectedId = node.id
+    renderTreePreservingScroll()
+    renderAnnotation(node)
+    showToast('Proposed source cannot be empty')
+    requestAnimationFrame(() => elements.sourceEditor.focus())
+    return false
+  }
+  if (result.changed) {
+    renderTreePreservingScroll()
+    autosaveReview()
+  }
+  if (state.selectedId === node.id) renderAnnotation(node)
+  return true
 }
 
 function revertSourceEdit(node) {
@@ -1047,6 +1070,7 @@ function setAnnotationView(view) {
       state.selectedId
     )
     if (!nextId) return
+    if (!finishActiveSourceEdit(nextId)) return
     const revealed = MarkoverAnnotations.revealAnnotation(state.tree.root, nextId)
     state.selectedId = nextId
     state.annotationView = 'list'
@@ -1804,11 +1828,13 @@ function renderDocumentTabs() {
 
 function activateReview(reviewId) {
   setWorkspaceEmpty(false)
+  if (reviewId === state.reviewId) return
   state.finishAttachmentLabelEdit?.(true)
   if (reviewMutations.has(state.reviewId)) {
     reviewMutations.wait(state.reviewId).then(() => activateReview(reviewId))
     return
   }
+  if (!finishActiveSourceEdit()) return
 
   captureActiveSession()
   const session = reviewSessions.activate(reviewId)
@@ -2027,6 +2053,7 @@ elements.annotationInput.addEventListener('paste', (event) => {
 async function openMarkdownDocument() {
   const documentData = await bridge.openMarkdown()
   if (documentData) {
+    if (!finishActiveSourceEdit()) return
     await loadDocument(documentData)
     elements.previewPane.focus()
   }
@@ -2036,11 +2063,13 @@ elements.openButton.addEventListener('click', openMarkdownDocument)
 elements.emptyOpenButton.addEventListener('click', openMarkdownDocument)
 
 elements.copyTreeButton.addEventListener('click', () => {
+  if (!finishActiveSourceEdit()) return
   bridge.copyText(MarkoverTree.serializeTree(state.tree))
   showToast('Feedback JSON copied')
 })
 
 elements.doneReviewButton.addEventListener('click', () => {
+  if (!finishActiveSourceEdit()) return
   elements.doneReviewButton.disabled = true
   elements.doneReviewButton.textContent = 'Finishing…'
   bridge.finishReview(state.tree)
@@ -2119,8 +2148,8 @@ elements.sourceEditor.addEventListener('input', () => {
   const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
   if (!node || state.sourceEditingId !== node.id) return
   const current = elements.sourceEditor.value
-  state.sourceDrafts.set(node.id, current)
-  const savedSource = node.sourceEdit?.current || node.raw
+  MarkoverSourceEdits.update(state, node, current)
+  const savedSource = MarkoverSourceEdits.savedSource(node)
   elements.sourceSaveBar.hidden = current === savedSource
   elements.sourceSave.disabled = !current.trim()
 })
@@ -2293,6 +2322,9 @@ async function initialize() {
     )
     if (reviewId === state.reviewId) {
       state.finishAttachmentLabelEdit?.(true)
+      if (!finishActiveSourceEdit()) {
+        throw new Error('Finish or cancel the empty source edit before handoff.')
+      }
     }
     const session = reviewSessions.get(reviewId)
     if (!session) throw new Error(`Cannot snapshot missing review ${reviewId}.`)
