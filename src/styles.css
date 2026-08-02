@@ -265,7 +265,7 @@ p {
   top: -1px;
   right: 0;
   left: 0;
-  height: 1px;
+  height: 4px;
   background: var(--accent);
   content: "";
 }
