@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./design/brand/markover-readme-leader.svg" width="760" alt="Markover — Structured Markdown review for agent threads.">
+  <img src="./design/brand/markover-readme-leader.svg" width="760" alt="Markover — Structured review for Markdown.">
 </p>
 
 <p align="center">

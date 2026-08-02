@@ -25,7 +25,7 @@ I recommend normalizing the entire family to the mark's two exact colors—`#c94
 | --- | --- | --- | --- |
 | App icon | A square icon composition using the mark on a quiet background plate | SVG master; generated `.icns`, `.ico`, and Linux icon files | Produce a 1024×1024 PNG per palette as the high-resolution raster source |
 | Favicon | Mark with a little optical padding | `favicon.svg` plus generated `favicon.ico` | PNG is unnecessary unless adding Apple touch or installable-web-app icons |
-| GitHub README leader | Centered horizontal lockup and descriptor in one responsive composition | `markover-readme-leader.svg` | None |
+| GitHub README leader | Vertically stacked lockup and descriptor in one responsive composition | `markover-readme-leader.svg` | None |
 | GitHub repository social preview | Lockup, short descriptor and solid background | 1280×640 PNG, under 1 MB | Required by GitHub's social-preview uploader; produce three palette versions |
 | GitHub Pages hero | Mark/logotype in navigation; headline and product UI remain HTML/CSS | Existing SVG components | None for the rendered page |
 | GitHub Pages share card | Simplified hero composition within a generous safe area | 1200×630 PNG | Required only if the Pages site should have a designed Open Graph card; produce three palette versions |
@@ -63,7 +63,7 @@ Use the dedicated README leader SVG as a restrained composition rather than a ba
 
 ```html
 <p align="center">
-  <img src="./design/brand/markover-readme-leader.svg" width="760" alt="Markover — Structured Markdown review for agent threads.">
+  <img src="./design/brand/markover-readme-leader.svg" width="760" alt="Markover — Structured review for Markdown.">
 </p>
 ```
 
@@ -80,7 +80,7 @@ Do not bake the Pages hero into an image. Use the mark and logotype SVGs in navi
 </a>
 ```
 
-On documentation pages, the mark alone is enough for a collapsed rail or narrow header. The expanded table of contents should restore the mark, logotype and descriptor because this navigation also orients readers within the documentation product. Use the horizontal lockup on the landing page or a spacious masthead.
+On documentation pages, the mark alone is enough for a collapsed rail or narrow header. The expanded content pane should use the complete lockup with “Structured review for Markdown.” directly beneath it and left-aligned with the mark. The Pages footer should use the horizontal tagged arrangement: complete lockup and descriptor bottom-aligned with the canonical relative scale and spacing. Keep the Pages header untagged, using the separate mark and logotype for responsive control.
 
 ## Desktop app header treatment
 

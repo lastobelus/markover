@@ -7,6 +7,10 @@ const { JSDOM } = require('jsdom')
 const projectDirectory = path.resolve(__dirname, '..')
 const html = fs.readFileSync(path.join(projectDirectory, 'docs/index.html'), 'utf8')
 const script = fs.readFileSync(path.join(projectDirectory, 'docs/site.js'), 'utf8')
+const styles = fs.readFileSync(path.join(projectDirectory, 'docs/styles.css'), 'utf8')
+const guide = fs.readFileSync(path.join(projectDirectory, 'docs/guide/index.html'), 'utf8')
+const readme = fs.readFileSync(path.join(projectDirectory, 'README.md'), 'utf8')
+const readmeLeader = fs.readFileSync(path.join(projectDirectory, 'design/brand/markover-readme-leader.svg'), 'utf8')
 
 const screenshots = [
   'markover-review-editor@2x.png',
@@ -78,4 +82,23 @@ test('the Pages gallery opens lazily and navigates with controls or arrows', () 
   document.querySelector('.gallery-previous').click()
   assert.equal(currentIndex(), 3)
   assert.equal(position.textContent, '4 / 4')
+})
+
+test('public surfaces use the standardized tagged logo arrangements', () => {
+  assert.match(html, /class="footer-brand brand-lockup brand-lockup-horizontal"/)
+  assert.match(html, /class="brand-lockup-logo" src="\.\/assets\/markover-lockup\.svg"/)
+  assert.match(html, /class="brand-lockup-tagline">Structured review for Markdown\.<\/span>/)
+  assert.doesNotMatch(html, /class="footer-brand"[^>]*>[\s\S]*?<span>Markover<\/span>/)
+
+  assert.match(guide, /class="docs-brand brand-lockup brand-lockup-vertical"/)
+  assert.match(guide, /class="brand-lockup-logo" src="\.\.\/assets\/markover-lockup\.svg"/)
+  assert.match(guide, /class="brand-lockup-tagline">Structured review for Markdown\.<\/span>/)
+  assert.doesNotMatch(guide, /class="docs-brand-row"/)
+
+  assert.match(styles, /\.brand-lockup-horizontal \{[^}]*align-items: flex-end;/)
+  assert.match(styles, /\.brand-lockup-vertical \{[^}]*flex-direction: column;[^}]*align-items: flex-start;/)
+
+  assert.match(readme, /alt="Markover — Structured review for Markdown\."/)
+  assert.match(readmeLeader, /<desc[^>]*>Structured review for Markdown\.<\/desc>/)
+  assert.match(readmeLeader, /<text class="tagline" x="100" y="164">Structured review for Markdown\.<\/text>/)
 })
