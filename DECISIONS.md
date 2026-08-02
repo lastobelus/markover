@@ -28,6 +28,11 @@ foundation for a production architecture.
 6. **Tasks decorate ordinary list-item nodes.** A leading `[ ]`, `[x]`, or `[X]`
    adds `task` and `checked` fields and is removed from the displayed item text.
    The original marker remains present in the node's raw source.
+
+   Example task nodes:
+
+   - [ ] Review the pending decision
+   - [x] Preserve the accepted behavior
 7. **Inline Markdown is rendered inside supported blocks.** Bold, italic,
    inline code, link labels, and image labels appear in the left pane. Links and
    images are deliberately inert; hovering reveals their destination or path.
