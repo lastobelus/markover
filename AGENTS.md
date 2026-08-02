@@ -1,5 +1,25 @@
 # Project instructions
 
+## Markover quick start for agents
+
+Markover is this repository's local Markdown review inbox. If a user asks you
+to write a plan, specification, or other Markdown document and open it for
+review, use Markover rather than asking how to hand the document over.
+
+Start with its service-free, machine-readable help when you need syntax or
+recovery guidance:
+
+```sh
+npm --silent run markover -- help
+```
+
+The normal flow is `open` once, retain the returned `reviewId`, and stop. When
+the user later says “Check Markover,” run `get <reviewId>` once and act on the
+returned review JSON. If they need to change feedback after that, run
+`edit <reviewId>`. Keep `--silent`: agent-facing success output is exactly one
+JSON value on stdout, while errors explain the relevant usage and recovery on
+stderr.
+
 ## Markover dogfooding
 
 When communicating a plan, proposal, review, or other structured response that

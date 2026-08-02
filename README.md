@@ -70,6 +70,16 @@ npm test
 
 ## Agent review inbox
 
+Markover can explain its complete agent protocol without launching Electron:
+
+```sh
+npm --silent run markover -- help
+```
+
+No arguments, `info`, `--help`, and `-h` return the same machine-readable help.
+Invalid commands and options leave stdout empty, exit non-zero, and identify
+the relevant usage plus the exact help command to run next.
+
 Open a document for review:
 
 ```sh
