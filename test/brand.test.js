@@ -56,7 +56,15 @@ test('the application palette matches the brand brief at startup and in CSS', ()
 
 test('the working header aligns the brand and uses the primary action color', () => {
   const styles = read('src/styles.css')
+  const renderer = read('src/renderer.js')
 
-  assert.match(styles, /\.brand \{[^}]*align-items: flex-end;/)
+  assert.match(styles, /\.brand \{[^}]*align-items: flex-end;[^}]*transform: translateY\(6px\);/)
   assert.match(styles, /\.button-primary \{[^}]*background: var\(--brand-orange\);/)
+  assert.match(styles, /\.document-tab-status \{[^}]*background: var\(--brand-orange\);/)
+  assert.match(styles, /\.document-tab-status\.is-pending \{[^}]*background: var\(--brand-burgundy\);/)
+  assert.match(styles, /\.document-tab\.is-active \{[^}]*color: var\(--brand-orange\);/)
+  assert.match(styles, /\.document-tab-overflow \{[^}]*height: 30px;/)
+  assert.match(styles, /\.document-tab-overflow-menu \{[^}]*top: 30px;/)
+  assert.doesNotMatch(styles, /\.document-meta (?:strong|span) \{[^}]*max-width:/)
+  assert.doesNotMatch(renderer, /checksum\.slice\(/)
 })

@@ -1711,7 +1711,7 @@ function activateReview(reviewId) {
 
   elements.name.textContent = session.documentName
   elements.name.title = session.documentPath || session.documentName
-  elements.checksum.textContent = session.checksum.slice(0, 20) + '…'
+  elements.checksum.textContent = session.checksum
   elements.checksum.title = session.checksum
   elements.sourceToggle.setAttribute(
     'aria-expanded',
@@ -1773,7 +1773,7 @@ async function loadDocument(documentData) {
 
   elements.name.textContent = state.documentName
   elements.name.title = state.documentPath || state.documentName
-  elements.checksum.textContent = checksum.slice(0, 20) + '…'
+  elements.checksum.textContent = checksum
   elements.checksum.title = checksum
   renderTree()
 

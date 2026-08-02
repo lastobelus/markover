@@ -66,6 +66,7 @@ textarea {
   align-items: flex-end;
   gap: 9px;
   min-width: 220px;
+  transform: translateY(6px);
 }
 
 .brand-mark {
@@ -118,6 +119,8 @@ p {
 }
 
 .document-actions {
+  min-width: 0;
+  flex: 1 1 auto;
   justify-content: flex-end;
   gap: 8px;
   -webkit-app-region: no-drag;
@@ -131,13 +134,15 @@ p {
 
 .document-meta {
   display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-end;
   margin-right: 8px;
 }
 
 .document-meta strong {
-  max-width: 240px;
+  width: 100%;
   overflow: hidden;
   font-size: 13px;
   text-overflow: ellipsis;
@@ -145,9 +150,13 @@ p {
 }
 
 .document-meta span {
+  width: 100%;
+  overflow: hidden;
   margin-top: 3px;
   color: var(--muted);
   font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .review-context-button {
@@ -208,7 +217,7 @@ p {
 .document-tabs {
   position: relative;
   display: flex;
-  min-height: 38px;
+  min-height: 30px;
   padding: 0 14px;
   gap: 4px;
   align-items: end;
@@ -223,16 +232,16 @@ p {
   flex: 1 1 0;
   min-width: 0;
   max-width: 248px;
-  height: 34px;
-  padding: 0 10px;
+  height: 30px;
+  padding: 0 8px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 0;
   border-top: 3px solid transparent;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .document-tab:hover {
@@ -242,24 +251,28 @@ p {
 
 .document-tab.is-active {
   border-top-color: var(--accent);
-  color: var(--ink);
+  color: var(--brand-orange);
   background: var(--surface);
 }
 
 .document-tab-name {
   max-width: 190px;
   overflow: hidden;
-  font-weight: 700;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.document-tab.is-active .document-tab-name {
+  font-weight: 750;
 }
 
 .document-tab-status {
   padding: 2px 6px;
   border-radius: 999px;
-  color: var(--brand-burgundy);
-  background: rgb(109 33 31 / 10%);
-  font-size: 9px;
+  color: white;
+  background: var(--brand-orange);
+  font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -267,14 +280,14 @@ p {
 }
 
 .document-tab-status.is-pending {
-  color: var(--muted);
-  background: rgb(117 109 103 / 12%);
+  color: white;
+  background: var(--brand-burgundy);
 }
 
 .document-tab-overflow {
   position: relative;
   display: flex;
-  height: 37px;
+  height: 30px;
   margin-left: auto;
   align-items: center;
 }
@@ -302,7 +315,7 @@ p {
 .document-tab-overflow-menu {
   position: absolute;
   z-index: 60;
-  top: 34px;
+  top: 30px;
   right: 0;
   display: none;
   width: 292px;
@@ -392,7 +405,6 @@ p {
   justify-content: space-between;
   padding: 0 5px 0 9px;
   border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 10px;
   font-weight: 800;
@@ -483,7 +495,6 @@ p {
   align-items: center;
   justify-content: space-between;
   padding: 0 22px;
-  border-bottom: 1px solid var(--line);
 }
 
 .pane-header-leading {
