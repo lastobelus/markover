@@ -67,6 +67,8 @@ const elements = {
   standardActions: document.querySelector('#standard-actions'),
   toast: document.querySelector('#toast'),
   tree: document.querySelector('#tree'),
+  treeViewAll: document.querySelector('#tree-view-all'),
+  treeViewAnnotated: document.querySelector('#tree-view-annotated'),
   reviewActions: document.querySelector('#review-actions'),
   reviewContextButton: document.querySelector('#review-context-button'),
   reviewContextClose: document.querySelector('#review-context-close'),
@@ -94,6 +96,7 @@ const state = {
   reviewId: null,
   reviewMode: false,
   selectedId: null,
+  annotatedOnly: false,
   sourceCollapsed: false,
   sourceDrafts: new Map(),
   sourceEditingId: null,
@@ -268,7 +271,7 @@ function attachmentCountInSubtree(node) {
 }
 
 function hasAnnotation(node) {
-  return node.feedback.trim() || hasAttachments(node)
+  return MarkoverAnnotations.hasAnnotation(node)
 }
 
 function isCurrentReviewEditable() {
@@ -276,17 +279,21 @@ function isCurrentReviewEditable() {
 }
 
 function annotatedNodes() {
-  const annotated = []
-  MarkoverTree.visitNodes(state.tree.root, (node, _parent, ancestors) => {
-    if (hasAnnotation(node)) annotated.push({ node, ancestors })
-  })
-  return annotated
+  return MarkoverAnnotations.annotatedNodes(state.tree.root)
 }
 
 function hasFeedbackDescendant(node) {
   return node.children.some((child) => (
     hasAnnotation(child) || hasFeedbackDescendant(child)
   ))
+}
+
+function fullTreeEntry(node) {
+  return {
+    node,
+    contextual: false,
+    children: node.children.map(fullTreeEntry)
+  }
 }
 
 function selectNode(id, focusPreview = false) {
@@ -299,6 +306,27 @@ function selectNode(id, focusPreview = false) {
   const selectedRow = elements.tree.querySelector(`[data-node-id="${id}"]`)
   selectedRow?.scrollIntoView({ block: 'nearest' })
   if (focusPreview) elements.previewPane.focus()
+}
+
+function normalizeAnnotatedSelection() {
+  const normalized = MarkoverAnnotations.normalizeFilter(
+    state.tree.root,
+    state.selectedId,
+    state.annotatedOnly
+  )
+  const changed = normalized.selectedId !== state.selectedId
+  state.annotatedOnly = normalized.enabled
+  state.selectedId = normalized.selectedId
+  return changed
+}
+
+function setAnnotatedOnly(enabled) {
+  if (enabled && !annotatedNodes().length) return
+  state.annotatedOnly = enabled
+  normalizeAnnotatedSelection()
+  renderTree()
+  const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (selected) renderAnnotation(selected)
 }
 
 function updatePinnedSelection() {
@@ -366,16 +394,17 @@ function updateScrollbarRowCover() {
   elements.scrollbarRowCover.hidden = false
 }
 
-function renderNode(node, depth) {
+function renderNode(entry, depth) {
+  const node = entry.node
   const wrapper = document.createElement('div')
-  wrapper.className = 'block'
+  wrapper.className = `block${entry.contextual ? ' is-filter-context' : ''}`
 
   const row = document.createElement('div')
   row.className = `block-row${node.id === state.selectedId ? ' is-selected' : ''}`
   row.dataset.nodeId = node.id
   row.style.setProperty('--depth-indent', `${depth * 18}px`)
 
-  if (node.children.length) {
+  if (entry.children.length && !state.annotatedOnly) {
     const disclosure = document.createElement('button')
     disclosure.className = 'disclosure'
     disclosure.textContent = node.collapsed ? '▶' : '▼'
@@ -475,7 +504,7 @@ function renderNode(node, depth) {
     updateScrollbarRowCover()
   })
   row.addEventListener('dblclick', () => {
-    if (node.children.length) {
+    if (!state.annotatedOnly && node.children.length) {
       node.collapsed = !node.collapsed
       renderTree()
       autosaveReview()
@@ -483,10 +512,12 @@ function renderNode(node, depth) {
   })
   wrapper.append(row)
 
-  if (node.children.length) {
+  if (entry.children.length) {
     const children = document.createElement('div')
-    children.className = `block-children${node.collapsed ? ' is-collapsed' : ''}`
-    for (const child of node.children) children.append(renderNode(child, depth + 1))
+    children.className = `block-children${
+      !state.annotatedOnly && node.collapsed ? ' is-collapsed' : ''
+    }`
+    for (const child of entry.children) children.append(renderNode(child, depth + 1))
     wrapper.append(children)
   }
 
@@ -495,14 +526,28 @@ function renderNode(node, depth) {
 
 function renderTree() {
   elements.tree.replaceChildren()
-  for (const node of state.tree.root.children) {
-    elements.tree.append(renderNode(node, 0))
+  const projection = state.annotatedOnly
+    ? MarkoverAnnotations.annotatedProjection(state.tree.root)
+    : state.tree.root.children.map(fullTreeEntry)
+  for (const entry of projection) {
+    elements.tree.append(renderNode(entry, 0))
   }
 
-  const position = MarkoverTree.nodePosition(state.tree.root, state.selectedId)
+  const position = state.annotatedOnly
+    ? MarkoverAnnotations.annotationPosition(state.tree.root, state.selectedId)
+    : MarkoverTree.nodePosition(state.tree.root, state.selectedId)
   const unsupported = state.tree.unsupported.length
+  const annotationCount = annotatedNodes().length
+  elements.treeViewAnnotated.querySelector('span').textContent = String(annotationCount)
+  elements.treeViewAnnotated.disabled = annotationCount === 0
+  elements.treeViewAll.classList.toggle('is-active', !state.annotatedOnly)
+  elements.treeViewAnnotated.classList.toggle('is-active', state.annotatedOnly)
+  elements.treeViewAll.setAttribute('aria-pressed', String(!state.annotatedOnly))
+  elements.treeViewAnnotated.setAttribute('aria-pressed', String(state.annotatedOnly))
   const total = document.createElement('span')
-  total.textContent = `${position.total} blocks`
+  total.textContent = state.annotatedOnly
+    ? `${position.total} annotations`
+    : `${position.total} blocks`
   if (position.index > 0) {
     const current = document.createElement('span')
     current.textContent = String(position.index)
@@ -635,7 +680,12 @@ function removeAttachment(node, attachment) {
     ? 'Annotated'
     : 'Not annotated'
   renderAttachmentList(node)
+  const selectionChanged = normalizeAnnotatedSelection()
   renderTree()
+  if (selectionChanged) {
+    const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+    if (selected) renderAnnotation(selected)
+  }
   updateAnnotationCount()
   autosaveReview()
 }
@@ -891,6 +941,7 @@ function captureActiveSession() {
   const session = reviewSessions.active()
   if (!session || session.reviewId !== state.reviewId) return
   session.selectedId = state.selectedId
+  session.annotatedOnly = state.annotatedOnly
   session.sourceCollapsed = state.sourceCollapsed
   session.sourceDrafts = state.sourceDrafts
   session.sourceEditingId = state.sourceEditingId
@@ -1509,6 +1560,7 @@ function activateReview(reviewId) {
   state.documentPath = session.documentPath
   state.tree = session.tree
   state.selectedId = session.selectedId
+  state.annotatedOnly = session.annotatedOnly
   state.sourceCollapsed = session.sourceCollapsed
   state.sourceDrafts = session.sourceDrafts
   state.sourceEditingId = session.sourceEditingId
@@ -1571,6 +1623,7 @@ async function loadDocument(documentData) {
   )
   state.reviewId = documentData.reviewId || state.tree.review?.id || null
   state.selectedId = state.tree.root.children[0]?.id || null
+  state.annotatedOnly = false
   state.sourceCollapsed = false
   state.sourceDrafts = new Map()
   state.sourceEditingId = null
@@ -1597,7 +1650,12 @@ elements.annotationInput.addEventListener('input', () => {
     ? 'Annotated'
     : 'Not annotated'
   if (wasAnnotated !== Boolean(hasAnnotation(node))) {
+    const selectionChanged = normalizeAnnotatedSelection()
     renderTreePreservingScroll()
+    if (selectionChanged) {
+      const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+      if (selected) renderAnnotation(selected)
+    }
   }
   updateAnnotationCount()
   autosaveReview()
@@ -1725,6 +1783,9 @@ elements.sourceToggle.addEventListener('click', () => {
   if (node) renderSourcePanel(node)
 })
 
+elements.treeViewAll.addEventListener('click', () => setAnnotatedOnly(false))
+elements.treeViewAnnotated.addEventListener('click', () => setAnnotatedOnly(true))
+
 elements.sourceEdit.addEventListener('click', () => {
   const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
   if (node) beginSourceEdit(node)
@@ -1851,11 +1912,19 @@ document.addEventListener('keydown', (event) => {
   event.preventDefault()
   const direction = event.key.replace('Arrow', '').toLowerCase()
   const current = MarkoverTree.findNode(state.tree.root, state.selectedId)
-  if (direction === 'right' && current?.children.length && current.collapsed) {
+  if (
+    !state.annotatedOnly &&
+    direction === 'right' &&
+    current?.children.length &&
+    current.collapsed
+  ) {
     current.collapsed = false
     autosaveReview()
   }
-  const nextId = MarkoverNavigation.move(state.tree.root, state.selectedId, direction)
+  const navigationRoot = state.annotatedOnly
+    ? MarkoverAnnotations.navigationRoot(state.tree.root)
+    : state.tree.root
+  const nextId = MarkoverNavigation.move(navigationRoot, state.selectedId, direction)
   selectNode(nextId, true)
 })
 

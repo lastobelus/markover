@@ -89,7 +89,13 @@
             >›</button>
             <span class="eyebrow">Document tree</span>
           </div>
-          <span id="parse-status" class="status-pill">0 blocks</span>
+          <div class="document-tree-header-actions">
+            <div class="document-tree-view-toggle" role="group" aria-label="Document tree view">
+              <button id="tree-view-all" class="is-active" type="button">All</button>
+              <button id="tree-view-annotated" type="button">Annotated <span>0</span></button>
+            </div>
+            <span id="parse-status" class="status-pill">0 blocks</span>
+          </div>
         </div>
         <div id="pinned-selection" class="pinned-selection" hidden></div>
         <div id="scrollbar-row-cover" class="scrollbar-row-cover" hidden></div>
@@ -204,6 +210,7 @@
 
     <script src="../node_modules/markdown-it/dist/markdown-it.js"></script>
     <script src="tree.js"></script>
+    <script src="annotations.js"></script>
     <script src="navigation.js"></script>
     <script src="review-sessions.js"></script>
     <script src="image-preview.js"></script>

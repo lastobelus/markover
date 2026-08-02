@@ -132,6 +132,7 @@
         lastViewedOrder: ++this.viewSequence,
         lastViewedAt: Number.isFinite(reviewedAt) ? reviewedAt : this.now(),
         selectedId: document.tree.root.children[0]?.id || null,
+        annotatedOnly: false,
         sourceCollapsed: false,
         sourceDrafts: new Map(),
         sourceEditingId: null,
