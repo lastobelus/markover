@@ -34,8 +34,10 @@ foundation for a production architecture.
    - [ ] Review the pending decision
    - [x] Preserve the accepted behavior
 7. **Inline Markdown is rendered inside supported blocks.** Bold, italic,
-   inline code, link labels, and image labels appear in the left pane. Links and
-   images are deliberately inert; hovering reveals their destination or path.
+   inline code, link labels, and image labels appear in the left pane. Links
+   remain inert. Image pills open the source image in the same labeled preview
+   modal used for screenshot attachments; relative paths resolve from the
+   reviewed Markdown file.
 8. **Unrecognized extensions degrade through CommonMark.** With raw HTML and
    extensions disabled, syntax such as definition lists, footnotes,
    strikethrough, and HTML may appear as literal paragraph content, resolve as
@@ -49,8 +51,10 @@ foundation for a production architecture.
 2. **Arrow navigation operates structurally.** Left selects a parent; right
    selects a child or searches outward for the next sibling; up/down move among
    siblings and climb outward at boundaries.
-3. **Tab and Shift-Tab both switch panes.** With only two panes, wrapping in
-   either direction has the same visible result.
+3. **Tab and Shift-Tab cycle review panes.** When the documents list sidebar is
+   expanded, focus cycles through Documents, Document tree, and Annotation.
+   A collapsed or absent documents list is skipped. Control-Tab remains reserved
+   for switching review sessions.
 4. **Managed reviews are durable sessions.** Each `markover open` call creates a
    distinct review ID and atomically writes its complete artifact after every
    mutation to `.markover/reviews/<review-id>/review.json`. Restarting the
@@ -70,7 +74,13 @@ foundation for a production architecture.
 7. **The annotation pane includes compact raw source.** Its header contains the
    node type and source line span; list items also show their position and list
    length. A collapsible source panel preserves the selected block's original
-   Markdown without hard-wrapping and uses a small monospace font.
+   Markdown without hard-wrapping and uses a small monospace font. An explicit
+   Edit action creates a proposal in `sourceEdit: { original, current }`; it
+   never writes the source document or changes its checksum, `raw`, IDs, or
+   structure. Saved proposals render through Pierre Diffs, show line counts in
+   the source header and tree row, and replace the tree block's visible content
+   while retaining the immutable original for handoff. Revert removes only the
+   proposal.
 8. **The selection remains visible while reading forward.** Once the selected
    row scrolls above the document viewport, a non-interactive mirror stays
    pinned at the top. Content scrolls beneath its opaque background and shadow;

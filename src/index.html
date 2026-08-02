@@ -116,17 +116,41 @@
         </div>
 
         <section class="source-panel">
-          <button
-            id="source-toggle"
-            class="source-toggle"
-            type="button"
-            aria-expanded="true"
-            aria-controls="selected-source"
-          >
-            <span>Source</span>
-            <span id="source-toggle-icon" class="source-toggle-icon">▼</span>
-          </button>
-          <pre id="selected-source" class="selected-source"></pre>
+          <div class="source-header">
+            <button
+              id="source-toggle"
+              class="source-toggle"
+              type="button"
+              aria-expanded="true"
+              aria-controls="source-content"
+            >
+              <span>Source</span>
+              <span id="source-toggle-icon" class="source-toggle-icon">▼</span>
+            </button>
+            <div class="source-header-actions">
+              <span id="source-diff-stats" class="source-diff-stats" hidden></span>
+              <button id="source-revert" class="source-action" type="button" hidden>Revert</button>
+              <button id="source-edit" class="source-action" type="button">Edit</button>
+            </div>
+          </div>
+          <div id="source-content">
+            <pre id="selected-source" class="selected-source"></pre>
+            <div id="source-diff" class="source-diff" hidden></div>
+            <textarea
+              id="source-editor"
+              class="source-editor"
+              rows="3"
+              spellcheck="false"
+              hidden
+            ></textarea>
+            <div id="source-save-bar" class="source-save-bar" hidden>
+              <strong>Save edited source</strong>
+              <span>
+                <button id="source-cancel" class="source-action" type="button">Cancel</button>
+                <button id="source-save" class="source-action is-primary" type="button">Save</button>
+              </span>
+            </div>
+          </div>
         </section>
 
         <label class="annotation-label" for="annotation-input">
@@ -183,6 +207,7 @@
     <script src="navigation.js"></script>
     <script src="review-sessions.js"></script>
     <script src="image-preview.js"></script>
+    <script src="vendor/pierre-diffs.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

@@ -170,6 +170,126 @@ test('tree updates cannot change the source snapshot or block structure', async 
   )
 })
 
+test('source edit proposals can be added, changed, removed, and handed off', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree('# Review\n\nOriginal paragraph.\n'),
+    contextSummary: 'Check source edit proposals.'
+  })
+  const paragraph = created.root.children[0].children[0]
+  const proposed = structuredClone(created)
+  proposed.root.children[0].children[0].sourceEdit = {
+    original: paragraph.raw,
+    current: 'Revised paragraph.'
+  }
+
+  const added = await store.updateTree(created.review.id, proposed)
+  assert.deepEqual(added.root.children[0].children[0].sourceEdit, {
+    original: 'Original paragraph.',
+    current: 'Revised paragraph.'
+  })
+
+  proposed.root.children[0].children[0].sourceEdit.current =
+    'A second revision.'
+  const changed = await store.updateTree(created.review.id, proposed)
+  assert.equal(
+    changed.root.children[0].children[0].sourceEdit.current,
+    'A second revision.'
+  )
+
+  delete proposed.root.children[0].children[0].sourceEdit
+  const removed = await store.updateTree(created.review.id, proposed)
+  assert.equal(
+    Object.hasOwn(removed.root.children[0].children[0], 'sourceEdit'),
+    false
+  )
+
+  proposed.root.children[0].children[0].sourceEdit = {
+    original: paragraph.raw,
+    current: 'Final proposal.'
+  }
+  await store.updateTree(created.review.id, proposed)
+  const handedOff = await store.handoff(created.review.id)
+  assert.deepEqual(handedOff.root.children[0].children[0].sourceEdit, {
+    original: 'Original paragraph.',
+    current: 'Final proposal.'
+  })
+  assert.deepEqual(await store.load(created.review.id), handedOff)
+})
+
+test('rejects malformed source edit proposals without changing the review', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree('# Review\n\nOriginal paragraph.\n'),
+    contextSummary: 'Check source edit validation.'
+  })
+  const paragraph = created.root.children[0].children[0]
+  const malformed = [
+    null,
+    'Revised paragraph.',
+    { original: paragraph.raw, current: '' },
+    { original: paragraph.raw, current: '   ' },
+    { original: paragraph.raw, current: paragraph.raw },
+    { original: paragraph.raw, current: 42 },
+    { original: 'Different original.', current: 'Revised paragraph.' },
+    { current: 'Revised paragraph.' },
+    {
+      original: paragraph.raw,
+      current: 'Revised paragraph.',
+      metadata: 'not part of the schema'
+    }
+  ]
+
+  for (const sourceEdit of malformed) {
+    const updated = structuredClone(created)
+    updated.root.children[0].children[0].sourceEdit = sourceEdit
+    await assert.rejects(
+      store.updateTree(created.review.id, updated),
+      (error) => error.code === 'INVALID_REVIEW'
+    )
+  }
+
+  assert.equal(
+    Object.hasOwn(
+      (await store.load(created.review.id)).root.children[0].children[0],
+      'sourceEdit'
+    ),
+    false
+  )
+})
+
+test('source edit proposals do not permit immutable target changes', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree('# Review\n\nOriginal paragraph.\n'),
+    contextSummary: 'Check proposal target immutability.'
+  })
+  const changedTarget = structuredClone(created)
+  const paragraph = changedTarget.root.children[0].children[0]
+  paragraph.sourceEdit = {
+    original: paragraph.raw,
+    current: 'Revised paragraph.'
+  }
+  paragraph.text = 'Changed target text'
+
+  await assert.rejects(
+    store.updateTree(created.review.id, changedTarget),
+    (error) => error.code === 'REVIEW_MISMATCH'
+  )
+})
+
 test('attachment allocation is owned, editable, and serialized by the store', async (t) => {
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111'

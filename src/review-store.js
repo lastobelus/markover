@@ -40,6 +40,37 @@ function assertTree(tree) {
       'Expected a markover-review version 1 tree.'
     )
   }
+
+  assertSourceEdits(tree.root)
+}
+
+function assertSourceEdits(node) {
+  if (Object.prototype.hasOwnProperty.call(node, 'sourceEdit')) {
+    const sourceEdit = node.sourceEdit
+    const fields = sourceEdit && typeof sourceEdit === 'object'
+      ? Object.keys(sourceEdit).sort()
+      : []
+    if (
+      !sourceEdit ||
+      typeof sourceEdit !== 'object' ||
+      Array.isArray(sourceEdit) ||
+      fields.length !== 2 ||
+      fields[0] !== 'current' ||
+      fields[1] !== 'original' ||
+      typeof sourceEdit.original !== 'string' ||
+      sourceEdit.original !== node.raw ||
+      typeof sourceEdit.current !== 'string' ||
+      !sourceEdit.current.trim() ||
+      sourceEdit.current === sourceEdit.original
+    ) {
+      throw new ReviewStoreError(
+        'INVALID_REVIEW',
+        `Block ${node.id || '<unknown>'} has an invalid source edit.`
+      )
+    }
+  }
+
+  for (const child of node.children || []) assertSourceEdits(child)
 }
 
 function treeFields(tree) {
@@ -58,6 +89,7 @@ function immutableNode(node) {
     feedback: _feedback,
     collapsed: _collapsed,
     attachments: _attachments,
+    sourceEdit: _sourceEdit,
     children = [],
     ...properties
   } = node

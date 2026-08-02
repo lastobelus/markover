@@ -929,13 +929,22 @@ kbd {
   background: rgb(255 253 250 / 72%);
 }
 
+.source-header {
+  display: flex;
+  min-height: 30px;
+  align-items: stretch;
+  justify-content: space-between;
+}
+
 .source-toggle {
   display: flex;
-  width: 100%;
+  min-width: 0;
   min-height: 30px;
   align-items: center;
+  gap: 8px;
   justify-content: space-between;
   padding: 0 10px;
+  flex: 1;
   border: 0;
   color: var(--muted);
   background: transparent;
@@ -955,16 +964,127 @@ kbd {
   font-size: 8px;
 }
 
+.source-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+}
+
+.source-action {
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  background: rgb(255 255 255 / 58%);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.source-action:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.source-action.is-primary {
+  border-color: var(--accent);
+  color: white;
+  background: var(--accent);
+}
+
+.source-diff-stats,
+.source-edit-summary {
+  font: 750 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+
+.source-diff-stats .addition,
+.source-edit-summary .addition {
+  color: #36785f;
+}
+
+.source-diff-stats .deletion,
+.source-edit-summary .deletion {
+  color: #b6422d;
+}
+
+.selected-source,
+.source-diff,
+.source-editor {
+  border-top: 1px solid var(--line);
+}
+
 .selected-source {
   max-height: 132px;
   margin: 0;
   overflow: auto;
   padding: 9px 10px 10px;
-  border-top: 1px solid var(--line);
   color: #5f5a52;
   background: rgb(255 255 255 / 62%);
   font: 9.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: pre;
+}
+
+.source-diff {
+  max-height: 260px;
+  overflow: auto;
+  background: rgb(255 255 255 / 62%);
+}
+
+.source-editor {
+  display: block;
+  width: 100%;
+  min-height: 58px;
+  max-height: 201px;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  resize: vertical;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  outline: none;
+  color: #4f4a43;
+  background: white;
+  font: 10.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.source-editor:focus {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.source-save-bar {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px 0 10px;
+  border-top: 1px solid var(--accent);
+  color: var(--accent);
+  background: rgb(217 82 54 / 7%);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.source-save-bar > span {
+  display: flex;
+  gap: 5px;
+}
+
+.source-edit-summary {
+  grid-column: 4 / -1;
+  justify-self: end;
+  padding-top: 2px;
+}
+
+.proposed-source > :first-child {
+  margin-top: 0;
+}
+
+.proposed-source > :last-child {
+  margin-bottom: 0;
 }
 
 .annotation-label {

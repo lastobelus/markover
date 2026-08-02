@@ -53,6 +53,15 @@ const elements = {
   selectedSource: document.querySelector('#selected-source'),
   selectedTitle: document.querySelector('#selected-title'),
   scrollbarRowCover: document.querySelector('#scrollbar-row-cover'),
+  sourceCancel: document.querySelector('#source-cancel'),
+  sourceContent: document.querySelector('#source-content'),
+  sourceDiff: document.querySelector('#source-diff'),
+  sourceDiffStats: document.querySelector('#source-diff-stats'),
+  sourceEdit: document.querySelector('#source-edit'),
+  sourceEditor: document.querySelector('#source-editor'),
+  sourceRevert: document.querySelector('#source-revert'),
+  sourceSave: document.querySelector('#source-save'),
+  sourceSaveBar: document.querySelector('#source-save-bar'),
   sourceToggle: document.querySelector('#source-toggle'),
   sourceToggleIcon: document.querySelector('#source-toggle-icon'),
   standardActions: document.querySelector('#standard-actions'),
@@ -86,6 +95,8 @@ const state = {
   reviewMode: false,
   selectedId: null,
   sourceCollapsed: false,
+  sourceDrafts: new Map(),
+  sourceEditingId: null,
   tree: null
 }
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
@@ -103,6 +114,7 @@ let documentsListSortOrder = new Map()
 let documentsListDecorations = new Map()
 let documentsListProjectPaths = []
 let documentsListStatuses = new Map()
+let sourceDiffCleanup = null
 
 import('../node_modules/@pierre/trees/dist/index.js')
   .then(({ FileTree }) => {
@@ -196,6 +208,21 @@ function wireSourceImagePreviews(content) {
       })
     })
   }
+}
+
+function sourceDiffStats(node) {
+  if (!node.sourceEdit) return null
+  return MarkoverDiffs.stats(node.sourceEdit.original, node.sourceEdit.current)
+}
+
+function renderDiffStats(element, stats) {
+  const addition = document.createElement('span')
+  addition.className = 'addition'
+  addition.textContent = `+${stats.additions}`
+  const deletion = document.createElement('span')
+  deletion.className = 'deletion'
+  deletion.textContent = `−${stats.deletions}`
+  element.replaceChildren(addition, ' ', deletion)
 }
 
 function nodeKindLabel(node) {
@@ -372,7 +399,10 @@ function renderNode(node, depth) {
   row.append(kind)
 
   const content = document.createElement('div')
-  if (node.type === 'heading') {
+  if (node.sourceEdit) {
+    content.className = 'block-content proposed-source'
+    content.innerHTML = inlineMarkdown.render(node.sourceEdit.current)
+  } else if (node.type === 'heading') {
     content.className = `block-content heading level-${node.level}`
     content.innerHTML = inlineMarkdown.renderInline(node.text)
   } else if (node.type === 'code') {
@@ -425,6 +455,14 @@ function renderNode(node, depth) {
     row.append(attachmentIndicator)
   } else {
     row.append(document.createElement('span'))
+  }
+
+  if (node.sourceEdit) {
+    const summary = document.createElement('span')
+    summary.className = 'source-edit-summary'
+    summary.title = 'Proposed source edit'
+    renderDiffStats(summary, sourceDiffStats(node))
+    row.append(summary)
   }
 
   row.addEventListener('click', () => selectNode(node.id, true))
@@ -713,12 +751,103 @@ function focusAnnotationPane() {
   else elements.annotationReadonly.focus()
 }
 
+function renderSourcePanel(node) {
+  sourceDiffCleanup?.()
+  sourceDiffCleanup = null
+  elements.sourceDiff.replaceChildren()
+
+  const editable = isCurrentReviewEditable()
+  const editing = editable && state.sourceEditingId === node.id
+  const draft = state.sourceDrafts.get(node.id)
+  const savedSource = node.sourceEdit?.current || node.raw
+  const currentDraft = draft ?? savedSource
+  const dirty = editing && currentDraft !== savedSource
+
+  elements.sourceContent.hidden = state.sourceCollapsed
+  elements.sourceEdit.hidden = !editable || editing
+  elements.sourceEdit.disabled = !editable
+  elements.sourceRevert.hidden = !editable || editing || !node.sourceEdit
+  elements.sourceDiffStats.hidden = !node.sourceEdit || editing
+  elements.sourceSaveBar.hidden = !dirty
+  elements.sourceSave.disabled = !currentDraft.trim()
+  elements.selectedSource.textContent = node.raw
+  elements.selectedSource.hidden = state.sourceCollapsed || editing || Boolean(node.sourceEdit)
+  elements.sourceEditor.hidden = state.sourceCollapsed || !editing
+  elements.sourceDiff.hidden = state.sourceCollapsed || editing || !node.sourceEdit
+
+  if (node.sourceEdit && !editing) {
+    renderDiffStats(elements.sourceDiffStats, sourceDiffStats(node))
+    if (!state.sourceCollapsed) {
+      try {
+        sourceDiffCleanup = MarkoverDiffs.render(
+          elements.sourceDiff,
+          node.sourceEdit.original,
+          node.sourceEdit.current,
+          `${state.reviewId || 'local'}:${node.id}`
+        )
+      } catch (error) {
+        elements.sourceDiff.textContent = `Diff unavailable: ${error.message}`
+      }
+    }
+  } else {
+    elements.sourceDiffStats.replaceChildren()
+  }
+
+  if (editing) {
+    elements.sourceEditor.value = currentDraft
+  }
+}
+
+function beginSourceEdit(node) {
+  if (!isCurrentReviewEditable()) return
+  if (!state.sourceDrafts.has(node.id)) {
+    state.sourceDrafts.set(node.id, node.sourceEdit?.current || node.raw)
+  }
+  state.sourceEditingId = node.id
+  state.sourceCollapsed = false
+  elements.sourceToggle.setAttribute('aria-expanded', 'true')
+  elements.sourceToggleIcon.textContent = '▼'
+  renderSourcePanel(node)
+  requestAnimationFrame(() => elements.sourceEditor.focus())
+}
+
+function cancelSourceEdit(node) {
+  state.sourceDrafts.delete(node.id)
+  if (state.sourceEditingId === node.id) state.sourceEditingId = null
+  renderSourcePanel(node)
+}
+
+function saveSourceEdit(node) {
+  const current = state.sourceDrafts.get(node.id)
+  if (typeof current !== 'string' || !current.trim()) {
+    showToast('Proposed source cannot be empty')
+    return
+  }
+  if (current === node.raw) delete node.sourceEdit
+  else node.sourceEdit = { original: node.raw, current }
+  state.sourceDrafts.delete(node.id)
+  state.sourceEditingId = null
+  renderTreePreservingScroll()
+  renderAnnotation(node)
+  autosaveReview()
+}
+
+function revertSourceEdit(node) {
+  if (!node.sourceEdit || !isCurrentReviewEditable()) return
+  delete node.sourceEdit
+  state.sourceDrafts.delete(node.id)
+  if (state.sourceEditingId === node.id) state.sourceEditingId = null
+  renderTreePreservingScroll()
+  renderAnnotation(node)
+  autosaveReview()
+}
+
 function renderAnnotation(node) {
   elements.selectedTitle.textContent = nodeDescriptor(node)
   elements.selectedLocation.textContent = node.lineStart === node.lineEnd
     ? `Line ${node.lineStart}`
     : `Lines ${node.lineStart}–${node.lineEnd}`
-  elements.selectedSource.textContent = node.raw
+  renderSourcePanel(node)
   elements.annotationInput.value = node.feedback
   renderReadonlyFeedback(node)
   elements.annotationState.textContent = hasAnnotation(node)
@@ -763,6 +892,8 @@ function captureActiveSession() {
   if (!session || session.reviewId !== state.reviewId) return
   session.selectedId = state.selectedId
   session.sourceCollapsed = state.sourceCollapsed
+  session.sourceDrafts = state.sourceDrafts
+  session.sourceEditingId = state.sourceEditingId
   session.attachmentPreviewUrls = state.attachmentPreviewUrls
 }
 
@@ -1379,6 +1510,8 @@ function activateReview(reviewId) {
   state.tree = session.tree
   state.selectedId = session.selectedId
   state.sourceCollapsed = session.sourceCollapsed
+  state.sourceDrafts = session.sourceDrafts
+  state.sourceEditingId = session.sourceEditingId
   state.attachmentPreviewUrls = session.attachmentPreviewUrls
   state.hoveredId = null
   bridge.activateReview(reviewId)
@@ -1392,7 +1525,7 @@ function activateReview(reviewId) {
     String(!state.sourceCollapsed)
   )
   elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
-  elements.selectedSource.hidden = state.sourceCollapsed
+  elements.sourceContent.hidden = state.sourceCollapsed
   closeImagePreview()
   renderTree()
 
@@ -1438,6 +1571,9 @@ async function loadDocument(documentData) {
   )
   state.reviewId = documentData.reviewId || state.tree.review?.id || null
   state.selectedId = state.tree.root.children[0]?.id || null
+  state.sourceCollapsed = false
+  state.sourceDrafts = new Map()
+  state.sourceEditingId = null
 
   elements.name.textContent = state.documentName
   elements.name.title = state.documentPath || state.documentName
@@ -1585,7 +1721,45 @@ elements.sourceToggle.addEventListener('click', () => {
     String(!state.sourceCollapsed)
   )
   elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
-  elements.selectedSource.hidden = state.sourceCollapsed
+  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (node) renderSourcePanel(node)
+})
+
+elements.sourceEdit.addEventListener('click', () => {
+  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (node) beginSourceEdit(node)
+})
+
+elements.sourceRevert.addEventListener('click', () => {
+  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (node) revertSourceEdit(node)
+})
+
+elements.sourceCancel.addEventListener('click', () => {
+  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (node) cancelSourceEdit(node)
+})
+
+elements.sourceSave.addEventListener('click', () => {
+  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (node) saveSourceEdit(node)
+})
+
+elements.sourceEditor.addEventListener('input', () => {
+  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (!node || state.sourceEditingId !== node.id) return
+  const current = elements.sourceEditor.value
+  state.sourceDrafts.set(node.id, current)
+  const savedSource = node.sourceEdit?.current || node.raw
+  elements.sourceSaveBar.hidden = current === savedSource
+  elements.sourceSave.disabled = !current.trim()
+})
+
+elements.sourceEditor.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  if (node) cancelSourceEdit(node)
 })
 
 elements.imagePreviewClose.addEventListener('click', closeImagePreview)

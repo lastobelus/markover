@@ -133,6 +133,8 @@
         lastViewedAt: Number.isFinite(reviewedAt) ? reviewedAt : this.now(),
         selectedId: document.tree.root.children[0]?.id || null,
         sourceCollapsed: false,
+        sourceDrafts: new Map(),
+        sourceEditingId: null,
         attachmentPreviewUrls: new Map()
       }
       this.byId.set(reviewId, session)

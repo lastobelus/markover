@@ -38,6 +38,8 @@ test('switching among three reviews preserves independent view and review state'
 
   sessions.activate(first.reviewId)
   first.selectedId = 'block-2'
+  first.sourceEditingId = 'block-2'
+  first.sourceDrafts.set('block-2', 'A proposed source edit')
   first.tree.root.children[0].collapsed = true
   first.tree.root.children[0].feedback = 'First feedback'
   first.tree.root.children[0].attachments = [{ id: 'img-1' }]
@@ -51,6 +53,8 @@ test('switching among three reviews preserves independent view and review state'
 
   assert.equal(sessions.list().length, 3)
   assert.equal(sessions.activate(first.reviewId).selectedId, 'block-2')
+  assert.equal(first.sourceEditingId, 'block-2')
+  assert.equal(first.sourceDrafts.get('block-2'), 'A proposed source edit')
   assert.equal(first.tree.root.children[0].collapsed, true)
   assert.equal(first.tree.root.children[0].feedback, 'First feedback')
   assert.deepEqual(first.tree.root.children[0].attachments, [{ id: 'img-1' }])
