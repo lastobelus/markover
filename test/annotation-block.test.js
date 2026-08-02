@@ -244,4 +244,7 @@ test('annotation list cards use scannable titles, compact thumbnails, and primar
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment \{[^}]*padding: 0;/)
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment span \{[^}]*display: none;/)
   assert.match(styles, /\.rendered-annotation-edit \{[^}]*color: white;[^}]*background: var\(--brand-orange\);/)
+  assert.match(styles, /\.annotation-list-view \{[^}]*min-width: 0;[^}]*overflow-x: hidden;/)
+  assert.match(styles, /\.annotation-list \{[^}]*grid-template-columns: minmax\(0, 1fr\);/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation \{[^}]*min-width: 0;[^}]*overflow: hidden;/)
 })

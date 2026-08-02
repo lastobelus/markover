@@ -1176,6 +1176,8 @@ kbd {
 
 .annotation-pane {
   display: flex;
+  min-width: 0;
+  overflow: hidden;
   flex-direction: column;
   padding-bottom: 12px;
   background: var(--accent-soft);
@@ -1264,8 +1266,11 @@ kbd {
 }
 
 .annotation-list-view {
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
   outline: none;
   background: rgb(255 253 249 / 35%);
@@ -1273,16 +1278,32 @@ kbd {
 
 .annotation-list {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 
 .annotation-list .rendered-annotation {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   border-bottom: 1px solid var(--line);
   background: transparent;
 }
 
 .annotation-list .rendered-annotation.is-selectable {
   cursor: pointer;
+}
+
+.annotation-list .rendered-annotation-body,
+.annotation-list .rendered-annotation-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.annotation-list .rendered-annotation-content {
+  overflow-wrap: anywhere;
 }
 
 .annotation-list .rendered-annotation.is-selectable:hover {
