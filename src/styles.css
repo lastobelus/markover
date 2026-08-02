@@ -563,6 +563,7 @@ p {
   right: 1px;
   left: 0;
   z-index: 5;
+  pointer-events: none;
 }
 
 .pinned-selection .block-row {
@@ -847,13 +848,20 @@ p {
 }
 
 .inline-image {
+  display: inline;
   padding: 1px 4px;
   border: 1px solid #c8c0b5;
   border-radius: 4px;
   color: var(--muted);
   background: rgb(255 255 255 / 55%);
-  cursor: help;
+  cursor: zoom-in;
+  font: inherit;
   font-size: 0.9em;
+}
+
+.inline-image:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .keyboard-help {

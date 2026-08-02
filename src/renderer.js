@@ -177,10 +177,25 @@ inlineMarkdown.renderer.rules.link_close = () => '</span>'
 inlineMarkdown.renderer.rules.image = (tokens, index) => {
   const token = tokens[index]
   const source = token.attrGet('src') || ''
-  const alt = token.content || 'Image'
-  const label = inlineMarkdown.utils.escapeHtml(alt)
-  const title = inlineMarkdown.utils.escapeHtml(source)
-  return `<span class="inline-image" title="${title}">▧ ${label}</span>`
+  const alt = token.content || ''
+  const label = MarkoverImagePreview.sourceLabel(source, alt)
+  const escapedLabel = inlineMarkdown.utils.escapeHtml(label)
+  const escapedSource = inlineMarkdown.utils.escapeHtml(source)
+  return `<button type="button" class="inline-image" data-image-source="${escapedSource}" data-image-label="${escapedLabel}" title="Preview ${escapedLabel}">▧ ${escapedLabel}</button>`
+}
+
+function wireSourceImagePreviews(content) {
+  for (const button of content.querySelectorAll('[data-image-source]')) {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation()
+      const source = button.dataset.imageSource || ''
+      openImagePreview({
+        url: MarkoverImagePreview.sourceUrl(source, state.documentPath),
+        label: button.dataset.imageLabel,
+        id: MarkoverImagePreview.sourceLabel(source, '')
+      })
+    })
+  }
 }
 
 function nodeKindLabel(node) {
@@ -378,6 +393,7 @@ function renderNode(node, depth) {
     content.className = `block-content list-item${node.task ? ' task-item' : ''}`
     content.innerHTML = inlineMarkdown.renderInline(node.text)
   }
+  wireSourceImagePreviews(content)
   row.append(content)
 
   if (hasAnnotation(node)) {
@@ -538,7 +554,7 @@ function beginAttachmentLabelEdit(node, attachment, item, details) {
 }
 
 function openImagePreview(attachment) {
-  const previewUrl = attachmentPreviewUrl(attachment)
+  const previewUrl = attachment.url || attachmentPreviewUrl(attachment)
   if (!previewUrl) {
     showToast('Preview unavailable in this session')
     return

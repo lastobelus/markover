@@ -1,9 +1,9 @@
 # Markover block-type sampler
 
 This paragraph demonstrates **strong text**, *emphasis*, `inline code`, an
-[inert link](https://example.com), and an ![inert image](./missing-diagram.png).
-The image is intentionally missing because Markover displays its alt text and
-path without loading it.
+[inert link](https://example.com), and an
+![image preview](../design/logo-explorations/01-editorial-redline.png). Click
+the image pill to open the source image in the same preview used for annotations.
 
 ## Heading hierarchy
 
