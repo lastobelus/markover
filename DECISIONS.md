@@ -45,10 +45,12 @@ foundation for a production architecture.
    siblings and climb outward at boundaries.
 3. **Tab and Shift-Tab both switch panes.** With only two panes, wrapping in
    either direction has the same visible result.
-4. **Ordinary app feedback is in-memory; dogfooding reviews autosave.** A review
-   opened through `review:open` atomically writes its complete tree after every
-   mutation to `.markover/reviews/<review-id>/review.json`. The same review ID
-   can restore that tree after Electron or its launching agent process exits.
+4. **Managed reviews are durable sessions.** Each `markover open` call creates a
+   distinct review ID and atomically writes its complete artifact after every
+   mutation to `.markover/reviews/<review-id>/review.json`. Restarting the
+   single application instance restores every managed review and its collapse,
+   feedback, status, and attachment state. Selection is retained while switching
+   tabs during an application run and resets to the first block after restart.
 5. **Structural labels do not repeat source markers.** Headings use `H1`, `H2`,
    and so on; ordered items use their actual index; unordered items use an open
    bullet. The block text contains only the item's content.
@@ -92,11 +94,12 @@ foundation for a production architecture.
 
 ## Screenshot attachments
 
-1. **Pasted screenshots are workspace files, not JSON payloads.** The default
-   base directory is the gitignored `.markover/attachments/`. Each app run gets
-   a unique subdirectory, and `--attachments-dir <path>` overrides the base.
-   Emitted paths are absolute so a same-workspace agent can inspect them
-   directly.
+1. **Pasted screenshots are workspace files, not JSON payloads.** Managed
+   reviews store them under
+   `.markover/reviews/<review-id>/attachments/`. Legacy blocking reviews retain
+   their gitignored `.markover/attachments/` directory and optional
+   `--attachments-dir <path>` override. Emitted paths are absolute so a
+   same-workspace agent can inspect them directly.
 2. **Attachments and prose remain separate data.** A node gains an ordered
    `attachments` array only when an image is pasted. Each entry contains an ID,
    type, MIME type, absolute path, byte checksum, pixel dimensions, and optional
@@ -121,39 +124,90 @@ foundation for a production architecture.
 5. **There is no image editor or dedicated caption field.** Pasted images are
    not cropped, drawn on, highlighted, or recompressed. Short thumbnail labels
    aid reference; explanatory prose remains in `feedback`.
-6. **Attachment files have no automatic cleanup.** Cancel, Done, and attachment
-   removal leave files on disk. If `.markover/` grows too large, cleanup happens
-   out of band.
+6. **Attachment files have no automatic cleanup.** Removing an attachment from
+   a node leaves its bytes on disk. Review-history retention and cleanup remain
+   future work.
 
 ## Agent handoff
 
-1. **A blocking CLI is the primary integration.** An agent can pass a Markdown
-   path or pipe Markdown to `npm --silent run review`, wait while the reviewer
-   works, then continue with the emitted JSON.
-2. **Stdout is a strict machine interface.** Done emits exactly one
-   `markover-review` JSON object and exits successfully. Cancel, window close,
-   and invalid input exit non-zero without emitting JSON. Diagnostics belong on
-   stderr.
-3. **Clipboard handoff uses the complete tree.** The ordinary app exposes one
-   primary `Copy feedback JSON` action. A second concise-feedback format was
-   removed because annotations are substantially less useful without their tree
+1. **The primary integration is non-blocking `open` plus one-shot `get`.**
+   `markover open <path> --summary <text>` registers the exact source in the
+   existing application instance, returns a review ID, and exits. After the user
+   says “Check Markover,” `markover get <id>` returns the complete review
+   without agent polling or clipboard transfer.
+2. **A review ID represents one review session.** Opening the same source twice
+   creates distinct IDs because branch, pull request, agent thread, purpose, and
+   annotations may differ. Source checksums identify the exact Markdown target;
+   review ID plus block ID identifies one annotation.
+3. **Handoff is atomic and idempotent.** `get` freezes the renderer before
+   capturing its latest state, waits for active attachment mutations, persists
+   the snapshot, transitions to `pending-agent`, and acknowledges the read-only
+   UI before returning. Per-review action serialization prevents concurrent
+   `get` and `edit` from interleaving.
+4. **The user can reopen editing.** `markover edit <id>` idempotently returns a
+   pending review to `editing`. It cannot recall work an agent already performed
+   from an older snapshot, so the user must also tell that agent to pause.
+5. **Stdout is a strict machine interface.** Agent-facing commands emit exactly
+   one JSON value on success. Diagnostics belong on stderr, and failures exit
+   non-zero without contaminating stdout.
+6. **Clipboard export remains an escape hatch.** `Copy feedback JSON` copies the
+   same complete tree. A concise-feedback format remains omitted because
+   annotations are substantially less useful without their source and tree
    context.
-4. **Image handoff uses ordinary paths.** Full-tree JSON includes attachment
-   metadata directly on annotated nodes.
-5. **Long human reviews launch outside the agent process tree.** The
-   `review:open` command registers a user `launchd` job on macOS, prints its
-   review ID and autosave path, and exits. `review:open --resume <review-id>`
-   reloads the atomically saved tree. This dogfooding path uses Copy feedback
-   JSON rather than stdout-based Done.
+7. **Image handoff uses ordinary paths.** Full-tree JSON includes attachment
+   metadata directly on annotated nodes; image bytes remain outside JSON.
+8. **Legacy commands remain temporarily available for comparison.** The
+   blocking `review` command and older durable `review:open`/`--resume` path are
+   not the primary multi-thread workflow.
+
+## Multi-document application state
+
+1. **One Electron instance owns a review inbox.** A checkout-specific
+   single-instance `launchd` service exposes a small loopback JSON API. Startup
+   retry stays inside the CLI process and does not spend agent turns polling.
+2. **Every managed review has an independent tab.** Switching tabs preserves
+   selection, collapsed blocks, annotations, and attachment previews.
+   Control-Tab and Control-Shift-Tab cycle reviews.
+3. **Pending reviews are localized read-only state.** Tabs show `WITH AGENT`,
+   the annotation pane shows `WITH AGENT · READ ONLY`, feedback renders as
+   Markdown rather than a textarea, and mutation controls disappear. Document
+   navigation, collapsing, source, thumbnails, and image preview remain.
+4. **The main process owns the latest persisted snapshot.** Renderer snapshot
+   and status acknowledgements form explicit barriers around handoff. Incomplete
+   or legacy review directories are left untouched rather than silently
+   migrated into the managed registry.
+
+## Review metadata
+
+1. **Metadata belongs to the review envelope, not the deterministic tree
+   structure.** A short Markdown `contextSummary` is required. Git, pull-request,
+   and agent-thread fields may be absent without blocking review creation.
+2. **Explicit metadata wins.** `--branch`, `--pr`, and `--thread-id` supply
+   values known by the launching agent. Provenance is stored with the values.
+3. **Git discovery is best effort.** Markover uses the source directory to
+   discover repository root, origin, branch, and commit. Remote URL userinfo,
+   query strings, and fragments are removed before persistence.
+4. **Codex discovery uses a bounded exact marker search.** A
+   `mko_handoff_<high-entropy>` key can identify the launching session when the
+   shell lacks its thread ID. Markover examines only a fixed number of recent
+   session-log tails within a fixed byte budget. Missing, unreadable, invalid,
+   substring-only, or ambiguous matches degrade to unknown metadata.
+5. **Metadata stays discoverable rather than crowded into the main UI.** Tabs
+   show only document, review ID suffix, and status. An information button opens
+   a drawer containing the summary, paths, Git details, pull request, thread,
+   and discovery provenance.
 
 ## Deliberately deferred
 
 - Drill-down into block-quote contents or table rows and cells
 - Footnote, definition-list, strikethrough, container, and other extension nodes
 - Explicit warnings and selectable fallback nodes for unsupported syntax
-- Annotation import, save, merge, migration, or recovery
+- Annotation import, merge, or migration across document revisions
 - Matching annotations across document edits
-- Direct agent-thread APIs beyond the blocking CLI
-- Multiple open documents
+- Manual File > Open with a colocated Markover save artifact
+- `markover://review/<id>` deep links
+- Agent result writeback, per-annotation outcomes, and addressed state
+- Organized review history, revisions, retention, and cleanup
+- Automatic pull-request discovery
 - Security hardening, accessibility, packaging, signing, and auto-update
 - Compatibility guarantees for the tree format

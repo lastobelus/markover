@@ -28,7 +28,8 @@ tree and attaching feedback to individual blocks.
   horizontally scrolling source panel.
 - Navigates blocks with the arrow keys.
 - Switches between the document and annotation panes with Tab or Shift-Tab.
-- Stores annotations on tree nodes in memory.
+- Stores annotations and per-review UI state on tree nodes in durable review
+  sessions.
 - Accepts pasted PNG and JPEG screenshots in the feedback field. Screenshots
   become ordered node attachments, appear as thumbnails, and insert optional
   `[!img-N]` references at the cursor. Electron's native clipboard is used as a
@@ -38,8 +39,13 @@ tree and attaching feedback to individual blocks.
   feedback.
 - Copies the full annotated tree through one primary `Copy feedback JSON`
   action.
-- Runs as a blocking agent review command that emits JSON when the reviewer
-  clicks Done.
+- Runs one multi-document Electron inbox for several agent threads.
+- Opens reviews without blocking the launching agent, then returns frozen review
+  JSON through a one-shot local command when the user says to check Markover.
+- Shows reviews that are with an agent as rendered, read-only annotations while
+  retaining document navigation, collapse controls, source, and image preview.
+- Keeps branch, pull request, agent-thread, and context metadata in a
+  discoverable drawer rather than the primary review surface.
 
 Unsupported Markdown extensions currently degrade according to CommonMark:
 their syntax can appear literally in paragraph nodes, resolve as ordinary
@@ -62,63 +68,99 @@ Run the focused parser and navigation tests with:
 npm test
 ```
 
-## Agent review command
+## Agent review inbox
 
-Pass a path:
-
-```sh
-npm --silent run review -- ./document.md
-```
-
-Or pipe Markdown:
+Open a document for review:
 
 ```sh
-cat ./document.md | npm --silent run review
+npm --silent run markover -- open ./document.md \
+  --summary "Explain why this document exists and what feedback would help."
 ```
 
-Override the gitignored `.markover/attachments/` screenshot directory:
+The command starts Markover when necessary, adds a tab to the existing
+single-instance inbox, prints a short opaque review ID, and exits:
+
+```json
+{"reviewId":"mko_8f3a2c","status":"editing"}
+```
+
+Keep that ID in the agent thread. After the reviewer says “Check Markover,”
+retrieve the complete frozen review in one local request:
 
 ```sh
-npm --silent run review -- ./document.md --attachments-dir ./tmp/review-images
+npm --silent run markover -- get mko_8f3a2c
 ```
 
-The command opens Markover and blocks. Clicking **Done** writes exactly one
-`markover-review` JSON object to stdout and exits with code 0. Clicking
-**Cancel**, closing the window, or providing invalid input exits non-zero
-without writing JSON.
+`get` atomically captures the latest renderer state, changes the review to
+`pending-agent`, makes its annotations read only, and emits exactly one complete
+`markover-review` JSON object. Repeating `get` returns the same frozen snapshot.
+
+If the reviewer needs to add something, return the review to editing:
+
+```sh
+npm --silent run markover -- edit mko_8f3a2c
+```
 
 Use `npm --silent`: ordinary `npm run` writes an npm banner to stdout, which
 would contaminate the JSON stream an agent expects to parse.
 
-The emitted object stores the exact input under `sourceDocument.content`, its
-SHA-256 value under `sourceDocument.checksum`, the absolute source path when a
-path was supplied, and reviewer comments in each block's `feedback` field.
-
-## Durable dogfooding reviews
-
-Open a review independently of the terminal or agent process:
-
-```sh
-npm --silent run review:open -- ./document.md
-```
-
-This returns a review ID and autosave path, then exits while the Electron
-window continues under the user's macOS `launchd` domain. Every feedback,
-collapse, attachment, removal, and attachment-label change atomically updates:
+Every review persists under:
 
 ```text
 .markover/reviews/<review-id>/review.json
 ```
 
-If Electron closes unexpectedly, resume the same saved tree:
+Its screenshots live under the same review directory. Restarting Markover
+restores all managed reviews, including feedback, collapse state, status, and
+attachments.
+
+## Review context metadata
+
+Pass metadata explicitly when it is known:
 
 ```sh
-npm --silent run review:open -- --resume <review-id>
+npm --silent run markover -- open ./document.md \
+  --summary "Review the handoff model before implementation." \
+  --branch feature/multi-review \
+  --pr 42 \
+  --thread-id 019fb49a-a321-75d3-9b10-355392949bb1
 ```
 
-Durable reviews expose `Copy feedback JSON` rather than a blocking Done action.
-The original blocking `review` command remains available for the current
-agent-waits-for-user handoff experiment.
+Markover always attempts best-effort Git discovery from the source path:
+repository root, origin, branch, and commit. Explicit values win.
+
+When the shell does not know its Codex thread ID, the launching agent can put a
+unique high-entropy marker in its command:
+
+```sh
+npm --silent run markover -- open ./document.md \
+  --summary "Review this plan." \
+  --handoff-key mko_handoff_6f8b2c4d9a1e7035
+```
+
+Markover searches only a bounded set of recent canonical Codex log tails for
+that exact marker. A unique match records the current session ID and provenance;
+missing, ambiguous, unreadable, or unavailable logs do not prevent opening the
+review. Discovered remote URLs have credentials, query strings, and fragments
+removed before persistence.
+
+Use the `i` button beside the document name to open the review-context drawer.
+It shows the summary, source path, review status, Git metadata, pull request,
+agent thread, and discovery provenance without crowding the tab strip.
+
+## Legacy review commands
+
+The earlier blocking command remains available while the prototype is being
+compared:
+
+```sh
+npm --silent run review -- ./document.md
+```
+
+It accepts a path or piped Markdown, blocks until Done or Cancel, and writes the
+review JSON directly to stdout. `review:open` and
+`review:open --resume <review-id>` remain available for reopening older durable
+dogfooding reviews created before the inbox workflow.
 
 ## Keyboard model
 
@@ -128,14 +170,16 @@ agent-waits-for-user handoff experiment.
 | Left | Select the parent |
 | Right | Select the first child; otherwise the next available sibling |
 | Tab / Shift-Tab | Move between the document and annotation panes |
+| Control-Tab / Control-Shift-Tab | Move between review tabs |
 
 Double-click a block, or click its disclosure triangle, to collapse or expand
 its children.
 
 ## Feedback handoff
 
-`Copy feedback JSON` produces the full `markover-review` format, including the
-source document metadata, structure, collapse state, and block feedback.
-Nodes with pasted screenshots also contain an ordered `attachments` array with
-image IDs, absolute paths, MIME types, byte checksums, pixel dimensions, and
-optional short labels. Image bytes are not embedded in the JSON.
+`markover get <review-id>` and `Copy feedback JSON` both produce the full
+`markover-review` format, including the exact source, checksum, review metadata,
+structure, collapse state, and block feedback. Nodes with pasted screenshots
+also contain an ordered `attachments` array with image IDs, absolute paths,
+MIME types, byte checksums, pixel dimensions, and optional short labels. Image
+bytes are not embedded in the JSON.
