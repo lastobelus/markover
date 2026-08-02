@@ -17,6 +17,24 @@ test('canonical brand SVGs use only the normalized semantic inks', () => {
   }
 })
 
+test('the branding mockup is a self-contained local artifact bundle', () => {
+  const entryPath = path.join(root, 'design/brand/mockups/index.html')
+  const html = fs.readFileSync(entryPath, 'utf8')
+  const localTargets = [...html.matchAll(/(?:href|src)="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((target) => !target.startsWith('#') && !/^[a-z]+:/i.test(target))
+
+  assert.ok(localTargets.length > 0)
+  for (const target of localTargets) {
+    assert.equal(target.includes('..'), false, `${target} must not escape the artifact directory`)
+    assert.equal(
+      fs.existsSync(path.resolve(path.dirname(entryPath), target)),
+      true,
+      `${target} must resolve inside the artifact bundle`
+    )
+  }
+})
+
 test('the app composes external brand assets and exposes a true empty state', () => {
   const html = read('src/index.html')
   const renderer = read('src/renderer.js')
