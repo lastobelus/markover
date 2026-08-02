@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="./design/brand/markover-lockup.svg" width="560" alt="Markover">
+  <img src="./design/brand/markover-readme-leader.svg" width="760" alt="Markover — Structured Markdown review for agent threads.">
 </p>
-
-<p align="center"><strong>Structured Markdown review for agent threads.</strong></p>
 
 <p align="center">
   <a href="https://lastobelus.github.io/markover/">Website</a>

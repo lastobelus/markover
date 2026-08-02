@@ -89,7 +89,7 @@ Do not show a tagline inside the working app. Once someone is using Markover, pr
 
 ## Public surfaces
 
-- README: use the horizontal lockup SVG at approximately 480–560 px, followed by live Markdown descriptor text and badges.
+- README: use `markover-readme-leader.svg` for the lockup and descriptor composition, followed by live navigation links and badges.
 - GitHub Pages navigation: use mark and logotype separately for responsive control.
 - GitHub Pages hero: keep headline, supporting copy and calls to action as HTML; do not bake them into a brand image.
 - Documentation landing page: the full lockup is appropriate in a spacious masthead.

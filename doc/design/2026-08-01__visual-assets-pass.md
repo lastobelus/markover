@@ -9,6 +9,7 @@ Keep these as the authoritative delivery assets:
 - [`markover-mark.svg`](../../design/brand/markover-mark.svg) — icons, favicons, compact documentation navigation and constrained app layouts.
 - [`markover-logotype.svg`](../../design/brand/markover-logotype.svg) — paired with the mark when responsive spacing is useful.
 - [`markover-lockup.svg`](../../design/brand/markover-lockup.svg) — README leaders, mastheads and other generous public-facing placements.
+- [`markover-readme-leader.svg`](../../design/brand/markover-readme-leader.svg) — complete responsive README composition with the canonical lockup and descriptor.
 
 The SVG wrappers are web-ready and responsive. Every path and fill remains as pasted from Affinity.
 
@@ -24,7 +25,7 @@ I recommend normalizing the entire family to the mark's two exact colors—`#c94
 | --- | --- | --- | --- |
 | App icon | A square icon composition using the mark on a quiet background plate | SVG master; generated `.icns`, `.ico`, and Linux icon files | Produce a 1024×1024 PNG per palette as the high-resolution raster source |
 | Favicon | Mark with a little optical padding | `favicon.svg` plus generated `favicon.ico` | PNG is unnecessary unless adding Apple touch or installable-web-app icons |
-| GitHub README leader | Centered horizontal lockup with live Markdown below it | Existing lockup SVG | None |
+| GitHub README leader | Centered horizontal lockup and descriptor in one responsive composition | `markover-readme-leader.svg` | None |
 | GitHub repository social preview | Lockup, short descriptor and solid background | 1280×640 PNG, under 1 MB | Required by GitHub's social-preview uploader; produce three palette versions |
 | GitHub Pages hero | Mark/logotype in navigation; headline and product UI remain HTML/CSS | Existing SVG components | None for the rendered page |
 | GitHub Pages share card | Simplified hero composition within a generous safe area | 1200×630 PNG | Required only if the Pages site should have a designed Open Graph card; produce three palette versions |
@@ -58,13 +59,12 @@ Ship:
 
 ## GitHub repository treatment
 
-Use the lockup SVG as a restrained README leader, not a baked full-width banner. Keep the descriptor and badges as live Markdown so the README remains accessible and easy to update. GitHub supports SVG images and relative repository paths. [GitHub image syntax](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#images)
+Use the dedicated README leader SVG as a restrained composition rather than a baked raster banner. It combines the canonical lockup and descriptor while retaining a transparent, theme-aware canvas. Keep navigation links and badges as live Markdown beneath it. GitHub supports SVG images and relative repository paths. [GitHub image syntax](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#images)
 
 ```html
 <p align="center">
-  <img src="./design/brand/markover-lockup.svg" width="560" alt="Markover">
+  <img src="./design/brand/markover-readme-leader.svg" width="760" alt="Markover — Structured Markdown review for agent threads.">
 </p>
-<p align="center">Structured Markdown review for agent threads.</p>
 ```
 
 The separately uploaded 1280×640 social-preview PNG should use a solid palette background, the lockup and a short descriptor. It is the only required raster repository-brand asset.
@@ -110,4 +110,4 @@ After resolving the two canonical colors, create only:
 4. Three 1200×630 Pages Open Graph PNGs, if social sharing matters for the documentation site.
 5. Monochrome and reversed variants of the three canonical SVG components.
 
-The README leader, Pages hero, documentation masthead and app header do not need separate raster artwork; they should compose the canonical SVGs directly.
+The README leader, Pages hero, documentation masthead and app header do not need raster artwork. The README uses its dedicated SVG composition; the remaining surfaces compose the canonical SVGs directly.
