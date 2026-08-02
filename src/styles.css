@@ -207,7 +207,7 @@ p {
   align-items: center;
   gap: 8px;
   border: 0;
-  border-bottom: 3px solid transparent;
+  border-top: 3px solid transparent;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
@@ -220,7 +220,7 @@ p {
 }
 
 .document-tab.is-active {
-  border-bottom-color: var(--accent);
+  border-top-color: var(--accent);
   color: var(--ink);
   background: var(--surface);
 }
