@@ -42,6 +42,7 @@ const elements = {
   sourceDiffStats: document.querySelector('#source-diff-stats'),
   sourceEdit: document.querySelector('#source-edit'),
   sourceEditor: document.querySelector('#source-editor'),
+  sourcePanel: document.querySelector('.source-panel'),
   sourceRevert: document.querySelector('#source-revert'),
   sourceSave: document.querySelector('#source-save'),
   sourceSaveBar: document.querySelector('#source-save-bar'),
@@ -241,6 +242,8 @@ function renderDiffStats(element, stats) {
 }
 
 function nodeKindLabel(node) {
+  if (node.type === 'frontmatter') return 'YAML'
+  if (node.type === 'frontmatter-entry') return '{}'
   if (node.type === 'heading') return `H${node.level}`
   if (node.task) return node.checked ? '☑' : '☐'
   if (node.type === 'ordered-item') return node.marker
@@ -253,6 +256,8 @@ function nodeKindLabel(node) {
 }
 
 function nodeDescriptor(node) {
+  if (node.type === 'frontmatter') return '<yaml-frontmatter>'
+  if (node.type === 'frontmatter-entry') return `<yaml:${node.key}>`
   if (node.type === 'heading') return `<h${node.level}>`
   if (node.task) {
     return `<task> ${node.listPosition} of ${node.listLength}`
@@ -490,6 +495,12 @@ function renderNode(entry, depth) {
   } else if (node.type === 'heading') {
     content.className = `block-content heading level-${node.level}`
     content.innerHTML = inlineMarkdown.renderInline(node.text)
+  } else if (node.type === 'frontmatter') {
+    content.className = 'block-content frontmatter'
+    content.textContent = node.text
+  } else if (node.type === 'frontmatter-entry') {
+    content.className = 'block-content frontmatter-entry'
+    content.textContent = node.text
   } else if (node.type === 'code') {
     content.className = 'block-content code'
     const code = document.createElement('code')
@@ -874,6 +885,10 @@ function renderSourcePanel(node) {
   sourceDiffCleanup?.()
   sourceDiffCleanup = null
   elements.sourceDiff.replaceChildren()
+
+  const sourceVisible = node.sourceEditable !== false
+  elements.sourcePanel.hidden = !sourceVisible
+  if (!sourceVisible) return
 
   const editable = isCurrentReviewEditable()
   const editing = editable && state.sourceEditingId === node.id

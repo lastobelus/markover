@@ -171,3 +171,75 @@ Hidden text
   assert.deepEqual(tree.unsupported, [])
   assert.equal(tree.sourceDocument.content, source)
 })
+
+test('parses YAML frontmatter into a non-editable parent and top-level pairs', () => {
+  const source = `---
+title: Better frontmatter
+tags:
+  - markdown
+  - review
+description: |
+  A multiline value.
+  Kept with its key.
+draft: false
+---
+
+# Document
+`
+  const tree = parseMarkdown(source)
+  const [frontmatter, heading] = tree.root.children
+
+  assert.equal(frontmatter.type, 'frontmatter')
+  assert.equal(frontmatter.text, 'YAML Frontmatter')
+  assert.equal(frontmatter.sourceEditable, false)
+  assert.equal(frontmatter.lineStart, 1)
+  assert.equal(frontmatter.lineEnd, 10)
+  assert.deepEqual(
+    frontmatter.children.map((node) => node.key),
+    ['title', 'tags', 'description', 'draft']
+  )
+  assert.deepEqual(
+    frontmatter.children.map((node) => node.type),
+    Array(4).fill('frontmatter-entry')
+  )
+  assert.equal(frontmatter.children[0].raw, 'title: Better frontmatter')
+  assert.equal(frontmatter.children[0].lineStart, 2)
+  assert.equal(frontmatter.children[0].lineEnd, 2)
+  assert.equal(frontmatter.children[1].raw, 'tags:\n  - markdown\n  - review')
+  assert.equal(frontmatter.children[1].lineStart, 3)
+  assert.equal(frontmatter.children[1].lineEnd, 5)
+  assert.equal(
+    frontmatter.children[2].raw,
+    'description: |\n  A multiline value.\n  Kept with its key.'
+  )
+  assert.equal(frontmatter.children[3].raw, 'draft: false')
+  assert.equal(heading.type, 'heading')
+  assert.equal(heading.text, 'Document')
+  assert.deepEqual(tree.unsupported, [])
+})
+
+test('accepts an explicit YAML end marker and empty frontmatter', () => {
+  const tree = parseMarkdown('---\n...\n\nParagraph.\n')
+  const [frontmatter, paragraph] = tree.root.children
+
+  assert.equal(frontmatter.type, 'frontmatter')
+  assert.deepEqual(frontmatter.children, [])
+  assert.equal(paragraph.type, 'paragraph')
+  assert.equal(paragraph.lineStart, 4)
+})
+
+test('leaves unclosed, malformed, and non-mapping frontmatter to Markdown', () => {
+  const sources = [
+    '---\ntitle: unclosed\n',
+    '---\ntitle: [invalid\n---\n',
+    '---\n- first\n- second\n---\n'
+  ]
+
+  for (const source of sources) {
+    const tree = parseMarkdown(source)
+    assert.equal(
+      tree.root.children.some((node) => node.type === 'frontmatter'),
+      false
+    )
+  }
+})

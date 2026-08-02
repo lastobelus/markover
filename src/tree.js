@@ -2,6 +2,9 @@
   const MarkdownIt = typeof require === 'function'
     ? require('markdown-it')
     : globalScope.markdownit
+  const YAML = typeof require === 'function'
+    ? require('yaml')
+    : globalScope.MarkoverYaml
   const markdown = MarkdownIt('commonmark', {
     html: false,
     linkify: false,
@@ -9,9 +12,47 @@
   })
   markdown.enable('table')
 
+  function parseFrontmatter(lines) {
+    if (!/^\uFEFF?---\s*$/.test(lines[0] || '')) return null
+
+    const closingIndex = lines.findIndex((line, index) => (
+      index > 0 && /^(?:---|\.\.\.)\s*$/.test(line)
+    ))
+    if (closingIndex === -1) return null
+
+    const source = lines.slice(1, closingIndex).join('\n')
+    const document = YAML.parseDocument(source, { prettyErrors: false })
+    if (document.errors.length || (document.contents && !YAML.isMap(document.contents))) {
+      return null
+    }
+
+    const entries = (document.contents?.items || []).map((pair) => {
+      const start = pair.key?.range?.[0]
+      const end = pair.value?.range?.[2] ?? pair.key?.range?.[2]
+      if (!Number.isInteger(start) || !Number.isInteger(end)) return null
+
+      const raw = source.slice(start, end).replace(/\n$/, '')
+      const linesBefore = source.slice(0, start).split('\n').length - 1
+      return {
+        key: source.slice(pair.key.range[0], pair.key.range[1]),
+        raw,
+        lineStart: linesBefore + 2,
+        lineEnd: linesBefore + 1 + raw.split('\n').length
+      }
+    }).filter(Boolean)
+
+    return { closingIndex, entries }
+  }
+
   function parseMarkdown(source, checksum = '', document = {}) {
     const lines = source.replace(/\r\n?/g, '\n').split('\n')
-    const tokens = markdown.parse(source, {})
+    const frontmatter = parseFrontmatter(lines)
+    const markdownSource = frontmatter
+      ? lines.map((line, index) => (
+        index <= frontmatter.closingIndex ? '' : line
+      )).join('\n')
+      : source
+    const tokens = markdown.parse(markdownSource, {})
     let sequence = 0
     let listSequence = 0
 
@@ -102,6 +143,28 @@
         lineEnd: token.map[1],
         ...properties
       }))
+    }
+
+    if (frontmatter) {
+      const parent = createNode({
+        type: 'frontmatter',
+        text: 'YAML Frontmatter',
+        raw: lines.slice(0, frontmatter.closingIndex + 1).join('\n'),
+        lineStart: 1,
+        lineEnd: frontmatter.closingIndex + 1,
+        sourceEditable: false
+      })
+      for (const entry of frontmatter.entries) {
+        addChild(parent, createNode({
+          type: 'frontmatter-entry',
+          text: entry.raw,
+          raw: entry.raw,
+          key: entry.key,
+          lineStart: entry.lineStart,
+          lineEnd: entry.lineEnd
+        }))
+      }
+      addChild(root, parent)
     }
 
     for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
