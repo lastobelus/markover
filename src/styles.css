@@ -228,6 +228,7 @@ p {
 }
 
 .document-tab {
+  position: relative;
   display: flex;
   flex: 1 1 0;
   min-width: 0;
@@ -238,7 +239,7 @@ p {
   justify-content: center;
   gap: 6px;
   border: 0;
-  border-top: 3px solid transparent;
+  border-top: 0;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
@@ -255,9 +256,18 @@ p {
 }
 
 .document-tab.is-active {
-  border-top-color: var(--accent);
   color: var(--brand-orange);
   background: var(--surface);
+}
+
+.document-tab.is-active::before {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--accent);
+  content: "";
 }
 
 .document-tab-name {
@@ -534,7 +544,7 @@ p {
 .pane:focus > .pane-header::before,
 .pane:focus-within > .pane-header::before,
 .pane.focus-within > .pane-header::before {
-  top: -4px;
+  top: -1px;
   height: 4px;
   background: var(--accent-deep);
 }
