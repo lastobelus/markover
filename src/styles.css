@@ -45,6 +45,15 @@
   --status-progress: #d89b35;
   --status-other: var(--muted);
   --status-outline: rgb(var(--ink-rgb) / 55%);
+  --pane-label-base: var(--markover-secondary);
+  --pane-label-highlight: var(--markover-primary);
+  --pane-label-color: var(--pane-label-base);
+  --pane-label-hover: var(--pane-label-highlight);
+  --pane-label-inactive: color-mix(
+    in srgb,
+    var(--pane-label-color) 50%,
+    var(--selected-panel-bg)
+  );
 }
 
 :root[data-palette="ocean"] {
@@ -55,6 +64,8 @@
   --secondary-contrast: #073344;
   --selection-line: #8bbdca;
   --hover-line: #c4dce2;
+  --pane-label-base: var(--markover-primary);
+  --pane-label-highlight: var(--markover-secondary);
 }
 
 :root[data-palette="olive"] {
@@ -65,6 +76,8 @@
   --secondary-contrast: #29300f;
   --selection-line: #b5bd8f;
   --hover-line: #d6dac5;
+  --pane-label-base: var(--markover-primary);
+  --pane-label-highlight: var(--markover-secondary);
 }
 
 :root[data-palette="olive"]:not([data-appearance="dark"]) {
@@ -111,6 +124,21 @@
   --code: #11100f;
   --status-editing: color-mix(in srgb, var(--markover-primary) 70%, white);
   --status-outline: rgb(var(--ink-rgb) / 42%);
+  --pane-label-color: color-mix(
+    in srgb,
+    var(--pane-label-base) 42%,
+    white
+  );
+  --pane-label-hover: color-mix(
+    in srgb,
+    var(--pane-label-highlight) 68%,
+    white
+  );
+  --pane-label-inactive: color-mix(
+    in srgb,
+    var(--pane-label-color) 84%,
+    var(--selected-panel-bg)
+  );
 }
 
 :root[data-palette="ocean"][data-appearance="dark"] {
@@ -678,18 +706,28 @@ p {
 }
 
 .documents-list-header {
+  position: relative;
   display: flex;
   height: var(--pane-header-height);
   min-height: var(--pane-header-height);
   align-items: center;
-  justify-content: space-between;
-  padding: 0 5px 0 9px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 10px;
+  justify-content: flex-end;
+  padding: 0 5px;
+  color: var(--pane-label-color);
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.documents-list-header::before {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--line);
+  content: "";
 }
 
 .documents-list-disclosure {
@@ -810,14 +848,14 @@ p {
 .pane.focus-within > .pane-header::before {
   top: -1px;
   height: 4px;
-  background: var(--accent-deep);
+  background: var(--pane-label-color);
 }
 
 .eyebrow {
   position: absolute;
   top: 5px;
   left: 22px;
-  color: var(--accent-deep);
+  color: var(--pane-label-color);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -1422,7 +1460,7 @@ button.rendered-annotation-attachment {
   border: 1px solid var(--line);
   border-radius: 9px;
   color: var(--muted);
-  background: rgb(var(--surface-rgb) / 92%);
+  background: color-mix(in srgb, var(--app-header-bg) 92%, transparent);
   font-size: 10px;
   box-shadow: 0 5px 18px rgb(38 33 30 / 8%);
 }
@@ -1476,7 +1514,7 @@ kbd {
 .annotation-pane:focus-within > .annotation-view-tabs::before,
 .annotation-pane.focus-within > .annotation-view-tabs::before {
   height: 4px;
-  background: var(--accent-deep);
+  background: var(--pane-label-color);
 }
 
 .annotation-view-tabs button {
@@ -1486,7 +1524,7 @@ kbd {
   padding: 7px 0 5px;
   border: 0;
   border-radius: 0;
-  color: var(--surface);
+  color: var(--pane-label-inactive);
   background: transparent;
   cursor: pointer;
   font-size: 9px;
@@ -1496,12 +1534,12 @@ kbd {
   white-space: nowrap;
 }
 
-.annotation-view-tabs button:hover:not(:disabled) {
-  color: var(--brand-orange);
+.annotation-view-tabs button:hover:not(.is-active):not(:disabled) {
+  color: var(--pane-label-hover);
 }
 
 .annotation-view-tabs button.is-active {
-  color: var(--brand-burgundy);
+  color: var(--pane-label-color);
 }
 
 .annotation-view-tabs button.is-active::after {
