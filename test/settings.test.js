@@ -7,6 +7,7 @@ const { JSDOM } = require('jsdom')
 const {
   applySettingsToView,
   confirmScreenshotRemoval,
+  darkColorization,
   DEFAULT_SETTINGS,
   normalizeSettings,
   sidebarPreferenceChanged,
@@ -18,11 +19,10 @@ const { SettingsStore } = require('../src/settings-store')
 const root = path.join(__dirname, '..')
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8')
 
-test('settings defaults include the temporary dark-colorization comparison', () => {
+test('settings defaults cover the eight persisted preferences', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS), [
     'palette',
     'appearance',
-    'darkColorization',
     'treeDensity',
     'annotationTextSize',
     'showKeyboardHelp',
@@ -36,7 +36,6 @@ test('settings normalization accepts known choices and rejects unknown values', 
   assert.deepEqual(normalizeSettings({
     palette: 'ocean',
     appearance: 'dark',
-    darkColorization: 'low',
     treeDensity: 'compact',
     annotationTextSize: 'large',
     showKeyboardHelp: false,
@@ -47,7 +46,6 @@ test('settings normalization accepts known choices and rejects unknown values', 
   }), {
     palette: 'ocean',
     appearance: 'dark',
-    darkColorization: 'low',
     treeDensity: 'compact',
     annotationTextSize: 'large',
     showKeyboardHelp: false,
@@ -69,16 +67,13 @@ test('partial settings updates retain unrelated values', () => {
 
 test('window backgrounds match palette and resolved appearance before first paint', () => {
   assert.equal(windowBackground({ palette: 'ember' }, 'light'), '#eee8e0')
-  assert.equal(windowBackground({ palette: 'ocean' }, 'dark'), '#0d1b20')
+  assert.equal(windowBackground({ palette: 'ember' }, 'dark'), '#171616')
+  assert.equal(windowBackground({ palette: 'ocean' }, 'dark'), '#171b1d')
   assert.equal(windowBackground({ palette: 'olive' }, 'light'), '#dde1d2')
-  assert.equal(windowBackground({
-    palette: 'ocean',
-    darkColorization: 'mid'
-  }, 'dark'), '#171b1d')
-  assert.equal(windowBackground({
-    palette: 'olive',
-    darkColorization: 'low'
-  }, 'dark'), '#171815')
+  assert.equal(windowBackground({ palette: 'olive' }, 'dark'), '#171815')
+  assert.equal(darkColorization('ember'), 'low')
+  assert.equal(darkColorization('ocean'), 'mid')
+  assert.equal(darkColorization('olive'), 'low')
 })
 
 test('renderer settings apply immediately and reset through the same path', () => {
@@ -86,7 +81,6 @@ test('renderer settings apply immediately and reset through the same path', () =
     <form>
       <select name="palette"><option value="ember">Ember</option><option value="ocean">Ocean</option></select>
       <select name="appearance"><option value="system">System</option><option value="dark">Dark</option></select>
-      <select name="darkColorization"><option value="high">High</option><option value="mid">Mid</option><option value="low">Low</option></select>
       <select name="treeDensity"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select>
       <select name="annotationTextSize"><option value="medium">Medium</option><option value="large">Large</option></select>
       <input name="showKeyboardHelp" type="checkbox">
@@ -106,14 +100,13 @@ test('renderer settings apply immediately and reset through the same path', () =
     ...DEFAULT_SETTINGS,
     palette: 'ocean',
     resolvedAppearance: 'dark',
-    darkColorization: 'low',
     treeDensity: 'compact',
     annotationTextSize: 'large',
     showKeyboardHelp: false
   }, view)
   assert.equal(view.root.dataset.palette, 'ocean')
   assert.equal(view.root.dataset.appearance, 'dark')
-  assert.equal(view.root.dataset.colorization, 'low')
+  assert.equal(view.root.dataset.colorization, 'mid')
   assert.equal(view.root.dataset.treeDensity, 'compact')
   assert.equal(view.root.dataset.annotationTextSize, 'large')
   assert.equal(view.keyboardHelp.hidden, true)

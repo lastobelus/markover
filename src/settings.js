@@ -2,7 +2,6 @@
   const DEFAULT_SETTINGS = Object.freeze({
     palette: 'ember',
     appearance: 'system',
-    darkColorization: 'high',
     treeDensity: 'comfortable',
     annotationTextSize: 'medium',
     showKeyboardHelp: true,
@@ -14,7 +13,6 @@
   const OPTIONS = Object.freeze({
     palette: ['ember', 'ocean', 'olive'],
     appearance: ['system', 'light', 'dark'],
-    darkColorization: ['high', 'mid', 'low'],
     treeDensity: ['comfortable', 'compact'],
     annotationTextSize: ['small', 'medium', 'large'],
     defaultTreeView: ['all', 'annotated']
@@ -45,6 +43,16 @@
     })
   })
 
+  const DARK_COLORIZATION = Object.freeze({
+    ember: 'low',
+    ocean: 'mid',
+    olive: 'low'
+  })
+
+  function darkColorization(palette) {
+    return DARK_COLORIZATION[palette] || DARK_COLORIZATION.ember
+  }
+
   function normalizeSettings(value = {}) {
     const normalized = { ...DEFAULT_SETTINGS }
     for (const [key, choices] of Object.entries(OPTIONS)) {
@@ -68,7 +76,7 @@
     const normalized = normalizeSettings(settings)
     const appearance = resolvedAppearance === 'dark' ? 'dark' : 'light'
     return appearance === 'dark'
-      ? WINDOW_BACKGROUNDS.dark[normalized.darkColorization][normalized.palette]
+      ? WINDOW_BACKGROUNDS.dark[darkColorization(normalized.palette)][normalized.palette]
       : WINDOW_BACKGROUNDS.light[normalized.palette]
   }
 
@@ -79,7 +87,7 @@
     )
     view.root.dataset.palette = normalized.palette
     view.root.dataset.appearance = appearance
-    view.root.dataset.colorization = normalized.darkColorization
+    view.root.dataset.colorization = darkColorization(normalized.palette)
     view.root.dataset.treeDensity = normalized.treeDensity
     view.root.dataset.annotationTextSize = normalized.annotationTextSize
     view.keyboardHelp.hidden = !normalized.showKeyboardHelp
@@ -104,12 +112,14 @@
 
   const api = {
     DEFAULT_SETTINGS,
+    DARK_COLORIZATION,
     OPTIONS,
     WINDOW_BACKGROUNDS,
     normalizeSettings,
     updateSettings,
     windowBackground,
     applySettingsToView,
+    darkColorization,
     sidebarPreferenceChanged,
     confirmScreenshotRemoval
   }

@@ -6,9 +6,14 @@
     <title>Markover</title>
     <script>
       const startupTheme = new URLSearchParams(window.location.search)
-      document.documentElement.dataset.palette = startupTheme.get('palette') || 'ember'
+      const startupPalette = startupTheme.get('palette') || 'ember'
+      document.documentElement.dataset.palette = startupPalette
       document.documentElement.dataset.appearance = startupTheme.get('appearance') || 'light'
-      document.documentElement.dataset.colorization = startupTheme.get('colorization') || 'high'
+      document.documentElement.dataset.colorization = startupTheme.get('colorization') || ({
+        ember: 'low',
+        ocean: 'mid',
+        olive: 'low'
+      }[startupPalette] || 'low')
     </script>
     <link rel="stylesheet" href="styles.css">
     <script type="importmap">
@@ -293,14 +298,6 @@
               <option value="system">System</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
-            </select>
-          </label>
-          <label class="settings-field">
-            <span><strong>Dark colorization <em>Temporary</em></strong><small>Compare the original tinted dark themes with increasingly neutral alternatives.</small></span>
-            <select name="darkColorization">
-              <option value="high">High · original</option>
-              <option value="mid">Mid · more neutral</option>
-              <option value="low">Low · near neutral</option>
             </select>
           </label>
           <label class="settings-field">

@@ -16,7 +16,11 @@ const { startLocalService } = require('./local-service')
 const { discoverRepositoryRoot } = require('./metadata-discovery')
 const { ReviewStore } = require('./review-store')
 const { SettingsStore } = require('./settings-store')
-const { DEFAULT_SETTINGS, windowBackground } = require('./settings')
+const {
+  darkColorization,
+  DEFAULT_SETTINGS,
+  windowBackground
+} = require('./settings')
 
 app.setName('Markover')
 process.title = 'Markover'
@@ -337,7 +341,7 @@ function createWindow() {
     query: {
       palette: startupSettings.palette,
       appearance: startupSettings.resolvedAppearance,
-      colorization: startupSettings.darkColorization
+      colorization: darkColorization(startupSettings.palette)
     }
   })
   mainWindow.webContents.on('did-finish-load', () => {

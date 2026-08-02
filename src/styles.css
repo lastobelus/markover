@@ -232,13 +232,13 @@
 }
 
 :root[data-palette="ember"][data-appearance="dark"][data-colorization="low"] {
-  --ink: #f6f5f4;
+  --ink: #dfdedd;
   --muted: #aaa8a6;
   --paper: #171616;
   --surface: #222121;
   --line: #3c3a39;
   --surface-rgb: 34 33 33;
-  --ink-rgb: 246 245 244;
+  --ink-rgb: 223 222 221;
   --brand-soft: #2b2422;
   --hover-line: #454140;
   --selection-line: #68473b;
@@ -268,6 +268,13 @@
 }
 
 :root[data-palette="olive"][data-appearance="dark"][data-colorization="low"] {
+  --markover-primary: #b5d52a;
+  --markover-secondary: #4e5828;
+  --accent-rgb: 181 213 42;
+  --primary-contrast: #29300f;
+  --secondary-contrast: white;
+  --pane-label-base: var(--markover-secondary);
+  --pane-label-highlight: var(--markover-primary);
   --ink: #f6f6f4;
   --muted: #a9aaa5;
   --paper: #171815;
