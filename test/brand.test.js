@@ -53,3 +53,10 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   assert.match(styles, /@media \(max-width: 900px\)[\s\S]*\.brand-logotype \{\s*display: none;/)
   assert.match(main, /backgroundColor: '#eee8e0'/)
 })
+
+test('the working header aligns the brand and uses the primary action color', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.brand \{[^}]*align-items: flex-end;/)
+  assert.match(styles, /\.button-primary \{[^}]*background: var\(--brand-orange\);/)
+})

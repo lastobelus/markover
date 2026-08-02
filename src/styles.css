@@ -63,6 +63,7 @@ textarea {
 }
 
 .brand {
+  align-items: flex-end;
   gap: 9px;
   min-width: 220px;
 }
@@ -197,11 +198,11 @@ p {
 
 .button-primary {
   color: white;
-  background: var(--ink);
+  background: var(--brand-orange);
 }
 
 .button-primary:hover {
-  background: #000;
+  background: var(--brand-burgundy);
 }
 
 .document-tabs {
