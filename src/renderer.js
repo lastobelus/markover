@@ -12,6 +12,8 @@ const elements = {
   annotationViewList: document.querySelector('#annotation-view-list'),
   annotationViewSelected: document.querySelector('#annotation-view-selected'),
   attachmentList: document.querySelector('#attachment-list'),
+  brandLogotype: document.querySelector('#brand-logotype'),
+  brandMark: document.querySelector('#brand-mark'),
   cancelReviewButton: document.querySelector('#cancel-review-button'),
   checksum: document.querySelector('#document-checksum'),
   copyTreeButton: document.querySelector('#copy-tree-button'),
@@ -62,6 +64,7 @@ const elements = {
   documentsListResizer: document.querySelector('#documents-list-resizer'),
   documentsListSidebar: document.querySelector('#documents-list-sidebar'),
   documentsListTree: document.querySelector('#documents-list-tree'),
+  emptyWorkspaceLockup: document.querySelector('#empty-workspace-lockup'),
   reviewStateBanner: document.querySelector('#review-state-banner'),
   settingsClose: document.querySelector('#settings-close'),
   settingsDialog: document.querySelector('#settings-dialog'),
@@ -103,6 +106,8 @@ let documentsListSortOrder = new Map()
 let documentsListDecorations = new Map()
 let documentsListProjectPaths = []
 let documentsListStatuses = new Map()
+let brandAssetSources = null
+let brandAssetLoad = null
 let sourceDiffCleanup = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance = 'light'
@@ -118,6 +123,9 @@ import('../node_modules/@pierre/trees/dist/index.js')
   })
 
 const bridge = window.markover || {
+  async getBrandAssets() {
+    return null
+  },
   async checksum(source) {
     const bytes = new TextEncoder().encode(source)
     const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -1218,16 +1226,16 @@ function treePathSegment(value) {
 const DOCUMENT_STATUS_SPRITE = `
   <svg xmlns="http://www.w3.org/2000/svg" data-icon-sprite aria-hidden="true" width="0" height="0">
     <symbol id="markover-status-editing" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#6d211f" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-editing)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
     <symbol id="markover-status-pending" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#c94e1f" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-pending)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
     <symbol id="markover-status-progress" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#d89b35" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-progress)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
     <symbol id="markover-status-other" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#9b958c" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-other)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
   </svg>
 `
@@ -1539,6 +1547,44 @@ function setDocumentsListCollapsed(collapsed) {
   )
 }
 
+function themedBrandSource(source, primary, secondary) {
+  if (!source) return null
+  const themed = source
+    .replaceAll('#c94e1f', primary)
+    .replaceAll('#6d211f', secondary)
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(themed)}`
+}
+
+async function themeBrandAssets() {
+  try {
+    brandAssetLoad ||= bridge.getBrandAssets()
+    brandAssetSources ||= await brandAssetLoad
+    if (!brandAssetSources) return
+    const palette = getComputedStyle(document.documentElement)
+    const primary = palette.getPropertyValue('--markover-primary').trim()
+    const secondary = palette.getPropertyValue('--markover-secondary').trim()
+    elements.brandMark.src = themedBrandSource(
+      brandAssetSources.mark,
+      primary,
+      secondary
+    )
+    elements.brandLogotype.src = themedBrandSource(
+      brandAssetSources.logotype,
+      primary,
+      secondary
+    )
+    elements.emptyWorkspaceLockup.src = themedBrandSource(
+      brandAssetSources.lockup,
+      primary,
+      secondary
+    )
+  } catch (error) {
+    console.error('Failed to theme brand assets', error)
+  } finally {
+    document.documentElement.classList.add('is-brand-ready')
+  }
+}
+
 function applySettings(next, options = {}) {
   const previous = preferences
   const applied = MarkoverSettings.applySettingsToView(next, {
@@ -1548,6 +1594,7 @@ function applySettings(next, options = {}) {
   })
   preferences = applied.preferences
   resolvedAppearance = applied.appearance
+  themeBrandAssets()
 
   if (MarkoverSettings.sidebarPreferenceChanged(
     previous,

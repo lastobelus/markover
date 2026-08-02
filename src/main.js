@@ -50,6 +50,7 @@ let pendingAutosave = null
 let autosaveWriter = null
 let snapshotSequence = 0
 let statusSequence = 0
+let brandAssetsPromise = null
 const pendingSnapshots = new Map()
 const pendingStatuses = new Map()
 const projectRoots = new Map()
@@ -59,6 +60,15 @@ function settingsEnvelope(settings) {
     ...settings,
     resolvedAppearance: nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   }
+}
+
+function loadBrandAssets() {
+  brandAssetsPromise ||= Promise.all([
+    fs.readFile(path.join(__dirname, '../design/brand/markover-mark.svg'), 'utf8'),
+    fs.readFile(path.join(__dirname, '../design/brand/markover-logotype.svg'), 'utf8'),
+    fs.readFile(path.join(__dirname, '../design/brand/markover-lockup.svg'), 'utf8')
+  ]).then(([mark, logotype, lockup]) => ({ mark, logotype, lockup }))
+  return brandAssetsPromise
 }
 
 function applyMainSettings(settings, broadcast = true) {
@@ -326,7 +336,8 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'index.html'), {
     query: {
       palette: startupSettings.palette,
-      appearance: startupSettings.resolvedAppearance
+      appearance: startupSettings.resolvedAppearance,
+      colorization: startupSettings.darkColorization
     }
   })
   mainWindow.webContents.on('did-finish-load', () => {
@@ -491,6 +502,7 @@ if (!hasSingleInstanceLock) {
     installApplicationMenu()
 
     ipcMain.handle('document:open', openMarkdown)
+    ipcMain.handle('brand:assets', loadBrandAssets)
     ipcMain.handle('document:checksum', (_event, source) => checksum(source))
     ipcMain.handle('attachment:save', saveAttachment)
     ipcMain.handle('clipboard:read-image', readClipboardImage)

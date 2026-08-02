@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('markover', {
+  getBrandAssets: () => ipcRenderer.invoke('brand:assets'),
   openMarkdown: () => ipcRenderer.invoke('document:open'),
   onOpenMarkdownRequested: (callback) => {
     ipcRenderer.on('document:open-request', () => callback())

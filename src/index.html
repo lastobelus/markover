@@ -8,6 +8,7 @@
       const startupTheme = new URLSearchParams(window.location.search)
       document.documentElement.dataset.palette = startupTheme.get('palette') || 'ember'
       document.documentElement.dataset.appearance = startupTheme.get('appearance') || 'light'
+      document.documentElement.dataset.colorization = startupTheme.get('colorization') || 'high'
     </script>
     <link rel="stylesheet" href="styles.css">
     <script type="importmap">
@@ -24,8 +25,20 @@
   <body>
     <header class="app-header is-empty">
       <div class="brand" role="img" aria-label="Markover">
-        <img class="brand-mark" src="../design/brand/markover-mark.svg" alt="">
-        <img class="brand-logotype" src="../design/brand/markover-logotype.svg" alt="">
+        <img
+          id="brand-mark"
+          class="brand-mark"
+          src="../design/brand/markover-mark.svg"
+          alt=""
+          aria-hidden="true"
+        >
+        <img
+          id="brand-logotype"
+          class="brand-logotype"
+          src="../design/brand/markover-logotype.svg"
+          alt=""
+          aria-hidden="true"
+        >
       </div>
       <div class="document-actions">
         <div class="document-meta">
@@ -56,6 +69,7 @@
 
     <main id="empty-workspace" class="empty-workspace">
       <img
+        id="empty-workspace-lockup"
         class="empty-workspace-lockup"
         src="../design/brand/markover-lockup.svg"
         alt="Markover"
@@ -277,6 +291,14 @@
               <option value="system">System</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span><strong>Dark colorization <em>Temporary</em></strong><small>Compare the original tinted dark themes with increasingly neutral alternatives.</small></span>
+            <select name="darkColorization">
+              <option value="high">High · original</option>
+              <option value="mid">Mid · more neutral</option>
+              <option value="low">Low · near neutral</option>
             </select>
           </label>
           <label class="settings-field">
