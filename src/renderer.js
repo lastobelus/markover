@@ -1,33 +1,5 @@
-const SAMPLE_MARKDOWN = `# Prototype review
-
-## Interaction model
-
-- Keyboard-first block navigation
-  - Left selects the parent
-  - Right selects the first child or next available sibling
-- Tab moves between the document and annotation panes
-
-## Data model
-
-1. Parse the Markdown into a deterministic tree
-2. Attach annotations directly to block nodes
-3. Copy the full feedback tree as JSON
-
-\`\`\`json
-{
-  "format": "markover-tree",
-  "version": 1
-}
-\`\`\`
-
-## Deliberately deferred
-
-- Annotation persistence
-- Rich Markdown rendering
-- Direct agent-thread integration
-`
-
 const elements = {
+  appHeader: document.querySelector('.app-header'),
   annotationCount: document.querySelector('#annotation-count'),
   annotationGuidance: document.querySelector('#annotation-guidance'),
   annotationInput: document.querySelector('#annotation-input'),
@@ -38,6 +10,8 @@ const elements = {
   cancelReviewButton: document.querySelector('#cancel-review-button'),
   checksum: document.querySelector('#document-checksum'),
   copyTreeButton: document.querySelector('#copy-tree-button'),
+  emptyOpenButton: document.querySelector('#empty-open-button'),
+  emptyWorkspace: document.querySelector('#empty-workspace'),
   documentTabs: document.querySelector('#document-tabs'),
   doneReviewButton: document.querySelector('#done-review-button'),
   imagePreview: document.querySelector('#image-preview'),
@@ -306,6 +280,13 @@ function selectNode(id, focusPreview = false) {
   const selectedRow = elements.tree.querySelector(`[data-node-id="${id}"]`)
   selectedRow?.scrollIntoView({ block: 'nearest' })
   if (focusPreview) elements.previewPane.focus()
+}
+
+function setWorkspaceEmpty(empty) {
+  elements.appHeader.classList.toggle('is-empty', empty)
+  elements.emptyWorkspace.hidden = !empty
+  elements.workspace.hidden = empty
+  elements.documentTabs.hidden = empty || !reviewSessions.list().length
 }
 
 function normalizeAnnotatedSelection() {
@@ -1055,10 +1036,10 @@ function treePathSegment(value) {
 const DOCUMENT_STATUS_SPRITE = `
   <svg xmlns="http://www.w3.org/2000/svg" data-icon-sprite aria-hidden="true" width="0" height="0">
     <symbol id="markover-status-editing" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#2f6d62" />
+      <circle cx="5" cy="5" r="4" fill="#6d211f" />
     </symbol>
     <symbol id="markover-status-pending" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#d95236" />
+      <circle cx="5" cy="5" r="4" fill="#c94e1f" />
     </symbol>
     <symbol id="markover-status-progress" viewBox="0 0 10 10">
       <circle cx="5" cy="5" r="4" fill="#d89b35" />
@@ -1277,12 +1258,12 @@ function renderDocumentsList() {
       unsafeCSS: `
         :host {
           --trees-bg-override: transparent;
-          --trees-bg-muted-override: rgb(217 82 54 / 7%);
+          --trees-bg-muted-override: rgb(201 78 31 / 7%);
           --trees-border-color-override: transparent;
-          --trees-fg-override: #756f65;
-          --trees-fg-muted-override: #9b958c;
-          --trees-selected-bg-override: #fffdfa;
-          --trees-selected-fg-override: #24211d;
+          --trees-fg-override: #756d67;
+          --trees-fg-muted-override: #756d67;
+          --trees-selected-bg-override: #fffdf9;
+          --trees-selected-fg-override: #26211e;
           --trees-selected-focused-border-color-override: transparent;
           --trees-font-family-override: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           --trees-font-size-override: 10.5px;
@@ -1313,7 +1294,7 @@ function renderDocumentsList() {
         }
         [data-item-section='decoration'] {
           flex: 0 0 auto;
-          color: #9b958c;
+          color: #756d67;
           font-size: 9px;
           white-space: nowrap;
         }
@@ -1321,7 +1302,7 @@ function renderDocumentsList() {
           cursor: help;
         }
         button[data-item-type='folder'] {
-          color: #4b4741;
+          color: #26211e;
           font-size: 11.5px;
         }
       `
@@ -1547,6 +1528,7 @@ function renderDocumentTabs() {
 }
 
 function activateReview(reviewId) {
+  setWorkspaceEmpty(false)
   state.finishAttachmentLabelEdit?.(true)
   if (reviewMutations.has(state.reviewId)) {
     reviewMutations.wait(state.reviewId).then(() => activateReview(reviewId))
@@ -1605,6 +1587,7 @@ function configureManagedMode() {
 }
 
 async function loadDocument(documentData) {
+  setWorkspaceEmpty(false)
   const checksum = documentData.checksum || await bridge.checksum(documentData.source)
   if (documentData.reviewId && documentData.tree?.review) {
     addManagedReview({ ...documentData, checksum })
@@ -1748,13 +1731,16 @@ elements.annotationInput.addEventListener('paste', (event) => {
   reviewMutations.track(reviewId, pasteImages(event)).catch(() => {})
 })
 
-elements.openButton.addEventListener('click', async () => {
+async function openMarkdownDocument() {
   const documentData = await bridge.openMarkdown()
   if (documentData) {
     await loadDocument(documentData)
     elements.previewPane.focus()
   }
-})
+}
+
+elements.openButton.addEventListener('click', openMarkdownDocument)
+elements.emptyOpenButton.addEventListener('click', openMarkdownDocument)
 
 elements.copyTreeButton.addEventListener('click', () => {
   bridge.copyText(MarkoverTree.serializeTree(state.tree))
@@ -2016,13 +2002,11 @@ async function initialize() {
       for (const document of reviews) addManagedReview(document, false)
       activateReview(reviews[reviews.length - 1].reviewId)
     } else {
-      await loadDocument({
-        name: 'sample.md',
-        source: SAMPLE_MARKDOWN
-      })
+      setWorkspaceEmpty(true)
     }
   }
-  elements.previewPane.focus()
+  if (elements.emptyWorkspace.hidden) elements.previewPane.focus()
+  else elements.emptyOpenButton.focus()
 }
 
 applyDocumentsListWidth()

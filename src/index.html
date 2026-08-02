@@ -17,13 +17,10 @@
     </script>
   </head>
   <body>
-    <header class="app-header">
-      <div class="brand">
-        <span class="brand-mark">M/</span>
-        <div>
-          <h1>Markover</h1>
-          <p>Structured review for Markdown</p>
-        </div>
+    <header class="app-header is-empty">
+      <div class="brand" role="img" aria-label="Markover">
+        <img class="brand-mark" src="../design/brand/markover-mark.svg" alt="">
+        <img class="brand-logotype" src="../design/brand/markover-logotype.svg" alt="">
       </div>
       <div class="document-actions">
         <div class="document-meta">
@@ -52,7 +49,19 @@
 
     <nav id="document-tabs" class="document-tabs" role="tablist" aria-label="Recent reviews" hidden></nav>
 
-    <main id="workspace" class="workspace">
+    <main id="empty-workspace" class="empty-workspace">
+      <img
+        class="empty-workspace-lockup"
+        src="../design/brand/markover-lockup.svg"
+        alt="Markover"
+      >
+      <p>Structured review for Markdown</p>
+      <button id="empty-open-button" class="button button-primary" type="button">
+        Open Markdown
+      </button>
+    </main>
+
+    <main id="workspace" class="workspace" hidden>
       <aside id="documents-list-sidebar" class="documents-list-sidebar" hidden>
         <header class="documents-list-header">
           <span>Documents</span>
