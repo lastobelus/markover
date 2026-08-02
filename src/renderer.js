@@ -212,14 +212,6 @@ function nodeDescriptor(node) {
   return node.language ? `<code:${node.language}>` : '<code>'
 }
 
-function countNodes() {
-  let count = 0
-  MarkoverTree.visitNodes(state.tree.root, () => {
-    count += 1
-  })
-  return count
-}
-
 function hasAttachments(node) {
   return Array.isArray(node.attachments) && node.attachments.length > 0
 }
@@ -452,11 +444,23 @@ function renderTree() {
     elements.tree.append(renderNode(node, 0))
   }
 
-  const count = countNodes()
+  const position = MarkoverTree.nodePosition(state.tree.root, state.selectedId)
   const unsupported = state.tree.unsupported.length
-  elements.parseStatus.textContent = unsupported
-    ? `${count} blocks · ${unsupported} omitted`
-    : `${count} blocks`
+  const total = document.createElement('span')
+  total.textContent = `${position.total} blocks`
+  if (position.index > 0) {
+    const current = document.createElement('span')
+    current.textContent = String(position.index)
+    const separator = document.createElement('span')
+    separator.className = 'status-pill-of'
+    separator.textContent = ' of '
+    elements.parseStatus.replaceChildren(current, separator, total)
+  } else {
+    elements.parseStatus.replaceChildren(total)
+  }
+  if (unsupported) {
+    elements.parseStatus.append(` · ${unsupported} omitted`)
+  }
   requestAnimationFrame(updatePinnedSelection)
 }
 

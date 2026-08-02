@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { parseMarkdown, serializeTree } = require('../src/tree')
+const { nodePosition, parseMarkdown, serializeTree } = require('../src/tree')
 
 const markdown = `# One
 
@@ -48,6 +48,14 @@ test('parses headings, nested lists, and code into a deterministic tree', () => 
   assert.equal(secondHeading.children[2].language, 'js')
   assert.equal(secondHeading.children[2].text, "console.log('hello')")
   assert.deepEqual(first.unsupported, [])
+})
+
+test('reports a selected block position in document order', () => {
+  const tree = parseMarkdown(markdown, 'sha256:test')
+
+  assert.deepEqual(nodePosition(tree.root, 'block-1'), { index: 1, total: 8 })
+  assert.deepEqual(nodePosition(tree.root, 'block-5'), { index: 5, total: 8 })
+  assert.deepEqual(nodePosition(tree.root, 'missing'), { index: 0, total: 8 })
 })
 
 test('retains hard-wrapped list content as one block', () => {

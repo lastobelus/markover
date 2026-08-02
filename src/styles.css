@@ -536,6 +536,11 @@ p {
   transform: translateY(-50%);
 }
 
+.status-pill-of {
+  color: color-mix(in srgb, var(--muted) 58%, transparent);
+  font-weight: 400;
+}
+
 .preview-pane {
   position: relative;
   display: flex;

@@ -295,11 +295,30 @@
     return match
   }
 
+  function nodePosition(root, id) {
+    let index = 0
+    let selectedIndex = 0
+    visitNodes(root, (node) => {
+      index += 1
+      if (node.id === id) selectedIndex = index
+    })
+    return {
+      index: selectedIndex,
+      total: index
+    }
+  }
+
   function serializeTree(tree) {
     return JSON.stringify(tree, null, 2)
   }
 
-  const api = { findNode, parseMarkdown, serializeTree, visitNodes }
+  const api = {
+    findNode,
+    nodePosition,
+    parseMarkdown,
+    serializeTree,
+    visitNodes
+  }
   globalScope.MarkoverTree = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)
