@@ -389,7 +389,7 @@ p {
   grid-template-columns:
     var(--documents-list-column-width)
     minmax(0, 1.3fr)
-    minmax(320px, 0.7fr);
+    minmax(360px, 0.7fr);
   min-height: 0;
   flex: 1;
 }
@@ -515,7 +515,7 @@ p {
 
 .pane-header-leading {
   position: absolute;
-  top: 0;
+  top: 2px;
   left: 22px;
   display: flex;
   height: 22px;
@@ -1186,40 +1186,74 @@ kbd {
 }
 
 .annotation-view-tabs {
-  display: grid;
-  min-height: 34px;
-  padding: 5px 22px;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  border-bottom: 1px solid var(--line);
-  background: rgb(255 253 249 / 42%);
+  position: relative;
+  display: flex;
+  min-height: 28px;
+  padding: 0 22px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.annotation-view-tabs::before {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--line);
+  content: "";
+}
+
+.annotation-pane:focus > .annotation-view-tabs::before,
+.annotation-pane:focus-within > .annotation-view-tabs::before,
+.annotation-pane.focus-within > .annotation-view-tabs::before {
+  height: 4px;
+  background: var(--accent-deep);
 }
 
 .annotation-view-tabs button {
+  position: relative;
   min-width: 0;
-  padding: 0 8px;
+  flex: none;
+  padding: 7px 0 5px;
   border: 0;
-  border-radius: 5px;
-  color: var(--muted);
+  border-radius: 0;
+  color: var(--surface);
   background: transparent;
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .annotation-view-tabs button:hover:not(:disabled) {
-  color: var(--ink);
-  background: rgb(255 253 249 / 72%);
+  color: var(--brand-orange);
 }
 
 .annotation-view-tabs button.is-active {
-  color: white;
-  background: var(--brand-orange);
+  color: var(--brand-burgundy);
+}
+
+.annotation-view-tabs button.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  left: 0;
+  height: 1px;
+  background: currentColor;
+  content: "";
 }
 
 .annotation-view-tabs button:disabled {
   cursor: default;
   opacity: 0.45;
+}
+
+.annotation-pane > .annotation-selection-header::before {
+  display: none;
 }
 
 .selected-annotation-view {
@@ -1884,6 +1918,6 @@ body.is-control-pressed .attachment-remove:hover {
     grid-template-columns:
       var(--documents-list-column-width)
       minmax(0, 1fr)
-      340px;
+      360px;
   }
 }

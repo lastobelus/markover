@@ -119,13 +119,6 @@
       </section>
 
       <aside id="annotation-pane" class="pane annotation-pane" tabindex="-1">
-        <div class="pane-header">
-          <div>
-            <span id="annotation-pane-eyebrow" class="eyebrow">Selected block</span>
-            <h2 id="selected-title">—</h2>
-          </div>
-          <span id="selected-location" class="status-pill">—</span>
-        </div>
         <div class="annotation-view-tabs" role="tablist" aria-label="Annotation pane view">
           <button
             id="annotation-view-selected"
@@ -133,13 +126,17 @@
             type="button"
             role="tab"
             aria-selected="true"
-          >Selected</button>
+          >Selected block</button>
           <button
             id="annotation-view-list"
             type="button"
             role="tab"
             aria-selected="false"
           >All Annotations (0)</button>
+        </div>
+        <div class="pane-header annotation-selection-header">
+          <h2 id="selected-title">—</h2>
+          <span id="selected-location" class="status-pill">—</span>
         </div>
 
         <div id="selected-annotation-view" class="selected-annotation-view">

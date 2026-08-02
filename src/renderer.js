@@ -6,7 +6,6 @@ const elements = {
   annotationList: document.querySelector('#annotation-list'),
   annotationListView: document.querySelector('#annotation-list-view'),
   annotationPane: document.querySelector('#annotation-pane'),
-  annotationPaneEyebrow: document.querySelector('#annotation-pane-eyebrow'),
   annotationReadonly: document.querySelector('#annotation-readonly'),
   annotationSneakPeek: document.querySelector('#annotation-sneak-peek'),
   annotationState: document.querySelector('#annotation-state'),
@@ -988,11 +987,8 @@ function renderAnnotationPaneView(node) {
   elements.annotationViewSelected.setAttribute('aria-selected', String(!listVisible))
   elements.annotationViewList.setAttribute('aria-selected', String(listVisible))
   elements.annotationViewList.disabled = nodes.length === 0
-    elements.annotationViewList.textContent = `All Annotations (${nodes.length})`
+  elements.annotationViewList.textContent = `All Annotations (${nodes.length})`
 
-  elements.annotationPaneEyebrow.textContent = listVisible
-    ? 'Annotations'
-    : 'Selected block'
   if (listVisible) {
     const position = MarkoverAnnotations.annotationPosition(
       state.tree.root,

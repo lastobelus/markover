@@ -57,6 +57,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
 test('the working header aligns the brand and uses the primary action color', () => {
   const styles = read('src/styles.css')
   const renderer = read('src/renderer.js')
+  const html = read('src/index.html')
 
   assert.match(styles, /\.brand \{[^}]*align-items: flex-end;[^}]*transform: translateY\(6px\);/)
   assert.match(styles, /\.button-primary \{[^}]*background: var\(--brand-orange\);/)
@@ -72,4 +73,14 @@ test('the working header aligns the brand and uses the primary action color', ()
   assert.match(styles, /\.document-tab-overflow-menu \{[^}]*top: 30px;/)
   assert.doesNotMatch(styles, /\.document-meta (?:strong|span) \{[^}]*max-width:/)
   assert.doesNotMatch(renderer, /checksum\.slice\(/)
+  assert.doesNotMatch(renderer, /annotationPaneEyebrow/)
+  assert.ok(
+    html.indexOf('class="annotation-view-tabs"') <
+      html.indexOf('class="pane-header annotation-selection-header"')
+  )
+  assert.match(html, />Selected block<\/button>/)
+  assert.match(styles, /\.annotation-view-tabs button \{[^}]*color: var\(--surface\);/)
+  assert.match(styles, /\.annotation-view-tabs button\.is-active \{[^}]*color: var\(--brand-burgundy\);/)
+  assert.match(styles, /\.annotation-view-tabs button\.is-active::after \{[^}]*height: 1px;[^}]*background: currentColor;/)
+  assert.match(styles, /grid-template-columns:[^;]*minmax\(360px, 0\.7fr\);/)
 })
