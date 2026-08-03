@@ -334,7 +334,9 @@ async function ensureService({
   try {
     await waitForService(endpointPath, startedAt + timeoutMilliseconds)
   } catch (error) {
-    throw new Error(`Markover did not start: ${error.message}`)
+    throw new Error(`Markover did not start: ${error.message}`, {
+      cause: error
+    })
   }
 }
 

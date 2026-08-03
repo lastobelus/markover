@@ -35,7 +35,7 @@ block-level feedback to an agent.
 
 ## Try without installing
 
-Markover currently requires macOS and Node.js 20 or newer. Open a document with:
+Markover currently requires macOS and Node.js 22.13.0 or newer. Open a document with:
 
 ```sh
 npx --yes \

@@ -1,9 +1,9 @@
 (function exposeNavigation(globalScope) {
-  function findContext(root, id, parent = null) {
+  function findContext(root, id) {
     for (let index = 0; index < root.children.length; index += 1) {
       const node = root.children[index]
       if (node.id === id) return { node, parent: root, index }
-      const nested = findContext(node, id, node)
+      const nested = findContext(node, id)
       if (nested) return nested
     }
     return null

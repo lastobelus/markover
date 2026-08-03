@@ -25,7 +25,7 @@ test('background startup stays hidden and background second instances do not act
 
   assert.match(
     main,
-    /function createWindow\(\{ show = !backgroundServerMode \} = \{\}\)[\s\S]*new BrowserWindow\(\{[\s\S]*\n    show,/
+    /function createWindow\(\{ show = !backgroundServerMode \} = \{\}\)[\s\S]*new BrowserWindow\(\{[\s\S]*\n {4}show,/
   )
   assert.match(
     main,

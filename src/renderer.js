@@ -350,10 +350,6 @@ function showAnnotationSneakPeek(node, marker) {
   elements.annotationSneakPeek.style.top = `${position.y}px`
 }
 
-function hasAttachments(node) {
-  return Array.isArray(node.attachments) && node.attachments.length > 0
-}
-
 function attachmentCountInSubtree(node) {
   return (node.attachments || []).length +
     node.children.reduce(
@@ -1354,6 +1350,8 @@ function closeReviewContext(restoreFocus = true) {
 function treePathSegment(value) {
   return String(value || '')
     .replace(/[\\/]/g, '∕')
+    // Control characters cannot form a useful user-facing path segment.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f]/g, '')
     .trim() || 'Untitled'
 }

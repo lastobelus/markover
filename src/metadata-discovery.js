@@ -129,7 +129,9 @@ async function readSessionMetadata(logPath) {
         if (record.type === 'session_meta' && record.payload) {
           return record.payload
         }
-      } catch {}
+      } catch {
+        // Ignore malformed log records and continue scanning the session.
+      }
       return null
     }
     return null
@@ -147,7 +149,9 @@ function sessionMetadata(contents) {
       if (record.type === 'session_meta' && record.payload) {
         return record.payload
       }
-    } catch {}
+    } catch {
+      // Ignore malformed log records and continue scanning the supplied text.
+    }
   }
   return null
 }

@@ -17,15 +17,24 @@
     "start": "node scripts/start.js",
     "review": "node scripts/review.js",
     "review:open": "node scripts/open-review.js",
+    "pretest": "install-electron --no",
     "test": "node --test",
-    "check": "node --check scripts/build-cli.js && node --check scripts/build-macos-icon.js && node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/package-macos.js && node --check scripts/review.js && node --check scripts/start.js && node --check packages/cli/src/bootstrap.js && node --check packages/cli/src/index.js && node --check src/annotation-block.js && node --check src/annotations.js && node --check src/app-menu.js && node --check src/image-preview.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/metadata-discovery.js && node --check src/pierre-diffs-entry.mjs && node --check src/preload.js && node --check src/review-migration.js && node --check src/review-sessions.js && node --check src/review-store.js && node --check src/service-endpoint.js && node --check src/settings.js && node --check src/settings-store.js && node --check src/source-edits.js && node --check src/tree.js && node --check src/yaml-entry.mjs && node --check src/navigation.js && node --check src/renderer.js"
+    "lint": "eslint . --max-warnings 0",
+    "check:syntax": "node --check scripts/build-cli.js && node --check scripts/build-macos-icon.js && node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/package-macos.js && node --check scripts/review.js && node --check scripts/start.js && node --check packages/cli/src/bootstrap.js && node --check packages/cli/src/index.js && node --check src/annotation-block.js && node --check src/annotations.js && node --check src/app-menu.js && node --check src/image-preview.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/metadata-discovery.js && node --check src/pierre-diffs-entry.mjs && node --check src/preload.js && node --check src/review-migration.js && node --check src/review-sessions.js && node --check src/review-store.js && node --check src/service-endpoint.js && node --check src/settings.js && node --check src/settings-store.js && node --check src/source-edits.js && node --check src/tree.js && node --check src/yaml-entry.mjs && node --check src/navigation.js && node --check src/renderer.js",
+    "check": "npm run lint && npm run check:syntax"
   },
   "author": "lastobelus",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "devDependencies": {
     "@electron/packager": "^20.0.4",
+    "@eslint/js": "^10.0.1",
     "electron": "43.2.0",
     "esbuild": "0.25.8",
+    "eslint": "^10.8.0",
+    "globals": "^17.9.0",
     "jsdom": "^29.0.1"
   },
   "dependencies": {

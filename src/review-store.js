@@ -87,13 +87,13 @@ function treeFields(tree) {
 
 function immutableNode(node) {
   const {
-    feedback: _feedback,
-    collapsed: _collapsed,
-    attachments: _attachments,
-    sourceEdit: _sourceEdit,
     children = [],
     ...properties
   } = node
+  delete properties.feedback
+  delete properties.collapsed
+  delete properties.attachments
+  delete properties.sourceEdit
   return {
     ...properties,
     children: children.map(immutableNode)

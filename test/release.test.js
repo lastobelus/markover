@@ -37,3 +37,40 @@ test('README exposes the repository-only install-free agent command', () => {
   assert.match(readme, /retain the returned `reviewId`/)
   assert.match(readme, /“Check\nMarkover,” run the same launcher with `get <reviewId>`/)
 })
+
+test('continuous integration enforces the supported Node versions', () => {
+  const workflow = read('.github/workflows/ci.yml')
+  const developmentGuide = read('docs/development.md')
+  const rootPackage = require('../package.json')
+  const cliPackage = require('../packages/cli/package.json')
+
+  assert.equal(rootPackage.engines.node, '>=22.13.0')
+  assert.equal(cliPackage.engines.node, '>=22.13.0')
+  assert.match(workflow, /pull_request:/)
+  assert.match(workflow, /workflow_dispatch:/)
+  assert.match(workflow, /timeout-minutes: 1/)
+  assert.match(workflow, /fail-fast: false/)
+  assert.match(workflow, /- '22\.13\.0'/)
+  assert.match(workflow, /- '24'/)
+  assert.match(workflow, /persist-credentials: false/)
+  assert.match(workflow, /permissions:\n {2}contents: read/)
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/)
+  assert.match(workflow, /npm ci/)
+  assert.match(workflow, /npm run check/)
+  assert.match(workflow, /npm test/)
+  assert.match(workflow, /git diff --exit-code/)
+  assert.equal(rootPackage.scripts.pretest, 'install-electron --no')
+  assert.match(developmentGuide, /Require approval for all external\s+contributors/)
+  assert.match(developmentGuide, /approval_policy=all_external_contributors/)
+  assert.match(developmentGuide, /requires review\s+conversations to be resolved/)
+  assert.match(developmentGuide, /Use squash merges; disable merge\s+commits and rebase merges/)
+
+  for (const source of [
+    read('README.md'),
+    developmentGuide,
+    read('docs/guide/index.html')
+  ]) {
+    assert.match(source, /Node\.js 22\.13\.0 or newer/)
+    assert.doesNotMatch(source, /Node\.js 20/)
+  }
+})
