@@ -10,6 +10,9 @@ Keep these as the authoritative delivery assets:
 - [`markover-logotype.svg`](../../design/brand/markover-logotype.svg) — paired with the mark when responsive spacing is useful.
 - [`markover-lockup.svg`](../../design/brand/markover-lockup.svg) — README leaders, mastheads and other generous public-facing placements.
 - [`markover-readme-leader.svg`](../../design/brand/markover-readme-leader.svg) — complete responsive README composition with the canonical lockup and descriptor.
+- [`markover-app-icon.svg`](../../design/brand/markover-app-icon.svg) — approved square app-icon master.
+- [`markover-app-icon.png`](../../design/brand/markover-app-icon.png) — 1024-square Electron runtime icon.
+- [`favicon.svg`](../../favicon.svg) — root project favicon for T3Code.
 
 The SVG wrappers are web-ready and responsive. Every path and fill remains as pasted from Affinity.
 
@@ -100,14 +103,13 @@ The complete lockup and tagline belong in the empty workspace when no document i
 </div>
 ```
 
-## Minimum asset set to make next
+## Remaining asset set
 
 After resolving the two canonical colors, create only:
 
-1. `app-icon-master.svg`, plus three 1024×1024 palette PNGs.
-2. `favicon.svg` and generated `favicon.ico`.
-3. Three 1280×640 GitHub social-preview PNGs.
-4. Three 1200×630 Pages Open Graph PNGs, if social sharing matters for the documentation site.
-5. Monochrome and reversed variants of the three canonical SVG components.
+1. Generated platform packaging icons (`.icns` and `.ico`) when a packager is configured.
+2. Three 1280×640 GitHub social-preview PNGs.
+3. Three 1200×630 Pages Open Graph PNGs, if social sharing matters for the documentation site.
+4. Monochrome and reversed variants of the three canonical SVG components.
 
 The README leader, Pages hero, documentation masthead and app header do not need raster artwork. The README uses its dedicated SVG composition; the remaining surfaces compose the canonical SVGs directly.

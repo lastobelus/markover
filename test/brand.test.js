@@ -17,6 +17,29 @@ test('canonical brand SVGs use only the normalized semantic inks', () => {
   }
 })
 
+test('production icon assets preserve the approved mark treatment', () => {
+  const favicon = read('favicon.svg')
+  const mark = read('design/brand/markover-mark.svg')
+  const appIcon = read('design/brand/markover-app-icon.svg')
+  const appIconPng = fs.readFileSync(path.join(root, 'design/brand/markover-app-icon.png'))
+  const main = read('src/main.js')
+
+  assert.match(favicon, /viewBox="0 0 365 308"/)
+  assert.deepEqual(
+    [...favicon.matchAll(/style="fill:(#[0-9a-f]{6})"/g)].map((match) => match[1]),
+    [...mark.matchAll(/style="fill:(#[0-9a-f]{6})"/g)].map((match) => match[1])
+  )
+  assert.match(appIcon, /viewBox="0 0 1024 1024"/)
+  assert.match(appIcon, /<rect[^>]*rx="224"[^>]*fill="#fffaf4"/)
+  assert.match(appIcon, /<svg x="164" y="218" width="696" height="588"/)
+  assert.deepEqual(appIconPng.subarray(1, 4).toString(), 'PNG')
+  assert.equal(appIconPng.readUInt32BE(16), 1024)
+  assert.equal(appIconPng.readUInt32BE(20), 1024)
+  assert.match(main, /const appIconPath = path\.join\(projectDirectory, 'design\/brand\/markover-app-icon\.png'\)/)
+  assert.match(main, /new BrowserWindow\(\{[\s\S]*icon: appIconPath,/)
+  assert.match(main, /process\.platform === 'darwin'\) app\.dock\.setIcon\(appIconPath\)/)
+})
+
 test('the branding mockup is a self-contained local artifact bundle', () => {
   const entryPath = path.join(root, 'design/brand/mockups/index.html')
   const html = fs.readFileSync(entryPath, 'utf8')
