@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const crypto = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -30,11 +31,15 @@ test('production icon assets preserve the approved mark treatment', () => {
     [...mark.matchAll(/style="fill:(#[0-9a-f]{6})"/g)].map((match) => match[1])
   )
   assert.match(appIcon, /viewBox="0 0 1024 1024"/)
-  assert.match(appIcon, /<rect[^>]*rx="224"[^>]*fill="#fffaf4"/)
-  assert.match(appIcon, /<svg x="164" y="218" width="696" height="588"/)
+  assert.match(appIcon, /<rect x="100" y="100" width="824" height="824" rx="186"[^>]*fill="#fffaf4"/)
+  assert.match(appIcon, /<svg x="223" y="268" width="578" height="488"/)
   assert.deepEqual(appIconPng.subarray(1, 4).toString(), 'PNG')
   assert.equal(appIconPng.readUInt32BE(16), 1024)
   assert.equal(appIconPng.readUInt32BE(20), 1024)
+  assert.equal(
+    crypto.createHash('sha256').update(appIconPng).digest('hex'),
+    'eb9e6459ded7f8e89fc5b534dcccd657504a7cca45c691be37cb4bede3730a2e'
+  )
   assert.match(main, /const appIconPath = path\.join\(projectDirectory, 'design\/brand\/markover-app-icon\.png'\)/)
   assert.match(main, /new BrowserWindow\(\{[\s\S]*icon: appIconPath,/)
   assert.match(main, /process\.platform === 'darwin'\) app\.dock\.setIcon\(appIconPath\)/)

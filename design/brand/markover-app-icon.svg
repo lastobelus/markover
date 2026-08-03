@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2">
   <title id="title">Markover app icon</title>
-  <rect x="16" y="16" width="992" height="992" rx="224" fill="#fffaf4" stroke="#6d211f" stroke-opacity=".11" stroke-width="4"/>
-  <svg x="164" y="218" width="696" height="588" viewBox="0 0 365 308" aria-hidden="true">
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#fffaf4" stroke="#6d211f" stroke-opacity=".11" stroke-width="4"/>
+  <svg x="223" y="268" width="578" height="488" viewBox="0 0 365 308" aria-hidden="true">
     <g transform="matrix(1,0,0,1,-137.121531,-179.621236)">
       <g transform="matrix(3,0,0,3,0,0)">
         <g transform="matrix(0.914659,0,0,0.914659,24.328069,13.847132)">
