@@ -1,6 +1,11 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { nodePosition, parseMarkdown, serializeTree } = require('../src/tree')
+const {
+  nodePosition,
+  parseMarkdown,
+  serializeTree,
+  yamlDiagnostic
+} = require('../src/tree')
 
 const markdown = `# One
 
@@ -170,4 +175,126 @@ Hidden text
   )
   assert.deepEqual(tree.unsupported, [])
   assert.equal(tree.sourceDocument.content, source)
+})
+
+test('parses YAML frontmatter into a non-editable parent and top-level pairs', () => {
+  const source = `---
+title: Better frontmatter
+tags:
+  - markdown
+  - review
+description: |
+  A multiline value.
+  Kept with its key.
+draft: false
+---
+
+# Document
+`
+  const tree = parseMarkdown(source)
+  const [frontmatter, heading] = tree.root.children
+
+  assert.equal(frontmatter.type, 'frontmatter')
+  assert.equal(frontmatter.text, 'YAML Frontmatter')
+  assert.equal(frontmatter.sourceEditable, false)
+  assert.equal(frontmatter.collapsed, true)
+  assert.equal(frontmatter.lineStart, 1)
+  assert.equal(frontmatter.lineEnd, 10)
+  assert.deepEqual(
+    frontmatter.children.map((node) => node.key),
+    ['title', 'tags', 'description', 'draft']
+  )
+  assert.deepEqual(
+    frontmatter.children.map((node) => node.type),
+    Array(4).fill('frontmatter-entry')
+  )
+  assert.equal(frontmatter.children[0].raw, 'title: Better frontmatter')
+  assert.equal(frontmatter.children[0].lineStart, 2)
+  assert.equal(frontmatter.children[0].lineEnd, 2)
+  assert.equal(frontmatter.children[1].raw, 'tags:\n  - markdown\n  - review')
+  assert.equal(frontmatter.children[1].lineStart, 3)
+  assert.equal(frontmatter.children[1].lineEnd, 5)
+  assert.equal(
+    frontmatter.children[2].raw,
+    'description: |\n  A multiline value.\n  Kept with its key.'
+  )
+  assert.equal(frontmatter.children[3].raw, 'draft: false')
+  assert.equal(heading.type, 'heading')
+  assert.equal(heading.text, 'Document')
+  assert.deepEqual(tree.unsupported, [])
+})
+
+test('requires YAML mapping pairs and reports syntax errors', () => {
+  assert.equal(yamlDiagnostic('title: Review\ndraft: false'), null)
+
+  for (const source of ['borked', '- one\n- two', '{}']) {
+    assert.deepEqual(yamlDiagnostic(source), {
+      line: 1,
+      column: 1,
+      message: 'Expected one or more YAML key: value pairs.'
+    })
+  }
+
+  const diagnostic = yamlDiagnostic('title: Review\ntags: [broken')
+  assert.equal(diagnostic.line, 2)
+  assert.equal(diagnostic.column, 14)
+  assert.match(diagnostic.message, /must be sufficiently indented and end with a \]/)
+})
+
+test('accepts an explicit YAML end marker and empty frontmatter', () => {
+  const tree = parseMarkdown('---\n...\n\nParagraph.\n')
+  const [frontmatter, paragraph] = tree.root.children
+
+  assert.equal(frontmatter.type, 'frontmatter')
+  assert.deepEqual(frontmatter.children, [])
+  assert.equal(paragraph.type, 'paragraph')
+  assert.equal(paragraph.lineStart, 4)
+})
+
+test('keeps comments visible in the parent and only creates line-safe entries', () => {
+  const source = `---
+# Frontmatter rationale
+title: Review # Shown with its pair
+# Applies to the next setting
+draft:
+---
+`
+  const tree = parseMarkdown(source)
+  const frontmatter = tree.root.children[0]
+
+  assert.equal(frontmatter.raw, source.trimEnd())
+  assert.deepEqual(
+    frontmatter.children.map((node) => node.raw),
+    ['title: Review # Shown with its pair', 'draft:']
+  )
+})
+
+test('keeps flow maps and explicit keys on the read-only parent', () => {
+  const sources = [
+    '---\n{title: Review, draft: false}\n---\n',
+    '---\n? title\n: Review\n---\n'
+  ]
+
+  for (const source of sources) {
+    const frontmatter = parseMarkdown(source).root.children[0]
+    assert.equal(frontmatter.type, 'frontmatter')
+    assert.deepEqual(frontmatter.children, [])
+    assert.equal(frontmatter.raw, source.trimEnd())
+  }
+})
+
+test('leaves unclosed, malformed, and non-mapping frontmatter to Markdown', () => {
+  const sources = [
+    '---\ntitle: unclosed\n',
+    '---\ntitle: [invalid\n---\n',
+    '---\n- first\n- second\n---\n'
+  ]
+
+  for (const source of sources) {
+    const tree = parseMarkdown(source)
+    assert.equal(
+      tree.root.children.some((node) => node.type === 'frontmatter'),
+      false
+    )
+  }
 })

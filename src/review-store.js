@@ -52,6 +52,7 @@ function assertSourceEdits(node) {
       : []
     if (
       !sourceEdit ||
+      node.sourceEditable === false ||
       typeof sourceEdit !== 'object' ||
       Array.isArray(sourceEdit) ||
       fields.length !== 2 ||

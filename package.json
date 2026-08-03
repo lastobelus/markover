@@ -10,7 +10,7 @@
   "scripts": {
     "build:icon:mac": "node scripts/build-macos-icon.js",
     "build:cli": "node scripts/build-cli.js",
-    "build:vendor": "esbuild src/pierre-diffs-entry.mjs --bundle --format=iife --platform=browser --minify --outfile=src/vendor/pierre-diffs.js",
+    "build:vendor": "esbuild src/pierre-diffs-entry.mjs --bundle --format=iife --platform=browser --minify --outfile=src/vendor/pierre-diffs.js && esbuild src/yaml-entry.mjs --bundle --format=iife --platform=browser --minify --outfile=src/vendor/yaml.js",
     "package:mac": "npm run build:icon:mac && node scripts/package-macos.js",
     "postinstall": "npm run build:vendor",
     "markover": "node scripts/markover.js",
@@ -18,7 +18,7 @@
     "review": "node scripts/review.js",
     "review:open": "node scripts/open-review.js",
     "test": "node --test",
-    "check": "node --check scripts/build-cli.js && node --check scripts/build-macos-icon.js && node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/package-macos.js && node --check scripts/review.js && node --check scripts/start.js && node --check packages/cli/src/bootstrap.js && node --check packages/cli/src/index.js && node --check src/annotation-block.js && node --check src/annotations.js && node --check src/app-menu.js && node --check src/image-preview.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/metadata-discovery.js && node --check src/pierre-diffs-entry.mjs && node --check src/preload.js && node --check src/review-migration.js && node --check src/review-sessions.js && node --check src/review-store.js && node --check src/service-endpoint.js && node --check src/settings.js && node --check src/settings-store.js && node --check src/source-edits.js && node --check src/tree.js && node --check src/navigation.js && node --check src/renderer.js"
+    "check": "node --check scripts/build-cli.js && node --check scripts/build-macos-icon.js && node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/package-macos.js && node --check scripts/review.js && node --check scripts/start.js && node --check packages/cli/src/bootstrap.js && node --check packages/cli/src/index.js && node --check src/annotation-block.js && node --check src/annotations.js && node --check src/app-menu.js && node --check src/image-preview.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/metadata-discovery.js && node --check src/pierre-diffs-entry.mjs && node --check src/preload.js && node --check src/review-migration.js && node --check src/review-sessions.js && node --check src/review-store.js && node --check src/service-endpoint.js && node --check src/settings.js && node --check src/settings-store.js && node --check src/source-edits.js && node --check src/tree.js && node --check src/yaml-entry.mjs && node --check src/navigation.js && node --check src/renderer.js"
   },
   "author": "lastobelus",
   "license": "MIT",
@@ -31,6 +31,7 @@
   "dependencies": {
     "@pierre/diffs": "1.3.0-beta.10",
     "@pierre/trees": "1.0.0-beta.4",
-    "markdown-it": "^14.3.0"
+    "markdown-it": "^14.3.0",
+    "yaml": "^2.9.0"
   }
 }

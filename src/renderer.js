@@ -42,6 +42,8 @@ const elements = {
   sourceDiffStats: document.querySelector('#source-diff-stats'),
   sourceEdit: document.querySelector('#source-edit'),
   sourceEditor: document.querySelector('#source-editor'),
+  sourceErrorTooltip: document.querySelector('#source-error-tooltip'),
+  sourcePanel: document.querySelector('.source-panel'),
   sourceRevert: document.querySelector('#source-revert'),
   sourceSave: document.querySelector('#source-save'),
   sourceSaveBar: document.querySelector('#source-save-bar'),
@@ -241,6 +243,8 @@ function renderDiffStats(element, stats) {
 }
 
 function nodeKindLabel(node) {
+  if (node.type === 'frontmatter') return 'YAML'
+  if (node.type === 'frontmatter-entry') return '{}'
   if (node.type === 'heading') return `H${node.level}`
   if (node.task) return node.checked ? '☑' : '☐'
   if (node.type === 'ordered-item') return node.marker
@@ -253,6 +257,8 @@ function nodeKindLabel(node) {
 }
 
 function nodeDescriptor(node) {
+  if (node.type === 'frontmatter') return '<yaml-frontmatter>'
+  if (node.type === 'frontmatter-entry') return `<yaml:${node.key}>`
   if (node.type === 'heading') return `<h${node.level}>`
   if (node.task) {
     return `<task> ${node.listPosition} of ${node.listLength}`
@@ -289,6 +295,43 @@ function createRenderedAnnotation(node, options = {}) {
 function hideAnnotationSneakPeek() {
   elements.annotationSneakPeek.hidden = true
   elements.annotationSneakPeek.replaceChildren()
+}
+
+function hideSourceErrorTooltip() {
+  elements.sourceErrorTooltip.hidden = true
+  elements.sourceErrorTooltip.textContent = ''
+}
+
+function showSourceErrorTooltip() {
+  const message = elements.sourcePanel.dataset.yamlError
+  if (!message || state.sourceEditingId) return
+
+  elements.sourceErrorTooltip.textContent = message
+  elements.sourceErrorTooltip.hidden = false
+  const anchor = elements.sourcePanel.getBoundingClientRect()
+  const tooltip = elements.sourceErrorTooltip.getBoundingClientRect()
+  const position = MarkoverAnnotationBlock.popoverPosition(
+    anchor,
+    tooltip,
+    { width: window.innerWidth, height: window.innerHeight }
+  )
+  elements.sourceErrorTooltip.style.left = `${position.x}px`
+  elements.sourceErrorTooltip.style.top = `${position.y}px`
+}
+
+function leaveSourceErrorTooltip() {
+  if (!elements.sourcePanel.contains(document.activeElement)) {
+    hideSourceErrorTooltip()
+  }
+}
+
+function blurSourceErrorTooltip(event) {
+  if (
+    !elements.sourcePanel.contains(event.relatedTarget) &&
+    !elements.sourcePanel.matches(':hover')
+  ) {
+    hideSourceErrorTooltip()
+  }
 }
 
 function showAnnotationSneakPeek(node, marker) {
@@ -535,12 +578,18 @@ function renderNode(entry, depth) {
   row.append(kind)
 
   const content = document.createElement('div')
-  if (node.sourceEdit) {
+  if (node.type === 'frontmatter-entry') {
+    content.className = `block-content frontmatter-entry${node.sourceEdit ? ' proposed-source' : ''}`
+    content.textContent = node.sourceEdit?.current || node.text
+  } else if (node.sourceEdit) {
     content.className = 'block-content proposed-source'
     content.innerHTML = inlineMarkdown.render(node.sourceEdit.current)
   } else if (node.type === 'heading') {
     content.className = `block-content heading level-${node.level}`
     content.innerHTML = inlineMarkdown.renderInline(node.text)
+  } else if (node.type === 'frontmatter') {
+    content.className = 'block-content frontmatter'
+    content.textContent = node.text
   } else if (node.type === 'code') {
     content.className = 'block-content code'
     const code = document.createElement('code')
@@ -926,13 +975,27 @@ function renderSourcePanel(node) {
   sourceDiffCleanup = null
   elements.sourceDiff.replaceChildren()
 
-  const editable = isCurrentReviewEditable()
+  const editable = isCurrentReviewEditable() && node.sourceEditable !== false
   const editing = editable && state.sourceEditingId === node.id
   const draft = state.sourceDrafts.get(node.id)
   const savedSource = MarkoverSourceEdits.savedSource(node)
   const currentDraft = draft ?? savedSource
   const dirty = editing && currentDraft !== savedSource
+  const yamlError = !editing && node.type === 'frontmatter-entry' && node.sourceEdit
+    ? MarkoverTree.yamlDiagnostic(node.sourceEdit.current)
+    : null
 
+  hideSourceErrorTooltip()
+  elements.sourcePanel.classList.toggle('has-yaml-error', Boolean(yamlError))
+  elements.sourcePanel.dataset.yamlError = yamlError?.message || ''
+  if (yamlError) {
+    elements.sourceToggle.setAttribute('aria-describedby', 'source-error-tooltip')
+    if (elements.sourcePanel.contains(document.activeElement)) {
+      requestAnimationFrame(showSourceErrorTooltip)
+    }
+  } else {
+    elements.sourceToggle.removeAttribute('aria-describedby')
+  }
   elements.sourceContent.hidden = state.sourceCollapsed
   elements.sourceEdit.hidden = !editable || editing
   elements.sourceEdit.disabled = !editable
@@ -2210,6 +2273,11 @@ elements.sourceEditor.addEventListener('keydown', (event) => {
   if (node) cancelSourceEdit(node)
 })
 
+elements.sourcePanel.addEventListener('mouseenter', showSourceErrorTooltip)
+elements.sourcePanel.addEventListener('mouseleave', leaveSourceErrorTooltip)
+elements.sourcePanel.addEventListener('focusin', showSourceErrorTooltip)
+elements.sourcePanel.addEventListener('focusout', blurSourceErrorTooltip)
+
 elements.imagePreviewClose.addEventListener('click', closeImagePreview)
 elements.imagePreview.addEventListener('click', (event) => {
   if (event.target === elements.imagePreview) closeImagePreview()
@@ -2236,6 +2304,7 @@ MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
 })
 window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
+  if (!elements.sourceErrorTooltip.hidden) showSourceErrorTooltip()
   applyDocumentsListWidth()
   updatePinnedSelection()
   MarkoverAnnotationBlock.updateTruncation(elements.annotationList)

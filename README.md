@@ -23,8 +23,8 @@ block-level feedback to an agent.
 
 ## Features
 
-- Navigable, collapsible blocks for headings, paragraphs, lists, tasks, code,
-  tables, block quotes, and thematic breaks.
+- Navigable, collapsible blocks for YAML frontmatter, headings, paragraphs,
+  lists, tasks, code, tables, block quotes, and thematic breaks.
 - Markdown feedback and labeled screenshot attachments on individual blocks.
 - A durable multi-document inbox grouped by project, with an all-annotations
   browser.

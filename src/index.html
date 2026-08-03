@@ -273,6 +273,12 @@
       <dl id="review-context-fields" class="review-context-fields"></dl>
     </aside>
     <div id="annotation-sneak-peek" class="annotation-sneak-peek" hidden></div>
+    <div
+      id="source-error-tooltip"
+      class="source-error-tooltip"
+      role="tooltip"
+      hidden
+    ></div>
 
     <dialog id="settings-dialog" class="settings-dialog">
       <form id="settings-form" method="dialog">
@@ -350,6 +356,7 @@
     </dialog>
 
     <script src="../node_modules/markdown-it/dist/markdown-it.js"></script>
+    <script src="vendor/yaml.js"></script>
     <script src="tree.js"></script>
     <script src="annotations.js"></script>
     <script src="annotation-block.js"></script>

@@ -2,6 +2,9 @@
   const MarkdownIt = typeof require === 'function'
     ? require('markdown-it')
     : globalScope.markdownit
+  const YAML = typeof require === 'function'
+    ? require('yaml')
+    : globalScope.MarkoverYaml
   const markdown = MarkdownIt('commonmark', {
     html: false,
     linkify: false,
@@ -9,9 +12,78 @@
   })
   markdown.enable('table')
 
+  function yamlDiagnostic(source) {
+    const document = YAML.parseDocument(source, { prettyErrors: true })
+    const error = document.errors[0]
+    if (error) {
+      const start = error.linePos?.[0] || {}
+      return {
+        line: start.line || null,
+        column: start.col || null,
+        message: error.message.trim()
+      }
+    }
+
+    if (YAML.isMap(document.contents) && document.contents.items.length) {
+      return null
+    }
+
+    return {
+      line: 1,
+      column: 1,
+      message: 'Expected one or more YAML key: value pairs.'
+    }
+  }
+
+  function parseFrontmatter(lines) {
+    if (!/^\uFEFF?---\s*$/.test(lines[0] || '')) return null
+
+    const closingIndex = lines.findIndex((line, index) => (
+      index > 0 && /^(?:---|\.\.\.)\s*$/.test(line)
+    ))
+    if (closingIndex === -1) return null
+
+    const source = lines.slice(1, closingIndex).join('\n')
+    const document = YAML.parseDocument(source, { prettyErrors: false })
+    if (document.errors.length || (document.contents && !YAML.isMap(document.contents))) {
+      return null
+    }
+
+    const entries = (document.contents?.items || []).map((pair) => {
+      const keyStart = pair.key?.range?.[0]
+      const valueEnd = pair.value?.range?.[2] ?? pair.key?.range?.[2]
+      if (!Number.isInteger(keyStart) || !Number.isInteger(valueEnd)) return null
+
+      const start = source.lastIndexOf('\n', keyStart - 1) + 1
+      if (source.slice(start, keyStart).trim()) return null
+
+      const rangeEnd = source[valueEnd - 1] === '\n' ? valueEnd - 1 : valueEnd
+      const nextBreak = source.indexOf('\n', rangeEnd)
+      const end = nextBreak === -1 ? source.length : nextBreak
+      if (source.slice(rangeEnd, end).trim()) return null
+
+      const raw = source.slice(start, end)
+      const linesBefore = source.slice(0, start).split('\n').length - 1
+      return {
+        key: source.slice(pair.key.range[0], pair.key.range[1]),
+        raw,
+        lineStart: linesBefore + 2,
+        lineEnd: linesBefore + 1 + raw.split('\n').length
+      }
+    }).filter(Boolean)
+
+    return { closingIndex, entries }
+  }
+
   function parseMarkdown(source, checksum = '', document = {}) {
     const lines = source.replace(/\r\n?/g, '\n').split('\n')
-    const tokens = markdown.parse(source, {})
+    const frontmatter = parseFrontmatter(lines)
+    const markdownSource = frontmatter
+      ? lines.map((line, index) => (
+        index <= frontmatter.closingIndex ? '' : line
+      )).join('\n')
+      : source
+    const tokens = markdown.parse(markdownSource, {})
     let sequence = 0
     let listSequence = 0
 
@@ -102,6 +174,29 @@
         lineEnd: token.map[1],
         ...properties
       }))
+    }
+
+    if (frontmatter) {
+      const parent = createNode({
+        type: 'frontmatter',
+        text: 'YAML Frontmatter',
+        raw: lines.slice(0, frontmatter.closingIndex + 1).join('\n'),
+        lineStart: 1,
+        lineEnd: frontmatter.closingIndex + 1,
+        collapsed: true,
+        sourceEditable: false
+      })
+      for (const entry of frontmatter.entries) {
+        addChild(parent, createNode({
+          type: 'frontmatter-entry',
+          text: entry.raw,
+          raw: entry.raw,
+          key: entry.key,
+          lineStart: entry.lineStart,
+          lineEnd: entry.lineEnd
+        }))
+      }
+      addChild(root, parent)
     }
 
     for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
@@ -317,7 +412,8 @@
     nodePosition,
     parseMarkdown,
     serializeTree,
-    visitNodes
+    visitNodes,
+    yamlDiagnostic
   }
   globalScope.MarkoverTree = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api

@@ -44,6 +44,7 @@
   --status-pending: var(--markover-secondary);
   --status-progress: #d89b35;
   --status-other: var(--muted);
+  --source-error: #b6422d;
   --status-outline: rgb(var(--ink-rgb) / 55%);
   --pane-label-base: var(--markover-secondary);
   --pane-label-highlight: var(--markover-primary);
@@ -124,6 +125,7 @@
   --code: #11100f;
   --status-editing: color-mix(in srgb, var(--markover-primary) 70%, white);
   --status-outline: rgb(var(--ink-rgb) / 42%);
+  --source-error: #ef6b5a;
   --pane-label-color: color-mix(
     in srgb,
     var(--pane-label-base) 42%,
@@ -1237,6 +1239,16 @@ p {
   font: 0.88em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.block-content.frontmatter {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.block-content.frontmatter-entry {
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+}
+
 .block-row:has(.block-content.code) {
   background: var(--code);
 }
@@ -1281,6 +1293,25 @@ p {
   background: var(--surface);
   box-shadow: 0 14px 34px var(--shadow);
   pointer-events: none;
+}
+
+.source-error-tooltip {
+  position: fixed;
+  z-index: 95;
+  width: min(420px, calc(100vw - 20px));
+  max-height: min(240px, calc(100vh - 20px));
+  overflow: auto;
+  padding: 9px 11px;
+  box-sizing: border-box;
+  border: 1px solid var(--source-error);
+  border-top-width: 3px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 12px 28px var(--shadow);
+  font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+  white-space: pre-wrap;
 }
 
 .rendered-annotation {
@@ -1708,6 +1739,20 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 9px;
   background: rgb(var(--surface-rgb) / 72%);
+}
+
+.source-panel.has-yaml-error {
+  border-color: var(--source-error);
+  box-shadow: 0 0 0 1px var(--source-error);
+}
+
+.source-panel.has-yaml-error .source-header {
+  color: var(--source-error);
+  background: color-mix(in srgb, var(--source-error) 9%, transparent);
+}
+
+.source-panel.has-yaml-error .source-toggle {
+  color: var(--source-error);
 }
 
 .source-header {
