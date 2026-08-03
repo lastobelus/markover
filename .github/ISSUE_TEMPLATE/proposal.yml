@@ -1,0 +1,69 @@
+name: Scoped proposal
+description: Propose agreed, concrete work after an Ideas discussion
+title: "[Proposal]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Early ideas belong in GitHub Discussions. Use this form once the desired outcome and scope are concrete enough to track as work.
+  - type: input
+    id: discussion
+    attributes:
+      label: Prior Discussion
+      description: Link the Ideas discussion where the direction was explored.
+      placeholder: "https://github.com/lastobelus/markover/discussions/…"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: Who is affected, and what prevents them from succeeding today?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable success without prescribing unnecessary implementation detail.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: What should this work include?
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: What related work should remain outside this proposal?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Summarize other approaches and why this direction is preferable.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: How will we know the outcome works and avoids regressions?
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing Issues and Discussions for overlapping work.
+          required: true
+        - label: I discussed this direction before filing a scoped proposal.
+          required: true

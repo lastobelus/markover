@@ -1,0 +1,23 @@
+{
+  "@pierre/theming@0.0.2": {
+    "license": "apache-2.0",
+    "reason": "The package manifest declares and references Apache-2.0, but the npm tarball omits LICENSE.md. Use the identical license supplied by the bundled @pierre/diffs package.",
+    "sources": [
+      {
+        "kind": "license",
+        "path": "node_modules/@pierre/diffs/LICENSE.md"
+      }
+    ]
+  },
+  "lru_map@0.4.1": {
+    "license": "MIT",
+    "reason": "This package embeds its complete MIT license at the end of README.md rather than shipping a separate license file.",
+    "sources": [
+      {
+        "kind": "license",
+        "path": "node_modules/lru_map/README.md",
+        "start": "# MIT license"
+      }
+    ]
+  }
+}

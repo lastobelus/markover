@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/lastobelus/markover/discussions/categories/q-a
+    about: Get help with setup, workflow, or expected behavior.
+  - name: Share an early idea
+    url: https://github.com/lastobelus/markover/discussions/categories/ideas
+    about: Explore a possible improvement before turning it into scoped work.
+  - name: Report a security vulnerability
+    url: https://github.com/lastobelus/markover/security/advisories/new
+    about: Share suspected vulnerabilities privately with the maintainer.
+  - name: Report a code-of-conduct concern
+    url: https://github.com/lastobelus/markover/blob/main/CODE_OF_CONDUCT.md#reporting-an-issue
+    about: Follow the policy's pre-addressed instructions to report privately.

@@ -1,7 +1,9 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
+const { copyThirdPartyNotices } = require('../scripts/package-macos')
 
 const root = path.join(__dirname, '..')
 const read = (relativePath) => fs.readFileSync(
@@ -26,7 +28,29 @@ test('macOS packaging produces a branded application bundle', () => {
   assert.match(packaging, /--helper-bundle-id=com\.lastobelus\.markover\.helper/)
   assert.match(packaging, /--icon=design\/brand\/markover-app-icon\.icns/)
   assert.match(packaging, /'\/usr\/bin\/codesign'/)
+  assert.ok(
+    packaging.indexOf('copyThirdPartyNotices(appPath)') <
+      packaging.indexOf("spawnSync(\n    '/usr/bin/codesign'")
+  )
   assert.match(packaging, /local ad-hoc-signed build/)
   assert.match(main, /new ReviewStore\(reviewsDirectory\(\)\)/)
   assert.match(main, /process\.platform === 'darwin' && !app\.isPackaged/)
+})
+
+test('macOS packaging places application and runtime notices inside the app', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'markover-package-'))
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const appPath = path.join(directory, 'Markover.app')
+  const electronDirectory = path.join(directory, 'node_modules/electron/dist')
+  fs.mkdirSync(electronDirectory, { recursive: true })
+  fs.writeFileSync(path.join(directory, 'THIRD_PARTY_NOTICES.md'), 'application')
+  fs.writeFileSync(path.join(electronDirectory, 'LICENSE'), 'electron')
+  fs.writeFileSync(path.join(electronDirectory, 'LICENSES.chromium.html'), 'chromium')
+
+  copyThirdPartyNotices(appPath, { rootDirectory: directory })
+
+  const licenses = path.join(appPath, 'Contents/Resources/licenses')
+  assert.equal(fs.readFileSync(path.join(licenses, 'THIRD_PARTY_NOTICES.md'), 'utf8'), 'application')
+  assert.equal(fs.readFileSync(path.join(licenses, 'ELECTRON_LICENSE'), 'utf8'), 'electron')
+  assert.equal(fs.readFileSync(path.join(licenses, 'CHROMIUM_LICENSES.html'), 'utf8'), 'chromium')
 })

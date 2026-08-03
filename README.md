@@ -69,3 +69,12 @@ notarized. See the [user guide](https://lastobelus.github.io/markover/guide/)
 for the review workflow and keyboard controls, or
 [development.md](./docs/development.md) for checkout, testing, packaging, and
 release notes.
+
+## Community
+
+- [Contributing](./CONTRIBUTING.md)
+- [Roadmap](./ROADMAP.md)
+- [Security policy](./SECURITY.md)
+- [Code of conduct](./CODE_OF_CONDUCT.md)
+- [Discussions](https://github.com/lastobelus/markover/discussions) for early
+  ideas and questions

@@ -1,0 +1,23 @@
+title: "[Question] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask for help with Markover setup, workflow, or expected behavior. Reproducible defects belong in the bug-report issue form, and suspected vulnerabilities must be reported privately.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to understand or accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Relevant context
+      description: Include the Markover version, macOS version, launch method, and sanitized examples when they matter.
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What have you tried?
+      description: Share documentation, commands, or workarounds you already checked.

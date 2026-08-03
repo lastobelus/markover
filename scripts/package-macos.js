@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require('node:child_process')
+const fs = require('node:fs')
 const path = require('node:path')
 
 const projectDirectory = path.resolve(__dirname, '..')
@@ -8,6 +9,23 @@ const packagerPath = path.join(
   projectDirectory,
   'node_modules/.bin/electron-packager'
 )
+
+function copyThirdPartyNotices(appPath, { rootDirectory = projectDirectory } = {}) {
+  const licensesDirectory = path.join(
+    appPath,
+    'Contents',
+    'Resources',
+    'licenses'
+  )
+  fs.mkdirSync(licensesDirectory, { recursive: true })
+  for (const [source, name] of [
+    [path.join(rootDirectory, 'THIRD_PARTY_NOTICES.md'), 'THIRD_PARTY_NOTICES.md'],
+    [path.join(rootDirectory, 'node_modules/electron/dist/LICENSE'), 'ELECTRON_LICENSE'],
+    [path.join(rootDirectory, 'node_modules/electron/dist/LICENSES.chromium.html'), 'CHROMIUM_LICENSES.html']
+  ]) {
+    fs.copyFileSync(source, path.join(licensesDirectory, name))
+  }
+}
 
 function main() {
   if (process.platform !== 'darwin') {
@@ -47,6 +65,7 @@ function main() {
     `Markover-darwin-${process.arch}`,
     'Markover.app'
   )
+  copyThirdPartyNotices(appPath)
   const signing = spawnSync(
     '/usr/bin/codesign',
     ['--force', '--deep', '--sign', '-', appPath],
@@ -70,4 +89,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { main }
+module.exports = { copyThirdPartyNotices, main }
