@@ -160,6 +160,11 @@ a { color: inherit; text-underline-offset: .18em; }
 .docs-content section { padding: 30px 0; border-top: 1px solid var(--line); scroll-margin-top: 24px; }
 .docs-content section h2 { margin: 0 0 14px; font-size: 27px; letter-spacing: -.025em; }
 .docs-content section p { color: #554d48; line-height: 1.75; }
+.docs-content code { font-size: .92em; }
+.docs-table { width: 100%; border-collapse: collapse; color: #554d48; font-size: 14px; line-height: 1.5; }
+.docs-table th, .docs-table td { padding: 12px 14px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.docs-table th { color: var(--brand-burgundy); background: var(--brand-soft); font-size: 12px; letter-spacing: .03em; }
+.docs-table td:first-child { width: 35%; color: var(--ink); font-weight: 700; }
 pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px; color: #fff9f4; background: var(--code); font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .callout { margin-top: 22px; padding: 17px 18px; border-left: 4px solid var(--brand-orange); color: var(--brand-burgundy); background: var(--brand-soft); line-height: 1.6; }
 .docs-next { margin-top: 60px; padding-top: 25px; display: flex; flex-direction: column; gap: 7px; border-top: 1px solid var(--line); }
