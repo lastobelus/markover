@@ -521,11 +521,11 @@ declare global {
     clampDocumentsListWidth: (width: unknown, viewportWidth: unknown) => number
     formatRelativeTime: (timestamp: unknown, now?: unknown) => string
     isTreeEditable: (tree: unknown) => boolean
-    projectIdentity: (
-      document: Pick<ReviewSessionDocument, 'path' | 'projectRoot'> & {
-        tree?: unknown
-      }
-    ) => ProjectIdentity
+    projectIdentity: (document: {
+      path?: unknown
+      projectRoot?: unknown
+      tree?: unknown
+    }) => ProjectIdentity
     relativeTimeRefreshDelay: (
       timestamps: unknown[],
       now?: unknown

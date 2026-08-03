@@ -238,6 +238,14 @@ test('project identity falls back to the source directory and then Other', () =>
     { key: '/tmp/project', name: 'project', root: '/tmp/project' }
   )
   assert.deepEqual(
+    projectIdentity({
+      path: '/tmp/project/notes.md',
+      projectRoot: { invalid: true },
+      tree: { review: { git: { repositoryRoot: 42 } } }
+    }),
+    { key: '/tmp/project', name: 'project', root: '/tmp/project' }
+  )
+  assert.deepEqual(
     projectIdentity({ path: null, tree: {} }),
     { key: 'unassigned', name: 'Other', root: null }
   )

@@ -13,14 +13,18 @@
     return normalized.split(/[\\/]/).pop() || ''
   }
 
-  function dirname(value?: string | null): string {
-    const normalized = (value || '').replace(/\\/g, '/')
+  function dirname(value?: unknown): string {
+    const normalized = typeof value === 'string'
+      ? value.replace(/\\/g, '/')
+      : ''
     const index = normalized.lastIndexOf('/')
     return index > 0 ? normalized.slice(0, index) : ''
   }
 
   function projectIdentity(
-    document: Pick<ReviewSessionDocument, 'path' | 'projectRoot'> & {
+    document: {
+      path?: unknown
+      projectRoot?: unknown
       tree?: unknown
     }
   ): ProjectIdentity {
@@ -29,7 +33,10 @@
       : null
     const git = review && isRecord(review.git) ? review.git : null
     const discoveredRoot = git?.repositoryRoot
-    const repositoryRoot = document.projectRoot || (
+    const configuredRoot = typeof document.projectRoot === 'string'
+      ? document.projectRoot
+      : null
+    const repositoryRoot = configuredRoot || (
       typeof discoveredRoot === 'string' ? discoveredRoot : null
     )
     const fallbackRoot = dirname(document.path)
