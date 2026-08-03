@@ -38,6 +38,7 @@ function argumentValue(option) {
 const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') || Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
+const checkoutDirectory = path.resolve(projectDirectory, '..')
 const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
 const endpointPath = serviceEndpointPath()
 const reviewStore = reviewMode
@@ -495,7 +496,7 @@ if (!hasSingleInstanceLock) {
     }
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
     else if (!app.isPackaged) await importLegacyReviews(
-      path.join(projectDirectory, '.markover', 'reviews'),
+      path.join(checkoutDirectory, '.markover', 'reviews'),
       reviewsDirectory()
     )
 

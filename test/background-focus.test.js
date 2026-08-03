@@ -39,6 +39,19 @@ test('shutdown leaves the shared endpoint for health-checked stale recovery', ()
   assert.doesNotMatch(main, /unlink\(endpointPath\)/)
 })
 
+test('development startup imports legacy reviews from the checkout root', () => {
+  const main = read('src/main.js')
+
+  assert.match(
+    main,
+    /const checkoutDirectory = path\.resolve\(projectDirectory, '\.\.'\)/
+  )
+  assert.match(
+    main,
+    /!app\.isPackaged\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
+  )
+})
+
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {
   const cli = read('scripts/markover.js')
 
