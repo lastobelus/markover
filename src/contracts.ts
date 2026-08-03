@@ -314,7 +314,7 @@ declare global {
   interface AnnotationTreeNode {
     id: string
     children: AnnotationTreeNode[]
-    feedback?: string
+    feedback?: unknown
     attachments?: ReviewAttachment[]
     collapsed?: boolean
   }

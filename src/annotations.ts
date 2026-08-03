@@ -1,8 +1,11 @@
 (function exposeAnnotations(globalScope: typeof globalThis) {
   function hasAnnotation(node?: AnnotationTreeNode | null): boolean {
-    return Boolean(
-      (node?.feedback || '').trim() ||
-      (Array.isArray(node?.attachments) && node.attachments.length)
+    const feedback = node?.feedback
+    const hasFeedback = typeof feedback === 'string'
+      ? Boolean(feedback.trim())
+      : Boolean(feedback)
+    return hasFeedback || Boolean(
+      Array.isArray(node?.attachments) && node.attachments.length
     )
   }
 

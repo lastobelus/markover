@@ -4,6 +4,7 @@ import test from 'node:test'
 const {
   annotatedProjection,
   annotationPosition,
+  hasAnnotation,
   navigationRoot,
   nearestAnnotatedId,
   normalizeFilter,
@@ -32,6 +33,13 @@ function fixture(): AnnotationTreeNode {
     node('annotated-b', [], 'Second comment.')
   ])
 }
+
+test('annotation detection safely handles unvalidated persisted feedback', () => {
+  const persisted = node('persisted')
+  persisted.feedback = { invalid: true }
+
+  assert.equal(hasAnnotation(persisted), true)
+})
 
 test('projects annotations with only their ancestor context', () => {
   const root = fixture()
