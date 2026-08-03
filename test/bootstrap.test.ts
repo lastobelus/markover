@@ -31,6 +31,10 @@ test('invalid syntax is reported before bootstrap starts', () => {
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
   assert.match(result.stderr, /Unknown command: wat/)
+  assert.match(
+    result.stderr,
+    /npx --yes --package=https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz markover help/
+  )
   assert.doesNotMatch(result.stderr, /Downloading Markover|supports macOS only/)
 })
 

@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-const projectDirectory = path.resolve(__dirname, '..')
+const projectDirectory = path.resolve(__dirname, '../..')
 const sourcePath = path.join(
   projectDirectory,
   'design/brand/markover-app-icon.png'

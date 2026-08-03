@@ -21,6 +21,7 @@ interface PackageManifest {
 test('macOS packaging produces a branded application bundle', () => {
   const packageJson = JSON.parse(read('package.json')) as PackageManifest
   const packaging = read('scripts/package-macos.ts')
+  const iconBuilder = read('scripts/build-macos-icon.ts')
   const main = read('src/main.js')
   const icon = fs.readFileSync(
     path.join(root, 'design/brand/markover-app-icon.icns')
@@ -31,6 +32,7 @@ test('macOS packaging produces a branded application bundle', () => {
   const packageCommand = packageJson.scripts['package:mac']
   assert.ok(packageCommand)
   assert.match(packageCommand, /build:icon:mac/)
+  assert.match(iconBuilder, /path\.resolve\(__dirname, '\.\.\/\.\.'\)/)
   assert.equal(icon.subarray(0, 4).toString(), 'icns')
   assert.match(packaging, /'Markover'/)
   assert.match(packaging, /--app-bundle-id=com\.lastobelus\.markover/)

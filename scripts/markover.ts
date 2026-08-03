@@ -23,12 +23,16 @@ const loadElectron = createRequire(__filename)
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
-const invocation = process.env.MARKOVER_INVOCATION ||
-  'npm --silent run markover --'
 
 const helpAliases = new Set(['help', 'info', '--help', '-h'])
-const recoveryHint =
-  `Run "${invocation} help" for complete usage.`
+
+function invocation(): string {
+  return process.env.MARKOVER_INVOCATION || 'npm --silent run markover --'
+}
+
+function recoveryHint(): string {
+  return `Run "${invocation()} help" for complete usage.`
+}
 
 export type ParsedCommand =
   | { command: 'help' }
@@ -77,7 +81,7 @@ export function helpPayload() {
     version: 1,
     purpose: 'Review Markdown as a block tree and return structured feedback to an agent.',
     repository: 'https://github.com/lastobelus/markover',
-    invocation: `${invocation} <command>`,
+    invocation: `${invocation()} <command>`,
     requirements: {
       platform: 'macOS (Apple Silicon or Intel)',
       node: '22.13.0 or newer',
@@ -122,7 +126,7 @@ export function formatCommandError(error: unknown): string {
   const lines = [`markover: ${errorMessage(error)}`]
   const usage = error instanceof CommandError ? error.usage : undefined
   if (usage) lines.push(`Usage: ${usage}`)
-  lines.push(recoveryHint)
+  lines.push(recoveryHint())
   return `${lines.join('\n')}\n`
 }
 
