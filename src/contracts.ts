@@ -366,7 +366,7 @@ declare global {
 
   interface ReviewSessionDocument {
     reviewId?: string
-    name: string
+    name: string | null
     path?: string | null
     checksum: string
     tree: ReviewSessionTree

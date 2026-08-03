@@ -89,6 +89,25 @@ test('switching among three reviews preserves independent view and review state'
   assert.equal(sessions.activate(third.reviewId).sourceCollapsed, true)
 })
 
+test('unnamed managed documents receive a stable display name', () => {
+  const sessions = new ReviewSessions()
+  const parsed = parseMarkdown('# Untitled', 'sha256:mko_unnamed1')
+  const tree = {
+    ...parsed,
+    review: { id: 'mko_unnamed1', status: 'editing' }
+  } satisfies ReviewSessionTree
+
+  const session = sessions.add({
+    reviewId: 'mko_unnamed1',
+    name: null,
+    path: null,
+    checksum: 'sha256:mko_unnamed1',
+    tree
+  })
+
+  assert.equal(session.documentName, 'Untitled')
+})
+
 test('status updates do not activate another review', () => {
   const sessions = new ReviewSessions()
   const first = sessions.add(reviewDocument('mko_first11', 'first.md'))

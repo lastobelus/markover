@@ -154,7 +154,7 @@
       )
       const session: ReviewSession = {
         reviewId,
-        documentName: document.name,
+        documentName: document.name || basename(document.path) || 'Untitled',
         documentPath: document.path || null,
         checksum: document.checksum,
         tree: document.tree,
