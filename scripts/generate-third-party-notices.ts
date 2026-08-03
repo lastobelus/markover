@@ -1,16 +1,62 @@
 #!/usr/bin/env node
 
-const fs = require('node:fs')
-const path = require('node:path')
+import fs from 'node:fs'
+import path from 'node:path'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const outputPath = path.join(projectDirectory, 'THIRD_PARTY_NOTICES.md')
 
-function normalizeText(source) {
+type NoticeKind = 'license' | 'notice'
+
+interface NoticeFile {
+  kind: NoticeKind
+  name: string
+  path: string
+}
+
+interface NoticeText extends NoticeFile {
+  text: string
+}
+
+interface OverrideSource {
+  kind?: NoticeKind
+  path: string
+  start?: string
+  end?: string
+}
+
+interface LicenseOverride {
+  license: string
+  reason: string
+  sources: OverrideSource[]
+}
+
+type LicenseOverrides = Record<string, LicenseOverride>
+
+export interface PackageRecord {
+  id: string
+  name: string
+  version: string
+  license: string
+  location: string
+  texts: NoticeText[]
+}
+
+interface TextGroup {
+  kind: NoticeKind
+  text: string
+  packages: PackageRecord[]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+export function normalizeText(source: string): string {
   return source
 }
 
-function noticeFiles(packageDirectory) {
+function noticeFiles(packageDirectory: string): NoticeFile[] {
   return fs.readdirSync(packageDirectory)
     .filter((name) => /^(?:licen[cs]e|copying|notice)(?:[._-].*)?$/i.test(name))
     .filter((name) => fs.statSync(path.join(packageDirectory, name)).isFile())
@@ -22,17 +68,59 @@ function noticeFiles(packageDirectory) {
     }))
 }
 
-function loadOverrides(rootDirectory = projectDirectory) {
+export function loadOverrides(
+  rootDirectory = projectDirectory
+): LicenseOverrides {
   const filePath = path.join(rootDirectory, 'third_party/license-overrides.json')
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'))
+  const parsed: unknown = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+  if (!isRecord(parsed)) throw new Error('License overrides must be an object')
+  const overrides: LicenseOverrides = {}
+  for (const [id, value] of Object.entries(parsed)) {
+    if (
+      !isRecord(value) ||
+      typeof value.license !== 'string' ||
+      typeof value.reason !== 'string' ||
+      !Array.isArray(value.sources)
+    ) {
+      throw new Error(`${id} has an invalid license override`)
+    }
+    const sources: OverrideSource[] = value.sources.map((source: unknown) => {
+      if (
+        !isRecord(source) ||
+        typeof source.path !== 'string' ||
+        (source.kind !== undefined &&
+          source.kind !== 'license' && source.kind !== 'notice') ||
+        (source.start !== undefined && typeof source.start !== 'string') ||
+        (source.end !== undefined && typeof source.end !== 'string')
+      ) {
+        throw new Error(`${id} has an invalid license override source`)
+      }
+      return {
+        path: source.path,
+        ...(source.kind === undefined ? {} : { kind: source.kind }),
+        ...(source.start === undefined ? {} : { start: source.start }),
+        ...(source.end === undefined ? {} : { end: source.end })
+      }
+    })
+    overrides[id] = {
+      license: value.license,
+      reason: value.reason,
+      sources
+    }
+  }
+  return overrides
 }
 
-function resolveOverrideSources(packageRecord, override, rootDirectory) {
+export function resolveOverrideSources(
+  packageRecord: PackageRecord,
+  override: LicenseOverride | undefined,
+  rootDirectory: string
+): NoticeText[] {
   if (!override) return []
   if (override.license.toLowerCase() !== packageRecord.license.toLowerCase()) {
     throw new Error(
       `${packageRecord.id} override license ${override.license} does not match ` +
-      `${packageRecord.license}`
+      packageRecord.license
     )
   }
   if (!override.reason || !Array.isArray(override.sources) || !override.sources.length) {
@@ -64,24 +152,38 @@ function resolveOverrideSources(packageRecord, override, rootDirectory) {
   })
 }
 
-function productionPackages(rootDirectory = projectDirectory, overrides = loadOverrides(rootDirectory)) {
-  const lock = JSON.parse(fs.readFileSync(
+export function productionPackages(
+  rootDirectory = projectDirectory,
+  overrides = loadOverrides(rootDirectory)
+): PackageRecord[] {
+  const lock: unknown = JSON.parse(fs.readFileSync(
     path.join(rootDirectory, 'package-lock.json'),
     'utf8'
   ))
-  const packages = []
-  for (const [location, lockEntry] of Object.entries(lock.packages || {})) {
-    if (!location.startsWith('node_modules/') || lockEntry.dev === true) continue
+  if (!isRecord(lock) || !isRecord(lock.packages)) {
+    throw new Error('package-lock.json is missing package records')
+  }
+  const packages: PackageRecord[] = []
+  for (const [location, lockEntry] of Object.entries(lock.packages)) {
+    if (
+      !location.startsWith('node_modules/') ||
+      (isRecord(lockEntry) && lockEntry.dev === true)
+    ) continue
     const packageDirectory = path.join(rootDirectory, location)
     if (!fs.existsSync(packageDirectory)) continue
-    const manifest = JSON.parse(fs.readFileSync(
+    const manifest: unknown = JSON.parse(fs.readFileSync(
       path.join(packageDirectory, 'package.json'),
       'utf8'
     ))
-    if (!manifest.name || !manifest.version || typeof manifest.license !== 'string') {
+    if (
+      !isRecord(manifest) ||
+      typeof manifest.name !== 'string' ||
+      typeof manifest.version !== 'string' ||
+      typeof manifest.license !== 'string'
+    ) {
       throw new Error(`${location} is missing name, version, or license metadata`)
     }
-    const record = {
+    const record: PackageRecord = {
       id: `${manifest.name}@${manifest.version}`,
       name: manifest.name,
       version: manifest.version,
@@ -104,29 +206,33 @@ function productionPackages(rootDirectory = projectDirectory, overrides = loadOv
   return packages.sort((left, right) => left.id.localeCompare(right.id))
 }
 
-function groupedTexts(packages) {
-  const groups = new Map()
+export function groupedTexts(packages: PackageRecord[]): TextGroup[] {
+  const groups = new Map<string, TextGroup>()
   for (const packageRecord of packages) {
     for (const entry of packageRecord.texts) {
       const key = `${entry.kind}\0${entry.text}`
-      if (!groups.has(key)) {
-        groups.set(key, {
+      let group = groups.get(key)
+      if (!group) {
+        group = {
           kind: entry.kind,
           text: entry.text,
           packages: []
-        })
+        }
+        groups.set(key, group)
       }
-      groups.get(key).packages.push(packageRecord)
+      group.packages.push(packageRecord)
     }
   }
   return [...groups.values()].sort((left, right) => {
     const kind = left.kind.localeCompare(right.kind)
     if (kind) return kind
-    return left.packages[0].id.localeCompare(right.packages[0].id)
+    return (left.packages[0]?.id ?? '').localeCompare(
+      right.packages[0]?.id ?? ''
+    )
   })
 }
 
-function renderNotices(packages) {
+export function renderNotices(packages: PackageRecord[]): string {
   const lines = [
     '# Third-Party Notices',
     '',
@@ -149,7 +255,10 @@ function renderNotices(packages) {
   for (const [index, group] of groupedTexts(packages).entries()) {
     const identifiers = [...new Set(group.packages.map((entry) => entry.license))]
     const label = group.kind === 'notice' ? 'Notice' : 'License'
-    lines.push(`### ${label} ${index + 1}: ${identifiers.join(', ')}`, '')
+    lines.push(
+      `### ${label} ${String(index + 1)}: ${identifiers.join(', ')}`,
+      ''
+    )
     lines.push(
       `Applies to: ${group.packages.map((entry) => `\`${entry.id}\``).join(', ')}`,
       '',
@@ -162,14 +271,15 @@ function renderNotices(packages) {
   return `${lines.join('\n').trimEnd()}\n`
 }
 
-function generatedNotices(rootDirectory = projectDirectory) {
+export function generatedNotices(rootDirectory = projectDirectory): string {
   return renderNotices(productionPackages(rootDirectory))
 }
 
-function main(args = process.argv.slice(2)) {
+export function main(args: string[] = process.argv.slice(2)): void {
   const unexpected = args.filter((argument) => argument !== '--check')
-  if (unexpected.length) {
-    throw new Error(`Unknown option: ${unexpected[0]}`)
+  const firstUnexpected = unexpected[0]
+  if (firstUnexpected !== undefined) {
+    throw new Error(`Unknown option: ${firstUnexpected}`)
   }
   const generated = generatedNotices()
   if (args.includes('--check')) {
@@ -192,18 +302,8 @@ if (require.main === module) {
   try {
     main()
   } catch (error) {
-    process.stderr.write(`markover notices: ${error.message}\n`)
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`markover notices: ${message}\n`)
     process.exit(1)
   }
-}
-
-module.exports = {
-  generatedNotices,
-  groupedTexts,
-  loadOverrides,
-  main,
-  normalizeText,
-  productionPackages,
-  renderNotices,
-  resolveOverrideSources
 }

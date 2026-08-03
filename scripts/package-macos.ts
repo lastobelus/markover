@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require('node:child_process')
-const fs = require('node:fs')
-const path = require('node:path')
+import { spawnSync } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const packagerPath = path.join(
@@ -10,7 +10,14 @@ const packagerPath = path.join(
   'node_modules/.bin/electron-packager'
 )
 
-function copyThirdPartyNotices(appPath, { rootDirectory = projectDirectory } = {}) {
+export interface CopyThirdPartyNoticesOptions {
+  rootDirectory?: string
+}
+
+export function copyThirdPartyNotices(
+  appPath: string,
+  { rootDirectory = projectDirectory }: CopyThirdPartyNoticesOptions = {}
+): void {
   const licensesDirectory = path.join(
     appPath,
     'Contents',
@@ -18,16 +25,17 @@ function copyThirdPartyNotices(appPath, { rootDirectory = projectDirectory } = {
     'licenses'
   )
   fs.mkdirSync(licensesDirectory, { recursive: true })
-  for (const [source, name] of [
+  const notices: Array<readonly [string, string]> = [
     [path.join(rootDirectory, 'THIRD_PARTY_NOTICES.md'), 'THIRD_PARTY_NOTICES.md'],
     [path.join(rootDirectory, 'node_modules/electron/dist/LICENSE'), 'ELECTRON_LICENSE'],
     [path.join(rootDirectory, 'node_modules/electron/dist/LICENSES.chromium.html'), 'CHROMIUM_LICENSES.html']
-  ]) {
+  ]
+  for (const [source, name] of notices) {
     fs.copyFileSync(source, path.join(licensesDirectory, name))
   }
 }
 
-function main() {
+export function main(): void {
   if (process.platform !== 'darwin') {
     throw new Error('Packaging Markover for macOS requires macOS.')
   }
@@ -57,7 +65,7 @@ function main() {
   })
   if (result.status !== 0) {
     throw new Error(
-      result.stderr.trim() || `electron-packager exited ${result.status}`
+      result.stderr.trim() || `electron-packager exited ${String(result.status)}`
     )
   }
   const appPath = path.join(
@@ -74,7 +82,7 @@ function main() {
   )
   if (signing.status !== 0) {
     throw new Error(
-      signing.stderr.trim() || `codesign exited ${signing.status}`
+      signing.stderr.trim() || `codesign exited ${String(signing.status)}`
     )
   }
   process.stdout.write(result.stdout)
@@ -85,9 +93,8 @@ if (require.main === module) {
   try {
     main()
   } catch (error) {
-    process.stderr.write(`markover package: ${error.message}\n`)
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`markover package: ${message}\n`)
     process.exit(1)
   }
 }
-
-module.exports = { copyThirdPartyNotices, main }

@@ -1,16 +1,20 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const crypto = require('node:crypto')
-const fs = require('node:fs/promises')
-const http = require('node:http')
-const os = require('node:os')
-const path = require('node:path')
-const { spawnSync } = require('node:child_process')
-const {
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
+import http from 'node:http'
+import type { AddressInfo } from 'node:net'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
+
+import {
   download,
   ensureInstalledApp,
-  releaseAssetName
-} = require('../packages/cli/src/bootstrap')
+  releaseAssetName,
+  type EnsureInstalledAppOptions
+} from '../packages/cli/src/bootstrap'
+import { main as buildCli } from '../scripts/build-cli'
 
 test('release assets are architecture-specific', () => {
   assert.equal(releaseAssetName('arm64'), 'Markover-darwin-arm64.zip')
@@ -30,28 +34,50 @@ test('invalid syntax is reported before bootstrap starts', () => {
   assert.doesNotMatch(result.stderr, /Downloading Markover|supports macOS only/)
 })
 
+test('bundled public CLI preserves exact command output', async () => {
+  await buildCli()
+  const sourceCli = path.join(__dirname, '../packages/cli/src/index.js')
+  const bundledCli = path.resolve(
+    __dirname,
+    '../../packages/cli/bin/markover.js'
+  )
+
+  for (const args of [['help'], ['wat']]) {
+    const expected = spawnSync(process.execPath, [sourceCli, ...args], {
+      encoding: 'utf8'
+    })
+    const actual = spawnSync(process.execPath, [bundledCli, ...args], {
+      encoding: 'utf8'
+    })
+    assert.equal(actual.status, expected.status)
+    assert.equal(actual.stdout, expected.stdout)
+    assert.equal(actual.stderr, expected.stderr)
+  }
+})
+
 test('downloads, verifies, and atomically caches Markover.app', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-bootstrap-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   const archive = Buffer.from('fake Markover archive')
   const checksum = crypto.createHash('sha256').update(archive).digest('hex')
-  const downloads = []
+  const downloads: string[] = []
 
-  const options = {
+  const options: EnsureInstalledAppOptions = {
     architecture: 'arm64',
     cacheDirectory: directory,
     platform: 'darwin',
     progress() {},
     releaseBaseUrl: 'https://releases.example/v1.2.3',
     version: '1.2.3',
-    async downloadFile(url, destination) {
-      downloads.push(url)
+    async downloadFile(url: string | URL, destination: string) {
+      const sourceUrl = String(url)
+      downloads.push(sourceUrl)
       await fs.writeFile(
         destination,
-        url.endsWith('.sha256') ? `${checksum}  archive.zip\n` : archive
+        sourceUrl.endsWith('.sha256') ? `${checksum}  archive.zip\n` : archive
       )
     },
-    async extractArchive(_archivePath, destination) {
+    async extractArchive(_archivePath: string, destination: string) {
       const executable = path.join(
         destination,
         'Markover.app',
@@ -88,8 +114,8 @@ test('rejects a release whose checksum does not match', async (t) => {
       platform: 'darwin',
       progress() {},
       version: '1.2.3',
-      async downloadFile(url, destination) {
-        await fs.writeFile(destination, url.endsWith('.sha256')
+      async downloadFile(url: string | URL, destination: string) {
+        await fs.writeFile(destination, String(url).endsWith('.sha256')
           ? `${'0'.repeat(64)}\n`
           : 'different')
       }
@@ -105,7 +131,9 @@ test('a stalled download fails within its timeout', async (t) => {
     response.writeHead(200)
     response.write('partial')
   })
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', resolve)
+  })
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve))
     await fs.rm(directory, { recursive: true, force: true })
@@ -113,7 +141,7 @@ test('a stalled download fails within its timeout', async (t) => {
 
   await assert.rejects(
     download(
-      `http://127.0.0.1:${server.address().port}/archive.zip`,
+      `http://127.0.0.1:${String((server.address() as AddressInfo).port)}/archive.zip`,
       destination,
       0,
       30

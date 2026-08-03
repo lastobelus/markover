@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require('node:child_process')
-const fs = require('node:fs')
-const os = require('node:os')
-const path = require('node:path')
+import { spawnSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 const projectDirectory = path.resolve(__dirname, '..')
 const sourcePath = path.join(
@@ -15,16 +15,17 @@ const outputPath = path.join(
   'design/brand/markover-app-icon.icns'
 )
 
-function run(command, args) {
+function run(command: string, args: string[]): void {
   const result = spawnSync(command, args, { encoding: 'utf8' })
   if (result.status !== 0) {
     throw new Error(
-      result.stderr.trim() || `${path.basename(command)} exited ${result.status}`
+      result.stderr.trim() ||
+      `${path.basename(command)} exited ${String(result.status)}`
     )
   }
 }
 
-function main() {
+export function main(): void {
   if (process.platform !== 'darwin') {
     throw new Error('Building the macOS icon requires macOS.')
   }
@@ -35,7 +36,7 @@ function main() {
   const iconsetPath = path.join(temporaryDirectory, 'Markover.iconset')
   fs.mkdirSync(iconsetPath)
 
-  const variants = [
+  const variants: Array<readonly [number, string]> = [
     [16, 'icon_16x16.png'],
     [32, 'icon_16x16@2x.png'],
     [32, 'icon_32x32.png'],
@@ -75,9 +76,8 @@ if (require.main === module) {
   try {
     main()
   } catch (error) {
-    process.stderr.write(`markover icon: ${error.message}\n`)
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`markover icon: ${message}\n`)
     process.exit(1)
   }
 }
-
-module.exports = { main }

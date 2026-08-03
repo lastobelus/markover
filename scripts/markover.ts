@@ -1,18 +1,25 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require('node:child_process')
-const crypto = require('node:crypto')
-const fsSync = require('node:fs')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const { requestJson } = require('../src/local-client')
-const {
+import { spawnSync } from 'node:child_process'
+import crypto from 'node:crypto'
+import fsSync from 'node:fs'
+import fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import os from 'node:os'
+import path from 'node:path'
+
+import { requestJson } from '../src/local-client'
+import {
   discoverReviewMetadata,
-  HANDOFF_KEY_PATTERN
-} = require('../src/metadata-discovery')
-const { serviceEndpointPath } = require('../src/service-endpoint')
-const { parseMarkdown } = require('../src/tree')
+  HANDOFF_KEY_PATTERN,
+  type ReviewMetadata,
+  type ReviewMetadataInput
+} from '../src/metadata-discovery'
+import { serviceEndpointPath } from '../src/service-endpoint'
+import '../src/tree'
+
+const { parseMarkdown } = MarkoverTree
+const loadElectron = createRequire(__filename)
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
@@ -23,17 +30,48 @@ const helpAliases = new Set(['help', 'info', '--help', '-h'])
 const recoveryHint =
   `Run "${invocation} help" for complete usage.`
 
-function shellQuote(value) {
+export type ParsedCommand =
+  | { command: 'help' }
+  | { command: 'get' | 'edit'; reviewId: string }
+  | {
+      command: 'open'
+      sourcePath: string
+      contextSummary: string
+      branch?: string | null
+      handoffKey?: string | null
+      pullRequestNumber?: number | null
+      threadId?: string | null
+    }
+
+export class CommandError extends Error {
+  readonly usage: string | undefined
+
+  constructor(message: string, usage?: string) {
+    super(message)
+    this.name = 'CommandError'
+    this.usage = usage
+  }
+}
+
+function errorCode(error: unknown): unknown {
+  return error !== null && typeof error === 'object'
+    ? Reflect.get(error, 'code')
+    : null
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
-function commandError(message, usage) {
-  const error = new Error(message)
-  error.usage = usage
-  return error
+function commandError(message: string, usage?: string): CommandError {
+  return new CommandError(message, usage)
 }
 
-function helpPayload() {
+export function helpPayload() {
   return {
     format: 'markover-help',
     version: 1,
@@ -80,25 +118,26 @@ function helpPayload() {
   }
 }
 
-function formatCommandError(error) {
-  const lines = [`markover: ${error.message}`]
-  if (error.usage) lines.push(`Usage: ${error.usage}`)
+export function formatCommandError(error: unknown): string {
+  const lines = [`markover: ${errorMessage(error)}`]
+  const usage = error instanceof CommandError ? error.usage : undefined
+  if (usage) lines.push(`Usage: ${usage}`)
   lines.push(recoveryHint)
   return `${lines.join('\n')}\n`
 }
 
-function parseCommandArguments(args) {
+export function parseCommandArguments(args: string[]): ParsedCommand {
   const [command, ...rest] = args
   if (!command || helpAliases.has(command)) {
     if (rest.length) {
       throw commandError(
-        `${command} does not accept arguments.`,
+        `${String(command)} does not accept arguments.`,
         'markover help'
       )
     }
     return { command: 'help' }
   }
-  if (!['open', 'get', 'edit'].includes(command)) {
+  if (command !== 'open' && command !== 'get' && command !== 'edit') {
     if (command === 'check') {
       throw commandError(
         'There is no check command. After the user says “Check Markover,” run get with the retained review ID.',
@@ -118,13 +157,14 @@ function parseCommandArguments(args) {
   }
 
   if (command === 'get' || command === 'edit') {
-    if (rest.length !== 1 || rest[0].startsWith('--')) {
+    const reviewId = rest[0]
+    if (rest.length !== 1 || reviewId === undefined || reviewId.startsWith('--')) {
       throw commandError(
         `${command} requires exactly one review ID.`,
         `markover ${command} <review-id>`
       )
     }
-    return { command, reviewId: rest[0] }
+    return { command, reviewId }
   }
 
   let sourcePath = null
@@ -135,6 +175,7 @@ function parseCommandArguments(args) {
   let threadId = null
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index]
+    if (argument === undefined) break
     if (
       argument === '--summary' ||
       argument === '--branch' ||
@@ -233,20 +274,27 @@ function parseCommandArguments(args) {
   }
 }
 
-function checksum(source) {
+export function checksum(source: string): string {
   return `sha256:${crypto.createHash('sha256').update(source, 'utf8').digest('hex')}`
 }
 
-function delay(milliseconds) {
+function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-function resolveMarkoverApp({
+export interface ResolveMarkoverAppOptions {
+  architecture?: string
+  environment?: NodeJS.ProcessEnv
+  exists?: (candidate: string) => boolean
+  homeDirectory?: string
+}
+
+export function resolveMarkoverApp({
   architecture = process.arch,
   environment = process.env,
   exists = fsSync.existsSync,
   homeDirectory = os.homedir()
-} = {}) {
+}: ResolveMarkoverAppOptions = {}): string | null {
   const candidates = [
     environment.MARKOVER_APP_PATH,
     path.join(
@@ -257,20 +305,26 @@ function resolveMarkoverApp({
     ),
     path.join(homeDirectory, 'Applications', 'Markover.app'),
     '/Applications/Markover.app'
-  ].filter(Boolean)
+  ].filter((candidate): candidate is string => Boolean(candidate))
   return candidates.find((candidate) => exists(candidate)) || null
 }
 
-function startDetachedApp(options = {}) {
+export function startDetachedApp(
+  options: ResolveMarkoverAppOptions & { replaceStale?: boolean } = {}
+): void {
   if (process.platform !== 'darwin') {
     throw new Error('Automatic Markover startup currently requires macOS.')
   }
 
   const packagedApp = resolveMarkoverApp(options)
-  const application = packagedApp || path.resolve(
-    path.dirname(require('electron')),
-    '../..'
-  )
+  let application = packagedApp
+  if (!application) {
+    const loadedElectron: unknown = loadElectron('electron')
+    if (typeof loadedElectron !== 'string') {
+      throw new Error('Electron executable path is unavailable.')
+    }
+    application = path.resolve(path.dirname(loadedElectron), '../..')
+  }
   const environment = { ...process.env }
   delete environment.ELECTRON_RUN_AS_NODE
   const appArguments = packagedApp
@@ -289,12 +343,15 @@ function startDetachedApp(options = {}) {
     { encoding: 'utf8', env: environment }
   )
   if (result.status !== 0) {
-    throw new Error(result.stderr.trim() || `open exited ${result.status}`)
+    throw new Error(result.stderr.trim() || `open exited ${String(result.status)}`)
   }
 }
 
-async function waitForService(endpointPath, deadline) {
-  let lastError = null
+async function waitForService(
+  endpointPath: string,
+  deadline: number
+): Promise<void> {
+  let lastError: unknown = null
   while (Date.now() < deadline) {
     try {
       await requestJson(endpointPath, 'GET', '/health')
@@ -304,14 +361,21 @@ async function waitForService(endpointPath, deadline) {
       await delay(100)
     }
   }
-  throw lastError || new Error('Markover service startup timed out.')
+  if (lastError instanceof Error) throw lastError
+  throw new Error('Markover service startup timed out.')
 }
 
-async function ensureService({
+export interface EnsureServiceOptions {
+  endpointPath?: string
+  startApp?: (options: { replaceStale: boolean }) => void
+  timeoutMilliseconds?: number
+}
+
+export async function ensureService({
   endpointPath = defaultEndpointPath,
   startApp = startDetachedApp,
   timeoutMilliseconds = 10000
-} = {}) {
+}: EnsureServiceOptions = {}): Promise<void> {
   try {
     await requestJson(endpointPath, 'GET', '/health')
     return
@@ -334,20 +398,28 @@ async function ensureService({
   try {
     await waitForService(endpointPath, startedAt + timeoutMilliseconds)
   } catch (error) {
-    throw new Error(`Markover did not start: ${error.message}`, {
+    throw new Error(`Markover did not start: ${errorMessage(error)}`, {
       cause: error
     })
   }
 }
 
-async function executeCommand(
-  parsed,
+export interface ExecuteCommandOptions {
+  endpointPath?: string
+  ensure?: () => Promise<void>
+  discoverMetadata?: (
+    input: ReviewMetadataInput
+  ) => Promise<ReviewMetadata>
+}
+
+export async function executeCommand(
+  parsed: ParsedCommand,
   {
     endpointPath = defaultEndpointPath,
     ensure = () => ensureService({ endpointPath }),
     discoverMetadata = discoverReviewMetadata
-  } = {}
-) {
+  }: ExecuteCommandOptions = {}
+): Promise<unknown> {
   if (parsed.command === 'help') return helpPayload()
 
   const prepareService = async () => {
@@ -363,7 +435,7 @@ async function executeCommand(
     try {
       stats = await fs.stat(sourcePath)
     } catch (error) {
-      if (error.code === 'ENOENT') {
+      if (errorCode(error) === 'ENOENT') {
         throw commandError(
           `Markdown file does not exist: ${sourcePath}`,
           'markover open <markdown-path> --summary <text>'
@@ -379,10 +451,10 @@ async function executeCommand(
     })
     const metadata = await discoverMetadata({
       sourcePath,
-      branch: parsed.branch,
-      pullRequestNumber: parsed.pullRequestNumber,
-      threadId: parsed.threadId,
-      handoffKey: parsed.handoffKey
+      branch: parsed.branch ?? null,
+      pullRequestNumber: parsed.pullRequestNumber ?? null,
+      threadId: parsed.threadId ?? null,
+      handoffKey: parsed.handoffKey ?? null
     })
     await prepareService()
     return requestJson(endpointPath, 'POST', '/reviews', {
@@ -406,7 +478,7 @@ async function executeCommand(
   return requestJson(endpointPath, 'POST', `/reviews/${reviewId}/edit`)
 }
 
-async function main(args = process.argv.slice(2)) {
+export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
   try {
     const parsed = parseCommandArguments(args)
     const result = await executeCommand(parsed)
@@ -417,17 +489,6 @@ async function main(args = process.argv.slice(2)) {
   }
 }
 
-if (require.main === module) main()
+if (require.main === module) void main()
 
-module.exports = {
-  checksum,
-  defaultEndpointPath,
-  ensureService,
-  executeCommand,
-  formatCommandError,
-  helpPayload,
-  main,
-  parseCommandArguments,
-  resolveMarkoverApp,
-  startDetachedApp
-}
+export { defaultEndpointPath }

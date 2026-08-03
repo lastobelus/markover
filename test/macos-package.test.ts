@@ -1,19 +1,26 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const os = require('node:os')
-const path = require('node:path')
-const { copyThirdPartyNotices } = require('../scripts/package-macos')
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
+
+import { copyThirdPartyNotices } from '../scripts/package-macos'
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(
+const read = (relativePath: string): string => fs.readFileSync(
   path.join(root, relativePath),
   'utf8'
 )
 
+interface PackageManifest {
+  devDependencies: Record<string, string>
+  productName: string
+  scripts: Record<string, string>
+}
+
 test('macOS packaging produces a branded application bundle', () => {
-  const packageJson = require('../package.json')
-  const packaging = read('scripts/package-macos.js')
+  const packageJson = JSON.parse(read('package.json')) as PackageManifest
+  const packaging = read('scripts/package-macos.ts')
   const main = read('src/main.js')
   const icon = fs.readFileSync(
     path.join(root, 'design/brand/markover-app-icon.icns')
@@ -21,7 +28,9 @@ test('macOS packaging produces a branded application bundle', () => {
 
   assert.equal(packageJson.productName, 'Markover')
   assert.equal(typeof packageJson.devDependencies['@electron/packager'], 'string')
-  assert.match(packageJson.scripts['package:mac'], /build:icon:mac/)
+  const packageCommand = packageJson.scripts['package:mac']
+  assert.ok(packageCommand)
+  assert.match(packageCommand, /build:icon:mac/)
   assert.equal(icon.subarray(0, 4).toString(), 'icns')
   assert.match(packaging, /'Markover'/)
   assert.match(packaging, /--app-bundle-id=com\.lastobelus\.markover/)
@@ -42,7 +51,9 @@ test('macOS packaging produces a branded application bundle', () => {
 
 test('macOS packaging places application and runtime notices inside the app', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'markover-package-'))
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  t.after(() => {
+    fs.rmSync(directory, { recursive: true, force: true })
+  })
   const appPath = path.join(directory, 'Markover.app')
   const electronDirectory = path.join(directory, 'node_modules/electron/dist')
   fs.mkdirSync(electronDirectory, { recursive: true })

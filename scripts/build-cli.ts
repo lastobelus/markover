@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const fs = require('node:fs/promises')
-const path = require('node:path')
-const esbuild = require('esbuild')
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import * as esbuild from 'esbuild'
 
 const buildDirectory = path.resolve(__dirname, '..')
 const projectDirectory = path.resolve(buildDirectory, '..')
@@ -14,7 +14,7 @@ const output = path.join(
   'markover.js'
 )
 
-async function main() {
+export async function main(): Promise<void> {
   await fs.mkdir(path.dirname(output), { recursive: true })
   await esbuild.build({
     entryPoints: [path.join(buildDirectory, 'packages', 'cli', 'src', 'index.js')],
@@ -29,10 +29,9 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().catch((error) => {
-    process.stderr.write(`markover cli build: ${error.message}\n`)
+  void main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`markover cli build: ${message}\n`)
     process.exit(1)
   })
 }
-
-module.exports = { main }

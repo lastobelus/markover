@@ -1,13 +1,19 @@
-const packageJson = require('../package.json')
+import packageJson from '../package.json'
+
+import * as markover from '../../../scripts/markover'
+import { ensureInstalledApp } from './bootstrap'
+
 process.env.MARKOVER_INVOCATION ||= [
   'npx --yes',
   '--package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz',
   'markover'
 ].join(' ')
-const markover = require('../../../scripts/markover')
-const { ensureInstalledApp } = require('./bootstrap')
 
-async function main(args = process.argv.slice(2)) {
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
   let parsed
   try {
     parsed = markover.parseCommandArguments(args)
@@ -21,7 +27,7 @@ async function main(args = process.argv.slice(2)) {
         version: packageJson.version
       })
     } catch (error) {
-      process.stderr.write(`markover bootstrap: ${error.message}\n`)
+      process.stderr.write(`markover bootstrap: ${errorMessage(error)}\n`)
       process.exitCode = 1
       return
     }
@@ -29,6 +35,4 @@ async function main(args = process.argv.slice(2)) {
   await markover.main(args)
 }
 
-if (require.main === module) main()
-
-module.exports = { main }
+if (require.main === module) void main()

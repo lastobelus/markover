@@ -1,19 +1,47 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+const read = (relativePath: string): string =>
+  fs.readFileSync(path.join(root, relativePath), 'utf8')
+
+interface PackageManifest {
+  bin: { markover: string }
+  dependencies?: Record<string, string>
+  devDependencies: Record<string, string>
+  engines: { node: string }
+  files?: string[]
+  main: string
+  scripts: Record<string, string>
+  version: string
+}
+
+interface TypeScriptConfig {
+  compilerOptions: {
+    allowJs: boolean
+    checkJs: boolean
+    exactOptionalPropertyTypes: boolean
+    noUncheckedIndexedAccess: boolean
+    outDir: string
+    strict: boolean
+  }
+}
+
+function readJson(relativePath: string): unknown {
+  return JSON.parse(read(relativePath)) as unknown
+}
 
 test('release workflow publishes both Mac architectures and the tiny CLI', () => {
   const workflow = read('.github/workflows/release.yml')
-  const rootPackage = require('../package.json')
-  const cliPackage = require('../packages/cli/package.json')
+  const rootPackage = readJson('package.json') as PackageManifest
+  const cliPackage = readJson('packages/cli/package.json') as PackageManifest
 
   assert.equal(cliPackage.version, rootPackage.version)
   assert.equal(cliPackage.bin.markover, 'bin/markover.js')
   assert.equal(cliPackage.dependencies, undefined)
+  assert.deepEqual(cliPackage.files, ['bin/markover.js'])
   assert.match(workflow, /macos-15\n/)
   assert.match(workflow, /macos-15-intel/)
   assert.match(workflow, /Verify tag matches package version/)
@@ -26,7 +54,7 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
 
 test('README exposes the repository-only install-free agent command', () => {
   const readme = read('README.md')
-  const entry = read('packages/cli/src/index.js')
+  const entry = read('packages/cli/src/index.ts')
 
   for (const source of [readme, entry]) {
     assert.match(
@@ -41,8 +69,8 @@ test('README exposes the repository-only install-free agent command', () => {
 test('continuous integration enforces the supported Node versions', () => {
   const workflow = read('.github/workflows/ci.yml')
   const developmentGuide = read('docs/development.md')
-  const rootPackage = require('../package.json')
-  const cliPackage = require('../packages/cli/package.json')
+  const rootPackage = readJson('package.json') as PackageManifest
+  const cliPackage = readJson('packages/cli/package.json') as PackageManifest
 
   assert.equal(rootPackage.engines.node, '>=22.13.0')
   assert.equal(cliPackage.engines.node, '>=22.13.0')
@@ -76,8 +104,8 @@ test('continuous integration enforces the supported Node versions', () => {
 })
 
 test('TypeScript build is strict, generated, and runtime-loader free', () => {
-  const packageJson = require('../package.json')
-  const tsconfig = require('../../tsconfig.json')
+  const packageJson = readJson('package.json') as PackageManifest
+  const tsconfig = readJson('tsconfig.json') as TypeScriptConfig
   const gitignore = read('.gitignore')
 
   assert.equal(packageJson.main, 'build/src/main.js')
@@ -99,6 +127,10 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   assert.equal(tsconfig.compilerOptions.outDir, 'build')
   assert.match(gitignore, /^build\/$/m)
   assert.doesNotMatch(JSON.stringify(packageJson), /(?:ts-node|tsx)/)
+  assert.equal(
+    packageJson.scripts['build:icon:mac'],
+    'npm run build --silent && node build/scripts/build-macos-icon.js'
+  )
   assert.equal(fs.existsSync(path.join(root, 'src/pierre-diffs-entry.mts')), true)
   assert.equal(fs.existsSync(path.join(root, 'test/pierre-diffs-entry.test.ts')), true)
   for (const name of ['settings', 'source-edits', 'tree']) {
@@ -125,6 +157,36 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     'review-migration',
     'review-store',
     'service-endpoint'
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
+  }
+  for (const name of ['bootstrap', 'index']) {
+    assert.equal(fs.existsSync(path.join(root, `packages/cli/src/${name}.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `packages/cli/src/${name}.js`)), false)
+  }
+  for (const name of [
+    'build-cli',
+    'build-macos-icon',
+    'copy-build-assets',
+    'generate-third-party-notices',
+    'markover',
+    'open-review',
+    'package-macos',
+    'review',
+    'start'
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, `scripts/${name}.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `scripts/${name}.js`)), false)
+  }
+  for (const name of [
+    'bootstrap',
+    'macos-package',
+    'markover-cli',
+    'open-review',
+    'release',
+    'review',
+    'third-party-notices'
   ]) {
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
