@@ -222,6 +222,8 @@ function startDetachedApp() {
   }
 
   const electronBundle = path.resolve(path.dirname(electronPath), '../..')
+  const environment = { ...process.env }
+  delete environment.ELECTRON_RUN_AS_NODE
   const result = spawnSync(
     '/usr/bin/open',
     [
@@ -233,7 +235,7 @@ function startDetachedApp() {
       projectDirectory,
       '--markover-server'
     ],
-    { encoding: 'utf8' }
+    { encoding: 'utf8', env: environment }
   )
   if (result.status !== 0) {
     throw new Error(result.stderr.trim() || `open exited ${result.status}`)

@@ -46,5 +46,7 @@ test('automatic startup uses one-shot hidden background LaunchServices flags', (
   for (const flag of ["'-g'", "'-j'", "'-n'"]) {
     assert.match(cli, new RegExp(flag))
   }
+  assert.match(cli, /delete environment\.ELECTRON_RUN_AS_NODE/)
+  assert.match(cli, /\{ encoding: 'utf8', env: environment \}/)
   assert.doesNotMatch(cli, /launchctl[\s\S]*submit/)
 })
