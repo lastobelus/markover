@@ -299,7 +299,7 @@ declare global {
     onAttachment?: ((attachment: ReviewAttachment) => void) | null | undefined
     onInlineImage?: ((source: string, label: string) => void) | undefined
     onSelect?: ((node: RenderedAnnotationNode) => void) | undefined
-    onEdit?: ((node: RenderedAnnotationNode) => void) | undefined
+    onEdit?: ((node: RenderedAnnotationNode) => void) | null | undefined
     renderTitle?: ((title: string) => string) | undefined
     renderMarkdown: (value: string) => string
   }
@@ -344,9 +344,14 @@ declare global {
     bottom: number
   }
 
+  type ReviewSessionStatus =
+    | 'editing'
+    | 'pending-agent'
+    | 'handoff-in-progress'
+
   interface ReviewSessionEnvelope {
     id: string
-    status: 'editing' | 'pending-agent'
+    status: ReviewSessionStatus
     createdAt?: string
     updatedAt?: string
     git?: { repositoryRoot?: string | null } | null

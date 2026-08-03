@@ -95,6 +95,15 @@ test('status updates do not activate another review', () => {
   assert.equal(second.tree.review.status, 'pending-agent')
 })
 
+test('status updates include the transient renderer handoff state', () => {
+  const sessions = new ReviewSessions()
+  const review = sessions.add(reviewDocument('mko_handoff1', 'handoff.md'))
+
+  sessions.updateStatus(review.reviewId, 'handoff-in-progress')
+
+  assert.equal(review.tree.review.status, 'handoff-in-progress')
+})
+
 test('adjacent review navigation wraps in either direction', () => {
   const sessions = new ReviewSessions()
   const first = sessions.add(reviewDocument('mko_first11', 'first.md'))
@@ -246,6 +255,10 @@ test('an inactive review snapshot includes its latest in-memory feedback', () =>
 test('only managed editing trees are editable', () => {
   assert.equal(isTreeEditable({}), true)
   assert.equal(isTreeEditable({ review: { status: 'editing' } }), true)
+  assert.equal(
+    isTreeEditable({ review: { status: 'handoff-in-progress' } }),
+    false
+  )
   assert.equal(isTreeEditable({ review: { status: 'pending-agent' } }), false)
   assert.equal(isTreeEditable({ review: { status: 'unknown' } }), false)
 })

@@ -232,7 +232,8 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
     selectedId: 'block-1',
     context: () => ({ descriptor: '<p>' }),
     renderMarkdown: (value) => `<p>${value}</p>`,
-    onSelect: () => {}
+    onSelect: () => {},
+    onEdit: null
   })
   assert.equal(readonlyList.querySelector('.rendered-annotation-edit'), null)
 })
