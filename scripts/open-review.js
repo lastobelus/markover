@@ -5,7 +5,7 @@ const os = require('node:os')
 const path = require('node:path')
 const electronPath = require('electron')
 
-const projectDirectory = path.resolve(__dirname, '..')
+const projectDirectory = path.resolve(__dirname, '../..')
 const defaultReviewsDirectory = path.join(projectDirectory, '.markover', 'reviews')
 
 function parseOpenReviewArguments(args) {

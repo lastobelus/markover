@@ -5,7 +5,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { copyThirdPartyNotices } = require('../scripts/package-macos')
 
-const root = path.join(__dirname, '..')
+const root = path.resolve(__dirname, '../..')
 const read = (relativePath) => fs.readFileSync(
   path.join(root, relativePath),
   'utf8'
@@ -27,6 +27,9 @@ test('macOS packaging produces a branded application bundle', () => {
   assert.match(packaging, /--app-bundle-id=com\.lastobelus\.markover/)
   assert.match(packaging, /--helper-bundle-id=com\.lastobelus\.markover\.helper/)
   assert.match(packaging, /--icon=design\/brand\/markover-app-icon\.icns/)
+  assert.equal(packaging.includes('eslint\\\\.config'), true)
+  assert.equal(packaging.includes('tsconfig\\\\.json'), true)
+  assert.match(packaging, /examples\|packages\|scripts\|src\|test/)
   assert.match(packaging, /'\/usr\/bin\/codesign'/)
   assert.ok(
     packaging.indexOf('copyThirdPartyNotices(appPath)') <

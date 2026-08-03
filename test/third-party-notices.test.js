@@ -9,7 +9,7 @@ const {
   productionPackages
 } = require('../scripts/generate-third-party-notices')
 
-const root = path.resolve(__dirname, '..')
+const root = path.resolve(__dirname, '../..')
 
 function fixture(t, packages) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'markover-notices-'))

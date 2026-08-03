@@ -4,6 +4,8 @@ const os = require('node:os')
 const path = require('node:path')
 const electronPath = require('electron')
 
+const projectDirectory = path.resolve(__dirname, '../..')
+
 async function readStream(stream) {
   stream.setEncoding('utf8')
   let source = ''
@@ -83,7 +85,7 @@ function launchReview(input) {
   }
   delete environment.ELECTRON_RUN_AS_NODE
 
-  return spawn(electronPath, ['.', '--markover-review'], {
+  return spawn(electronPath, [projectDirectory, '--markover-review'], {
     env: environment,
     stdio: ['ignore', 'inherit', 'inherit']
   })

@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { parse } = require('yaml')
 
-const root = path.resolve(__dirname, '..')
+const root = path.resolve(__dirname, '../..')
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
 const form = (relativePath) => parse(read(relativePath))
 const field = (document, id) => document.body.find((entry) => entry.id === id)

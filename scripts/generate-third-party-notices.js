@@ -3,7 +3,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const projectDirectory = path.resolve(__dirname, '..')
+const projectDirectory = path.resolve(__dirname, '../..')
 const outputPath = path.join(projectDirectory, 'THIRD_PARTY_NOTICES.md')
 
 function normalizeText(source) {

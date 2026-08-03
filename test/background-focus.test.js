@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const root = path.join(__dirname, '..')
+const root = path.resolve(__dirname, '../..')
 const read = (relativePath) => fs.readFileSync(
   path.join(root, relativePath),
   'utf8'
@@ -37,6 +37,19 @@ test('shutdown leaves the shared endpoint for health-checked stale recovery', ()
   const main = read('src/main.js')
 
   assert.doesNotMatch(main, /unlink\(endpointPath\)/)
+})
+
+test('development startup imports legacy reviews from the checkout root', () => {
+  const main = read('src/main.js')
+
+  assert.match(
+    main,
+    /const checkoutDirectory = path\.resolve\(projectDirectory, '\.\.'\)/
+  )
+  assert.match(
+    main,
+    /!app\.isPackaged\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
+  )
 })
 
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {

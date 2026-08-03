@@ -14,7 +14,7 @@ const {
 const { serviceEndpointPath } = require('../src/service-endpoint')
 const { parseMarkdown } = require('../src/tree')
 
-const projectDirectory = path.resolve(__dirname, '..')
+const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
 const invocation = process.env.MARKOVER_INVOCATION ||
   'npm --silent run markover --'
@@ -42,7 +42,7 @@ function helpPayload() {
     invocation: `${invocation} <command>`,
     requirements: {
       platform: 'macOS (Apple Silicon or Intel)',
-      node: '20 or newer',
+      node: '22.13.0 or newer',
       installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first use.'
     },
     workflow: [
