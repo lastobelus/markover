@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { parseMarkdown } = require('../src/tree')
-const { move, nextPane } = require('../src/navigation')
+const { isOutsideViewport, move, nextPane } = require('../src/navigation')
 
 const tree = parseMarkdown(`# Root
 
@@ -41,4 +41,14 @@ test('cycles focus through three panes and skips a collapsed documents list', ()
   assert.equal(nextPane('preview', -1, true), 'documents')
   assert.equal(nextPane('annotation', -1, false), 'preview')
   assert.equal(nextPane('preview', 1, false), 'annotation')
+})
+
+test('detects a selected row wholly outside the document viewport', () => {
+  const viewport = { top: 100, bottom: 500 }
+
+  assert.equal(isOutsideViewport(viewport, { top: 40, bottom: 100 }), true)
+  assert.equal(isOutsideViewport(viewport, { top: 500, bottom: 540 }), true)
+  assert.equal(isOutsideViewport(viewport, { top: 90, bottom: 120 }), false)
+  assert.equal(isOutsideViewport(viewport, { top: 480, bottom: 510 }), false)
+  assert.equal(isOutsideViewport(viewport, { top: 180, bottom: 220 }), false)
 })

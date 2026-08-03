@@ -898,6 +898,33 @@ p {
   font-weight: 400;
 }
 
+.selected-location {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+}
+
+.selected-location:disabled {
+  cursor: default;
+}
+
+.selected-location.is-scroll-target {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  background: var(--input);
+  cursor: pointer;
+}
+
+.selected-location.is-scroll-target::before {
+  width: 10px;
+  height: 9px;
+  flex: none;
+  background: currentColor;
+  clip-path: polygon(0 50%, 45% 0, 45% 31%, 100% 31%, 100% 69%, 45% 69%, 45% 100%);
+  content: "";
+}
+
 .document-tree-header-actions {
   position: absolute;
   top: 0;

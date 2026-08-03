@@ -387,10 +387,59 @@ function setAnnotatedOnly(enabled) {
   if (selected) renderAnnotation(selected)
 }
 
+function selectedLocationText(node) {
+  return node.lineStart === node.lineEnd
+    ? `Line ${node.lineStart}`
+    : `Lines ${node.lineStart}–${node.lineEnd}`
+}
+
+function updateSelectedLocationControl() {
+  const selectedRow = elements.tree.querySelector(
+    `[data-node-id="${state.selectedId}"]`
+  )
+  const hasVisibleGeometry = Boolean(
+    selectedRow?.getClientRects().length && elements.tree.getClientRects().length
+  )
+  const isOffscreen = Boolean(selectedRow) && (
+    !hasVisibleGeometry || MarkoverNavigation.isOutsideViewport(
+      elements.tree.getBoundingClientRect(),
+      selectedRow.getBoundingClientRect()
+    )
+  )
+  const location = elements.selectedLocation.textContent
+
+  elements.selectedLocation.disabled = !isOffscreen
+  elements.selectedLocation.classList.toggle('is-scroll-target', isOffscreen)
+  elements.selectedLocation.title = isOffscreen ? `Scroll to ${location.toLowerCase()}` : ''
+  elements.selectedLocation.setAttribute(
+    'aria-label',
+    isOffscreen ? `Scroll to ${location.toLowerCase()}` : location
+  )
+}
+
+function scrollToSelectedRow() {
+  if (elements.selectedLocation.disabled) return
+  const revealed = MarkoverAnnotations.revealAnnotation(
+    state.tree.root,
+    state.selectedId
+  )
+  if (revealed) {
+    renderTree()
+    autosaveReview()
+  }
+  requestAnimationFrame(() => {
+    elements.tree
+      .querySelector(`[data-node-id="${state.selectedId}"]`)
+      ?.scrollIntoView({ block: 'center' })
+    updatePinnedSelection()
+  })
+}
+
 function updatePinnedSelection() {
   const selectedRow = elements.tree.querySelector(
     `[data-node-id="${state.selectedId}"]`
   )
+  updateSelectedLocationControl()
   if (!selectedRow || !selectedRow.getClientRects().length) {
     elements.pinnedSelection.hidden = true
     elements.pinnedSelection.replaceChildren()
@@ -1057,9 +1106,8 @@ function renderAnnotationPaneView(node) {
   } else {
     elements.selectedTitle.textContent = nodeDescriptor(node)
   }
-  elements.selectedLocation.textContent = node.lineStart === node.lineEnd
-    ? `Line ${node.lineStart}`
-    : `Lines ${node.lineStart}–${node.lineEnd}`
+  elements.selectedLocation.textContent = selectedLocationText(node)
+  updateSelectedLocationControl()
   renderAnnotationList()
 }
 
@@ -2093,6 +2141,7 @@ elements.sourceToggle.addEventListener('click', () => {
 
 elements.treeViewAll.addEventListener('click', () => setAnnotatedOnly(false))
 elements.treeViewAnnotated.addEventListener('click', () => setAnnotatedOnly(true))
+elements.selectedLocation.addEventListener('click', scrollToSelectedRow)
 elements.annotationViewSelected.addEventListener('click', () => {
   setAnnotationView('selected')
 })

@@ -49,7 +49,11 @@
     return panes[(start + direction + panes.length) % panes.length]
   }
 
-  const api = { findContext, move, nextPane }
+  function isOutsideViewport(viewport, target) {
+    return target.bottom <= viewport.top || target.top >= viewport.bottom
+  }
+
+  const api = { findContext, isOutsideViewport, move, nextPane }
   globalScope.MarkoverNavigation = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

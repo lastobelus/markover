@@ -136,3 +136,17 @@ test('reveals a selected annotation without changing unrelated collapse state', 
   assert.equal(root.children[2].collapsed, true)
   assert.equal(revealAnnotation(root, 'annotated-image'), false)
 })
+
+test('reveals an unannotated selected block hidden by collapsed ancestors', () => {
+  const root = fixture()
+  const heading = root.children[0]
+  const branch = heading.children[2]
+  const selected = node('plain-nested')
+  branch.children.push(selected)
+  heading.collapsed = true
+  branch.collapsed = true
+
+  assert.equal(revealAnnotation(root, selected.id), true)
+  assert.equal(heading.collapsed, false)
+  assert.equal(branch.collapsed, false)
+})
