@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { JSDOM } = require('jsdom')
 
-const projectDirectory = path.resolve(__dirname, '..')
+const projectDirectory = path.resolve(__dirname, '../..')
 const html = fs.readFileSync(path.join(projectDirectory, 'docs/index.html'), 'utf8')
 const script = fs.readFileSync(path.join(projectDirectory, 'docs/site.js'), 'utf8')
 const styles = fs.readFileSync(path.join(projectDirectory, 'docs/styles.css'), 'utf8')

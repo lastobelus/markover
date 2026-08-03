@@ -32,7 +32,7 @@ important reviews.
 
 ## Checks
 
-Run the repository-owned ESLint and syntax checks plus the test suite before
+Run the repository-owned ESLint and TypeScript checks plus the test suite before
 committing a completed slice:
 
 ```sh
@@ -42,6 +42,12 @@ npm test
 
 Editors should use the committed `.editorconfig` settings. `npm run lint` uses
 the same committed ESLint configuration as `npm run check` and CI.
+
+`npm run build` uses the native TypeScript compiler to emit runnable JavaScript
+and source maps under the ignored `build/` directory. During the incremental
+migration, maintained `.ts` files receive strict type checking while `allowJs`
+keeps only the not-yet-converted `.js` files in the build. The final migration
+PR removes that temporary JavaScript boundary.
 
 The tests cover the Markdown tree, navigation, review sessions and persistence,
 the local service and CLI protocol, settings, source-edit proposals, release

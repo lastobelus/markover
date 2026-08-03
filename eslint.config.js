@@ -1,6 +1,7 @@
 const { defineConfig } = require('eslint/config')
 const js = require('@eslint/js')
 const globals = require('globals')
+const tseslint = require('typescript-eslint')
 
 const sharedModuleGlobals = {
   ...globals.browser,
@@ -24,6 +25,7 @@ const rendererGlobals = {
 module.exports = defineConfig([
   {
     ignores: [
+      'build/**',
       'dist/**',
       'node_modules/**',
       'packages/cli/bin/**',
@@ -32,6 +34,24 @@ module.exports = defineConfig([
     ]
   },
   js.configs.recommended,
+  {
+    files: ['**/*.{ts,mts,cts}'],
+    extends: [tseslint.configs.strictTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: __dirname
+      }
+    },
+    linterOptions: {
+      reportUnusedDisableDirectives: 'error'
+    },
+    rules: {
+      'no-console': ['error', { allow: ['warn', 'error'] }],
+      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/no-explicit-any': 'error'
+    }
+  },
   {
     files: ['**/*.{js,mjs}'],
     languageOptions: {
@@ -75,7 +95,7 @@ module.exports = defineConfig([
     }
   },
   {
-    files: ['src/{pierre-diffs-entry,yaml-entry}.mjs'],
+    files: ['src/{pierre-diffs-entry,yaml-entry}.{mjs,mts}'],
     languageOptions: {
       globals: globals.browser,
       sourceType: 'module'

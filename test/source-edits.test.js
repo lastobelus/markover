@@ -76,7 +76,7 @@ test('renderer commits source edits before navigation and tree handoff', () => {
   const fs = require('node:fs')
   const path = require('node:path')
   const renderer = fs.readFileSync(
-    path.join(__dirname, '../src/renderer.js'),
+    path.resolve(__dirname, '../../src/renderer.js'),
     'utf8'
   )
 

@@ -4,13 +4,20 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 const esbuild = require('esbuild')
 
-const root = path.resolve(__dirname, '..')
-const output = path.join(root, 'packages', 'cli', 'bin', 'markover.js')
+const buildDirectory = path.resolve(__dirname, '..')
+const projectDirectory = path.resolve(buildDirectory, '..')
+const output = path.join(
+  projectDirectory,
+  'packages',
+  'cli',
+  'bin',
+  'markover.js'
+)
 
 async function main() {
   await fs.mkdir(path.dirname(output), { recursive: true })
   await esbuild.build({
-    entryPoints: [path.join(root, 'packages', 'cli', 'src', 'index.js')],
+    entryPoints: [path.join(buildDirectory, 'packages', 'cli', 'src', 'index.js')],
     bundle: true,
     platform: 'node',
     format: 'cjs',

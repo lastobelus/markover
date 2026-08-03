@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const root = path.join(__dirname, '..')
+const root = path.resolve(__dirname, '../..')
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
 test('release workflow publishes both Mac architectures and the tiny CLI', () => {
@@ -73,4 +73,32 @@ test('continuous integration enforces the supported Node versions', () => {
     assert.match(source, /Node\.js 22\.13\.0 or newer/)
     assert.doesNotMatch(source, /Node\.js 20/)
   }
+})
+
+test('TypeScript build is strict, generated, and runtime-loader free', () => {
+  const packageJson = require('../package.json')
+  const tsconfig = require('../../tsconfig.json')
+  const gitignore = read('.gitignore')
+
+  assert.equal(packageJson.main, 'build/src/main.js')
+  assert.equal(packageJson.bin.markover, 'build/scripts/markover.js')
+  assert.equal(
+    packageJson.devDependencies['@typescript/native'],
+    'npm:typescript@^7.0.2'
+  )
+  assert.equal(
+    packageJson.devDependencies.typescript,
+    'npm:@typescript/typescript6@^6.0.2'
+  )
+  assert.equal(typeof packageJson.devDependencies['typescript-eslint'], 'string')
+  assert.equal(tsconfig.compilerOptions.strict, true)
+  assert.equal(tsconfig.compilerOptions.noUncheckedIndexedAccess, true)
+  assert.equal(tsconfig.compilerOptions.exactOptionalPropertyTypes, true)
+  assert.equal(tsconfig.compilerOptions.allowJs, true)
+  assert.equal(tsconfig.compilerOptions.checkJs, false)
+  assert.equal(tsconfig.compilerOptions.outDir, 'build')
+  assert.match(gitignore, /^build\/$/m)
+  assert.doesNotMatch(JSON.stringify(packageJson), /(?:ts-node|tsx)/)
+  assert.equal(fs.existsSync(path.join(root, 'src/pierre-diffs-entry.mts')), true)
+  assert.equal(fs.existsSync(path.join(root, 'test/pierre-diffs-entry.test.ts')), true)
 })

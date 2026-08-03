@@ -16,7 +16,7 @@ const {
 } = require('../src/settings')
 const { SettingsStore } = require('../src/settings-store')
 
-const root = path.join(__dirname, '..')
+const root = path.resolve(__dirname, '../..')
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8')
 
 test('settings defaults cover the eight persisted preferences', () => {

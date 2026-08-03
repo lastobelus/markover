@@ -1,7 +1,7 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
+import assert from 'node:assert/strict'
+import test from 'node:test'
 
-test('reports proposal line additions and deletions with Pierre Diffs', async () => {
+void test('reports proposal line additions and deletions with Pierre Diffs', async () => {
   const { stats } = await import('../src/pierre-diffs-entry.mjs')
 
   assert.deepEqual(

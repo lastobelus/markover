@@ -4,7 +4,7 @@ const { spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const projectDirectory = path.resolve(__dirname, '..')
+const projectDirectory = path.resolve(__dirname, '../..')
 const packagerPath = path.join(
   projectDirectory,
   'node_modules/.bin/electron-packager'
@@ -44,9 +44,10 @@ function main() {
     '--app-bundle-id=com.lastobelus.markover',
     '--helper-bundle-id=com.lastobelus.markover.helper',
     '--app-category-type=public.app-category.developer-tools',
-    '--ignore=^/(?:\\.git|\\.markover|dist|doc|docs|examples|scripts|test|tmp)(?:/|$)',
-    '--ignore=^/design/(?:logo-explorations|brand/mockups)(?:/|$)',
-    '--ignore=^/(?:AGENTS\\.md|DECISIONS\\.md|README\\.md|SCREENSHOT-ATTACHMENT-QUESTIONS\\.md|favicon\\.svg)$',
+    '--ignore=^/(?:\\.git|\\.markover|dist|doc|docs|examples|packages|scripts|src|test|third_party|tmp)(?:/|$)',
+    '--ignore=^/build/(?:\\.github|docs|examples|packages|scripts|test)(?:/|$)',
+    '--ignore=^/design(?:/|$)',
+    '--ignore=^/(?:\\.editorconfig|\\.github|\\.gitignore|AGENTS\\.md|CODE_OF_CONDUCT\\.md|CONTRIBUTING\\.md|DECISIONS\\.md|README\\.md|ROADMAP\\.md|SCREENSHOT-ATTACHMENT-QUESTIONS\\.md|SECURITY\\.md|THIRD_PARTY_NOTICES\\.md|eslint\\.config\\.js|favicon\\.svg|tsconfig\\.json)$',
     '--ignore=\\.af$'
   ]
   const result = spawnSync(packagerPath, args, {
