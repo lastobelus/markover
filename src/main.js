@@ -15,6 +15,7 @@ const { applicationMenuTemplate } = require('./app-menu')
 const { startLocalService } = require('./local-service')
 const { discoverRepositoryRoot } = require('./metadata-discovery')
 const { ReviewStore } = require('./review-store')
+const { serviceEndpointPath } = require('./service-endpoint')
 const { SettingsStore } = require('./settings-store')
 const {
   darkColorization,
@@ -35,11 +36,12 @@ const reviewMode = process.argv.includes('--markover-review') || Boolean(reviewC
 const projectDirectory = path.resolve(__dirname, '..')
 const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
 const markoverDirectory = path.join(projectDirectory, '.markover')
-const endpointPath = path.join(markoverDirectory, 'service.json')
+const endpointPath = serviceEndpointPath()
 const reviewStore = reviewMode
   ? null
   : new ReviewStore(path.join(markoverDirectory, 'reviews'))
 const hasSingleInstanceLock = reviewMode || app.requestSingleInstanceLock()
+const backgroundServerMode = !reviewMode && process.argv.includes('--markover-server')
 let reviewDocumentPromise = null
 let reviewFinished = false
 let reviewConfigPromise = null
@@ -317,7 +319,7 @@ async function openMarkdown() {
   }
 }
 
-function createWindow() {
+function createWindow({ show = !backgroundServerMode } = {}) {
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
@@ -326,6 +328,7 @@ function createWindow() {
     height: 760,
     minWidth: 760,
     minHeight: 520,
+    show,
     backgroundColor: windowBackground(
       startupSettings,
       startupSettings.resolvedAppearance
@@ -397,12 +400,9 @@ async function managedDocuments(artifacts) {
 function sendManagedReview(artifact) {
   activeManagedReview = artifact
   activeManagedReviewId = artifact.review.id
-  if (!mainWindow) createWindow()
+  if (!mainWindow) createWindow({ show: false })
   const send = () => {
     mainWindow?.webContents.send('review:opened', managedDocument(artifact))
-    if (mainWindow?.isMinimized()) mainWindow.restore()
-    mainWindow?.show()
-    mainWindow?.focus()
   }
   if (mainWindow.webContents.isLoadingMainFrame()) {
     mainWindow.webContents.once('did-finish-load', send)
@@ -471,22 +471,12 @@ async function flushManagedReview(reviewId) {
   }
 }
 
-async function removeOwnEndpoint() {
-  try {
-    const endpoint = JSON.parse(await fs.readFile(endpointPath, 'utf8'))
-    if (endpoint.pid === process.pid) await fs.unlink(endpointPath)
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      process.stderr.write(`markover service cleanup: ${error.message}\n`)
-    }
-  }
-}
-
 if (!hasSingleInstanceLock) {
   app.quit()
 } else {
   if (!reviewMode) {
-    app.on('second-instance', () => {
+    app.on('second-instance', (_event, commandLine) => {
+      if (commandLine.includes('--markover-server')) return
       if (!mainWindow) createWindow()
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.show()
@@ -608,7 +598,10 @@ if (!hasSingleInstanceLock) {
     }
 
     app.on('activate', () => {
-      if (!reviewMode && BrowserWindow.getAllWindows().length === 0) createWindow()
+      if (reviewMode) return
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+      mainWindow?.show()
+      mainWindow?.focus()
     })
   }).catch((error) => {
     process.stderr.write(`markover: ${error.stack || error.message}\n`)
@@ -618,7 +611,6 @@ if (!hasSingleInstanceLock) {
   app.on('before-quit', () => {
     settingsUnsubscribe?.()
     if (localService) localService.close().catch(() => {})
-    removeOwnEndpoint()
   })
 
   app.on('window-all-closed', () => {

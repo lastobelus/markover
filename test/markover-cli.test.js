@@ -5,7 +5,6 @@ const os = require('node:os')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const {
-  applicationLabel,
   ensureService,
   executeCommand,
   helpPayload,
@@ -147,18 +146,6 @@ test('parses explicit review metadata', () => {
     ]),
     /handoff-key must match/
   )
-})
-
-test('uses a checkout-specific launch service label', () => {
-  assert.equal(
-    applicationLabel('/tmp/one'),
-    applicationLabel('/tmp/one')
-  )
-  assert.notEqual(
-    applicationLabel('/tmp/one'),
-    applicationLabel('/tmp/two')
-  )
-  assert.match(applicationLabel('/tmp/one'), /^com\.markover\.app\.[a-f0-9]{12}$/)
 })
 
 test('requires one path and a context summary for open', () => {

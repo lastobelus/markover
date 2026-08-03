@@ -3,7 +3,6 @@
 const { spawnSync } = require('node:child_process')
 const crypto = require('node:crypto')
 const fs = require('node:fs/promises')
-const os = require('node:os')
 const path = require('node:path')
 const electronPath = require('electron')
 const { requestJson } = require('../src/local-client')
@@ -11,14 +10,11 @@ const {
   discoverReviewMetadata,
   HANDOFF_KEY_PATTERN
 } = require('../src/metadata-discovery')
+const { serviceEndpointPath } = require('../src/service-endpoint')
 const { parseMarkdown } = require('../src/tree')
 
 const projectDirectory = path.resolve(__dirname, '..')
-const defaultEndpointPath = path.join(
-  projectDirectory,
-  '.markover',
-  'service.json'
-)
+const defaultEndpointPath = serviceEndpointPath()
 
 const helpAliases = new Set(['help', 'info', '--help', '-h'])
 const recoveryHint =
@@ -220,54 +216,28 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-function applicationLabel(directory = projectDirectory) {
-  const suffix = crypto
-    .createHash('sha256')
-    .update(path.resolve(directory))
-    .digest('hex')
-    .slice(0, 12)
-  return `com.markover.app.${suffix}`
-}
-
-function launchdJobExists(label) {
-  const domain = `gui/${process.getuid()}/${label}`
-  return spawnSync(
-    '/bin/launchctl',
-    ['print', domain],
-    { stdio: 'ignore' }
-  ).status === 0
-}
-
-function startDetachedApp({ replaceStale = false } = {}) {
+function startDetachedApp() {
   if (process.platform !== 'darwin') {
     throw new Error('Automatic Markover startup currently requires macOS.')
   }
 
-  const label = applicationLabel()
-  if (replaceStale) {
-    spawnSync('/bin/launchctl', ['remove', label], { stdio: 'ignore' })
-  }
-  const cleanEnvironment = [
-    '/usr/bin/env',
-    '-i',
-    `HOME=${os.homedir()}`,
-    `TMPDIR=${os.tmpdir()}`,
-    `USER=${os.userInfo().username}`,
-    'PATH=/usr/bin:/bin:/usr/sbin:/sbin',
-    electronPath,
-    projectDirectory,
-    '--markover-server'
-  ]
+  const electronBundle = path.resolve(path.dirname(electronPath), '../..')
   const result = spawnSync(
-    '/bin/launchctl',
-    ['submit', '-l', label, '--', ...cleanEnvironment],
+    '/usr/bin/open',
+    [
+      '-g',
+      '-j',
+      '-n',
+      electronBundle,
+      '--args',
+      projectDirectory,
+      '--markover-server'
+    ],
     { encoding: 'utf8' }
   )
   if (result.status !== 0) {
-    if (launchdJobExists(label)) return label
-    throw new Error(result.stderr.trim() || `launchctl exited ${result.status}`)
+    throw new Error(result.stderr.trim() || `open exited ${result.status}`)
   }
-  return label
 }
 
 async function waitForService(endpointPath, deadline) {
@@ -388,7 +358,6 @@ async function main() {
 if (require.main === module) main()
 
 module.exports = {
-  applicationLabel,
   checksum,
   defaultEndpointPath,
   ensureService,
