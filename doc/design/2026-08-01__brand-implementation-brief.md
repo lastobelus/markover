@@ -11,6 +11,9 @@ The implementer should use the exact vector sources and palette below. Do not re
 - `design/brand/markover-mark.svg` — standalone two-pane mark.
 - `design/brand/markover-logotype.svg` — standalone custom “Markover” lettering.
 - `design/brand/markover-lockup.svg` — final fixed-spacing horizontal lockup.
+- `design/brand/markover-app-icon.svg` — approved 1024-square app-icon master.
+- `design/brand/markover-app-icon.png` — required 1024-square Electron runtime raster.
+- `favicon.svg` — root project favicon for T3Code; Pages retains its published copy under `docs/assets`.
 - `design/brand/mockups/index.html` — reference compositions for each surface and UI state.
 
 The three SVGs preserve the paths copied directly from the Affinity source. Keep them as external SVG files rather than duplicating the path data into application components.
@@ -101,9 +104,9 @@ Do not show a tagline inside the working app. Once someone is using Markover, pr
 
 ## App icon and favicon
 
-The app icon uses the mark on a warm off-white rounded plate. Target approximately 68% of the square's width and 57% of its height for the mark. Maintain generous optical padding around the narrow gap and folded corner.
+The app icon uses the mark on a warm off-white rounded plate. The production master places the mark at approximately 68% of the square's width and 57% of its height, with generous optical padding around the narrow gap and folded corner. The 1024 PNG is wired to Electron's window icon and macOS Dock icon.
 
-The unmodified mark remains legible at 32 px and 16 px in the current rendering check. Begin with it unchanged for `favicon.svg`; only create a micro-adjusted mark if real browser testing reveals inconsistent gap closure.
+The root `favicon.svg` uses the unmodified mark and remains legible at 32 px and 16 px in the current rendering check. Only create a micro-adjusted mark if real browser testing reveals inconsistent gap closure.
 
 ## Implementation constraints
 

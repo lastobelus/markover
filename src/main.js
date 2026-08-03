@@ -33,6 +33,7 @@ function argumentValue(option) {
 const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') || Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
+const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
 const markoverDirectory = path.join(projectDirectory, '.markover')
 const endpointPath = path.join(markoverDirectory, 'service.json')
 const reviewStore = reviewMode
@@ -329,6 +330,7 @@ function createWindow() {
       startupSettings,
       startupSettings.resolvedAppearance
     ),
+    icon: appIconPath,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -493,6 +495,7 @@ if (!hasSingleInstanceLock) {
   }
 
   app.whenReady().then(async () => {
+    if (process.platform === 'darwin') app.dock.setIcon(appIconPath)
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
 
     settingsStore = new SettingsStore(
