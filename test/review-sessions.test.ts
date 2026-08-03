@@ -259,7 +259,11 @@ test('persisted review artifacts satisfy the browser session boundary', () => {
     }
   } satisfies ReviewArtifact
 
-  assert.equal(sessionTreeFromArtifact(artifact), artifact)
+  const sessionTree = sessionTreeFromArtifact(artifact)
+  assert.equal(sessionTree, artifact)
+  assert.equal(sessionTree.review.contextSummary, 'Review the stored document.')
+  assert.equal(sessionTree.review.agentThread, null)
+  assert.equal(sessionTree.review.pullRequest, null)
 })
 
 test('an inactive review snapshot includes its latest in-memory feedback', () => {

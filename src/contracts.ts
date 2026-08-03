@@ -354,7 +354,10 @@ declare global {
     status: ReviewSessionStatus
     createdAt?: string
     updatedAt?: string
+    contextSummary?: string
+    agentThread?: unknown
     git?: unknown
+    pullRequest?: unknown
   }
 
   type ReviewSessionTree = Omit<ReviewTree, 'review'> & {
