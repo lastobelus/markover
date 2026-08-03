@@ -1,6 +1,11 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { nodePosition, parseMarkdown, serializeTree } = require('../src/tree')
+const {
+  nodePosition,
+  parseMarkdown,
+  serializeTree,
+  yamlDiagnostic
+} = require('../src/tree')
 
 const markdown = `# One
 
@@ -192,6 +197,7 @@ draft: false
   assert.equal(frontmatter.type, 'frontmatter')
   assert.equal(frontmatter.text, 'YAML Frontmatter')
   assert.equal(frontmatter.sourceEditable, false)
+  assert.equal(frontmatter.collapsed, true)
   assert.equal(frontmatter.lineStart, 1)
   assert.equal(frontmatter.lineEnd, 10)
   assert.deepEqual(
@@ -216,6 +222,15 @@ draft: false
   assert.equal(heading.type, 'heading')
   assert.equal(heading.text, 'Document')
   assert.deepEqual(tree.unsupported, [])
+})
+
+test('reports YAML syntax errors while accepting multiple mapping pairs', () => {
+  assert.equal(yamlDiagnostic('title: Review\ndraft: false'), null)
+
+  const diagnostic = yamlDiagnostic('title: Review\ntags: [broken')
+  assert.equal(diagnostic.line, 2)
+  assert.equal(diagnostic.column, 14)
+  assert.match(diagnostic.message, /must be sufficiently indented and end with a \]/)
 })
 
 test('accepts an explicit YAML end marker and empty frontmatter', () => {

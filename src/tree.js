@@ -12,6 +12,19 @@
   })
   markdown.enable('table')
 
+  function yamlDiagnostic(source) {
+    const document = YAML.parseDocument(source, { prettyErrors: true })
+    const error = document.errors[0]
+    if (!error) return null
+
+    const start = error.linePos?.[0] || {}
+    return {
+      line: start.line || null,
+      column: start.col || null,
+      message: error.message.trim()
+    }
+  }
+
   function parseFrontmatter(lines) {
     if (!/^\uFEFF?---\s*$/.test(lines[0] || '')) return null
 
@@ -160,6 +173,7 @@
         raw: lines.slice(0, frontmatter.closingIndex + 1).join('\n'),
         lineStart: 1,
         lineEnd: frontmatter.closingIndex + 1,
+        collapsed: true,
         sourceEditable: false
       })
       for (const entry of frontmatter.entries) {
@@ -388,7 +402,8 @@
     nodePosition,
     parseMarkdown,
     serializeTree,
-    visitNodes
+    visitNodes,
+    yamlDiagnostic
   }
   globalScope.MarkoverTree = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api

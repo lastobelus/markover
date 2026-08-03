@@ -313,6 +313,30 @@ test('source edit proposals reject non-editable frontmatter parents', async (t) 
   )
 })
 
+test('invalid YAML proposals remain non-blocking review data', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree('---\ntitle: Review\n---\n\n# Document\n'),
+    contextSummary: 'Check non-blocking YAML diagnostics.'
+  })
+  const proposed = structuredClone(created)
+  const title = proposed.root.children[0].children[0]
+  title.sourceEdit = {
+    original: title.raw,
+    current: 'title: [broken'
+  }
+
+  const saved = await store.updateTree(created.review.id, proposed)
+  assert.equal(
+    saved.root.children[0].children[0].sourceEdit.current,
+    'title: [broken'
+  )
+})
+
 test('attachment allocation is owned, editable, and serialized by the store', async (t) => {
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111'

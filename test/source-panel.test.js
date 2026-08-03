@@ -33,3 +33,14 @@ test('frontmatter parent source is read-only while entries use plain monospace s
     /\.block-content\.frontmatter-entry \{[^}]*ui-monospace[^}]*white-space: pre-wrap;/
   )
 })
+
+test('saved invalid YAML marks the closed source card without blocking edits', () => {
+  const renderer = read('src/renderer.js')
+  const styles = read('src/styles.css')
+
+  assert.match(renderer, /!editing && node\.type === 'frontmatter-entry' && node\.sourceEdit/)
+  assert.match(renderer, /MarkoverTree\.yamlDiagnostic\(node\.sourceEdit\.current\)/)
+  assert.match(renderer, /sourcePanel\.title = yamlError\?\.message \|\| ''/)
+  assert.match(styles, /\.source-panel\.has-yaml-error \{[^}]*border-color: var\(--source-error\);[^}]*box-shadow:/)
+  assert.match(styles, /\.source-panel\.has-yaml-error \.source-header \{[^}]*background:/)
+})

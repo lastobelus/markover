@@ -42,6 +42,7 @@ const elements = {
   sourceDiffStats: document.querySelector('#source-diff-stats'),
   sourceEdit: document.querySelector('#source-edit'),
   sourceEditor: document.querySelector('#source-editor'),
+  sourcePanel: document.querySelector('.source-panel'),
   sourceRevert: document.querySelector('#source-revert'),
   sourceSave: document.querySelector('#source-save'),
   sourceSaveBar: document.querySelector('#source-save-bar'),
@@ -942,7 +943,12 @@ function renderSourcePanel(node) {
   const savedSource = MarkoverSourceEdits.savedSource(node)
   const currentDraft = draft ?? savedSource
   const dirty = editing && currentDraft !== savedSource
+  const yamlError = !editing && node.type === 'frontmatter-entry' && node.sourceEdit
+    ? MarkoverTree.yamlDiagnostic(node.sourceEdit.current)
+    : null
 
+  elements.sourcePanel.classList.toggle('has-yaml-error', Boolean(yamlError))
+  elements.sourcePanel.title = yamlError?.message || ''
   elements.sourceContent.hidden = state.sourceCollapsed
   elements.sourceEdit.hidden = !editable || editing
   elements.sourceEdit.disabled = !editable

@@ -44,6 +44,7 @@
   --status-pending: var(--markover-secondary);
   --status-progress: #d89b35;
   --status-other: var(--muted);
+  --source-error: #b6422d;
   --status-outline: rgb(var(--ink-rgb) / 55%);
   --pane-label-base: var(--markover-secondary);
   --pane-label-highlight: var(--markover-primary);
@@ -124,6 +125,7 @@
   --code: #11100f;
   --status-editing: color-mix(in srgb, var(--markover-primary) 70%, white);
   --status-outline: rgb(var(--ink-rgb) / 42%);
+  --source-error: #ef6b5a;
   --pane-label-color: color-mix(
     in srgb,
     var(--pane-label-base) 42%,
@@ -1718,6 +1720,20 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 9px;
   background: rgb(var(--surface-rgb) / 72%);
+}
+
+.source-panel.has-yaml-error {
+  border-color: var(--source-error);
+  box-shadow: 0 0 0 1px var(--source-error);
+}
+
+.source-panel.has-yaml-error .source-header {
+  color: var(--source-error);
+  background: color-mix(in srgb, var(--source-error) 9%, transparent);
+}
+
+.source-panel.has-yaml-error .source-toggle {
+  color: var(--source-error);
 }
 
 .source-header {
