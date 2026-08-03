@@ -1,18 +1,29 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const { spawnSync } = require('node:child_process')
-const {
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
+
+import {
   ensureService,
   executeCommand,
   helpPayload,
   parseCommandArguments,
-  resolveMarkoverApp
-} = require('../scripts/markover')
-const { startLocalService } = require('../src/local-service')
-const { ReviewStore } = require('../src/review-store')
+  resolveMarkoverApp,
+  type ExecuteCommandOptions
+} from '../scripts/markover'
+import { startLocalService, type LocalService } from '../src/local-service'
+import {
+  assertReviewArtifact,
+  ReviewStore
+} from '../src/review-store'
+
+function commandUsage(error: unknown): string | undefined {
+  return error instanceof Error && 'usage' in error
+    ? String(error.usage)
+    : undefined
+}
 
 test('parses open, get, and edit commands', () => {
   assert.deepEqual(
@@ -48,7 +59,10 @@ test('help and info aliases return service-free machine-readable guidance', asyn
     assert.deepEqual(parsed, { command: 'help' })
     let ensured = false
     const result = await executeCommand(parsed, {
-      ensure: async () => { ensured = true }
+      ensure() {
+        ensured = true
+        return Promise.resolve()
+      }
     })
     assert.deepEqual(result, helpPayload())
     assert.equal(ensured, false)
@@ -84,21 +98,23 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
 test('common agent mistakes point directly to the intended command', () => {
   assert.throws(
     () => parseCommandArguments(['/tmp/review.md']),
-    (error) => (
+    (error: unknown) => (
+      error instanceof Error &&
       /use the open command/.test(error.message) &&
-      error.usage === "markover open '/tmp/review.md' --summary <text>"
+      commandUsage(error) === "markover open '/tmp/review.md' --summary <text>"
     )
   )
   assert.throws(
     () => parseCommandArguments(['/tmp/my review.md']),
-    (error) => error.usage ===
+    (error: unknown) => commandUsage(error) ===
       "markover open '/tmp/my review.md' --summary <text>"
   )
   assert.throws(
     () => parseCommandArguments(['check']),
-    (error) => (
+    (error: unknown) => (
+      error instanceof Error &&
       /run get with the retained review ID/.test(error.message) &&
-      error.usage === 'markover get <review-id>'
+      commandUsage(error) === 'markover get <review-id>'
     )
   )
 })
@@ -214,26 +230,26 @@ test('executes CLI commands against the local service', async (t) => {
     await fs.rm(directory, { recursive: true, force: true })
   })
 
-  const options = {
+  const options: ExecuteCommandOptions = {
     endpointPath,
-    ensure: async () => {},
-    async discoverMetadata(parsed) {
+    ensure: () => Promise.resolve(),
+    discoverMetadata(parsed) {
       assert.equal(parsed.sourcePath, sourcePath)
-      return {
+      return Promise.resolve({
         git: {
-          branch: parsed.branch,
+          branch: parsed.branch ?? null,
           sources: { branch: 'explicit' }
         },
         pullRequest: {
-          number: parsed.pullRequestNumber,
+          number: parsed.pullRequestNumber ?? 0,
           discovery: 'explicit'
         },
         agentThread: {
           provider: 'codex',
-          id: parsed.threadId,
+          id: parsed.threadId ?? '',
           discovery: 'explicit'
         }
-      }
+      })
     }
   }
   assert.deepEqual(
@@ -252,6 +268,7 @@ test('executes CLI commands against the local service', async (t) => {
     command: 'get',
     reviewId: 'mko_aaa11111'
   }, options)
+  assertReviewArtifact(handedOff, 'mko_aaa11111')
   assert.equal(
     handedOff.sourceDocument.content,
     '# Plan\r\n\r\nKeep this exact.\r\n'
@@ -285,7 +302,7 @@ test('waits for internally started service without external polling', async (t) 
     path.join(os.tmpdir(), 'markover-start-test-')
   )
   const endpointPath = path.join(directory, 'service.json')
-  let service = null
+  let service: LocalService | null = null
   t.after(async () => {
     if (service) await service.close()
     await fs.rm(directory, { recursive: true, force: true })
@@ -295,14 +312,16 @@ test('waits for internally started service without external polling', async (t) 
     endpointPath,
     timeoutMilliseconds: 2000,
     startApp() {
-      setTimeout(async () => {
-        service = await startLocalService({
-          store: new ReviewStore(path.join(directory, 'reviews'))
-        })
-        await fs.writeFile(endpointPath, JSON.stringify({
-          version: 1,
-          port: service.port
-        }))
+      setTimeout(() => {
+        void (async () => {
+          service = await startLocalService({
+            store: new ReviewStore(path.join(directory, 'reviews'))
+          })
+          await fs.writeFile(endpointPath, JSON.stringify({
+            version: 1,
+            port: service.port
+          }))
+        })()
       }, 50)
     }
   })
@@ -311,8 +330,8 @@ test('waits for internally started service without external polling', async (t) 
 })
 
 test('cold startup prefers a packaged Markover app and supports an override', () => {
-  const seen = []
-  const exists = (candidate) => {
+  const seen: string[] = []
+  const exists = (candidate: string): boolean => {
     seen.push(candidate)
     return candidate === '/Users/reviewer/Applications/Markover.app'
   }
@@ -330,7 +349,7 @@ test('cold startup prefers a packaged Markover app and supports an override', ()
   assert.equal(
     resolveMarkoverApp({
       environment: { MARKOVER_APP_PATH: '/Custom/Markover.app' },
-      exists: (candidate) => candidate === '/Custom/Markover.app'
+      exists: (candidate: string) => candidate === '/Custom/Markover.app'
     }),
     '/Custom/Markover.app'
   )
@@ -352,7 +371,10 @@ test('open validates and reads the source before starting Markover', async (t) =
       pullRequestNumber: null,
       threadId: null
     }, {
-      ensure: async () => { ensured = true }
+      ensure() {
+        ensured = true
+        return Promise.resolve()
+      }
     }),
     /Markdown file does not exist/
   )

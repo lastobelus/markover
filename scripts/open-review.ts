@@ -1,19 +1,74 @@
-const { randomBytes } = require('node:crypto')
-const { spawnSync } = require('node:child_process')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const electronPath = require('electron')
+import { spawnSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
+import fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import os from 'node:os'
+import path from 'node:path'
+
+const loadModule = createRequire(__filename)
+const loadedElectron: unknown = loadModule('electron')
+if (typeof loadedElectron !== 'string') {
+  throw new Error('Electron executable path is unavailable.')
+}
+const electronPath = loadedElectron
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const defaultReviewsDirectory = path.join(projectDirectory, '.markover', 'reviews')
 
-function parseOpenReviewArguments(args) {
+export interface OpenReviewArguments {
+  resumeId: string | null
+  sourcePath: string | null
+}
+
+export interface ReviewConfig {
+  format: 'markover-durable-review'
+  version: 1
+  reviewId: string
+  durable: true
+  inputPath: string
+  originalPath: string
+  name: string
+  attachmentsDirectory: string
+  autosavePath: string
+}
+
+export interface ReviewPaths {
+  autosavePath: string
+  configPath: string
+  directory: string
+  attachmentsDirectory: string
+}
+
+export type ReviewConfiguration = ReviewPaths & { config: ReviewConfig }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function assertReviewConfig(value: unknown): asserts value is ReviewConfig {
+  if (
+    !isRecord(value) ||
+    value.format !== 'markover-durable-review' ||
+    value.version !== 1 ||
+    value.durable !== true ||
+    typeof value.reviewId !== 'string' ||
+    typeof value.inputPath !== 'string' ||
+    typeof value.originalPath !== 'string' ||
+    typeof value.name !== 'string' ||
+    typeof value.attachmentsDirectory !== 'string' ||
+    typeof value.autosavePath !== 'string'
+  ) {
+    throw new Error('Invalid durable review configuration.')
+  }
+}
+
+export function parseOpenReviewArguments(args: string[]): OpenReviewArguments {
   let resumeId = null
   let sourcePath = null
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index]
+    if (argument === undefined) break
     if (argument === '--resume') {
       const value = args[index + 1]
       if (!value || value.startsWith('--')) {
@@ -40,11 +95,14 @@ function parseOpenReviewArguments(args) {
   return { resumeId, sourcePath }
 }
 
-function createReviewId() {
+export function createReviewId(): string {
   return `mko_${randomBytes(4).toString('hex')}`
 }
 
-function reviewPaths(reviewId, reviewsDirectory = defaultReviewsDirectory) {
+export function reviewPaths(
+  reviewId: string,
+  reviewsDirectory = defaultReviewsDirectory
+): ReviewPaths {
   const directory = path.join(reviewsDirectory, reviewId)
   return {
     autosavePath: path.join(directory, 'review.json'),
@@ -54,14 +112,17 @@ function reviewPaths(reviewId, reviewsDirectory = defaultReviewsDirectory) {
   }
 }
 
-async function createReviewConfig(sourcePath, reviewsDirectory) {
+export async function createReviewConfig(
+  sourcePath: string,
+  reviewsDirectory?: string
+): Promise<ReviewConfiguration> {
   const inputPath = path.resolve(sourcePath)
   const stats = await fs.stat(inputPath)
   if (!stats.isFile()) throw new Error(`Not a file: ${inputPath}`)
 
   const reviewId = createReviewId()
   const paths = reviewPaths(reviewId, reviewsDirectory)
-  const config = {
+  const config: ReviewConfig = {
     format: 'markover-durable-review',
     version: 1,
     reviewId,
@@ -78,13 +139,20 @@ async function createReviewConfig(sourcePath, reviewsDirectory) {
   return { config, ...paths }
 }
 
-async function loadReviewConfig(reviewId, reviewsDirectory) {
+export async function loadReviewConfig(
+  reviewId: string,
+  reviewsDirectory?: string
+): Promise<ReviewConfiguration> {
   const paths = reviewPaths(reviewId, reviewsDirectory)
-  const config = JSON.parse(await fs.readFile(paths.configPath, 'utf8'))
+  const config: unknown = JSON.parse(await fs.readFile(paths.configPath, 'utf8'))
+  assertReviewConfig(config)
   return { config, ...paths }
 }
 
-function launchDetachedReview(reviewId, configPath) {
+export function launchDetachedReview(
+  reviewId: string,
+  configPath: string
+): string {
   if (process.platform !== 'darwin') {
     throw new Error('Durable review launching currently requires macOS.')
   }
@@ -111,19 +179,25 @@ function launchDetachedReview(reviewId, configPath) {
     { encoding: 'utf8' }
   )
   if (result.status !== 0) {
-    throw new Error(result.stderr.trim() || `launchctl exited ${result.status}`)
+    throw new Error(
+      result.stderr.trim() || `launchctl exited ${String(result.status)}`
+    )
   }
   return label
 }
 
-async function main() {
+async function main(): Promise<void> {
   try {
     const { resumeId, sourcePath } = parseOpenReviewArguments(
       process.argv.slice(2)
     )
-    const review = resumeId
-      ? await loadReviewConfig(resumeId)
-      : await createReviewConfig(sourcePath)
+    let review: ReviewConfiguration
+    if (resumeId) {
+      review = await loadReviewConfig(resumeId)
+    } else {
+      if (!sourcePath) throw new Error('A Markdown path is required.')
+      review = await createReviewConfig(sourcePath)
+    }
     const label = launchDetachedReview(review.config.reviewId, review.configPath)
 
     process.stdout.write(`${JSON.stringify({
@@ -132,18 +206,10 @@ async function main() {
       launchdLabel: label
     })}\n`)
   } catch (error) {
-    process.stderr.write(`markover: ${error.message}\n`)
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`markover: ${message}\n`)
     process.exitCode = 1
   }
 }
 
-if (require.main === module) main()
-
-module.exports = {
-  createReviewConfig,
-  createReviewId,
-  launchDetachedReview,
-  loadReviewConfig,
-  parseOpenReviewArguments,
-  reviewPaths
-}
+if (require.main === module) void main()

@@ -1,24 +1,46 @@
-const { spawn } = require('node:child_process')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const electronPath = require('electron')
+import { spawn, type ChildProcess } from 'node:child_process'
+import fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import os from 'node:os'
+import path from 'node:path'
+import type { Readable } from 'node:stream'
+
+const loadModule = createRequire(__filename)
+const loadedElectron: unknown = loadModule('electron')
+if (typeof loadedElectron !== 'string') {
+  throw new Error('Electron executable path is unavailable.')
+}
+const electronPath = loadedElectron
 
 const projectDirectory = path.resolve(__dirname, '../..')
 
-async function readStream(stream) {
+export interface ReviewArguments {
+  attachmentsDirectory: string
+  sourcePath: string | null
+}
+
+export interface ReviewInput {
+  attachmentsDirectory: string
+  inputPath: string
+  name: string
+  originalPath: string | null
+  cleanup: () => Promise<void>
+}
+
+export async function readStream(stream: Readable): Promise<string> {
   stream.setEncoding('utf8')
   let source = ''
-  for await (const chunk of stream) source += chunk
+  for await (const chunk of stream) source += String(chunk)
   return source
 }
 
-function parseReviewArguments(args) {
+export function parseReviewArguments(args: string[]): ReviewArguments {
   let sourcePath = null
   let attachmentsDirectory = path.resolve('.markover', 'attachments')
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index]
+    if (argument === undefined) break
     if (argument === '--attachments-dir') {
       const value = args[index + 1]
       if (!value || value.startsWith('--')) {
@@ -41,7 +63,10 @@ function parseReviewArguments(args) {
   return { attachmentsDirectory, sourcePath }
 }
 
-async function resolveReviewInput(args, stdin = process.stdin) {
+export async function resolveReviewInput(
+  args: string[],
+  stdin: Readable = process.stdin
+): Promise<ReviewInput> {
   const { attachmentsDirectory, sourcePath } = parseReviewArguments(args)
 
   if (sourcePath) {
@@ -53,7 +78,7 @@ async function resolveReviewInput(args, stdin = process.stdin) {
       inputPath: filePath,
       name: path.basename(filePath),
       originalPath: filePath,
-      cleanup: async () => {}
+      cleanup: () => Promise.resolve()
     }
   }
 
@@ -75,8 +100,8 @@ async function resolveReviewInput(args, stdin = process.stdin) {
   }
 }
 
-function launchReview(input) {
-  const environment = {
+export function launchReview(input: ReviewInput): ChildProcess {
+  const environment: NodeJS.ProcessEnv = {
     ...process.env,
     MARKOVER_REVIEW_INPUT_PATH: input.inputPath,
     MARKOVER_REVIEW_NAME: input.name,
@@ -91,12 +116,13 @@ function launchReview(input) {
   })
 }
 
-async function main() {
-  let input
+async function main(): Promise<void> {
+  let input: ReviewInput
   try {
     input = await resolveReviewInput(process.argv.slice(2))
   } catch (error) {
-    process.stderr.write(`markover: ${error.message}\n`)
+    const message = error instanceof Error ? error.message : String(error)
+    process.stderr.write(`markover: ${message}\n`)
     process.exitCode = 1
     return
   }
@@ -104,34 +130,31 @@ async function main() {
   const child = launchReview(input)
   let interrupted = false
 
-  for (const signal of ['SIGINT', 'SIGTERM']) {
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       interrupted = true
       child.kill(signal)
     })
   }
 
-  child.on('error', async (error) => {
-    process.stderr.write(`markover: ${error.message}\n`)
-    await input.cleanup()
-    process.exitCode = 1
+  child.on('error', (error) => {
+    void (async () => {
+      process.stderr.write(`markover: ${error.message}\n`)
+      await input.cleanup()
+      process.exitCode = 1
+    })()
   })
 
-  child.on('exit', async (code, signal) => {
-    await input.cleanup()
-    if (interrupted && signal) {
-      process.kill(process.pid, signal)
-      return
-    }
-    process.exitCode = code ?? 1
+  child.on('exit', (code, signal) => {
+    void (async () => {
+      await input.cleanup()
+      if (interrupted && signal) {
+        process.kill(process.pid, signal)
+        return
+      }
+      process.exitCode = code ?? 1
+    })()
   })
 }
 
-if (require.main === module) main()
-
-module.exports = {
-  launchReview,
-  parseReviewArguments,
-  readStream,
-  resolveReviewInput
-}
+if (require.main === module) void main()

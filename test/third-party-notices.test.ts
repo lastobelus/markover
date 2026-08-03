@@ -1,20 +1,35 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const os = require('node:os')
-const path = require('node:path')
-const {
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import test, { type TestContext } from 'node:test'
+
+import {
   generatedNotices,
   groupedTexts,
-  productionPackages
-} = require('../scripts/generate-third-party-notices')
+  productionPackages,
+  type PackageRecord
+} from '../scripts/generate-third-party-notices'
 
 const root = path.resolve(__dirname, '../..')
 
-function fixture(t, packages) {
+interface FixturePackage {
+  name: string
+  version: string
+  license: string
+  text?: string
+  dev?: boolean
+  installed?: boolean
+}
+
+function fixture(t: TestContext, packages: FixturePackage[]): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'markover-notices-'))
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const lockPackages = { '': { name: 'fixture', version: '1.0.0' } }
+  t.after(() => {
+    fs.rmSync(directory, { recursive: true, force: true })
+  })
+  const lockPackages: Record<string, Record<string, unknown>> = {
+    '': { name: 'fixture', version: '1.0.0' }
+  }
   for (const packageEntry of packages) {
     const location = `node_modules/${packageEntry.name}`
     lockPackages[location] = {
@@ -71,13 +86,29 @@ test('production discovery fails when license text is missing', (t) => {
 })
 
 test('only byte-identical texts are consolidated', () => {
+  const packageRecord = (id: string, text: string): PackageRecord => ({
+    id,
+    name: id.split('@')[0] ?? id,
+    version: '1.0.0',
+    license: 'MIT',
+    location: `node_modules/${id}`,
+    texts: [{
+      kind: 'license',
+      name: 'LICENSE',
+      path: `/tmp/${id}/LICENSE`,
+      text
+    }]
+  })
   const packages = [
-    { id: 'one@1.0.0', license: 'MIT', texts: [{ kind: 'license', text: 'same\n' }] },
-    { id: 'two@1.0.0', license: 'MIT', texts: [{ kind: 'license', text: 'same\n' }] },
-    { id: 'three@1.0.0', license: 'MIT', texts: [{ kind: 'license', text: 'same' }] }
+    packageRecord('one@1.0.0', 'same\n'),
+    packageRecord('two@1.0.0', 'same\n'),
+    packageRecord('three@1.0.0', 'same')
   ]
   const groups = groupedTexts(packages)
   assert.equal(groups.length, 2)
-  assert.deepEqual(groups[0].packages.map((entry) => entry.id), ['one@1.0.0', 'two@1.0.0'])
-  assert.deepEqual(groups[1].packages.map((entry) => entry.id), ['three@1.0.0'])
+  const [shared, distinct] = groups
+  assert.ok(shared)
+  assert.ok(distinct)
+  assert.deepEqual(shared.packages.map((entry) => entry.id), ['one@1.0.0', 'two@1.0.0'])
+  assert.deepEqual(distinct.packages.map((entry) => entry.id), ['three@1.0.0'])
 })

@@ -1,12 +1,13 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs/promises')
-const path = require('node:path')
-const { Readable } = require('node:stream')
-const {
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { Readable } from 'node:stream'
+import test from 'node:test'
+
+import {
   parseReviewArguments,
   resolveReviewInput
-} = require('../scripts/review')
+} from '../scripts/review'
 
 test('resolves a path as the named source document', async () => {
   const input = await resolveReviewInput(['DECISIONS.md'])

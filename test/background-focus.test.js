@@ -53,7 +53,7 @@ test('development startup imports legacy reviews from the checkout root', () => 
 })
 
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {
-  const cli = read('scripts/markover.js')
+  const cli = read('scripts/markover.ts')
 
   assert.match(cli, /'\/usr\/bin\/open'/)
   for (const flag of ["'-g'", "'-j'", "'-n'"]) {
