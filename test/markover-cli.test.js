@@ -65,7 +65,8 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.deepEqual(JSON.parse(help.stdout), helpPayload())
   assert.equal(helpPayload().repository, 'https://github.com/lastobelus/markover')
   assert.match(helpPayload().requirements.platform, /Apple Silicon or Intel/)
-  assert.match(helpPayload().requirements.installation, /needs no installation/)
+  assert.equal(helpPayload().requirements.node, '22.13.0 or newer')
+  assert.match(helpPayload().requirements.installation, /downloads, verifies, and caches/)
 
   const misuse = spawnSync(process.execPath, [cliPath, 'wat'], {
     encoding: 'utf8'

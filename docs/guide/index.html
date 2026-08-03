@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#eee8e0">
     <meta name="description" content="Open, annotate, and return a structured Markdown review with Markover.">
+    <link rel="canonical" href="https://lastobelus.github.io/markover/guide/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Markover">
+    <meta property="og:title" content="Getting started — Markover">
+    <meta property="og:description" content="Open agent-written Markdown, review exact blocks, and return one structured handoff.">
+    <meta property="og:url" content="https://lastobelus.github.io/markover/guide/">
+    <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Getting started — Markover">
+    <meta name="twitter:description" content="Open agent-written Markdown, review exact blocks, and return one structured handoff.">
+    <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <title>Getting started — Markover documentation</title>
     <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../styles.css">
@@ -19,6 +34,7 @@
         <p>Guide</p>
         <a href="#overview" aria-current="page">Getting started</a>
         <a href="#run">Launch Markover</a>
+        <a href="#agent-setup">Agent setup</a>
         <a href="#review">Review a document</a>
         <a href="#handoff">Return the handoff</a>
         <a href="#keyboard">Keyboard controls</a>
@@ -37,29 +53,52 @@
     <main class="docs-content">
       <p class="eyebrow">Guide</p>
       <h1 id="overview">Getting started</h1>
-      <p class="docs-lede">Markover opens Markdown as a navigable document tree, stores feedback on individual blocks, and returns the complete review to an agent.</p>
+      <p class="docs-lede">Markover opens agent-written Markdown as a navigable document tree, stores feedback on individual blocks, and returns one structured review to the agent thread.</p>
 
       <section>
-        <h2>Requirements</h2>
-        <p>The current release runs on Apple Silicon and Intel Macs and requires Node.js 22.13.0 or newer for the bootstrap command. You do not need to clone the repository or install an npm package globally.</p>
+        <h2>Preview status</h2>
+        <p>Markover is a free, MIT-licensed early preview for macOS. It requires no account, and review data stays on your Mac.</p>
+        <p>The current release runs on Apple Silicon and Intel Macs and requires Node.js 22.13.0 or newer for the launcher. You do not need to clone the repository or install an npm package globally.</p>
         <div class="callout"><strong>Release status.</strong> The app is ad-hoc signed, not Developer ID signed or notarized. macOS may ask you to confirm opening an app downloaded from the internet.</div>
       </section>
 
       <section id="run">
         <h2>Launch Markover</h2>
-        <p>Give the launcher a Markdown file and a short summary of the review you need:</p>
+        <p>Give the versioned launcher a Markdown file and a short summary of the review you need:</p>
         <pre><code>npx --yes \
-  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  --package=https://github.com/lastobelus/markover/releases/download/v0.1.1/markover-cli.tgz \
   markover open ./DOCUMENT.md \
   --summary "Review these decisions before implementation."</code></pre>
-        <p>On first use, the launcher downloads the app for the current Mac architecture, verifies its SHA-256 checksum, and caches it. The command opens the document in Markover and exits with one JSON value:</p>
+        <p>On first use, the launcher downloads the app for the current Mac architecture, verifies its SHA-256 checksum, and keeps the verified app in a local cache. The command opens the document and exits with one JSON value:</p>
         <pre><code>{"reviewId":"mko_8f3a2c","status":"editing"}</code></pre>
-        <div class="callout"><strong>Keep the review ID.</strong> It identifies this review when the agent retrieves the handoff.</div>
+        <div class="callout"><strong>Use the complete URL.</strong> The public npm package named <code>markover</code> is unrelated. Do not run <code>npx markover</code> or <code>npm install markover</code>.</div>
+      </section>
+
+      <section id="agent-setup">
+        <h2>Set up an agent</h2>
+        <p>The CLI lifecycle is provider-neutral for agents with macOS shell access. Markover does not claim tested integration with every agent. The focused preview verifies the repository-instruction workflow with Codex and T3 Code.</p>
+
+        <h3>Generic instructions</h3>
+        <p>Adapt this block to the durable instruction surface your agent uses:</p>
+        <pre><code>When I ask you to open a Markdown document in Markover:
+
+1. Run the full versioned launcher with `open &lt;path&gt; --summary "&lt;purpose&gt;"` once.
+2. Retain the returned review ID, tell me the review is ready, and stop.
+3. Do not poll. Wait until I say “Check Markover” or clearly request retrieval.
+4. Run the same launcher with `get &lt;reviewId&gt;` once.
+5. Implement clear revisions, answer questions without silently editing,
+   respond to discussion, ask about ambiguity, and inspect every attachment.
+6. If I need to amend feedback, run `edit &lt;reviewId&gt;` and wait again.</code></pre>
+        <p>Use the complete package URL from <a href="#run">Launch Markover</a> for every <code>open</code>, <code>get</code>, or <code>edit</code> command.</p>
+
+        <h3>Codex and T3 Code</h3>
+        <p>Add the same lifecycle to the repository-root <code>AGENTS.md</code>. When the current surface exposes a thread ID, pass <code>--thread-id &lt;id&gt;</code>. Otherwise generate 16–64 random letters or digits and pass <code>--handoff-key mko_handoff_&lt;random-value&gt;</code>. This lets Markover preserve agent-thread provenance without requiring an account.</p>
+        <p>After retrieval, treat an exact source proposal as a requested revision unless its feedback frames it as an option or question. Use edited attachment labels and inline <code>[!label]</code> references to understand screenshot-backed feedback.</p>
       </section>
 
       <section id="review">
-        <h2>Review the document</h2>
-        <p>Select a block in the document tree and write Markdown feedback in the annotation pane. Paste screenshots directly into the feedback field; attachments can be labeled and referenced as <code>[!img-N]</code>.</p>
+        <h2>Review a document</h2>
+        <p>Select a block in the document tree and write Markdown feedback in the annotation pane. Paste screenshots directly into the feedback field; each paste inserts an inline reference such as <code>[!img-1]</code>. Control-click an attachment to give it a descriptive label, and Markover updates its inline references.</p>
         <p>The documents list keeps multiple reviews grouped by project. Use <strong>All annotations</strong> to read the active document's feedback as a single rendered list, or <strong>Annotated</strong> to filter the document tree to commented blocks.</p>
         <p>Editing a source block creates a proposal. Markover preserves the original source and shows the proposed change as a word-level diff.</p>
       </section>
@@ -68,13 +107,14 @@
         <h2>Return the handoff</h2>
         <p>When the reviewer says “Check Markover,” retrieve the review once with the ID returned by <code>open</code>:</p>
         <pre><code>npx --yes \
-  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  --package=https://github.com/lastobelus/markover/releases/download/v0.1.1/markover-cli.tgz \
   markover get mko_8f3a2c</code></pre>
         <p><code>get</code> freezes the latest review, marks it read-only in Markover, and returns one JSON object containing the exact source and checksum, document tree, annotations, attachments, source proposals, and review context.</p>
-        <p>If the reviewer needs to add or correct feedback, return it to editing with:</p>
+        <p>If the reviewer needs to add or correct feedback, return the same review to editing:</p>
         <pre><code>npx --yes \
-  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  --package=https://github.com/lastobelus/markover/releases/download/v0.1.1/markover-cli.tgz \
   markover edit mko_8f3a2c</code></pre>
+        <p>After <code>edit</code>, the agent must wait for another explicit retrieval request rather than polling.</p>
       </section>
 
       <section id="keyboard">

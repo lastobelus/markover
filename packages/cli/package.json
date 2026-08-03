@@ -1,7 +1,7 @@
 {
   "name": "@lastobelus/markover",
   "version": "0.1.1",
-  "description": "Install-free launcher and agent CLI for Markover Markdown reviews.",
+  "description": "Versioned launcher and agent CLI for Markover Markdown reviews.",
   "license": "MIT",
   "bin": {
     "markover": "bin/markover.js"

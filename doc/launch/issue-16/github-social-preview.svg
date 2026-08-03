@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">Markover</title>
+  <desc id="description">Markover — Structured review for Markdown.</desc>
+  <rect width="1280" height="640" fill="#eee8e0"/>
+  <rect x="48" y="48" width="1184" height="544" rx="28" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"/>
+  <image href="../../../design/brand/markover-lockup.svg" x="228" y="228" width="824" height="137"/>
+  <text x="640" y="430" fill="#756d67" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="36" font-weight="500" text-anchor="middle">Structured review for Markdown.</text>
+</svg>

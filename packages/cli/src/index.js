@@ -1,7 +1,7 @@
 const packageJson = require('../package.json')
 process.env.MARKOVER_INVOCATION ||= [
   'npx --yes',
-  '--package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz',
+  `--package=https://github.com/lastobelus/markover/releases/download/v${packageJson.version}/markover-cli.tgz`,
   'markover'
 ].join(' ')
 const markover = require('../../../scripts/markover')

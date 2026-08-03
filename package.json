@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build:icon:mac": "node scripts/build-macos-icon.js",
+    "build:social-cards": "node scripts/build-social-cards.js",
     "build:cli": "node scripts/build-cli.js",
     "build:vendor": "esbuild src/pierre-diffs-entry.mjs --bundle --format=iife --platform=browser --minify --outfile=src/vendor/pierre-diffs.js && esbuild src/yaml-entry.mjs --bundle --format=iife --platform=browser --minify --outfile=src/vendor/yaml.js",
     "package:mac": "npm run build:icon:mac && npm run notices:check && node scripts/package-macos.js",

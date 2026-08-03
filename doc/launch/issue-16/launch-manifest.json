@@ -1,0 +1,71 @@
+{
+  "issue": 16,
+  "phase": "focused-preview",
+  "canonicalDescriptor": "Structured review for Markdown.",
+  "repository": {
+    "description": "Local-first macOS app for reviewing agent-produced Markdown and returning structured, block-level feedback to the agent thread.",
+    "homepage": "https://lastobelus.github.io/markover/",
+    "topics": [
+      "markdown",
+      "document-review",
+      "annotations",
+      "ai-agents",
+      "coding-agents",
+      "codex",
+      "local-first",
+      "macos",
+      "electron",
+      "developer-tools"
+    ],
+    "socialPreview": "docs/assets/markover-github-social-preview.png"
+  },
+  "profilePins": [
+    "lastobelus/markover",
+    "lastobelus/lastCode"
+  ],
+  "pages": {
+    "url": "https://lastobelus.github.io/markover/",
+    "socialCard": "docs/assets/markover-pages-social-card.png"
+  },
+  "canonicalProductImage": "docs/assets/markover-review-editor@2x.png",
+  "release": {
+    "currentPublicTag": "v0.1.1",
+    "focusedPreviewTag": null,
+    "blockedByIssues": [
+      10,
+      11
+    ]
+  },
+  "announcement": {
+    "community": "r/codex",
+    "title": "I built a little Electron app for reviewing agent-written Markdown block by block",
+    "postingIssue": 17
+  },
+  "assets": {
+    "canonicalLockup": {
+      "path": "design/brand/markover-lockup.svg",
+      "sha256": "47914a9d87e0d0348f2c12a5957db9e07bc15e890db306096496bdffc1b385da"
+    },
+    "githubSocialPreview": {
+      "source": "doc/launch/issue-16/github-social-preview.svg",
+      "sourceSha256": "650deb7001393089f387832ee874546fee58e908e293226cbc7a42bcdb813431",
+      "output": "docs/assets/markover-github-social-preview.png",
+      "outputSha256": "9598063f0cdefe022a5da72c1a03d6efbd388c13c4d820298570744e71e031b4",
+      "width": 1280,
+      "height": 640,
+      "maximumBytes": 1000000
+    },
+    "pagesSocialCard": {
+      "source": "doc/launch/issue-16/pages-social-card.svg",
+      "sourceSha256": "f74fcec7be607fb9b6146a0bb2facecf0b9e349839249181cf1df1cffd7b5654",
+      "output": "docs/assets/markover-pages-social-card.png",
+      "outputSha256": "f2497ad43da09a8750bdef3bff482431c80e3790968612f2b28a2ac411d0716a",
+      "width": 1200,
+      "height": 630
+    },
+    "canonicalProductImage": {
+      "path": "docs/assets/markover-review-editor@2x.png",
+      "sha256": "b42e781cb60923a169ed763a736487fced21d352c893a57da05b9c54a9046839"
+    }
+  }
+}

@@ -24,18 +24,18 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.match(workflow, /gh release create/)
 })
 
-test('README exposes the repository-only install-free agent command', () => {
+test('public launcher instructions are pinned to their exact release', () => {
   const readme = read('README.md')
   const entry = read('packages/cli/src/index.js')
+  const packageJson = require('../package.json')
+  const releaseUrl = `https://github.com/lastobelus/markover/releases/download/v${packageJson.version}/markover-cli.tgz`
 
-  for (const source of [readme, entry]) {
-    assert.match(
-      source,
-      /https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz/
-    )
-  }
-  assert.match(readme, /retain the returned `reviewId`/)
-  assert.match(readme, /“Check\nMarkover,” run the same launcher with `get <reviewId>`/)
+  assert.match(readme, new RegExp(releaseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.doesNotMatch(readme, /releases\/latest\/download\/markover-cli\.tgz/)
+  assert.match(entry, /releases\/download\/v\$\{packageJson\.version\}\/markover-cli\.tgz/)
+  assert.doesNotMatch(entry, /releases\/latest\/download\/markover-cli\.tgz/)
+  assert.match(readme, /Retain the returned `reviewId`/)
+  assert.match(readme, /“Check Markover,” retrieve the review once/)
 })
 
 test('continuous integration enforces the supported Node versions', () => {

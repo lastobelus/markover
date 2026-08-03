@@ -42,8 +42,8 @@ function helpPayload() {
     invocation: `${invocation} <command>`,
     requirements: {
       platform: 'macOS (Apple Silicon or Intel)',
-      node: '20 or newer',
-      installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first use.'
+      node: '22.13.0 or newer',
+      installation: 'The versioned release launcher downloads, verifies, and caches the matching app on first use.'
     },
     workflow: [
       'Create the Markdown file before opening it.',
