@@ -6,8 +6,14 @@
     <title>Markover</title>
     <script>
       const startupTheme = new URLSearchParams(window.location.search)
-      document.documentElement.dataset.palette = startupTheme.get('palette') || 'ember'
+      const startupPalette = startupTheme.get('palette') || 'ember'
+      document.documentElement.dataset.palette = startupPalette
       document.documentElement.dataset.appearance = startupTheme.get('appearance') || 'light'
+      document.documentElement.dataset.colorization = startupTheme.get('colorization') || ({
+        ember: 'low',
+        ocean: 'mid',
+        olive: 'low'
+      }[startupPalette] || 'low')
     </script>
     <link rel="stylesheet" href="styles.css">
     <script type="importmap">
@@ -24,8 +30,20 @@
   <body>
     <header class="app-header is-empty">
       <div class="brand" role="img" aria-label="Markover">
-        <img class="brand-mark" src="../design/brand/markover-mark.svg" alt="">
-        <img class="brand-logotype" src="../design/brand/markover-logotype.svg" alt="">
+        <img
+          id="brand-mark"
+          class="brand-mark"
+          src="../design/brand/markover-mark.svg"
+          alt=""
+          aria-hidden="true"
+        >
+        <img
+          id="brand-logotype"
+          class="brand-logotype"
+          src="../design/brand/markover-logotype.svg"
+          alt=""
+          aria-hidden="true"
+        >
       </div>
       <div class="document-actions">
         <div class="document-meta">
@@ -56,6 +74,7 @@
 
     <main id="empty-workspace" class="empty-workspace">
       <img
+        id="empty-workspace-lockup"
         class="empty-workspace-lockup"
         src="../design/brand/markover-lockup.svg"
         alt="Markover"
@@ -69,7 +88,9 @@
     <main id="workspace" class="workspace" hidden>
       <aside id="documents-list-sidebar" class="documents-list-sidebar" hidden>
         <header class="documents-list-header">
-          <span>Documents</span>
+          <div class="pane-header-leading">
+            <span class="eyebrow">Documents</span>
+          </div>
           <button
             id="documents-list-collapse"
             class="documents-list-disclosure"
@@ -329,6 +350,7 @@
     <script src="annotation-block.js"></script>
     <script src="navigation.js"></script>
     <script src="review-sessions.js"></script>
+    <script src="source-edits.js"></script>
     <script src="image-preview.js"></script>
     <script src="settings.js"></script>
     <script src="vendor/pierre-diffs.js"></script>

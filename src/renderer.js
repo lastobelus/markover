@@ -12,6 +12,8 @@ const elements = {
   annotationViewList: document.querySelector('#annotation-view-list'),
   annotationViewSelected: document.querySelector('#annotation-view-selected'),
   attachmentList: document.querySelector('#attachment-list'),
+  brandLogotype: document.querySelector('#brand-logotype'),
+  brandMark: document.querySelector('#brand-mark'),
   cancelReviewButton: document.querySelector('#cancel-review-button'),
   checksum: document.querySelector('#document-checksum'),
   copyTreeButton: document.querySelector('#copy-tree-button'),
@@ -62,6 +64,7 @@ const elements = {
   documentsListResizer: document.querySelector('#documents-list-resizer'),
   documentsListSidebar: document.querySelector('#documents-list-sidebar'),
   documentsListTree: document.querySelector('#documents-list-tree'),
+  emptyWorkspaceLockup: document.querySelector('#empty-workspace-lockup'),
   reviewStateBanner: document.querySelector('#review-state-banner'),
   settingsClose: document.querySelector('#settings-close'),
   settingsDialog: document.querySelector('#settings-dialog'),
@@ -103,6 +106,8 @@ let documentsListSortOrder = new Map()
 let documentsListDecorations = new Map()
 let documentsListProjectPaths = []
 let documentsListStatuses = new Map()
+let brandAssetSources = null
+let brandAssetLoad = null
 let sourceDiffCleanup = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance = 'light'
@@ -118,6 +123,9 @@ import('../node_modules/@pierre/trees/dist/index.js')
   })
 
 const bridge = window.markover || {
+  async getBrandAssets() {
+    return null
+  },
   async checksum(source) {
     const bytes = new TextEncoder().encode(source)
     const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -340,6 +348,7 @@ function fullTreeEntry(node) {
 function selectNode(id, focusPreview = false) {
   const node = MarkoverTree.findNode(state.tree.root, id)
   if (!node) return
+  if (!finishActiveSourceEdit(id)) return
   state.selectedId = id
   renderTree()
   renderAnnotation(node)
@@ -370,6 +379,7 @@ function normalizeAnnotatedSelection() {
 
 function setAnnotatedOnly(enabled) {
   if (enabled && !annotatedNodes().length) return
+  if (!finishActiveSourceEdit()) return
   state.annotatedOnly = enabled
   normalizeAnnotatedSelection()
   renderTree()
@@ -870,7 +880,7 @@ function renderSourcePanel(node) {
   const editable = isCurrentReviewEditable()
   const editing = editable && state.sourceEditingId === node.id
   const draft = state.sourceDrafts.get(node.id)
-  const savedSource = node.sourceEdit?.current || node.raw
+  const savedSource = MarkoverSourceEdits.savedSource(node)
   const currentDraft = draft ?? savedSource
   const dirty = editing && currentDraft !== savedSource
 
@@ -911,10 +921,8 @@ function renderSourcePanel(node) {
 
 function beginSourceEdit(node) {
   if (!isCurrentReviewEditable()) return
-  if (!state.sourceDrafts.has(node.id)) {
-    state.sourceDrafts.set(node.id, node.sourceEdit?.current || node.raw)
-  }
-  state.sourceEditingId = node.id
+  if (!finishActiveSourceEdit(node.id)) return
+  MarkoverSourceEdits.begin(state, node)
   state.sourceCollapsed = false
   elements.sourceToggle.setAttribute('aria-expanded', 'true')
   elements.sourceToggleIcon.textContent = '▼'
@@ -923,24 +931,47 @@ function beginSourceEdit(node) {
 }
 
 function cancelSourceEdit(node) {
-  state.sourceDrafts.delete(node.id)
-  if (state.sourceEditingId === node.id) state.sourceEditingId = null
+  MarkoverSourceEdits.cancel(state, node)
   renderSourcePanel(node)
 }
 
 function saveSourceEdit(node) {
-  const current = state.sourceDrafts.get(node.id)
-  if (typeof current !== 'string' || !current.trim()) {
+  const result = MarkoverSourceEdits.commit(state, node)
+  if (!result.ok) {
     showToast('Proposed source cannot be empty')
-    return
+    return false
   }
-  if (current === node.raw) delete node.sourceEdit
-  else node.sourceEdit = { original: node.raw, current }
-  state.sourceDrafts.delete(node.id)
-  state.sourceEditingId = null
   renderTreePreservingScroll()
   renderAnnotation(node)
-  autosaveReview()
+  if (result.changed) autosaveReview()
+  return true
+}
+
+function finishActiveSourceEdit(nextId = null) {
+  const editingId = state.sourceEditingId
+  if (!editingId || editingId === nextId) return true
+  const node = MarkoverTree.findNode(state.tree.root, editingId)
+  if (!node) {
+    state.sourceDrafts.delete(editingId)
+    state.sourceEditingId = null
+    return true
+  }
+
+  const result = MarkoverSourceEdits.commit(state, node)
+  if (!result.ok) {
+    state.selectedId = node.id
+    renderTreePreservingScroll()
+    renderAnnotation(node)
+    showToast('Proposed source cannot be empty')
+    requestAnimationFrame(() => elements.sourceEditor.focus())
+    return false
+  }
+  if (result.changed) {
+    renderTreePreservingScroll()
+    autosaveReview()
+  }
+  if (state.selectedId === node.id) renderAnnotation(node)
+  return true
 }
 
 function revertSourceEdit(node) {
@@ -1039,6 +1070,7 @@ function setAnnotationView(view) {
       state.selectedId
     )
     if (!nextId) return
+    if (!finishActiveSourceEdit(nextId)) return
     const revealed = MarkoverAnnotations.revealAnnotation(state.tree.root, nextId)
     state.selectedId = nextId
     state.annotationView = 'list'
@@ -1218,16 +1250,16 @@ function treePathSegment(value) {
 const DOCUMENT_STATUS_SPRITE = `
   <svg xmlns="http://www.w3.org/2000/svg" data-icon-sprite aria-hidden="true" width="0" height="0">
     <symbol id="markover-status-editing" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#6d211f" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-editing)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
     <symbol id="markover-status-pending" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#c94e1f" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-pending)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
     <symbol id="markover-status-progress" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#d89b35" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-progress)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
     <symbol id="markover-status-other" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="#9b958c" />
+      <circle cx="5" cy="5" r="4" fill="var(--status-other)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
   </svg>
 `
@@ -1539,6 +1571,44 @@ function setDocumentsListCollapsed(collapsed) {
   )
 }
 
+function themedBrandSource(source, primary, secondary) {
+  if (!source) return null
+  const themed = source
+    .replaceAll('#c94e1f', primary)
+    .replaceAll('#6d211f', secondary)
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(themed)}`
+}
+
+async function themeBrandAssets() {
+  try {
+    brandAssetLoad ||= bridge.getBrandAssets()
+    brandAssetSources ||= await brandAssetLoad
+    if (!brandAssetSources) return
+    const palette = getComputedStyle(document.documentElement)
+    const primary = palette.getPropertyValue('--markover-primary').trim()
+    const secondary = palette.getPropertyValue('--markover-secondary').trim()
+    elements.brandMark.src = themedBrandSource(
+      brandAssetSources.mark,
+      primary,
+      secondary
+    )
+    elements.brandLogotype.src = themedBrandSource(
+      brandAssetSources.logotype,
+      primary,
+      secondary
+    )
+    elements.emptyWorkspaceLockup.src = themedBrandSource(
+      brandAssetSources.lockup,
+      primary,
+      secondary
+    )
+  } catch (error) {
+    console.error('Failed to theme brand assets', error)
+  } finally {
+    document.documentElement.classList.add('is-brand-ready')
+  }
+}
+
 function applySettings(next, options = {}) {
   const previous = preferences
   const applied = MarkoverSettings.applySettingsToView(next, {
@@ -1548,6 +1618,7 @@ function applySettings(next, options = {}) {
   })
   preferences = applied.preferences
   resolvedAppearance = applied.appearance
+  themeBrandAssets()
 
   if (MarkoverSettings.sidebarPreferenceChanged(
     previous,
@@ -1757,11 +1828,13 @@ function renderDocumentTabs() {
 
 function activateReview(reviewId) {
   setWorkspaceEmpty(false)
+  if (reviewId === state.reviewId) return
   state.finishAttachmentLabelEdit?.(true)
   if (reviewMutations.has(state.reviewId)) {
     reviewMutations.wait(state.reviewId).then(() => activateReview(reviewId))
     return
   }
+  if (!finishActiveSourceEdit()) return
 
   captureActiveSession()
   const session = reviewSessions.activate(reviewId)
@@ -1980,6 +2053,7 @@ elements.annotationInput.addEventListener('paste', (event) => {
 async function openMarkdownDocument() {
   const documentData = await bridge.openMarkdown()
   if (documentData) {
+    if (!finishActiveSourceEdit()) return
     await loadDocument(documentData)
     elements.previewPane.focus()
   }
@@ -1989,11 +2063,13 @@ elements.openButton.addEventListener('click', openMarkdownDocument)
 elements.emptyOpenButton.addEventListener('click', openMarkdownDocument)
 
 elements.copyTreeButton.addEventListener('click', () => {
+  if (!finishActiveSourceEdit()) return
   bridge.copyText(MarkoverTree.serializeTree(state.tree))
   showToast('Feedback JSON copied')
 })
 
 elements.doneReviewButton.addEventListener('click', () => {
+  if (!finishActiveSourceEdit()) return
   elements.doneReviewButton.disabled = true
   elements.doneReviewButton.textContent = 'Finishing…'
   bridge.finishReview(state.tree)
@@ -2072,8 +2148,8 @@ elements.sourceEditor.addEventListener('input', () => {
   const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
   if (!node || state.sourceEditingId !== node.id) return
   const current = elements.sourceEditor.value
-  state.sourceDrafts.set(node.id, current)
-  const savedSource = node.sourceEdit?.current || node.raw
+  MarkoverSourceEdits.update(state, node, current)
+  const savedSource = MarkoverSourceEdits.savedSource(node)
   elements.sourceSaveBar.hidden = current === savedSource
   elements.sourceSave.disabled = !current.trim()
 })
@@ -2246,6 +2322,9 @@ async function initialize() {
     )
     if (reviewId === state.reviewId) {
       state.finishAttachmentLabelEdit?.(true)
+      if (!finishActiveSourceEdit()) {
+        throw new Error('Finish or cancel the empty source edit before handoff.')
+      }
     }
     const session = reviewSessions.get(reviewId)
     if (!session) throw new Error(`Cannot snapshot missing review ${reviewId}.`)
