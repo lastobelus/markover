@@ -10,6 +10,7 @@
   "scripts": {
     "build": "npm run clean && tsc -p tsconfig.build.json && node build/scripts/copy-build-assets.js && node build/scripts/build-app.js",
     "build:icon:mac": "npm run build --silent && node build/scripts/build-macos-icon.js",
+    "build:social-cards": "npm run build --silent && node build/scripts/build-social-cards.js",
     "build:cli": "npm run build --silent && node build/scripts/build-cli.js",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
     "package:mac": "install-electron --no && npm run build:icon:mac && npm run notices:check:built && node build/scripts/package-macos.js --trust-mode=ad-hoc",

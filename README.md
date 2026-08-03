@@ -17,12 +17,11 @@
 Markover is an **Early macOS preview** for reviewing Markdown as a document
 tree and returning block-level feedback to an agent.
 
-<p align="center">
-  <img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover showing a document inbox, structured Markdown, and an annotation with labeled screenshots.">
-</p>
+> Markover is free and MIT-licensed. It requires no account, and ordinary
+> review data stays in your macOS account.
 
 <p align="center">
-  <img src="./docs/user/assets/markover-annotation-browser@2x.png" width="920" alt="Markover showing every rendered annotation in the active document.">
+  <img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover showing a document inbox, structured Markdown, and an annotation with labeled screenshots.">
 </p>
 
 ## Features
@@ -58,6 +57,9 @@ on extension-specific rendering. Ask usage questions in [GitHub
 Discussions](https://github.com/lastobelus/markover/discussions).
 
 ## For agents: open a review without installing
+
+> **Use the complete GitHub package URL below.** The public npm package named
+> `markover` is an unrelated Markdown-cleanup tool.
 
 Open a document with:
 
