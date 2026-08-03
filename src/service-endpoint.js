@@ -22,4 +22,8 @@ function serviceEndpointPath(options) {
   return path.join(serviceDirectory(options), 'service.json')
 }
 
-module.exports = { serviceDirectory, serviceEndpointPath }
+function reviewsDirectory(options) {
+  return path.join(serviceDirectory(options), 'reviews')
+}
+
+module.exports = { reviewsDirectory, serviceDirectory, serviceEndpointPath }

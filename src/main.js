@@ -14,8 +14,12 @@ const path = require('node:path')
 const { applicationMenuTemplate } = require('./app-menu')
 const { startLocalService } = require('./local-service')
 const { discoverRepositoryRoot } = require('./metadata-discovery')
+const { importLegacyReviews } = require('./review-migration')
 const { ReviewStore } = require('./review-store')
-const { serviceEndpointPath } = require('./service-endpoint')
+const {
+  reviewsDirectory,
+  serviceEndpointPath
+} = require('./service-endpoint')
 const { SettingsStore } = require('./settings-store')
 const {
   darkColorization,
@@ -35,11 +39,10 @@ const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') || Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
 const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
-const markoverDirectory = path.join(projectDirectory, '.markover')
 const endpointPath = serviceEndpointPath()
 const reviewStore = reviewMode
   ? null
-  : new ReviewStore(path.join(markoverDirectory, 'reviews'))
+  : new ReviewStore(reviewsDirectory())
 const hasSingleInstanceLock = reviewMode || app.requestSingleInstanceLock()
 const backgroundServerMode = !reviewMode && process.argv.includes('--markover-server')
 let reviewDocumentPromise = null
@@ -485,8 +488,14 @@ if (!hasSingleInstanceLock) {
   }
 
   app.whenReady().then(async () => {
-    if (process.platform === 'darwin') app.dock.setIcon(appIconPath)
+    if (process.platform === 'darwin' && !app.isPackaged) {
+      app.dock.setIcon(appIconPath)
+    }
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
+    else if (!app.isPackaged) await importLegacyReviews(
+      path.join(projectDirectory, '.markover', 'reviews'),
+      reviewsDirectory()
+    )
 
     settingsStore = new SettingsStore(
       path.join(app.getPath('userData'), 'settings.json')
@@ -585,6 +594,10 @@ if (!hasSingleInstanceLock) {
       localService = await startLocalService({
         store: reviewStore,
         beforeAction: flushManagedReview,
+        importReviews: (sourceDirectory) => importLegacyReviews(
+          sourceDirectory,
+          reviewStore.directory
+        ),
         async onChange(artifact, action) {
           if (action === 'created') sendManagedReview(artifact)
           else await sendManagedStatus(artifact)

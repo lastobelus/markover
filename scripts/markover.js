@@ -2,7 +2,9 @@
 
 const { spawnSync } = require('node:child_process')
 const crypto = require('node:crypto')
+const fsSync = require('node:fs')
 const fs = require('node:fs/promises')
+const os = require('node:os')
 const path = require('node:path')
 const electronPath = require('electron')
 const { requestJson } = require('../src/local-client')
@@ -63,7 +65,7 @@ function helpPayload() {
       }
     ],
     stdout: 'Success writes exactly one JSON value to stdout. Diagnostics use stderr and a non-zero exit status.',
-    persistence: '.markover/reviews/<review-id>/review.json'
+    persistence: 'Markover user data/reviews/<review-id>/review.json'
   }
 }
 
@@ -216,24 +218,47 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-function startDetachedApp() {
+function resolveMarkoverApp({
+  architecture = process.arch,
+  environment = process.env,
+  exists = fsSync.existsSync,
+  homeDirectory = os.homedir()
+} = {}) {
+  const candidates = [
+    environment.MARKOVER_APP_PATH,
+    path.join(
+      projectDirectory,
+      'dist',
+      `Markover-darwin-${architecture}`,
+      'Markover.app'
+    ),
+    path.join(homeDirectory, 'Applications', 'Markover.app'),
+    '/Applications/Markover.app'
+  ].filter(Boolean)
+  return candidates.find((candidate) => exists(candidate)) || null
+}
+
+function startDetachedApp(options = {}) {
   if (process.platform !== 'darwin') {
     throw new Error('Automatic Markover startup currently requires macOS.')
   }
 
-  const electronBundle = path.resolve(path.dirname(electronPath), '../..')
+  const packagedApp = resolveMarkoverApp(options)
+  const application = packagedApp || path.resolve(path.dirname(electronPath), '../..')
   const environment = { ...process.env }
   delete environment.ELECTRON_RUN_AS_NODE
+  const appArguments = packagedApp
+    ? ['--markover-server']
+    : [projectDirectory, '--markover-server']
   const result = spawnSync(
     '/usr/bin/open',
     [
       '-g',
       '-j',
       '-n',
-      electronBundle,
+      application,
       '--args',
-      projectDirectory,
-      '--markover-server'
+      ...appArguments
     ],
     { encoding: 'utf8', env: environment }
   )
@@ -297,6 +322,13 @@ async function executeCommand(
 ) {
   if (parsed.command === 'help') return helpPayload()
 
+  const prepareService = async () => {
+    await ensure()
+    await requestJson(endpointPath, 'POST', '/reviews/import', {
+      sourceDirectory: path.join(projectDirectory, '.markover', 'reviews')
+    })
+  }
+
   if (parsed.command === 'open') {
     const sourcePath = path.resolve(parsed.sourcePath)
     let stats
@@ -324,7 +356,7 @@ async function executeCommand(
       threadId: parsed.threadId,
       handoffKey: parsed.handoffKey
     })
-    await ensure()
+    await prepareService()
     return requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       metadata: {
@@ -334,7 +366,7 @@ async function executeCommand(
     })
   }
 
-  await ensure()
+  await prepareService()
   const reviewId = encodeURIComponent(parsed.reviewId)
   if (parsed.command === 'get') {
     return requestJson(
@@ -367,5 +399,6 @@ module.exports = {
   formatCommandError,
   helpPayload,
   parseCommandArguments,
+  resolveMarkoverApp,
   startDetachedApp
 }

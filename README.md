@@ -70,6 +70,16 @@ npm install
 npm start
 ```
 
+Build a local, ad-hoc-signed macOS application for the current architecture:
+
+```sh
+npm run package:mac
+open dist/Markover-darwin-$(node -p process.arch)/Markover.app
+```
+
+This developer bundle is branded as Markover but is not a notarized release
+artifact for distribution.
+
 Run the focused parser and navigation tests with:
 
 ```sh
@@ -125,12 +135,13 @@ would contaminate the JSON stream an agent expects to parse.
 Every review persists under:
 
 ```text
-.markover/reviews/<review-id>/review.json
+~/Library/Application Support/Markover/reviews/<review-id>/review.json
 ```
 
-Its screenshots live under the same review directory. Restarting Markover
-restores all managed reviews, including feedback, collapse state, status, and
-attachments.
+Its screenshots live under the same review directory. On Windows and Linux,
+Markover uses the equivalent per-user application-data directory. Restarting
+Markover restores all managed reviews, including feedback, collapse state,
+status, and attachments.
 
 ## Review context metadata
 

@@ -8,7 +8,8 @@ const {
   ensureService,
   executeCommand,
   helpPayload,
-  parseCommandArguments
+  parseCommandArguments,
+  resolveMarkoverApp
 } = require('../scripts/markover')
 const { startLocalService } = require('../src/local-service')
 const { ReviewStore } = require('../src/review-store')
@@ -281,6 +282,32 @@ test('waits for internally started service without external polling', async (t) 
   })
 
   assert.ok(service)
+})
+
+test('cold startup prefers a packaged Markover app and supports an override', () => {
+  const seen = []
+  const exists = (candidate) => {
+    seen.push(candidate)
+    return candidate === '/Users/reviewer/Applications/Markover.app'
+  }
+  assert.equal(
+    resolveMarkoverApp({
+      architecture: 'arm64',
+      environment: {},
+      exists,
+      homeDirectory: '/Users/reviewer'
+    }),
+    '/Users/reviewer/Applications/Markover.app'
+  )
+  assert.ok(seen.some((candidate) => candidate.includes('Markover-darwin-arm64')))
+
+  assert.equal(
+    resolveMarkoverApp({
+      environment: { MARKOVER_APP_PATH: '/Custom/Markover.app' },
+      exists: (candidate) => candidate === '/Custom/Markover.app'
+    }),
+    '/Custom/Markover.app'
+  )
 })
 
 test('open validates and reads the source before starting Markover', async (t) => {

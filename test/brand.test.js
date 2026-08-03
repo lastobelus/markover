@@ -42,7 +42,10 @@ test('production icon assets preserve the approved mark treatment', () => {
   )
   assert.match(main, /const appIconPath = path\.join\(projectDirectory, 'design\/brand\/markover-app-icon\.png'\)/)
   assert.match(main, /new BrowserWindow\(\{[\s\S]*icon: appIconPath,/)
-  assert.match(main, /process\.platform === 'darwin'\) app\.dock\.setIcon\(appIconPath\)/)
+  assert.match(
+    main,
+    /process\.platform === 'darwin' && !app\.isPackaged\)[\s\S]*app\.dock\.setIcon\(appIconPath\)/
+  )
 })
 
 test('the branding mockup is a self-contained local artifact bundle', () => {

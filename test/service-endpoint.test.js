@@ -2,6 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const path = require('node:path')
 const {
+  reviewsDirectory,
   serviceDirectory,
   serviceEndpointPath
 } = require('../src/service-endpoint')
@@ -24,6 +25,16 @@ test('all macOS checkouts share one Markover service endpoint', () => {
       'Application Support',
       'Markover',
       'service.json'
+    )
+  )
+  assert.equal(
+    reviewsDirectory(options),
+    path.join(
+      '/Users/reviewer',
+      'Library',
+      'Application Support',
+      'Markover',
+      'reviews'
     )
   )
 })
