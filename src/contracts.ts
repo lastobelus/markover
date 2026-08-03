@@ -260,10 +260,10 @@ declare global {
 
   interface AnnotationBlockNode {
     id?: string
-    text?: string
-    raw?: string
+    text?: unknown
+    raw?: unknown
     sourceEdit?: SourceEdit
-    feedback?: string
+    feedback?: unknown
     lineStart?: number
     lineEnd?: number
     attachments?: ReviewAttachment[]

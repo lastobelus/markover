@@ -101,6 +101,30 @@ test('the shared component renders Markdown feedback with concise source context
   assert.equal(element(block.querySelector('.rendered-annotation-attachment span')).textContent, 'diagram')
 })
 
+test('rendering safely coerces unvalidated persisted feedback', () => {
+  const { document } = (new JSDOM()).window
+  const renderedValues: string[] = []
+  const block = create(document, {
+    node: {
+      id: 'block-persisted',
+      text: 'Persisted source',
+      feedback: { invalid: true },
+      lineStart: 2,
+      lineEnd: 2
+    },
+    renderMarkdown: (value) => {
+      renderedValues.push(value)
+      return `<p>${value}</p>`
+    }
+  })
+
+  assert.deepEqual(renderedValues, ['[object Object]'])
+  assert.equal(
+    element(block.querySelector('.rendered-annotation-content')).textContent,
+    '[object Object]'
+  )
+})
+
 test('inline Markdown images are static in peeks and interactive when requested', () => {
   const { document } = (new JSDOM()).window
   const node = {

@@ -1,4 +1,18 @@
 (function exposeAnnotationBlock(globalScope: typeof globalThis) {
+  function persistedText(value: unknown): string {
+    if (!value) return ''
+    if (typeof value === 'string') return value
+    if (Array.isArray(value)) return value.map(persistedText).join(',')
+    if (typeof value === 'object') return Object.prototype.toString.call(value)
+    if (
+      typeof value === 'number' ||
+      typeof value === 'bigint' ||
+      typeof value === 'boolean' ||
+      typeof value === 'symbol'
+    ) return String(value)
+    return ''
+  }
+
   function model(
     node: AnnotationModelNode,
     context: AnnotationContext = {}
@@ -6,7 +20,9 @@
     const editedSource = typeof node.sourceEdit?.current === 'string'
       ? node.sourceEdit.current
       : ''
-    const sourceLine = (editedSource || node.text || node.raw || context.descriptor || '')
+    const sourceLine = persistedText(
+      editedSource || node.text || node.raw || context.descriptor || ''
+    )
       .trim()
       .split(/\r?\n/, 1)[0] ?? ''
     const sourceTitle = sourceLine.replace(
@@ -16,9 +32,9 @@
     return {
       attachments: (node.attachments || []).map((attachment) => ({
         attachment,
-        label: (attachment.label || '').trim() || attachment.id
+        label: persistedText(attachment.label).trim() || attachment.id
       })),
-      feedback: node.feedback || '',
+      feedback: persistedText(node.feedback),
       lineLabel: context.lineLabel || (
         node.lineStart === node.lineEnd
           ? `Line ${String(node.lineStart)}`
