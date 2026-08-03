@@ -39,6 +39,11 @@ test('annotation detection safely handles unvalidated persisted feedback', () =>
   persisted.feedback = { invalid: true }
 
   assert.equal(hasAnnotation(persisted), true)
+
+  for (const emptyFeedback of [[], [null], ['']]) {
+    persisted.feedback = emptyFeedback
+    assert.equal(hasAnnotation(persisted), false)
+  }
 })
 
 test('projects annotations with only their ancestor context', () => {

@@ -1,10 +1,20 @@
 (function exposeAnnotations(globalScope: typeof globalThis) {
+  function persistedText(value: unknown): string {
+    if (!value) return ''
+    if (typeof value === 'string') return value
+    if (Array.isArray(value)) return value.map(persistedText).join(',')
+    if (typeof value === 'object') return Object.prototype.toString.call(value)
+    if (
+      typeof value === 'number' ||
+      typeof value === 'bigint' ||
+      typeof value === 'boolean' ||
+      typeof value === 'symbol'
+    ) return String(value)
+    return ''
+  }
+
   function hasAnnotation(node?: AnnotationTreeNode | null): boolean {
-    const feedback = node?.feedback
-    const hasFeedback = typeof feedback === 'string'
-      ? Boolean(feedback.trim())
-      : Boolean(feedback)
-    return hasFeedback || Boolean(
+    return Boolean(persistedText(node?.feedback).trim()) || Boolean(
       Array.isArray(node?.attachments) && node.attachments.length
     )
   }
