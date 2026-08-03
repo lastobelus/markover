@@ -1,12 +1,13 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const { importLegacyReviews } = require('../src/review-migration')
-const { ReviewStore } = require('../src/review-store')
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
 
-function tree(text = 'Plan') {
+import { importLegacyReviews } from '../src/review-migration'
+import { ReviewStore } from '../src/review-store'
+
+function tree(text = 'Plan'): ReviewTree {
   return {
     format: 'markover-review',
     version: 1,
@@ -42,6 +43,12 @@ function tree(text = 'Plan') {
   }
 }
 
+function child(node: ReviewNode, index = 0): ReviewNode {
+  const result = node.children[index]
+  assert.ok(result)
+  return result
+}
+
 test('imports managed checkout reviews once without overwriting user data', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-migrate-'))
   const source = path.join(directory, 'checkout')
@@ -51,7 +58,7 @@ test('imports managed checkout reviews once without overwriting user data', asyn
   const sourceStore = new ReviewStore(source, { idFactory: () => 'mko_legacy01' })
   const targetStore = new ReviewStore(target, { idFactory: () => 'mko_current1' })
   const legacyTree = tree('Legacy')
-  legacyTree.root.children[0].attachments = [{
+  child(legacyTree.root).attachments = [{
     id: 'img-1',
     type: 'image',
     mimeType: 'image/png',
@@ -78,7 +85,7 @@ test('imports managed checkout reviews once without overwriting user data', asyn
     'image'
   )
   assert.equal(
-    (await targetStore.load('mko_legacy01')).root.children[0].attachments[0].path,
+    child((await targetStore.load('mko_legacy01')).root).attachments?.[0]?.path,
     path.join(target, 'mko_legacy01', 'attachments', 'img-1.png')
   )
   assert.deepEqual(await importLegacyReviews(source, target), [])

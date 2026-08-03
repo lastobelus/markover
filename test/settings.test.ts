@@ -5,6 +5,8 @@ import path from 'node:path'
 import test from 'node:test'
 import { JSDOM } from 'jsdom'
 
+import { SettingsStore } from '../src/settings-store'
+
 const {
   applySettingsToView,
   confirmScreenshotRemoval,
@@ -15,19 +17,6 @@ const {
   updateSettings,
   windowBackground
 } = require('../src/settings') as MarkoverSettingsApi
-
-interface SettingsStoreInstance {
-  settings: MarkoverSettings
-  load(): Promise<MarkoverSettings>
-  update(patch: unknown): Promise<MarkoverSettings>
-  subscribe(
-    listener: (settings: MarkoverSettings) => void
-  ): Promise<() => void>
-}
-
-const { SettingsStore } = require('../src/settings-store') as {
-  SettingsStore: new (filePath: string) => SettingsStoreInstance
-}
 
 const root = path.resolve(__dirname, '../..')
 const read = (relativePath: string): Promise<string> =>

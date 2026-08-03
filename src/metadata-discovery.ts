@@ -1,15 +1,85 @@
-const { execFile } = require('node:child_process')
-const { createReadStream } = require('node:fs')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const { createInterface } = require('node:readline')
-const { promisify } = require('node:util')
+import { execFile } from 'node:child_process'
+import { createReadStream, type Dirent } from 'node:fs'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { createInterface } from 'node:readline'
+import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 const HANDOFF_KEY_PATTERN = /^mko_handoff_[a-zA-Z0-9]{16,64}$/
 
-async function runGit(args, workingDirectory) {
+export type GitRunner = (
+  args: string[],
+  workingDirectory: string
+) => Promise<string | null>
+
+export interface GitMetadata {
+  repositoryRoot?: string | null
+  repositoryUrl?: string | null
+  branch?: string | null
+  commit?: string | null
+  sources: Partial<Record<
+    'repositoryRoot' | 'repositoryUrl' | 'branch' | 'commit',
+    'git-cli' | 'explicit'
+  >>
+}
+
+export interface CodexThread {
+  provider: 'codex'
+  id: string
+  discovery: 'explicit' | 'handoff-key'
+  cwd?: string | null
+  logPath?: string
+  parentThreadId?: string | null
+  forkedFromId?: string | null
+}
+
+interface SessionLog {
+  logPath: string
+  modifiedAt: number
+  size: number
+}
+
+interface CodexDiscoveryOptions {
+  sessionsDirectory?: string
+  maximumLogs?: number
+  tailBytes?: number
+  maximumBytes?: number
+  expectedPath?: string
+}
+
+interface GitDiscoveryOptions {
+  runGit?: GitRunner
+}
+
+export interface ReviewMetadataOptions {
+  git?: GitDiscoveryOptions
+  codex?: CodexDiscoveryOptions
+}
+
+export interface ReviewMetadataInput {
+  sourcePath: string
+  branch?: string | null
+  pullRequestNumber?: number | null
+  threadId?: string | null
+  handoffKey?: string | null
+}
+
+export interface ReviewMetadata {
+  git: GitMetadata | null
+  agentThread: CodexThread | null
+  pullRequest: { number: number; discovery: 'explicit' } | null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+async function runGit(
+  args: string[],
+  workingDirectory: string
+): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync(
       'git',
@@ -25,13 +95,19 @@ async function runGit(args, workingDirectory) {
   }
 }
 
-async function discoverRepositoryRoot(sourcePath, options = {}) {
+export async function discoverRepositoryRoot(
+  sourcePath: string,
+  options: GitDiscoveryOptions = {}
+): Promise<string | null> {
   const git = options.runGit || runGit
   const workingDirectory = path.dirname(path.resolve(sourcePath))
   return git(['rev-parse', '--show-toplevel'], workingDirectory)
 }
 
-async function discoverGitMetadata(sourcePath, options = {}) {
+export async function discoverGitMetadata(
+  sourcePath: string,
+  options: GitDiscoveryOptions = {}
+): Promise<GitMetadata | null> {
   const git = options.runGit || runGit
   const workingDirectory = path.dirname(path.resolve(sourcePath))
   const repositoryRoot = await discoverRepositoryRoot(sourcePath, { runGit: git })
@@ -43,7 +119,7 @@ async function discoverGitMetadata(sourcePath, options = {}) {
     git(['config', '--get', 'remote.origin.url'], workingDirectory)
   ])
   const repositoryUrl = sanitizeRemoteUrl(remoteUrl)
-  const metadata = {
+  const metadata: GitMetadata = {
     repositoryRoot,
     repositoryUrl,
     branch,
@@ -58,7 +134,9 @@ async function discoverGitMetadata(sourcePath, options = {}) {
   return metadata
 }
 
-function sanitizeRemoteUrl(remoteUrl) {
+export function sanitizeRemoteUrl(
+  remoteUrl: string | null | undefined
+): string | null {
   if (!remoteUrl?.includes('://')) return remoteUrl || null
   try {
     const parsed = new URL(remoteUrl)
@@ -72,8 +150,8 @@ function sanitizeRemoteUrl(remoteUrl) {
   }
 }
 
-async function sessionLogPaths(directory) {
-  let entries
+async function sessionLogPaths(directory: string): Promise<string[]> {
+  let entries: Dirent[]
   try {
     entries = await fs.readdir(directory, { withFileTypes: true })
   } catch {
@@ -90,7 +168,7 @@ async function sessionLogPaths(directory) {
   return nested.flat()
 }
 
-function containsHandoffKey(contents, key) {
+export function containsHandoffKey(contents: string, key: string): boolean {
   let index = contents.indexOf(key)
   while (index !== -1) {
     const before = contents[index - 1] || ''
@@ -106,7 +184,11 @@ function containsHandoffKey(contents, key) {
   return false
 }
 
-async function readTail(logPath, size, maximumBytes) {
+async function readTail(
+  logPath: string,
+  size: number,
+  maximumBytes: number
+): Promise<string> {
   const bytesToRead = Math.min(size, maximumBytes)
   const buffer = Buffer.alloc(bytesToRead)
   const handle = await fs.open(logPath, 'r')
@@ -118,15 +200,21 @@ async function readTail(logPath, size, maximumBytes) {
   }
 }
 
-async function readSessionMetadata(logPath) {
+async function readSessionMetadata(
+  logPath: string
+): Promise<Record<string, unknown> | null> {
   const input = createReadStream(logPath, { encoding: 'utf8' })
   const lines = createInterface({ input, crlfDelay: Infinity })
   try {
     for await (const line of lines) {
       if (!line.trim()) continue
       try {
-        const record = JSON.parse(line)
-        if (record.type === 'session_meta' && record.payload) {
+        const record: unknown = JSON.parse(line)
+        if (
+          isRecord(record) &&
+          record.type === 'session_meta' &&
+          isRecord(record.payload)
+        ) {
           return record.payload
         }
       } catch {
@@ -141,12 +229,18 @@ async function readSessionMetadata(logPath) {
   }
 }
 
-function sessionMetadata(contents) {
+export function sessionMetadata(
+  contents: string
+): Record<string, unknown> | null {
   for (const line of contents.split('\n')) {
     if (!line.trim()) continue
     try {
-      const record = JSON.parse(line)
-      if (record.type === 'session_meta' && record.payload) {
+      const record: unknown = JSON.parse(line)
+      if (
+        isRecord(record) &&
+        record.type === 'session_meta' &&
+        isRecord(record.payload)
+      ) {
         return record.payload
       }
     } catch {
@@ -156,9 +250,12 @@ function sessionMetadata(contents) {
   return null
 }
 
-async function discoverCodexThread(handoffKey, options = {}) {
+export async function discoverCodexThread(
+  handoffKey: string | null | undefined,
+  options: CodexDiscoveryOptions = {}
+): Promise<CodexThread | null> {
   const key = handoffKey?.trim()
-  if (!HANDOFF_KEY_PATTERN.test(key || '')) return null
+  if (!key || !HANDOFF_KEY_PATTERN.test(key)) return null
   const directory = options.sessionsDirectory || path.join(
     os.homedir(),
     '.codex',
@@ -176,13 +273,13 @@ async function discoverCodexThread(handoffKey, options = {}) {
     } catch {
       return null
     }
-  }))).filter(Boolean)
+  }))).filter((log): log is SessionLog => log !== null)
   logs.sort((left, right) => right.modifiedAt - left.modifiedAt)
 
   const maximumLogs = options.maximumLogs ?? 50
   const tailBytes = options.tailBytes ?? 512 * 1024
   let remainingBytes = options.maximumBytes ?? 16 * 1024 * 1024
-  const matches = []
+  const matches: CodexThread[] = []
   for (const log of logs.slice(0, maximumLogs)) {
     const bytesToRead = Math.min(log.size, tailBytes, remainingBytes)
     if (bytesToRead <= 0) break
@@ -194,22 +291,29 @@ async function discoverCodexThread(handoffKey, options = {}) {
       continue
     }
     if (!containsHandoffKey(contents, key)) continue
-    let metadata
+    let metadata: Record<string, unknown> | null
     try {
       metadata = await readSessionMetadata(log.logPath)
     } catch {
       continue
     }
-    const sessionId = metadata?.id || metadata?.session_id
-    if (!sessionId) continue
+    if (!metadata) continue
+    const sessionId = typeof metadata.id === 'string'
+      ? metadata.id
+      : metadata.session_id
+    if (typeof sessionId !== 'string' || !sessionId) continue
     matches.push({
       provider: 'codex',
       id: sessionId,
       discovery: 'handoff-key',
-      cwd: metadata.cwd || null,
+      cwd: typeof metadata.cwd === 'string' ? metadata.cwd : null,
       logPath: log.logPath,
-      parentThreadId: metadata.parent_thread_id || null,
-      forkedFromId: metadata.forked_from_id || null
+      parentThreadId: typeof metadata.parent_thread_id === 'string'
+        ? metadata.parent_thread_id
+        : null,
+      forkedFromId: typeof metadata.forked_from_id === 'string'
+        ? metadata.forked_from_id
+        : null
     })
   }
 
@@ -227,27 +331,29 @@ async function discoverCodexThread(handoffKey, options = {}) {
       })
     : []
   const candidates = matchingWorkspace.length ? matchingWorkspace : matches
-  return candidates.length === 1 ? candidates[0] : null
+  return candidates.length === 1 ? candidates[0] ?? null : null
 }
 
-async function discoverReviewMetadata({
+export async function discoverReviewMetadata({
   sourcePath,
   branch = null,
   pullRequestNumber = null,
   threadId = null,
   handoffKey = null
-}, options = {}) {
+}: ReviewMetadataInput, options: ReviewMetadataOptions = {}): Promise<ReviewMetadata> {
   const discoveredGit = await discoverGitMetadata(
     sourcePath,
     options.git
   ).catch(() => null)
-  const git = discoveredGit || (branch ? { sources: {} } : null)
-  if (branch) {
+  const git: GitMetadata | null = discoveredGit || (
+    branch ? { sources: {} } : null
+  )
+  if (branch && git) {
     git.branch = branch
     git.sources.branch = 'explicit'
   }
 
-  let agentThread = threadId
+  let agentThread: CodexThread | null = threadId
     ? {
         provider: 'codex',
         id: threadId,
@@ -276,13 +382,4 @@ async function discoverReviewMetadata({
   }
 }
 
-module.exports = {
-  containsHandoffKey,
-  discoverCodexThread,
-  discoverGitMetadata,
-  discoverRepositoryRoot,
-  discoverReviewMetadata,
-  HANDOFF_KEY_PATTERN,
-  sanitizeRemoteUrl,
-  sessionMetadata
-}
+export { HANDOFF_KEY_PATTERN }

@@ -1,11 +1,17 @@
-const os = require('node:os')
-const path = require('node:path')
+import os from 'node:os'
+import path from 'node:path'
 
-function serviceDirectory({
+export interface ServiceDirectoryOptions {
+  platform?: NodeJS.Platform
+  homeDirectory?: string
+  environment?: NodeJS.ProcessEnv
+}
+
+export function serviceDirectory({
   platform = process.platform,
   homeDirectory = os.homedir(),
   environment = process.env
-} = {}) {
+}: ServiceDirectoryOptions = {}): string {
   if (platform === 'darwin') {
     return path.join(homeDirectory, 'Library', 'Application Support', 'Markover')
   }
@@ -18,12 +24,10 @@ function serviceDirectory({
   )
 }
 
-function serviceEndpointPath(options) {
+export function serviceEndpointPath(options?: ServiceDirectoryOptions): string {
   return path.join(serviceDirectory(options), 'service.json')
 }
 
-function reviewsDirectory(options) {
+export function reviewsDirectory(options?: ServiceDirectoryOptions): string {
   return path.join(serviceDirectory(options), 'reviews')
 }
-
-module.exports = { reviewsDirectory, serviceDirectory, serviceEndpointPath }

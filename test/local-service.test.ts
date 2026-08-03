@@ -1,20 +1,63 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const { requestJson } = require('../src/local-client')
-const { startLocalService } = require('../src/local-service')
-const { importLegacyReviews } = require('../src/review-migration')
-const { ReviewStore } = require('../src/review-store')
-const { parseMarkdown } = require('../src/tree')
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test, { type TestContext } from 'node:test'
 
-async function serviceFixture(t, options = {}) {
+import { LocalServiceError, requestJson } from '../src/local-client'
+import {
+  startLocalService,
+  type LocalServiceOptions
+} from '../src/local-service'
+import { importLegacyReviews } from '../src/review-migration'
+import {
+  assertReviewArtifact,
+  ReviewStore,
+  type ReviewArtifact
+} from '../src/review-store'
+
+const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
+
+type FixtureOptions = Omit<LocalServiceOptions, 'store'>
+
+function expectRecord(value: unknown): Record<string, unknown> {
+  assert.ok(value && typeof value === 'object' && !Array.isArray(value))
+  return value as Record<string, unknown>
+}
+
+function expectArtifact(value: unknown, reviewId: string): ReviewArtifact {
+  assertReviewArtifact(value, reviewId)
+  return value
+}
+
+function child(node: ReviewNode, index = 0): ReviewNode {
+  const result = node.children[index]
+  assert.ok(result)
+  return result
+}
+
+function hasServiceError(
+  error: unknown,
+  code: string,
+  statusCode: number
+): boolean {
+  return error instanceof LocalServiceError &&
+    error.code === code &&
+    error.statusCode === statusCode
+}
+
+async function serviceFixture(
+  t: TestContext,
+  options: FixtureOptions = {}
+) {
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'markover-service-test-')
   )
   const endpointPath = path.join(directory, 'service.json')
-  const changes = []
+  const changes: Array<{
+    artifact: ReviewArtifact
+    action: 'created' | 'imported' | 'handoff' | 'edit'
+  }> = []
   const store = new ReviewStore(path.join(directory, 'reviews'), {
     idFactory: () => 'mko_aaa11111'
   })
@@ -38,7 +81,7 @@ async function serviceFixture(t, options = {}) {
   return { changes, endpointPath, store }
 }
 
-function tree() {
+function tree(): ReviewTree {
   return parseMarkdown('# Review\n', 'sha256:test', {
     name: 'review.md',
     path: '/tmp/review.md'
@@ -62,11 +105,11 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
     status: 'editing'
   })
 
-  const handedOff = await requestJson(
+  const handedOff = expectArtifact(await requestJson(
     endpointPath,
     'POST',
     '/reviews/mko_aaa11111/handoff'
-  )
+  ), 'mko_aaa11111')
   const retry = await requestJson(
     endpointPath,
     'POST',
@@ -97,12 +140,13 @@ test('lists and loads reviews through one-shot requests', async (t) => {
     metadata: { contextSummary: 'Review listing.' }
   })
 
-  const listed = await requestJson(endpointPath, 'GET', '/reviews')
+  const listed = expectRecord(await requestJson(endpointPath, 'GET', '/reviews'))
   const loaded = await requestJson(
     endpointPath,
     'GET',
     '/reviews/mko_aaa11111'
   )
+  assert.ok(Array.isArray(listed.reviews))
   assert.equal(listed.reviews.length, 1)
   assert.deepEqual(listed.reviews[0], loaded)
 })
@@ -120,7 +164,7 @@ test('imports checkout reviews and publishes them before handoff', async (t) => 
     contextSummary: 'Import this review.'
   })
 
-  let targetDirectory
+  let targetDirectory = ''
   const fixture = await serviceFixture(t, {
     importReviews(source) {
       return importLegacyReviews(source, targetDirectory)
@@ -138,14 +182,15 @@ test('imports checkout reviews and publishes them before handoff', async (t) => 
     fixture.changes.map(({ action, artifact }) => [action, artifact.review.id]),
     [['imported', 'mko_import01']]
   )
-  assert.equal(
-    (await requestJson(
+  const imported = expectArtifact(
+    await requestJson(
       fixture.endpointPath,
       'GET',
       '/reviews/mko_import01'
-    )).review.status,
-    'editing'
+    ),
+    'mko_import01'
   )
+  assert.equal(imported.review.status, 'editing')
 })
 
 test('returns structured errors to the client', async (t) => {
@@ -153,7 +198,7 @@ test('returns structured errors to the client', async (t) => {
 
   await assert.rejects(
     requestJson(endpointPath, 'GET', '/missing'),
-    (error) => error.code === 'NOT_FOUND' && error.statusCode === 404
+    (error: unknown) => hasServiceError(error, 'NOT_FOUND', 404)
   )
   await assert.rejects(
     requestJson(
@@ -161,34 +206,35 @@ test('returns structured errors to the client', async (t) => {
       'POST',
       '/reviews/not-an-id/handoff'
     ),
-    (error) => error.code === 'INVALID_ID' && error.statusCode === 400
+    (error: unknown) => hasServiceError(error, 'INVALID_ID', 400)
   )
 })
 
 test('handoff waits for the latest renderer snapshot barrier', async (t) => {
-  let store
+  const storeReference: { current?: ReviewStore } = {}
   const fixture = await serviceFixture(t, {
     async beforeAction(reviewId) {
       await new Promise((resolve) => setTimeout(resolve, 20))
-      const latest = await store.load(reviewId)
-      latest.root.children[0].feedback = 'The final unsaved sentence.'
-      await store.updateTree(reviewId, latest)
+      assert.ok(storeReference.current)
+      const latest = await storeReference.current.load(reviewId)
+      child(latest.root).feedback = 'The final unsaved sentence.'
+      await storeReference.current.updateTree(reviewId, latest)
     }
   })
-  store = fixture.store
+  storeReference.current = fixture.store
 
   await requestJson(fixture.endpointPath, 'POST', '/reviews', {
     tree: tree(),
     metadata: { contextSummary: 'Review the snapshot barrier.' }
   })
-  const handedOff = await requestJson(
+  const handedOff = expectArtifact(await requestJson(
     fixture.endpointPath,
     'POST',
     '/reviews/mko_aaa11111/handoff'
-  )
+  ), 'mko_aaa11111')
 
   assert.equal(
-    handedOff.root.children[0].feedback,
+    child(handedOff.root).feedback,
     'The final unsaved sentence.'
   )
   assert.equal(handedOff.review.status, 'pending-agent')
@@ -220,19 +266,20 @@ test('handoff waits for the renderer to apply its status', async (t) => {
 test('a failed handoff rolls the renderer back to editing', async (t) => {
   let rolledBack = false
   const fixture = await serviceFixture(t, {
-    async beforeAction() {
-      return async () => {
+    beforeAction() {
+      return Promise.resolve(() => {
         rolledBack = true
       }
+      )
     }
   })
   await requestJson(fixture.endpointPath, 'POST', '/reviews', {
     tree: tree(),
     metadata: { contextSummary: 'Review handoff rollback.' }
   })
-  fixture.store.handoff = async () => {
-    throw new Error('simulated write failure')
-  }
+  fixture.store.handoff = () => Promise.reject(
+    new Error('simulated write failure')
+  )
 
   await assert.rejects(
     requestJson(
@@ -240,18 +287,20 @@ test('a failed handoff rolls the renderer back to editing', async (t) => {
       'POST',
       '/reviews/mko_aaa11111/handoff'
     ),
-    (error) => error.statusCode === 500
+    (error: unknown) => (
+      error instanceof LocalServiceError && error.statusCode === 500
+    )
   )
   assert.equal(rolledBack, true)
 })
 
 test('handoff and edit serialize across the renderer snapshot', async (t) => {
-  let releaseSnapshot
-  let snapshotStarted
-  const snapshotReady = new Promise((resolve) => {
+  let releaseSnapshot!: () => void
+  let snapshotStarted!: () => void
+  const snapshotReady = new Promise<void>((resolve) => {
     snapshotStarted = resolve
   })
-  const snapshotBarrier = new Promise((resolve) => {
+  const snapshotBarrier = new Promise<void>((resolve) => {
     releaseSnapshot = resolve
   })
   const fixture = await serviceFixture(t, {
@@ -278,8 +327,8 @@ test('handoff and edit serialize across the renderer snapshot', async (t) => {
   )
   releaseSnapshot()
 
-  const handedOff = await handoff
-  const reopened = await edit
+  const handedOff = expectArtifact(await handoff, 'mko_aaa11111')
+  const reopened = expectRecord(await edit)
   assert.equal(handedOff.review.status, 'pending-agent')
   assert.equal(reopened.status, 'editing')
   assert.deepEqual(

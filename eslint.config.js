@@ -98,6 +98,12 @@ module.exports = defineConfig([
     }
   },
   {
+    files: ['src/settings-store.ts'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off'
+    }
+  },
+  {
     files: ['docs/site.js', 'src/renderer.js'],
     languageOptions: {
       globals: rendererGlobals,
