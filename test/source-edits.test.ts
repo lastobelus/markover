@@ -1,15 +1,18 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const SourceEdits = require('../src/source-edits')
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
 
-function editorState() {
+const SourceEdits = require('../src/source-edits') as MarkoverSourceEditsApi
+
+function editorState(): SourceEditorState {
   return {
     sourceDrafts: new Map(),
     sourceEditingId: null
   }
 }
 
-function node(id, raw) {
+function node(id: string, raw: string): SourceEditableNode {
   return { id, raw }
 }
 
@@ -73,8 +76,6 @@ test('an empty source draft remains active instead of being lost on navigation',
 })
 
 test('renderer commits source edits before navigation and tree handoff', () => {
-  const fs = require('node:fs')
-  const path = require('node:path')
   const renderer = fs.readFileSync(
     path.resolve(__dirname, '../../src/renderer.js'),
     'utf8'

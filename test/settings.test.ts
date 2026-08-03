@@ -1,9 +1,10 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const { JSDOM } = require('jsdom')
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
+import { JSDOM } from 'jsdom'
+
 const {
   applySettingsToView,
   confirmScreenshotRemoval,
@@ -13,11 +14,30 @@ const {
   sidebarPreferenceChanged,
   updateSettings,
   windowBackground
-} = require('../src/settings')
-const { SettingsStore } = require('../src/settings-store')
+} = require('../src/settings') as MarkoverSettingsApi
+
+interface SettingsStoreInstance {
+  settings: MarkoverSettings
+  load(): Promise<MarkoverSettings>
+  update(patch: unknown): Promise<MarkoverSettings>
+  subscribe(
+    listener: (settings: MarkoverSettings) => void
+  ): Promise<() => void>
+}
+
+const { SettingsStore } = require('../src/settings-store') as {
+  SettingsStore: new (filePath: string) => SettingsStoreInstance
+}
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8')
+const read = (relativePath: string): Promise<string> =>
+  fs.readFile(path.join(root, relativePath), 'utf8')
+
+function parseRecord(source: string): Record<string, unknown> {
+  const value: unknown = JSON.parse(source)
+  assert.ok(value && typeof value === 'object' && !Array.isArray(value))
+  return value as Record<string, unknown>
+}
 
 test('settings defaults cover the eight persisted preferences', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS), [
@@ -90,10 +110,16 @@ test('renderer settings apply immediately and reset through the same path', () =
     </form>
     <div class="keyboard-help"></div>
   </body></html>`)
-  const view = {
+  const form = dom.window.document.querySelector<HTMLFormElement>('form')
+  const keyboardHelp = dom.window.document.querySelector<HTMLElement>(
+    '.keyboard-help'
+  )
+  assert.ok(form)
+  assert.ok(keyboardHelp)
+  const view: SettingsView = {
     root: dom.window.document.documentElement,
-    form: dom.window.document.querySelector('form'),
-    keyboardHelp: dom.window.document.querySelector('.keyboard-help')
+    form,
+    keyboardHelp
   }
 
   applySettingsToView({
@@ -110,7 +136,11 @@ test('renderer settings apply immediately and reset through the same path', () =
   assert.equal(view.root.dataset.treeDensity, 'compact')
   assert.equal(view.root.dataset.annotationTextSize, 'large')
   assert.equal(view.keyboardHelp.hidden, true)
-  assert.equal(view.form.elements.namedItem('palette').value, 'ocean')
+  const paletteControl = view.form.elements.namedItem('palette') as
+    | HTMLSelectElement
+    | null
+  assert.ok(paletteControl)
+  assert.equal(paletteControl.value, 'ocean')
 
   applySettingsToView({ ...DEFAULT_SETTINGS, resolvedAppearance: 'light' }, view)
   assert.equal(view.root.dataset.palette, 'ember')
@@ -166,7 +196,7 @@ test('settings store serializes rapid updates without losing the latest values',
     store.update({ treeDensity: 'compact' })
   ])
 
-  const saved = JSON.parse(await fs.readFile(filePath, 'utf8'))
+  const saved = parseRecord(await fs.readFile(filePath, 'utf8'))
   assert.equal(saved.palette, 'olive')
   assert.equal(saved.appearance, 'dark')
   assert.equal(saved.treeDensity, 'compact')
@@ -185,7 +215,7 @@ test('separate settings stores merge concurrent partial updates', async (t) => {
     second.update({ treeDensity: 'compact' })
   ])
 
-  const saved = JSON.parse(await fs.readFile(filePath, 'utf8'))
+  const saved = parseRecord(await fs.readFile(filePath, 'utf8'))
   assert.equal(saved.palette, 'ocean')
   assert.equal(saved.treeDensity, 'compact')
 })
@@ -198,17 +228,19 @@ test('settings stores observe changes written by another process', async (t) => 
   const writer = new SettingsStore(filePath)
   await Promise.all([observer.load(), writer.load()])
 
-  let resolveChanged
-  const changed = new Promise((resolve) => { resolveChanged = resolve })
+  let resolveChanged!: (settings: MarkoverSettings) => void
+  const changed = new Promise<MarkoverSettings>((resolve) => {
+    resolveChanged = resolve
+  })
   const stop = await observer.subscribe(resolveChanged)
-  t.after(() => stop?.())
+  t.after(() => { stop() })
   await writer.update({ palette: 'olive' })
-  let timeout
+  let timeout!: ReturnType<typeof setTimeout>
   const observed = await Promise.race([
     changed,
-    new Promise((_, reject) => {
+    new Promise<never>((_, reject) => {
       timeout = setTimeout(
-        () => reject(new Error('settings watcher timed out')),
+        () => { reject(new Error('settings watcher timed out')) },
         1000
       )
     })
@@ -226,10 +258,11 @@ test('settings subscription reconciles a change made after initial load', async 
   await observer.load()
   await writer.update({ palette: 'ocean' })
 
-  let observed
+  let observed: MarkoverSettings | undefined
   const stop = await observer.subscribe((settings) => { observed = settings })
-  t.after(() => stop?.())
+  t.after(() => { stop() })
 
+  assert.ok(observed)
   assert.equal(observed.palette, 'ocean')
   assert.equal(observer.settings.palette, 'ocean')
 })
@@ -240,7 +273,7 @@ test('settings lock cleanup cannot remove a replacement owner lock', async (t) =
   const filePath = path.join(directory, 'settings.json')
   const lockPath = `${filePath}.lock`
   const deadOwner = '99999999:abandoned'
-  const replacementOwner = `${process.pid}:replacement`
+  const replacementOwner = `${String(process.pid)}:replacement`
   await fs.symlink(deadOwner, lockPath)
 
   const store = new SettingsStore(filePath)

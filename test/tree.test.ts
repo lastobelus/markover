@@ -1,11 +1,23 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
 const {
   nodePosition,
   parseMarkdown,
   serializeTree,
   yamlDiagnostic
-} = require('../src/tree')
+} = require('../src/tree') as MarkoverTreeApi
+
+type NodeOfType<T extends ReviewNodeType> = Extract<ReviewNode, { type: T }>
+
+function expectNode<T extends ReviewNodeType>(
+  node: ReviewNode | undefined,
+  type: T
+): NodeOfType<T> {
+  assert.ok(node)
+  assert.equal(node.type, type)
+  return node as NodeOfType<T>
+}
 
 const markdown = `# One
 
@@ -30,28 +42,31 @@ test('parses headings, nested lists, and code into a deterministic tree', () => 
   assert.equal(serializeTree(first), serializeTree(second))
   assert.equal(first.root.children.length, 1)
 
-  const heading = first.root.children[0]
-  assert.equal(heading.type, 'heading')
+  const heading = expectNode(first.root.children[0], 'heading')
   assert.equal(heading.text, 'One')
   assert.deepEqual(
     heading.children.map((node) => node.type),
     ['unordered-item', 'unordered-item', 'heading']
   )
-  assert.equal(heading.children[0].children[0].text, 'Nested')
+  const firstItem = expectNode(heading.children[0], 'unordered-item')
+  assert.equal(firstItem.children[0]?.text, 'Nested')
 
-  const secondHeading = heading.children[2]
+  const secondHeading = expectNode(heading.children[2], 'heading')
   assert.deepEqual(
     secondHeading.children.map((node) => node.type),
     ['ordered-item', 'ordered-item', 'code']
   )
-  assert.equal(secondHeading.children[0].marker, '1.')
-  assert.equal(secondHeading.children[1].marker, '2.')
-  assert.equal(secondHeading.children[0].listPosition, 1)
-  assert.equal(secondHeading.children[1].listPosition, 2)
-  assert.equal(secondHeading.children[0].listLength, 2)
-  assert.equal(secondHeading.children[1].listLength, 2)
-  assert.equal(secondHeading.children[2].language, 'js')
-  assert.equal(secondHeading.children[2].text, "console.log('hello')")
+  const firstOrdered = expectNode(secondHeading.children[0], 'ordered-item')
+  const secondOrdered = expectNode(secondHeading.children[1], 'ordered-item')
+  const code = expectNode(secondHeading.children[2], 'code')
+  assert.equal(firstOrdered.marker, '1.')
+  assert.equal(secondOrdered.marker, '2.')
+  assert.equal(firstOrdered.listPosition, 1)
+  assert.equal(secondOrdered.listPosition, 2)
+  assert.equal(firstOrdered.listLength, 2)
+  assert.equal(secondOrdered.listLength, 2)
+  assert.equal(code.language, 'js')
+  assert.equal(code.text, "console.log('hello')")
   assert.deepEqual(first.unsupported, [])
 })
 
@@ -68,7 +83,8 @@ test('retains hard-wrapped list content as one block', () => {
    and continues on the next line
 2. Another item
 `)
-  const [first, second] = tree.root.children
+  const first = expectNode(tree.root.children[0], 'ordered-item')
+  const second = expectNode(tree.root.children[1], 'ordered-item')
 
   assert.equal(
     first.text,
@@ -95,8 +111,8 @@ test('retains exact source metadata and parses standalone paragraphs', () => {
     content: source,
     checksum: 'sha256:value'
   })
-  const paragraph = tree.root.children[0].children[0]
-  assert.equal(paragraph.type, 'paragraph')
+  const heading = expectNode(tree.root.children[0], 'heading')
+  const paragraph = expectNode(heading.children[0], 'paragraph')
   assert.equal(paragraph.text, 'A paragraph')
   assert.equal(paragraph.raw, 'A paragraph')
   assert.deepEqual(tree.unsupported, [])
@@ -121,7 +137,7 @@ A paragraph with an ![inert image](diagram.png).
 - [x] Finished task
 `
   const tree = parseMarkdown(source)
-  const heading = tree.root.children[0]
+  const heading = expectNode(tree.root.children[0], 'heading')
 
   assert.deepEqual(
     heading.children.map((node) => node.type),
@@ -135,18 +151,19 @@ A paragraph with an ![inert image](diagram.png).
     ]
   )
 
-  const quote = heading.children[1]
+  const quote = expectNode(heading.children[1], 'blockquote')
   assert.equal(
     quote.raw,
     '> One quoted block.\n>\n> - This list is not a child node.'
   )
   assert.deepEqual(quote.children, [])
 
-  const table = heading.children[3]
+  const table = expectNode(heading.children[3], 'table')
   assert.match(table.raw, /^\| State \| Meaning \|/)
   assert.deepEqual(table.children, [])
 
-  const [openTask, finishedTask] = heading.children.slice(4)
+  const openTask = expectNode(heading.children[4], 'unordered-item')
+  const finishedTask = expectNode(heading.children[5], 'unordered-item')
   assert.equal(openTask.task, true)
   assert.equal(openTask.checked, false)
   assert.equal(openTask.text, 'Open task')
@@ -168,9 +185,9 @@ Hidden text
   const tree = parseMarkdown(source)
 
   assert.equal(tree.root.children.length, 1)
-  assert.equal(tree.root.children[0].type, 'paragraph')
+  const paragraph = expectNode(tree.root.children[0], 'paragraph')
   assert.equal(
-    tree.root.children[0].text,
+    paragraph.text,
     '<details>\n<summary>Raw HTML</summary>\nHidden text\n</details>'
   )
   assert.deepEqual(tree.unsupported, [])
@@ -192,34 +209,39 @@ draft: false
 # Document
 `
   const tree = parseMarkdown(source)
-  const [frontmatter, heading] = tree.root.children
+  const frontmatter = expectNode(tree.root.children[0], 'frontmatter')
+  const heading = expectNode(tree.root.children[1], 'heading')
 
-  assert.equal(frontmatter.type, 'frontmatter')
   assert.equal(frontmatter.text, 'YAML Frontmatter')
   assert.equal(frontmatter.sourceEditable, false)
   assert.equal(frontmatter.collapsed, true)
   assert.equal(frontmatter.lineStart, 1)
   assert.equal(frontmatter.lineEnd, 10)
   assert.deepEqual(
-    frontmatter.children.map((node) => node.key),
+    frontmatter.children.map(
+      (node) => expectNode(node, 'frontmatter-entry').key
+    ),
     ['title', 'tags', 'description', 'draft']
   )
   assert.deepEqual(
     frontmatter.children.map((node) => node.type),
     Array(4).fill('frontmatter-entry')
   )
-  assert.equal(frontmatter.children[0].raw, 'title: Better frontmatter')
-  assert.equal(frontmatter.children[0].lineStart, 2)
-  assert.equal(frontmatter.children[0].lineEnd, 2)
-  assert.equal(frontmatter.children[1].raw, 'tags:\n  - markdown\n  - review')
-  assert.equal(frontmatter.children[1].lineStart, 3)
-  assert.equal(frontmatter.children[1].lineEnd, 5)
+  const title = expectNode(frontmatter.children[0], 'frontmatter-entry')
+  const tags = expectNode(frontmatter.children[1], 'frontmatter-entry')
+  const description = expectNode(frontmatter.children[2], 'frontmatter-entry')
+  const draft = expectNode(frontmatter.children[3], 'frontmatter-entry')
+  assert.equal(title.raw, 'title: Better frontmatter')
+  assert.equal(title.lineStart, 2)
+  assert.equal(title.lineEnd, 2)
+  assert.equal(tags.raw, 'tags:\n  - markdown\n  - review')
+  assert.equal(tags.lineStart, 3)
+  assert.equal(tags.lineEnd, 5)
   assert.equal(
-    frontmatter.children[2].raw,
+    description.raw,
     'description: |\n  A multiline value.\n  Kept with its key.'
   )
-  assert.equal(frontmatter.children[3].raw, 'draft: false')
-  assert.equal(heading.type, 'heading')
+  assert.equal(draft.raw, 'draft: false')
   assert.equal(heading.text, 'Document')
   assert.deepEqual(tree.unsupported, [])
 })
@@ -236,6 +258,7 @@ test('requires YAML mapping pairs and reports syntax errors', () => {
   }
 
   const diagnostic = yamlDiagnostic('title: Review\ntags: [broken')
+  assert.ok(diagnostic)
   assert.equal(diagnostic.line, 2)
   assert.equal(diagnostic.column, 14)
   assert.match(diagnostic.message, /must be sufficiently indented and end with a \]/)
@@ -243,9 +266,9 @@ test('requires YAML mapping pairs and reports syntax errors', () => {
 
 test('accepts an explicit YAML end marker and empty frontmatter', () => {
   const tree = parseMarkdown('---\n...\n\nParagraph.\n')
-  const [frontmatter, paragraph] = tree.root.children
+  const frontmatter = expectNode(tree.root.children[0], 'frontmatter')
+  const paragraph = expectNode(tree.root.children[1], 'paragraph')
 
-  assert.equal(frontmatter.type, 'frontmatter')
   assert.deepEqual(frontmatter.children, [])
   assert.equal(paragraph.type, 'paragraph')
   assert.equal(paragraph.lineStart, 4)
@@ -260,7 +283,7 @@ draft:
 ---
 `
   const tree = parseMarkdown(source)
-  const frontmatter = tree.root.children[0]
+  const frontmatter = expectNode(tree.root.children[0], 'frontmatter')
 
   assert.equal(frontmatter.raw, source.trimEnd())
   assert.deepEqual(
@@ -276,8 +299,10 @@ test('keeps flow maps and explicit keys on the read-only parent', () => {
   ]
 
   for (const source of sources) {
-    const frontmatter = parseMarkdown(source).root.children[0]
-    assert.equal(frontmatter.type, 'frontmatter')
+    const frontmatter = expectNode(
+      parseMarkdown(source).root.children[0],
+      'frontmatter'
+    )
     assert.deepEqual(frontmatter.children, [])
     assert.equal(frontmatter.raw, source.trimEnd())
   }

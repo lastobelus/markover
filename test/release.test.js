@@ -101,4 +101,10 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   assert.doesNotMatch(JSON.stringify(packageJson), /(?:ts-node|tsx)/)
   assert.equal(fs.existsSync(path.join(root, 'src/pierre-diffs-entry.mts')), true)
   assert.equal(fs.existsSync(path.join(root, 'test/pierre-diffs-entry.test.ts')), true)
+  for (const name of ['settings', 'source-edits', 'tree']) {
+    assert.equal(fs.existsSync(path.join(root, `src/${name}.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `src/${name}.js`)), false)
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
+  }
 })

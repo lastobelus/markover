@@ -1,5 +1,5 @@
-(function exposeSettings(globalScope) {
-  const DEFAULT_SETTINGS = Object.freeze({
+(function exposeSettings(globalScope: typeof globalThis) {
+  const DEFAULT_SETTINGS: Readonly<MarkoverSettings> = Object.freeze({
     palette: 'ember',
     appearance: 'system',
     treeDensity: 'comfortable',
@@ -10,7 +10,7 @@
     confirmAttachmentRemoval: true
   })
 
-  const OPTIONS = Object.freeze({
+  const OPTIONS: MarkoverSettingsApi['OPTIONS'] = Object.freeze({
     palette: ['ember', 'ocean', 'olive'],
     appearance: ['system', 'light', 'dark'],
     treeDensity: ['comfortable', 'compact'],
@@ -18,7 +18,12 @@
     defaultTreeView: ['all', 'annotated']
   })
 
-  const WINDOW_BACKGROUNDS = Object.freeze({
+  const WINDOW_BACKGROUNDS: Readonly<{
+    light: Readonly<Record<Palette, string>>
+    dark: Readonly<
+      Record<DarkColorization, Readonly<Record<Palette, string>>>
+    >
+  }> = Object.freeze({
     light: Object.freeze({
       ember: '#eee8e0',
       ocean: '#eee8e0',
@@ -43,36 +48,57 @@
     })
   })
 
-  const DARK_COLORIZATION = Object.freeze({
-    ember: 'low',
-    ocean: 'mid',
-    olive: 'low'
-  })
+  const DARK_COLORIZATION: Readonly<Record<Palette, DarkColorization>> =
+    Object.freeze({
+      ember: 'low',
+      ocean: 'mid',
+      olive: 'low'
+    })
 
-  function darkColorization(palette) {
-    return DARK_COLORIZATION[palette] || DARK_COLORIZATION.ember
+  function darkColorization(palette: unknown): DarkColorization {
+    return palette === 'ember' || palette === 'ocean' || palette === 'olive'
+      ? DARK_COLORIZATION[palette]
+      : DARK_COLORIZATION.ember
   }
 
-  function normalizeSettings(value = {}) {
-    const normalized = { ...DEFAULT_SETTINGS }
-    for (const [key, choices] of Object.entries(OPTIONS)) {
-      if (choices.includes(value[key])) normalized[key] = value[key]
+  function normalizeSettings(value: unknown = {}): MarkoverSettings {
+    const input = value as Record<string, unknown>
+    const normalized: MarkoverSettings = { ...DEFAULT_SETTINGS }
+    type ChoiceKey = keyof MarkoverSettingsApi['OPTIONS']
+    const assignChoice = <K extends ChoiceKey>(
+      key: K,
+      target: Pick<MarkoverSettings, K>
+    ): void => {
+      const candidate = input[key]
+      const choices = OPTIONS[key] as readonly unknown[]
+      if (choices.includes(candidate)) {
+        target[key] = candidate as MarkoverSettings[K]
+      }
+    }
+    for (const key of Object.keys(OPTIONS) as ChoiceKey[]) {
+      assignChoice(key, normalized)
     }
     for (const key of [
       'showKeyboardHelp',
       'openDocumentsSidebar',
       'confirmAttachmentRemoval'
-    ]) {
-      if (typeof value[key] === 'boolean') normalized[key] = value[key]
+    ] as const) {
+      if (typeof input[key] === 'boolean') normalized[key] = input[key]
     }
     return normalized
   }
 
-  function updateSettings(current, patch) {
-    return normalizeSettings({ ...normalizeSettings(current), ...patch })
+  function updateSettings(current: unknown, patch: unknown): MarkoverSettings {
+    return normalizeSettings({
+      ...normalizeSettings(current),
+      ...(patch as Record<string, unknown>)
+    })
   }
 
-  function windowBackground(settings, resolvedAppearance = 'light') {
+  function windowBackground(
+    settings: unknown,
+    resolvedAppearance = 'light'
+  ): string {
     const normalized = normalizeSettings(settings)
     const appearance = resolvedAppearance === 'dark' ? 'dark' : 'light'
     return appearance === 'dark'
@@ -80,11 +106,15 @@
       : WINDOW_BACKGROUNDS.light[normalized.palette]
   }
 
-  function applySettingsToView(settings, view) {
+  function applySettingsToView(
+    settings: unknown,
+    view: SettingsView
+  ): AppliedSettings {
     const normalized = normalizeSettings(settings)
-    const appearance = settings.resolvedAppearance || (
+    const input = settings as Record<string, unknown>
+    const appearance = (input.resolvedAppearance || (
       normalized.appearance === 'dark' ? 'dark' : 'light'
-    )
+    )) as ResolvedAppearance
     view.root.dataset.palette = normalized.palette
     view.root.dataset.appearance = appearance
     view.root.dataset.colorization = darkColorization(normalized.palette)
@@ -93,19 +123,33 @@
     view.keyboardHelp.hidden = !normalized.showKeyboardHelp
 
     for (const [key, value] of Object.entries(normalized)) {
-      const control = view.form.elements.namedItem(key)
+      const control = view.form.elements.namedItem(key) as
+        | HTMLInputElement
+        | HTMLSelectElement
+        | null
       if (!control) continue
-      if (control.type === 'checkbox') control.checked = value
-      else control.value = value
+      if (control.type === 'checkbox') {
+        control.checked = value as boolean
+      } else {
+        control.value = value as string
+      }
     }
     return { appearance, preferences: normalized }
   }
 
-  function sidebarPreferenceChanged(previous, next, initial = false) {
+  function sidebarPreferenceChanged(
+    previous: MarkoverSettings,
+    next: MarkoverSettings,
+    initial = false
+  ): boolean {
     return initial || previous.openDocumentsSidebar !== next.openDocumentsSidebar
   }
 
-  function confirmScreenshotRemoval(settings, label, confirmRemoval) {
+  function confirmScreenshotRemoval(
+    settings: unknown,
+    label: string,
+    confirmRemoval: (message: string) => boolean
+  ): boolean {
     return !normalizeSettings(settings).confirmAttachmentRemoval ||
       confirmRemoval(`Remove ${label}?`)
   }
@@ -122,7 +166,7 @@
     darkColorization,
     sidebarPreferenceChanged,
     confirmScreenshotRemoval
-  }
+  } satisfies MarkoverSettingsApi
   if (typeof module !== 'undefined' && module.exports) module.exports = api
   globalScope.MarkoverSettings = api
 })(typeof window === 'undefined' ? globalThis : window)
