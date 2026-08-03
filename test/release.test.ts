@@ -134,6 +134,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   assert.equal(fs.existsSync(path.join(root, 'src/pierre-diffs-entry.mts')), true)
   assert.equal(fs.existsSync(path.join(root, 'test/pierre-diffs-entry.test.ts')), true)
   for (const name of [
+    'app-menu',
     'annotation-block',
     'annotations',
     'image-preview',
@@ -145,6 +146,14 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   ]) {
     assert.equal(fs.existsSync(path.join(root, `src/${name}.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `src/${name}.js`)), false)
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
+  }
+  for (const name of ['main', 'preload']) {
+    assert.equal(fs.existsSync(path.join(root, `src/${name}.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `src/${name}.js`)), false)
+  }
+  for (const name of ['background-focus']) {
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
   }

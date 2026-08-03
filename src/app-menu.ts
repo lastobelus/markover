@@ -1,11 +1,21 @@
-function applicationMenuTemplate({
+import type { MenuItemConstructorOptions } from 'electron'
+
+interface ApplicationMenuOptions {
+  appName?: string
+  isMac?: boolean
+  onOpen?: () => void
+  onSettings?: () => void
+  reviewMode?: boolean
+}
+
+export function applicationMenuTemplate({
   appName = 'Markover',
   isMac = process.platform === 'darwin',
   onOpen,
   onSettings,
   reviewMode = false
-}) {
-  const template = []
+}: ApplicationMenuOptions = {}): MenuItemConstructorOptions[] {
+  const template: MenuItemConstructorOptions[] = []
   if (isMac) {
     template.push({
       label: appName,
@@ -15,7 +25,7 @@ function applicationMenuTemplate({
         {
           label: 'Settings…',
           accelerator: 'CommandOrControl+,',
-          click: onSettings
+          ...(onSettings ? { click: onSettings } : {})
         },
         { type: 'separator' },
         { role: 'services' },
@@ -36,7 +46,7 @@ function applicationMenuTemplate({
         label: 'Open Markdown…',
         accelerator: 'CommandOrControl+O',
         enabled: !reviewMode,
-        click: onOpen
+        ...(onOpen ? { click: onOpen } : {})
       },
       { type: 'separator' },
       isMac ? { role: 'close' } : { role: 'quit' }
@@ -63,21 +73,25 @@ function applicationMenuTemplate({
       { role: 'togglefullscreen' }
     ]
   })
+  const windowSubmenu: MenuItemConstructorOptions[] = [
+    { role: 'minimize' },
+    { role: 'zoom' }
+  ]
+  if (isMac) {
+    windowSubmenu.push({ type: 'separator' }, { role: 'front' })
+  }
   template.push({
     label: 'Window',
-    submenu: [
-      { role: 'minimize' },
-      { role: 'zoom' },
-      ...(isMac ? [{ type: 'separator' }, { role: 'front' }] : [])
-    ]
+    submenu: windowSubmenu
   })
   if (!isMac) {
     template.push({
       label: 'Help',
-      submenu: [{ label: 'Settings…', click: onSettings }]
+      submenu: [{
+        label: 'Settings…',
+        ...(onSettings ? { click: onSettings } : {})
+      }]
     })
   }
   return template
 }
-
-module.exports = { applicationMenuTemplate }

@@ -1,18 +1,18 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(
+const read = (relativePath: string): string => fs.readFileSync(
   path.join(root, relativePath),
   'utf8'
 )
 
 test('agent review events update the renderer without showing or focusing it', () => {
-  const main = read('src/main.js')
+  const main = read('src/main.ts')
   const managedReview = main.match(
-    /function sendManagedReview\(artifact\) \{[\s\S]*?\n\}/
+    /function sendManagedReview\(artifact: ReviewArtifact\): void \{[\s\S]*?\n\}/
   )?.[0] || ''
 
   assert.match(managedReview, /webContents\.send\('review:opened'/)
@@ -20,27 +20,38 @@ test('agent review events update the renderer without showing or focusing it', (
   assert.doesNotMatch(managedReview, /\.show\(\)|\.focus\(\)|\.restore\(\)/)
 })
 
+test('preload exposes one exact typed capability object', () => {
+  const preload = read('src/preload.ts')
+
+  assert.match(preload, /const bridge = \{[\s\S]*\} satisfies MarkoverBridge/)
+  assert.match(
+    preload,
+    /contextBridge\.exposeInMainWorld\('markover', bridge\)/
+  )
+  assert.doesNotMatch(preload, /exposeInMainWorld\([^,]+,\s*ipcRenderer/)
+})
+
 test('background startup stays hidden and background second instances do not activate', () => {
-  const main = read('src/main.js')
+  const main = read('src/main.ts')
 
   assert.match(
     main,
-    /function createWindow\(\{ show = !backgroundServerMode \} = \{\}\)[\s\S]*new BrowserWindow\(\{[\s\S]*\n {4}show,/
+    /function createWindow\([\s\S]*show = !backgroundServerMode[\s\S]*\): BrowserWindow \{[\s\S]*new BrowserWindow\(\{[\s\S]*\n {4}show,/
   )
   assert.match(
     main,
-    /app\.on\('second-instance',[\s\S]*commandLine\.includes\('--markover-server'\)\) return[\s\S]*if \(!mainWindow\) createWindow\(\)[\s\S]*mainWindow\.show\(\)[\s\S]*mainWindow\.focus\(\)/
+    /app\.on\('second-instance',[\s\S]*commandLine\.includes\('--markover-server'\)\) return[\s\S]*if \(!mainWindow\) createWindow\(\)[\s\S]*const window = mainWindow[\s\S]*window\.show\(\)[\s\S]*window\.focus\(\)/
   )
 })
 
 test('shutdown leaves the shared endpoint for health-checked stale recovery', () => {
-  const main = read('src/main.js')
+  const main = read('src/main.ts')
 
   assert.doesNotMatch(main, /unlink\(endpointPath\)/)
 })
 
 test('development startup imports legacy reviews from the checkout root', () => {
-  const main = read('src/main.js')
+  const main = read('src/main.ts')
 
   assert.match(
     main,

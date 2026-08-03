@@ -280,8 +280,8 @@ test('settings lock cleanup cannot remove a replacement owner lock', async (t) =
 
 test('settings are discoverable from the native menu and wired to a complete dialog', async () => {
   const [main, preload, renderer, html] = await Promise.all([
-    read('src/main.js'),
-    read('src/preload.js'),
+    read('src/main.ts'),
+    read('src/preload.ts'),
     read('src/renderer.js'),
     read('src/index.html')
   ])

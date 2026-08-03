@@ -44,6 +44,10 @@ declare global {
     preferences: MarkoverSettings
   }
 
+  interface MarkoverSettingsEnvelope extends MarkoverSettings {
+    resolvedAppearance: ResolvedAppearance
+  }
+
   interface MarkoverSettingsApi {
     DEFAULT_SETTINGS: Readonly<MarkoverSettings>
     DARK_COLORIZATION: Readonly<Record<Palette, DarkColorization>>
@@ -349,6 +353,86 @@ declare global {
     | 'pending-agent'
     | 'handoff-in-progress'
 
+  interface MarkoverBrandAssets {
+    mark: string
+    logotype: string
+    lockup: string
+  }
+
+  interface MarkoverClipboardImage {
+    bytes: Uint8Array
+    mimeType: string
+  }
+
+  interface MarkoverDocument {
+    reviewId?: string
+    name: string | null
+    path: string | null
+    source: string
+    checksum: string
+    projectRoot?: unknown
+    tree?: ReviewTree
+    durable?: boolean
+    autosavePath?: string | null
+  }
+
+  interface ReviewStatusRequest {
+    requestId: string
+    reviewId: string
+    status: ReviewSessionStatus
+  }
+
+  interface ReviewStatusResponse {
+    requestId: string
+    error?: string
+  }
+
+  interface ReviewSnapshotRequest {
+    requestId: string
+    reviewId: string
+  }
+
+  interface ReviewSnapshotResponse extends ReviewSnapshotRequest {
+    tree?: ReviewTree | null
+    error?: string
+  }
+
+  interface MarkoverBridge {
+    getBrandAssets: () => Promise<MarkoverBrandAssets | null>
+    openMarkdown: () => Promise<MarkoverDocument | null>
+    onOpenMarkdownRequested: (callback: () => void) => void
+    checksum: (source: string) => Promise<string>
+    copyText: (text: string) => void
+    readClipboardImage: () => Promise<MarkoverClipboardImage | null>
+    saveAttachment: (
+      attachment: MarkoverClipboardImage,
+      reviewId?: string | null
+    ) => Promise<ReviewAttachment>
+    getInitialReview: () => Promise<MarkoverDocument | null>
+    getReviews: () => Promise<MarkoverDocument[]>
+    onReviewOpened: (
+      callback: (document: MarkoverDocument) => void | Promise<void>
+    ) => void
+    onReviewStatus: (
+      callback: (status: ReviewStatusRequest) => void | Promise<void>
+    ) => void
+    onReviewSnapshotRequested: (
+      callback: (
+        reviewId: string
+      ) => ReviewTree | null | Promise<ReviewTree | null>
+    ) => void
+    activateReview: (reviewId: string) => void
+    autosaveReview: (reviewId: string, tree: ReviewTree) => void
+    finishReview: (tree: ReviewTree) => void
+    cancelReview: () => void
+    getSettings: () => Promise<MarkoverSettingsEnvelope>
+    updateSettings: (patch: unknown) => Promise<MarkoverSettingsEnvelope>
+    onSettingsOpen: (callback: () => void) => void
+    onSettingsChanged: (
+      callback: (settings: MarkoverSettingsEnvelope) => void
+    ) => void
+  }
+
   interface ReviewSessionEnvelope {
     id: string
     status: ReviewSessionStatus
@@ -545,4 +629,8 @@ declare global {
   var MarkoverSettings: MarkoverSettingsApi
   var MarkoverSourceEdits: MarkoverSourceEditsApi
   var MarkoverTree: MarkoverTreeApi
+
+  interface Window {
+    markover?: MarkoverBridge
+  }
 }
