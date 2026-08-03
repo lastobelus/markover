@@ -1,7 +1,9 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { parseMarkdown } = require('../src/tree')
-const { isOutsideViewport, move, nextPane } = require('../src/navigation')
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
+const { isOutsideViewport, move, nextPane } = require('../src/navigation') as
+  MarkoverNavigationApi
 
 const tree = parseMarkdown(`# Root
 
@@ -13,8 +15,13 @@ const tree = parseMarkdown(`# Root
 `)
 
 const [rootHeading] = tree.root.children
+assert.ok(rootHeading)
 const [first, second, nextSection] = rootHeading.children
+assert.ok(first)
+assert.ok(second)
+assert.ok(nextSection)
 const [child] = first.children
+assert.ok(child)
 
 test('left selects parent and right selects first child', () => {
   assert.equal(move(tree.root, child.id, 'left'), first.id)

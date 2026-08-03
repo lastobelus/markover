@@ -1,28 +1,39 @@
-(function exposeAnnotationBlock(globalScope) {
-  function model(node, context = {}) {
+(function exposeAnnotationBlock(globalScope: typeof globalThis) {
+  function model(
+    node: AnnotationModelNode,
+    context: AnnotationContext = {}
+  ): AnnotationViewModel {
     const editedSource = typeof node.sourceEdit?.current === 'string'
       ? node.sourceEdit.current
       : ''
-    const sourceTitle = String(editedSource || node.text || node.raw || context.descriptor || '')
+    const sourceLine = (editedSource || node.text || node.raw || context.descriptor || '')
       .trim()
-      .split(/\r?\n/, 1)[0]
-      .replace(/^ {0,3}(?:#{1,6}\s+|[-+*]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|>\s*)/, '')
+      .split(/\r?\n/, 1)[0] ?? ''
+    const sourceTitle = sourceLine.replace(
+      /^ {0,3}(?:#{1,6}\s+|[-+*]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|>\s*)/,
+      ''
+    )
     return {
       attachments: (node.attachments || []).map((attachment) => ({
         attachment,
-        label: String(attachment.label || '').trim() || attachment.id
+        label: (attachment.label || '').trim() || attachment.id
       })),
-      feedback: String(node.feedback || ''),
+      feedback: node.feedback || '',
       lineLabel: context.lineLabel || (
         node.lineStart === node.lineEnd
-          ? `Line ${node.lineStart}`
-          : `Lines ${node.lineStart}–${node.lineEnd}`
+          ? `Line ${String(node.lineStart)}`
+          : `Lines ${String(node.lineStart)}–${String(node.lineEnd)}`
       ),
       sourceTitle
     }
   }
 
-  function popoverPosition(anchor, popover, viewport, margin = 10) {
+  function popoverPosition(
+    anchor: { left: number; right: number; top: number },
+    popover: { width: number; height: number },
+    viewport: { width: number; height: number },
+    margin = 10
+  ): { x: number; y: number } {
     const right = anchor.right + margin
     const left = anchor.left - popover.width - margin
     const x = right + popover.width <= viewport.width - margin
@@ -35,7 +46,10 @@
     return { x, y }
   }
 
-  function create(document, options) {
+  function create(
+    document: Document,
+    options: AnnotationCreateOptions
+  ): HTMLElement {
     const view = model(options.node, options.context)
     const article = document.createElement('article')
     article.className = `rendered-annotation rendered-annotation--${options.mode || 'list'}`
@@ -67,11 +81,14 @@
       content.classList.add('is-empty')
       content.textContent = 'Image-only annotation.'
     }
-    for (const image of content.querySelectorAll('[data-image-source]')) {
-      if (options.onInlineImage) {
+    for (const image of content.querySelectorAll<HTMLElement>(
+      '[data-image-source]'
+    )) {
+      const onInlineImage = options.onInlineImage
+      if (onInlineImage) {
         image.addEventListener('click', (event) => {
           event.stopPropagation()
-          options.onInlineImage(
+          onInlineImage(
             image.dataset.imageSource || '',
             image.dataset.imageLabel || ''
           )
@@ -93,7 +110,8 @@
       overflow.textContent = '…'
       body.append(overflow)
     }
-    if (options.onEdit) {
+    const onEdit = options.onEdit
+    if (onEdit) {
       body.classList.add('has-edit')
       const edit = document.createElement('button')
       edit.className = 'rendered-annotation-edit'
@@ -103,7 +121,7 @@
       edit.textContent = '✎'
       edit.addEventListener('click', (event) => {
         event.stopPropagation()
-        options.onEdit(options.node)
+        onEdit(options.node)
       })
       body.append(edit)
     }
@@ -113,14 +131,17 @@
       const attachments = document.createElement('div')
       attachments.className = 'rendered-annotation-attachments'
       for (const { attachment, label } of view.attachments) {
-        const item = document.createElement(options.onAttachment ? 'button' : 'span')
+        const item = document.createElement(
+          options.onAttachment ? 'button' : 'span'
+        )
         item.className = 'rendered-annotation-attachment'
         item.title = label
-        if (options.onAttachment) {
-          item.type = 'button'
+        const onAttachment = options.onAttachment
+        if (onAttachment) {
+          item.setAttribute('type', 'button')
           item.addEventListener('click', (event) => {
             event.stopPropagation()
-            options.onAttachment(attachment)
+            onAttachment(attachment)
           })
         }
 
@@ -144,23 +165,35 @@
       article.append(attachments)
     }
 
-    if (options.onSelect) {
+    const onSelect = options.onSelect
+    if (onSelect) {
       article.classList.add('is-selectable')
-      article.addEventListener('click', () => options.onSelect(options.node))
+      article.addEventListener('click', () => {
+        onSelect(options.node)
+      })
     }
     return article
   }
 
-  function updateTruncation(root) {
-    for (const article of root.querySelectorAll('.rendered-annotation--list')) {
-      const content = article.querySelector('.rendered-annotation-content')
-      const overflow = article.querySelector('.rendered-annotation-overflow')
+  function updateTruncation(root: ParentNode): void {
+    for (const article of root.querySelectorAll<HTMLElement>(
+      '.rendered-annotation--list'
+    )) {
+      const content = article.querySelector<HTMLElement>(
+        '.rendered-annotation-content'
+      )
+      const overflow = article.querySelector<HTMLElement>(
+        '.rendered-annotation-overflow'
+      )
       if (!content || !overflow) continue
       overflow.hidden = content.scrollHeight <= content.clientHeight + 1
     }
   }
 
-  function createList(document, options) {
+  function createList(
+    document: Document,
+    options: AnnotationListOptions
+  ): HTMLElement {
     const list = document.createElement('div')
     list.className = 'rendered-annotation-list'
     for (const node of options.nodes) {
@@ -182,8 +215,17 @@
     return list
   }
 
-  function bindSneakPeek(marker, node, handlers) {
-    const show = () => handlers.show(node, marker)
+  function bindSneakPeek(
+    marker: HTMLElement,
+    node: AnnotationBlockNode,
+    handlers: {
+      show: (node: AnnotationBlockNode, marker: HTMLElement) => void
+      hide: EventListener
+    }
+  ): () => void {
+    const show = (): void => {
+      handlers.show(node, marker)
+    }
     marker.addEventListener('mouseenter', show)
     marker.addEventListener('mouseleave', handlers.hide)
     return () => {
@@ -192,13 +234,22 @@
     }
   }
 
-  function bindDismiss(target, eventName, hide) {
+  function bindDismiss(
+    target: EventTarget,
+    eventName: string,
+    hide: EventListener
+  ): () => void {
     target.addEventListener(eventName, hide)
-    return () => target.removeEventListener(eventName, hide)
+    return () => {
+      target.removeEventListener(eventName, hide)
+    }
   }
 
-  function bindListKeyboard(target, handlers) {
-    const keydown = (event) => {
+  function bindListKeyboard(
+    target: HTMLElement,
+    handlers: { edit: () => void; move: (offset: -1 | 1) => void }
+  ): () => void {
+    const keydown = (event: KeyboardEvent): void => {
       if (event.key === 'Enter') {
         event.preventDefault()
         handlers.edit()
@@ -208,7 +259,9 @@
       }
     }
     target.addEventListener('keydown', keydown)
-    return () => target.removeEventListener('keydown', keydown)
+    return () => {
+      target.removeEventListener('keydown', keydown)
+    }
   }
 
   const api = {
@@ -220,7 +273,7 @@
     model,
     popoverPosition,
     updateTruncation
-  }
+  } satisfies MarkoverAnnotationBlockApi
   globalScope.MarkoverAnnotationBlock = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

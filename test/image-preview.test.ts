@@ -1,6 +1,8 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { labelFor, sourceLabel, sourceUrl } = require('../src/image-preview')
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+const { labelFor, sourceLabel, sourceUrl } = require('../src/image-preview') as
+  MarkoverImagePreviewApi
 
 test('uses an image label with stable fallbacks', () => {
   assert.equal(labelFor({ id: 'img-2', label: 'Header spacing' }), 'Header spacing')

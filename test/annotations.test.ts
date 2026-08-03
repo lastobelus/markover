@@ -1,5 +1,6 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
 const {
   annotatedProjection,
   annotationPosition,
@@ -7,13 +8,18 @@ const {
   nearestAnnotatedId,
   normalizeFilter,
   revealAnnotation
-} = require('../src/annotations')
+} = require('../src/annotations') as MarkoverAnnotationsApi
 
-function node(id, children = [], feedback = '', attachments = []) {
+function node(
+  id: string,
+  children: AnnotationTreeNode[] = [],
+  feedback = '',
+  attachments: ReviewAttachment[] = []
+): AnnotationTreeNode {
   return { id, children, feedback, attachments }
 }
 
-function fixture() {
+function fixture(): AnnotationTreeNode {
   return node('document', [
     node('heading-a', [
       node('plain-a'),
@@ -29,7 +35,9 @@ function fixture() {
 
 test('projects annotations with only their ancestor context', () => {
   const root = fixture()
-  root.children[0].collapsed = true
+  const heading = root.children[0]
+  assert.ok(heading)
+  heading.collapsed = true
   const projection = annotatedProjection(root)
   assert.deepEqual(
     projection.map((entry) => ({
@@ -46,8 +54,13 @@ test('projects annotations with only their ancestor context', () => {
       { id: 'annotated-b', contextual: false, children: [] }
     ]
   )
-  assert.equal(projection[0].children[1].contextual, true)
-  assert.equal(projection[0].children[1].children[0].node.id, 'annotated-image')
+  const firstProjection = projection[0]
+  const branchProjection = firstProjection?.children[1]
+  const imageProjection = branchProjection?.children[0]
+  assert.ok(branchProjection)
+  assert.ok(imageProjection)
+  assert.equal(branchProjection.contextual, true)
+  assert.equal(imageProjection.node.id, 'annotated-image')
 })
 
 test('builds structural navigation from the filtered projection', () => {
@@ -99,9 +112,15 @@ test('normalizes selection only when it is absent from the filtered projection',
 test('normalizes annotation removals including attachment-only annotations', () => {
   const root = fixture()
   const heading = root.children[0]
-  const textAnnotation = heading.children[1]
-  const attachmentAnnotation = heading.children[2].children[0]
   const finalAnnotation = root.children[2]
+  assert.ok(heading)
+  assert.ok(finalAnnotation)
+  const textAnnotation = heading.children[1]
+  const branch = heading.children[2]
+  assert.ok(textAnnotation)
+  assert.ok(branch)
+  const attachmentAnnotation = branch.children[0]
+  assert.ok(attachmentAnnotation)
 
   textAnnotation.feedback = ''
   assert.deepEqual(normalizeFilter(root, textAnnotation.id, true), {
@@ -125,22 +144,28 @@ test('normalizes annotation removals including attachment-only annotations', () 
 test('reveals a selected annotation without changing unrelated collapse state', () => {
   const root = fixture()
   const heading = root.children[0]
+  assert.ok(heading)
   const branch = heading.children[2]
+  const unrelated = root.children[2]
+  assert.ok(branch)
+  assert.ok(unrelated)
   heading.collapsed = true
   branch.collapsed = true
-  root.children[2].collapsed = true
+  unrelated.collapsed = true
 
   assert.equal(revealAnnotation(root, 'annotated-image'), true)
   assert.equal(heading.collapsed, false)
   assert.equal(branch.collapsed, false)
-  assert.equal(root.children[2].collapsed, true)
+  assert.equal(unrelated.collapsed, true)
   assert.equal(revealAnnotation(root, 'annotated-image'), false)
 })
 
 test('reveals an unannotated selected block hidden by collapsed ancestors', () => {
   const root = fixture()
   const heading = root.children[0]
+  assert.ok(heading)
   const branch = heading.children[2]
+  assert.ok(branch)
   const selected = node('plain-nested')
   branch.children.push(selected)
   heading.collapsed = true

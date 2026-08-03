@@ -1,15 +1,15 @@
-(function exposeAnnotations(globalScope) {
-  function hasAnnotation(node) {
+(function exposeAnnotations(globalScope: typeof globalThis) {
+  function hasAnnotation(node?: AnnotationTreeNode | null): boolean {
     return Boolean(
-      String(node?.feedback || '').trim() ||
+      (node?.feedback || '').trim() ||
       (Array.isArray(node?.attachments) && node.attachments.length)
     )
   }
 
-  function documentNodes(root) {
-    const nodes = []
-    function visit(node) {
-      for (const child of node.children || []) {
+  function documentNodes(root: AnnotationTreeNode): AnnotationTreeNode[] {
+    const nodes: AnnotationTreeNode[] = []
+    function visit(node: AnnotationTreeNode): void {
+      for (const child of node.children) {
         nodes.push(child)
         visit(child)
       }
@@ -18,24 +18,28 @@
     return nodes
   }
 
-  function annotatedNodes(root) {
+  function annotatedNodes(root: AnnotationTreeNode): AnnotationTreeNode[] {
     return documentNodes(root).filter(hasAnnotation)
   }
 
-  function annotatedProjection(root) {
-    function project(node) {
-      const children = (node.children || [])
+  function annotatedProjection(
+    root: AnnotationTreeNode
+  ): AnnotationProjection[] {
+    function project(node: AnnotationTreeNode): AnnotationProjection | null {
+      const children = node.children
         .map(project)
-        .filter(Boolean)
+        .filter((entry): entry is AnnotationProjection => entry !== null)
       if (!hasAnnotation(node) && !children.length) return null
       return { node, children, contextual: !hasAnnotation(node) }
     }
 
-    return (root.children || []).map(project).filter(Boolean)
+    return root.children
+      .map(project)
+      .filter((entry): entry is AnnotationProjection => entry !== null)
   }
 
-  function navigationRoot(root) {
-    function navigationNode(entry) {
+  function navigationRoot(root: AnnotationTreeNode): NavigationNode {
+    function navigationNode(entry: AnnotationProjection): NavigationNode {
       return {
         id: entry.node.id,
         children: entry.children.map(navigationNode)
@@ -47,26 +51,40 @@
     }
   }
 
-  function nearestAnnotatedId(root, currentId) {
+  function nearestAnnotatedId(
+    root: AnnotationTreeNode,
+    currentId: string | null
+  ): string | null {
     const nodes = documentNodes(root)
     const annotated = nodes.filter(hasAnnotation)
     if (!annotated.length) return null
     if (annotated.some((node) => node.id === currentId)) return currentId
 
     const currentIndex = nodes.findIndex((node) => node.id === currentId)
-    if (currentIndex === -1) return annotated[0].id
-    return annotated.reduce((nearest, node) => {
+    if (currentIndex === -1) return annotated[0]?.id ?? null
+    let nearest: {
+      node: AnnotationTreeNode
+      index: number
+      distance: number
+    } | null = null
+    for (const node of annotated) {
       const index = nodes.indexOf(node)
       const distance = Math.abs(index - currentIndex)
-      if (!nearest || distance < nearest.distance) return { node, index, distance }
-      if (distance === nearest.distance && index > currentIndex) {
-        return { node, index, distance }
+      if (!nearest || distance < nearest.distance) {
+        nearest = { node, index, distance }
+        continue
       }
-      return nearest
-    }, null).node.id
+      if (distance === nearest.distance && index > currentIndex) {
+        nearest = { node, index, distance }
+      }
+    }
+    return nearest?.node.id ?? null
   }
 
-  function annotationPosition(root, id) {
+  function annotationPosition(
+    root: AnnotationTreeNode,
+    id: string | null
+  ): { index: number; total: number } {
     const nodes = annotatedNodes(root)
     return {
       index: nodes.findIndex((node) => node.id === id) + 1,
@@ -74,11 +92,11 @@
     }
   }
 
-  function revealAnnotation(root, id) {
+  function revealAnnotation(root: AnnotationTreeNode, id: string): boolean {
     let changed = false
-    function reveal(node) {
+    function reveal(node: AnnotationTreeNode): boolean {
       if (node.id === id) return true
-      for (const child of node.children || []) {
+      for (const child of node.children) {
         if (!reveal(child)) continue
         if (node !== root && node.collapsed) {
           node.collapsed = false
@@ -92,12 +110,16 @@
     return changed
   }
 
-  function normalizeFilter(root, selectedId, enabled) {
+  function normalizeFilter(
+    root: AnnotationTreeNode,
+    selectedId: string | null,
+    enabled: boolean
+  ): { enabled: boolean; selectedId: string | null } {
     if (!enabled) return { enabled: false, selectedId }
     const projection = annotatedProjection(root)
     if (!projection.length) return { enabled: false, selectedId }
 
-    function contains(entries) {
+    function contains(entries: AnnotationProjection[]): boolean {
       return entries.some((entry) => (
         entry.node.id === selectedId || contains(entry.children)
       ))
@@ -120,7 +142,7 @@
     nearestAnnotatedId,
     normalizeFilter,
     revealAnnotation
-  }
+  } satisfies MarkoverAnnotationsApi
   globalScope.MarkoverAnnotations = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

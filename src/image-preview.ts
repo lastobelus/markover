@@ -1,5 +1,5 @@
-(function exposeImagePreview(globalScope) {
-  function fileUrl(filePath) {
+(function exposeImagePreview(globalScope: typeof globalThis) {
+  function fileUrl(filePath?: string | null): string | null {
     if (!filePath?.startsWith('/')) return null
     return `file://${filePath
       .split('/')
@@ -7,18 +7,23 @@
       .join('/')}`
   }
 
-  function labelFor(image) {
+  function labelFor(
+    image?: { id?: string; label?: string } | null
+  ): string {
     return image?.label || image?.id || 'Image'
   }
 
-  function sourceLabel(source, alt) {
+  function sourceLabel(source: string, alt: string): string {
     if (alt) return alt
-    const path = source.split(/[?#]/, 1)[0]
-    const basename = path.split('/').filter(Boolean).at(-1)
+    const sourcePath = source.split(/[?#]/, 1)[0] ?? ''
+    const basename = sourcePath.split('/').filter(Boolean).at(-1)
     return basename || 'Image'
   }
 
-  function sourceUrl(source, documentPath) {
+  function sourceUrl(
+    source: string,
+    documentPath?: string | null
+  ): string | null {
     if (!source) return null
     try {
       const absolute = new URL(source)
@@ -36,7 +41,8 @@
     return new URL(source, documentUrl).href
   }
 
-  const api = { fileUrl, labelFor, sourceLabel, sourceUrl }
+  const api = { fileUrl, labelFor, sourceLabel, sourceUrl } satisfies
+    MarkoverImagePreviewApi
   globalScope.MarkoverImagePreview = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

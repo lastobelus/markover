@@ -1,5 +1,6 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
 const {
   clampDocumentsListWidth,
   formatRelativeTime,
@@ -8,19 +9,26 @@ const {
   relativeTimeRefreshDelay,
   ReviewMutationTracker,
   ReviewSessions
-} = require('../src/review-sessions')
-const { parseMarkdown } = require('../src/tree')
+} = require('../src/review-sessions') as MarkoverReviewSessionsApi
+const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
 
-function document(reviewId, name, repositoryRoot = null) {
-  const tree = parseMarkdown(`# ${name}\n\n- One\n- Two\n`, `sha256:${reviewId}`, {
+function reviewDocument(
+  reviewId: string,
+  name: string,
+  repositoryRoot: string | null = null
+): ReviewSessionDocument {
+  const parsed = parseMarkdown(`# ${name}\n\n- One\n- Two\n`, `sha256:${reviewId}`, {
     name,
     path: `/tmp/${name}`
   })
-  tree.review = {
-    id: reviewId,
-    status: 'editing',
-    git: repositoryRoot ? { repositoryRoot } : null
-  }
+  const tree = {
+    ...parsed,
+    review: {
+      id: reviewId,
+      status: 'editing',
+      git: repositoryRoot ? { repositoryRoot } : null
+    }
+  } satisfies ReviewSessionTree
   return {
     reviewId,
     name,
@@ -30,11 +38,17 @@ function document(reviewId, name, repositoryRoot = null) {
   }
 }
 
+function firstNode(session: ReviewSession): ReviewNode {
+  const node = session.tree.root.children[0]
+  assert.ok(node)
+  return node
+}
+
 test('switching among three reviews preserves independent view and review state', () => {
   const sessions = new ReviewSessions()
-  const first = sessions.add(document('mko_first11', 'first.md'))
-  const second = sessions.add(document('mko_second2', 'second.md'))
-  const third = sessions.add(document('mko_third33', 'third.md'))
+  const first = sessions.add(reviewDocument('mko_first11', 'first.md'))
+  const second = sessions.add(reviewDocument('mko_second2', 'second.md'))
+  const third = sessions.add(reviewDocument('mko_third33', 'third.md'))
 
   sessions.activate(first.reviewId)
   first.selectedId = 'block-2'
@@ -42,13 +56,15 @@ test('switching among three reviews preserves independent view and review state'
   first.annotationView = 'list'
   first.sourceEditingId = 'block-2'
   first.sourceDrafts.set('block-2', 'A proposed source edit')
-  first.tree.root.children[0].collapsed = true
-  first.tree.root.children[0].feedback = 'First feedback'
-  first.tree.root.children[0].attachments = [{ id: 'img-1' }]
+  const firstBlock = firstNode(first)
+  firstBlock.collapsed = true
+  firstBlock.feedback = 'First feedback'
+  firstBlock.attachments = [{ id: 'img-1' }]
 
   sessions.activate(second.reviewId)
   second.selectedId = 'block-3'
-  second.tree.root.children[0].feedback = 'Second feedback'
+  const secondBlock = firstNode(second)
+  secondBlock.feedback = 'Second feedback'
 
   sessions.activate(third.reviewId)
   third.sourceCollapsed = true
@@ -59,31 +75,31 @@ test('switching among three reviews preserves independent view and review state'
   assert.equal(sessions.activate(first.reviewId).annotationView, 'list')
   assert.equal(first.sourceEditingId, 'block-2')
   assert.equal(first.sourceDrafts.get('block-2'), 'A proposed source edit')
-  assert.equal(first.tree.root.children[0].collapsed, true)
-  assert.equal(first.tree.root.children[0].feedback, 'First feedback')
-  assert.deepEqual(first.tree.root.children[0].attachments, [{ id: 'img-1' }])
+  assert.equal(firstBlock.collapsed, true)
+  assert.equal(firstBlock.feedback, 'First feedback')
+  assert.deepEqual(firstBlock.attachments, [{ id: 'img-1' }])
   assert.equal(sessions.activate(second.reviewId).selectedId, 'block-3')
-  assert.equal(second.tree.root.children[0].feedback, 'Second feedback')
+  assert.equal(secondBlock.feedback, 'Second feedback')
   assert.equal(sessions.activate(third.reviewId).sourceCollapsed, true)
 })
 
 test('status updates do not activate another review', () => {
   const sessions = new ReviewSessions()
-  const first = sessions.add(document('mko_first11', 'first.md'))
-  const second = sessions.add(document('mko_second2', 'second.md'))
+  const first = sessions.add(reviewDocument('mko_first11', 'first.md'))
+  const second = sessions.add(reviewDocument('mko_second2', 'second.md'))
   sessions.activate(first.reviewId)
 
   sessions.updateStatus(second.reviewId, 'pending-agent')
 
-  assert.equal(sessions.active().reviewId, first.reviewId)
+  assert.equal(sessions.active()?.reviewId, first.reviewId)
   assert.equal(second.tree.review.status, 'pending-agent')
 })
 
 test('adjacent review navigation wraps in either direction', () => {
   const sessions = new ReviewSessions()
-  const first = sessions.add(document('mko_first11', 'first.md'))
-  sessions.add(document('mko_second2', 'second.md'))
-  const third = sessions.add(document('mko_third33', 'third.md'))
+  const first = sessions.add(reviewDocument('mko_first11', 'first.md'))
+  sessions.add(reviewDocument('mko_second2', 'second.md'))
+  const third = sessions.add(reviewDocument('mko_third33', 'third.md'))
 
   assert.equal(sessions.adjacent(first.reviewId, -1), third)
   assert.equal(sessions.adjacent(third.reviewId, 1), first)
@@ -93,9 +109,9 @@ test('adjacent review navigation wraps in either direction', () => {
 test('recent reviews are ordered by last activation', () => {
   let now = Date.parse('2026-07-31T12:00:00.000Z')
   const sessions = new ReviewSessions({ now: () => now })
-  const first = sessions.add(document('mko_first11', 'first.md'))
-  const second = sessions.add(document('mko_second2', 'second.md'))
-  const third = sessions.add(document('mko_third33', 'third.md'))
+  const first = sessions.add(reviewDocument('mko_first11', 'first.md'))
+  const second = sessions.add(reviewDocument('mko_second2', 'second.md'))
+  const third = sessions.add(reviewDocument('mko_third33', 'third.md'))
 
   assert.deepEqual(
     sessions.recent(2).map((session) => session.reviewId),
@@ -145,17 +161,17 @@ test('documents list width leaves room for the two review panes', () => {
 
 test('reviews group by repository basename in project recency order', () => {
   const sessions = new ReviewSessions()
-  const alpha = sessions.add(document(
+  const alpha = sessions.add(reviewDocument(
     'mko_alpha111',
     'alpha.md',
     '/Users/example/projects/alpha'
   ))
-  const beta = sessions.add(document(
+  const beta = sessions.add(reviewDocument(
     'mko_beta2222',
     'beta.md',
     '/Users/example/projects/beta'
   ))
-  const alphaRecent = sessions.add(document(
+  const alphaRecent = sessions.add(reviewDocument(
     'mko_alpha333',
     'decisions.md',
     '/Users/example/projects/alpha/'
@@ -207,20 +223,22 @@ test('project identity falls back to the source directory and then Other', () =>
 
 test('an inactive review snapshot includes its latest in-memory feedback', () => {
   const sessions = new ReviewSessions()
-  const first = sessions.add(document('mko_first11', 'first.md'))
-  const second = sessions.add(document('mko_second2', 'second.md'))
+  const first = sessions.add(reviewDocument('mko_first11', 'first.md'))
+  const second = sessions.add(reviewDocument('mko_second2', 'second.md'))
   sessions.activate(first.reviewId)
-  first.tree.root.children[0].feedback = 'Latest feedback before switching.'
+  const firstBlock = firstNode(first)
+  firstBlock.feedback = 'Latest feedback before switching.'
   sessions.activate(second.reviewId)
 
   const snapshot = sessions.snapshot(first.reviewId)
+  assert.ok(snapshot)
   assert.equal(
-    snapshot.root.children[0].feedback,
+    firstNode({ ...first, tree: snapshot }).feedback,
     'Latest feedback before switching.'
   )
-  snapshot.root.children[0].feedback = 'Outside mutation'
+  firstNode({ ...first, tree: snapshot }).feedback = 'Outside mutation'
   assert.equal(
-    first.tree.root.children[0].feedback,
+    firstBlock.feedback,
     'Latest feedback before switching.'
   )
 })
@@ -234,12 +252,12 @@ test('only managed editing trees are editable', () => {
 
 test('mutation tracking waits for every overlapping operation', async () => {
   const tracker = new ReviewMutationTracker()
-  let finishFirst
-  let finishSecond
-  const first = new Promise((resolve) => {
+  let finishFirst: (() => void) | undefined
+  let finishSecond: (() => void) | undefined
+  const first = new Promise<void>((resolve) => {
     finishFirst = resolve
   })
-  const second = new Promise((resolve) => {
+  const second = new Promise<void>((resolve) => {
     finishSecond = resolve
   })
   tracker.track('mko_review1', first)
@@ -249,11 +267,13 @@ test('mutation tracking waits for every overlapping operation', async () => {
   const waiting = tracker.wait('mko_review1').then(() => {
     settled = true
   })
+  assert.ok(finishSecond)
   finishSecond()
   await Promise.resolve()
   assert.equal(tracker.has('mko_review1'), true)
   assert.equal(settled, false)
 
+  assert.ok(finishFirst)
   finishFirst()
   await waiting
   assert.equal(tracker.has('mko_review1'), false)
@@ -262,12 +282,13 @@ test('mutation tracking waits for every overlapping operation', async () => {
 
 test('mutation tracking is isolated by review', async () => {
   const tracker = new ReviewMutationTracker()
-  let finishOther
-  tracker.track('mko_other1', new Promise((resolve) => {
+  let finishOther: (() => void) | undefined
+  tracker.track('mko_other1', new Promise<void>((resolve) => {
     finishOther = resolve
   }))
 
   await tracker.wait('mko_current1')
   assert.equal(tracker.has('mko_other1'), true)
+  assert.ok(finishOther)
   finishOther()
 })
