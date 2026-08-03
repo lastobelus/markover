@@ -63,6 +63,9 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.equal(help.status, 0)
   assert.equal(help.stderr, '')
   assert.deepEqual(JSON.parse(help.stdout), helpPayload())
+  assert.equal(helpPayload().repository, 'https://github.com/lastobelus/markover')
+  assert.match(helpPayload().requirements.platform, /Apple Silicon or Intel/)
+  assert.match(helpPayload().requirements.installation, /needs no installation/)
 
   const misuse = spawnSync(process.execPath, [cliPath, 'wat'], {
     encoding: 'utf8'
@@ -74,6 +77,28 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(
     misuse.stderr,
     /Run "npm --silent run markover -- help" for complete usage\./
+  )
+})
+
+test('common agent mistakes point directly to the intended command', () => {
+  assert.throws(
+    () => parseCommandArguments(['/tmp/review.md']),
+    (error) => (
+      /use the open command/.test(error.message) &&
+      error.usage === "markover open '/tmp/review.md' --summary <text>"
+    )
+  )
+  assert.throws(
+    () => parseCommandArguments(['/tmp/my review.md']),
+    (error) => error.usage ===
+      "markover open '/tmp/my review.md' --summary <text>"
+  )
+  assert.throws(
+    () => parseCommandArguments(['check']),
+    (error) => (
+      /run get with the retained review ID/.test(error.message) &&
+      error.usage === 'markover get <review-id>'
+    )
   )
 })
 

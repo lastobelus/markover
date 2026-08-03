@@ -23,6 +23,10 @@ const helpAliases = new Set(['help', 'info', '--help', '-h'])
 const recoveryHint =
   `Run "${invocation} help" for complete usage.`
 
+function shellQuote(value) {
+  return `'${value.replaceAll("'", `'\\''`)}'`
+}
+
 function commandError(message, usage) {
   const error = new Error(message)
   error.usage = usage
@@ -34,7 +38,13 @@ function helpPayload() {
     format: 'markover-help',
     version: 1,
     purpose: 'Review Markdown as a block tree and return structured feedback to an agent.',
+    repository: 'https://github.com/lastobelus/markover',
     invocation: `${invocation} <command>`,
+    requirements: {
+      platform: 'macOS (Apple Silicon or Intel)',
+      node: '20 or newer',
+      installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first use.'
+    },
     workflow: [
       'Create the Markdown file before opening it.',
       'Run open once, then retain the returned reviewId in the agent thread.',
@@ -89,6 +99,18 @@ function parseCommandArguments(args) {
     return { command: 'help' }
   }
   if (!['open', 'get', 'edit'].includes(command)) {
+    if (command === 'check') {
+      throw commandError(
+        'There is no check command. After the user says “Check Markover,” run get with the retained review ID.',
+        'markover get <review-id>'
+      )
+    }
+    if (!command.startsWith('-') && /(?:^|[/\\])[^/\\]+\.(?:md|markdown|mdown|mkd)$/i.test(command)) {
+      throw commandError(
+        `To review ${command}, use the open command and explain the review context.`,
+        `markover open ${shellQuote(command)} --summary <text>`
+      )
+    }
     throw commandError(
       `Unknown command: ${command}`,
       'markover <open|get|edit|help> ...'
