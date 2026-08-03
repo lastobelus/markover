@@ -1295,6 +1295,25 @@ p {
   pointer-events: none;
 }
 
+.source-error-tooltip {
+  position: fixed;
+  z-index: 95;
+  width: min(420px, calc(100vw - 20px));
+  max-height: min(240px, calc(100vh - 20px));
+  overflow: auto;
+  padding: 9px 11px;
+  box-sizing: border-box;
+  border: 1px solid var(--source-error);
+  border-top-width: 3px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 12px 28px var(--shadow);
+  font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+
 .rendered-annotation {
   color: var(--ink);
   background: var(--surface);

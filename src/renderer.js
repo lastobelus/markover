@@ -42,6 +42,7 @@ const elements = {
   sourceDiffStats: document.querySelector('#source-diff-stats'),
   sourceEdit: document.querySelector('#source-edit'),
   sourceEditor: document.querySelector('#source-editor'),
+  sourceErrorTooltip: document.querySelector('#source-error-tooltip'),
   sourcePanel: document.querySelector('.source-panel'),
   sourceRevert: document.querySelector('#source-revert'),
   sourceSave: document.querySelector('#source-save'),
@@ -294,6 +295,43 @@ function createRenderedAnnotation(node, options = {}) {
 function hideAnnotationSneakPeek() {
   elements.annotationSneakPeek.hidden = true
   elements.annotationSneakPeek.replaceChildren()
+}
+
+function hideSourceErrorTooltip() {
+  elements.sourceErrorTooltip.hidden = true
+  elements.sourceErrorTooltip.textContent = ''
+}
+
+function showSourceErrorTooltip() {
+  const message = elements.sourcePanel.dataset.yamlError
+  if (!message || state.sourceEditingId) return
+
+  elements.sourceErrorTooltip.textContent = message
+  elements.sourceErrorTooltip.hidden = false
+  const anchor = elements.sourcePanel.getBoundingClientRect()
+  const tooltip = elements.sourceErrorTooltip.getBoundingClientRect()
+  const position = MarkoverAnnotationBlock.popoverPosition(
+    anchor,
+    tooltip,
+    { width: window.innerWidth, height: window.innerHeight }
+  )
+  elements.sourceErrorTooltip.style.left = `${position.x}px`
+  elements.sourceErrorTooltip.style.top = `${position.y}px`
+}
+
+function leaveSourceErrorTooltip() {
+  if (!elements.sourcePanel.contains(document.activeElement)) {
+    hideSourceErrorTooltip()
+  }
+}
+
+function blurSourceErrorTooltip(event) {
+  if (
+    !elements.sourcePanel.contains(event.relatedTarget) &&
+    !elements.sourcePanel.matches(':hover')
+  ) {
+    hideSourceErrorTooltip()
+  }
 }
 
 function showAnnotationSneakPeek(node, marker) {
@@ -947,8 +985,17 @@ function renderSourcePanel(node) {
     ? MarkoverTree.yamlDiagnostic(node.sourceEdit.current)
     : null
 
+  hideSourceErrorTooltip()
   elements.sourcePanel.classList.toggle('has-yaml-error', Boolean(yamlError))
-  elements.sourcePanel.title = yamlError?.message || ''
+  elements.sourcePanel.dataset.yamlError = yamlError?.message || ''
+  if (yamlError) {
+    elements.sourceToggle.setAttribute('aria-describedby', 'source-error-tooltip')
+    if (elements.sourcePanel.contains(document.activeElement)) {
+      requestAnimationFrame(showSourceErrorTooltip)
+    }
+  } else {
+    elements.sourceToggle.removeAttribute('aria-describedby')
+  }
   elements.sourceContent.hidden = state.sourceCollapsed
   elements.sourceEdit.hidden = !editable || editing
   elements.sourceEdit.disabled = !editable
@@ -2226,6 +2273,11 @@ elements.sourceEditor.addEventListener('keydown', (event) => {
   if (node) cancelSourceEdit(node)
 })
 
+elements.sourcePanel.addEventListener('mouseenter', showSourceErrorTooltip)
+elements.sourcePanel.addEventListener('mouseleave', leaveSourceErrorTooltip)
+elements.sourcePanel.addEventListener('focusin', showSourceErrorTooltip)
+elements.sourcePanel.addEventListener('focusout', blurSourceErrorTooltip)
+
 elements.imagePreviewClose.addEventListener('click', closeImagePreview)
 elements.imagePreview.addEventListener('click', (event) => {
   if (event.target === elements.imagePreview) closeImagePreview()
@@ -2252,6 +2304,7 @@ MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
 })
 window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
+  if (!elements.sourceErrorTooltip.hidden) showSourceErrorTooltip()
   applyDocumentsListWidth()
   updatePinnedSelection()
   MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
