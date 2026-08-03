@@ -1,25 +1,29 @@
 {
   "name": "markover",
   "productName": "Markover",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A tiny structured Markdown review tool for giving feedback to agent threads.",
   "main": "src/main.js",
   "bin": {
     "markover": "scripts/markover.js"
   },
   "scripts": {
+    "build:icon:mac": "node scripts/build-macos-icon.js",
+    "build:cli": "node scripts/build-cli.js",
     "build:vendor": "esbuild src/pierre-diffs-entry.mjs --bundle --format=iife --platform=browser --minify --outfile=src/vendor/pierre-diffs.js && esbuild src/yaml-entry.mjs --bundle --format=iife --platform=browser --minify --outfile=src/vendor/yaml.js",
+    "package:mac": "npm run build:icon:mac && node scripts/package-macos.js",
     "postinstall": "npm run build:vendor",
     "markover": "node scripts/markover.js",
     "start": "node scripts/start.js",
     "review": "node scripts/review.js",
     "review:open": "node scripts/open-review.js",
     "test": "node --test",
-    "check": "node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/review.js && node --check scripts/start.js && node --check src/annotation-block.js && node --check src/annotations.js && node --check src/app-menu.js && node --check src/image-preview.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/metadata-discovery.js && node --check src/pierre-diffs-entry.mjs && node --check src/yaml-entry.mjs && node --check src/preload.js && node --check src/review-sessions.js && node --check src/review-store.js && node --check src/settings.js && node --check src/settings-store.js && node --check src/tree.js && node --check src/navigation.js && node --check src/renderer.js"
+    "check": "node --check scripts/build-cli.js && node --check scripts/build-macos-icon.js && node --check scripts/markover.js && node --check scripts/open-review.js && node --check scripts/package-macos.js && node --check scripts/review.js && node --check scripts/start.js && node --check packages/cli/src/bootstrap.js && node --check packages/cli/src/index.js && node --check src/annotation-block.js && node --check src/annotations.js && node --check src/app-menu.js && node --check src/image-preview.js && node --check src/local-client.js && node --check src/local-service.js && node --check src/main.js && node --check src/metadata-discovery.js && node --check src/pierre-diffs-entry.mjs && node --check src/preload.js && node --check src/review-migration.js && node --check src/review-sessions.js && node --check src/review-store.js && node --check src/service-endpoint.js && node --check src/settings.js && node --check src/settings-store.js && node --check src/source-edits.js && node --check src/tree.js && node --check src/yaml-entry.mjs && node --check src/navigation.js && node --check src/renderer.js"
   },
   "author": "lastobelus",
   "license": "MIT",
   "devDependencies": {
+    "@electron/packager": "^20.0.4",
     "electron": "43.2.0",
     "esbuild": "0.25.8",
     "jsdom": "^29.0.1"

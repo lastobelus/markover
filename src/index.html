@@ -162,7 +162,12 @@
         </div>
         <div class="pane-header annotation-selection-header">
           <h2 id="selected-title">—</h2>
-          <span id="selected-location" class="status-pill">—</span>
+          <button
+            id="selected-location"
+            class="status-pill selected-location"
+            type="button"
+            disabled
+          >—</button>
         </div>
 
         <div id="selected-annotation-view" class="selected-annotation-view">
@@ -351,6 +356,7 @@
     <script src="annotation-block.js"></script>
     <script src="navigation.js"></script>
     <script src="review-sessions.js"></script>
+    <script src="source-edits.js"></script>
     <script src="image-preview.js"></script>
     <script src="settings.js"></script>
     <script src="vendor/pierre-diffs.js"></script>

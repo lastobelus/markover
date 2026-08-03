@@ -27,11 +27,19 @@
     }
 
     const entries = (document.contents?.items || []).map((pair) => {
-      const start = pair.key?.range?.[0]
-      const end = pair.value?.range?.[2] ?? pair.key?.range?.[2]
-      if (!Number.isInteger(start) || !Number.isInteger(end)) return null
+      const keyStart = pair.key?.range?.[0]
+      const valueEnd = pair.value?.range?.[2] ?? pair.key?.range?.[2]
+      if (!Number.isInteger(keyStart) || !Number.isInteger(valueEnd)) return null
 
-      const raw = source.slice(start, end).replace(/\n$/, '')
+      const start = source.lastIndexOf('\n', keyStart - 1) + 1
+      if (source.slice(start, keyStart).trim()) return null
+
+      const rangeEnd = source[valueEnd - 1] === '\n' ? valueEnd - 1 : valueEnd
+      const nextBreak = source.indexOf('\n', rangeEnd)
+      const end = nextBreak === -1 ? source.length : nextBreak
+      if (source.slice(rangeEnd, end).trim()) return null
+
+      const raw = source.slice(start, end)
       const linesBefore = source.slice(0, start).split('\n').length - 1
       return {
         key: source.slice(pair.key.range[0], pair.key.range[1]),

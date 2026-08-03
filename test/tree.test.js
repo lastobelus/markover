@@ -228,6 +228,38 @@ test('accepts an explicit YAML end marker and empty frontmatter', () => {
   assert.equal(paragraph.lineStart, 4)
 })
 
+test('keeps comments visible in the parent and only creates line-safe entries', () => {
+  const source = `---
+# Frontmatter rationale
+title: Review # Shown with its pair
+# Applies to the next setting
+draft:
+---
+`
+  const tree = parseMarkdown(source)
+  const frontmatter = tree.root.children[0]
+
+  assert.equal(frontmatter.raw, source.trimEnd())
+  assert.deepEqual(
+    frontmatter.children.map((node) => node.raw),
+    ['title: Review # Shown with its pair', 'draft:']
+  )
+})
+
+test('keeps flow maps and explicit keys on the read-only parent', () => {
+  const sources = [
+    '---\n{title: Review, draft: false}\n---\n',
+    '---\n? title\n: Review\n---\n'
+  ]
+
+  for (const source of sources) {
+    const frontmatter = parseMarkdown(source).root.children[0]
+    assert.equal(frontmatter.type, 'frontmatter')
+    assert.deepEqual(frontmatter.children, [])
+    assert.equal(frontmatter.raw, source.trimEnd())
+  }
+})
+
 test('leaves unclosed, malformed, and non-mapping frontmatter to Markdown', () => {
   const sources = [
     '---\ntitle: unclosed\n',

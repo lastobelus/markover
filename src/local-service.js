@@ -38,6 +38,7 @@ function errorStatus(error) {
   if (error.code === 'NOT_FOUND') return 404
   if (
     error.code === 'INVALID_ID' ||
+    error.code === 'INVALID_IMPORT' ||
     error.code === 'INVALID_JSON' ||
     error.code === 'INVALID_REVIEW' ||
     error.code === 'REVIEW_MISMATCH'
@@ -61,6 +62,7 @@ function reviewRoute(pathname) {
 async function startLocalService({
   store,
   beforeAction = async () => {},
+  importReviews = async () => [],
   onChange = () => {}
 }) {
   const actionQueues = new Map()
@@ -86,6 +88,21 @@ async function startLocalService({
 
       if (request.method === 'GET' && url.pathname === '/reviews') {
         sendJson(response, 200, { reviews: await store.list() })
+        return
+      }
+
+      if (request.method === 'POST' && url.pathname === '/reviews/import') {
+        const body = await readJson(request)
+        if (typeof body?.sourceDirectory !== 'string' || !body.sourceDirectory) {
+          const error = new Error('A review import source directory is required.')
+          error.code = 'INVALID_IMPORT'
+          throw error
+        }
+        const reviewIds = await importReviews(body.sourceDirectory)
+        for (const reviewId of reviewIds) {
+          await onChange(await store.load(reviewId), 'imported')
+        }
+        sendJson(response, 200, { imported: reviewIds })
         return
       }
 

@@ -57,10 +57,12 @@ foundation for a production architecture.
    for switching review sessions.
 4. **Managed reviews are durable sessions.** Each `markover open` call creates a
    distinct review ID and atomically writes its complete artifact after every
-   mutation to `.markover/reviews/<review-id>/review.json`. Restarting the
-   single application instance restores every managed review and its collapse,
-   feedback, status, and attachment state. Selection is retained while switching
-   tabs during an application run and resets to the first block after restart.
+   mutation to Markover's per-user application-data `reviews` directory.
+   Restarting the single application instance restores every managed review and
+   its collapse, feedback, status, and attachment state. Selection is retained
+   while switching tabs during an application run and resets to the first block
+   after restart. The first upgraded checkout imports managed reviews from its
+   former `.markover/reviews` directory without overwriting user-data copies.
 5. **Structural labels do not repeat source markers.** Headings use `H1`, `H2`,
    and so on; ordered items use their actual index; unordered items use an open
    bullet. The block text contains only the item's content.
@@ -111,11 +113,11 @@ foundation for a production architecture.
 ## Screenshot attachments
 
 1. **Pasted screenshots are workspace files, not JSON payloads.** Managed
-   reviews store them under
-   `.markover/reviews/<review-id>/attachments/`. Legacy blocking reviews retain
-   their gitignored `.markover/attachments/` directory and optional
-   `--attachments-dir <path>` override. Emitted paths are absolute so a
-   same-workspace agent can inspect them directly.
+   reviews store them under each review in Markover's per-user application-data
+   directory. Legacy blocking reviews retain their gitignored
+   `.markover/attachments/` directory and optional `--attachments-dir <path>`
+   override. Emitted paths are absolute so a same-machine agent can inspect them
+   directly.
 2. **Attachments and prose remain separate data.** A node gains an ordered
    `attachments` array only when an image is pasted. Each entry contains an ID,
    type, MIME type, absolute path, byte checksum, pixel dimensions, and optional
@@ -178,9 +180,10 @@ foundation for a production architecture.
 
 ## Multi-document application state
 
-1. **One Electron instance owns a review inbox.** A checkout-specific
-   single-instance `launchd` service exposes a small loopback JSON API. Startup
-   retry stays inside the CLI process and does not spend agent turns polling.
+1. **One Markover application instance owns a review inbox.** A shared per-user
+   endpoint record points agent CLIs from any checkout to its small loopback JSON
+   API. Electron's single-instance lock prevents duplicate owners. Startup retry
+   stays inside the CLI process and does not spend agent turns polling.
 2. **Every managed review has an independent tab.** Switching tabs preserves
    selection, collapsed blocks, annotations, and attachment previews.
    Control-Tab and Control-Shift-Tab cycle reviews.
@@ -225,5 +228,6 @@ foundation for a production architecture.
 - Agent result writeback, per-annotation outcomes, and addressed state
 - Organized review history, revisions, retention, and cleanup
 - Automatic pull-request discovery
-- Security hardening, accessibility, packaging, signing, and auto-update
+- Security hardening, accessibility, trusted distribution signing/notarization,
+  and auto-update
 - Compatibility guarantees for the tree format

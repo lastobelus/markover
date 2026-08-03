@@ -5,6 +5,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { requestJson } = require('../src/local-client')
 const { startLocalService } = require('../src/local-service')
+const { importLegacyReviews } = require('../src/review-migration')
 const { ReviewStore } = require('../src/review-store')
 const { parseMarkdown } = require('../src/tree')
 
@@ -20,6 +21,7 @@ async function serviceFixture(t, options = {}) {
   const service = await startLocalService({
     store,
     beforeAction: options.beforeAction,
+    importReviews: options.importReviews,
     async onChange(artifact, action) {
       changes.push({ artifact, action })
       await options.onChange?.(artifact, action)
@@ -103,6 +105,47 @@ test('lists and loads reviews through one-shot requests', async (t) => {
   )
   assert.equal(listed.reviews.length, 1)
   assert.deepEqual(listed.reviews[0], loaded)
+})
+
+test('imports checkout reviews and publishes them before handoff', async (t) => {
+  const sourceDirectory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-service-import-')
+  )
+  t.after(() => fs.rm(sourceDirectory, { recursive: true, force: true }))
+  const sourceStore = new ReviewStore(sourceDirectory, {
+    idFactory: () => 'mko_import01'
+  })
+  await sourceStore.create({
+    tree: tree(),
+    contextSummary: 'Import this review.'
+  })
+
+  let targetDirectory
+  const fixture = await serviceFixture(t, {
+    importReviews(source) {
+      return importLegacyReviews(source, targetDirectory)
+    }
+  })
+  targetDirectory = fixture.store.directory
+
+  assert.deepEqual(
+    await requestJson(fixture.endpointPath, 'POST', '/reviews/import', {
+      sourceDirectory
+    }),
+    { imported: ['mko_import01'] }
+  )
+  assert.deepEqual(
+    fixture.changes.map(({ action, artifact }) => [action, artifact.review.id]),
+    [['imported', 'mko_import01']]
+  )
+  assert.equal(
+    (await requestJson(
+      fixture.endpointPath,
+      'GET',
+      '/reviews/mko_import01'
+    )).review.status,
+    'editing'
+  )
 })
 
 test('returns structured errors to the client', async (t) => {

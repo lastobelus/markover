@@ -14,7 +14,12 @@ const path = require('node:path')
 const { applicationMenuTemplate } = require('./app-menu')
 const { startLocalService } = require('./local-service')
 const { discoverRepositoryRoot } = require('./metadata-discovery')
+const { importLegacyReviews } = require('./review-migration')
 const { ReviewStore } = require('./review-store')
+const {
+  reviewsDirectory,
+  serviceEndpointPath
+} = require('./service-endpoint')
 const { SettingsStore } = require('./settings-store')
 const {
   darkColorization,
@@ -33,12 +38,13 @@ function argumentValue(option) {
 const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') || Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
-const markoverDirectory = path.join(projectDirectory, '.markover')
-const endpointPath = path.join(markoverDirectory, 'service.json')
+const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
+const endpointPath = serviceEndpointPath()
 const reviewStore = reviewMode
   ? null
-  : new ReviewStore(path.join(markoverDirectory, 'reviews'))
+  : new ReviewStore(reviewsDirectory())
 const hasSingleInstanceLock = reviewMode || app.requestSingleInstanceLock()
+const backgroundServerMode = !reviewMode && process.argv.includes('--markover-server')
 let reviewDocumentPromise = null
 let reviewFinished = false
 let reviewConfigPromise = null
@@ -316,7 +322,7 @@ async function openMarkdown() {
   }
 }
 
-function createWindow() {
+function createWindow({ show = !backgroundServerMode } = {}) {
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
@@ -325,10 +331,12 @@ function createWindow() {
     height: 760,
     minWidth: 760,
     minHeight: 520,
+    show,
     backgroundColor: windowBackground(
       startupSettings,
       startupSettings.resolvedAppearance
     ),
+    icon: appIconPath,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -395,12 +403,9 @@ async function managedDocuments(artifacts) {
 function sendManagedReview(artifact) {
   activeManagedReview = artifact
   activeManagedReviewId = artifact.review.id
-  if (!mainWindow) createWindow()
+  if (!mainWindow) createWindow({ show: false })
   const send = () => {
     mainWindow?.webContents.send('review:opened', managedDocument(artifact))
-    if (mainWindow?.isMinimized()) mainWindow.restore()
-    mainWindow?.show()
-    mainWindow?.focus()
   }
   if (mainWindow.webContents.isLoadingMainFrame()) {
     mainWindow.webContents.once('did-finish-load', send)
@@ -469,22 +474,12 @@ async function flushManagedReview(reviewId) {
   }
 }
 
-async function removeOwnEndpoint() {
-  try {
-    const endpoint = JSON.parse(await fs.readFile(endpointPath, 'utf8'))
-    if (endpoint.pid === process.pid) await fs.unlink(endpointPath)
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      process.stderr.write(`markover service cleanup: ${error.message}\n`)
-    }
-  }
-}
-
 if (!hasSingleInstanceLock) {
   app.quit()
 } else {
   if (!reviewMode) {
-    app.on('second-instance', () => {
+    app.on('second-instance', (_event, commandLine) => {
+      if (commandLine.includes('--markover-server')) return
       if (!mainWindow) createWindow()
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.show()
@@ -493,7 +488,14 @@ if (!hasSingleInstanceLock) {
   }
 
   app.whenReady().then(async () => {
+    if (process.platform === 'darwin' && !app.isPackaged) {
+      app.dock.setIcon(appIconPath)
+    }
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
+    else if (!app.isPackaged) await importLegacyReviews(
+      path.join(projectDirectory, '.markover', 'reviews'),
+      reviewsDirectory()
+    )
 
     settingsStore = new SettingsStore(
       path.join(app.getPath('userData'), 'settings.json')
@@ -592,6 +594,10 @@ if (!hasSingleInstanceLock) {
       localService = await startLocalService({
         store: reviewStore,
         beforeAction: flushManagedReview,
+        importReviews: (sourceDirectory) => importLegacyReviews(
+          sourceDirectory,
+          reviewStore.directory
+        ),
         async onChange(artifact, action) {
           if (action === 'created') sendManagedReview(artifact)
           else await sendManagedStatus(artifact)
@@ -605,7 +611,10 @@ if (!hasSingleInstanceLock) {
     }
 
     app.on('activate', () => {
-      if (!reviewMode && BrowserWindow.getAllWindows().length === 0) createWindow()
+      if (reviewMode) return
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+      mainWindow?.show()
+      mainWindow?.focus()
     })
   }).catch((error) => {
     process.stderr.write(`markover: ${error.stack || error.message}\n`)
@@ -615,7 +624,6 @@ if (!hasSingleInstanceLock) {
   app.on('before-quit', () => {
     settingsUnsubscribe?.()
     if (localService) localService.close().catch(() => {})
-    removeOwnEndpoint()
   })
 
   app.on('window-all-closed', () => {

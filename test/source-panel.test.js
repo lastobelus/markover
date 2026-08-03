@@ -21,14 +21,13 @@ test('source preview wraps, grows to twelve lines, and remains collapsible', () 
   assert.match(styles, /\.selected-source \{[^}]*overflow-wrap: anywhere;[^}]*white-space: pre-wrap;/)
 })
 
-test('frontmatter parent hides source while entries use plain monospace styling', () => {
+test('frontmatter parent source is read-only while entries use plain monospace styling', () => {
   const renderer = read('src/renderer.js')
   const styles = read('src/styles.css')
 
-  assert.match(renderer, /elements\.sourcePanel\.hidden = !sourceVisible/)
-  assert.match(renderer, /node\.sourceEditable !== false/)
-  assert.match(renderer, /content\.className = 'block-content frontmatter-entry'/)
-  assert.match(renderer, /content\.textContent = node\.text/)
+  assert.match(renderer, /isCurrentReviewEditable\(\) && node\.sourceEditable !== false/)
+  assert.match(renderer, /content\.className = `block-content frontmatter-entry/)
+  assert.match(renderer, /node\.type === 'frontmatter-entry'[\s\S]*node\.sourceEdit\?\.current \|\| node\.text/)
   assert.match(
     styles,
     /\.block-content\.frontmatter-entry \{[^}]*ui-monospace[^}]*white-space: pre-wrap;/

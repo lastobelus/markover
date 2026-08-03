@@ -2,27 +2,30 @@
 
 const { spawnSync } = require('node:child_process')
 const crypto = require('node:crypto')
+const fsSync = require('node:fs')
 const fs = require('node:fs/promises')
 const os = require('node:os')
 const path = require('node:path')
-const electronPath = require('electron')
 const { requestJson } = require('../src/local-client')
 const {
   discoverReviewMetadata,
   HANDOFF_KEY_PATTERN
 } = require('../src/metadata-discovery')
+const { serviceEndpointPath } = require('../src/service-endpoint')
 const { parseMarkdown } = require('../src/tree')
 
 const projectDirectory = path.resolve(__dirname, '..')
-const defaultEndpointPath = path.join(
-  projectDirectory,
-  '.markover',
-  'service.json'
-)
+const defaultEndpointPath = serviceEndpointPath()
+const invocation = process.env.MARKOVER_INVOCATION ||
+  'npm --silent run markover --'
 
 const helpAliases = new Set(['help', 'info', '--help', '-h'])
 const recoveryHint =
-  'Run "npm --silent run markover -- help" for complete usage.'
+  `Run "${invocation} help" for complete usage.`
+
+function shellQuote(value) {
+  return `'${value.replaceAll("'", `'\\''`)}'`
+}
 
 function commandError(message, usage) {
   const error = new Error(message)
@@ -35,7 +38,13 @@ function helpPayload() {
     format: 'markover-help',
     version: 1,
     purpose: 'Review Markdown as a block tree and return structured feedback to an agent.',
-    invocation: 'npm --silent run markover -- <command>',
+    repository: 'https://github.com/lastobelus/markover',
+    invocation: `${invocation} <command>`,
+    requirements: {
+      platform: 'macOS (Apple Silicon or Intel)',
+      node: '20 or newer',
+      installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first use.'
+    },
     workflow: [
       'Create the Markdown file before opening it.',
       'Run open once, then retain the returned reviewId in the agent thread.',
@@ -67,7 +76,7 @@ function helpPayload() {
       }
     ],
     stdout: 'Success writes exactly one JSON value to stdout. Diagnostics use stderr and a non-zero exit status.',
-    persistence: '.markover/reviews/<review-id>/review.json'
+    persistence: 'Markover user data/reviews/<review-id>/review.json'
   }
 }
 
@@ -90,6 +99,18 @@ function parseCommandArguments(args) {
     return { command: 'help' }
   }
   if (!['open', 'get', 'edit'].includes(command)) {
+    if (command === 'check') {
+      throw commandError(
+        'There is no check command. After the user says “Check Markover,” run get with the retained review ID.',
+        'markover get <review-id>'
+      )
+    }
+    if (!command.startsWith('-') && /(?:^|[/\\])[^/\\]+\.(?:md|markdown|mdown|mkd)$/i.test(command)) {
+      throw commandError(
+        `To review ${command}, use the open command and explain the review context.`,
+        `markover open ${shellQuote(command)} --summary <text>`
+      )
+    }
     throw commandError(
       `Unknown command: ${command}`,
       'markover <open|get|edit|help> ...'
@@ -220,54 +241,56 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-function applicationLabel(directory = projectDirectory) {
-  const suffix = crypto
-    .createHash('sha256')
-    .update(path.resolve(directory))
-    .digest('hex')
-    .slice(0, 12)
-  return `com.markover.app.${suffix}`
+function resolveMarkoverApp({
+  architecture = process.arch,
+  environment = process.env,
+  exists = fsSync.existsSync,
+  homeDirectory = os.homedir()
+} = {}) {
+  const candidates = [
+    environment.MARKOVER_APP_PATH,
+    path.join(
+      projectDirectory,
+      'dist',
+      `Markover-darwin-${architecture}`,
+      'Markover.app'
+    ),
+    path.join(homeDirectory, 'Applications', 'Markover.app'),
+    '/Applications/Markover.app'
+  ].filter(Boolean)
+  return candidates.find((candidate) => exists(candidate)) || null
 }
 
-function launchdJobExists(label) {
-  const domain = `gui/${process.getuid()}/${label}`
-  return spawnSync(
-    '/bin/launchctl',
-    ['print', domain],
-    { stdio: 'ignore' }
-  ).status === 0
-}
-
-function startDetachedApp({ replaceStale = false } = {}) {
+function startDetachedApp(options = {}) {
   if (process.platform !== 'darwin') {
     throw new Error('Automatic Markover startup currently requires macOS.')
   }
 
-  const label = applicationLabel()
-  if (replaceStale) {
-    spawnSync('/bin/launchctl', ['remove', label], { stdio: 'ignore' })
-  }
-  const cleanEnvironment = [
-    '/usr/bin/env',
-    '-i',
-    `HOME=${os.homedir()}`,
-    `TMPDIR=${os.tmpdir()}`,
-    `USER=${os.userInfo().username}`,
-    'PATH=/usr/bin:/bin:/usr/sbin:/sbin',
-    electronPath,
-    projectDirectory,
-    '--markover-server'
-  ]
+  const packagedApp = resolveMarkoverApp(options)
+  const application = packagedApp || path.resolve(
+    path.dirname(require('electron')),
+    '../..'
+  )
+  const environment = { ...process.env }
+  delete environment.ELECTRON_RUN_AS_NODE
+  const appArguments = packagedApp
+    ? ['--markover-server']
+    : [projectDirectory, '--markover-server']
   const result = spawnSync(
-    '/bin/launchctl',
-    ['submit', '-l', label, '--', ...cleanEnvironment],
-    { encoding: 'utf8' }
+    '/usr/bin/open',
+    [
+      '-g',
+      '-j',
+      '-n',
+      application,
+      '--args',
+      ...appArguments
+    ],
+    { encoding: 'utf8', env: environment }
   )
   if (result.status !== 0) {
-    if (launchdJobExists(label)) return label
-    throw new Error(result.stderr.trim() || `launchctl exited ${result.status}`)
+    throw new Error(result.stderr.trim() || `open exited ${result.status}`)
   }
-  return label
 }
 
 async function waitForService(endpointPath, deadline) {
@@ -325,6 +348,13 @@ async function executeCommand(
 ) {
   if (parsed.command === 'help') return helpPayload()
 
+  const prepareService = async () => {
+    await ensure()
+    await requestJson(endpointPath, 'POST', '/reviews/import', {
+      sourceDirectory: path.join(projectDirectory, '.markover', 'reviews')
+    })
+  }
+
   if (parsed.command === 'open') {
     const sourcePath = path.resolve(parsed.sourcePath)
     let stats
@@ -352,7 +382,7 @@ async function executeCommand(
       threadId: parsed.threadId,
       handoffKey: parsed.handoffKey
     })
-    await ensure()
+    await prepareService()
     return requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       metadata: {
@@ -362,7 +392,7 @@ async function executeCommand(
     })
   }
 
-  await ensure()
+  await prepareService()
   const reviewId = encodeURIComponent(parsed.reviewId)
   if (parsed.command === 'get') {
     return requestJson(
@@ -374,9 +404,9 @@ async function executeCommand(
   return requestJson(endpointPath, 'POST', `/reviews/${reviewId}/edit`)
 }
 
-async function main() {
+async function main(args = process.argv.slice(2)) {
   try {
-    const parsed = parseCommandArguments(process.argv.slice(2))
+    const parsed = parseCommandArguments(args)
     const result = await executeCommand(parsed)
     process.stdout.write(`${JSON.stringify(result)}\n`)
   } catch (error) {
@@ -388,13 +418,14 @@ async function main() {
 if (require.main === module) main()
 
 module.exports = {
-  applicationLabel,
   checksum,
   defaultEndpointPath,
   ensureService,
   executeCommand,
   formatCommandError,
   helpPayload,
+  main,
   parseCommandArguments,
+  resolveMarkoverApp,
   startDetachedApp
 }

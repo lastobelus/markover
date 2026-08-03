@@ -5,11 +5,11 @@ const os = require('node:os')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const {
-  applicationLabel,
   ensureService,
   executeCommand,
   helpPayload,
-  parseCommandArguments
+  parseCommandArguments,
+  resolveMarkoverApp
 } = require('../scripts/markover')
 const { startLocalService } = require('../src/local-service')
 const { ReviewStore } = require('../src/review-store')
@@ -63,6 +63,9 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.equal(help.status, 0)
   assert.equal(help.stderr, '')
   assert.deepEqual(JSON.parse(help.stdout), helpPayload())
+  assert.equal(helpPayload().repository, 'https://github.com/lastobelus/markover')
+  assert.match(helpPayload().requirements.platform, /Apple Silicon or Intel/)
+  assert.match(helpPayload().requirements.installation, /needs no installation/)
 
   const misuse = spawnSync(process.execPath, [cliPath, 'wat'], {
     encoding: 'utf8'
@@ -74,6 +77,28 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(
     misuse.stderr,
     /Run "npm --silent run markover -- help" for complete usage\./
+  )
+})
+
+test('common agent mistakes point directly to the intended command', () => {
+  assert.throws(
+    () => parseCommandArguments(['/tmp/review.md']),
+    (error) => (
+      /use the open command/.test(error.message) &&
+      error.usage === "markover open '/tmp/review.md' --summary <text>"
+    )
+  )
+  assert.throws(
+    () => parseCommandArguments(['/tmp/my review.md']),
+    (error) => error.usage ===
+      "markover open '/tmp/my review.md' --summary <text>"
+  )
+  assert.throws(
+    () => parseCommandArguments(['check']),
+    (error) => (
+      /run get with the retained review ID/.test(error.message) &&
+      error.usage === 'markover get <review-id>'
+    )
   )
 })
 
@@ -147,18 +172,6 @@ test('parses explicit review metadata', () => {
     ]),
     /handoff-key must match/
   )
-})
-
-test('uses a checkout-specific launch service label', () => {
-  assert.equal(
-    applicationLabel('/tmp/one'),
-    applicationLabel('/tmp/one')
-  )
-  assert.notEqual(
-    applicationLabel('/tmp/one'),
-    applicationLabel('/tmp/two')
-  )
-  assert.match(applicationLabel('/tmp/one'), /^com\.markover\.app\.[a-f0-9]{12}$/)
 })
 
 test('requires one path and a context summary for open', () => {
@@ -294,6 +307,32 @@ test('waits for internally started service without external polling', async (t) 
   })
 
   assert.ok(service)
+})
+
+test('cold startup prefers a packaged Markover app and supports an override', () => {
+  const seen = []
+  const exists = (candidate) => {
+    seen.push(candidate)
+    return candidate === '/Users/reviewer/Applications/Markover.app'
+  }
+  assert.equal(
+    resolveMarkoverApp({
+      architecture: 'arm64',
+      environment: {},
+      exists,
+      homeDirectory: '/Users/reviewer'
+    }),
+    '/Users/reviewer/Applications/Markover.app'
+  )
+  assert.ok(seen.some((candidate) => candidate.includes('Markover-darwin-arm64')))
+
+  assert.equal(
+    resolveMarkoverApp({
+      environment: { MARKOVER_APP_PATH: '/Custom/Markover.app' },
+      exists: (candidate) => candidate === '/Custom/Markover.app'
+    }),
+    '/Custom/Markover.app'
+  )
 })
 
 test('open validates and reads the source before starting Markover', async (t) => {
