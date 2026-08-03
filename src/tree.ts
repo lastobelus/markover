@@ -1,10 +1,82 @@
-(function exposeTree(globalScope) {
+(function exposeTree(globalScope: typeof globalThis) {
+  type LineMap = [number, number]
+  interface MarkdownToken {
+    type: string
+    tag: string
+    map: LineMap | null
+    content: string
+    info: string
+    markup: string
+    nesting: number
+    attrGet(name: string): string | null
+  }
+  interface MarkdownParser {
+    enable(rule: string): void
+    parse(source: string, environment: object): MarkdownToken[]
+  }
+  type MarkdownItFactory = (
+    preset: string,
+    options: Record<string, boolean>
+  ) => MarkdownParser
+  interface YamlRangeNode {
+    range?: [number, number, number?]
+  }
+  interface YamlPair {
+    key?: YamlRangeNode | null
+    value?: YamlRangeNode | null
+  }
+  interface YamlError {
+    linePos?: Array<{ line?: number; col?: number }>
+    message: string
+  }
+  interface YamlDocument {
+    errors: YamlError[]
+    contents?: { items: YamlPair[] } | null
+  }
+  interface YamlApi {
+    parseDocument(
+      source: string,
+      options: { prettyErrors: boolean }
+    ): YamlDocument
+    isMap(value: unknown): boolean
+  }
+  interface BrowserDependencies {
+    markdownit: MarkdownItFactory
+    MarkoverYaml: YamlApi
+  }
+  interface FrontmatterEntry {
+    key: string
+    raw: string
+    lineStart: number
+    lineEnd: number
+  }
+  interface ParsedFrontmatter {
+    closingIndex: number
+    entries: FrontmatterEntry[]
+  }
+  interface HeadingContext {
+    level: number
+    node: HeadingNode
+  }
+  type ListContext = {
+    id: string
+    nodes: Array<OrderedItemNode | UnorderedItemNode>
+  } & (
+    | { ordered: true; nextIndex: number }
+    | { ordered: false; nextIndex: null }
+  )
+  type NodeDefaults = 'id' | 'feedback' | 'collapsed' | 'children'
+  type NewNode<T extends ReviewNode> = Omit<T, NodeDefaults> &
+    Partial<Pick<T, 'collapsed' | 'children'>>
+
+  const browserDependencies = globalScope as typeof globalThis &
+    BrowserDependencies
   const MarkdownIt = typeof require === 'function'
-    ? require('markdown-it')
-    : globalScope.markdownit
+    ? require('markdown-it') as MarkdownItFactory
+    : browserDependencies.markdownit
   const YAML = typeof require === 'function'
-    ? require('yaml')
-    : globalScope.MarkoverYaml
+    ? require('yaml') as YamlApi
+    : browserDependencies.MarkoverYaml
   const markdown = MarkdownIt('commonmark', {
     html: false,
     linkify: false,
@@ -12,7 +84,7 @@
   })
   markdown.enable('table')
 
-  function yamlDiagnostic(source) {
+  function yamlDiagnostic(source: string): YamlDiagnostic | null {
     const document = YAML.parseDocument(source, { prettyErrors: true })
     const error = document.errors[0]
     if (error) {
@@ -24,7 +96,8 @@
       }
     }
 
-    if (YAML.isMap(document.contents) && document.contents.items.length) {
+    const contents = document.contents
+    if (YAML.isMap(contents) && contents?.items.length) {
       return null
     }
 
@@ -35,7 +108,7 @@
     }
   }
 
-  function parseFrontmatter(lines) {
+  function parseFrontmatter(lines: string[]): ParsedFrontmatter | null {
     if (!/^\uFEFF?---\s*$/.test(lines[0] || '')) return null
 
     const closingIndex = lines.findIndex((line, index) => (
@@ -50,14 +123,18 @@
     }
 
     const entries = (document.contents?.items || []).map((pair) => {
-      const keyStart = pair.key?.range?.[0]
-      const valueEnd = pair.value?.range?.[2] ?? pair.key?.range?.[2]
+      const keyRange = pair.key?.range
+      const keyStart = keyRange?.[0]
+      const valueEnd = pair.value?.range?.[2] ?? keyRange?.[2]
       if (!Number.isInteger(keyStart) || !Number.isInteger(valueEnd)) return null
 
-      const start = source.lastIndexOf('\n', keyStart - 1) + 1
+      const start = source.lastIndexOf('\n', (keyStart as number) - 1) + 1
       if (source.slice(start, keyStart).trim()) return null
 
-      const rangeEnd = source[valueEnd - 1] === '\n' ? valueEnd - 1 : valueEnd
+      const numericValueEnd = valueEnd as number
+      const rangeEnd = source[numericValueEnd - 1] === '\n'
+        ? numericValueEnd - 1
+        : numericValueEnd
       const nextBreak = source.indexOf('\n', rangeEnd)
       const end = nextBreak === -1 ? source.length : nextBreak
       if (source.slice(rangeEnd, end).trim()) return null
@@ -65,17 +142,21 @@
       const raw = source.slice(start, end)
       const linesBefore = source.slice(0, start).split('\n').length - 1
       return {
-        key: source.slice(pair.key.range[0], pair.key.range[1]),
+        key: source.slice(keyRange?.[0], keyRange?.[1]),
         raw,
         lineStart: linesBefore + 2,
         lineEnd: linesBefore + 1 + raw.split('\n').length
       }
-    }).filter(Boolean)
+    }).filter((entry): entry is FrontmatterEntry => entry !== null)
 
     return { closingIndex, entries }
   }
 
-  function parseMarkdown(source, checksum = '', document = {}) {
+  function parseMarkdown(
+    source: string,
+    checksum = '',
+    document: ReviewDocumentInput = {}
+  ): ReviewTree {
     const lines = source.replace(/\r\n?/g, '\n').split('\n')
     const frontmatter = parseFrontmatter(lines)
     const markdownSource = frontmatter
@@ -87,7 +168,7 @@
     let sequence = 0
     let listSequence = 0
 
-    const root = {
+    const root: DocumentNode = {
       id: 'document',
       type: 'document',
       text: 'Document',
@@ -99,7 +180,7 @@
       children: []
     }
 
-    const tree = {
+    const tree: ReviewTree = {
       format: 'markover-review',
       version: 1,
       sourceDocument: {
@@ -112,72 +193,81 @@
       root
     }
 
-    const headingStack = []
-    const listItemStack = []
-    const listStack = []
-    let currentSection = root
-    let pendingHeading = null
-    let pendingParagraph = null
+    const headingStack: HeadingContext[] = []
+    const listItemStack: Array<OrderedItemNode | UnorderedItemNode> = []
+    const listStack: ListContext[] = []
+    let currentSection: ReviewNode = root
+    let pendingHeading: { level: number; map: LineMap } | null = null
+    let pendingParagraph: { map: LineMap } | null = null
 
-    function createNode(properties) {
+    function createNode<T extends ReviewNode>(properties: NewNode<T>): T {
       sequence += 1
       return {
-        id: `block-${sequence}`,
+        id: `block-${String(sequence)}`,
         feedback: '',
         collapsed: false,
         children: [],
         ...properties
-      }
+      } as unknown as T
     }
 
-    function addChild(parent, node) {
+    function addChild(parent: ReviewNode, node: ReviewNode): void {
       parent.children.push(node)
     }
 
-    function rawFromMap(map) {
+    function rawFromMap(map: LineMap | null): string {
       if (!map) return ''
       return lines.slice(map[0], map[1]).join('\n')
     }
 
-    function addUnsupported(map) {
+    function addUnsupported(map: LineMap | null): void {
       if (!map) return
       for (let index = map[0]; index < map[1]; index += 1) {
+        const line = lines[index] as string
         if (
-          lines[index].trim() &&
+          line.trim() &&
           !tree.unsupported.some((entry) => entry.line === index + 1)
         ) {
-          tree.unsupported.push({ line: index + 1, text: lines[index] })
+          tree.unsupported.push({ line: index + 1, text: line })
         }
       }
     }
 
-    function findClosingToken(startIndex, openType, closeType) {
+    function findClosingToken(
+      startIndex: number,
+      openType: string,
+      closeType: string
+    ): number {
       let depth = 0
       for (let index = startIndex; index < tokens.length; index += 1) {
-        if (tokens[index].type === openType) depth += 1
-        if (tokens[index].type === closeType) depth -= 1
+        const token = tokens[index] as MarkdownToken
+        if (token.type === openType) depth += 1
+        if (token.type === closeType) depth -= 1
         if (depth === 0) return index
       }
       return startIndex
     }
 
-    function addMappedNode(type, token, properties = {}) {
+    function addMappedNode(
+      type: 'blockquote' | 'table' | 'thematic-break',
+      token: MarkdownToken
+    ): void {
       const parent = listItemStack.length
-        ? listItemStack[listItemStack.length - 1]
+        ? listItemStack[listItemStack.length - 1] as ReviewNode
         : currentSection
-      const raw = rawFromMap(token.map)
-      addChild(parent, createNode({
+      const map = token.map as LineMap
+      const raw = rawFromMap(map)
+      addChild(parent, createNode<BlockquoteNode | TableNode | ThematicBreakNode>({
         type,
         text: raw,
         raw,
-        lineStart: token.map[0] + 1,
-        lineEnd: token.map[1],
-        ...properties
+        lineStart: map[0] + 1,
+        lineEnd: map[1]
       }))
     }
 
     if (frontmatter) {
-      const parent = createNode({
+      const parent = createNode<FrontmatterNode>({
         type: 'frontmatter',
         text: 'YAML Frontmatter',
         raw: lines.slice(0, frontmatter.closingIndex + 1).join('\n'),
@@ -187,7 +277,7 @@
         sourceEditable: false
       })
       for (const entry of frontmatter.entries) {
-        addChild(parent, createNode({
+        addChild(parent, createNode<FrontmatterEntryNode>({
           type: 'frontmatter-entry',
           text: entry.raw,
           raw: entry.raw,
@@ -200,7 +290,7 @@
     }
 
     for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
-      const token = tokens[tokenIndex]
+      const token = tokens[tokenIndex] as MarkdownToken
 
       if (token.type === 'blockquote_open') {
         addMappedNode('blockquote', token)
@@ -221,7 +311,7 @@
       if (token.type === 'heading_open') {
         pendingHeading = {
           level: Number(token.tag.slice(1)),
-          map: token.map
+          map: token.map as LineMap
         }
         continue
       }
@@ -230,15 +320,15 @@
         const { level, map } = pendingHeading
         while (
           headingStack.length &&
-          headingStack[headingStack.length - 1].level >= level
+          (headingStack[headingStack.length - 1] as HeadingContext).level >= level
         ) {
           headingStack.pop()
         }
 
         const parent = headingStack.length
-          ? headingStack[headingStack.length - 1].node
+          ? (headingStack[headingStack.length - 1] as HeadingContext).node
           : root
-        const node = createNode({
+        const node = createNode<HeadingNode>({
           type: 'heading',
           level,
           text: token.content,
@@ -255,13 +345,13 @@
       }
 
       if (token.type === 'paragraph_open' && !listItemStack.length) {
-        pendingParagraph = { map: token.map }
+        pendingParagraph = { map: token.map as LineMap }
         continue
       }
 
       if (token.type === 'inline' && pendingParagraph) {
         const { map } = pendingParagraph
-        addChild(currentSection, createNode({
+        addChild(currentSection, createNode<ParagraphNode>({
           type: 'paragraph',
           text: token.content,
           raw: rawFromMap(map),
@@ -280,39 +370,45 @@
       if (token.type === 'ordered_list_open' || token.type === 'bullet_list_open') {
         const ordered = token.type === 'ordered_list_open'
         listSequence += 1
-        listStack.push({
-          id: `list-${listSequence}`,
-          ordered,
-          nextIndex: ordered ? Number(token.attrGet('start') || 1) : null,
-          nodes: []
-        })
+        const id = `list-${String(listSequence)}`
+        listStack.push(ordered
+          ? {
+              id,
+              ordered: true,
+              nextIndex: Number(token.attrGet('start') || 1),
+              nodes: []
+            }
+          : { id, ordered: false, nextIndex: null, nodes: [] })
         continue
       }
 
       if (token.type === 'ordered_list_close' || token.type === 'bullet_list_close') {
-        const list = listStack.pop()
+        const list = listStack.pop() as ListContext
         for (const node of list.nodes) node.listLength = list.nodes.length
         continue
       }
 
       if (token.type === 'list_item_open') {
-        const list = listStack[listStack.length - 1]
+        const list = listStack[listStack.length - 1] as ListContext
         const parent = listItemStack.length
-          ? listItemStack[listItemStack.length - 1]
+          ? listItemStack[listItemStack.length - 1] as ReviewNode
           : currentSection
-        const marker = list.ordered ? `${list.nextIndex}.` : token.markup
+        const marker = list.ordered
+          ? `${String(list.nextIndex)}.`
+          : token.markup
         if (list.ordered) list.nextIndex += 1
+        const map = token.map as LineMap
 
-        const node = createNode({
+        const node = createNode<OrderedItemNode | UnorderedItemNode>({
           type: list.ordered ? 'ordered-item' : 'unordered-item',
           marker,
           listId: list.id,
           listPosition: list.nodes.length + 1,
           listLength: null,
           text: '',
-          raw: rawFromMap(token.map),
-          lineStart: token.map[0] + 1,
-          lineEnd: token.map[1]
+          raw: rawFromMap(map),
+          lineStart: map[0] + 1,
+          lineEnd: map[1]
         })
 
         addChild(parent, node)
@@ -327,36 +423,40 @@
       }
 
       if (token.type === 'inline' && listItemStack.length) {
-        const node = listItemStack[listItemStack.length - 1]
+        const node = listItemStack[
+          listItemStack.length - 1
+        ] as OrderedItemNode | UnorderedItemNode
         const firstInline = node.text === ''
         let text = token.content
         if (firstInline) {
           const task = text.match(/^\[([ xX])\]\s+([\s\S]*)$/)
           if (task) {
             node.task = true
-            node.checked = task[1].toLowerCase() === 'x'
-            text = task[2]
+            node.checked = (task[1] as string).toLowerCase() === 'x'
+            text = task[2] as string
           }
         }
         node.text += `${firstInline ? '' : '\n\n'}${text}`
         if (firstInline) {
-          node.raw = rawFromMap(token.map)
-          node.lineEnd = token.map[1]
+          const map = token.map as LineMap
+          node.raw = rawFromMap(map)
+          node.lineEnd = map[1]
         }
         continue
       }
 
       if (token.type === 'fence' || token.type === 'code_block') {
         const parent = listItemStack.length
-          ? listItemStack[listItemStack.length - 1]
+          ? listItemStack[listItemStack.length - 1] as ReviewNode
           : currentSection
-        addChild(parent, createNode({
+        const map = token.map as LineMap
+        addChild(parent, createNode<CodeNode>({
           type: 'code',
           text: token.content.replace(/\n$/, ''),
-          raw: rawFromMap(token.map),
+          raw: rawFromMap(map),
           language: token.info.trim(),
-          lineStart: token.map[0] + 1,
-          lineEnd: token.map[1]
+          lineStart: map[0] + 1,
+          lineEnd: map[1]
         }))
         continue
       }
@@ -374,23 +474,34 @@
     return tree
   }
 
-  function visitNodes(root, visitor, parent = null, ancestors = []) {
+  function visitNodes(
+    root: ReviewNode,
+    visitor: ReviewNodeVisitor,
+    parent: ReviewNode | null = null,
+    ancestors: ReviewNode[] = []
+  ): void {
     for (const node of root.children) {
       visitor(node, parent, ancestors)
       visitNodes(node, visitor, node, [...ancestors, node])
     }
   }
 
-  function findNode(root, id) {
+  function findNode(
+    root: ReviewNode | null | undefined,
+    id: string | null | undefined
+  ): ReviewNode | null {
     if (!root || !id) return null
-    let match = null
+    let match: ReviewNode | null = null
     visitNodes(root, (node) => {
       if (node.id === id) match = node
     })
     return match
   }
 
-  function nodePosition(root, id) {
+  function nodePosition(
+    root: ReviewNode,
+    id: string
+  ): { index: number; total: number } {
     let index = 0
     let selectedIndex = 0
     visitNodes(root, (node) => {
@@ -403,7 +514,7 @@
     }
   }
 
-  function serializeTree(tree) {
+  function serializeTree(tree: ReviewTree): string {
     return JSON.stringify(tree, null, 2)
   }
 
@@ -414,7 +525,7 @@
     serializeTree,
     visitNodes,
     yamlDiagnostic
-  }
+  } satisfies MarkoverTreeApi
   globalScope.MarkoverTree = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

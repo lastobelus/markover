@@ -70,7 +70,7 @@ module.exports = defineConfig([
       'eslint.config.js',
       'packages/cli/**/*.js',
       'scripts/**/*.js',
-      'test/**/*.js',
+      'test/**/*.{js,ts}',
       'src/{app-menu,local-client,local-service,main,metadata-discovery,preload,review-migration,review-store,service-endpoint,settings-store}.js'
     ],
     languageOptions: {
@@ -80,11 +80,21 @@ module.exports = defineConfig([
   },
   {
     files: [
-      'src/{annotation-block,annotations,image-preview,navigation,review-sessions,settings,source-edits,tree}.js'
+      'src/{annotation-block,annotations,image-preview,navigation,review-sessions,settings,source-edits,tree}.{js,ts}'
     ],
     languageOptions: {
       globals: sharedModuleGlobals,
       sourceType: 'script'
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off'
+    }
+  },
+  {
+    files: ['test/**/*.{ts,mts}'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-require-imports': 'off'
     }
   },
   {
