@@ -6,7 +6,6 @@ const fsSync = require('node:fs')
 const fs = require('node:fs/promises')
 const os = require('node:os')
 const path = require('node:path')
-const electronPath = require('electron')
 const { requestJson } = require('../src/local-client')
 const {
   discoverReviewMetadata,
@@ -17,10 +16,12 @@ const { parseMarkdown } = require('../src/tree')
 
 const projectDirectory = path.resolve(__dirname, '..')
 const defaultEndpointPath = serviceEndpointPath()
+const invocation = process.env.MARKOVER_INVOCATION ||
+  'npm --silent run markover --'
 
 const helpAliases = new Set(['help', 'info', '--help', '-h'])
 const recoveryHint =
-  'Run "npm --silent run markover -- help" for complete usage.'
+  `Run "${invocation} help" for complete usage.`
 
 function commandError(message, usage) {
   const error = new Error(message)
@@ -33,7 +34,7 @@ function helpPayload() {
     format: 'markover-help',
     version: 1,
     purpose: 'Review Markdown as a block tree and return structured feedback to an agent.',
-    invocation: 'npm --silent run markover -- <command>',
+    invocation: `${invocation} <command>`,
     workflow: [
       'Create the Markdown file before opening it.',
       'Run open once, then retain the returned reviewId in the agent thread.',
@@ -244,7 +245,10 @@ function startDetachedApp(options = {}) {
   }
 
   const packagedApp = resolveMarkoverApp(options)
-  const application = packagedApp || path.resolve(path.dirname(electronPath), '../..')
+  const application = packagedApp || path.resolve(
+    path.dirname(require('electron')),
+    '../..'
+  )
   const environment = { ...process.env }
   delete environment.ELECTRON_RUN_AS_NODE
   const appArguments = packagedApp
@@ -378,9 +382,9 @@ async function executeCommand(
   return requestJson(endpointPath, 'POST', `/reviews/${reviewId}/edit`)
 }
 
-async function main() {
+async function main(args = process.argv.slice(2)) {
   try {
-    const parsed = parseCommandArguments(process.argv.slice(2))
+    const parsed = parseCommandArguments(args)
     const result = await executeCommand(parsed)
     process.stdout.write(`${JSON.stringify(result)}\n`)
   } catch (error) {
@@ -398,6 +402,7 @@ module.exports = {
   executeCommand,
   formatCommandError,
   helpPayload,
+  main,
   parseCommandArguments,
   resolveMarkoverApp,
   startDetachedApp

@@ -11,6 +11,27 @@
 Markover is a deliberately small Electron prototype for reviewing Markdown as a
 tree and attaching feedback to individual blocks.
 
+## Try without installing
+
+On macOS with Node.js 20 or newer, an agent can open a review with one command:
+
+```sh
+npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover open ./DOCUMENT.md \
+  --summary "Explain why this document exists and what feedback would help."
+```
+
+The 75 KB launcher downloads the app for the current Mac architecture on first
+use, verifies its SHA-256 checksum, and keeps it in the user cache. Later calls
+reuse that app and the same multi-document inbox. No repository clone or npm
+installation is required.
+
+If you are an agent given only “review `DOCUMENT` with
+https://github.com/lastobelus/markover”, read this section, run the command once,
+retain the returned `reviewId`, and stop. When the user later says “Check
+Markover,” run the same launcher with `get <reviewId>`.
+
 ## Prototype scope
 
 - Uses markdown-it's CommonMark preset to parse paragraphs, headings, ordered
