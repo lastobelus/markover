@@ -208,6 +208,16 @@ test('returns structured errors to the client', async (t) => {
     ),
     (error: unknown) => hasServiceError(error, 'INVALID_ID', 400)
   )
+
+  const invalidTree = tree()
+  Reflect.set(invalidTree.root, 'children', 'not-an-array')
+  await assert.rejects(
+    requestJson(endpointPath, 'POST', '/reviews', {
+      tree: invalidTree,
+      metadata: { contextSummary: 'Reject malformed collections.' }
+    }),
+    (error: unknown) => hasServiceError(error, 'INVALID_REVIEW', 400)
+  )
 })
 
 test('handoff waits for the latest renderer snapshot barrier', async (t) => {

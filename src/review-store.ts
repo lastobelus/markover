@@ -77,6 +77,7 @@ export function assertReviewTree(tree: unknown): asserts tree is ReviewTree {
     tree.format !== 'markover-review' ||
     tree.version !== 1 ||
     !tree.sourceDocument ||
+    !Array.isArray(tree.unsupported) ||
     !tree.root
   ) {
     throw new ReviewStoreError(
@@ -93,6 +94,12 @@ function assertSourceEdits(node: unknown): void {
     throw new ReviewStoreError(
       'INVALID_REVIEW',
       'Expected every review block to be an object.'
+    )
+  }
+  if (!Array.isArray(node.children)) {
+    throw new ReviewStoreError(
+      'INVALID_REVIEW',
+      'Expected every review block to have a children array.'
     )
   }
   if (Object.prototype.hasOwnProperty.call(node, 'sourceEdit')) {
@@ -123,8 +130,7 @@ function assertSourceEdits(node: unknown): void {
     }
   }
 
-  const children = Array.isArray(node.children) ? node.children : []
-  for (const child of children) assertSourceEdits(child)
+  for (const child of node.children) assertSourceEdits(child)
 }
 
 export function assertReviewArtifact(

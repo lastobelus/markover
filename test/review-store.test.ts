@@ -556,3 +556,21 @@ test('requires a valid tree and non-empty context summary', async (t) => {
     (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
   )
 })
+
+test('rejects non-array review collections before persistence', async (t) => {
+  const { directory, store } = await temporaryStore()
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const invalidChildren = tree()
+  Reflect.set(invalidChildren.root, 'children', {})
+  const invalidUnsupported = tree()
+  Reflect.set(invalidUnsupported, 'unsupported', null)
+
+  for (const invalidTree of [invalidChildren, invalidUnsupported]) {
+    await assert.rejects(
+      store.create({ tree: invalidTree, contextSummary: 'Review it.' }),
+      (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
+    )
+  }
+  assert.deepEqual(await fs.readdir(directory), [])
+})
