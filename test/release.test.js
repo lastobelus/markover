@@ -48,7 +48,7 @@ test('continuous integration enforces the supported Node versions', () => {
   assert.equal(cliPackage.engines.node, '>=22.13.0')
   assert.match(workflow, /pull_request:/)
   assert.match(workflow, /workflow_dispatch:/)
-  assert.match(workflow, /timeout-minutes: 1/)
+  assert.match(workflow, /timeout-minutes: 3/)
   assert.match(workflow, /fail-fast: false/)
   assert.match(workflow, /- '22\.13\.0'/)
   assert.match(workflow, /- '24'/)
