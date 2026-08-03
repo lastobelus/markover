@@ -1,0 +1,30 @@
+title: "[Idea] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this category to explore a possible improvement before implementation. Search existing Issues and Discussions first. Once the outcome and scope are agreed, the idea can become a scoped proposal issue.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: Who would benefit, and what is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What would a successful experience look like?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Add examples, constraints, screenshots, or related work that would help the discussion.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches or workarounds have you considered?
