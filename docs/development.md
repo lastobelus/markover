@@ -6,7 +6,7 @@ contacts that app and keeps agent-facing output machine-readable.
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22.13.0 or newer
 - npm
 - macOS for running and packaging the desktop app
 
@@ -32,16 +32,47 @@ important reviews.
 
 ## Checks
 
-Run syntax checks and the test suite before committing a completed slice:
+Run the repository-owned ESLint and syntax checks plus the test suite before
+committing a completed slice:
 
 ```sh
 npm run check
 npm test
 ```
 
+Editors should use the committed `.editorconfig` settings. `npm run lint` uses
+the same committed ESLint configuration as `npm run check` and CI.
+
 The tests cover the Markdown tree, navigation, review sessions and persistence,
 the local service and CLI protocol, settings, source-edit proposals, release
 artifacts, and the documentation site.
+
+### GitHub Actions cost controls
+
+Pull requests run the required checks on GitHub-hosted runners. The repository
+currently requires workflow approval from first-time external contributors. If
+external pull requests begin consuming too many Actions minutes, change
+**Settings → Actions → General → Approval for running fork pull request
+workflows from contributors** to **Require approval for all external
+contributors**. This keeps the pull requests open while preventing their
+workflows from consuming runner minutes until a maintainer approves them.
+
+The same kill switch can be enabled with GitHub CLI:
+
+```sh
+gh api --method PUT \
+  repos/lastobelus/markover/actions/permissions/fork-pr-contributor-approval \
+  -f approval_policy=all_external_contributors
+```
+
+### Main branch policy
+
+Protect `main` with a repository ruleset that requires pull requests, requires
+both Node.js CI jobs to pass against the latest `main`, and requires review
+conversations to be resolved. Do not require an approval while Markover has a
+single maintainer. Allow emergency bypass only through a pull request so the
+change and its CI result remain visible. Use squash merges; disable merge
+commits and rebase merges.
 
 ## Package the macOS app
 

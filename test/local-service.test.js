@@ -195,7 +195,7 @@ test('handoff waits for the latest renderer snapshot barrier', async (t) => {
 })
 
 test('handoff waits for the renderer to apply its status', async (t) => {
-  let statusApplied = false
+  let statusApplied
   const fixture = await serviceFixture(t, {
     async onChange() {
       await new Promise((resolve) => setTimeout(resolve, 20))

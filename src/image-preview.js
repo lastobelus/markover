@@ -26,7 +26,9 @@
         return absolute.href
       }
       return null
-    } catch {}
+    } catch {
+      // Continue by resolving the source as a document-relative path.
+    }
 
     if (source.startsWith('/')) return fileUrl(source)
     const documentUrl = fileUrl(documentPath)

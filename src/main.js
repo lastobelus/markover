@@ -466,7 +466,9 @@ async function flushManagedReview(reviewId) {
   } catch (error) {
     try {
       await sendManagedStatus(await reviewStore.load(reviewId))
-    } catch {}
+    } catch {
+      // Preserve the original snapshot failure when status recovery also fails.
+    }
     throw error
   }
   return async () => {

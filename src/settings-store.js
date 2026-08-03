@@ -101,7 +101,9 @@ class SettingsStore {
         if (JSON.stringify(settings) === JSON.stringify(this.settings)) return
         this.settings = settings
         listener({ ...settings })
-      } catch {}
+      } catch {
+        // Ignore transient reads; the next file-system event retries refresh.
+      }
     }
     this.watcher = watch(
       path.dirname(this.filePath),
