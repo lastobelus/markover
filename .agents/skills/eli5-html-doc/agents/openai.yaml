@@ -1,0 +1,4 @@
+interface:
+  display_name: "ELI5 HTML Doc"
+  short_description: "Create self-contained technical explainers"
+  default_prompt: "Use $eli5-html-doc to explain this technical work as a concise, self-contained HTML document."
