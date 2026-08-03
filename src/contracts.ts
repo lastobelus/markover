@@ -354,7 +354,7 @@ declare global {
     status: ReviewSessionStatus
     createdAt?: string
     updatedAt?: string
-    git?: { repositoryRoot?: string | null } | null
+    git?: unknown
   }
 
   type ReviewSessionTree = Omit<ReviewTree, 'review'> & {

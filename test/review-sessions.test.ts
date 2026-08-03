@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import type { ReviewArtifact } from '../src/review-store'
+
 const {
   clampDocumentsListWidth,
   formatRelativeTime,
@@ -11,6 +13,10 @@ const {
   ReviewSessions
 } = require('../src/review-sessions') as MarkoverReviewSessionsApi
 const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
+
+function sessionTreeFromArtifact(tree: ReviewArtifact): ReviewSessionTree {
+  return tree
+}
 
 function reviewDocument(
   reviewId: string,
@@ -225,9 +231,35 @@ test('project identity falls back to the source directory and then Other', () =>
     { key: '/tmp/project', name: 'project', root: '/tmp/project' }
   )
   assert.deepEqual(
+    projectIdentity({
+      path: '/tmp/project/notes.md',
+      tree: { review: { git: 'legacy metadata' } }
+    }),
+    { key: '/tmp/project', name: 'project', root: '/tmp/project' }
+  )
+  assert.deepEqual(
     projectIdentity({ path: null, tree: {} }),
     { key: 'unassigned', name: 'Other', root: null }
   )
+})
+
+test('persisted review artifacts satisfy the browser session boundary', () => {
+  const source = reviewDocument('mko_stored11', 'stored.md').tree
+  const artifact = {
+    ...source,
+    review: {
+      ...source.review,
+      status: 'editing',
+      createdAt: '2026-08-03T12:00:00.000Z',
+      updatedAt: '2026-08-03T12:00:00.000Z',
+      contextSummary: 'Review the stored document.',
+      agentThread: null,
+      git: 'legacy metadata',
+      pullRequest: null
+    }
+  } satisfies ReviewArtifact
+
+  assert.equal(sessionTreeFromArtifact(artifact), artifact)
 })
 
 test('an inactive review snapshot includes its latest in-memory feedback', () => {
