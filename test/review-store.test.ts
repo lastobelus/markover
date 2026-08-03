@@ -1,12 +1,35 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const { ReviewStore } = require('../src/review-store')
-const { parseMarkdown } = require('../src/tree')
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
 
-async function temporaryStore(options = {}) {
+import {
+  assertReviewTree,
+  ReviewStore,
+  ReviewStoreError,
+  type ReviewStoreOptions
+} from '../src/review-store'
+
+const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
+
+function child(node: ReviewNode, index = 0): ReviewNode {
+  const result = node.children[index]
+  assert.ok(result)
+  return result
+}
+
+function attachment(node: ReviewNode, index = 0): ReviewAttachment {
+  const result = node.attachments?.[index]
+  assert.ok(result)
+  return result
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return error instanceof ReviewStoreError && error.code === code
+}
+
+async function temporaryStore(options: ReviewStoreOptions = {}) {
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'markover-store-test-')
   )
@@ -16,7 +39,7 @@ async function temporaryStore(options = {}) {
   }
 }
 
-function tree(source = '# Review\n') {
+function tree(source = '# Review\n'): ReviewTree {
   return parseMarkdown(source, 'sha256:test', {
     name: 'review.md',
     path: '/tmp/review.md'
@@ -26,7 +49,7 @@ function tree(source = '# Review\n') {
 test('creates distinct sessions with exact source and metadata', async (t) => {
   const ids = ['mko_aaa11111', 'mko_bbb22222']
   const { directory, store } = await temporaryStore({
-    idFactory: () => ids.shift(),
+    idFactory: () => ids.shift() as string,
     now: () => '2026-07-30T20:00:00.000Z'
   })
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
@@ -66,7 +89,7 @@ test('handoff freezes an idempotent snapshot', async (t) => {
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111',
-    now: () => timestamps.shift()
+    now: () => timestamps.shift() as string
   })
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
 
@@ -91,7 +114,7 @@ test('edit returns a pending review to editing and is idempotent', async (t) => 
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111',
-    now: () => timestamps.shift()
+    now: () => timestamps.shift() as string
   })
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
 
@@ -119,26 +142,28 @@ test('tree updates are allowed only while editing', async (t) => {
     contextSummary: 'Check updates.'
   })
   const annotated = structuredClone(created)
-  annotated.root.children[0].feedback = 'Make the title more specific.'
-  annotated.root.children[0].collapsed = true
-  annotated.root.children[0].attachments = [{
+  const annotatedHeading = child(annotated.root)
+  annotatedHeading.feedback = 'Make the title more specific.'
+  annotatedHeading.collapsed = true
+  annotatedHeading.attachments = [{
     id: 'img-1',
     type: 'image',
     path: '/tmp/img-1.png'
   }]
   const updated = await store.updateTree(created.review.id, annotated)
+  const updatedHeading = child(updated.root)
   assert.equal(
-    updated.root.children[0].feedback,
+    updatedHeading.feedback,
     'Make the title more specific.'
   )
-  assert.equal(updated.root.children[0].collapsed, true)
-  assert.equal(updated.root.children[0].attachments[0].id, 'img-1')
+  assert.equal(updatedHeading.collapsed, true)
+  assert.equal(attachment(updatedHeading).id, 'img-1')
   assert.equal(updated.review.contextSummary, 'Check updates.')
 
   await store.handoff(created.review.id)
   await assert.rejects(
     store.updateTree(created.review.id, annotated),
-    (error) => error.code === 'NOT_EDITABLE'
+    (error: unknown) => hasErrorCode(error, 'NOT_EDITABLE')
   )
   assert.equal(
     (await store.load(created.review.id)).sourceDocument.content,
@@ -159,14 +184,14 @@ test('tree updates cannot change the source snapshot or block structure', async 
 
   await assert.rejects(
     store.updateTree(created.review.id, tree('# Different\n')),
-    (error) => error.code === 'REVIEW_MISMATCH'
+    (error: unknown) => hasErrorCode(error, 'REVIEW_MISMATCH')
   )
 
   const changedBlock = structuredClone(created)
-  changedBlock.root.children[0].text = 'Different'
+  child(changedBlock.root).text = 'Different'
   await assert.rejects(
     store.updateTree(created.review.id, changedBlock),
-    (error) => error.code === 'REVIEW_MISMATCH'
+    (error: unknown) => hasErrorCode(error, 'REVIEW_MISMATCH')
   )
 })
 
@@ -180,41 +205,42 @@ test('source edit proposals can be added, changed, removed, and handed off', asy
     tree: tree('# Review\n\nOriginal paragraph.\n'),
     contextSummary: 'Check source edit proposals.'
   })
-  const paragraph = created.root.children[0].children[0]
+  const paragraph = child(child(created.root))
   const proposed = structuredClone(created)
-  proposed.root.children[0].children[0].sourceEdit = {
+  const proposedParagraph = child(child(proposed.root))
+  proposedParagraph.sourceEdit = {
     original: paragraph.raw,
     current: 'Revised paragraph.'
   }
 
   const added = await store.updateTree(created.review.id, proposed)
-  assert.deepEqual(added.root.children[0].children[0].sourceEdit, {
+  assert.deepEqual(child(child(added.root)).sourceEdit, {
     original: 'Original paragraph.',
     current: 'Revised paragraph.'
   })
 
-  proposed.root.children[0].children[0].sourceEdit.current =
-    'A second revision.'
+  assert.ok(proposedParagraph.sourceEdit)
+  proposedParagraph.sourceEdit.current = 'A second revision.'
   const changed = await store.updateTree(created.review.id, proposed)
   assert.equal(
-    changed.root.children[0].children[0].sourceEdit.current,
+    child(child(changed.root)).sourceEdit?.current,
     'A second revision.'
   )
 
-  delete proposed.root.children[0].children[0].sourceEdit
+  delete proposedParagraph.sourceEdit
   const removed = await store.updateTree(created.review.id, proposed)
   assert.equal(
-    Object.hasOwn(removed.root.children[0].children[0], 'sourceEdit'),
+    Object.hasOwn(child(child(removed.root)), 'sourceEdit'),
     false
   )
 
-  proposed.root.children[0].children[0].sourceEdit = {
+  proposedParagraph.sourceEdit = {
     original: paragraph.raw,
     current: 'Final proposal.'
   }
   await store.updateTree(created.review.id, proposed)
   const handedOff = await store.handoff(created.review.id)
-  assert.deepEqual(handedOff.root.children[0].children[0].sourceEdit, {
+  assert.deepEqual(child(child(handedOff.root)).sourceEdit, {
     original: 'Original paragraph.',
     current: 'Final proposal.'
   })
@@ -231,8 +257,8 @@ test('rejects malformed source edit proposals without changing the review', asyn
     tree: tree('# Review\n\nOriginal paragraph.\n'),
     contextSummary: 'Check source edit validation.'
   })
-  const paragraph = created.root.children[0].children[0]
-  const malformed = [
+  const paragraph = child(child(created.root))
+  const malformed: unknown[] = [
     null,
     'Revised paragraph.',
     { original: paragraph.raw, current: '' },
@@ -250,16 +276,17 @@ test('rejects malformed source edit proposals without changing the review', asyn
 
   for (const sourceEdit of malformed) {
     const updated = structuredClone(created)
-    updated.root.children[0].children[0].sourceEdit = sourceEdit
+    const updatedParagraph = child(child(updated.root))
+    Reflect.set(updatedParagraph, 'sourceEdit', sourceEdit)
     await assert.rejects(
       store.updateTree(created.review.id, updated),
-      (error) => error.code === 'INVALID_REVIEW'
+      (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
     )
   }
 
   assert.equal(
     Object.hasOwn(
-      (await store.load(created.review.id)).root.children[0].children[0],
+      child(child((await store.load(created.review.id)).root)),
       'sourceEdit'
     ),
     false
@@ -277,7 +304,7 @@ test('source edit proposals do not permit immutable target changes', async (t) =
     contextSummary: 'Check proposal target immutability.'
   })
   const changedTarget = structuredClone(created)
-  const paragraph = changedTarget.root.children[0].children[0]
+  const paragraph = child(child(changedTarget.root))
   paragraph.sourceEdit = {
     original: paragraph.raw,
     current: 'Revised paragraph.'
@@ -286,7 +313,7 @@ test('source edit proposals do not permit immutable target changes', async (t) =
 
   await assert.rejects(
     store.updateTree(created.review.id, changedTarget),
-    (error) => error.code === 'REVIEW_MISMATCH'
+    (error: unknown) => hasErrorCode(error, 'REVIEW_MISMATCH')
   )
 })
 
@@ -301,7 +328,7 @@ test('source edit proposals reject non-editable frontmatter parents', async (t) 
     contextSummary: 'Check frontmatter source edit protection.'
   })
   const proposed = structuredClone(created)
-  const frontmatter = proposed.root.children[0]
+  const frontmatter = child(proposed.root)
   frontmatter.sourceEdit = {
     original: frontmatter.raw,
     current: '---\ntitle: Revised\n---'
@@ -309,7 +336,7 @@ test('source edit proposals reject non-editable frontmatter parents', async (t) 
 
   await assert.rejects(
     store.updateTree(created.review.id, proposed),
-    (error) => error.code === 'INVALID_REVIEW'
+    (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
   )
 })
 
@@ -324,7 +351,7 @@ test('invalid YAML proposals remain non-blocking review data', async (t) => {
     contextSummary: 'Check non-blocking YAML diagnostics.'
   })
   const proposed = structuredClone(created)
-  const title = proposed.root.children[0].children[0]
+  const title = child(child(proposed.root))
   title.sourceEdit = {
     original: title.raw,
     current: 'title: [broken'
@@ -332,7 +359,7 @@ test('invalid YAML proposals remain non-blocking review data', async (t) => {
 
   const saved = await store.updateTree(created.review.id, proposed)
   assert.equal(
-    saved.root.children[0].children[0].sourceEdit.current,
+    child(child(saved.root)).sourceEdit?.current,
     'title: [broken'
   )
 })
@@ -363,7 +390,7 @@ test('attachment allocation is owned, editable, and serialized by the store', as
       'png',
       Buffer.from('pending')
     ),
-    (error) => error.code === 'NOT_EDITABLE'
+    (error: unknown) => hasErrorCode(error, 'NOT_EDITABLE')
   )
   await assert.rejects(
     store.saveAttachmentFile(
@@ -371,7 +398,7 @@ test('attachment allocation is owned, editable, and serialized by the store', as
       'png',
       Buffer.from('missing')
     ),
-    (error) => error.code === 'NOT_FOUND'
+    (error: unknown) => hasErrorCode(error, 'NOT_FOUND')
   )
   await assert.rejects(
     fs.access(path.join(directory, 'mko_missing1'))
@@ -405,7 +432,7 @@ test('concurrent handoffs serialize to one frozen result', async (t) => {
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111',
-    now: () => timestamps.shift()
+    now: () => timestamps.shift() as string
   })
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
 
@@ -430,7 +457,7 @@ test('rejects unsafe IDs and leaves no temporary files', async (t) => {
 
   await assert.rejects(
     store.load('../outside'),
-    (error) => error.code === 'INVALID_ID'
+    (error: unknown) => hasErrorCode(error, 'INVALID_ID')
   )
   const created = await store.create({
     tree: tree(),
@@ -485,18 +512,17 @@ test('listing leaves legacy durable reviews untouched and unmanaged', async (t) 
     (await store.list()).map((review) => review.review.id),
     [created.review.id]
   )
-  assert.equal(
-    JSON.parse(
-      await fs.readFile(path.join(legacyDirectory, 'review.json'), 'utf8')
-    ).sourceDocument.content,
-    '# Legacy\n'
+  const legacy: unknown = JSON.parse(
+    await fs.readFile(path.join(legacyDirectory, 'review.json'), 'utf8')
   )
+  assertReviewTree(legacy)
+  assert.equal(legacy.sourceDocument.content, '# Legacy\n')
 })
 
 test('retries an ID collision without disturbing the existing review', async (t) => {
   const ids = ['mko_aaa11111', 'mko_aaa11111', 'mko_bbb22222']
   const { directory, store } = await temporaryStore({
-    idFactory: () => ids.shift()
+    idFactory: () => ids.shift() as string
   })
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
 
@@ -523,10 +549,28 @@ test('requires a valid tree and non-empty context summary', async (t) => {
 
   await assert.rejects(
     store.create({ tree: {}, contextSummary: 'Review it.' }),
-    (error) => error.code === 'INVALID_REVIEW'
+    (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
   )
   await assert.rejects(
     store.create({ tree: tree(), contextSummary: '   ' }),
-    (error) => error.code === 'INVALID_REVIEW'
+    (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
   )
+})
+
+test('rejects non-array review collections before persistence', async (t) => {
+  const { directory, store } = await temporaryStore()
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const invalidChildren = tree()
+  Reflect.set(invalidChildren.root, 'children', {})
+  const invalidUnsupported = tree()
+  Reflect.set(invalidUnsupported, 'unsupported', null)
+
+  for (const invalidTree of [invalidChildren, invalidUnsupported]) {
+    await assert.rejects(
+      store.create({ tree: invalidTree, contextSummary: 'Review it.' }),
+      (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
+    )
+  }
+  assert.deepEqual(await fs.readdir(directory), [])
 })

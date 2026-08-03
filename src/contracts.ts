@@ -120,10 +120,14 @@ declare global {
 
   interface ReviewAttachment {
     id: string
+    type?: 'image'
     label?: string
     path?: string
     mimeType?: string
     url?: string
+    checksum?: string
+    width?: number | null
+    height?: number | null
   }
 
   type ReviewNodeType =

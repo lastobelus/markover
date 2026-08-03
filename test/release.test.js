@@ -107,4 +107,26 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
   }
+  for (const name of [
+    'local-client',
+    'local-service',
+    'metadata-discovery',
+    'review-migration',
+    'review-store',
+    'service-endpoint',
+    'settings-store'
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, `src/${name}.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `src/${name}.js`)), false)
+  }
+  for (const name of [
+    'local-service',
+    'metadata-discovery',
+    'review-migration',
+    'review-store',
+    'service-endpoint'
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
+    assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
+  }
 })

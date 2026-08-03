@@ -1,12 +1,27 @@
-const { randomBytes } = require('node:crypto')
-const fs = require('node:fs/promises')
-const path = require('node:path')
-const { ReviewStore } = require('./review-store')
+import { randomBytes } from 'node:crypto'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
-function rewriteAttachmentPaths(artifact, sourceReview, targetReview) {
+import {
+  assertReviewArtifact,
+  ReviewStore,
+  type ReviewArtifact
+} from './review-store'
+
+function errorCode(error: unknown): unknown {
+  return error !== null && typeof error === 'object'
+    ? Reflect.get(error, 'code')
+    : null
+}
+
+export function rewriteAttachmentPaths(
+  artifact: ReviewArtifact,
+  sourceReview: string,
+  targetReview: string
+): ReviewArtifact {
   const sourceAttachments = path.join(sourceReview, 'attachments')
   const targetAttachments = path.join(targetReview, 'attachments')
-  const visit = (node) => {
+  const visit = (node: ReviewNode): void => {
     for (const attachment of node.attachments || []) {
       if (typeof attachment.path !== 'string') continue
       const relative = path.relative(sourceAttachments, attachment.path)
@@ -19,13 +34,16 @@ function rewriteAttachmentPaths(artifact, sourceReview, targetReview) {
         attachment.path = path.join(targetAttachments, relative)
       }
     }
-    for (const child of node.children || []) visit(child)
+    for (const child of node.children) visit(child)
   }
   visit(artifact.root)
   return artifact
 }
 
-async function importLegacyReviews(sourceDirectory, targetDirectory) {
+export async function importLegacyReviews(
+  sourceDirectory: string,
+  targetDirectory: string
+): Promise<string[]> {
   if (path.resolve(sourceDirectory) === path.resolve(targetDirectory)) return []
 
   let reviews
@@ -33,12 +51,12 @@ async function importLegacyReviews(sourceDirectory, targetDirectory) {
     await fs.access(sourceDirectory)
     reviews = await new ReviewStore(sourceDirectory).list()
   } catch (error) {
-    if (error.code === 'ENOENT') return []
+    if (errorCode(error) === 'ENOENT') return []
     throw error
   }
 
   await fs.mkdir(targetDirectory, { recursive: true })
-  const imported = []
+  const imported: string[] = []
   for (const review of reviews) {
     const reviewId = review.review.id
     const target = path.join(targetDirectory, reviewId)
@@ -46,7 +64,7 @@ async function importLegacyReviews(sourceDirectory, targetDirectory) {
       await fs.access(target)
       continue
     } catch (error) {
-      if (error.code !== 'ENOENT') throw error
+      if (errorCode(error) !== 'ENOENT') throw error
     }
 
     const staging = path.join(
@@ -61,8 +79,10 @@ async function importLegacyReviews(sourceDirectory, targetDirectory) {
         force: false
       })
       const reviewPath = path.join(staging, 'review.json')
+      const parsed: unknown = JSON.parse(await fs.readFile(reviewPath, 'utf8'))
+      assertReviewArtifact(parsed, reviewId)
       const artifact = rewriteAttachmentPaths(
-        JSON.parse(await fs.readFile(reviewPath, 'utf8')),
+        parsed,
         sourceReview,
         target
       )
@@ -70,12 +90,12 @@ async function importLegacyReviews(sourceDirectory, targetDirectory) {
       await fs.rename(staging, target)
       imported.push(reviewId)
     } catch (error) {
-      if (error.code !== 'EEXIST' && error.code !== 'ENOTEMPTY') throw error
+      if (errorCode(error) !== 'EEXIST' && errorCode(error) !== 'ENOTEMPTY') {
+        throw error
+      }
     } finally {
       await fs.rm(staging, { recursive: true, force: true })
     }
   }
   return imported
 }
-
-module.exports = { importLegacyReviews, rewriteAttachmentPaths }

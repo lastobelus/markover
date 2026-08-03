@@ -1,22 +1,23 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs/promises')
-const os = require('node:os')
-const path = require('node:path')
-const {
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
+
+import {
   discoverCodexThread,
   discoverGitMetadata,
   discoverRepositoryRoot,
   discoverReviewMetadata,
   sanitizeRemoteUrl
-} = require('../src/metadata-discovery')
+} from '../src/metadata-discovery'
 
 test('discovers a repository root with one Git query', async () => {
-  const calls = []
+  const calls: Array<{ args: string[]; cwd: string }> = []
   const root = await discoverRepositoryRoot('/repo/docs/plan.md', {
-    async runGit(args, cwd) {
+    runGit(args, cwd) {
       calls.push({ args, cwd })
-      return '/repo'
+      return Promise.resolve('/repo')
     }
   })
 
@@ -35,9 +36,9 @@ test('discovers Git metadata and records each source', async () => {
     ['config --get remote.origin.url', 'git@example.com:repo.git']
   ])
   const metadata = await discoverGitMetadata('/repo/docs/plan.md', {
-    async runGit(args, workingDirectory) {
+    runGit(args, workingDirectory) {
       assert.equal(workingDirectory, '/repo/docs')
-      return answers.get(args.join(' ')) || null
+      return Promise.resolve(answers.get(args.join(' ')) || null)
     }
   })
 
@@ -58,8 +59,8 @@ test('discovers Git metadata and records each source', async () => {
 test('Git discovery degrades outside a repository', async () => {
   assert.equal(
     await discoverGitMetadata('/tmp/plan.md', {
-      async runGit() {
-        return null
+      runGit() {
+        return Promise.resolve(null)
       }
     }),
     null
@@ -132,7 +133,7 @@ test('rejects substring and ambiguous handoff-key matches', async (t) => {
   const key = 'mko_handoff_0123456789abcdef'
   const firstPath = path.join(directory, 'first.jsonl')
   const secondPath = path.join(directory, 'second.jsonl')
-  const record = (sessionId, message) => [
+  const record = (sessionId: string, message: string): string => [
     JSON.stringify({
       type: 'session_meta',
       payload: { session_id: sessionId, cwd: '/repo' }
@@ -141,12 +142,11 @@ test('rejects substring and ambiguous handoff-key matches', async (t) => {
   ].join('\n')
   await fs.writeFile(firstPath, record('thread-1', key))
   await fs.writeFile(secondPath, record('thread-2', `${key}extra`))
-  assert.equal(
-    (await discoverCodexThread(key, {
-      sessionsDirectory: directory
-    })).id,
-    'thread-1'
-  )
+  const discovered = await discoverCodexThread(key, {
+    sessionsDirectory: directory
+  })
+  assert.ok(discovered)
+  assert.equal(discovered.id, 'thread-1')
 
   await fs.writeFile(secondPath, record('thread-2', key))
   assert.equal(
@@ -166,12 +166,12 @@ test('explicit metadata overrides discovered values', async () => {
     handoffKey: 'mko_handoff_0123456789abcdef'
   }, {
     git: {
-      async runGit(args) {
-        return new Map([
+      runGit(args) {
+        return Promise.resolve(new Map([
           ['rev-parse --show-toplevel', '/repo'],
           ['symbolic-ref --quiet --short HEAD', 'discovered-branch'],
           ['rev-parse --verify HEAD', 'abc123']
-        ]).get(args.join(' ')) || null
+        ]).get(args.join(' ')) || null)
       }
     },
     codex: {
@@ -179,6 +179,7 @@ test('explicit metadata overrides discovered values', async () => {
     }
   })
 
+  assert.ok(metadata.git)
   assert.equal(metadata.git.branch, 'explicit-branch')
   assert.equal(metadata.git.sources.branch, 'explicit')
   assert.equal(metadata.git.commit, 'abc123')

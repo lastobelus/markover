@@ -1,18 +1,19 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const path = require('node:path')
-const {
+import assert from 'node:assert/strict'
+import path from 'node:path'
+import test from 'node:test'
+
+import {
   reviewsDirectory,
   serviceDirectory,
   serviceEndpointPath
-} = require('../src/service-endpoint')
+} from '../src/service-endpoint'
 
 test('all macOS checkouts share one Markover service endpoint', () => {
   const options = {
     platform: 'darwin',
     homeDirectory: '/Users/reviewer',
     environment: {}
-  }
+  } as const
   assert.equal(
     serviceDirectory(options),
     path.join('/Users/reviewer', 'Library', 'Application Support', 'Markover')

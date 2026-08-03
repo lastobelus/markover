@@ -1,29 +1,41 @@
-const fs = require('node:fs/promises')
-const { watch } = require('node:fs')
-const path = require('node:path')
-const { randomUUID } = require('node:crypto')
-const { normalizeSettings, updateSettings } = require('./settings')
+import { randomUUID } from 'node:crypto'
+import { watch, type FSWatcher } from 'node:fs'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
-const wait = (milliseconds) => new Promise((resolve) => {
+const { normalizeSettings, updateSettings } = require('./settings') as
+  MarkoverSettingsApi
+
+function errorProperty(error: unknown, key: 'code' | 'name'): unknown {
+  return error !== null && typeof error === 'object' ? Reflect.get(error, key) : null
+}
+
+const wait = (milliseconds: number): Promise<void> => new Promise((resolve) => {
   setTimeout(resolve, milliseconds)
 })
 
-function processIsRunning(pid) {
+function processIsRunning(pid: number): boolean {
   try {
     process.kill(pid, 0)
     return true
   } catch (error) {
-    return error.code !== 'ESRCH'
+    return errorProperty(error, 'code') !== 'ESRCH'
   }
 }
 
-async function releaseOwnedLock(lockPath, owner) {
+async function releaseOwnedLock(lockPath: string, owner: string): Promise<void> {
   const currentOwner = await fs.readlink(lockPath).catch(() => null)
   if (currentOwner === owner) await fs.unlink(lockPath).catch(() => {})
 }
 
-class SettingsStore {
-  constructor(filePath) {
+export class SettingsStore {
+  readonly filePath: string
+  settings: MarkoverSettings
+  private writer: Promise<unknown>
+  private writeSequence: number
+  private watcher: FSWatcher | null
+
+  constructor(filePath: string) {
     this.filePath = filePath
     this.settings = normalizeSettings()
     this.writer = Promise.resolve()
@@ -31,28 +43,30 @@ class SettingsStore {
     this.watcher = null
   }
 
-  async read() {
+  async read(): Promise<MarkoverSettings> {
     try {
-      return normalizeSettings(
-        JSON.parse(await fs.readFile(this.filePath, 'utf8'))
-      )
+      const parsed: unknown = JSON.parse(await fs.readFile(this.filePath, 'utf8'))
+      return normalizeSettings(parsed)
     } catch (error) {
-      if (error.code !== 'ENOENT' && error.name !== 'SyntaxError') throw error
+      if (
+        errorProperty(error, 'code') !== 'ENOENT' &&
+        errorProperty(error, 'name') !== 'SyntaxError'
+      ) throw error
       return normalizeSettings()
     }
   }
 
-  async load() {
+  async load(): Promise<MarkoverSettings> {
     this.settings = await this.read()
     return { ...this.settings }
   }
 
-  async update(patch) {
+  async update(patch: unknown): Promise<MarkoverSettings> {
     const sequence = ++this.writeSequence
-    this.writer = this.writer.catch(() => {}).then(async () => {
+    const write = this.writer.catch(() => undefined).then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true })
       const lockPath = `${this.filePath}.lock`
-      const owner = `${process.pid}:${randomUUID()}`
+      const owner = `${String(process.pid)}:${randomUUID()}`
       let ownsLock = false
       for (let attempt = 0; attempt < 200; attempt += 1) {
         try {
@@ -60,9 +74,9 @@ class SettingsStore {
           ownsLock = true
           break
         } catch (error) {
-          if (error.code !== 'EEXIST') throw error
+          if (errorProperty(error, 'code') !== 'EEXIST') throw error
           const observedOwner = await fs.readlink(lockPath).catch(() => '')
-          const ownerPid = Number.parseInt(observedOwner.split(':')[0], 10)
+          const ownerPid = Number.parseInt(observedOwner.split(':')[0] ?? '', 10)
           if (Number.isInteger(ownerPid) && !processIsRunning(ownerPid)) {
             await releaseOwnedLock(lockPath, observedOwner)
           }
@@ -71,7 +85,7 @@ class SettingsStore {
       }
       if (!ownsLock) throw new Error('Timed out waiting to update Markover settings.')
 
-      const temporaryPath = `${this.filePath}.${process.pid}.${sequence}.tmp`
+      const temporaryPath = `${this.filePath}.${String(process.pid)}.${String(sequence)}.tmp`
       try {
         const snapshot = updateSettings(await this.read(), patch)
         await fs.writeFile(
@@ -83,18 +97,21 @@ class SettingsStore {
         this.settings = snapshot
         return { ...snapshot }
       } finally {
-        await fs.unlink(temporaryPath).catch((error) => {
-          if (error.code !== 'ENOENT') throw error
+        await fs.unlink(temporaryPath).catch((error: unknown) => {
+          if (errorProperty(error, 'code') !== 'ENOENT') throw error
         })
         await releaseOwnedLock(lockPath, owner)
       }
     })
-    return this.writer
+    this.writer = write.then(() => undefined, () => undefined)
+    return write
   }
 
-  async subscribe(listener) {
+  async subscribe(
+    listener: (settings: MarkoverSettings) => void
+  ): Promise<() => void> {
     await fs.mkdir(path.dirname(this.filePath), { recursive: true })
-    let refreshTimer = null
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
     const refresh = async () => {
       try {
         const settings = await this.read()
@@ -110,17 +127,17 @@ class SettingsStore {
       { persistent: false },
       (_event, filename) => {
         if (String(filename) !== path.basename(this.filePath)) return
-        clearTimeout(refreshTimer)
-        refreshTimer = setTimeout(refresh, 25)
+        if (refreshTimer !== null) clearTimeout(refreshTimer)
+        refreshTimer = setTimeout(() => {
+          void refresh()
+        }, 25)
       }
     )
     await refresh()
     return () => {
-      clearTimeout(refreshTimer)
+      if (refreshTimer !== null) clearTimeout(refreshTimer)
       this.watcher?.close()
       this.watcher = null
     }
   }
 }
-
-module.exports = { SettingsStore }

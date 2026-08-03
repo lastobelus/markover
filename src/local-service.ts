@@ -1,0 +1,267 @@
+import http, {
+  type IncomingMessage,
+  type ServerResponse
+} from 'node:http'
+import type { AddressInfo } from 'node:net'
+
+import type {
+  ReviewArtifact,
+  ReviewCreateInput,
+  ReviewStore
+} from './review-store'
+
+export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
+
+interface ReviewRoute {
+  reviewId: string
+  action: 'handoff' | 'edit' | null
+}
+
+export interface LocalService {
+  port: number
+  close: () => Promise<void>
+}
+
+export interface LocalServiceOptions {
+  store: Pick<
+    ReviewStore,
+    'create' | 'edit' | 'handoff' | 'list' | 'load'
+  >
+  beforeAction?: ((
+    reviewId: string,
+    action: 'handoff' | 'edit'
+  ) => Promise<undefined | (() => void | Promise<void>)>) | undefined
+  importReviews?: ((sourceDirectory: string) => Promise<string[]>) | undefined
+  onChange?: ((
+    artifact: ReviewArtifact,
+    action: 'created' | 'imported' | 'handoff' | 'edit'
+  ) => void | Promise<void>) | undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function errorProperty(error: unknown, key: 'code' | 'message'): unknown {
+  return error !== null && typeof error === 'object' ? Reflect.get(error, key) : null
+}
+
+function serviceError(code: string, message: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code })
+}
+
+function sendJson(
+  response: ServerResponse,
+  statusCode: number,
+  body: unknown
+): void {
+  const contents = `${JSON.stringify(body)}\n`
+  response.writeHead(statusCode, {
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': Buffer.byteLength(contents)
+  })
+  response.end(contents)
+}
+
+export async function readJson(request: IncomingMessage): Promise<unknown> {
+  let size = 0
+  const chunks: Uint8Array[] = []
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    size += buffer.length
+    if (size > MAXIMUM_BODY_BYTES) {
+      throw serviceError('BODY_TOO_LARGE', 'Request body is too large.')
+    }
+    chunks.push(buffer)
+  }
+
+  if (!chunks.length) return null
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+  } catch {
+    throw serviceError('INVALID_JSON', 'Request body must be valid JSON.')
+  }
+}
+
+function errorStatus(error: unknown): number {
+  const code = errorProperty(error, 'code')
+  if (code === 'NOT_FOUND') return 404
+  if (
+    code === 'INVALID_ID' ||
+    code === 'INVALID_IMPORT' ||
+    code === 'INVALID_JSON' ||
+    code === 'INVALID_REVIEW' ||
+    code === 'REVIEW_MISMATCH'
+  ) {
+    return 400
+  }
+  if (code === 'NOT_EDITABLE') return 409
+  if (code === 'BODY_TOO_LARGE') return 413
+  return 500
+}
+
+export function reviewRoute(pathname: string): ReviewRoute | null {
+  const match = /^\/reviews\/([^/]+)(?:\/(handoff|edit))?$/.exec(pathname)
+  if (!match) return null
+  return {
+    reviewId: decodeURIComponent(match[1] as string),
+    action: (match[2] as 'handoff' | 'edit' | undefined) || null
+  }
+}
+
+export async function startLocalService({
+  store,
+  beforeAction = () => Promise.resolve(undefined),
+  importReviews = () => Promise.resolve([]),
+  onChange = () => {}
+}: LocalServiceOptions): Promise<LocalService> {
+  const actionQueues = new Map<string, Promise<void>>()
+  function serializeReviewAction<T>(
+    reviewId: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const previous = actionQueues.get(reviewId) || Promise.resolve()
+    const current = previous.catch(() => {}).then(operation)
+    const queued = current.then(() => undefined, () => undefined)
+    actionQueues.set(reviewId, queued)
+    return current.finally(() => {
+      if (actionQueues.get(reviewId) === queued) {
+        actionQueues.delete(reviewId)
+      }
+    })
+  }
+
+  async function handleRequest(
+    request: IncomingMessage,
+    response: ServerResponse
+  ): Promise<void> {
+    try {
+      const url = new URL(request.url || '', 'http://127.0.0.1')
+
+      if (request.method === 'GET' && url.pathname === '/health') {
+        sendJson(response, 200, { status: 'ok', version: 1 })
+        return
+      }
+
+      if (request.method === 'GET' && url.pathname === '/reviews') {
+        sendJson(response, 200, { reviews: await store.list() })
+        return
+      }
+
+      if (request.method === 'POST' && url.pathname === '/reviews/import') {
+        const body = await readJson(request)
+        if (
+          !isRecord(body) ||
+          typeof body.sourceDirectory !== 'string' ||
+          !body.sourceDirectory
+        ) {
+          throw serviceError(
+            'INVALID_IMPORT',
+            'A review import source directory is required.'
+          )
+        }
+        const reviewIds = await importReviews(body.sourceDirectory)
+        for (const reviewId of reviewIds) {
+          await onChange(await store.load(reviewId), 'imported')
+        }
+        sendJson(response, 200, { imported: reviewIds })
+        return
+      }
+
+      if (request.method === 'POST' && url.pathname === '/reviews') {
+        const body = await readJson(request)
+        const record = isRecord(body) ? body : {}
+        const metadata = isRecord(record.metadata) ? record.metadata : {}
+        const createInput: ReviewCreateInput = {
+          tree: record.tree,
+          contextSummary: metadata.contextSummary,
+          agentThread: metadata.agentThread,
+          git: metadata.git,
+          pullRequest: metadata.pullRequest
+        }
+        const artifact = await store.create(createInput)
+        await onChange(artifact, 'created')
+        sendJson(response, 201, {
+          reviewId: artifact.review.id,
+          status: artifact.review.status
+        })
+        return
+      }
+
+      const route = reviewRoute(url.pathname)
+      if (route && request.method === 'GET' && !route.action) {
+        sendJson(response, 200, await store.load(route.reviewId))
+        return
+      }
+
+      if (
+        route &&
+        request.method === 'POST' &&
+        (route.action === 'handoff' || route.action === 'edit')
+      ) {
+        const action = route.action
+        const artifact = await serializeReviewAction(route.reviewId, async () => {
+          let rollbackHandoff: undefined | (() => void | Promise<void>)
+          if (action === 'handoff') {
+            const current = await store.load(route.reviewId)
+            if (current.review.status === 'editing') {
+              rollbackHandoff = await beforeAction(route.reviewId, action)
+            }
+          }
+          let changed
+          try {
+            changed = action === 'handoff'
+              ? await store.handoff(route.reviewId)
+              : await store.edit(route.reviewId)
+          } catch (error) {
+            if (rollbackHandoff) await rollbackHandoff()
+            throw error
+          }
+          await onChange(changed, action)
+          return changed
+        })
+        sendJson(
+          response,
+          200,
+          action === 'handoff'
+            ? artifact
+            : {
+                reviewId: artifact.review.id,
+                status: artifact.review.status
+              }
+        )
+        return
+      }
+
+      sendJson(response, 404, {
+        error: { code: 'NOT_FOUND', message: 'Route not found.' }
+      })
+    } catch (error) {
+      const code = errorProperty(error, 'code')
+      const message = errorProperty(error, 'message')
+      sendJson(response, errorStatus(error), {
+        error: {
+          code: typeof code === 'string' ? code : 'INTERNAL_ERROR',
+          message: typeof message === 'string' ? message : String(error)
+        }
+      })
+    }
+  }
+
+  const server = http.createServer((request, response) => {
+    void handleRequest(request, response)
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+
+  const address = server.address() as AddressInfo
+  return {
+    port: address.port,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => { if (error) reject(error); else resolve() })
+    })
+  }
+}
