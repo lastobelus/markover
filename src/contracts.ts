@@ -499,13 +499,13 @@ declare global {
   interface MarkoverNavigationApi {
     findContext: (
       root: NavigationNode,
-      id: string
+      id: string | null
     ) => NavigationContext | null
     move: (
       root: NavigationNode,
-      currentId: string,
+      currentId: string | null,
       direction: NavigationDirection
-    ) => string
+    ) => string | null
     nextPane: (
       current: WorkspacePane,
       direction: -1 | 1,

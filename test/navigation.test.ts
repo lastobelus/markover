@@ -40,6 +40,10 @@ test('up and down navigate siblings and climb at boundaries', () => {
   assert.equal(move(tree.root, child.id, 'down'), second.id)
 })
 
+test('keeps an empty review selection unset', () => {
+  assert.equal(move(tree.root, null, 'down'), null)
+})
+
 test('cycles focus through three panes and skips a collapsed documents list', () => {
   assert.equal(nextPane('documents', 1, true), 'preview')
   assert.equal(nextPane('preview', 1, true), 'annotation')

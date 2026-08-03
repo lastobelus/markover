@@ -1,7 +1,7 @@
 (function exposeNavigation(globalScope: typeof globalThis) {
   function findContext(
     root: NavigationNode,
-    id: string
+    id: string | null
   ): NavigationContext | null {
     for (let index = 0; index < root.children.length; index += 1) {
       const node = root.children[index]
@@ -15,9 +15,9 @@
 
   function move(
     root: NavigationNode,
-    currentId: string,
+    currentId: string | null,
     direction: NavigationDirection
-  ): string {
+  ): string | null {
     const context = findContext(root, currentId)
     if (!context) return currentId
 
