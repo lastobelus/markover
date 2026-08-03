@@ -224,8 +224,16 @@ draft: false
   assert.deepEqual(tree.unsupported, [])
 })
 
-test('reports YAML syntax errors while accepting multiple mapping pairs', () => {
+test('requires YAML mapping pairs and reports syntax errors', () => {
   assert.equal(yamlDiagnostic('title: Review\ndraft: false'), null)
+
+  for (const source of ['borked', '- one\n- two', '{}']) {
+    assert.deepEqual(yamlDiagnostic(source), {
+      line: 1,
+      column: 1,
+      message: 'Expected one or more YAML key: value pairs.'
+    })
+  }
 
   const diagnostic = yamlDiagnostic('title: Review\ntags: [broken')
   assert.equal(diagnostic.line, 2)

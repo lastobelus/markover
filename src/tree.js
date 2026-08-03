@@ -15,13 +15,23 @@
   function yamlDiagnostic(source) {
     const document = YAML.parseDocument(source, { prettyErrors: true })
     const error = document.errors[0]
-    if (!error) return null
+    if (error) {
+      const start = error.linePos?.[0] || {}
+      return {
+        line: start.line || null,
+        column: start.col || null,
+        message: error.message.trim()
+      }
+    }
 
-    const start = error.linePos?.[0] || {}
+    if (YAML.isMap(document.contents) && document.contents.items.length) {
+      return null
+    }
+
     return {
-      line: start.line || null,
-      column: start.col || null,
-      message: error.message.trim()
+      line: 1,
+      column: 1,
+      message: 'Expected one or more YAML key: value pairs.'
     }
   }
 
