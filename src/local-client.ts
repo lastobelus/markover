@@ -1,10 +1,12 @@
 import fs from 'node:fs/promises'
 import http, { type IncomingMessage } from 'node:http'
 
-interface ServiceEndpoint {
-  version: 1
-  port: number
-}
+import {
+  parseServiceCredential,
+  parseServiceEndpoint,
+  tokenPathForEndpoint,
+  type ServiceEndpoint
+} from './service-endpoint'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -27,20 +29,43 @@ export class LocalServiceError extends Error {
 }
 
 export async function readEndpoint(endpointPath: string): Promise<ServiceEndpoint> {
-  const endpoint: unknown = JSON.parse(await fs.readFile(endpointPath, 'utf8'))
-  if (
-    !isRecord(endpoint) ||
-    endpoint.version !== 1 ||
-    !Number.isInteger(endpoint.port) ||
-    typeof endpoint.port !== 'number' ||
-    endpoint.port < 1
-  ) {
+  let value: unknown
+  try {
+    value = JSON.parse(await fs.readFile(endpointPath, 'utf8'))
+  } catch {
     throw new LocalServiceError(
       'INVALID_ENDPOINT',
       'Markover service metadata is invalid.'
     )
   }
-  return { version: 1, port: endpoint.port }
+  const endpoint = parseServiceEndpoint(value)
+  if (!endpoint) {
+    throw new LocalServiceError(
+      'INVALID_ENDPOINT',
+      'Markover service metadata is invalid.'
+    )
+  }
+  return endpoint
+}
+
+async function readCredential(endpointPath: string) {
+  let value: unknown
+  try {
+    value = JSON.parse(await fs.readFile(tokenPathForEndpoint(endpointPath), 'utf8'))
+  } catch {
+    throw new LocalServiceError(
+      'INVALID_CREDENTIAL',
+      'Markover service credentials are invalid.'
+    )
+  }
+  const credential = parseServiceCredential(value)
+  if (!credential) {
+    throw new LocalServiceError(
+      'INVALID_CREDENTIAL',
+      'Markover service credentials are invalid.'
+    )
+  }
+  return credential
 }
 
 export async function requestJson(
@@ -50,7 +75,21 @@ export async function requestJson(
   body: unknown = null
 ): Promise<unknown> {
   const endpoint = await readEndpoint(endpointPath)
+  const isPublicHealth = method === 'GET' && requestPath === '/health'
+  const credential = isPublicHealth ? null : await readCredential(endpointPath)
+  if (credential && credential.instanceId !== endpoint.instanceId) {
+    throw new LocalServiceError(
+      'STALE_SERVICE',
+      'Markover service metadata and credentials do not match.'
+    )
+  }
   const contents = body === null ? null : JSON.stringify(body)
+  const headers: Record<string, string | number> = {}
+  if (credential) headers.authorization = `Bearer ${credential.token}`
+  if (contents !== null) {
+    headers['content-type'] = 'application/json'
+    headers['content-length'] = Buffer.byteLength(contents)
+  }
 
   return new Promise<unknown>((resolve, reject) => {
     const request = http.request({
@@ -58,12 +97,7 @@ export async function requestJson(
       port: endpoint.port,
       method,
       path: requestPath,
-      headers: contents === null
-        ? {}
-        : {
-            'content-type': 'application/json',
-            'content-length': Buffer.byteLength(contents)
-          },
+      headers,
       timeout: 2000
     }, (response: IncomingMessage) => {
       response.setEncoding('utf8')
@@ -98,6 +132,17 @@ export async function requestJson(
           reject(new LocalServiceError(
             code,
             message,
+            statusCode
+          ))
+          return
+        }
+        if (
+          isPublicHealth &&
+          (!isRecord(parsed) || parsed.status !== 'ok' || parsed.version !== 2)
+        ) {
+          reject(new LocalServiceError(
+            'INVALID_RESPONSE',
+            'Markover returned an invalid health response.',
             statusCode
           ))
           return

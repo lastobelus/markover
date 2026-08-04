@@ -345,6 +345,11 @@
             <span><strong>Confirm screenshot removal</strong><small>Ask before removing an attached screenshot and its marker.</small></span>
             <input name="confirmAttachmentRemoval" type="checkbox" role="switch">
           </label>
+          <h3 class="settings-section-title">Diagnostics</h3>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Log rejected API requests</strong><small>Write sanitized request method, path, and rejection reason to stderr. Request contents and credentials are never logged.</small></span>
+            <input name="logRejectedApiRequests" type="checkbox" role="switch">
+          </label>
         </div>
         <footer class="settings-footer">
           <button id="settings-reset" class="button button-secondary" type="button">

@@ -19,6 +19,7 @@
     "start": "npm run build --silent && node build/scripts/start.js",
     "review": "npm run build --silent && node build/scripts/review.js",
     "review:open": "npm run build --silent && node build/scripts/open-review.js",
+    "smoke:auth": "npm run build --silent && node build/scripts/smoke-auth.js",
     "pretest": "install-electron --no",
     "test": "npm run build --silent && node --test build/test/*.test.js",
     "lint": "eslint . --max-warnings 0",

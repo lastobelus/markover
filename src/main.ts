@@ -20,7 +20,11 @@ import { discoverRepositoryRoot } from './metadata-discovery'
 import { importLegacyReviews } from './review-migration'
 import { ReviewStore, type ReviewArtifact } from './review-store'
 import {
+  createServiceIdentity,
+  publishServiceConnection,
   reviewsDirectory,
+  secureServiceDirectory,
+  serviceDirectory,
   serviceEndpointPath
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
@@ -597,6 +601,7 @@ if (!hasSingleInstanceLock) {
   }
 
   app.whenReady().then(async () => {
+    if (!reviewMode) await secureServiceDirectory(serviceDirectory())
     if (process.platform === 'darwin' && !app.isPackaged) {
       if (!app.dock) {
         throw new Error('The macOS application dock is unavailable.')
@@ -726,7 +731,9 @@ if (!hasSingleInstanceLock) {
 
     if (!reviewMode) {
       const managedStore = requireReviewStore()
-      localService = await startLocalService({
+      const identity = createServiceIdentity()
+      const startedService = await startLocalService({
+        authorizationToken: identity.token,
         store: managedStore,
         beforeAction: flushManagedReview,
         importReviews: (sourceDirectory) => importLegacyReviews(
@@ -736,13 +743,25 @@ if (!hasSingleInstanceLock) {
         async onChange(artifact, action) {
           if (action === 'created') sendManagedReview(artifact)
           else await sendManagedStatus(artifact)
+        },
+        onUnauthorized(event) {
+          if (!store.settings.logRejectedApiRequests) return
+          process.stderr.write(
+            `markover authorization: ${event.method} ${event.pathname} (${event.reason})\n`
+          )
         }
       })
-      await atomicWrite(endpointPath, `${JSON.stringify({
-        version: 1,
-        port: localService.port,
-        pid: process.pid
-      }, null, 2)}\n`)
+      try {
+        await publishServiceConnection({
+          endpointPath,
+          identity,
+          port: startedService.port
+        })
+        localService = startedService
+      } catch (error) {
+        await startedService.close()
+        throw error
+      }
     }
 
     app.on('activate', () => {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
+import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import test, { type TestContext } from 'node:test'
@@ -15,10 +16,18 @@ import {
   ReviewStore,
   type ReviewArtifact
 } from '../src/review-store'
+import {
+  createServiceIdentity,
+  publishServiceConnection,
+  tokenPathForEndpoint
+} from '../src/service-endpoint'
 
 const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
 
-type FixtureOptions = Omit<LocalServiceOptions, 'store'>
+type FixtureOptions = Omit<
+  LocalServiceOptions,
+  'authorizationToken' | 'store'
+>
 
 function expectRecord(value: unknown): Record<string, unknown> {
   assert.ok(value && typeof value === 'object' && !Array.isArray(value))
@@ -61,24 +70,65 @@ async function serviceFixture(
   const store = new ReviewStore(path.join(directory, 'reviews'), {
     idFactory: () => 'mko_aaa11111'
   })
+  const identity = createServiceIdentity()
   const service = await startLocalService({
+    authorizationToken: identity.token,
     store,
     beforeAction: options.beforeAction,
     importReviews: options.importReviews,
     async onChange(artifact, action) {
       changes.push({ artifact, action })
       await options.onChange?.(artifact, action)
-    }
+    },
+    onUnauthorized: options.onUnauthorized
   })
-  await fs.writeFile(endpointPath, JSON.stringify({
-    version: 1,
-    port: service.port
-  }))
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: service.port,
+    pid: 1234
+  })
   t.after(async () => {
     await service.close()
     await fs.rm(directory, { recursive: true, force: true })
   })
-  return { changes, endpointPath, store }
+  return { changes, endpointPath, identity, port: service.port, store }
+}
+
+async function rawRequest(
+  port: number,
+  method: string,
+  requestPath: string,
+  headers: Record<string, string | string[]> = {},
+  body: string | null = null
+): Promise<{
+  body: unknown
+  headers: http.IncomingHttpHeaders
+  statusCode: number | undefined
+}> {
+  return new Promise((resolve, reject) => {
+    const request = http.request({
+      host: '127.0.0.1',
+      port,
+      method,
+      path: requestPath,
+      headers: headers as http.OutgoingHttpHeaders
+    }, (response) => {
+      response.setEncoding('utf8')
+      let contents = ''
+      response.on('data', (chunk: string) => { contents += chunk })
+      response.on('end', () => {
+        resolve({
+          body: contents ? JSON.parse(contents) : null,
+          headers: response.headers,
+          statusCode: response.statusCode
+        })
+      })
+    })
+    request.on('error', reject)
+    if (body !== null) request.write(body)
+    request.end()
+  })
 }
 
 function tree(): ReviewTree {
@@ -93,7 +143,7 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
 
   assert.deepEqual(
     await requestJson(endpointPath, 'GET', '/health'),
-    { status: 'ok', version: 1 }
+    { status: 'ok', version: 2 }
   )
 
   const opened = await requestJson(endpointPath, 'POST', '/reviews', {
@@ -131,6 +181,151 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
     changes.map((change) => change.action),
     ['created', 'handoff', 'handoff', 'edit']
   )
+})
+
+test('authenticates every non-health request before routing or bodies', async (t) => {
+  const unauthorized: Array<{
+    method: string
+    pathname: string
+    reason: string
+  }> = []
+  const fixture = await serviceFixture(t, {
+    onUnauthorized(event) {
+      unauthorized.push(event)
+    }
+  })
+  const wrongToken = fixture.identity.token === 'B'.repeat(43)
+    ? 'C'.repeat(43)
+    : 'B'.repeat(43)
+  const attempts = [
+    await rawRequest(fixture.port, 'GET', '/reviews'),
+    await rawRequest(fixture.port, 'POST', '/reviews?private=secret', {}, '{'),
+    await rawRequest(fixture.port, 'GET', '/missing?private=secret'),
+    await rawRequest(fixture.port, 'GET', '/health?details=1'),
+    await rawRequest(fixture.port, 'GET', '/reviews', {
+      authorization: 'Basic credential'
+    }),
+    await rawRequest(fixture.port, 'GET', '/reviews', {
+      authorization: `Bearer ${wrongToken}`
+    }),
+    await rawRequest(fixture.port, 'GET', '/reviews', {
+      authorization: [
+        `Bearer ${fixture.identity.token}`,
+        `Bearer ${fixture.identity.token}`
+      ]
+    })
+  ]
+
+  for (const [index, attempt] of attempts.entries()) {
+    assert.equal(attempt.statusCode, 401, `attempt ${String(index)}`)
+    assert.equal(attempt.headers['www-authenticate'], 'Bearer realm="Markover"')
+    assert.deepEqual(attempt.body, {
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required.'
+      }
+    })
+  }
+  const health = await rawRequest(fixture.port, 'GET', '/health')
+  assert.equal(health.statusCode, 200)
+  assert.deepEqual(health.body, { status: 'ok', version: 2 })
+  assert.deepEqual(
+    unauthorized.map(({ method, pathname, reason }) => ({
+      method,
+      pathname,
+      reason
+    })),
+    [
+      { method: 'GET', pathname: '/reviews', reason: 'missing' },
+      { method: 'POST', pathname: '/reviews', reason: 'missing' },
+      { method: 'GET', pathname: '/missing', reason: 'missing' },
+      { method: 'GET', pathname: '/health', reason: 'missing' },
+      { method: 'GET', pathname: '/reviews', reason: 'malformed' },
+      { method: 'GET', pathname: '/reviews', reason: 'mismatch' },
+      { method: 'GET', pathname: '/reviews', reason: 'malformed' }
+    ]
+  )
+  assert.deepEqual(await fixture.store.list(), [])
+  assert.deepEqual(fixture.changes, [])
+})
+
+test('categorizes invalid, stale, and rejected service credentials', async (t) => {
+  const fixture = await serviceFixture(t)
+  const tokenPath = tokenPathForEndpoint(fixture.endpointPath)
+
+  await fs.writeFile(tokenPath, '{}')
+  assert.deepEqual(
+    await requestJson(fixture.endpointPath, 'GET', '/health'),
+    { status: 'ok', version: 2 }
+  )
+  await assert.rejects(
+    requestJson(fixture.endpointPath, 'GET', '/reviews'),
+    (error: unknown) => (
+      error instanceof LocalServiceError &&
+      error.code === 'INVALID_CREDENTIAL'
+    )
+  )
+
+  await fs.writeFile(tokenPath, JSON.stringify({
+    version: 1,
+    instanceId: '22222222-2222-4222-8222-222222222222',
+    token: fixture.identity.token
+  }))
+  await assert.rejects(
+    requestJson(fixture.endpointPath, 'GET', '/reviews'),
+    (error: unknown) => (
+      error instanceof LocalServiceError && error.code === 'STALE_SERVICE'
+    )
+  )
+
+  await fs.writeFile(tokenPath, JSON.stringify({
+    version: 1,
+    instanceId: fixture.identity.instanceId,
+    token: fixture.identity.token === 'B'.repeat(43)
+      ? 'C'.repeat(43)
+      : 'B'.repeat(43)
+  }))
+  await assert.rejects(
+    requestJson(fixture.endpointPath, 'GET', '/reviews'),
+    (error: unknown) => hasServiceError(error, 'UNAUTHORIZED', 401)
+  )
+
+  await fs.writeFile(fixture.endpointPath, JSON.stringify({
+    version: 1,
+    port: fixture.port
+  }))
+  await assert.rejects(
+    requestJson(fixture.endpointPath, 'GET', '/health'),
+    (error: unknown) => (
+      error instanceof LocalServiceError && error.code === 'INVALID_ENDPOINT'
+    )
+  )
+})
+
+test('rejects an invalid authorization token before listening', async () => {
+  await assert.rejects(
+    startLocalService({
+      authorizationToken: 'short',
+      store: new ReviewStore('/unused/reviews')
+    }),
+    /authorization token is invalid/
+  )
+})
+
+test('diagnostic callback failures cannot change a rejection', async (t) => {
+  const fixture = await serviceFixture(t, {
+    onUnauthorized() {
+      throw new Error('simulated diagnostic failure')
+    }
+  })
+  const response = await rawRequest(fixture.port, 'GET', '/reviews')
+  assert.equal(response.statusCode, 401)
+  assert.deepEqual(response.body, {
+    error: {
+      code: 'UNAUTHORIZED',
+      message: 'Authentication required.'
+    }
+  })
 })
 
 test('lists and loads reviews through one-shot requests', async (t) => {

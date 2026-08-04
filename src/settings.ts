@@ -7,7 +7,8 @@
     showKeyboardHelp: true,
     openDocumentsSidebar: true,
     defaultTreeView: 'all',
-    confirmAttachmentRemoval: true
+    confirmAttachmentRemoval: true,
+    logRejectedApiRequests: false
   })
 
   const OPTIONS: MarkoverSettingsApi['OPTIONS'] = Object.freeze({
@@ -81,7 +82,8 @@
     for (const key of [
       'showKeyboardHelp',
       'openDocumentsSidebar',
-      'confirmAttachmentRemoval'
+      'confirmAttachmentRemoval',
+      'logRejectedApiRequests'
     ] as const) {
       if (typeof input[key] === 'boolean') normalized[key] = input[key]
     }

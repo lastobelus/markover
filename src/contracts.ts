@@ -48,6 +48,7 @@ declare global {
     openDocumentsSidebar: boolean
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
+    logRejectedApiRequests: boolean
   }
 
   interface SettingsView {
