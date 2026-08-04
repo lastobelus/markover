@@ -1,17 +1,17 @@
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const test = require('node:test')
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(
+const read = (relativePath: string): string => fs.readFileSync(
   path.join(root, relativePath),
   'utf8'
 )
 
 test('dark palettes use their selected colorization and accent roles', () => {
   const html = read('src/index.html')
-  const renderer = read('src/renderer.js')
+  const renderer = read('src/renderer.ts')
   const styles = read('src/styles.css')
 
   assert.match(styles, /data-palette="ember"\]\[data-appearance="dark"\]\[data-colorization="low"\][\s\S]*--ink: #dfdedd;[\s\S]*--ink-rgb: 223 222 221;/)

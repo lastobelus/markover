@@ -282,7 +282,7 @@ test('settings are discoverable from the native menu and wired to a complete dia
   const [main, preload, renderer, html] = await Promise.all([
     read('src/main.ts'),
     read('src/preload.ts'),
-    read('src/renderer.js'),
+    read('src/renderer.ts'),
     read('src/index.html')
   ])
 
@@ -291,7 +291,7 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(main, /installApplicationMenu\(\)/)
   assert.match(preload, /getSettings:/)
   assert.match(preload, /onSettingsOpen:/)
-  assert.match(renderer, /function applySettings\(next, options = \{\}\)/)
+  assert.match(renderer, /function applySettings\([\s\S]*next: unknown,[\s\S]*options: \{ initial\?: boolean \} = \{\}[\s\S]*\): void/)
   assert.match(html, /<dialog id="settings-dialog"/)
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     assert.match(html, new RegExp(`name="${key}"`))

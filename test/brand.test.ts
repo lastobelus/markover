@@ -1,11 +1,11 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const crypto = require('node:crypto')
-const fs = require('node:fs')
-const path = require('node:path')
+import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+const read = (relativePath: string): string => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
 test('canonical brand SVGs use only the normalized semantic inks', () => {
   for (const name of ['markover-mark.svg', 'markover-logotype.svg', 'markover-lockup.svg']) {
@@ -53,6 +53,7 @@ test('the branding mockup is a self-contained local artifact bundle', () => {
   const html = fs.readFileSync(entryPath, 'utf8')
   const localTargets = [...html.matchAll(/(?:href|src)="([^"]+)"/g)]
     .map((match) => match[1])
+    .filter((target): target is string => target !== undefined)
     .filter((target) => !target.startsWith('#') && !/^[a-z]+:/i.test(target))
 
   assert.ok(localTargets.length > 0)
@@ -68,7 +69,7 @@ test('the branding mockup is a self-contained local artifact bundle', () => {
 
 test('the app composes external brand assets and exposes a true empty state', () => {
   const html = read('src/index.html')
-  const renderer = read('src/renderer.js')
+  const renderer = read('src/renderer.ts')
 
   assert.match(html, /class="brand" role="img" aria-label="Markover"/)
   assert.match(html, /<img[\s\S]*id="brand-mark"[\s\S]*src="\.\.\/design\/brand\/markover-mark\.svg"/)
@@ -79,8 +80,8 @@ test('the app composes external brand assets and exposes a true empty state', ()
   assert.match(html, /<header class="app-header is-empty">/)
   assert.match(html, /<main id="empty-workspace" class="empty-workspace">/)
   assert.match(html, /<main id="workspace" class="workspace" hidden>/)
-  assert.match(renderer, /function setWorkspaceEmpty\(empty\)/)
-  assert.match(renderer, /function activateReview\(reviewId\) \{\s*setWorkspaceEmpty\(false\)/)
+  assert.match(renderer, /function setWorkspaceEmpty\(empty: boolean\): void/)
+  assert.match(renderer, /function activateReview\(reviewId: string\): void \{\s*setWorkspaceEmpty\(false\)/)
   assert.match(renderer, /setWorkspaceEmpty\(true\)/)
   assert.doesNotMatch(renderer, /SAMPLE_MARKDOWN/)
 })
@@ -88,7 +89,7 @@ test('the app composes external brand assets and exposes a true empty state', ()
 test('the application palette matches the brand brief at startup and in CSS', () => {
   const styles = read('src/styles.css')
   const main = read('src/main.ts')
-  const renderer = read('src/renderer.js')
+  const renderer = read('src/renderer.ts')
 
   for (const token of [
     '--markover-primary: #c94e1f',
@@ -115,7 +116,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   assert.match(styles, /data-colorization="low"/)
   assert.match(read('src/preload.ts'), /getBrandAssets: \(\) => ipcRenderer\.invoke\('brand:assets'\)/)
   assert.match(main, /function loadBrandAssets\(\)[\s\S]*markover-mark\.svg[\s\S]*markover-logotype\.svg[\s\S]*markover-lockup\.svg/)
-  assert.match(renderer, /function themedBrandSource\(source, primary, secondary\)/)
+  assert.match(renderer, /function themedBrandSource\([\s\S]*source: string,[\s\S]*primary: string,[\s\S]*secondary: string[\s\S]*\): string/)
   assert.match(renderer, /replaceAll\('#c94e1f', primary\)[\s\S]*replaceAll\('#6d211f', secondary\)/)
   assert.match(renderer, /finally \{\s*document\.documentElement\.classList\.add\('is-brand-ready'\)/)
   assert.match(styles, /\.is-brand-ready :is\(\.brand-mark, \.brand-logotype, \.empty-workspace-lockup\)/)
@@ -134,7 +135,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
 
 test('the working header aligns the brand and uses the primary action color', () => {
   const styles = read('src/styles.css')
-  const renderer = read('src/renderer.js')
+  const renderer = read('src/renderer.ts')
   const html = read('src/index.html')
 
   assert.match(styles, /\.brand \{[^}]*align-items: flex-end;[^}]*transform: translateY\(6px\);/)
