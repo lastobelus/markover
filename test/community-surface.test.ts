@@ -1,13 +1,55 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const { parse } = require('yaml')
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
+import { parse } from 'yaml'
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
-const form = (relativePath) => parse(read(relativePath))
-const field = (document, id) => document.body.find((entry) => entry.id === id)
+const read = (relativePath: string): string => fs.readFileSync(
+  path.join(root, relativePath),
+  'utf8'
+)
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function record(value: unknown): Record<string, unknown> {
+  assert.ok(isRecord(value))
+  return value
+}
+
+function list(value: unknown): unknown[] {
+  assert.ok(Array.isArray(value))
+  return value
+}
+
+function text(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new TypeError('Expected a string in parsed community YAML.')
+  }
+  return value
+}
+
+function form(relativePath: string): Record<string, unknown> {
+  const document: unknown = parse(read(relativePath))
+  return record(document)
+}
+
+function field(
+  document: Record<string, unknown>,
+  id: string
+): Record<string, unknown> {
+  const entry = list(document.body)
+    .map(record)
+    .find((candidate) => candidate.id === id)
+  assert.ok(entry)
+  return entry
+}
+
+function required(document: Record<string, unknown>, id: string): unknown {
+  return record(field(document, id).validations).required
+}
 
 test('issue forms route bugs and scoped proposals with required context', () => {
   const bug = form('.github/ISSUE_TEMPLATE/bug.yml')
@@ -22,13 +64,15 @@ test('issue forms route bugs and scoped proposals with required context', () => 
     'architecture',
     'launch_method'
   ]) {
-    assert.equal(field(bug, id).validations.required, true, `${id} should be required`)
+    assert.equal(required(bug, id), true, `${id} should be required`)
   }
-  const bugConfirmations = field(bug, 'confirmations').attributes.options
+  const bugConfirmations = list(
+    record(field(bug, 'confirmations').attributes).options
+  ).map(record)
   assert.equal(bugConfirmations.length, 3)
-  assert.equal(bugConfirmations.every((option) => option.required), true)
-  assert.match(bugConfirmations[1].label, /private vulnerability reporting/)
-  assert.match(bugConfirmations[2].label, /sensitive data/)
+  assert.equal(bugConfirmations.every((option) => option.required === true), true)
+  assert.match(text(bugConfirmations[1]?.label), /private vulnerability reporting/)
+  assert.match(text(bugConfirmations[2]?.label), /sensitive data/)
 
   const proposal = form('.github/ISSUE_TEMPLATE/proposal.yml')
   assert.deepEqual(proposal.labels, ['enhancement'])
@@ -41,14 +85,14 @@ test('issue forms route bugs and scoped proposals with required context', () => 
     'alternatives',
     'validation'
   ]) {
-    assert.equal(field(proposal, id).validations.required, true, `${id} should be required`)
+    assert.equal(required(proposal, id), true, `${id} should be required`)
   }
 })
 
 test('issue chooser disables blank reports and exposes every private or community route', () => {
   const config = form('.github/ISSUE_TEMPLATE/config.yml')
   assert.equal(config.blank_issues_enabled, false)
-  const urls = config.contact_links.map((link) => link.url)
+  const urls = list(config.contact_links).map((link) => text(record(link).url))
   assert.ok(urls.includes('https://github.com/lastobelus/markover/discussions/categories/q-a'))
   assert.ok(urls.includes('https://github.com/lastobelus/markover/discussions/categories/ideas'))
   assert.ok(urls.includes('https://github.com/lastobelus/markover/security/advisories/new'))
@@ -60,11 +104,11 @@ test('issue chooser disables blank reports and exposes every private or communit
 test('discussion forms match the category slugs and collect useful context', () => {
   const ideas = form('.github/DISCUSSION_TEMPLATE/ideas.yml')
   const questions = form('.github/DISCUSSION_TEMPLATE/q-a.yml')
-  assert.equal(field(ideas, 'problem').validations.required, true)
-  assert.equal(field(ideas, 'outcome').validations.required, true)
-  assert.equal(field(questions, 'question').validations.required, true)
-  assert.ok(ideas.body.some((entry) => entry.type !== 'markdown'))
-  assert.ok(questions.body.some((entry) => entry.type !== 'markdown'))
+  assert.equal(required(ideas, 'problem'), true)
+  assert.equal(required(ideas, 'outcome'), true)
+  assert.equal(required(questions, 'question'), true)
+  assert.ok(list(ideas.body).some((entry) => record(entry).type !== 'markdown'))
+  assert.ok(list(questions.body).some((entry) => record(entry).type !== 'markdown'))
 })
 
 test('pull request template requests exact validation and omissions', () => {
