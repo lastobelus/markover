@@ -51,6 +51,26 @@ Managed reviews autosave in Markover's per-user application-data `reviews`
 directory and are restored automatically when the single Markover application
 restarts.
 
+## Pre-preview compatibility and restart policy
+
+Markover has no external user base yet. During pre-MVP0 development, make clean
+protocol, storage, and architecture changes directly. Do not add fallback
+readers, dual writers, migrations, or other compatibility machinery unless
+there is concrete evidence that changed behavior is already in active external
+use; ask the maintainer before adding any such layer.
+
+Preserve historical review JSON and attachments unless a task explicitly owns
+their deletion. The latest Markover version does not need to open every older
+artifact: historical JSON can remain available for direct analysis, and an
+older application version may be used for occasional viewing. Do not build a
+migration solely to make old reviews viewable in the latest app.
+
+Do not require agents to drain or hand off inflight reviews before restarting
+Markover. For a planned restart, give the user a chance to warn agents or let an
+active CLI request finish, then rely on persisted managed-review state to
+return. Bounded-loss crash/restart durability is tracked separately in issue
+39; do not fold that work into authorization changes.
+
 ## Git checkpoints
 
 Commit completed work at natural checkpoints. In particular, when the user

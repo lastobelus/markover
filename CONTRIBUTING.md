@@ -70,8 +70,23 @@ focused; avoid unrelated formatting or refactoring.
 - Managed-review state changes must preserve the existing atomic and
   idempotent handoff behavior.
 
-Do not add compatibility layers during the preview unless current use clearly
-requires one and the maintainer agrees to the migration policy first.
+Markover currently has no external user base. Before MVP0, prefer a clean break
+for protocol, storage, feature, and architecture changes. Do not add fallback
+readers, dual writers, migrations, or other compatibility layers unless there
+is concrete evidence of active external use and the maintainer agrees to the
+migration policy first.
+
+Preserve historical review JSON and attachments unless deletion is explicitly
+in scope. The latest app does not need to open every older artifact: retained
+JSON remains available for analysis, and an older app version can be used for
+occasional viewing. Do not add migrations solely to make historical reviews
+openable by the latest version.
+
+Application restarts must not require draining or handing off every inflight
+review. Coordinate a planned restart so an active CLI request is not cut off,
+then rely on persisted managed-review state. Crash/restart bounded-loss
+durability belongs to issue 39 rather than the local-service authorization
+work.
 
 ## Submit a pull request
 

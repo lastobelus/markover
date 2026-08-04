@@ -216,6 +216,66 @@ foundation for a production architecture.
    a drawer containing the summary, paths, Git details, pull request, thread,
    and discovery provenance.
 
+## Local service authorization
+
+1. **The first authorization boundary is the local OS account.** Markover
+   denies loopback callers that cannot read a protected per-process capability.
+   A malicious process running as the same user and a privileged or root
+   process are explicitly outside this boundary.
+2. **The service remains plain HTTP on `127.0.0.1`.** Local TLS, browser-client
+   support, CORS, and `Host`/`Origin` policy do not strengthen the selected
+   account boundary and are not part of protocol 2.
+3. **Each service process gets one full-access identity.** Startup generates a
+   random UUID instance ID and a 256-bit capability with
+   `randomBytes(32).toString('base64url')`. Restarting rotates both values; no
+   later process reuses an expired capability.
+4. **Discovery and credentials are fixed sibling records.** `service.json`
+   protocol 2 contains only `version`, `instanceId`, `port`, and `pid`.
+   `service.token` protocol 1 contains `version`, the matching `instanceId`, and
+   the capability. Endpoint metadata cannot redirect a client to another
+   credential path.
+5. **POSIX filesystem modes enforce the account boundary.** Startup hardens the
+   Markover application-data directory to `0700` before imports, settings,
+   windows, or service work. Both records and their atomic temporary files use
+   `0600`. Publication writes the credential first and the endpoint last; a
+   publication failure closes the listener and fails startup. Windows ACL
+   support and Windows security claims are deferred.
+6. **Shutdown leaves one coherent stale pair.** Neither record is deleted on
+   graceful shutdown. Stale records are useful to startup recovery and reveal
+   no live credential once their owning process has stopped.
+7. **Only exact `GET /health` is public.** It returns only
+   `{"status":"ok","version":2}`. Every other request must authenticate before
+   route matching or body reading with exactly one
+   `Authorization: Bearer <token>` header.
+8. **Authorization failures do not become an oracle.** Missing, malformed,
+   duplicated, and incorrect credentials all return the same structured
+   `401 UNAUTHORIZED` response and Bearer challenge. Validly shaped tokens use
+   a constant-time comparison. Unknown routes are also gated before their
+   `404`, and unauthorized bodies never reach JSON parsing or state mutation.
+9. **The shared client owns credential propagation.** It reads fresh endpoint
+   metadata and then fresh credentials for every non-health request, requires
+   matching instance IDs, and adds the header internally. Callers neither pass
+   nor receive tokens. Health reads endpoint metadata only.
+10. **Client failures have stable, non-secret categories.** Invalid discovery
+    metadata is `INVALID_ENDPOINT`; missing or malformed credentials are
+    `INVALID_CREDENTIAL`; mismatched instance IDs are `STALE_SERVICE`; and a
+    coherent request rejected by the server is `UNAUTHORIZED`.
+11. **Rejected-request diagnostics are explicit and redacted.** They are off by
+    default and controlled by the live persisted “Log rejected API requests”
+    setting. Enabled lines contain only method, query-free pathname, and
+    `missing`, `malformed`, or `mismatch`; they never contain credentials,
+    fingerprints, queries, bodies, other headers, or remote addresses.
+12. **Protocol 2 is a clean pre-preview break.** There is no protocol-1
+    fallback, dual protocol, optional authentication, or historical-review
+    migration. Existing review JSON and attachments remain untouched and need
+    not be openable by the latest app. Restarts do not require draining review
+    handoffs; issue 39 independently owns bounded-loss restart durability.
+13. **Issue 12 remains a three-PR stack.** This PR establishes capability
+    generation, protected publication, server enforcement, minimum client
+    propagation, and the reusable development smoke fixture. The next PR owns
+    stale/mismatched-pair recovery and stale-port impersonation; the final PR
+    owns exhaustive adversarial verification and public privacy/data claims.
+
 ## Deliberately deferred
 
 - Drill-down into block-quote contents or table rows and cells
@@ -228,6 +288,7 @@ foundation for a production architecture.
 - Agent result writeback, per-annotation outcomes, and addressed state
 - Organized review history, revisions, retention, and cleanup
 - Automatic pull-request discovery
-- Security hardening, accessibility, trusted distribution signing/notarization,
-  and auto-update
+- Same-user and privileged-process isolation, stale-port impersonation
+  protection, accessibility, trusted distribution signing/notarization, and
+  auto-update
 - Compatibility guarantees for the tree format
