@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import test from 'node:test'
 
 const {
@@ -7,6 +9,10 @@ const {
   FIXED_CONTRACT_STATEMENTS,
   guidance
 } = require('../src/agent-guidance') as MarkoverAgentGuidanceApi
+
+const root = path.resolve(__dirname, '../..')
+const read = (relativePath: string): Promise<string> =>
+  fs.readFile(path.join(root, relativePath), 'utf8')
 
 test('central guidance distinguishes mixed feedback without prescribing workflow', () => {
   assert.match(FIXED_CONTRACT, /may mix revision requests, questions, discussion, and context/)
@@ -28,4 +34,22 @@ test('guidance combines the fixed contract with a replaceable policy', () => {
     guidance(undefined).interpretationPolicy,
     DEFAULT_INTERPRETATION_POLICY
   )
+})
+
+test('generic agent and public guidance preserve the same semantics', async () => {
+  const [agents, readme, guide, development] = await Promise.all([
+    read('AGENTS.md'),
+    read('README.md'),
+    read('docs/guide/index.html'),
+    read('docs/development.md')
+  ])
+
+  assert.match(agents, /review\.agentGuidance\.fixedContract/)
+  assert.match(agents, /explicitly acknowledge every question/)
+  assert.match(agents, /source edits as context-dependent proposals/)
+  assert.match(readme, /does not classify annotations\s+or apply changes itself/)
+  assert.match(guide, /Use your judgment to respond to the review and make useful revisions\./)
+  assert.match(guide, /Removed X—.*it had no place there/)
+  assert.match(guide, /Optional stricter policies/)
+  assert.match(development, /Agent-facing instructions must preserve the contract/)
 })

@@ -65,6 +65,13 @@ npx --yes \
   markover get mko_8f3a2c
 ```
 
+The returned JSON includes a fixed interpretation contract and the review's
+snapshotted interpretation policy under `review.agentGuidance`. Together they
+tell the agent to distinguish revision requests, questions, discussion,
+context, and source-edit proposals instead of treating every annotation as an
+edit request. Markover carries this guidance; it does not classify annotations
+or apply changes itself.
+
 If the reviewer needs to change their feedback after handoff, use `edit` with
 the same review ID.
 
