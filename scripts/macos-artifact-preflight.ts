@@ -6,7 +6,7 @@ import path from 'node:path'
 
 import {
   appBundleId,
-  entitlementKeysForSignedFile,
+  expectedEntitlementsForSignedFile,
   expectedArchiveName,
   machOArchitecture,
   minimumMacosVersion,
@@ -23,7 +23,8 @@ export interface CommandResult {
 
 export type CommandRunner = (
   command: string,
-  args: readonly string[]
+  args: readonly string[],
+  input?: string
 ) => CommandResult
 
 export interface VerifyMacosArtifactOptions {
@@ -46,8 +47,8 @@ export interface MacosArtifactReport {
   version: string
 }
 
-export const runCommand: CommandRunner = (command, args) => {
-  const result = spawnSync(command, [...args], { encoding: 'utf8' })
+export const runCommand: CommandRunner = (command, args, input) => {
+  const result = spawnSync(command, [...args], { encoding: 'utf8', input })
   if (result.error) throw result.error
   return {
     status: result.status ?? 1,
@@ -68,9 +69,10 @@ function commandOutput(result: CommandResult): string {
 function requireCommand(
   runner: CommandRunner,
   command: string,
-  args: readonly string[]
+  args: readonly string[],
+  input?: string
 ): CommandResult {
-  const result = runner(command, args)
+  const result = runner(command, args, input)
   if (result.status !== 0) {
     throw new Error(
       commandOutput(result) ||
@@ -111,11 +113,62 @@ export function validateArchiveEntries(entries: string): void {
   }
 }
 
-function entitlementKeys(output: string): string[] {
-  return [...output.matchAll(/<key>([^<]+)<\/key>/g)]
-    .map((match) => match[1] ?? '')
-    .filter(Boolean)
-    .sort()
+function entitlementPlist(output: string): string | undefined {
+  const start = output.indexOf('<plist')
+  const end = output.lastIndexOf('</plist>')
+  if (start < 0 && end < 0) return undefined
+  if (start < 0 || end < start) {
+    throw new Error('codesign returned a malformed entitlement property list.')
+  }
+  return output.slice(start, end + '</plist>'.length)
+}
+
+function parseEntitlements(
+  runner: CommandRunner,
+  output: string
+): Record<string, unknown> {
+  const plist = entitlementPlist(output)
+  if (plist === undefined) return {}
+  const converted = requireCommand(
+    runner,
+    '/usr/bin/plutil',
+    ['-convert', 'json', '-o', '-', '--', '-'],
+    plist
+  ).stdout
+  let value: unknown
+  try {
+    value = JSON.parse(converted)
+  } catch {
+    throw new Error('plutil returned invalid JSON for signed entitlements.')
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Signed entitlements must be a property-list dictionary.')
+  }
+  return value as Record<string, unknown>
+}
+
+function canonicalJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalJsonValue(entry)])
+    )
+  }
+  return value
+}
+
+function assertExactEntitlements(
+  actual: Record<string, unknown>,
+  expected: Readonly<Record<string, boolean>>,
+  label: string
+): void {
+  const actualJson = JSON.stringify(canonicalJsonValue(actual))
+  const expectedJson = JSON.stringify(canonicalJsonValue(expected))
+  if (actualJson !== expectedJson) {
+    throw new Error(`${label} expected ${expectedJson}, found ${actualJson}.`)
+  }
 }
 
 function assertExactValues(
@@ -216,9 +269,9 @@ function verifySignedPath(
     '/usr/bin/codesign',
     ['--display', '--entitlements', ':-', signedPath]
   ))
-  assertExactValues(
-    entitlementKeys(entitlements),
-    entitlementKeysForSignedFile(appPath, signedPath),
+  assertExactEntitlements(
+    parseEntitlements(runner, entitlements),
+    expectedEntitlementsForSignedFile(appPath, signedPath),
     `${path.basename(signedPath)} entitlements`
   )
 }

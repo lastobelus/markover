@@ -10,42 +10,42 @@ export type MacosTrustMode = 'ad-hoc'
 export interface SignedAppComponent {
   bundleId: string
   entitlementFile: string
-  entitlementKeys: readonly string[]
+  entitlements: Readonly<Record<string, boolean>>
   relativePath: string
 }
 
-const allowJit = ['com.apple.security.cs.allow-jit'] as const
+const allowJit = { 'com.apple.security.cs.allow-jit': true } as const
 
 export const signedAppComponents: readonly SignedAppComponent[] = [
   {
     relativePath: '',
     bundleId: appBundleId,
     entitlementFile: 'app.plist',
-    entitlementKeys: allowJit
+    entitlements: allowJit
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper.app',
     bundleId: helperBundleId,
     entitlementFile: 'helper.plist',
-    entitlementKeys: allowJit
+    entitlements: allowJit
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper (GPU).app',
     bundleId: helperBundleId,
     entitlementFile: 'helper-gpu.plist',
-    entitlementKeys: allowJit
+    entitlements: allowJit
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper (Plugin).app',
     bundleId: helperBundleId,
     entitlementFile: 'helper-plugin.plist',
-    entitlementKeys: []
+    entitlements: {}
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper (Renderer).app',
     bundleId: helperBundleId,
     entitlementFile: 'helper-renderer.plist',
-    entitlementKeys: allowJit
+    entitlements: allowJit
   }
 ]
 
@@ -93,11 +93,11 @@ export function entitlementsForSignedFile(
   return path.join(entitlementsDirectory(rootDirectory), entitlementFile)
 }
 
-export function entitlementKeysForSignedFile(
+export function expectedEntitlementsForSignedFile(
   appPath: string,
   filePath: string
-): readonly string[] {
-  return signedComponentForFile(appPath, filePath)?.entitlementKeys ?? []
+): Readonly<Record<string, boolean>> {
+  return signedComponentForFile(appPath, filePath)?.entitlements ?? {}
 }
 
 function signedComponentForFile(

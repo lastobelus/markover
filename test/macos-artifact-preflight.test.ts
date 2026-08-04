@@ -22,6 +22,7 @@ import {
 interface FakeRunnerOptions {
   architecture?: string
   entitlementDrift?: boolean
+  falseAllowJit?: boolean
   failCommand?: string
   frameworkEntitlementDrift?: boolean
   gatekeeperAccepted?: boolean
@@ -110,12 +111,13 @@ function fakeRunner(
     architecture = 'arm64',
     entitlementDrift = false,
     failCommand,
+    falseAllowJit = false,
     frameworkEntitlementDrift = false,
     gatekeeperAccepted = false,
     mainBundleId = appBundleId,
     signature = 'CodeDirectory v=20500 flags=0x10002(adhoc,runtime)\nSignature=adhoc\nTeamIdentifier=not set'
   } = options
-  return (command, args) => {
+  return (command, args, input) => {
     if (path.basename(command) === failCommand) {
       return { status: 2, stdout: '', stderr: `${failCommand} failed` }
     }
@@ -129,6 +131,12 @@ function fakeRunner(
       return success()
     }
     if (command === '/usr/bin/plutil') {
+      if (args.includes('-convert')) {
+        const entries = [...(input ?? '').matchAll(
+          /<key>([^<]+)<\/key>\s*<(true|false)\s*\/>/g
+        )].map((match) => [match[1], match[2] === 'true'])
+        return success(JSON.stringify(Object.fromEntries(entries)))
+      }
       const key = args[1]
       const plistPath = args.at(-1) ?? ''
       const name = componentName(plistPath)
@@ -161,9 +169,16 @@ function fakeRunner(
         ) {
           keys.push('com.apple.security.cs.disable-library-validation')
         }
-        return success(
-          `<?xml version="1.0"?><plist><dict>${keys.map((key) => `<key>${key}</key><true/>`).join('')}</dict></plist>`
-        )
+        if (
+          componentPath.endsWith('Electron Framework.framework') &&
+          !frameworkEntitlementDrift
+        ) {
+          return success('', `Executable=${componentPath}`)
+        }
+        const values = keys.map((key) => (
+          `<key>${key}</key><${falseAllowJit && key === 'com.apple.security.cs.allow-jit' ? 'false' : 'true'}/>`
+        )).join('')
+        return success(`<?xml version="1.0"?><plist><dict>${values}</dict></plist>`)
       }
       if (args.includes('--display')) return success('', signature)
       return success()
@@ -316,6 +331,13 @@ test('rejects entitlement drift and unexpected signature modes', async (t) => {
       commandRunner: fakeRunner({ frameworkEntitlementDrift: true })
     }),
     /Electron Framework\.framework entitlements expected/
+  )
+  await assert.rejects(
+    verifyMacosArtifact({
+      ...base,
+      commandRunner: fakeRunner({ falseAllowJit: true })
+    }),
+    /entitlements expected .*true.* found .*false/
   )
   await assert.rejects(
     verifyMacosArtifact({

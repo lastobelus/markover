@@ -105,11 +105,11 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Draft PR #45 · Slice 1 accepted · 3 Aug 2026/
+    /PR #45 in review · Slice 1 accepted · 3 Aug 2026/
   )
   assert.match(
     pages[1] ?? '',
-    /Draft PR #45 · Accepted slice · 3 Aug 2026/
+    /PR #45 in review · Accepted slice · 3 Aug 2026/
   )
 })
 
