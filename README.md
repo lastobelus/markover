@@ -35,7 +35,8 @@ block-level feedback to an agent.
 
 ## Try without installing
 
-Markover currently requires macOS and Node.js 22.13.0 or newer. Open a document with:
+Markover supports macOS 14 Sonoma or newer on Apple Silicon and Intel Macs and
+requires Node.js 22.13.0 or newer for the launcher. Open a document with:
 
 ```sh
 npx --yes \
@@ -44,9 +45,12 @@ npx --yes \
   --summary "Explain why this document exists and what feedback would help."
 ```
 
-The command downloads the app for the current Mac architecture on first use,
-verifies its checksum, and reuses the cached app afterward. It returns a review
-ID and exits without waiting for the review:
+The command downloads the app for the current Mac architecture on first use.
+Release launchers produced from the hardened preflight verify its checksum,
+bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and
+code seal before moving it into the cache. Later commands reuse that validated
+version. The launcher returns a review ID and exits without waiting for the
+review:
 
 ```json
 {"reviewId":"mko_8f3a2c","status":"editing"}
@@ -64,9 +68,26 @@ npx --yes \
 If the reviewer needs to change their feedback after handoff, use `edit` with
 the same review ID.
 
-The current release is ad-hoc signed rather than Developer ID signed and
-notarized. See the [user guide](https://lastobelus.github.io/markover/guide/)
-for the review workflow and keyboard controls, or
+## Opening Markover on macOS
+
+Markover downloads are **not Apple-verified**. They use hardened ad-hoc signing
+to make code changes detectable, but they do not have an authenticated
+Developer ID publisher and are not notarized. Gatekeeper is therefore expected
+to block the first launch.
+
+After a blocked launch, open **System Settings → Privacy & Security**, find the
+message about Markover under **Security**, choose **Open Anyway**, and confirm
+**Open**. If you downloaded the app manually, you can instead Control-click
+`Markover.app` in Finder and choose **Open**, then **Open** again. Apply an
+override only to a Markover archive whose SHA-256 checksum you obtained from
+the same GitHub Release. Do not recursively remove quarantine attributes.
+
+Published `v0.1.1` predates the hardened preflight and remains an untouched
+historical release. Consult each release's notes for its exact trust status.
+Apple verification remains gated on Apple Developer Program access.
+
+See the [user guide](https://lastobelus.github.io/markover/guide/)
+for the complete review workflow and keyboard controls, or
 [development.md](./docs/development.md) for checkout, testing, packaging, and
 release notes.
 

@@ -48,6 +48,9 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.match(workflow, /GITHUB_REF_NAME/)
   assert.match(workflow, /Markover-darwin-\$\{architecture\}\.zip/)
   assert.match(workflow, /shasum -a 256/)
+  assert.match(workflow, /Verify final macOS artifact/)
+  assert.match(workflow, /release:preflight -- verify-macos/)
+  assert.match(workflow, /--trust-mode=ad-hoc/)
   assert.match(workflow, /markover-cli\.tgz/)
   assert.match(workflow, /gh release create/)
 })
@@ -64,6 +67,52 @@ test('README exposes the repository-only install-free agent command', () => {
   }
   assert.match(readme, /retain the returned `reviewId`/)
   assert.match(readme, /“Check\nMarkover,” run the same launcher with `get <reviewId>`/)
+})
+
+test('release documentation states the Sonoma and ad-hoc trust boundary', () => {
+  const sources = [
+    read('README.md'),
+    read('docs/guide/index.html'),
+    read('docs/development.md')
+  ]
+  for (const source of sources) {
+    assert.match(source, /macOS 14 Sonoma/)
+    assert.match(source, /not Apple-verified/i)
+    assert.match(source, /Apple Developer Program/)
+    assert.doesNotMatch(source, /xattr\s+-[a-zA-Z]*r/)
+  }
+  assert.match(sources[0] ?? '', /## Opening Markover on macOS/)
+  assert.match(sources[1] ?? '', /System Settings → Privacy &amp; Security/)
+})
+
+test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
+  const directory =
+    'doc/plans/2026-08-03__signing-notarization-preflight-eli5'
+  const pages = ['index.html', 'slice-1.html', 'release-roadmap.html']
+    .map((name) => read(`${directory}/${name}`))
+  for (const page of pages) {
+    assert.match(page, /<nav class="tabs"/)
+    assert.match(page, /href="index\.html"/)
+    assert.match(page, /href="slice-1\.html"/)
+    assert.match(page, /href="release-roadmap\.html"/)
+    assert.match(page, /<details class="card truth-context">/)
+    assert.match(page, /Where This Is True/)
+    assert.match(page, /<svg[^>]+role="img"/)
+    assert.doesNotMatch(page, /<script[^>]+src=/)
+    assert.doesNotMatch(page, /<link[^>]+rel="stylesheet"/)
+    assert.ok(
+      page.indexOf('<details class="card truth-context">') <
+        page.indexOf('The Tiny Story')
+    )
+  }
+  assert.match(
+    pages[0] ?? '',
+    /Implemented locally · Slice 1 review · 3 Aug 2026/
+  )
+  assert.match(
+    pages[1] ?? '',
+    /Implemented locally · Awaiting review · 3 Aug 2026/
+  )
 })
 
 test('continuous integration enforces the supported Node versions', () => {
@@ -189,8 +238,11 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     'copy-build-assets',
     'generate-third-party-notices',
     'markover',
+    'macos-artifact-preflight',
+    'macos-release-contract',
     'open-review',
     'package-macos',
+    'release-preflight',
     'review',
     'start'
   ]) {
@@ -199,6 +251,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   }
   for (const name of [
     'bootstrap',
+    'macos-artifact-preflight',
     'macos-package',
     'markover-cli',
     'open-review',

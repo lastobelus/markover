@@ -4,6 +4,12 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import {
+  entitlementsForSignedFile,
+  minimumMacosVersion,
+  parseMacosTrustMode
+} from './macos-release-contract'
+
 const projectDirectory = path.resolve(__dirname, '../..')
 const packagerPath = path.join(
   projectDirectory,
@@ -12,6 +18,21 @@ const packagerPath = path.join(
 
 export interface CopyThirdPartyNoticesOptions {
   rootDirectory?: string
+}
+
+export interface AdHocSigningOptions {
+  app: string
+  identity: '-'
+  identityValidation: false
+  optionsForFile: (filePath: string) => {
+    entitlements: string
+    hardenedRuntime: true
+    timestamp: 'none'
+  }
+  platform: 'darwin'
+  preAutoEntitlements: false
+  preEmbedProvisioningProfile: false
+  strictVerify: true
 }
 
 export function copyThirdPartyNotices(
@@ -35,12 +56,66 @@ export function copyThirdPartyNotices(
   }
 }
 
-export function main(): void {
+export function adHocSigningOptions(
+  appPath: string,
+  rootDirectory = projectDirectory
+): AdHocSigningOptions {
+  return {
+    app: appPath,
+    platform: 'darwin',
+    identity: '-',
+    identityValidation: false,
+    preAutoEntitlements: false,
+    preEmbedProvisioningProfile: false,
+    strictVerify: true,
+    optionsForFile(filePath: string) {
+      return {
+        entitlements: entitlementsForSignedFile(
+          appPath,
+          filePath,
+          rootDirectory
+        ),
+        hardenedRuntime: true,
+        timestamp: 'none'
+      }
+    }
+  }
+}
+
+export function setMinimumSystemVersion(appPath: string): void {
+  const infoPlist = path.join(appPath, 'Contents', 'Info.plist')
+  const result = spawnSync(
+    '/usr/bin/plutil',
+    [
+      '-replace',
+      'LSMinimumSystemVersion',
+      '-string',
+      minimumMacosVersion,
+      infoPlist
+    ],
+    { encoding: 'utf8' }
+  )
+  if (result.status !== 0) {
+    throw new Error(
+      result.stderr.trim() || `plutil exited ${String(result.status)}`
+    )
+  }
+}
+
+function trustModeArgument(args: readonly string[]): string | undefined {
+  if (args.length !== 1 || !args[0]?.startsWith('--trust-mode=')) {
+    return undefined
+  }
+  return args[0].slice('--trust-mode='.length)
+}
+
+export async function main(commandArguments = process.argv.slice(2)): Promise<void> {
   if (process.platform !== 'darwin') {
     throw new Error('Packaging Markover for macOS requires macOS.')
   }
+  parseMacosTrustMode(trustModeArgument(commandArguments))
 
-  const args = [
+  const packagerArguments = [
     projectDirectory,
     'Markover',
     '--platform=darwin',
@@ -52,13 +127,13 @@ export function main(): void {
     '--app-bundle-id=com.lastobelus.markover',
     '--helper-bundle-id=com.lastobelus.markover.helper',
     '--app-category-type=public.app-category.developer-tools',
-    '--ignore=^/(?:\\.git|\\.markover|dist|doc|docs|examples|packages|scripts|src|test|third_party|tmp)(?:/|$)',
+    '--ignore=^/(?:\\.git|\\.markover|config|dist|doc|docs|examples|packages|scripts|src|test|third_party|tmp)(?:/|$)',
     '--ignore=^/build/(?:\\.github|docs|examples|packages|scripts|test)(?:/|$)',
     '--ignore=^/design(?:/|$)',
     '--ignore=^/(?:\\.editorconfig|\\.github|\\.gitignore|AGENTS\\.md|CODE_OF_CONDUCT\\.md|CONTRIBUTING\\.md|DECISIONS\\.md|README\\.md|ROADMAP\\.md|SCREENSHOT-ATTACHMENT-QUESTIONS\\.md|SECURITY\\.md|THIRD_PARTY_NOTICES\\.md|eslint\\.config\\.js|favicon\\.svg|tsconfig\\.json)$',
     '--ignore=\\.af$'
   ]
-  const result = spawnSync(packagerPath, args, {
+  const result = spawnSync(packagerPath, packagerArguments, {
     cwd: projectDirectory,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe']
@@ -75,26 +150,19 @@ export function main(): void {
     'Markover.app'
   )
   copyThirdPartyNotices(appPath)
-  const signing = spawnSync(
-    '/usr/bin/codesign',
-    ['--force', '--deep', '--sign', '-', appPath],
-    { encoding: 'utf8' }
-  )
-  if (signing.status !== 0) {
-    throw new Error(
-      signing.stderr.trim() || `codesign exited ${String(signing.status)}`
-    )
-  }
+  setMinimumSystemVersion(appPath)
+  const { sign } = await import('@electron/osx-sign')
+  await sign(adHocSigningOptions(appPath))
   process.stdout.write(result.stdout)
-  process.stdout.write('Created a local ad-hoc-signed build; it is not notarized for distribution.\n')
+  process.stdout.write(
+    'Created a hardened ad-hoc-signed build; it is not Apple-verified or notarized.\n'
+  )
 }
 
 if (require.main === module) {
-  try {
-    main()
-  } catch (error) {
+  main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     process.stderr.write(`markover package: ${message}\n`)
     process.exit(1)
-  }
+  })
 }

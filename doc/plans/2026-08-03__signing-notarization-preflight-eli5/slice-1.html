@@ -89,15 +89,15 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Planned · Not implemented · 3 Aug 2026</span>
+        <span class="context-status">Implemented locally · Awaiting review · 3 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
-          This is slice 1 of the reviewed
+          This is the locally implemented slice 1 of the reviewed
           <a href="#" data-repo-path="doc/plans/2026-08-03__signing-notarization-preflight.md">issue 13 plan</a>
           on branch <code>t3code/signing-notarization-preflight</code>, snapshot
-          <code>5147fa82baec</code>. It applies to native macOS packaging and first
-          bootstrap installation, not GitHub publication or future Apple credentials.
+          3 August 2026. It applies to native macOS packaging and first bootstrap
+          installation, not GitHub publication or future Apple credentials.
         </p>
         <div class="context-grid">
           <div>
@@ -106,7 +106,7 @@
           </div>
           <div>
             <h3>Expected to change</h3>
-            <p>Exact modules and test counts will evolve during implementation. Slice 2 later changes publication; future Developer ID activation changes expected Gatekeeper results. Re-check the plan, branch, and issue.</p>
+            <p>Exact modules and test counts may evolve after review. Slice 2 later changes publication; future Developer ID activation changes expected Gatekeeper results. Re-check the plan, branch, and issue.</p>
           </div>
         </div>
       </div>
@@ -115,8 +115,8 @@
     <section class="card" aria-labelledby="tiny-story">
       <h2 id="tiny-story">The Tiny Story</h2>
       <p>
-        Today Markover packs the whole moving truck, then puts one broad seal over it with
-        <code>codesign --deep</code>. Slice 1 instead seals each important box in the right
+        Markover used to pack the whole moving truck, then put one broad seal over it with
+        <code>codesign --deep</code>. Slice 1 now seals each important box in the right
         order, writes down exactly which special permissions each box needs, and inspects
         the final truck at the destination.
       </p>
@@ -179,7 +179,7 @@
             <text x="469" y="427" text-anchor="middle" fill="#8b2e26" font-weight="700">Reject + clean staging</text><text x="469" y="451" text-anchor="middle" fill="#756d67">do not cache or launch</text>
             <text x="449" y="376" text-anchor="middle" fill="#8b2e26" font-size="13" font-weight="700">anything mismatches</text>
           </g>
-          <text x="520" y="555" text-anchor="middle" fill="#756d67" font-family="system-ui" font-size="14">Cached versions skip the full first-install path; normal open/get/edit stay fast and JSON-only on stdout.</text>
+          <text x="520" y="555" text-anchor="middle" fill="#756d67" font-family="system-ui" font-size="14">Cached versions reuse only with a matching validation marker; normal open/get/edit stay fast and JSON-only on stdout.</text>
         </svg>
       </div>
     </section>
@@ -221,12 +221,12 @@
     </section>
 
     <section class="card proof" aria-labelledby="proof-title">
-      <h2 id="proof-title">What will count as slice-1 proof</h2>
+      <h2 id="proof-title">What passed locally</h2>
       <ul>
-        <li>Deterministic unit tests exercise every reject branch and injected command failure.</li>
-        <li>A real native package is produced on macOS and the exact final ZIP passes the native verifier.</li>
-        <li>Lint, type checking, notices, and the complete test suite pass.</li>
-        <li>The implementation and this ELI5 are updated together, committed, and then stopped for review.</li>
+        <li>Deterministic unit tests exercise unsafe paths, malformed metadata, architecture and signature mismatch, entitlement drift, command failure, and cleanup.</li>
+        <li>A real arm64 package was produced on macOS; its exact final ZIP passed the native verifier, including expected Gatekeeper rejection.</li>
+        <li>Lint, type checking, notices, and all 186 tests pass.</li>
+        <li>The implementation and this ELI5 are updated together and stop at the slice-1 review boundary.</li>
       </ul>
     </section>
 
@@ -234,10 +234,12 @@
       <h2 id="references-title">References checked</h2>
       <div class="card mini">
         <ul>
-          <li><a href="#" data-repo-path="scripts/package-macos.ts">scripts/package-macos.ts</a> — current packaging and broad final signing pass.</li>
+          <li><a href="#" data-repo-path="scripts/package-macos.ts">scripts/package-macos.ts</a> — explicit trust mode and supported inside-out signing.</li>
+          <li><a href="#" data-repo-path="scripts/macos-artifact-preflight.ts">scripts/macos-artifact-preflight.ts</a> — exact final-ZIP verification.</li>
+          <li><a href="#" data-repo-path="scripts/macos-release-contract.ts">scripts/macos-release-contract.ts</a> — IDs, Sonoma floor, components, and entitlement mapping.</li>
           <li><a href="#" data-repo-path="packages/cli/src/bootstrap.ts">packages/cli/src/bootstrap.ts</a> — checksum, staging, cache installation.</li>
           <li><a href="#" data-repo-path="test/macos-package.test.ts">test/macos-package.test.ts</a> and <a href="#" data-repo-path="test/bootstrap.test.ts">test/bootstrap.test.ts</a> — current guardrails.</li>
-          <li><a href="#" data-repo-path=".github/workflows/release.yml">.github/workflows/release.yml</a> — current two-architecture release path.</li>
+          <li><a href="#" data-repo-path=".github/workflows/release.yml">.github/workflows/release.yml</a> — two-architecture release path with final-ZIP gates.</li>
         </ul>
       </div>
     </section>

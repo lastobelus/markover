@@ -19,6 +19,7 @@
         <p>Guide</p>
         <a href="#overview" aria-current="page">Getting started</a>
         <a href="#run">Launch Markover</a>
+        <a href="#opening">Opening on macOS</a>
         <a href="#review">Review a document</a>
         <a href="#handoff">Return the handoff</a>
         <a href="#keyboard">Keyboard controls</a>
@@ -41,8 +42,8 @@
 
       <section>
         <h2>Requirements</h2>
-        <p>The current release runs on Apple Silicon and Intel Macs and requires Node.js 22.13.0 or newer for the bootstrap command. You do not need to clone the repository or install an npm package globally.</p>
-        <div class="callout"><strong>Release status.</strong> The app is ad-hoc signed, not Developer ID signed or notarized. macOS may ask you to confirm opening an app downloaded from the internet.</div>
+        <p>Markover supports macOS 14 Sonoma or newer on Apple Silicon and Intel Macs and requires Node.js 22.13.0 or newer for the bootstrap command. You do not need to clone the repository or install an npm package globally.</p>
+        <div class="callout"><strong>Not Apple-verified.</strong> Markover uses a hardened ad-hoc code signature, but it has no authenticated Developer ID publisher and is not notarized. Gatekeeper is expected to block its first launch.</div>
       </section>
 
       <section id="run">
@@ -52,9 +53,22 @@
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover open ./DOCUMENT.md \
   --summary "Review these decisions before implementation."</code></pre>
-        <p>On first use, the launcher downloads the app for the current Mac architecture, verifies its SHA-256 checksum, and caches it. The command opens the document in Markover and exits with one JSON value:</p>
+        <p>On first use, a release launcher produced from the hardened preflight downloads the app for the current Mac architecture; verifies its SHA-256 checksum, bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and code seal; then atomically caches it. The command opens the document in Markover and exits with one JSON value:</p>
         <pre><code>{"reviewId":"mko_8f3a2c","status":"editing"}</code></pre>
         <div class="callout"><strong>Keep the review ID.</strong> It identifies this review when the agent retrieves the handoff.</div>
+      </section>
+
+      <section id="opening">
+        <h2>Open the ad-hoc app safely</h2>
+        <p>The first launch is expected to show a macOS warning because Apple has not verified Markover's publisher. A valid ad-hoc seal proves that the app has not changed since it was sealed; it does not prove who produced it.</p>
+        <ol>
+          <li>Attempt the launch once so macOS records the blocked app.</li>
+          <li>Open <strong>System Settings → Privacy &amp; Security</strong>.</li>
+          <li>Under <strong>Security</strong>, find the Markover message and choose <strong>Open Anyway</strong>.</li>
+          <li>Confirm <strong>Open</strong>.</li>
+        </ol>
+        <p>If you downloaded <code>Markover.app</code> manually, Control-click it in Finder, choose <strong>Open</strong>, and confirm <strong>Open</strong>. Override only an archive whose SHA-256 checksum came from the same GitHub Release. Do not recursively remove quarantine attributes.</p>
+        <div class="callout"><strong>Historical release.</strong> Published <code>v0.1.1</code> predates the hardened preflight. Consult a release's notes for its exact trust status. Apple verification remains gated on Apple Developer Program access.</div>
       </section>
 
       <section id="review">

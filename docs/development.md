@@ -89,8 +89,39 @@ npm run package:mac
 open "dist/Markover-darwin-$(node -p process.arch)/Markover.app"
 ```
 
-The local bundle is branded and ad-hoc signed. It is not Developer ID signed or
-notarized.
+The package command selects an explicit, fail-closed `ad-hoc` trust mode. It
+finishes bundle metadata and notices before using `@electron/osx-sign` to sign
+components inside-out with hardened runtime, no timestamp, and the minimal
+checked-in profiles under `config/macos/entitlements/`. The bundle requires
+macOS 14 Sonoma or newer. It is **not Apple-verified**: it has no authenticated
+Developer ID publisher and is not notarized.
+
+To exercise the exact final-ZIP preflight in a verification-only directory:
+
+```sh
+architecture="$(node -p process.arch)"
+version="$(node -p "require('./package.json').version")"
+release_directory="$(mktemp -d)"
+ditto -c -k --sequesterRsrc --keepParent \
+  "dist/Markover-darwin-${architecture}/Markover.app" \
+  "${release_directory}/Markover-darwin-${architecture}.zip"
+(
+  cd "${release_directory}"
+  shasum -a 256 "Markover-darwin-${architecture}.zip" \
+    > "Markover-darwin-${architecture}.zip.sha256"
+)
+npm run release:preflight -- verify-macos \
+  "--archive=${release_directory}/Markover-darwin-${architecture}.zip" \
+  "--checksum=${release_directory}/Markover-darwin-${architecture}.zip.sha256" \
+  "--architecture=${architecture}" \
+  "--version=${version}" \
+  "--trust-mode=ad-hoc"
+```
+
+The verifier checks safe extraction, IDs, version, architecture, the Sonoma
+floor, strict code seals, hardened-runtime flags, exact per-component
+entitlements, the absent Team ID, and expected Gatekeeper rejection. A
+successful `spctl` assessment would be unexpected in ad-hoc mode.
 
 ## Build the bootstrap CLI
 
@@ -102,8 +133,13 @@ npm pack ./packages/cli
 ```
 
 The public launcher downloads the matching macOS application archive and
-checksum from the latest GitHub release, verifies the archive, caches the app,
-and forwards commands to it.
+checksum from the latest GitHub release. On first installation of a version, it
+checks the digest, bundle ID, version, architecture, Sonoma floor, strict code
+seal, hardened runtime, and expected ad-hoc signature while the app is still in
+staging. Only then does it atomically cache the app with an internal validation
+marker and print a `not Apple-verified` warning to stderr. Cached versions with
+the matching marker skip the full installation check, and successful agent
+commands preserve JSON-only stdout.
 
 ## Release
 
@@ -113,11 +149,15 @@ The root package and `packages/cli` versions must match. A release tag named
 1. Tests the repository.
 2. Packages Markover for Apple Silicon and Intel Macs.
 3. Generates SHA-256 checksum files.
-4. Packs the bootstrap CLI.
-5. Publishes the archives, checksums, and `markover-cli.tgz` on the GitHub
+4. Runs the native preflight against each exact final ZIP.
+5. Packs the bootstrap CLI.
+6. Publishes the archives, checksums, and `markover-cli.tgz` on the GitHub
    release.
 
-The project does not currently use Developer ID signing or Apple notarization.
+The project does not currently have the Apple Developer Program access required
+for Developer ID signing and notarization. Activation is a future reviewed
+change; credentials alone must never switch the trust mode or silently fall
+back to ad-hoc signing.
 
 ## Agent protocol conventions
 

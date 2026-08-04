@@ -12,6 +12,8 @@ import {
   download,
   ensureInstalledApp,
   releaseAssetName,
+  validateMacosApp,
+  type BootstrapCommandRunner,
   type EnsureInstalledAppOptions
 } from '../packages/cli/src/bootstrap'
 import { main as buildCli } from '../scripts/build-cli'
@@ -65,12 +67,14 @@ test('downloads, verifies, and atomically caches Markover.app', async (t) => {
   const archive = Buffer.from('fake Markover archive')
   const checksum = crypto.createHash('sha256').update(archive).digest('hex')
   const downloads: string[] = []
+  const progress: string[] = []
+  const validations: Array<{ appPath: string, architecture: string, version: string }> = []
 
   const options: EnsureInstalledAppOptions = {
     architecture: 'arm64',
     cacheDirectory: directory,
     platform: 'darwin',
-    progress() {},
+    progress(message) { progress.push(message) },
     releaseBaseUrl: 'https://releases.example/v1.2.3',
     version: '1.2.3',
     async downloadFile(url: string | URL, destination: string) {
@@ -91,6 +95,13 @@ test('downloads, verifies, and atomically caches Markover.app', async (t) => {
       )
       await fs.mkdir(path.dirname(executable), { recursive: true })
       await fs.writeFile(executable, 'app')
+    },
+    validateApp(appPath, expected) {
+      validations.push({
+        appPath,
+        architecture: expected.architecture,
+        version: expected.version
+      })
     }
   }
 
@@ -103,9 +114,198 @@ test('downloads, verifies, and atomically caches Markover.app', async (t) => {
     'https://releases.example/v1.2.3/Markover-darwin-arm64.zip',
     'https://releases.example/v1.2.3/Markover-darwin-arm64.zip.sha256'
   ])
+  assert.equal(validations.length, 1)
+  const validation = validations[0]
+  assert.ok(validation)
+  assert.equal(validation.architecture, 'arm64')
+  assert.equal(validation.version, '1.2.3')
+  assert.match(progress.at(-1) ?? '', /not Apple-verified/)
+  assert.match(progress.at(-1) ?? '', /opening-markover-on-macos/)
   downloads.length = 0
+  const progressCount = progress.length
   assert.equal(await ensureInstalledApp(options), appPath)
   assert.deepEqual(downloads, [])
+  assert.equal(progress.length, progressCount)
+})
+
+function validationRunner(overrides: {
+  architecture?: string
+  bundleId?: string
+  signature?: string
+  version?: string
+  minimumVersion?: string
+  failCodesign?: boolean
+} = {}): BootstrapCommandRunner {
+  return (command, args) => {
+    if (command === '/usr/bin/plutil') {
+      const values: Record<string, string> = {
+        CFBundleIdentifier: overrides.bundleId ?? 'com.lastobelus.markover',
+        CFBundleShortVersionString: overrides.version ?? '1.2.3',
+        LSMinimumSystemVersion: overrides.minimumVersion ?? '14.0'
+      }
+      const value = values[args[1] ?? '']
+      return value === undefined
+        ? { status: 1, stdout: '', stderr: 'unknown plist key' }
+        : { status: 0, stdout: `${value}\n`, stderr: '' }
+    }
+    if (command === '/usr/bin/lipo') {
+      return {
+        status: 0,
+        stdout: `${overrides.architecture ?? 'arm64'}\n`,
+        stderr: ''
+      }
+    }
+    if (command === '/usr/bin/codesign' && args.includes('--verify')) {
+      return overrides.failCodesign
+        ? { status: 1, stdout: '', stderr: 'invalid code seal' }
+        : { status: 0, stdout: '', stderr: '' }
+    }
+    if (command === '/usr/bin/codesign') {
+      return {
+        status: 0,
+        stdout: '',
+        stderr: overrides.signature ??
+          'CodeDirectory v=20500 flags=0x10002(adhoc,runtime)\nSignature=adhoc\nTeamIdentifier=not set'
+      }
+    }
+    return { status: 127, stdout: '', stderr: 'unexpected command' }
+  }
+}
+
+test('bootstrap validation enforces metadata, architecture, seal, and trust mode', () => {
+  const appPath = '/staging/Markover.app'
+  const expected = {
+    architecture: 'arm64',
+    trustMode: 'ad-hoc' as const,
+    version: '1.2.3'
+  }
+  validateMacosApp(appPath, expected, validationRunner())
+  assert.throws(
+    () => {
+      validateMacosApp(
+        appPath,
+        expected,
+        validationRunner({ bundleId: 'example.invalid' })
+      )
+    },
+    /unexpected bundle identifier/
+  )
+  assert.throws(
+    () => {
+      validateMacosApp(
+        appPath,
+        expected,
+        validationRunner({ architecture: 'x64' })
+      )
+    },
+    /unexpected architectures/
+  )
+  assert.throws(
+    () => {
+      validateMacosApp(
+        appPath,
+        expected,
+        validationRunner({ failCodesign: true })
+      )
+    },
+    /invalid code seal/
+  )
+  assert.throws(
+    () => {
+      validateMacosApp(
+        appPath,
+        expected,
+        validationRunner({
+          signature: 'CodeDirectory v=20500 flags=0x10000(runtime)\nAuthority=Developer ID Application: Example\nTeamIdentifier=TEAM'
+        })
+      )
+    },
+    /not ad-hoc signed/
+  )
+  assert.throws(
+    () => {
+      validateMacosApp(
+        appPath,
+        expected,
+        validationRunner({
+          signature: 'CodeDirectory v=20500 flags=0x2(adhoc)\nSignature=adhoc\nTeamIdentifier=not set'
+        })
+      )
+    },
+    /does not enable hardened runtime/
+  )
+})
+
+test('failed staged-app validation leaves no cache or staging install', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-bootstrap-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const archive = Buffer.from('fake Markover archive')
+  const checksum = crypto.createHash('sha256').update(archive).digest('hex')
+
+  await assert.rejects(
+    ensureInstalledApp({
+      architecture: 'arm64',
+      cacheDirectory: directory,
+      platform: 'darwin',
+      progress() {},
+      version: '1.2.3',
+      async downloadFile(url: string | URL, destination: string) {
+        await fs.writeFile(
+          destination,
+          String(url).endsWith('.sha256') ? `${checksum}\n` : archive
+        )
+      },
+      async extractArchive(_archivePath: string, destination: string) {
+        const executable = path.join(
+          destination,
+          'Markover.app',
+          'Contents',
+          'MacOS',
+          'Markover'
+        )
+        await fs.mkdir(path.dirname(executable), { recursive: true })
+        await fs.writeFile(executable, 'app')
+      },
+      validateApp() {
+        throw new Error('unexpected signature mode')
+      }
+    }),
+    /unexpected signature mode/
+  )
+  assert.deepEqual(await fs.readdir(directory), [])
+})
+
+test('an unmarked cached executable cannot bypass first-install validation', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-bootstrap-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const executable = path.join(
+    directory,
+    'v1.2.3',
+    'arm64',
+    'Markover.app',
+    'Contents',
+    'MacOS',
+    'Markover'
+  )
+  await fs.mkdir(path.dirname(executable), { recursive: true })
+  await fs.writeFile(executable, 'unvalidated app')
+  let downloaded = false
+
+  await assert.rejects(
+    ensureInstalledApp({
+      architecture: 'arm64',
+      cacheDirectory: directory,
+      platform: 'darwin',
+      progress() {},
+      version: '1.2.3',
+      downloadFile() {
+        downloaded = true
+        return Promise.resolve()
+      }
+    }),
+    /missing its validation marker/
+  )
+  assert.equal(downloaded, false)
 })
 
 test('rejects a release whose checksum does not match', async (t) => {
@@ -117,6 +317,7 @@ test('rejects a release whose checksum does not match', async (t) => {
       cacheDirectory: directory,
       platform: 'darwin',
       progress() {},
+      validateApp() {},
       version: '1.2.3',
       async downloadFile(url: string | URL, destination: string) {
         await fs.writeFile(destination, String(url).endsWith('.sha256')

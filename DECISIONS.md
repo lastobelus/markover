@@ -216,6 +216,40 @@ foundation for a production architecture.
    a drawer containing the summary, paths, Git details, pull request, thread,
    and discovery provenance.
 
+## macOS release trust
+
+1. **The current trust mode is explicit hardened ad-hoc signing.** Packaging
+   requires `--trust-mode=ad-hoc`; missing and unknown modes fail closed.
+   `@electron/osx-sign` signs inside-out after all bundle mutations. Identity
+   lookup, timestamping, entitlement automation, and provisioning-profile
+   embedding are disabled for the `-` identity.
+2. **Entitlements are checked-in, component-specific, and minimal.** The main,
+   generic helper, GPU helper, and renderer helper receive only
+   `com.apple.security.cs.allow-jit`. The unused plugin helper and other signed
+   code receive an empty profile. Device, personal-information, unsigned-memory,
+   and disabled-library-validation grants are rejected by tests and final
+   artifact verification.
+3. **The release contract starts at macOS 14 Sonoma.** Apple Silicon and Intel
+   remain separate native ZIPs. Packaging writes
+   `LSMinimumSystemVersion = 14.0`, and both the release preflight and
+   bootstrap require the declared architecture and floor.
+4. **The exact final ZIP is the release-verification boundary.** Native
+   preflight verifies its checksum, safe extraction, app and helper IDs,
+   version, architecture, strict code seal, hardened-runtime flags, exact
+   entitlements, ad-hoc signature, absent Team ID, and expected Gatekeeper
+   rejection before upload.
+5. **First installation validates before cache promotion.** The dependency-free
+   bootstrap checks the downloaded digest, metadata, architecture, strict seal,
+   hardened runtime, and ad-hoc trust mode while the app is in staging. A
+   mismatch cleans staging and prevents cache or launch. Atomic promotion
+   includes a validation marker; an unmarked cache never bypasses installation
+   checks. A successful install warns on stderr that Markover is not
+   Apple-verified; JSON stdout remains reserved for agent protocol results.
+6. **Apple verification remains a separate blocked transition.** Developer ID
+   signing, notarization, stapling, and successful Gatekeeper assessment require
+   Apple Developer Program access and a separately reviewed explicit trust-mode
+   change. Credentials alone never activate or downgrade a release path.
+
 ## Deliberately deferred
 
 - Drill-down into block-quote contents or table rows and cells
@@ -228,6 +262,5 @@ foundation for a production architecture.
 - Agent result writeback, per-annotation outcomes, and addressed state
 - Organized review history, revisions, retention, and cleanup
 - Automatic pull-request discovery
-- Security hardening, accessibility, trusted distribution signing/notarization,
-  and auto-update
+- Accessibility, Developer ID signing/notarization, App Sandbox, and auto-update
 - Compatibility guarantees for the tree format
