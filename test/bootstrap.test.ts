@@ -131,6 +131,7 @@ test('downloads, verifies, and atomically caches Markover.app', async (t) => {
 function validationRunner(overrides: {
   architecture?: string
   bundleId?: string
+  embeddedArchitecture?: string
   signature?: string
   version?: string
   minimumVersion?: string
@@ -149,9 +150,31 @@ function validationRunner(overrides: {
         : { status: 0, stdout: `${value}\n`, stderr: '' }
     }
     if (command === '/usr/bin/lipo') {
+      const executable = args.at(-1) ?? ''
       return {
         status: 0,
-        stdout: `${overrides.architecture ?? 'arm64'}\n`,
+        stdout: `${executable.endsWith('Electron Framework') ? overrides.embeddedArchitecture ?? overrides.architecture ?? 'arm64' : overrides.architecture ?? 'arm64'}\n`,
+        stderr: ''
+      }
+    }
+    if (command === '/usr/bin/find') {
+      return {
+        status: 0,
+        stdout: [
+          '/staging/Markover.app/Contents/MacOS/Markover',
+          '/staging/Markover.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework',
+          '/staging/Markover.app/Contents/Resources/app.asar',
+          ''
+        ].join('\0'),
+        stderr: ''
+      }
+    }
+    if (command === '/usr/bin/file') {
+      return {
+        status: 0,
+        stdout: (args.at(-1) ?? '').endsWith('Electron Framework')
+          ? 'application/x-mach-binary\n'
+          : 'application/octet-stream\n',
         stderr: ''
       }
     }
@@ -204,6 +227,16 @@ test('bootstrap validation enforces metadata, architecture, seal, and trust mode
       )
     },
     /unexpected architectures/
+  )
+  assert.throws(
+    () => {
+      validateMacosApp(
+        appPath,
+        expected,
+        validationRunner({ embeddedArchitecture: 'x86_64' })
+      )
+    },
+    /Electron Framework has unexpected architectures/
   )
   assert.throws(
     () => {

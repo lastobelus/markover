@@ -78,6 +78,50 @@ function plistValue(
   ).stdout.trim()
 }
 
+function verifyMachOArchitecture(
+  runner: BootstrapCommandRunner,
+  executable: string,
+  expectedArchitecture: string
+): void {
+  const architectures = requireCommand(
+    runner,
+    '/usr/bin/lipo',
+    ['-archs', executable]
+  ).stdout.trim().split(/\s+/).filter(Boolean)
+  if (
+    architectures.length !== 1 ||
+    architectures[0] !== expectedArchitecture
+  ) {
+    throw new Error(
+      `The downloaded ${path.basename(executable)} has unexpected architectures: ${architectures.join(', ')}.`
+    )
+  }
+}
+
+function verifyEmbeddedArchitectures(
+  runner: BootstrapCommandRunner,
+  appPath: string,
+  expectedArchitecture: string,
+  mainExecutable: string
+): void {
+  const files = requireCommand(
+    runner,
+    '/usr/bin/find',
+    [appPath, '-type', 'f', '-print0']
+  ).stdout.split('\0').filter(Boolean)
+  for (const filePath of files) {
+    if (filePath === mainExecutable) continue
+    const mimeType = requireCommand(
+      runner,
+      '/usr/bin/file',
+      ['--brief', '--mime-type', filePath]
+    ).stdout.trim()
+    if (mimeType === 'application/x-mach-binary') {
+      verifyMachOArchitecture(runner, filePath, expectedArchitecture)
+    }
+  }
+}
+
 export function validateMacosApp(
   appPath: string,
   { architecture, trustMode, version }: InstalledAppValidation,
@@ -105,19 +149,13 @@ export function validateMacosApp(
     )
   }
   const executable = path.join(appPath, 'Contents', 'MacOS', 'Markover')
-  const architectures = requireCommand(
+  verifyMachOArchitecture(runner, executable, expectedArchitecture)
+  verifyEmbeddedArchitectures(
     runner,
-    '/usr/bin/lipo',
-    ['-archs', executable]
-  ).stdout.trim().split(/\s+/).filter(Boolean)
-  if (
-    architectures.length !== 1 ||
-    architectures[0] !== expectedArchitecture
-  ) {
-    throw new Error(
-      `The downloaded app has unexpected architectures: ${architectures.join(', ')}.`
-    )
-  }
+    appPath,
+    expectedArchitecture,
+    executable
+  )
   requireCommand(
     runner,
     '/usr/bin/codesign',
