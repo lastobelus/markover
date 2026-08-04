@@ -52,6 +52,17 @@ jobs:
           cd release
           shasum -a 256 "Markover-darwin-${architecture}.zip" \
             > "Markover-darwin-${architecture}.zip.sha256"
+      - name: Verify final macOS artifact
+        shell: bash
+        run: |
+          architecture="$(node -p process.arch)"
+          version="$(node -p "require('./package.json').version")"
+          npm run release:preflight -- verify-macos \
+            "--archive=release/Markover-darwin-${architecture}.zip" \
+            "--checksum=release/Markover-darwin-${architecture}.zip.sha256" \
+            "--architecture=${architecture}" \
+            "--version=${version}" \
+            "--trust-mode=ad-hoc"
       - uses: actions/upload-artifact@v4
         with:
           name: app-${{ matrix.runner }}
