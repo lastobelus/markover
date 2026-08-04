@@ -449,7 +449,7 @@ declare global {
       ) => ReviewTree | null | Promise<ReviewTree | null>
     ) => void
     activateReview: (reviewId: string) => void
-    autosaveReview: (reviewId: string, tree: ReviewTree) => void
+    autosaveReview: (reviewId: string | null, tree: ReviewTree) => void
     finishReview: (tree: ReviewTree) => void
     cancelReview: () => void
     getSettings: () => Promise<MarkoverSettingsEnvelope>

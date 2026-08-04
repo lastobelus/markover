@@ -1402,7 +1402,7 @@ function autosaveTree(
     !tree ||
     !MarkoverReviewSessions.isTreeEditable(tree)
   ) return
-  if (reviewId) bridge.autosaveReview(reviewId, tree)
+  bridge.autosaveReview(reviewId, tree)
 }
 
 function captureActiveSession(): void {
