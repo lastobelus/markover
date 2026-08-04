@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import http, {
   type IncomingMessage,
   type ServerResponse
@@ -9,6 +10,7 @@ import type {
   ReviewCreateInput,
   ReviewStore
 } from './review-store'
+import { CAPABILITY_TOKEN_PATTERN } from './service-endpoint'
 
 export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
 
@@ -22,7 +24,14 @@ export interface LocalService {
   close: () => Promise<void>
 }
 
+export interface UnauthorizedRequest {
+  method: string
+  pathname: string
+  reason: 'missing' | 'malformed' | 'mismatch'
+}
+
 export interface LocalServiceOptions {
+  authorizationToken: string
   store: Pick<
     ReviewStore,
     'create' | 'edit' | 'handoff' | 'list' | 'load'
@@ -36,6 +45,7 @@ export interface LocalServiceOptions {
     artifact: ReviewArtifact,
     action: 'created' | 'imported' | 'handoff' | 'edit'
   ) => void | Promise<void>) | undefined
+  onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -53,12 +63,14 @@ function serviceError(code: string, message: string): Error & { code: string } {
 function sendJson(
   response: ServerResponse,
   statusCode: number,
-  body: unknown
+  body: unknown,
+  headers: Record<string, string> = {}
 ): void {
   const contents = `${JSON.stringify(body)}\n`
   response.writeHead(statusCode, {
     'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(contents)
+    'content-length': Buffer.byteLength(contents),
+    ...headers
   })
   response.end(contents)
 }
@@ -110,11 +122,17 @@ export function reviewRoute(pathname: string): ReviewRoute | null {
 }
 
 export async function startLocalService({
+  authorizationToken,
   store,
   beforeAction = () => Promise.resolve(undefined),
   importReviews = () => Promise.resolve([]),
-  onChange = () => {}
+  onChange = () => {},
+  onUnauthorized = () => {}
 }: LocalServiceOptions): Promise<LocalService> {
+  if (!CAPABILITY_TOKEN_PATTERN.test(authorizationToken)) {
+    throw new Error('Markover service authorization token is invalid.')
+  }
+  const expectedToken = Buffer.from(authorizationToken, 'ascii')
   const actionQueues = new Map<string, Promise<void>>()
   function serializeReviewAction<T>(
     reviewId: string,
@@ -136,12 +154,65 @@ export async function startLocalService({
     response: ServerResponse
   ): Promise<void> {
     try {
-      const url = new URL(request.url || '', 'http://127.0.0.1')
-
-      if (request.method === 'GET' && url.pathname === '/health') {
-        sendJson(response, 200, { status: 'ok', version: 1 })
+      if (request.method === 'GET' && request.url === '/health') {
+        sendJson(response, 200, { status: 'ok', version: 2 })
         return
       }
+
+      const authorizationValues = request.headersDistinct.authorization || []
+      let unauthorizedReason: UnauthorizedRequest['reason'] | null = null
+      let presentedToken = ''
+      if (authorizationValues.length === 0) {
+        unauthorizedReason = 'missing'
+      } else if (authorizationValues.length !== 1) {
+        unauthorizedReason = 'malformed'
+      } else {
+        const match = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(
+          authorizationValues[0] as string
+        )
+        if (!match) {
+          unauthorizedReason = 'malformed'
+        } else {
+          presentedToken = match[1] as string
+          if (!timingSafeEqual(Buffer.from(presentedToken, 'ascii'), expectedToken)) {
+            unauthorizedReason = 'mismatch'
+          }
+        }
+      }
+      if (unauthorizedReason) {
+        let pathname = '(invalid)'
+        try {
+          pathname = new URL(
+            request.url || '',
+            'http://127.0.0.1'
+          ).pathname
+        } catch {
+          // Keep malformed request targets out of diagnostics.
+        }
+        try {
+          onUnauthorized({
+            method: request.method || 'UNKNOWN',
+            pathname,
+            reason: unauthorizedReason
+          })
+        } catch {
+          // Diagnostics cannot change authorization behavior.
+        }
+        sendJson(
+          response,
+          401,
+          {
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'Authentication required.'
+            }
+          },
+          { 'www-authenticate': 'Bearer realm="Markover"' }
+        )
+        return
+      }
+
+      const url = new URL(request.url || '', 'http://127.0.0.1')
 
       if (request.method === 'GET' && url.pathname === '/reviews') {
         sendJson(response, 200, { reviews: await store.list() })

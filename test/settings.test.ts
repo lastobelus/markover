@@ -28,7 +28,7 @@ function parseRecord(source: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
-test('settings defaults cover the eight persisted preferences', () => {
+test('settings defaults cover the nine persisted preferences', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS), [
     'palette',
     'appearance',
@@ -37,7 +37,8 @@ test('settings defaults cover the eight persisted preferences', () => {
     'showKeyboardHelp',
     'openDocumentsSidebar',
     'defaultTreeView',
-    'confirmAttachmentRemoval'
+    'confirmAttachmentRemoval',
+    'logRejectedApiRequests'
   ])
 })
 
@@ -51,6 +52,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
+    logRejectedApiRequests: true,
     unexpected: 'ignored'
   }), {
     palette: 'ocean',
@@ -60,7 +62,8 @@ test('settings normalization accepts known choices and rejects unknown values', 
     showKeyboardHelp: false,
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
-    confirmAttachmentRemoval: false
+    confirmAttachmentRemoval: false,
+    logRejectedApiRequests: true
   })
 
   assert.deepEqual(normalizeSettings({ palette: 'neon', appearance: 42 }), {
@@ -96,6 +99,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <input name="openDocumentsSidebar" type="checkbox">
       <select name="defaultTreeView"><option value="all">All</option><option value="annotated">Annotated</option></select>
       <input name="confirmAttachmentRemoval" type="checkbox">
+      <input name="logRejectedApiRequests" type="checkbox">
     </form>
     <div class="keyboard-help"></div>
   </body></html>`)

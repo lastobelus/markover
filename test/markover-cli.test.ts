@@ -18,6 +18,10 @@ import {
   assertReviewArtifact,
   ReviewStore
 } from '../src/review-store'
+import {
+  createServiceIdentity,
+  publishServiceConnection
+} from '../src/service-endpoint'
 
 function commandUsage(error: unknown): string | undefined {
   return error instanceof Error && 'usage' in error
@@ -220,11 +224,17 @@ test('executes CLI commands against the local service', async (t) => {
   const store = new ReviewStore(reviewsDirectory, {
     idFactory: () => 'mko_aaa11111'
   })
-  const service = await startLocalService({ store })
-  await fs.writeFile(endpointPath, JSON.stringify({
-    version: 1,
-    port: service.port
-  }))
+  const identity = createServiceIdentity()
+  const service = await startLocalService({
+    authorizationToken: identity.token,
+    store
+  })
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: service.port,
+    pid: 1234
+  })
   t.after(async () => {
     await service.close()
     await fs.rm(directory, { recursive: true, force: true })
@@ -314,13 +324,17 @@ test('waits for internally started service without external polling', async (t) 
     startApp() {
       setTimeout(() => {
         void (async () => {
+          const identity = createServiceIdentity()
           service = await startLocalService({
+            authorizationToken: identity.token,
             store: new ReviewStore(path.join(directory, 'reviews'))
           })
-          await fs.writeFile(endpointPath, JSON.stringify({
-            version: 1,
-            port: service.port
-          }))
+          await publishServiceConnection({
+            endpointPath,
+            identity,
+            port: service.port,
+            pid: 1234
+          })
         })()
       }, 50)
     }
