@@ -49,7 +49,11 @@ module.exports = defineConfig([
     rules: {
       'no-console': ['error', { allow: ['warn', 'error'] }],
       '@typescript-eslint/consistent-type-imports': 'error',
-      '@typescript-eslint/no-explicit-any': 'error'
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true }
+      ]
     }
   },
   {
@@ -104,10 +108,14 @@ module.exports = defineConfig([
     }
   },
   {
-    files: ['docs/site.js', 'src/renderer.js'],
+    files: ['docs/site.js', 'src/renderer.ts'],
     languageOptions: {
       globals: rendererGlobals,
       sourceType: 'script'
+    },
+    rules: {
+      // Required DOM lookups use the call site to specify the element subtype.
+      '@typescript-eslint/no-unnecessary-type-parameters': 'off'
     }
   },
   {

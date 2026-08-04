@@ -62,9 +62,9 @@
     return { x, y }
   }
 
-  function create(
+  function create<TNode extends RenderedAnnotationNode>(
     document: Document,
-    options: AnnotationCreateOptions
+    options: AnnotationCreateOptions<TNode>
   ): HTMLElement {
     const view = model(options.node, options.context)
     const article = document.createElement('article')
@@ -206,9 +206,9 @@
     }
   }
 
-  function createList(
+  function createList<TNode extends RenderedAnnotationNode>(
     document: Document,
-    options: AnnotationListOptions
+    options: AnnotationListOptions<TNode>
   ): HTMLElement {
     const list = document.createElement('div')
     list.className = 'rendered-annotation-list'
@@ -231,11 +231,11 @@
     return list
   }
 
-  function bindSneakPeek(
+  function bindSneakPeek<TNode extends AnnotationBlockNode>(
     marker: HTMLElement,
-    node: AnnotationBlockNode,
+    node: TNode,
     handlers: {
-      show: (node: AnnotationBlockNode, marker: HTMLElement) => void
+      show: (node: TNode, marker: HTMLElement) => void
       hide: EventListener
     }
   ): () => void {

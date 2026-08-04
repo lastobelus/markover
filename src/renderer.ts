@@ -1,82 +1,186 @@
-const elements = {
-  appHeader: document.querySelector('.app-header'),
-  annotationCount: document.querySelector('#annotation-count'),
-  annotationGuidance: document.querySelector('#annotation-guidance'),
-  annotationInput: document.querySelector('#annotation-input'),
-  annotationList: document.querySelector('#annotation-list'),
-  annotationListView: document.querySelector('#annotation-list-view'),
-  annotationPane: document.querySelector('#annotation-pane'),
-  annotationReadonly: document.querySelector('#annotation-readonly'),
-  annotationSneakPeek: document.querySelector('#annotation-sneak-peek'),
-  annotationState: document.querySelector('#annotation-state'),
-  annotationViewList: document.querySelector('#annotation-view-list'),
-  annotationViewSelected: document.querySelector('#annotation-view-selected'),
-  attachmentList: document.querySelector('#attachment-list'),
-  brandLogotype: document.querySelector('#brand-logotype'),
-  brandMark: document.querySelector('#brand-mark'),
-  cancelReviewButton: document.querySelector('#cancel-review-button'),
-  checksum: document.querySelector('#document-checksum'),
-  copyTreeButton: document.querySelector('#copy-tree-button'),
-  emptyOpenButton: document.querySelector('#empty-open-button'),
-  emptyWorkspace: document.querySelector('#empty-workspace'),
-  documentTabs: document.querySelector('#document-tabs'),
-  doneReviewButton: document.querySelector('#done-review-button'),
-  imagePreview: document.querySelector('#image-preview'),
-  imagePreviewClose: document.querySelector('#image-preview-close'),
-  imagePreviewContent: document.querySelector('#image-preview-content'),
-  imagePreviewLabel: document.querySelector('#image-preview-label'),
-  keyboardHelp: document.querySelector('.keyboard-help'),
-  name: document.querySelector('#document-name'),
-  openButton: document.querySelector('#open-button'),
-  parseStatus: document.querySelector('#parse-status'),
-  pinnedSelection: document.querySelector('#pinned-selection'),
-  previewPane: document.querySelector('#preview-pane'),
-  selectedLocation: document.querySelector('#selected-location'),
-  selectedAnnotationView: document.querySelector('#selected-annotation-view'),
-  selectedSource: document.querySelector('#selected-source'),
-  selectedTitle: document.querySelector('#selected-title'),
-  scrollbarRowCover: document.querySelector('#scrollbar-row-cover'),
-  sourceCancel: document.querySelector('#source-cancel'),
-  sourceContent: document.querySelector('#source-content'),
-  sourceDiff: document.querySelector('#source-diff'),
-  sourceDiffStats: document.querySelector('#source-diff-stats'),
-  sourceEdit: document.querySelector('#source-edit'),
-  sourceEditor: document.querySelector('#source-editor'),
-  sourceErrorTooltip: document.querySelector('#source-error-tooltip'),
-  sourcePanel: document.querySelector('.source-panel'),
-  sourceRevert: document.querySelector('#source-revert'),
-  sourceSave: document.querySelector('#source-save'),
-  sourceSaveBar: document.querySelector('#source-save-bar'),
-  sourceToggle: document.querySelector('#source-toggle'),
-  sourceToggleIcon: document.querySelector('#source-toggle-icon'),
-  standardActions: document.querySelector('#standard-actions'),
-  toast: document.querySelector('#toast'),
-  tree: document.querySelector('#tree'),
-  treeViewAll: document.querySelector('#tree-view-all'),
-  treeViewAnnotated: document.querySelector('#tree-view-annotated'),
-  reviewActions: document.querySelector('#review-actions'),
-  reviewContextButton: document.querySelector('#review-context-button'),
-  reviewContextClose: document.querySelector('#review-context-close'),
-  reviewContextDrawer: document.querySelector('#review-context-drawer'),
-  reviewContextFields: document.querySelector('#review-context-fields'),
-  reviewContextSummary: document.querySelector('#review-context-summary'),
-  reviewContextTitle: document.querySelector('#review-context-title'),
-  documentsListCollapse: document.querySelector('#documents-list-collapse'),
-  documentsListOpen: document.querySelector('#documents-list-open'),
-  documentsListResizer: document.querySelector('#documents-list-resizer'),
-  documentsListSidebar: document.querySelector('#documents-list-sidebar'),
-  documentsListTree: document.querySelector('#documents-list-tree'),
-  emptyWorkspaceLockup: document.querySelector('#empty-workspace-lockup'),
-  reviewStateBanner: document.querySelector('#review-state-banner'),
-  settingsClose: document.querySelector('#settings-close'),
-  settingsDialog: document.querySelector('#settings-dialog'),
-  settingsForm: document.querySelector('#settings-form'),
-  settingsReset: document.querySelector('#settings-reset'),
-  workspace: document.querySelector('#workspace')
+interface MarkdownToken {
+  attrGet(name: string): string | null
+  content: string
 }
 
-const state = {
-  attachmentPreviewUrls: new Map(),
+interface MarkdownParser {
+  enable(rule: string): void
+  render(value: string): string
+  renderInline(value: string): string
+  renderer: {
+    rules: Record<
+      string,
+      ((tokens: MarkdownToken[], index: number) => string) | undefined
+    >
+  }
+  utils: { escapeHtml(value: string): string }
+}
+
+type MarkdownItFactory = (
+  preset: string,
+  options: Record<string, boolean>
+) => MarkdownParser
+type FileTreeModel = InstanceType<MarkoverFileTreeConstructor>
+
+interface Window {
+  markdownit: MarkdownItFactory
+}
+
+interface RendererState {
+  attachmentPreviewUrls: Map<string, string>
+  documentName: string
+  documentPath: string | null
+  durableReview: boolean
+  fallbackAttachmentSequence: number
+  finishAttachmentLabelEdit: ((commit?: boolean) => void) | null
+  hoveredId: string | null
+  reviewId: string | null
+  reviewMode: boolean
+  selectedId: string | null
+  annotatedOnly: boolean
+  annotationView: 'selected' | 'list'
+  sourceCollapsed: boolean
+  sourceDrafts: Map<string, string>
+  sourceEditingId: string | null
+  tree: ReviewTree | null
+}
+
+interface DocumentsListProjection {
+  decorations: Map<string, string>
+  icons: MarkoverFileTreeIcons
+  paths: string[]
+  pathToReviewId: Map<string, string>
+  projectPaths: string[]
+  reviewIdToPath: Map<string, string>
+  sortOrder: Map<string, number>
+  statuses: Map<string, ReviewSessionStatus>
+}
+
+function requiredElement<T extends Element = HTMLElement>(selector: string): T {
+  const element = document.querySelector<T>(selector)
+  if (!element) throw new Error(`Required element not found: ${selector}`)
+  return element
+}
+
+function currentTree(): ReviewTree {
+  if (!state.tree) throw new Error('No document is active.')
+  return state.tree
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isReviewStatus(value: unknown): value is ReviewSessionStatus {
+  return value === 'editing' ||
+    value === 'pending-agent' ||
+    value === 'handoff-in-progress'
+}
+
+function isReviewSessionTree(tree: ReviewTree): tree is ReviewSessionTree {
+  const review = tree.review
+  return isRecord(review) &&
+    typeof review.id === 'string' &&
+    isReviewStatus(review.status)
+}
+
+function isDirectoryHandle(
+  item: MarkoverFileTreeItemHandle | null
+): item is MarkoverFileTreeDirectoryHandle {
+  return item?.isDirectory() === true
+}
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function metadataString(
+  metadata: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = metadata[key]
+  return typeof value === 'string' ? value : null
+}
+
+const elements = {
+  appHeader: requiredElement('.app-header'),
+  annotationCount: requiredElement('#annotation-count'),
+  annotationGuidance: requiredElement('#annotation-guidance'),
+  annotationInput: requiredElement<HTMLTextAreaElement>('#annotation-input'),
+  annotationList: requiredElement('#annotation-list'),
+  annotationListView: requiredElement('#annotation-list-view'),
+  annotationPane: requiredElement('#annotation-pane'),
+  annotationReadonly: requiredElement('#annotation-readonly'),
+  annotationSneakPeek: requiredElement('#annotation-sneak-peek'),
+  annotationState: requiredElement('#annotation-state'),
+  annotationViewList: requiredElement<HTMLButtonElement>('#annotation-view-list'),
+  annotationViewSelected: requiredElement<HTMLButtonElement>('#annotation-view-selected'),
+  attachmentList: requiredElement('#attachment-list'),
+  brandLogotype: requiredElement<HTMLImageElement>('#brand-logotype'),
+  brandMark: requiredElement<HTMLImageElement>('#brand-mark'),
+  cancelReviewButton: requiredElement<HTMLButtonElement>('#cancel-review-button'),
+  checksum: requiredElement('#document-checksum'),
+  copyTreeButton: requiredElement<HTMLButtonElement>('#copy-tree-button'),
+  emptyOpenButton: requiredElement<HTMLButtonElement>('#empty-open-button'),
+  emptyWorkspace: requiredElement('#empty-workspace'),
+  documentTabs: requiredElement('#document-tabs'),
+  doneReviewButton: requiredElement<HTMLButtonElement>('#done-review-button'),
+  imagePreview: requiredElement('#image-preview'),
+  imagePreviewClose: requiredElement<HTMLButtonElement>('#image-preview-close'),
+  imagePreviewContent: requiredElement<HTMLImageElement>('#image-preview-content'),
+  imagePreviewLabel: requiredElement('#image-preview-label'),
+  keyboardHelp: requiredElement('.keyboard-help'),
+  name: requiredElement('#document-name'),
+  openButton: requiredElement<HTMLButtonElement>('#open-button'),
+  parseStatus: requiredElement('#parse-status'),
+  pinnedSelection: requiredElement('#pinned-selection'),
+  previewPane: requiredElement('#preview-pane'),
+  selectedLocation: requiredElement<HTMLButtonElement>('#selected-location'),
+  selectedAnnotationView: requiredElement('#selected-annotation-view'),
+  selectedSource: requiredElement('#selected-source'),
+  selectedTitle: requiredElement('#selected-title'),
+  scrollbarRowCover: requiredElement('#scrollbar-row-cover'),
+  sourceCancel: requiredElement<HTMLButtonElement>('#source-cancel'),
+  sourceContent: requiredElement('#source-content'),
+  sourceDiff: requiredElement('#source-diff'),
+  sourceDiffStats: requiredElement('#source-diff-stats'),
+  sourceEdit: requiredElement<HTMLButtonElement>('#source-edit'),
+  sourceEditor: requiredElement<HTMLTextAreaElement>('#source-editor'),
+  sourceErrorTooltip: requiredElement('#source-error-tooltip'),
+  sourcePanel: requiredElement('.source-panel'),
+  sourceRevert: requiredElement<HTMLButtonElement>('#source-revert'),
+  sourceSave: requiredElement<HTMLButtonElement>('#source-save'),
+  sourceSaveBar: requiredElement('#source-save-bar'),
+  sourceToggle: requiredElement<HTMLButtonElement>('#source-toggle'),
+  sourceToggleIcon: requiredElement('#source-toggle-icon'),
+  standardActions: requiredElement('#standard-actions'),
+  toast: requiredElement('#toast'),
+  tree: requiredElement('#tree'),
+  treeViewAll: requiredElement<HTMLButtonElement>('#tree-view-all'),
+  treeViewAnnotated: requiredElement<HTMLButtonElement>('#tree-view-annotated'),
+  reviewActions: requiredElement('#review-actions'),
+  reviewContextButton: requiredElement<HTMLButtonElement>('#review-context-button'),
+  reviewContextClose: requiredElement<HTMLButtonElement>('#review-context-close'),
+  reviewContextDrawer: requiredElement('#review-context-drawer'),
+  reviewContextFields: requiredElement('#review-context-fields'),
+  reviewContextSummary: requiredElement('#review-context-summary'),
+  reviewContextTitle: requiredElement('#review-context-title'),
+  documentsListCollapse: requiredElement<HTMLButtonElement>('#documents-list-collapse'),
+  documentsListOpen: requiredElement<HTMLButtonElement>('#documents-list-open'),
+  documentsListResizer: requiredElement('#documents-list-resizer'),
+  documentsListSidebar: requiredElement('#documents-list-sidebar'),
+  documentsListTree: requiredElement('#documents-list-tree'),
+  emptyWorkspaceLockup: requiredElement<HTMLImageElement>('#empty-workspace-lockup'),
+  reviewStateBanner: requiredElement('#review-state-banner'),
+  settingsClose: requiredElement<HTMLButtonElement>('#settings-close'),
+  settingsDialog: requiredElement<HTMLDialogElement>('#settings-dialog'),
+  settingsForm: requiredElement<HTMLFormElement>('#settings-form'),
+  settingsReset: requiredElement<HTMLButtonElement>('#settings-reset'),
+  workspace: requiredElement('#workspace')
+}
+
+const state: RendererState = {
+  attachmentPreviewUrls: new Map<string, string>(),
   documentName: 'sample.md',
   documentPath: null,
   durableReview: false,
@@ -89,44 +193,44 @@ const state = {
   annotatedOnly: false,
   annotationView: 'selected',
   sourceCollapsed: false,
-  sourceDrafts: new Map(),
+  sourceDrafts: new Map<string, string>(),
   sourceEditingId: null,
   tree: null
 }
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
 const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
 const MAX_VISIBLE_TABS = 6
-let DocumentsListFileTree = null
-let documentsListModel = null
-let documentsListObserver = null
-let documentsListClockTimer = null
+let DocumentsListFileTree: MarkoverFileTreeConstructor | null = null
+let documentsListModel: FileTreeModel | null = null
+let documentsListObserver: MutationObserver | null = null
+let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let documentsListCollapsed = false
 let documentsListWidth = 248
-let documentsListPathToReviewId = new Map()
-let documentsListReviewIdToPath = new Map()
-let documentsListSortOrder = new Map()
-let documentsListDecorations = new Map()
-let documentsListProjectPaths = []
-let documentsListStatuses = new Map()
-let brandAssetSources = null
-let brandAssetLoad = null
-let sourceDiffCleanup = null
+let documentsListPathToReviewId = new Map<string, string>()
+let documentsListReviewIdToPath = new Map<string, string>()
+let documentsListSortOrder = new Map<string, number>()
+let documentsListDecorations = new Map<string, string>()
+let documentsListProjectPaths: string[] = []
+let documentsListStatuses = new Map<string, ReviewSessionStatus>()
+let brandAssetSources: MarkoverBrandAssets | null = null
+let brandAssetLoad: Promise<MarkoverBrandAssets | null> | null = null
+let sourceDiffCleanup: (() => void) | null = null
 let preferences = MarkoverSettings.normalizeSettings()
-let resolvedAppearance = 'light'
+let resolvedAppearance: ResolvedAppearance = 'light'
 
 import('../node_modules/@pierre/trees/dist/index.js')
   .then(({ FileTree }) => {
     DocumentsListFileTree = FileTree
     renderDocumentsList()
   })
-  .catch((error) => {
+  .catch((error: unknown) => {
     console.error('Failed to load documents list tree', error)
-    elements.documentsListTree.textContent = `Documents list unavailable: ${error.message}`
+    elements.documentsListTree.textContent = `Documents list unavailable: ${error instanceof Error ? error.message : String(error)}`
   })
 
-const bridge = window.markover || {
-  async getBrandAssets() {
-    return null
+const fallbackBridge = {
+  getBrandAssets() {
+    return Promise.resolve(null)
   },
   async checksum(source) {
     const bytes = new TextEncoder().encode(source)
@@ -136,28 +240,34 @@ const bridge = window.markover || {
       .join('')
     return `sha256:${hex}`
   },
-  async openMarkdown() {
-    return null
+  openMarkdown() {
+    return Promise.resolve(null)
   },
   onOpenMarkdownRequested() {},
   copyText(text) {
-    navigator.clipboard.writeText(text)
+    void navigator.clipboard.writeText(text)
   },
-  async getSettings() {
-    return { ...MarkoverSettings.DEFAULT_SETTINGS, resolvedAppearance: 'light' }
+  getSettings() {
+    return Promise.resolve({
+      ...MarkoverSettings.DEFAULT_SETTINGS,
+      resolvedAppearance: 'light' as const
+    })
   },
-  async updateSettings(patch) {
-    return {
+  updateSettings(patch) {
+    return Promise.resolve({
       ...MarkoverSettings.updateSettings(preferences, patch),
       resolvedAppearance
-    }
+    })
   },
   onSettingsOpen() {},
   onSettingsChanged() {},
   async saveAttachment(attachment) {
     state.fallbackAttachmentSequence += 1
     const id = `img-${state.fallbackAttachmentSequence}`
-    const digest = await crypto.subtle.digest('SHA-256', attachment.bytes)
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new Uint8Array(attachment.bytes).buffer
+    )
     const checksum = [...new Uint8Array(digest)]
       .map((byte) => byte.toString(16).padStart(2, '0'))
       .join('')
@@ -165,18 +275,20 @@ const bridge = window.markover || {
       id,
       type: 'image',
       mimeType: attachment.mimeType,
-      path: null,
       checksum: `sha256:${checksum}`,
       width: null,
       height: null,
       label: ''
     }
   },
-  async getInitialReview() {
-    return null
+  getInitialReview() {
+    return Promise.resolve(null)
   },
-  async getReviews() {
-    return []
+  getReviews() {
+    return Promise.resolve([])
+  },
+  readClipboardImage() {
+    return Promise.resolve(null)
   },
   onReviewOpened() {},
   onReviewSnapshotRequested() {},
@@ -185,7 +297,8 @@ const bridge = window.markover || {
   autosaveReview() {},
   finishReview() {},
   cancelReview() {}
-}
+} satisfies MarkoverBridge
+const bridge: MarkoverBridge = window.markover || fallbackBridge
 
 const inlineMarkdown = window.markdownit('commonmark', {
   html: false,
@@ -195,12 +308,13 @@ const inlineMarkdown = window.markdownit('commonmark', {
 inlineMarkdown.enable('table')
 
 inlineMarkdown.renderer.rules.link_open = (tokens, index) => {
-  const href = tokens[index].attrGet('href') || ''
+  const href = tokens[index]?.attrGet('href') || ''
   return `<span class="inline-link" title="${inlineMarkdown.utils.escapeHtml(href)}">`
 }
 inlineMarkdown.renderer.rules.link_close = () => '</span>'
 inlineMarkdown.renderer.rules.image = (tokens, index) => {
   const token = tokens[index]
+  if (!token) return ''
   const source = token.attrGet('src') || ''
   const alt = token.content || ''
   const label = MarkoverImagePreview.sourceLabel(source, alt)
@@ -209,30 +323,31 @@ inlineMarkdown.renderer.rules.image = (tokens, index) => {
   return `<button type="button" class="inline-image" data-image-source="${escapedSource}" data-image-label="${escapedLabel}" title="Preview ${escapedLabel}">▧ ${escapedLabel}</button>`
 }
 
-function openSourceImagePreview(source, label) {
+function openSourceImagePreview(source: string, label: string): void {
+  const url = MarkoverImagePreview.sourceUrl(source, state.documentPath)
   openImagePreview({
-    url: MarkoverImagePreview.sourceUrl(source, state.documentPath),
+    ...(url ? { url } : {}),
     label,
     id: MarkoverImagePreview.sourceLabel(source, '')
   })
 }
 
-function wireSourceImagePreviews(content) {
-  for (const button of content.querySelectorAll('[data-image-source]')) {
+function wireSourceImagePreviews(content: ParentNode): void {
+  for (const button of content.querySelectorAll<HTMLElement>('[data-image-source]')) {
     button.addEventListener('click', (event) => {
       event.stopPropagation()
       const source = button.dataset.imageSource || ''
-      openSourceImagePreview(source, button.dataset.imageLabel)
+      openSourceImagePreview(source, button.dataset.imageLabel || '')
     })
   }
 }
 
-function sourceDiffStats(node) {
+function sourceDiffStats(node: SourceEditableNode): MarkoverDiffStats | null {
   if (!node.sourceEdit) return null
   return MarkoverDiffs.stats(node.sourceEdit.original, node.sourceEdit.current)
 }
 
-function renderDiffStats(element, stats) {
+function renderDiffStats(element: HTMLElement, stats: MarkoverDiffStats): void {
   const addition = document.createElement('span')
   addition.className = 'addition'
   addition.textContent = `+${stats.additions}`
@@ -242,11 +357,14 @@ function renderDiffStats(element, stats) {
   element.replaceChildren(addition, ' ', deletion)
 }
 
-function nodeKindLabel(node) {
+function nodeKindLabel(node: ReviewNode): string {
   if (node.type === 'frontmatter') return 'YAML'
   if (node.type === 'frontmatter-entry') return '{}'
   if (node.type === 'heading') return `H${node.level}`
-  if (node.task) return node.checked ? '☑' : '☐'
+  if (
+    (node.type === 'ordered-item' || node.type === 'unordered-item') &&
+    node.task
+  ) return node.checked ? '☑' : '☐'
   if (node.type === 'ordered-item') return node.marker
   if (node.type === 'unordered-item') return '○'
   if (node.type === 'paragraph') return '¶'
@@ -256,11 +374,14 @@ function nodeKindLabel(node) {
   return '</>'
 }
 
-function nodeDescriptor(node) {
+function nodeDescriptor(node: ReviewNode): string {
   if (node.type === 'frontmatter') return '<yaml-frontmatter>'
   if (node.type === 'frontmatter-entry') return `<yaml:${node.key}>`
   if (node.type === 'heading') return `<h${node.level}>`
-  if (node.task) {
+  if (
+    (node.type === 'ordered-item' || node.type === 'unordered-item') &&
+    node.task
+  ) {
     return `<task> ${node.listPosition} of ${node.listLength}`
   }
   if (node.type === 'ordered-item') {
@@ -273,10 +394,18 @@ function nodeDescriptor(node) {
   if (node.type === 'blockquote') return '<blockquote>'
   if (node.type === 'table') return '<table>'
   if (node.type === 'thematic-break') return '<hr>'
-  return node.language ? `<code:${node.language}>` : '<code>'
+  return node.type === 'code' && node.language
+    ? `<code:${node.language}>`
+    : '<code>'
 }
 
-function createRenderedAnnotation(node, options = {}) {
+function createRenderedAnnotation(
+  node: ReviewNode,
+  options: Pick<
+    AnnotationCreateOptions<ReviewNode>,
+    'mode' | 'onEdit' | 'onSelect'
+  > = {}
+): HTMLElement {
   return MarkoverAnnotationBlock.create(document, {
     node,
     context: {
@@ -292,17 +421,17 @@ function createRenderedAnnotation(node, options = {}) {
   })
 }
 
-function hideAnnotationSneakPeek() {
+function hideAnnotationSneakPeek(): void {
   elements.annotationSneakPeek.hidden = true
   elements.annotationSneakPeek.replaceChildren()
 }
 
-function hideSourceErrorTooltip() {
+function hideSourceErrorTooltip(): void {
   elements.sourceErrorTooltip.hidden = true
   elements.sourceErrorTooltip.textContent = ''
 }
 
-function showSourceErrorTooltip() {
+function showSourceErrorTooltip(): void {
   const message = elements.sourcePanel.dataset.yamlError
   if (!message || state.sourceEditingId) return
 
@@ -319,22 +448,23 @@ function showSourceErrorTooltip() {
   elements.sourceErrorTooltip.style.top = `${position.y}px`
 }
 
-function leaveSourceErrorTooltip() {
+function leaveSourceErrorTooltip(): void {
   if (!elements.sourcePanel.contains(document.activeElement)) {
     hideSourceErrorTooltip()
   }
 }
 
-function blurSourceErrorTooltip(event) {
+function blurSourceErrorTooltip(event: FocusEvent): void {
+  const nextTarget = event.relatedTarget
   if (
-    !elements.sourcePanel.contains(event.relatedTarget) &&
+    (!(nextTarget instanceof Node) || !elements.sourcePanel.contains(nextTarget)) &&
     !elements.sourcePanel.matches(':hover')
   ) {
     hideSourceErrorTooltip()
   }
 }
 
-function showAnnotationSneakPeek(node, marker) {
+function showAnnotationSneakPeek(node: ReviewNode, marker: HTMLElement): void {
   elements.annotationSneakPeek.replaceChildren(
     createRenderedAnnotation(node, { mode: 'peek' })
   )
@@ -350,7 +480,7 @@ function showAnnotationSneakPeek(node, marker) {
   elements.annotationSneakPeek.style.top = `${position.y}px`
 }
 
-function attachmentCountInSubtree(node) {
+function attachmentCountInSubtree(node: ReviewNode): number {
   return (node.attachments || []).length +
     node.children.reduce(
       (count, child) => count + attachmentCountInSubtree(child),
@@ -358,25 +488,25 @@ function attachmentCountInSubtree(node) {
     )
 }
 
-function hasAnnotation(node) {
+function hasAnnotation(node: AnnotationTreeNode): boolean {
   return MarkoverAnnotations.hasAnnotation(node)
 }
 
-function isCurrentReviewEditable() {
+function isCurrentReviewEditable(): boolean {
   return MarkoverReviewSessions.isTreeEditable(state.tree)
 }
 
-function annotatedNodes() {
-  return MarkoverAnnotations.annotatedNodes(state.tree.root)
+function annotatedNodes(): ReviewNode[] {
+  return MarkoverAnnotations.annotatedNodes(currentTree().root)
 }
 
-function hasFeedbackDescendant(node) {
+function hasFeedbackDescendant(node: ReviewNode): boolean {
   return node.children.some((child) => (
     hasAnnotation(child) || hasFeedbackDescendant(child)
   ))
 }
 
-function fullTreeEntry(node) {
+function fullTreeEntry(node: ReviewNode): AnnotationProjection<ReviewNode> {
   return {
     node,
     contextual: false,
@@ -384,8 +514,8 @@ function fullTreeEntry(node) {
   }
 }
 
-function selectNode(id, focusPreview = false) {
-  const node = MarkoverTree.findNode(state.tree.root, id)
+function selectNode(id: string, focusPreview = false): void {
+  const node = MarkoverTree.findNode(currentTree().root, id)
   if (!node) return
   if (!finishActiveSourceEdit(id)) return
   state.selectedId = id
@@ -397,16 +527,17 @@ function selectNode(id, focusPreview = false) {
   if (focusPreview) elements.previewPane.focus()
 }
 
-function setWorkspaceEmpty(empty) {
+function setWorkspaceEmpty(empty: boolean): void {
   elements.appHeader.classList.toggle('is-empty', empty)
   elements.emptyWorkspace.hidden = !empty
   elements.workspace.hidden = empty
   elements.documentTabs.hidden = empty || !reviewSessions.list().length
 }
 
-function normalizeAnnotatedSelection() {
+function normalizeAnnotatedSelection(): boolean {
+  const tree = currentTree()
   const normalized = MarkoverAnnotations.normalizeFilter(
-    state.tree.root,
+    tree.root,
     state.selectedId,
     state.annotatedOnly
   )
@@ -416,30 +547,30 @@ function normalizeAnnotatedSelection() {
   return changed
 }
 
-function setAnnotatedOnly(enabled) {
+function setAnnotatedOnly(enabled: boolean): void {
   if (enabled && !annotatedNodes().length) return
   if (!finishActiveSourceEdit()) return
   state.annotatedOnly = enabled
   normalizeAnnotatedSelection()
   renderTree()
-  const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (selected) renderAnnotation(selected)
 }
 
-function selectedLocationText(node) {
+function selectedLocationText(node: ReviewNode): string {
   return node.lineStart === node.lineEnd
     ? `Line ${node.lineStart}`
     : `Lines ${node.lineStart}–${node.lineEnd}`
 }
 
-function updateSelectedLocationControl() {
-  const selectedRow = elements.tree.querySelector(
+function updateSelectedLocationControl(): void {
+  const selectedRow = elements.tree.querySelector<HTMLElement>(
     `[data-node-id="${state.selectedId}"]`
   )
   const hasVisibleGeometry = Boolean(
     selectedRow?.getClientRects().length && elements.tree.getClientRects().length
   )
-  const isOffscreen = Boolean(selectedRow) && (
+  const isOffscreen = selectedRow !== null && (
     !hasVisibleGeometry || MarkoverNavigation.isOutsideViewport(
       elements.tree.getBoundingClientRect(),
       selectedRow.getBoundingClientRect()
@@ -456,11 +587,13 @@ function updateSelectedLocationControl() {
   )
 }
 
-function scrollToSelectedRow() {
+function scrollToSelectedRow(): void {
+  const selectedId = state.selectedId
+  if (!selectedId) return
   if (elements.selectedLocation.disabled) return
   const revealed = MarkoverAnnotations.revealAnnotation(
-    state.tree.root,
-    state.selectedId
+    currentTree().root,
+    selectedId
   )
   if (revealed) {
     renderTree()
@@ -474,8 +607,8 @@ function scrollToSelectedRow() {
   })
 }
 
-function updatePinnedSelection() {
-  const selectedRow = elements.tree.querySelector(
+function updatePinnedSelection(): void {
+  const selectedRow = elements.tree.querySelector<HTMLElement>(
     `[data-node-id="${state.selectedId}"]`
   )
   updateSelectedLocationControl()
@@ -496,6 +629,7 @@ function updatePinnedSelection() {
   }
 
   const pinnedRow = selectedRow.cloneNode(true)
+  if (!(pinnedRow instanceof HTMLElement)) return
   pinnedRow.classList.add('is-pinned')
   pinnedRow.removeAttribute('data-node-id')
   pinnedRow.querySelectorAll('button').forEach((button) => {
@@ -505,11 +639,11 @@ function updatePinnedSelection() {
   updateScrollbarRowCover()
 }
 
-function updateScrollbarRowCover() {
+function updateScrollbarRowCover(): void {
   const hoveredRow = state.hoveredId
-    ? elements.tree.querySelector(`[data-node-id="${state.hoveredId}"]`)
+    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
     : null
-  const selectedRow = elements.tree.querySelector(
+  const selectedRow = elements.tree.querySelector<HTMLElement>(
     `[data-node-id="${state.selectedId}"]`
   )
   const row = hoveredRow || (
@@ -540,7 +674,10 @@ function updateScrollbarRowCover() {
   elements.scrollbarRowCover.hidden = false
 }
 
-function renderNode(entry, depth) {
+function renderNode(
+  entry: AnnotationProjection<ReviewNode>,
+  depth: number
+): HTMLElement {
   const node = entry.node
   const wrapper = document.createElement('div')
   wrapper.className = `block${entry.contextual ? ' is-filter-context' : ''}`
@@ -601,7 +738,10 @@ function renderNode(entry, depth) {
     content.className = 'block-content paragraph'
     content.innerHTML = inlineMarkdown.renderInline(node.text)
   } else {
-    content.className = `block-content list-item${node.task ? ' task-item' : ''}`
+    const task = (
+      node.type === 'ordered-item' || node.type === 'unordered-item'
+    ) && node.task
+    content.className = `block-content list-item${task ? ' task-item' : ''}`
     content.innerHTML = inlineMarkdown.renderInline(node.text)
   }
   wireSourceImagePreviews(content)
@@ -646,11 +786,14 @@ function renderNode(entry, depth) {
     const summary = document.createElement('span')
     summary.className = 'source-edit-summary'
     summary.title = 'Proposed source edit'
-    renderDiffStats(summary, sourceDiffStats(node))
+    const stats = sourceDiffStats(node)
+    if (stats) renderDiffStats(summary, stats)
     row.append(summary)
   }
 
-  row.addEventListener('click', () => selectNode(node.id, true))
+  row.addEventListener('click', () => {
+    selectNode(node.id, true)
+  })
   row.addEventListener('mouseenter', () => {
     state.hoveredId = node.id
     updateScrollbarRowCover()
@@ -680,22 +823,26 @@ function renderNode(entry, depth) {
   return wrapper
 }
 
-function renderTree() {
+function renderTree(): void {
+  const tree = currentTree()
   hideAnnotationSneakPeek()
   elements.tree.replaceChildren()
   const projection = state.annotatedOnly
-    ? MarkoverAnnotations.annotatedProjection(state.tree.root)
-    : state.tree.root.children.map(fullTreeEntry)
+    ? MarkoverAnnotations.annotatedProjection(tree.root)
+    : tree.root.children.map(fullTreeEntry)
   for (const entry of projection) {
     elements.tree.append(renderNode(entry, 0))
   }
 
   const position = state.annotatedOnly
-    ? MarkoverAnnotations.annotationPosition(state.tree.root, state.selectedId)
-    : MarkoverTree.nodePosition(state.tree.root, state.selectedId)
-  const unsupported = state.tree.unsupported.length
+    ? MarkoverAnnotations.annotationPosition(tree.root, state.selectedId)
+    : state.selectedId
+      ? MarkoverTree.nodePosition(tree.root, state.selectedId)
+      : { index: 0, total: tree.root.children.length }
+  const unsupported = tree.unsupported.length
   const annotationCount = annotatedNodes().length
-  elements.treeViewAnnotated.querySelector('span').textContent = String(annotationCount)
+  const annotationCountElement = elements.treeViewAnnotated.querySelector('span')
+  if (annotationCountElement) annotationCountElement.textContent = String(annotationCount)
   elements.treeViewAnnotated.disabled = annotationCount === 0
   elements.treeViewAll.classList.toggle('is-active', !state.annotatedOnly)
   elements.treeViewAnnotated.classList.toggle('is-active', state.annotatedOnly)
@@ -721,7 +868,7 @@ function renderTree() {
   requestAnimationFrame(updatePinnedSelection)
 }
 
-function renderTreePreservingScroll() {
+function renderTreePreservingScroll(): void {
   const scrollTop = elements.tree.scrollTop
   renderTree()
   elements.tree.scrollTop = scrollTop
@@ -731,11 +878,16 @@ function renderTreePreservingScroll() {
   })
 }
 
-function attachmentReference(attachment) {
+function attachmentReference(attachment: ReviewAttachment): string {
   return attachment.label || attachment.id
 }
 
-function beginAttachmentLabelEdit(node, attachment, item, details) {
+function beginAttachmentLabelEdit(
+  node: ReviewNode,
+  attachment: ReviewAttachment,
+  item: HTMLElement,
+  details: HTMLElement
+): void {
   if (!isCurrentReviewEditable() || item.classList.contains('is-editing')) return
 
   state.finishAttachmentLabelEdit?.(true)
@@ -752,7 +904,7 @@ function beginAttachmentLabelEdit(node, attachment, item, details) {
   details.replaceWith(input)
 
   let finished = false
-  function finish(commit) {
+  function finish(commit = false): void {
     if (finished) return
     finished = true
     if (state.finishAttachmentLabelEdit === finish) {
@@ -786,14 +938,16 @@ function beginAttachmentLabelEdit(node, attachment, item, details) {
       finish(false)
     }
   })
-  input.addEventListener('blur', () => finish(true))
+  input.addEventListener('blur', () => {
+    finish(true)
+  })
   requestAnimationFrame(() => {
     input.focus()
     input.select()
   })
 }
 
-function openImagePreview(attachment) {
+function openImagePreview(attachment: ReviewAttachment): void {
   const previewUrl = attachment.url || attachmentPreviewUrl(attachment)
   if (!previewUrl) {
     showToast('Preview unavailable in this session')
@@ -806,26 +960,28 @@ function openImagePreview(attachment) {
   elements.imagePreview.hidden = false
 }
 
-function attachmentPreviewUrl(attachment) {
+function attachmentPreviewUrl(attachment: ReviewAttachment): string | null {
   const sessionUrl = state.attachmentPreviewUrls.get(attachment.id)
   if (sessionUrl) return sessionUrl
   if (!attachment.path?.startsWith('/')) return null
   const encodedPath = attachment.path
     .split('/')
-    .map((part) => encodeURIComponent(part))
+    .map((part: string) => encodeURIComponent(part))
     .join('/')
   return `file://${encodedPath}`
 }
 
-function closeImagePreview() {
+function closeImagePreview(): void {
   elements.imagePreview.hidden = true
   elements.imagePreviewContent.removeAttribute('src')
   elements.imagePreviewLabel.textContent = ''
 }
 
-function removeAttachment(node, attachment) {
+function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void {
   if (!isCurrentReviewEditable()) return
-  node.attachments = node.attachments.filter((item) => item.id !== attachment.id)
+  node.attachments = (node.attachments || []).filter(
+    (item) => item.id !== attachment.id
+  )
   const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
   if (previewUrl) URL.revokeObjectURL(previewUrl)
   state.attachmentPreviewUrls.delete(attachment.id)
@@ -840,14 +996,14 @@ function removeAttachment(node, attachment) {
   const selectionChanged = normalizeAnnotatedSelection()
   renderTree()
   if (selectionChanged) {
-    const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+    const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
     if (selected) renderAnnotation(selected)
   }
   updateAnnotationCount()
   autosaveReview()
 }
 
-function renderAttachmentList(node) {
+function renderAttachmentList(node: ReviewNode): void {
   elements.attachmentList.replaceChildren()
   const attachments = node.attachments || []
   elements.attachmentList.hidden = attachments.length === 0
@@ -864,12 +1020,12 @@ function renderAttachmentList(node) {
         if (!event.ctrlKey) return
         event.preventDefault()
         event.stopPropagation()
-        const details = item.querySelector('.attachment-details')
+        const details = item.querySelector<HTMLElement>('.attachment-details')
         if (details) beginAttachmentLabelEdit(node, attachment, item, details)
       }, true)
       item.addEventListener('contextmenu', (event) => {
         event.preventDefault()
-        const details = item.querySelector('.attachment-details')
+        const details = item.querySelector<HTMLElement>('.attachment-details')
         if (details) beginAttachmentLabelEdit(node, attachment, item, details)
       })
     }
@@ -917,7 +1073,7 @@ function renderAttachmentList(node) {
           !MarkoverSettings.confirmScreenshotRemoval(
             preferences,
             attachment.label || attachment.id,
-            window.confirm
+            (message) => window.confirm(message)
           )
         ) return
         removeAttachment(node, attachment)
@@ -929,8 +1085,8 @@ function renderAttachmentList(node) {
   }
 }
 
-function renderReviewEditability() {
-  const managed = Boolean(state.tree?.review?.id)
+function renderReviewEditability(): void {
+  const managed = Boolean(state.tree && isReviewSessionTree(state.tree))
   const editable = isCurrentReviewEditable()
   const readonly = managed && !editable
   const paneHadFocus = elements.annotationPane.contains(document.activeElement)
@@ -949,7 +1105,7 @@ function renderReviewEditability() {
   if (paneHadFocus) focusAnnotationPane()
 }
 
-function renderReadonlyFeedback(node) {
+function renderReadonlyFeedback(node: ReviewNode): void {
   if (node.feedback.trim()) {
     elements.annotationReadonly.classList.remove('is-empty')
     elements.annotationReadonly.innerHTML = inlineMarkdown.render(node.feedback)
@@ -959,14 +1115,14 @@ function renderReadonlyFeedback(node) {
   }
 }
 
-function focusAnnotationPane() {
+function focusAnnotationPane(): void {
   elements.annotationPane.classList.add('focus-within')
   if (state.annotationView === 'list') elements.annotationListView.focus()
   else if (isCurrentReviewEditable()) elements.annotationInput.focus()
   else elements.annotationReadonly.focus()
 }
 
-function renderSourcePanel(node) {
+function renderSourcePanel(node: ReviewNode): void {
   sourceDiffCleanup?.()
   sourceDiffCleanup = null
   elements.sourceDiff.replaceChildren()
@@ -1005,7 +1161,8 @@ function renderSourcePanel(node) {
   elements.sourceDiff.hidden = state.sourceCollapsed || editing || !node.sourceEdit
 
   if (node.sourceEdit && !editing) {
-    renderDiffStats(elements.sourceDiffStats, sourceDiffStats(node))
+    const stats = sourceDiffStats(node)
+    if (stats) renderDiffStats(elements.sourceDiffStats, stats)
     if (!state.sourceCollapsed) {
       try {
         sourceDiffCleanup = MarkoverDiffs.render(
@@ -1015,7 +1172,7 @@ function renderSourcePanel(node) {
           `${state.reviewId || 'local'}:${node.id}`
         )
       } catch (error) {
-        elements.sourceDiff.textContent = `Diff unavailable: ${error.message}`
+        elements.sourceDiff.textContent = `Diff unavailable: ${error instanceof Error ? error.message : String(error)}`
       }
     }
   } else {
@@ -1027,7 +1184,7 @@ function renderSourcePanel(node) {
   }
 }
 
-function beginSourceEdit(node) {
+function beginSourceEdit(node: ReviewNode): void {
   if (!isCurrentReviewEditable()) return
   if (!finishActiveSourceEdit(node.id)) return
   MarkoverSourceEdits.begin(state, node)
@@ -1035,15 +1192,17 @@ function beginSourceEdit(node) {
   elements.sourceToggle.setAttribute('aria-expanded', 'true')
   elements.sourceToggleIcon.textContent = '▼'
   renderSourcePanel(node)
-  requestAnimationFrame(() => elements.sourceEditor.focus())
+  requestAnimationFrame(() => {
+    elements.sourceEditor.focus()
+  })
 }
 
-function cancelSourceEdit(node) {
+function cancelSourceEdit(node: ReviewNode): void {
   MarkoverSourceEdits.cancel(state, node)
   renderSourcePanel(node)
 }
 
-function saveSourceEdit(node) {
+function saveSourceEdit(node: ReviewNode): boolean {
   const result = MarkoverSourceEdits.commit(state, node)
   if (!result.ok) {
     showToast('Proposed source cannot be empty')
@@ -1055,10 +1214,10 @@ function saveSourceEdit(node) {
   return true
 }
 
-function finishActiveSourceEdit(nextId = null) {
+function finishActiveSourceEdit(nextId: string | null = null): boolean {
   const editingId = state.sourceEditingId
   if (!editingId || editingId === nextId) return true
-  const node = MarkoverTree.findNode(state.tree.root, editingId)
+  const node = MarkoverTree.findNode(currentTree().root, editingId)
   if (!node) {
     state.sourceDrafts.delete(editingId)
     state.sourceEditingId = null
@@ -1071,7 +1230,9 @@ function finishActiveSourceEdit(nextId = null) {
     renderTreePreservingScroll()
     renderAnnotation(node)
     showToast('Proposed source cannot be empty')
-    requestAnimationFrame(() => elements.sourceEditor.focus())
+    requestAnimationFrame(() => {
+      elements.sourceEditor.focus()
+    })
     return false
   }
   if (result.changed) {
@@ -1082,7 +1243,7 @@ function finishActiveSourceEdit(nextId = null) {
   return true
 }
 
-function revertSourceEdit(node) {
+function revertSourceEdit(node: ReviewNode): void {
   if (!node.sourceEdit || !isCurrentReviewEditable()) return
   delete node.sourceEdit
   state.sourceDrafts.delete(node.id)
@@ -1092,19 +1253,19 @@ function revertSourceEdit(node) {
   autosaveReview()
 }
 
-function selectAnnotationFromList(node) {
-  const revealed = MarkoverAnnotations.revealAnnotation(state.tree.root, node.id)
+function selectAnnotationFromList(node: RenderedAnnotationNode): void {
+  const revealed = MarkoverAnnotations.revealAnnotation(currentTree().root, node.id)
   selectNode(node.id)
   if (revealed) autosaveReview()
   focusAnnotationPane()
 }
 
-function editAnnotationFromList(node) {
+function editAnnotationFromList(node: RenderedAnnotationNode): void {
   state.annotationView = 'selected'
   selectAnnotationFromList(node)
 }
 
-function renderAnnotationList() {
+function renderAnnotationList(): void {
   const nodes = annotatedNodes()
   elements.annotationList.replaceChildren()
   if (!nodes.length) {
@@ -1139,7 +1300,7 @@ function renderAnnotationList() {
   }
 }
 
-function renderAnnotationPaneView(node) {
+function renderAnnotationPaneView(node: ReviewNode): void {
   const nodes = annotatedNodes()
   if (state.annotationView === 'list' && !nodes.length) {
     state.annotationView = 'selected'
@@ -1156,7 +1317,7 @@ function renderAnnotationPaneView(node) {
 
   if (listVisible) {
     const position = MarkoverAnnotations.annotationPosition(
-      state.tree.root,
+      currentTree().root,
       state.selectedId
     )
     elements.selectedTitle.textContent = position.index
@@ -1170,15 +1331,16 @@ function renderAnnotationPaneView(node) {
   renderAnnotationList()
 }
 
-function setAnnotationView(view) {
+function setAnnotationView(view: 'selected' | 'list'): void {
+  const tree = currentTree()
   if (view === 'list') {
     const nextId = MarkoverAnnotations.nearestAnnotatedId(
-      state.tree.root,
+      tree.root,
       state.selectedId
     )
     if (!nextId) return
     if (!finishActiveSourceEdit(nextId)) return
-    const revealed = MarkoverAnnotations.revealAnnotation(state.tree.root, nextId)
+    const revealed = MarkoverAnnotations.revealAnnotation(tree.root, nextId)
     state.selectedId = nextId
     state.annotationView = 'list'
     renderTree()
@@ -1189,12 +1351,12 @@ function setAnnotationView(view) {
   } else {
     state.annotationView = 'selected'
   }
-  const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const selected = MarkoverTree.findNode(tree.root, state.selectedId)
   if (selected) renderAnnotation(selected)
   focusAnnotationPane()
 }
 
-function renderAnnotation(node) {
+function renderAnnotation(node: ReviewNode): void {
   renderSourcePanel(node)
   elements.annotationInput.value = node.feedback
   renderReadonlyFeedback(node)
@@ -1207,38 +1369,43 @@ function renderAnnotation(node) {
   updateAnnotationCount()
 }
 
-function updateAnnotationCount() {
+function updateAnnotationCount(): void {
   const count = annotatedNodes().length
   elements.annotationCount.textContent = `${count} annotation${count === 1 ? '' : 's'}`
   elements.annotationViewList.textContent = `All Annotations (${count})`
   elements.annotationViewList.disabled = count === 0
 }
 
-function showToast(message) {
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string): void {
   elements.toast.textContent = message
   elements.toast.classList.add('is-visible')
   elements.toast.setAttribute('aria-hidden', 'false')
-  clearTimeout(showToast.timeout)
-  showToast.timeout = setTimeout(() => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
     elements.toast.classList.remove('is-visible')
     elements.toast.setAttribute('aria-hidden', 'true')
   }, 1500)
 }
 
-function autosaveReview() {
+function autosaveReview(): void {
   autosaveTree(state.reviewId, state.tree)
 }
 
-function autosaveTree(reviewId, tree) {
+function autosaveTree(
+  reviewId: string | null,
+  tree: ReviewTree | null
+): void {
   if (
     !state.reviewMode ||
     !tree ||
     !MarkoverReviewSessions.isTreeEditable(tree)
   ) return
-  bridge.autosaveReview(reviewId, tree)
+  if (reviewId) bridge.autosaveReview(reviewId, tree)
 }
 
-function captureActiveSession() {
+function captureActiveSession(): void {
   const session = reviewSessions.active()
   if (!session || session.reviewId !== state.reviewId) return
   session.selectedId = state.selectedId
@@ -1250,89 +1417,101 @@ function captureActiveSession() {
   session.attachmentPreviewUrls = state.attachmentPreviewUrls
 }
 
-function reviewStatusLabel(status) {
+function reviewStatusLabel(status: ReviewSessionStatus): string {
   if (status === 'handoff-in-progress') return 'Handing off'
   return status === 'pending-agent' ? 'With agent' : 'Editing'
 }
 
-function addReviewContextField(label, value) {
+function addReviewContextField(label: string, value: unknown): void {
   if (value === null || value === undefined || value === '') return
+  let text: string
+  if (typeof value === 'string') text = value
+  else if (typeof value === 'number') text = value.toString()
+  else if (typeof value === 'boolean') text = value.toString()
+  else if (typeof value === 'bigint') text = value.toString()
+  else return
   const term = document.createElement('dt')
   term.textContent = label
   const description = document.createElement('dd')
-  description.textContent = String(value)
+  description.textContent = text
   elements.reviewContextFields.append(term, description)
 }
 
-function renderReviewContext() {
-  const review = state.tree?.review
+function renderReviewContext(): void {
+  const tree = state.tree
+  const review = tree && isReviewSessionTree(tree) ? tree.review : null
   elements.reviewContextButton.hidden = !review
   if (!review) {
     closeReviewContext(false)
     return
   }
 
+  const git = metadataRecord(review.git)
+  const gitSources = metadataRecord(git.sources)
+  const pullRequest = metadataRecord(review.pullRequest)
+  const agentThread = metadataRecord(review.agentThread)
   elements.reviewContextTitle.textContent = state.documentName
   elements.reviewContextSummary.innerHTML = inlineMarkdown.render(
-    review.contextSummary
+    review.contextSummary || ''
   )
   elements.reviewContextFields.replaceChildren()
   addReviewContextField('Review ID', review.id)
   addReviewContextField('Status', reviewStatusLabel(review.status))
   addReviewContextField('Source', state.documentPath)
   addReviewContextField('Created', review.createdAt)
-  addReviewContextField('Repository root', review.git?.repositoryRoot)
-  addReviewContextField('Branch', review.git?.branch)
-  addReviewContextField('Commit', review.git?.commit)
-  addReviewContextField('Repository', review.git?.repositoryUrl)
+  addReviewContextField('Repository root', metadataString(git, 'repositoryRoot'))
+  addReviewContextField('Branch', metadataString(git, 'branch'))
+  addReviewContextField('Commit', metadataString(git, 'commit'))
+  addReviewContextField('Repository', metadataString(git, 'repositoryUrl'))
   addReviewContextField(
     'Git sources',
-    review.git?.sources
-      ? [...new Set(Object.values(review.git.sources))].join(', ')
-      : null
+    [...new Set(Object.values(gitSources).filter(
+      (value): value is string => typeof value === 'string'
+    ))].join(', ') || null
   )
+  const pullRequestNumber = pullRequest.number
+  const pullRequestUrl = metadataString(pullRequest, 'url')
   addReviewContextField(
     'Pull request',
-    review.pullRequest?.number
-      ? `#${review.pullRequest.number}`
-      : review.pullRequest?.url
+    typeof pullRequestNumber === 'number'
+      ? `#${pullRequestNumber}`
+      : pullRequestUrl
   )
-  addReviewContextField('Pull request URL', review.pullRequest?.url)
+  addReviewContextField('Pull request URL', pullRequestUrl)
   addReviewContextField(
     'Pull request source',
-    review.pullRequest?.discovery
+    metadataString(pullRequest, 'discovery')
   )
+  const threadId = metadataString(agentThread, 'id')
+  const threadProvider = metadataString(agentThread, 'provider')
   addReviewContextField(
     'Agent thread',
-    review.agentThread?.id
-      ? [
-          review.agentThread.provider,
-          review.agentThread.id
-        ].filter(Boolean).join(' · ')
+    threadId
+      ? [threadProvider, threadId].filter(Boolean).join(' · ')
       : null
   )
-  addReviewContextField('Thread source', review.agentThread?.discovery)
-  addReviewContextField('Thread cwd', review.agentThread?.cwd)
-  addReviewContextField('Session log', review.agentThread?.logPath)
+  addReviewContextField('Thread source', metadataString(agentThread, 'discovery'))
+  addReviewContextField('Thread cwd', metadataString(agentThread, 'cwd'))
+  addReviewContextField('Session log', metadataString(agentThread, 'logPath'))
   addReviewContextField(
     'Parent thread',
-    review.agentThread?.parentThreadId
+    metadataString(agentThread, 'parentThreadId')
   )
   addReviewContextField(
     'Forked from',
-    review.agentThread?.forkedFromId
+    metadataString(agentThread, 'forkedFromId')
   )
 }
 
-function openReviewContext() {
-  if (!state.tree?.review) return
+function openReviewContext(): void {
+  if (!state.tree || !isReviewSessionTree(state.tree)) return
   renderReviewContext()
   elements.reviewContextDrawer.hidden = false
   elements.reviewContextButton.setAttribute('aria-expanded', 'true')
   elements.reviewContextClose.focus()
 }
 
-function closeReviewContext(restoreFocus = true) {
+function closeReviewContext(restoreFocus = true): void {
   const drawerHadFocus = elements.reviewContextDrawer.contains(
     document.activeElement
   )
@@ -1347,8 +1526,8 @@ function closeReviewContext(restoreFocus = true) {
   }
 }
 
-function treePathSegment(value) {
-  return String(value || '')
+function treePathSegment(value: string): string {
+  return value
     .replace(/[\\/]/g, '∕')
     // Control characters cannot form a useful user-facing path segment.
     // eslint-disable-next-line no-control-regex
@@ -1373,37 +1552,36 @@ const DOCUMENT_STATUS_SPRITE = `
   </svg>
 `
 
-function documentsListStatusIcon(status) {
+function documentsListStatusIcon(status: ReviewSessionStatus): string {
   if (status === 'editing') return 'markover-status-editing'
   if (status === 'pending-agent') return 'markover-status-pending'
-  if (status === 'handoff-in-progress') return 'markover-status-progress'
-  return 'markover-status-other'
+  return 'markover-status-progress'
 }
 
-function buildDocumentsListProjection() {
+function buildDocumentsListProjection(): DocumentsListProjection {
   const groups = reviewSessions.projectGroups()
-  const nameCounts = new Map()
+  const nameCounts = new Map<string, number>()
   for (const group of groups) {
     nameCounts.set(group.name, (nameCounts.get(group.name) || 0) + 1)
   }
-  const duplicateIndices = new Map()
+  const duplicateIndices = new Map<string, number>()
   for (const name of nameCounts.keys()) {
     const matches = groups
       .filter((group) => group.name === name)
       .sort((left, right) => left.key.localeCompare(right.key))
     matches.forEach((group, index) => duplicateIndices.set(group.key, index + 1))
   }
-  const paths = []
-  const projectPaths = []
-  const pathToReviewId = new Map()
-  const reviewIdToPath = new Map()
-  const sortOrder = new Map()
-  const decorations = new Map()
-  const statuses = new Map()
-  const byFileName = {}
+  const paths: string[] = []
+  const projectPaths: string[] = []
+  const pathToReviewId = new Map<string, string>()
+  const reviewIdToPath = new Map<string, string>()
+  const sortOrder = new Map<string, number>()
+  const decorations = new Map<string, string>()
+  const statuses = new Map<string, ReviewSessionStatus>()
+  const byFileName: Record<string, MarkoverRemappedIcon> = {}
 
   groups.forEach((group, groupIndex) => {
-    const duplicateSuffix = nameCounts.get(group.name) > 1
+    const duplicateSuffix = (nameCounts.get(group.name) ?? 0) > 1
       ? ` · ${duplicateIndices.get(group.key)}`
       : ''
     const projectPath = `${treePathSegment(group.name)}${duplicateSuffix}/`
@@ -1449,33 +1627,37 @@ function buildDocumentsListProjection() {
   }
 }
 
-function documentsListSort(left, right) {
+function documentsListSort(
+  left: MarkoverFileTreeSortEntry,
+  right: MarkoverFileTreeSortEntry
+): number {
   const leftRank = documentsListSortOrder.get(left.path) ?? Number.MAX_SAFE_INTEGER
   const rightRank = documentsListSortOrder.get(right.path) ?? Number.MAX_SAFE_INTEGER
   return leftRank - rightRank || left.basename.localeCompare(right.basename)
 }
 
-function applyDocumentsListRowMetadata() {
+function applyDocumentsListRowMetadata(): void {
   const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
   if (!shadowRoot) return
-  for (const row of shadowRoot.querySelectorAll(
+  for (const row of shadowRoot.querySelectorAll<HTMLElement>(
     'button[data-item-type="file"][data-item-path]'
   )) {
-    const status = documentsListStatuses.get(row.dataset.itemPath)
-    const icon = row.querySelector('[data-item-section="icon"]')
-    const content = row.querySelector('[data-item-section="content"]')
-    if (icon) icon.title = reviewStatusLabel(status)
+    const itemPath = row.dataset.itemPath
+    const status = itemPath ? documentsListStatuses.get(itemPath) : undefined
+    const icon = row.querySelector<HTMLElement>('[data-item-section="icon"]')
+    const content = row.querySelector<HTMLElement>('[data-item-section="content"]')
+    if (icon && status) icon.title = reviewStatusLabel(status)
     if (content) {
       content.dataset.documentsListLabel = row.getAttribute('aria-label') || ''
     }
   }
 }
 
-function scheduleDocumentsListRowMetadata() {
+function scheduleDocumentsListRowMetadata(): void {
   requestAnimationFrame(applyDocumentsListRowMetadata)
 }
 
-function observeDocumentsListRows() {
+function observeDocumentsListRows(): void {
   if (documentsListObserver) return
   const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
   if (!shadowRoot) return
@@ -1488,8 +1670,8 @@ function observeDocumentsListRows() {
   })
 }
 
-function scheduleDocumentsListClockRefresh(sessions) {
-  clearTimeout(documentsListClockTimer)
+function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
+  if (documentsListClockTimer) clearTimeout(documentsListClockTimer)
   documentsListClockTimer = null
   const delay = MarkoverReviewSessions.relativeTimeRefreshDelay(
     sessions.map((session) => session.lastViewedAt)
@@ -1501,13 +1683,13 @@ function scheduleDocumentsListClockRefresh(sessions) {
   }, delay)
 }
 
-function selectActiveReviewInDocumentsList() {
+function selectActiveReviewInDocumentsList(): void {
   if (!documentsListModel || !state.reviewId) return
   const activePath = documentsListReviewIdToPath.get(state.reviewId)
   if (!activePath) return
   const activeProjectPath = activePath.slice(0, activePath.lastIndexOf('/') + 1)
   const activeProject = documentsListModel.getItem(activeProjectPath)
-  if (activeProject?.isDirectory() && !activeProject.isExpanded()) {
+  if (isDirectoryHandle(activeProject) && !activeProject.isExpanded()) {
     activeProject.expand()
   }
   for (const selectedPath of documentsListModel.getSelectedPaths()) {
@@ -1523,7 +1705,7 @@ function selectActiveReviewInDocumentsList() {
   })
 }
 
-function renderDocumentsList() {
+function renderDocumentsList(): void {
   const sessions = reviewSessions.list()
   scheduleDocumentsListClockRefresh(sessions)
   elements.documentsListSidebar.hidden = sessions.length === 0
@@ -1537,11 +1719,12 @@ function renderDocumentsList() {
   const newProjectPaths = projection.projectPaths.filter(
     (path) => !documentsListProjectPaths.includes(path)
   )
-  const previouslyExpanded = documentsListModel
-    ? documentsListProjectPaths.filter((path) => (
-        documentsListModel.getItem(path)?.isDirectory() &&
-        documentsListModel.getItem(path)?.isExpanded()
-      ))
+  const previousModel = documentsListModel
+  const previouslyExpanded = previousModel
+    ? documentsListProjectPaths.filter((path) => {
+        const item = previousModel.getItem(path)
+        return isDirectoryHandle(item) && item.isExpanded()
+      })
     : projection.projectPaths
 
   documentsListPathToReviewId = projection.pathToReviewId
@@ -1552,14 +1735,17 @@ function renderDocumentsList() {
   documentsListStatuses = projection.statuses
 
   if (!documentsListModel) {
-    documentsListModel = new DocumentsListFileTree({
+    const model = new DocumentsListFileTree({
       density: 'compact',
       flattenEmptyDirectories: false,
       icons: projection.icons,
       initialExpandedPaths: projection.projectPaths,
       itemHeight: 22,
       onSelectionChange(selectedPaths) {
-        const reviewId = documentsListPathToReviewId.get(selectedPaths.at(-1))
+        const selectedPath = selectedPaths.at(-1)
+        const reviewId = selectedPath
+          ? documentsListPathToReviewId.get(selectedPath)
+          : null
         if (reviewId && reviewId !== state.reviewId) activateReview(reviewId)
       },
       paths: projection.paths,
@@ -1630,8 +1816,9 @@ function renderDocumentsList() {
         }
       `
     })
-    documentsListModel.subscribe(scheduleDocumentsListRowMetadata)
-    documentsListModel.render({
+    documentsListModel = model
+    model.subscribe(scheduleDocumentsListRowMetadata)
+    model.render({
       containerWrapper: elements.documentsListTree
     })
     observeDocumentsListRows()
@@ -1651,7 +1838,7 @@ function renderDocumentsList() {
   scheduleDocumentsListRowMetadata()
 }
 
-function applyDocumentsListWidth() {
+function applyDocumentsListWidth(): void {
   documentsListWidth = MarkoverReviewSessions.clampDocumentsListWidth(
     documentsListWidth,
     elements.workspace.clientWidth || window.innerWidth
@@ -1666,7 +1853,7 @@ function applyDocumentsListWidth() {
   )
 }
 
-function setDocumentsListCollapsed(collapsed) {
+function setDocumentsListCollapsed(collapsed: boolean): void {
   documentsListCollapsed = collapsed
   elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
   elements.documentsListOpen.hidden = !collapsed || reviewSessions.list().length === 0
@@ -1680,15 +1867,18 @@ function setDocumentsListCollapsed(collapsed) {
   )
 }
 
-function themedBrandSource(source, primary, secondary) {
-  if (!source) return null
+function themedBrandSource(
+  source: string,
+  primary: string,
+  secondary: string
+): string {
   const themed = source
     .replaceAll('#c94e1f', primary)
     .replaceAll('#6d211f', secondary)
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(themed)}`
 }
 
-async function themeBrandAssets() {
+async function themeBrandAssets(): Promise<void> {
   try {
     brandAssetLoad ||= bridge.getBrandAssets()
     brandAssetSources ||= await brandAssetLoad
@@ -1718,7 +1908,10 @@ async function themeBrandAssets() {
   }
 }
 
-function applySettings(next, options = {}) {
+function applySettings(
+  next: unknown,
+  options: { initial?: boolean } = {}
+): void {
   const previous = preferences
   const applied = MarkoverSettings.applySettingsToView(next, {
     root: document.documentElement,
@@ -1727,7 +1920,7 @@ function applySettings(next, options = {}) {
   })
   preferences = applied.preferences
   resolvedAppearance = applied.appearance
-  themeBrandAssets()
+  void themeBrandAssets()
 
   if (MarkoverSettings.sidebarPreferenceChanged(
     previous,
@@ -1738,7 +1931,7 @@ function applySettings(next, options = {}) {
   }
 }
 
-function openSettings() {
+function openSettings(): void {
   MarkoverSettings.applySettingsToView(
     { ...preferences, resolvedAppearance },
     {
@@ -1748,44 +1941,51 @@ function openSettings() {
     }
   )
   if (!elements.settingsDialog.open) elements.settingsDialog.showModal()
-  elements.settingsForm.elements.namedItem('palette').focus()
+  const palette = elements.settingsForm.elements.namedItem('palette')
+  if (palette instanceof HTMLElement) palette.focus()
 }
 
 elements.settingsClose.addEventListener('click', () => {
   elements.settingsDialog.close()
 })
-elements.settingsReset.addEventListener('click', async () => {
-  applySettings(await bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS))
+elements.settingsReset.addEventListener('click', () => {
+  void bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS).then(applySettings)
 })
-elements.settingsForm.addEventListener('change', async (event) => {
+elements.settingsForm.addEventListener('change', (event) => {
   const control = event.target
+  if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+    return
+  }
   const value = control.type === 'checkbox' ? control.checked : control.value
-  applySettings(await bridge.updateSettings({ [control.name]: value }))
+  void bridge.updateSettings({ [control.name]: value }).then(applySettings)
 })
 
-function focusedPane() {
+function focusedPane(): WorkspacePane {
   const active = document.activeElement
   if (elements.documentsListSidebar.contains(active)) return 'documents'
   if (elements.annotationPane.contains(active)) return 'annotation'
   return 'preview'
 }
 
-function focusDocumentsList() {
-  const activePath = documentsListReviewIdToPath.get(state.reviewId)
+function focusDocumentsList(): void {
+  const activePath = state.reviewId
+    ? documentsListReviewIdToPath.get(state.reviewId)
+    : null
   if (activePath && documentsListModel) {
-    documentsListModel.scrollToPath(activePath, {
+    const model = documentsListModel
+    model.scrollToPath(activePath, {
       focus: true,
       offset: 'nearest'
     })
     const focusActiveRow = () => {
-      const shadowRoot = documentsListModel.getFileTreeContainer()?.shadowRoot
-      const row = [...(shadowRoot?.querySelectorAll(
+      const shadowRoot = model.getFileTreeContainer()?.shadowRoot
+      const row = [...(shadowRoot?.querySelectorAll<HTMLElement>(
         'button[data-item-path]'
       ) || [])].find((button) => (
         button.dataset.itemPath === activePath &&
         button.dataset.itemParked !== 'true'
       ))
-      const target = row || shadowRoot?.querySelector('[role="tree"]')
+      const target = row || shadowRoot?.querySelector<HTMLElement>('[role="tree"]')
       target?.focus()
     }
     focusActiveRow()
@@ -1795,13 +1995,13 @@ function focusDocumentsList() {
   elements.documentsListCollapse.focus()
 }
 
-function focusPane(pane) {
+function focusPane(pane: WorkspacePane): void {
   if (pane === 'documents') focusDocumentsList()
   else if (pane === 'annotation') focusAnnotationPane()
   else elements.previewPane.focus()
 }
 
-function beginDocumentsListResize(event) {
+function beginDocumentsListResize(event: PointerEvent): void {
   if (event.button !== 0) return
   event.preventDefault()
   const workspaceLeft = elements.workspace.getBoundingClientRect().left
@@ -1809,11 +2009,11 @@ function beginDocumentsListResize(event) {
   elements.documentsListResizer.setPointerCapture(pointerId)
   document.body.classList.add('is-resizing-documents-list')
 
-  const resize = (moveEvent) => {
+  const resize = (moveEvent: PointerEvent): void => {
     documentsListWidth = moveEvent.clientX - workspaceLeft
     applyDocumentsListWidth()
   }
-  const finish = () => {
+  const finish = (): void => {
     elements.documentsListResizer.removeEventListener('pointermove', resize)
     elements.documentsListResizer.removeEventListener('pointerup', finish)
     elements.documentsListResizer.removeEventListener('pointercancel', finish)
@@ -1828,13 +2028,13 @@ function beginDocumentsListResize(event) {
   elements.documentsListResizer.addEventListener('pointercancel', finish)
 }
 
-function closeTabOverflow() {
+function closeTabOverflow(): void {
   elements.documentTabs
     .querySelector('.document-tab-overflow')
     ?.classList.remove('is-open')
 }
 
-function createDocumentTab(session) {
+function createDocumentTab(session: ReviewSession): HTMLButtonElement {
   const button = document.createElement('button')
   button.type = 'button'
   button.className = [
@@ -1861,7 +2061,9 @@ function createDocumentTab(session) {
   status.textContent = reviewStatusLabel(session.tree.review.status)
   button.append(status)
 
-  button.addEventListener('click', () => activateReview(session.reviewId))
+  button.addEventListener('click', () => {
+    activateReview(session.reviewId)
+  })
   button.addEventListener('keydown', (event) => {
     const offset = event.key === 'ArrowLeft'
       ? -1
@@ -1875,7 +2077,7 @@ function createDocumentTab(session) {
     activateReview(adjacent.reviewId)
     requestAnimationFrame(() => {
       elements.documentTabs
-        .querySelector(`[data-review-id="${adjacent.reviewId}"]`)
+        .querySelector<HTMLElement>(`[data-review-id="${adjacent.reviewId}"]`)
         ?.focus()
     })
   })
@@ -1883,7 +2085,7 @@ function createDocumentTab(session) {
   return button
 }
 
-function renderDocumentTabs() {
+function renderDocumentTabs(): void {
   const sessions = reviewSessions.recent()
   const visibleSessions = sessions.slice(0, MAX_VISIBLE_TABS)
   const overflowSessions = sessions.slice(MAX_VISIBLE_TABS)
@@ -1925,7 +2127,9 @@ function renderDocumentTabs() {
       const context = document.createElement('small')
       context.textContent = `${session.projectName} · ${reviewStatusLabel(session.tree.review.status)}`
       item.append(context)
-      item.addEventListener('click', () => activateReview(session.reviewId))
+      item.addEventListener('click', () => {
+        activateReview(session.reviewId)
+      })
       menu.append(item)
     }
     overflow.append(menu)
@@ -1935,12 +2139,15 @@ function renderDocumentTabs() {
   renderDocumentsList()
 }
 
-function activateReview(reviewId) {
+function activateReview(reviewId: string): void {
   setWorkspaceEmpty(false)
   if (reviewId === state.reviewId) return
   state.finishAttachmentLabelEdit?.(true)
-  if (reviewMutations.has(state.reviewId)) {
-    reviewMutations.wait(state.reviewId).then(() => activateReview(reviewId))
+  const currentReviewId = state.reviewId
+  if (currentReviewId && reviewMutations.has(currentReviewId)) {
+    void reviewMutations.wait(currentReviewId).then(() => {
+      activateReview(reviewId)
+    })
     return
   }
   if (!finishActiveSourceEdit()) return
@@ -1980,8 +2187,12 @@ function activateReview(reviewId) {
   renderReviewContext()
 }
 
-function addManagedReview(documentData, activate = true) {
-  const existed = Boolean(reviewSessions.get(documentData.reviewId))
+function addManagedReview(
+  documentData: ReviewSessionDocument,
+  activate = true
+): ReviewSession {
+  const reviewId = documentData.reviewId || documentData.tree.review.id
+  const existed = Boolean(reviewSessions.get(reviewId))
   const session = reviewSessions.add(documentData)
   if (!existed) {
     const normalized = MarkoverAnnotations.normalizeFilter(
@@ -1997,7 +2208,29 @@ function addManagedReview(documentData, activate = true) {
   return session
 }
 
-function configureManagedMode() {
+function managedReviewDocument(
+  documentData: MarkoverDocument
+): ReviewSessionDocument {
+  if (
+    !documentData.reviewId ||
+    !documentData.tree ||
+    !isReviewSessionTree(documentData.tree)
+  ) {
+    throw new Error('Managed review data is missing its review envelope.')
+  }
+  return {
+    reviewId: documentData.reviewId,
+    name: documentData.name,
+    path: documentData.path,
+    checksum: documentData.checksum,
+    tree: documentData.tree,
+    ...(typeof documentData.projectRoot === 'string'
+      ? { projectRoot: documentData.projectRoot }
+      : {})
+  }
+}
+
+function configureManagedMode(): void {
   state.reviewMode = true
   state.durableReview = true
   elements.openButton.hidden = true
@@ -2007,15 +2240,28 @@ function configureManagedMode() {
     'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
 }
 
-async function loadDocument(documentData) {
+async function loadDocument(documentData: MarkoverDocument): Promise<void> {
   setWorkspaceEmpty(false)
   const checksum = documentData.checksum || await bridge.checksum(documentData.source)
-  if (documentData.reviewId && documentData.tree?.review) {
-    addManagedReview({ ...documentData, checksum })
+  if (
+    documentData.reviewId &&
+    documentData.tree &&
+    isReviewSessionTree(documentData.tree)
+  ) {
+    addManagedReview({
+      reviewId: documentData.reviewId,
+      name: documentData.name,
+      path: documentData.path,
+      checksum,
+      tree: documentData.tree,
+      ...(typeof documentData.projectRoot === 'string'
+        ? { projectRoot: documentData.projectRoot }
+        : {})
+    })
     return
   }
 
-  state.documentName = documentData.name
+  state.documentName = documentData.name || 'Untitled'
   state.documentPath = documentData.path || null
   state.tree = documentData.tree || MarkoverTree.parseMarkdown(
     documentData.source,
@@ -2025,7 +2271,9 @@ async function loadDocument(documentData) {
       path: documentData.path
     }
   )
-  state.reviewId = documentData.reviewId || state.tree.review?.id || null
+  state.reviewId = documentData.reviewId || (
+    isReviewSessionTree(state.tree) ? state.tree.review.id : null
+  )
   state.selectedId = state.tree.root.children[0]?.id || null
   const normalizedFilter = MarkoverAnnotations.normalizeFilter(
     state.tree.root,
@@ -2046,25 +2294,26 @@ async function loadDocument(documentData) {
   renderTree()
 
   if (state.selectedId) {
-    renderAnnotation(MarkoverTree.findNode(state.tree.root, state.selectedId))
+    const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+    if (selected) renderAnnotation(selected)
   }
   autosaveReview()
 }
 
 elements.annotationInput.addEventListener('input', () => {
   if (!isCurrentReviewEditable()) return
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (!node) return
-  const wasAnnotated = Boolean(hasAnnotation(node))
+  const wasAnnotated = hasAnnotation(node)
   node.feedback = elements.annotationInput.value
   elements.annotationState.textContent = hasAnnotation(node)
     ? 'Annotated'
     : 'Not annotated'
-  if (wasAnnotated !== Boolean(hasAnnotation(node))) {
+  if (wasAnnotated !== hasAnnotation(node)) {
     const selectionChanged = normalizeAnnotatedSelection()
     renderTreePreservingScroll()
     if (selectionChanged) {
-      const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+      const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
       if (selected) renderAnnotation(selected)
     }
   }
@@ -2073,7 +2322,7 @@ elements.annotationInput.addEventListener('input', () => {
   elements.annotationInput.focus()
 })
 
-async function pasteImages(event) {
+async function pasteImages(event: ClipboardEvent): Promise<void> {
   if (!isCurrentReviewEditable()) {
     event.preventDefault()
     showToast('This review is with the agent and read only')
@@ -2081,6 +2330,7 @@ async function pasteImages(event) {
   }
   const originReviewId = state.reviewId
   const originTree = state.tree
+  if (!originTree) return
   const originPreviewUrls = state.attachmentPreviewUrls
   const originSelectedId = state.selectedId
   const node = MarkoverTree.findNode(originTree.root, originSelectedId)
@@ -2088,13 +2338,13 @@ async function pasteImages(event) {
 
   const imageItems = [...(event.clipboardData?.items || [])]
     .filter((item) => item.type.startsWith('image/'))
-  const pastedImages = []
+  const pastedImages: Array<MarkoverClipboardImage & { preview: Blob }> = []
 
   for (const item of imageItems) {
     const file = item.getAsFile()
     if (!file) continue
     pastedImages.push({
-      bytes: await file.arrayBuffer(),
+      bytes: new Uint8Array(await file.arrayBuffer()),
       mimeType: file.type || item.type,
       preview: file
     })
@@ -2107,7 +2357,7 @@ async function pasteImages(event) {
       pastedImages.push({
         bytes,
         mimeType: clipboardImage.mimeType,
-        preview: new Blob([bytes], { type: clipboardImage.mimeType })
+        preview: new Blob([bytes.buffer], { type: clipboardImage.mimeType })
       })
     }
   }
@@ -2125,8 +2375,8 @@ async function pasteImages(event) {
         },
         originReviewId
       )
-      node.attachments ||= []
-      node.attachments.push(attachment)
+      const attachments = node.attachments ??= []
+      attachments.push(attachment)
       originPreviewUrls.set(
         attachment.id,
         URL.createObjectURL(pastedImage.preview)
@@ -2138,7 +2388,7 @@ async function pasteImages(event) {
       elements.annotationInput.setRangeText(marker, start, end, 'end')
       node.feedback = elements.annotationInput.value
     } catch (error) {
-      showToast(error.message || 'Could not attach pasted image')
+      showToast(error instanceof Error ? error.message : 'Could not attach pasted image')
     }
   }
 
@@ -2155,11 +2405,11 @@ async function pasteImages(event) {
 }
 
 elements.annotationInput.addEventListener('paste', (event) => {
-  const reviewId = state.reviewId
+  const reviewId = state.reviewId || 'local'
   reviewMutations.track(reviewId, pasteImages(event)).catch(() => {})
 })
 
-async function openMarkdownDocument() {
+async function openMarkdownDocument(): Promise<void> {
   const documentData = await bridge.openMarkdown()
   if (documentData) {
     if (!finishActiveSourceEdit()) return
@@ -2168,12 +2418,16 @@ async function openMarkdownDocument() {
   }
 }
 
-elements.openButton.addEventListener('click', openMarkdownDocument)
-elements.emptyOpenButton.addEventListener('click', openMarkdownDocument)
+elements.openButton.addEventListener('click', () => {
+  void openMarkdownDocument()
+})
+elements.emptyOpenButton.addEventListener('click', () => {
+  void openMarkdownDocument()
+})
 
 elements.copyTreeButton.addEventListener('click', () => {
   if (!finishActiveSourceEdit()) return
-  bridge.copyText(MarkoverTree.serializeTree(state.tree))
+  bridge.copyText(MarkoverTree.serializeTree(currentTree()))
   showToast('Feedback JSON copied')
 })
 
@@ -2181,7 +2435,7 @@ elements.doneReviewButton.addEventListener('click', () => {
   if (!finishActiveSourceEdit()) return
   elements.doneReviewButton.disabled = true
   elements.doneReviewButton.textContent = 'Finishing…'
-  bridge.finishReview(state.tree)
+  bridge.finishReview(currentTree())
 })
 
 elements.cancelReviewButton.addEventListener('click', () => {
@@ -2196,12 +2450,16 @@ elements.sourceToggle.addEventListener('click', () => {
     String(!state.sourceCollapsed)
   )
   elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) renderSourcePanel(node)
 })
 
-elements.treeViewAll.addEventListener('click', () => setAnnotatedOnly(false))
-elements.treeViewAnnotated.addEventListener('click', () => setAnnotatedOnly(true))
+elements.treeViewAll.addEventListener('click', () => {
+  setAnnotatedOnly(false)
+})
+elements.treeViewAnnotated.addEventListener('click', () => {
+  setAnnotatedOnly(true)
+})
 elements.selectedLocation.addEventListener('click', scrollToSelectedRow)
 elements.annotationViewSelected.addEventListener('click', () => {
   setAnnotationView('selected')
@@ -2211,18 +2469,18 @@ elements.annotationViewList.addEventListener('click', () => {
 })
 MarkoverAnnotationBlock.bindListKeyboard(elements.annotationListView, {
   edit() {
-    const selected = elements.annotationList.querySelector(
+    const selected = elements.annotationList.querySelector<HTMLElement>(
       '.rendered-annotation.is-selected'
     )
     if (!selected) return
-    const edit = selected?.querySelector('.rendered-annotation-edit')
+    const edit = selected.querySelector<HTMLButtonElement>('.rendered-annotation-edit')
     if (edit) edit.click()
     else setAnnotationView('selected')
   },
   move(offset) {
     const nodes = annotatedNodes()
     const currentId = MarkoverAnnotations.nearestAnnotatedId(
-      state.tree.root,
+      currentTree().root,
       state.selectedId
     )
     const index = nodes.findIndex((node) => node.id === currentId)
@@ -2235,27 +2493,27 @@ new ResizeObserver(() => {
 }).observe(elements.annotationListView)
 
 elements.sourceEdit.addEventListener('click', () => {
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) beginSourceEdit(node)
 })
 
 elements.sourceRevert.addEventListener('click', () => {
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) revertSourceEdit(node)
 })
 
 elements.sourceCancel.addEventListener('click', () => {
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) cancelSourceEdit(node)
 })
 
 elements.sourceSave.addEventListener('click', () => {
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) saveSourceEdit(node)
 })
 
 elements.sourceEditor.addEventListener('input', () => {
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (!node || state.sourceEditingId !== node.id) return
   const current = elements.sourceEditor.value
   MarkoverSourceEdits.update(state, node, current)
@@ -2267,7 +2525,7 @@ elements.sourceEditor.addEventListener('input', () => {
 elements.sourceEditor.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
   event.preventDefault()
-  const node = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) cancelSourceEdit(node)
 })
 
@@ -2284,7 +2542,9 @@ elements.reviewContextButton.addEventListener('click', () => {
   if (elements.reviewContextDrawer.hidden) openReviewContext()
   else closeReviewContext()
 })
-elements.reviewContextClose.addEventListener('click', () => closeReviewContext())
+elements.reviewContextClose.addEventListener('click', () => {
+  closeReviewContext()
+})
 elements.documentsListCollapse.addEventListener('click', () => {
   setDocumentsListCollapsed(true)
 })
@@ -2308,7 +2568,9 @@ window.addEventListener('resize', () => {
   MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
 })
 document.addEventListener('click', (event) => {
-  if (!elements.documentTabs.contains(event.target)) closeTabOverflow()
+  if (!(event.target instanceof Node) || !elements.documentTabs.contains(event.target)) {
+    closeTabOverflow()
+  }
 })
 
 document.addEventListener('keydown', (event) => {
@@ -2336,6 +2598,7 @@ document.addEventListener('keydown', (event) => {
 
   if (event.key === 'Tab' && event.ctrlKey && reviewSessions.list().length) {
     event.preventDefault()
+    if (!state.reviewId) return
     const adjacent = reviewSessions.adjacent(
       state.reviewId,
       event.shiftKey ? -1 : 1
@@ -2371,8 +2634,16 @@ document.addEventListener('keydown', (event) => {
   }
 
   event.preventDefault()
-  const direction = event.key.replace('Arrow', '').toLowerCase()
-  const current = MarkoverTree.findNode(state.tree.root, state.selectedId)
+  const directionByKey: Partial<Record<string, NavigationDirection>> = {
+    ArrowDown: 'down',
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    ArrowUp: 'up'
+  }
+  const direction = directionByKey[event.key]
+  if (!direction) return
+  const tree = currentTree()
+  const current = MarkoverTree.findNode(tree.root, state.selectedId)
   if (
     !state.annotatedOnly &&
     direction === 'right' &&
@@ -2383,10 +2654,10 @@ document.addEventListener('keydown', (event) => {
     autosaveReview()
   }
   const navigationRoot = state.annotatedOnly
-    ? MarkoverAnnotations.navigationRoot(state.tree.root)
-    : state.tree.root
+    ? MarkoverAnnotations.navigationRoot(tree.root)
+    : tree.root
   const nextId = MarkoverNavigation.move(navigationRoot, state.selectedId, direction)
-  selectNode(nextId, true)
+  if (nextId) selectNode(nextId, true)
 })
 
 document.addEventListener('keyup', (event) => {
@@ -2403,10 +2674,14 @@ elements.previewPane.addEventListener('focus', () => {
   elements.annotationPane.classList.remove('focus-within')
 })
 
-async function initialize() {
-  bridge.onOpenMarkdownRequested(() => openMarkdownDocument())
+async function initialize(): Promise<void> {
+  bridge.onOpenMarkdownRequested(() => {
+    void openMarkdownDocument()
+  })
   bridge.onSettingsOpen(openSettings)
-  bridge.onSettingsChanged((settings) => applySettings(settings))
+  bridge.onSettingsChanged((settings) => {
+    applySettings(settings)
+  })
   applySettings(await bridge.getSettings(), { initial: true })
 
   bridge.onReviewOpened(async (reviewDocument) => {
@@ -2418,7 +2693,9 @@ async function initialize() {
     let session = reviewSessions.updateStatus(reviewId, status)
     if (!session) {
       const reviews = await bridge.getReviews()
-      for (const document of reviews) addManagedReview(document, false)
+      for (const document of reviews) {
+        addManagedReview(managedReviewDocument(document), false)
+      }
       session = reviewSessions.updateStatus(reviewId, status)
     }
     if (!session) {
@@ -2426,7 +2703,7 @@ async function initialize() {
     }
     renderDocumentTabs()
     if (reviewId === state.reviewId) {
-      const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+      const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
       if (selected) renderAnnotation(selected)
       renderReviewContext()
     }
@@ -2447,7 +2724,7 @@ async function initialize() {
     reviewSessions.updateStatus(reviewId, 'handoff-in-progress')
     renderDocumentTabs()
     if (reviewId === state.reviewId) {
-      const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
+      const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
       if (selected) renderAnnotation(selected)
       renderReviewContext()
       if (paneHadFocus) focusAnnotationPane()
@@ -2457,10 +2734,16 @@ async function initialize() {
   })
 
   const reviewDocument = await bridge.getInitialReview()
-  if (reviewDocument?.reviewId && reviewDocument.tree?.review) {
+  if (
+    reviewDocument?.reviewId &&
+    reviewDocument.tree &&
+    isReviewSessionTree(reviewDocument.tree)
+  ) {
     configureManagedMode()
     const reviews = await bridge.getReviews()
-    for (const document of reviews) addManagedReview(document, false)
+    for (const document of reviews) {
+      addManagedReview(managedReviewDocument(document), false)
+    }
     await loadDocument(reviewDocument)
   } else if (reviewDocument) {
     state.reviewMode = true
@@ -2482,8 +2765,11 @@ async function initialize() {
     const reviews = await bridge.getReviews()
     if (reviews.length) {
       configureManagedMode()
-      for (const document of reviews) addManagedReview(document, false)
-      activateReview(reviews[reviews.length - 1].reviewId)
+      for (const document of reviews) {
+        addManagedReview(managedReviewDocument(document), false)
+      }
+      const latestReview = reviews.at(-1)
+      if (latestReview?.reviewId) activateReview(latestReview.reviewId)
     } else {
       setWorkspaceEmpty(true)
     }
@@ -2493,4 +2779,4 @@ async function initialize() {
 }
 
 applyDocumentsListWidth()
-initialize()
+void initialize()

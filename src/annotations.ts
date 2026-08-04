@@ -19,36 +19,37 @@
     )
   }
 
-  function documentNodes(root: AnnotationTreeNode): AnnotationTreeNode[] {
-    const nodes: AnnotationTreeNode[] = []
-    function visit(node: AnnotationTreeNode): void {
+  function documentNodes<T extends AnnotationTreeNode>(root: T): T[] {
+    const nodes: T[] = []
+    function visit(node: T): void {
       for (const child of node.children) {
-        nodes.push(child)
-        visit(child)
+        const typedChild = child as T
+        nodes.push(typedChild)
+        visit(typedChild)
       }
     }
     visit(root)
     return nodes
   }
 
-  function annotatedNodes(root: AnnotationTreeNode): AnnotationTreeNode[] {
+  function annotatedNodes<T extends AnnotationTreeNode>(root: T): T[] {
     return documentNodes(root).filter(hasAnnotation)
   }
 
-  function annotatedProjection(
-    root: AnnotationTreeNode
-  ): AnnotationProjection[] {
-    function project(node: AnnotationTreeNode): AnnotationProjection | null {
+  function annotatedProjection<T extends AnnotationTreeNode>(
+    root: T
+  ): AnnotationProjection<T>[] {
+    function project(node: T): AnnotationProjection<T> | null {
       const children = node.children
-        .map(project)
-        .filter((entry): entry is AnnotationProjection => entry !== null)
+        .map((child) => project(child as T))
+        .filter((entry): entry is AnnotationProjection<T> => entry !== null)
       if (!hasAnnotation(node) && !children.length) return null
       return { node, children, contextual: !hasAnnotation(node) }
     }
 
     return root.children
-      .map(project)
-      .filter((entry): entry is AnnotationProjection => entry !== null)
+      .map((child) => project(child as T))
+      .filter((entry): entry is AnnotationProjection<T> => entry !== null)
   }
 
   function navigationRoot(root: AnnotationTreeNode): NavigationNode {
