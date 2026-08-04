@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en" data-repo-doc-path="doc/plans/2026-08-03__signing-notarization-preflight-eli5/index.html">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Signing preflight, explained simply</title>
+  <style>
+    :root {
+      --brand-orange: #c94e1f;
+      --brand-burgundy: #6d211f;
+      --ink: #26211e;
+      --muted: #756d67;
+      --paper: #eee8e0;
+      --surface: #fffdf9;
+      --line: #ddd5cc;
+      --brand-soft: #f5e3da;
+      --success: #35623f;
+      --warning: #8a4d18;
+      --shadow: 0 14px 36px rgb(109 33 31 / 8%);
+    }
+    * { box-sizing: border-box; }
+    html {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      line-height: 1.55;
+    }
+    body { margin: 0; }
+    a { color: var(--brand-burgundy); text-underline-offset: .18em; }
+    a:hover { color: var(--brand-orange); }
+    a:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--brand-orange);
+      outline-offset: 3px;
+    }
+    .page { width: min(100% - 32px, 980px); margin: 0 auto; padding: 24px 0 64px; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin: 0 0 42px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgb(255 253 249 / 72%);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    .tabs a {
+      flex: 1 0 max-content;
+      padding: 9px 14px;
+      border-radius: 9px;
+      color: var(--muted);
+      font-size: .86rem;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+    }
+    .tabs a[aria-current="page"] { background: var(--brand-burgundy); color: white; }
+    header { max-width: 800px; margin-bottom: 28px; }
+    .eyebrow, .tag, .status {
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: .77rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { line-height: 1.14; text-wrap: balance; }
+    h1 { margin: 8px 0 0; font-size: clamp(2.25rem, 7vw, 4.55rem); letter-spacing: -.045em; }
+    h1 span { color: var(--brand-orange); }
+    .lede { max-width: 720px; margin: 18px 0 0; color: #493f39; font-size: clamp(1.06rem, 2.3vw, 1.3rem); }
+    .card {
+      margin: 22px 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    details.truth-context:first-of-type { overflow: hidden; border-top: 4px solid var(--brand-burgundy); }
+    .context-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px clamp(18px, 4vw, 28px);
+      list-style: none;
+      cursor: pointer;
+    }
+    .context-summary::-webkit-details-marker { display: none; }
+    .context-summary:hover { background: #f8f3ed; }
+    .context-title { font-size: 1.12rem; font-weight: 750; }
+    .context-status {
+      flex: none;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: .73rem;
+      font-weight: 800;
+    }
+    .context-body { padding: 22px clamp(18px, 4vw, 28px); border-top: 1px solid var(--line); }
+    .context-grid, .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .context-grid { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .context-grid h3 { margin: 0 0 7px; color: var(--brand-burgundy); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .88rem; text-transform: uppercase; }
+    .context-grid p, .context-grid ul { margin: 0; }
+    section { margin: 42px 0; }
+    section.card { padding: clamp(22px, 4vw, 34px); }
+    h2 { margin: 0 0 12px; font-size: clamp(1.55rem, 4vw, 2.25rem); }
+    h3 { margin: 8px 0; font-size: 1.17rem; }
+    p { margin: 0 0 12px; }
+    ul { padding-left: 1.25rem; }
+    li + li { margin-top: 7px; }
+    .mini { padding: 20px; margin: 0; }
+    .mini p { color: #554b45; }
+    .diagram-scroll { overflow-x: auto; padding: 10px 0 2px; }
+    svg { display: block; min-width: 760px; width: 100%; height: auto; }
+    code { padding: .1em .3em; border-radius: 4px; background: #f3ece5; font-family: ui-monospace, monospace; font-size: .9em; }
+    .callout { padding: 18px 20px; border-left: 5px solid var(--brand-orange); background: #fff8f1; }
+    .next {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px;
+      text-decoration: none;
+    }
+    footer { margin-top: 50px; color: var(--muted); font-size: .9rem; }
+    footer details { padding: 14px 18px; }
+    footer summary { cursor: pointer; font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
+    footer details div { padding-top: 12px; }
+    @media (max-width: 700px) {
+      .page { width: min(100% - 20px, 980px); }
+      .tabs { margin-bottom: 30px; }
+      .context-summary { align-items: flex-start; flex-direction: column; }
+      .context-grid, .grid { grid-template-columns: 1fr; }
+      .context-status { white-space: normal; }
+      h1 { font-size: clamp(2.2rem, 14vw, 3.6rem); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="tabs" aria-label="Signing preflight explainer">
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="slice-1.html">Slice 1: package safely</a>
+      <a href="release-roadmap.html">Later release roadmap</a>
+    </nav>
+
+    <header>
+      <p class="eyebrow">Issue 13 · Signing and notarization</p>
+      <h1>A tamper seal now; an Apple <span>passport later</span>.</h1>
+      <p class="lede">
+        Markover cannot get Apple's official distribution stamp without a paid developer
+        membership. The plan is to make today's honest ad-hoc releases much harder to
+        corrupt, while preparing a small, explicit upgrade path for future notarization.
+      </p>
+    </header>
+
+    <details class="card truth-context">
+      <summary class="context-summary">
+        <span class="context-title">Where This Is True</span>
+        <span class="context-status">Reviewed plan · Before Slice 1 · 3 Aug 2026</span>
+      </summary>
+      <div class="context-body">
+        <p>
+          This explains <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>
+          as constrained by the reviewed
+          <a href="#" data-repo-path="doc/plans/2026-08-03__signing-notarization-preflight.md">signing preflight plan</a>
+          on branch <code>t3code/signing-notarization-preflight</code>, snapshot
+          <code>5147fa82baec</code>. It describes planned work; slice 1 has not yet been
+          implemented in this snapshot.
+        </p>
+        <div class="context-grid">
+          <div>
+            <h3>Scope and roadmap position</h3>
+            <p>
+              This is credential-free preflight for the signing/notarization launch gate.
+              Slice 1 hardens local packaging and installation. Slice 2 later owns release
+              provenance and rollback. Slice 3 consumes issue #12's packaged happy-path
+              fixture; issue #39 separately owns durability.
+            </p>
+          </div>
+          <div>
+            <h3>Stable center and change horizon</h3>
+            <p>
+              Stable: explicit trust modes, fail-closed checks, two native architectures,
+              honest “not Apple-verified” language, and no silent fallback. Details will
+              change as slices land. App Sandbox is separate follow-up work. Re-check the
+              issue, plan, branch history, and this card for current truth.
+            </p>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <section class="card" aria-labelledby="tiny-story">
+      <h2 id="tiny-story">The Tiny Story</h2>
+      <p>
+        Imagine mailing a package. An <strong>ad-hoc signature</strong> is a tamper-evident
+        strip you applied yourself: the recipient can see whether the box changed, but
+        Apple does not vouch for who packed it. A <strong>Developer ID signature plus
+        notarization</strong> is the same sealed box with a verified sender passport and
+        Apple's automated inspection receipt.
+      </p>
+      <p>
+        We can build and test the first kind today. We should not pretend we have the
+        second kind, nor add credential-dependent machinery we cannot exercise.
+      </p>
+    </section>
+
+    <section class="card" aria-labelledby="system-title">
+      <h2 id="system-title">The trust system at a glance</h2>
+      <p>The file stays the same kind of ZIP; what changes later is who can vouch for it.</p>
+      <div class="diagram-scroll" role="region" aria-label="Scrollable signing trust system diagram" tabindex="0">
+        <svg viewBox="0 0 900 390" role="img" aria-labelledby="system-diagram-title system-diagram-desc">
+          <title id="system-diagram-title">Current and future Markover release trust systems</title>
+          <desc id="system-diagram-desc">Both paths produce a native Markover ZIP. The current path uses hardened ad-hoc signing and expects Gatekeeper rejection. The future path adds Developer ID, notarization, stapling, and Gatekeeper acceptance.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0 0L10 5L0 10z" fill="#c94e1f"></path>
+            </marker>
+          </defs>
+          <rect x="18" y="34" width="180" height="84" rx="16" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+          <text x="108" y="68" text-anchor="middle" fill="#6d211f" font-family="system-ui" font-size="14" font-weight="700">MARKOVER BUILD</text>
+          <text x="108" y="94" text-anchor="middle" fill="#26211e" font-family="Georgia" font-size="20">Native app</text>
+          <line x1="198" y1="76" x2="260" y2="76" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+
+          <rect x="270" y="16" width="270" height="122" rx="16" fill="#fff8f1" stroke="#c94e1f" stroke-width="3"></rect>
+          <text x="294" y="49" fill="#6d211f" font-family="system-ui" font-size="13" font-weight="800">CURRENT · CAN TEST NOW</text>
+          <text x="294" y="79" fill="#26211e" font-family="Georgia" font-size="21" font-weight="700">Hardened ad-hoc seal</text>
+          <text x="294" y="105" fill="#756d67" font-family="system-ui" font-size="14">Integrity checked · identity not verified</text>
+          <line x1="540" y1="76" x2="602" y2="76" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+
+          <rect x="612" y="16" width="270" height="122" rx="16" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+          <text x="636" y="49" fill="#6d211f" font-family="system-ui" font-size="13" font-weight="800">DOWNLOADED ZIP</text>
+          <text x="636" y="79" fill="#26211e" font-family="Georgia" font-size="21" font-weight="700">Gatekeeper warns</text>
+          <text x="636" y="105" fill="#8a4d18" font-family="system-ui" font-size="14">Safe per-app override is documented</text>
+
+          <line x1="108" y1="118" x2="108" y2="272" stroke="#756d67" stroke-width="2" stroke-dasharray="6 7"></line>
+          <line x1="108" y1="272" x2="260" y2="272" stroke="#756d67" stroke-width="2" stroke-dasharray="6 7" marker-end="url(#arrow)"></line>
+          <rect x="270" y="204" width="270" height="136" rx="16" fill="#edf5ee" stroke="#35623f" stroke-width="2"></rect>
+          <text x="294" y="237" fill="#35623f" font-family="system-ui" font-size="13" font-weight="800">FUTURE · PAID MEMBERSHIP</text>
+          <text x="294" y="267" fill="#26211e" font-family="Georgia" font-size="21" font-weight="700">Developer ID + notary</text>
+          <text x="294" y="293" fill="#756d67" font-family="system-ui" font-size="14">Verified identity · Apple ticket stapled</text>
+          <text x="294" y="318" fill="#756d67" font-family="system-ui" font-size="14">Separate reviewed activation</text>
+          <line x1="540" y1="272" x2="602" y2="272" stroke="#35623f" stroke-width="3" marker-end="url(#arrow)"></line>
+          <rect x="612" y="204" width="270" height="136" rx="16" fill="#fffdf9" stroke="#35623f" stroke-width="2"></rect>
+          <text x="636" y="237" fill="#35623f" font-family="system-ui" font-size="13" font-weight="800">DOWNLOADED ZIP</text>
+          <text x="636" y="267" fill="#26211e" font-family="Georgia" font-size="21" font-weight="700">Gatekeeper accepts</text>
+          <text x="636" y="293" fill="#35623f" font-family="system-ui" font-size="14">Strict code + ticket + policy checks pass</text>
+          <text x="636" y="318" fill="#756d67" font-family="system-ui" font-size="14">No automatic fallback to ad-hoc</text>
+          <text x="450" y="376" text-anchor="middle" fill="#756d67" font-family="system-ui" font-size="14">Same product and ZIP contract; different identity evidence.</text>
+        </svg>
+      </div>
+    </section>
+
+    <section aria-labelledby="slices-title">
+      <h2 id="slices-title">Three slices, three jobs</h2>
+      <div class="grid">
+        <article class="card mini">
+          <span class="tag">Slice 1 · this session</span>
+          <h3>Seal, inspect, and install safely</h3>
+          <p>Use supported inside-out signing, minimal entitlements, Sonoma as the floor, and strict checks before cache installation.</p>
+        </article>
+        <article class="card mini">
+          <span class="tag">Slice 2 · after review</span>
+          <h3>Prove where releases came from</h3>
+          <p>Add attestations, draft-first publication, protected approval, immutable releases, and precise rollback instructions.</p>
+        </article>
+        <article class="card mini">
+          <span class="tag">Slice 3 · after issue 12 fixture</span>
+          <h3>Exercise the packaged happy path</h3>
+          <p>Reuse the auth fixture against final packaged apps and the clean Intel Mac without duplicating adversarial or durability tests.</p>
+        </article>
+        <article class="card mini">
+          <span class="tag">Still blocked</span>
+          <h3>Apple verification itself</h3>
+          <p>Developer ID, notarization, stapling, and successful Gatekeeper assessment wait for paid Apple Developer Program access.</p>
+        </article>
+      </div>
+    </section>
+
+    <aside class="callout">
+      <strong>The key honesty rule:</strong> a hardened ad-hoc app can have a valid,
+      tamper-evident code seal and still be rejected by Gatekeeper. Those are different
+      questions, and the verifier must report both truthfully.
+    </aside>
+
+    <a class="card next" href="slice-1.html">
+      <span><strong>Next:</strong> see exactly what slice 1 changes and rejects.</span>
+      <span aria-hidden="true">→</span>
+    </a>
+
+    <footer>
+      <p>Prepared as the maintained plain-language companion to issue 13.</p>
+      <div class="card">
+        <details>
+          <summary>Prompt / context</summary>
+          <div>
+            <p>
+              The request was to explain the signing/notarization setup before
+              implementation, using short interlinked pages and diagrams, then keep it
+              current across slices. Sources checked: issue 13's reviewed plan, current
+              packaging and bootstrap code, release workflow, tests, and user decisions.
+              This footer explains why the ELI5 exists; the truth card above explains
+              where its technical claims apply.
+            </p>
+          </div>
+        </details>
+      </div>
+    </footer>
+  </main>
+  <script>
+    function eli5RepoBase() {
+      const params = new URLSearchParams(window.location.search);
+      const explicit = params.get("baseUrl") || params.get("repoBase");
+      if (explicit) return explicit.replace(/\/$/, "");
+      const docPath = document.documentElement.dataset.repoDocPath;
+      if (window.location.protocol === "file:" && docPath) {
+        const fullPath = decodeURIComponent(window.location.pathname);
+        const suffix = "/" + docPath.replace(/^\//, "");
+        return fullPath.endsWith(suffix) ? fullPath.slice(0, -suffix.length) : "";
+      }
+      return "";
+    }
+    const repoBase = eli5RepoBase();
+    for (const link of document.querySelectorAll("a[data-repo-path]")) {
+      if (!repoBase) {
+        link.setAttribute("aria-disabled", "true");
+        link.title = "Open the saved file directly or add ?baseUrl=/path/to/worktree.";
+      } else {
+        link.href = encodeURI("file://" + repoBase + "/" + link.dataset.repoPath.replace(/^\//, ""));
+      }
+    }
+  </script>
+</body>
+</html>

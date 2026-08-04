@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en" data-repo-doc-path="doc/plans/2026-08-03__signing-notarization-preflight-eli5/slice-1.html">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Slice 1 packaging safety, explained simply</title>
+  <style>
+    :root {
+      --brand-orange: #c94e1f; --brand-burgundy: #6d211f; --ink: #26211e;
+      --muted: #756d67; --paper: #eee8e0; --surface: #fffdf9; --line: #ddd5cc;
+      --brand-soft: #f5e3da; --success: #35623f; --danger: #8b2e26;
+      --shadow: 0 14px 36px rgb(109 33 31 / 8%);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--paper); color: var(--ink); font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif; line-height: 1.55; }
+    body { margin: 0; }
+    a { color: var(--brand-burgundy); text-underline-offset: .18em; }
+    a:hover { color: var(--brand-orange); }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--brand-orange); outline-offset: 3px; }
+    .page { width: min(100% - 32px, 980px); margin: 0 auto; padding: 24px 0 64px; }
+    .tabs { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 42px; padding: 6px; border: 1px solid var(--line); border-radius: 14px; background: rgb(255 253 249 / 72%); font-family: ui-sans-serif, system-ui, sans-serif; }
+    .tabs a { flex: 1 0 max-content; padding: 9px 14px; border-radius: 9px; color: var(--muted); font-size: .86rem; font-weight: 700; text-align: center; text-decoration: none; }
+    .tabs a[aria-current="page"] { background: var(--brand-burgundy); color: white; }
+    header { max-width: 810px; margin-bottom: 28px; }
+    .eyebrow, .tag { color: var(--brand-burgundy); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .77rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    h1, h2, h3 { line-height: 1.14; text-wrap: balance; }
+    h1 { margin: 8px 0 0; font-size: clamp(2.2rem, 7vw, 4.45rem); letter-spacing: -.045em; }
+    h1 span { color: var(--brand-orange); }
+    .lede { max-width: 720px; margin: 18px 0 0; color: #493f39; font-size: clamp(1.06rem, 2.3vw, 1.3rem); }
+    .card { margin: 22px 0; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
+    details.truth-context:first-of-type { overflow: hidden; border-top: 4px solid var(--brand-burgundy); }
+    .context-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px clamp(18px, 4vw, 28px); list-style: none; cursor: pointer; }
+    .context-summary::-webkit-details-marker { display: none; }
+    .context-summary:hover { background: #f8f3ed; }
+    .context-title { font-size: 1.12rem; font-weight: 750; }
+    .context-status { flex: none; padding: 5px 9px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-burgundy); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .73rem; font-weight: 800; }
+    .context-body { padding: 22px clamp(18px, 4vw, 28px); border-top: 1px solid var(--line); }
+    .context-grid, .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .context-grid { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .context-grid h3 { margin: 0 0 7px; color: var(--brand-burgundy); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .88rem; text-transform: uppercase; }
+    .context-grid p { margin: 0; }
+    section { margin: 42px 0; }
+    section.card { padding: clamp(22px, 4vw, 34px); }
+    h2 { margin: 0 0 12px; font-size: clamp(1.55rem, 4vw, 2.25rem); }
+    h3 { margin: 8px 0; font-size: 1.17rem; }
+    p { margin: 0 0 12px; }
+    ul { padding-left: 1.25rem; }
+    li + li { margin-top: 7px; }
+    code { padding: .1em .3em; border-radius: 4px; background: #f3ece5; font-family: ui-monospace, monospace; font-size: .9em; }
+    .diagram-scroll { overflow-x: auto; padding: 10px 0 2px; }
+    svg { display: block; min-width: 900px; width: 100%; height: auto; }
+    .mini { padding: 20px; margin: 0; }
+    .mini p { color: #554b45; }
+    .reject { border-top: 4px solid var(--danger); }
+    .proof { border-top: 4px solid var(--success); }
+    .next { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; text-decoration: none; }
+    footer { margin-top: 50px; color: var(--muted); font-size: .9rem; }
+    footer details { padding: 14px 18px; }
+    footer summary { cursor: pointer; font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
+    footer details div { padding-top: 12px; }
+    @media (max-width: 700px) {
+      .page { width: min(100% - 20px, 980px); }
+      .tabs { margin-bottom: 30px; }
+      .context-summary { align-items: flex-start; flex-direction: column; }
+      .context-grid, .grid { grid-template-columns: 1fr; }
+      h1 { font-size: clamp(2.2rem, 14vw, 3.6rem); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="tabs" aria-label="Signing preflight explainer">
+      <a href="index.html">Overview</a>
+      <a href="slice-1.html" aria-current="page">Slice 1: package safely</a>
+      <a href="release-roadmap.html">Later release roadmap</a>
+    </nav>
+
+    <header>
+      <p class="eyebrow">Issue 13 · Slice 1</p>
+      <h1>Inspect the exact box <span>before shelving it</span>.</h1>
+      <p class="lede">
+        Slice 1 replaces a broad final signing shortcut with component-by-component
+        signing, then makes both the release verifier and bootstrap reject anything that
+        does not match Markover's declared ad-hoc contract.
+      </p>
+    </header>
+
+    <details class="card truth-context">
+      <summary class="context-summary">
+        <span class="context-title">Where This Is True</span>
+        <span class="context-status">Planned · Not implemented · 3 Aug 2026</span>
+      </summary>
+      <div class="context-body">
+        <p>
+          This is slice 1 of the reviewed
+          <a href="#" data-repo-path="doc/plans/2026-08-03__signing-notarization-preflight.md">issue 13 plan</a>
+          on branch <code>t3code/signing-notarization-preflight</code>, snapshot
+          <code>5147fa82baec</code>. It applies to native macOS packaging and first
+          bootstrap installation, not GitHub publication or future Apple credentials.
+        </p>
+        <div class="context-grid">
+          <div>
+            <h3>Stable center</h3>
+            <p>Explicit ad-hoc trust mode, hardened runtime, minimal entitlements, strict final-ZIP verification, and fail-closed installation.</p>
+          </div>
+          <div>
+            <h3>Expected to change</h3>
+            <p>Exact modules and test counts will evolve during implementation. Slice 2 later changes publication; future Developer ID activation changes expected Gatekeeper results. Re-check the plan, branch, and issue.</p>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <section class="card" aria-labelledby="tiny-story">
+      <h2 id="tiny-story">The Tiny Story</h2>
+      <p>
+        Today Markover packs the whole moving truck, then puts one broad seal over it with
+        <code>codesign --deep</code>. Slice 1 instead seals each important box in the right
+        order, writes down exactly which special permissions each box needs, and inspects
+        the final truck at the destination.
+      </p>
+      <p>
+        The bootstrap does not trust “the filename looked right.” It verifies the checksum,
+        extracts into staging, inspects the app, and only then performs the atomic move
+        into the versioned cache.
+      </p>
+    </section>
+
+    <section class="card" aria-labelledby="flow-title">
+      <h2 id="flow-title">The package-to-install flow</h2>
+      <p>Every mutation happens before signing. Every mismatch exits through the reject lane.</p>
+      <div class="diagram-scroll" role="region" aria-label="Scrollable package and install flowchart" tabindex="0">
+        <svg viewBox="0 0 1040 610" role="img" aria-labelledby="flow-diagram-title flow-diagram-desc">
+          <title id="flow-diagram-title">Slice 1 package and installation flowchart</title>
+          <desc id="flow-diagram-desc">Electron packaging is followed by notices, metadata and minimal entitlements, inside-out ad-hoc signing, final ZIP creation, artifact verification, bootstrap checksum validation, staging extraction, app validation, atomic cache installation, and launch. Any failed validation cleans staging and stops.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#c94e1f"></path></marker>
+            <marker id="bad-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8b2e26"></path></marker>
+          </defs>
+          <text x="24" y="32" fill="#6d211f" font-family="system-ui" font-size="13" font-weight="800">AUTHORITATIVE PACKAGING</text>
+          <g font-family="system-ui" font-size="14">
+            <rect x="24" y="52" width="166" height="78" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="107" y="84" text-anchor="middle" fill="#26211e" font-weight="700">Package native app</text><text x="107" y="108" text-anchor="middle" fill="#756d67">arm64 or x64</text>
+            <line x1="190" y1="91" x2="224" y2="91" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="234" y="52" width="166" height="78" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="317" y="83" text-anchor="middle" fill="#26211e" font-weight="700">Finish mutations</text><text x="317" y="107" text-anchor="middle" fill="#756d67">notices · Sonoma floor</text>
+            <line x1="400" y1="91" x2="434" y2="91" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="444" y="42" width="180" height="98" rx="14" fill="#fff8f1" stroke="#c94e1f" stroke-width="3"></rect>
+            <text x="534" y="78" text-anchor="middle" fill="#26211e" font-weight="700">Sign inside-out</text><text x="534" y="102" text-anchor="middle" fill="#756d67">hardened ad-hoc</text><text x="534" y="124" text-anchor="middle" fill="#756d67">minimal entitlements</text>
+            <line x1="624" y1="91" x2="658" y2="91" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="668" y="52" width="158" height="78" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="747" y="83" text-anchor="middle" fill="#26211e" font-weight="700">Create final ZIP</text><text x="747" y="107" text-anchor="middle" fill="#756d67">then SHA-256</text>
+            <line x1="826" y1="91" x2="860" y2="91" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="870" y="42" width="146" height="98" rx="14" fill="#edf5ee" stroke="#35623f" stroke-width="2"></rect>
+            <text x="943" y="77" text-anchor="middle" fill="#26211e" font-weight="700">Verify final ZIP</text><text x="943" y="101" text-anchor="middle" fill="#756d67">seal · metadata</text><text x="943" y="123" text-anchor="middle" fill="#756d67">entitlements · policy</text>
+
+            <line x1="943" y1="140" x2="943" y2="198" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <text x="24" y="232" fill="#6d211f" font-size="13" font-weight="800">FIRST BOOTSTRAP INSTALLATION</text>
+            <rect x="824" y="250" width="192" height="78" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="920" y="281" text-anchor="middle" fill="#26211e" font-weight="700">Download ZIP + digest</text><text x="920" y="305" text-anchor="middle" fill="#756d67">verify bytes first</text>
+            <line x1="824" y1="289" x2="784" y2="289" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="594" y="250" width="180" height="78" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="684" y="281" text-anchor="middle" fill="#26211e" font-weight="700">Extract to staging</text><text x="684" y="305" text-anchor="middle" fill="#756d67">never into live cache</text>
+            <line x1="594" y1="289" x2="554" y2="289" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="354" y="240" width="190" height="98" rx="14" fill="#fff8f1" stroke="#c94e1f" stroke-width="3"></rect>
+            <text x="449" y="275" text-anchor="middle" fill="#26211e" font-weight="700">Validate staged app</text><text x="449" y="299" text-anchor="middle" fill="#756d67">ID · arch · macOS floor</text><text x="449" y="321" text-anchor="middle" fill="#756d67">seal · ad-hoc mode</text>
+            <line x1="354" y1="289" x2="314" y2="289" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="124" y="250" width="180" height="78" rx="14" fill="#edf5ee" stroke="#35623f" stroke-width="2"></rect>
+            <text x="214" y="281" text-anchor="middle" fill="#26211e" font-weight="700">Atomic cache move</text><text x="214" y="305" text-anchor="middle" fill="#756d67">version + architecture</text>
+            <line x1="214" y1="328" x2="214" y2="386" stroke="#35623f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="124" y="396" width="180" height="78" rx="14" fill="#edf5ee" stroke="#35623f" stroke-width="2"></rect>
+            <text x="214" y="427" text-anchor="middle" fill="#26211e" font-weight="700">Warn on stderr</text><text x="214" y="451" text-anchor="middle" fill="#756d67">then return app path</text>
+
+            <line x1="449" y1="338" x2="449" y2="430" stroke="#8b2e26" stroke-width="3" marker-end="url(#bad-arrow)"></line>
+            <line x1="943" y1="140" x2="943" y2="430" stroke="#8b2e26" stroke-width="2" stroke-dasharray="7 7"></line>
+            <line x1="943" y1="430" x2="574" y2="430" stroke="#8b2e26" stroke-width="3" marker-end="url(#bad-arrow)"></line>
+            <rect x="374" y="396" width="190" height="78" rx="14" fill="#fff1ef" stroke="#8b2e26" stroke-width="2"></rect>
+            <text x="469" y="427" text-anchor="middle" fill="#8b2e26" font-weight="700">Reject + clean staging</text><text x="469" y="451" text-anchor="middle" fill="#756d67">do not cache or launch</text>
+            <text x="449" y="376" text-anchor="middle" fill="#8b2e26" font-size="13" font-weight="700">anything mismatches</text>
+          </g>
+          <text x="520" y="555" text-anchor="middle" fill="#756d67" font-family="system-ui" font-size="14">Cached versions skip the full first-install path; normal open/get/edit stay fast and JSON-only on stdout.</text>
+        </svg>
+      </div>
+    </section>
+
+    <section aria-labelledby="checks-title">
+      <h2 id="checks-title">What the inspectors know</h2>
+      <div class="grid">
+        <article class="card mini">
+          <span class="tag">Identity</span>
+          <h3>The app is Markover</h3>
+          <p>Expected filename, app and helper bundle IDs, version, architecture, and <code>LSMinimumSystemVersion = 14.0</code>.</p>
+        </article>
+        <article class="card mini">
+          <span class="tag">Seal</span>
+          <h3>Every signed component agrees</h3>
+          <p>Strict code-seal verification, hardened-runtime flags, ad-hoc identity, no Team ID, and exact entitlements.</p>
+        </article>
+        <article class="card mini">
+          <span class="tag">Permissions</span>
+          <h3>No surprise capabilities</h3>
+          <p>Only narrowly justified Electron runtime permissions are allowed; device and personal-information defaults are rejected.</p>
+        </article>
+        <article class="card mini">
+          <span class="tag">Policy truth</span>
+          <h3>Gatekeeper still says no</h3>
+          <p>That rejection is expected in ad-hoc mode and reported honestly; it is not confused with a broken internal seal.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="card reject" aria-labelledby="non-goals-title">
+      <h2 id="non-goals-title">What slice 1 does not do</h2>
+      <ul>
+        <li>It does not notarize, staple, publish, version, tag, or alter GitHub settings.</li>
+        <li>It does not claim an authenticated publisher or hide the Gatekeeper warning.</li>
+        <li>It does not add a DMG, universal binary, updater, rollback UI, or App Sandbox.</li>
+        <li>It does not duplicate issue #12's auth fixture or issue #39's durability tests.</li>
+      </ul>
+    </section>
+
+    <section class="card proof" aria-labelledby="proof-title">
+      <h2 id="proof-title">What will count as slice-1 proof</h2>
+      <ul>
+        <li>Deterministic unit tests exercise every reject branch and injected command failure.</li>
+        <li>A real native package is produced on macOS and the exact final ZIP passes the native verifier.</li>
+        <li>Lint, type checking, notices, and the complete test suite pass.</li>
+        <li>The implementation and this ELI5 are updated together, committed, and then stopped for review.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="references-title">
+      <h2 id="references-title">References checked</h2>
+      <div class="card mini">
+        <ul>
+          <li><a href="#" data-repo-path="scripts/package-macos.ts">scripts/package-macos.ts</a> — current packaging and broad final signing pass.</li>
+          <li><a href="#" data-repo-path="packages/cli/src/bootstrap.ts">packages/cli/src/bootstrap.ts</a> — checksum, staging, cache installation.</li>
+          <li><a href="#" data-repo-path="test/macos-package.test.ts">test/macos-package.test.ts</a> and <a href="#" data-repo-path="test/bootstrap.test.ts">test/bootstrap.test.ts</a> — current guardrails.</li>
+          <li><a href="#" data-repo-path=".github/workflows/release.yml">.github/workflows/release.yml</a> — current two-architecture release path.</li>
+        </ul>
+      </div>
+    </section>
+
+    <a class="card next" href="release-roadmap.html">
+      <span><strong>Next:</strong> see how a later draft becomes an immutable release.</span>
+      <span aria-hidden="true">→</span>
+    </a>
+
+    <footer>
+      <p>Prepared as the maintained slice-1 companion to issue 13.</p>
+      <div class="card">
+        <details>
+          <summary>Prompt / context</summary>
+          <div><p>The user requested a short pre-implementation ELI5 with a flowchart and ongoing updates. This page isolates the package/install boundary from later release operations so planned behavior is not mistaken for completed behavior.</p></div>
+        </details>
+      </div>
+    </footer>
+  </main>
+  <script>
+    function eli5RepoBase() {
+      const params = new URLSearchParams(window.location.search);
+      const explicit = params.get("baseUrl") || params.get("repoBase");
+      if (explicit) return explicit.replace(/\/$/, "");
+      const docPath = document.documentElement.dataset.repoDocPath;
+      if (window.location.protocol === "file:" && docPath) {
+        const fullPath = decodeURIComponent(window.location.pathname);
+        const suffix = "/" + docPath.replace(/^\//, "");
+        return fullPath.endsWith(suffix) ? fullPath.slice(0, -suffix.length) : "";
+      }
+      return "";
+    }
+    const repoBase = eli5RepoBase();
+    for (const link of document.querySelectorAll("a[data-repo-path]")) {
+      if (!repoBase) {
+        link.setAttribute("aria-disabled", "true");
+        link.title = "Open the saved file directly or add ?baseUrl=/path/to/worktree.";
+      } else {
+        link.href = encodeURI("file://" + repoBase + "/" + link.dataset.repoPath.replace(/^\//, ""));
+      }
+    }
+  </script>
+</body>
+</html>
