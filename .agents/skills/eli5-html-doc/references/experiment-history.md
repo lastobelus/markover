@@ -54,3 +54,21 @@ Status: accepted.
 
 The accepted behavior made dense diagrams easier to inspect without reviving the
 rejected diagram-as-app interaction model.
+
+## Loop 4: Truth Context And Change Horizon
+
+Status: accepted.
+
+- Put truth context near the title when an explainer describes a moving target.
+- Identify the specific PR, issue, plan, release, branch, or revision whose state is being
+  explained, and link to the authoritative source when one exists.
+- Show the roadmap, launch gate, milestone, or stack position that gives the work meaning.
+- Distinguish the explanation's stable center from known follow-on work that will or may
+  change its details.
+- Keep prompt and conversation provenance in a quiet disclosure; it answers a different
+  question and does not replace visible applicability context.
+- Allow intentional remote navigation links to authoritative sources while continuing to
+  forbid remote assets and runtime dependencies.
+
+Avoid timeless language for proposed or transient architecture, hiding validity context
+in the footer, or speculating about an unknown future design.

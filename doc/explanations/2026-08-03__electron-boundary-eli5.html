@@ -98,6 +98,85 @@
       font-size: clamp(1.08rem, 2.4vw, 1.34rem);
     }
 
+    .truth-context {
+      padding: clamp(22px, 4vw, 32px);
+      border-top: 4px solid var(--brand-burgundy);
+    }
+
+    .context-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .context-heading h2 {
+      margin: 0;
+      font-size: clamp(1.45rem, 3vw, 1.9rem);
+    }
+
+    .context-status {
+      flex: none;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.76rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .context-intro {
+      max-width: 820px;
+      margin: 0;
+      color: #514741;
+    }
+
+    .context-stable {
+      max-width: 820px;
+      margin: 12px 0 0;
+      color: #514741;
+    }
+
+    .context-stable strong {
+      color: var(--brand-burgundy);
+    }
+
+    .context-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 22px;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .context-grid h3 {
+      margin: 0 0 8px;
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.92rem;
+      letter-spacing: 0.035em;
+      text-transform: uppercase;
+    }
+
+    .context-grid p,
+    .context-grid ul {
+      margin: 0;
+      color: #514741;
+    }
+
+    .context-grid ul {
+      padding-left: 1.2rem;
+    }
+
+    .context-grid li + li {
+      margin-top: 7px;
+    }
+
     section {
       margin-top: 28px;
     }
@@ -371,6 +450,15 @@
         grid-template-columns: 1fr;
       }
 
+      .context-heading {
+        align-items: flex-start;
+        flex-direction: column-reverse;
+      }
+
+      .context-grid {
+        grid-template-columns: 1fr;
+      }
+
       .comparison-row {
         grid-template-columns: 1fr;
       }
@@ -410,6 +498,46 @@
         may cross that boundary—and asks TypeScript to check both sides.
       </p>
     </header>
+
+    <section class="card truth-context" aria-labelledby="truth-context-title">
+      <div class="context-heading">
+        <h2 id="truth-context-title">Where this picture is true</h2>
+        <span class="context-status">Proposed · PR 38</span>
+      </div>
+      <p class="context-intro">
+        This is a snapshot of the architecture proposed by
+        <a href="https://github.com/lastobelus/markover/pull/38">PR #38</a>, written on
+        August 3, 2026 while the PR was open. It explains that change—not a permanent,
+        canonical map of Markover. Follow the PR and the linked roadmap for current status.
+      </p>
+      <p class="context-stable">
+        <strong>The stable center:</strong> the renderer reaches desktop powers through a
+        narrow preload-owned capability surface. The exact methods, runtime enforcement,
+        and responsibilities behind that doorway are expected to evolve.
+      </p>
+      <div class="context-grid">
+        <div>
+          <h3>Roadmap position</h3>
+          <p>
+            PR #38 implements <a href="https://github.com/lastobelus/markover/issues/22">issue #22</a>,
+            slice 6 of 7 in the strict-TypeScript migration. It belongs to the
+            <a href="https://github.com/lastobelus/markover/issues/5">announcement-readiness</a>
+            roadmap's Focused preview gate, tracked in
+            <a href="https://github.com/users/lastobelus/projects/3">Project #3</a>.
+          </p>
+        </div>
+        <div>
+          <h3>Known change horizon</h3>
+          <ul>
+            <li><a href="https://github.com/lastobelus/markover/issues/26">Issue #26</a> completes the renderer migration and removes the temporary JavaScript boundary.</li>
+            <li><a href="https://github.com/lastobelus/markover/issues/6">Issue #6</a> may strengthen this doorway with runtime sender and payload checks.</li>
+            <li><a href="https://github.com/lastobelus/markover/issues/12">Issue #12</a> secures a separate loopback-service boundary that this three-room picture does not show.</li>
+            <li><a href="https://github.com/lastobelus/markover/issues/39">Issue #39</a> changes autosave durability behind the main process, not the doorway described here.</li>
+            <li><a href="https://github.com/lastobelus/markover/issues/36">Issue #36</a> re-examines prototype-era architecture before the broad announcement and may revise the larger picture.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
     <section class="card story" aria-labelledby="tiny-story">
       <h2 id="tiny-story">The Tiny Story</h2>
