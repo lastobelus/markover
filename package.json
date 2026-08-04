@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "npm run clean && npm run build:vendor && tsc -p tsconfig.json && node build/scripts/copy-build-assets.js",
-    "build:icon:mac": "node scripts/build-macos-icon.js",
+    "build:icon:mac": "npm run build --silent && node build/scripts/build-macos-icon.js",
     "build:cli": "npm run build --silent && node build/scripts/build-cli.js",
     "build:vendor": "esbuild src/pierre-diffs-entry.mts --bundle --format=iife --platform=browser --minify --log-level=warning --outfile=src/vendor/pierre-diffs.js && esbuild src/yaml-entry.mjs --bundle --format=iife --platform=browser --minify --log-level=warning --outfile=src/vendor/yaml.js",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",

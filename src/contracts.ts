@@ -44,6 +44,10 @@ declare global {
     preferences: MarkoverSettings
   }
 
+  interface MarkoverSettingsEnvelope extends MarkoverSettings {
+    resolvedAppearance: ResolvedAppearance
+  }
+
   interface MarkoverSettingsApi {
     DEFAULT_SETTINGS: Readonly<MarkoverSettings>
     DARK_COLORIZATION: Readonly<Record<Palette, DarkColorization>>
@@ -258,8 +262,375 @@ declare global {
     yamlDiagnostic: (source: string) => YamlDiagnostic | null
   }
 
+  interface AnnotationBlockNode {
+    id?: string
+    text?: unknown
+    raw?: unknown
+    sourceEdit?: SourceEdit
+    feedback?: unknown
+    lineStart?: number
+    lineEnd?: number
+    attachments?: ReviewAttachment[]
+  }
+
+  type AnnotationModelNode = AnnotationBlockNode & {
+    lineStart: number
+    lineEnd: number
+  }
+
+  type RenderedAnnotationNode = AnnotationModelNode & { id: string }
+
+  interface AnnotationContext {
+    descriptor?: string
+    lineLabel?: string
+  }
+
+  interface AnnotationViewModel {
+    attachments: Array<{
+      attachment: ReviewAttachment
+      label: string
+    }>
+    feedback: string
+    lineLabel: string
+    sourceTitle: string
+  }
+
+  interface AnnotationCreateOptions {
+    node: RenderedAnnotationNode
+    context?: AnnotationContext | undefined
+    mode?: 'list' | 'peek' | undefined
+    attachmentUrl?: ((attachment: ReviewAttachment) => string | null) | undefined
+    onAttachment?: ((attachment: ReviewAttachment) => void) | null | undefined
+    onInlineImage?: ((source: string, label: string) => void) | undefined
+    onSelect?: ((node: RenderedAnnotationNode) => void) | undefined
+    onEdit?: ((node: RenderedAnnotationNode) => void) | null | undefined
+    renderTitle?: ((title: string) => string) | undefined
+    renderMarkdown: (value: string) => string
+  }
+
+  interface AnnotationListOptions extends
+    Omit<AnnotationCreateOptions, 'node' | 'context' | 'mode'> {
+    nodes: RenderedAnnotationNode[]
+    selectedId: string | null
+    context: (node: RenderedAnnotationNode) => AnnotationContext
+  }
+
+  interface AnnotationTreeNode {
+    id: string
+    children: AnnotationTreeNode[]
+    feedback?: unknown
+    attachments?: ReviewAttachment[]
+    collapsed?: boolean
+  }
+
+  interface AnnotationProjection {
+    node: AnnotationTreeNode
+    children: AnnotationProjection[]
+    contextual: boolean
+  }
+
+  interface NavigationNode {
+    id: string
+    children: NavigationNode[]
+  }
+
+  interface NavigationContext {
+    node: NavigationNode
+    parent: NavigationNode
+    index: number
+  }
+
+  type NavigationDirection = 'left' | 'right' | 'up' | 'down'
+  type WorkspacePane = 'documents' | 'preview' | 'annotation'
+
+  interface VerticalBounds {
+    top: number
+    bottom: number
+  }
+
+  type ReviewSessionStatus =
+    | 'editing'
+    | 'pending-agent'
+    | 'handoff-in-progress'
+
+  interface MarkoverBrandAssets {
+    mark: string
+    logotype: string
+    lockup: string
+  }
+
+  interface MarkoverClipboardImage {
+    bytes: Uint8Array
+    mimeType: string
+  }
+
+  interface MarkoverDocument {
+    reviewId?: string
+    name: string | null
+    path: string | null
+    source: string
+    checksum: string
+    projectRoot?: unknown
+    tree?: ReviewTree
+    durable?: boolean
+    autosavePath?: string | null
+  }
+
+  interface ReviewStatusRequest {
+    requestId: string
+    reviewId: string
+    status: ReviewSessionStatus
+  }
+
+  interface ReviewStatusResponse {
+    requestId: string
+    error?: string
+  }
+
+  interface ReviewSnapshotRequest {
+    requestId: string
+    reviewId: string
+  }
+
+  interface ReviewSnapshotResponse extends ReviewSnapshotRequest {
+    tree?: ReviewTree | null
+    error?: string
+  }
+
+  interface MarkoverBridge {
+    getBrandAssets: () => Promise<MarkoverBrandAssets | null>
+    openMarkdown: () => Promise<MarkoverDocument | null>
+    onOpenMarkdownRequested: (callback: () => void) => void
+    checksum: (source: string) => Promise<string>
+    copyText: (text: string) => void
+    readClipboardImage: () => Promise<MarkoverClipboardImage | null>
+    saveAttachment: (
+      attachment: MarkoverClipboardImage,
+      reviewId?: string | null
+    ) => Promise<ReviewAttachment>
+    getInitialReview: () => Promise<MarkoverDocument | null>
+    getReviews: () => Promise<MarkoverDocument[]>
+    onReviewOpened: (
+      callback: (document: MarkoverDocument) => void | Promise<void>
+    ) => void
+    onReviewStatus: (
+      callback: (status: ReviewStatusRequest) => void | Promise<void>
+    ) => void
+    onReviewSnapshotRequested: (
+      callback: (
+        reviewId: string
+      ) => ReviewTree | null | Promise<ReviewTree | null>
+    ) => void
+    activateReview: (reviewId: string) => void
+    autosaveReview: (reviewId: string, tree: ReviewTree) => void
+    finishReview: (tree: ReviewTree) => void
+    cancelReview: () => void
+    getSettings: () => Promise<MarkoverSettingsEnvelope>
+    updateSettings: (patch: unknown) => Promise<MarkoverSettingsEnvelope>
+    onSettingsOpen: (callback: () => void) => void
+    onSettingsChanged: (
+      callback: (settings: MarkoverSettingsEnvelope) => void
+    ) => void
+  }
+
+  interface ReviewSessionEnvelope {
+    id: string
+    status: ReviewSessionStatus
+    createdAt?: string
+    updatedAt?: string
+    contextSummary?: string
+    agentThread?: unknown
+    git?: unknown
+    pullRequest?: unknown
+  }
+
+  type ReviewSessionTree = Omit<ReviewTree, 'review'> & {
+    review: ReviewSessionEnvelope
+  }
+
+  interface ReviewSessionDocument {
+    reviewId?: string
+    name: string | null
+    path?: string | null
+    checksum: string
+    tree: ReviewSessionTree
+    projectRoot?: string | null
+  }
+
+  interface ProjectIdentity {
+    key: string
+    name: string
+    root: string | null
+  }
+
+  interface ReviewSession {
+    reviewId: string
+    documentName: string
+    documentPath: string | null
+    checksum: string
+    tree: ReviewSessionTree
+    projectKey: string
+    projectName: string
+    projectRoot: string | null
+    lastViewedOrder: number
+    lastViewedAt: number
+    selectedId: string | null
+    annotatedOnly: boolean
+    annotationView: 'selected' | 'list'
+    sourceCollapsed: boolean
+    sourceDrafts: Map<string, string>
+    sourceEditingId: string | null
+    attachmentPreviewUrls: Map<string, string>
+  }
+
+  interface ReviewProjectGroup extends ProjectIdentity {
+    lastViewedOrder: number
+    sessions: ReviewSession[]
+  }
+
+  interface ReviewMutationTrackerContract {
+    track<T>(reviewId: string, operation: T | PromiseLike<T>): Promise<T>
+    has(reviewId: string): boolean
+    wait(reviewId: string): Promise<void>
+  }
+
+  interface ReviewSessionsContract {
+    add(document: ReviewSessionDocument): ReviewSession
+    activate(reviewId: string): ReviewSession
+    active(): ReviewSession | null
+    get(reviewId: string): ReviewSession | null
+    snapshot(reviewId: string): ReviewSessionTree | null
+    updateStatus(
+      reviewId: string,
+      status: ReviewSessionEnvelope['status']
+    ): ReviewSession | null
+    adjacent(reviewId: string, offset: number): ReviewSession | null
+    list(): ReviewSession[]
+    recent(limit?: number): ReviewSession[]
+    projectGroups(): ReviewProjectGroup[]
+  }
+
+  interface MarkoverAnnotationBlockApi {
+    model: (
+      node: AnnotationModelNode,
+      context?: AnnotationContext
+    ) => AnnotationViewModel
+    popoverPosition: (
+      anchor: { left: number; right: number; top: number },
+      popover: { width: number; height: number },
+      viewport: { width: number; height: number },
+      margin?: number
+    ) => { x: number; y: number }
+    create: (
+      document: Document,
+      options: AnnotationCreateOptions
+    ) => HTMLElement
+    createList: (
+      document: Document,
+      options: AnnotationListOptions
+    ) => HTMLElement
+    updateTruncation: (root: ParentNode) => void
+    bindSneakPeek: (
+      marker: HTMLElement,
+      node: AnnotationBlockNode,
+      handlers: {
+        show: (node: AnnotationBlockNode, marker: HTMLElement) => void
+        hide: EventListener
+      }
+    ) => () => void
+    bindDismiss: (
+      target: EventTarget,
+      eventName: string,
+      hide: EventListener
+    ) => () => void
+    bindListKeyboard: (
+      target: HTMLElement,
+      handlers: { edit: () => void; move: (offset: -1 | 1) => void }
+    ) => () => void
+  }
+
+  interface MarkoverAnnotationsApi {
+    hasAnnotation: (node?: AnnotationTreeNode | null) => boolean
+    annotatedNodes: (root: AnnotationTreeNode) => AnnotationTreeNode[]
+    annotatedProjection: (root: AnnotationTreeNode) => AnnotationProjection[]
+    annotationPosition: (
+      root: AnnotationTreeNode,
+      id: string | null
+    ) => { index: number; total: number }
+    navigationRoot: (root: AnnotationTreeNode) => NavigationNode
+    nearestAnnotatedId: (
+      root: AnnotationTreeNode,
+      currentId: string | null
+    ) => string | null
+    normalizeFilter: (
+      root: AnnotationTreeNode,
+      selectedId: string | null,
+      enabled: boolean
+    ) => { enabled: boolean; selectedId: string | null }
+    revealAnnotation: (root: AnnotationTreeNode, id: string) => boolean
+  }
+
+  interface MarkoverImagePreviewApi {
+    fileUrl: (filePath?: string | null) => string | null
+    labelFor: (image?: { id?: string; label?: string } | null) => string
+    sourceLabel: (source: string, alt: string) => string
+    sourceUrl: (
+      source: string,
+      documentPath?: string | null
+    ) => string | null
+  }
+
+  interface MarkoverNavigationApi {
+    findContext: (
+      root: NavigationNode,
+      id: string | null
+    ) => NavigationContext | null
+    move: (
+      root: NavigationNode,
+      currentId: string | null,
+      direction: NavigationDirection
+    ) => string | null
+    nextPane: (
+      current: WorkspacePane,
+      direction: -1 | 1,
+      documentsVisible: boolean
+    ) => WorkspacePane
+    isOutsideViewport: (
+      viewport: VerticalBounds,
+      target: VerticalBounds
+    ) => boolean
+  }
+
+  interface MarkoverReviewSessionsApi {
+    clampDocumentsListWidth: (width: unknown, viewportWidth: unknown) => number
+    formatRelativeTime: (timestamp: unknown, now?: unknown) => string
+    isTreeEditable: (tree: unknown) => boolean
+    projectIdentity: (document: {
+      path?: unknown
+      projectRoot?: unknown
+      tree?: unknown
+    }) => ProjectIdentity
+    relativeTimeRefreshDelay: (
+      timestamps: unknown[],
+      now?: unknown
+    ) => number | null
+    ReviewMutationTracker: new () => ReviewMutationTrackerContract
+    ReviewSessions: new (
+      options?: { now?: () => number }
+    ) => ReviewSessionsContract
+  }
+
+  var MarkoverAnnotationBlock: MarkoverAnnotationBlockApi
+  var MarkoverAnnotations: MarkoverAnnotationsApi
   var MarkoverDiffs: DiffRenderer
+  var MarkoverImagePreview: MarkoverImagePreviewApi
+  var MarkoverNavigation: MarkoverNavigationApi
+  var MarkoverReviewSessions: MarkoverReviewSessionsApi
   var MarkoverSettings: MarkoverSettingsApi
   var MarkoverSourceEdits: MarkoverSourceEditsApi
   var MarkoverTree: MarkoverTreeApi
+
+  interface Window {
+    markover?: MarkoverBridge
+  }
 }

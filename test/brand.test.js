@@ -23,7 +23,7 @@ test('production icon assets preserve the approved mark treatment', () => {
   const mark = read('design/brand/markover-mark.svg')
   const appIcon = read('design/brand/markover-app-icon.svg')
   const appIconPng = fs.readFileSync(path.join(root, 'design/brand/markover-app-icon.png'))
-  const main = read('src/main.js')
+  const main = read('src/main.ts')
 
   assert.match(favicon, /viewBox="0 0 365 308"/)
   assert.deepEqual(
@@ -87,7 +87,7 @@ test('the app composes external brand assets and exposes a true empty state', ()
 
 test('the application palette matches the brand brief at startup and in CSS', () => {
   const styles = read('src/styles.css')
-  const main = read('src/main.js')
+  const main = read('src/main.ts')
   const renderer = read('src/renderer.js')
 
   for (const token of [
@@ -113,7 +113,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   assert.match(styles, /:root\[data-appearance="dark"\]/)
   assert.match(styles, /data-colorization="mid"/)
   assert.match(styles, /data-colorization="low"/)
-  assert.match(read('src/preload.js'), /getBrandAssets: \(\) => ipcRenderer\.invoke\('brand:assets'\)/)
+  assert.match(read('src/preload.ts'), /getBrandAssets: \(\) => ipcRenderer\.invoke\('brand:assets'\)/)
   assert.match(main, /function loadBrandAssets\(\)[\s\S]*markover-mark\.svg[\s\S]*markover-logotype\.svg[\s\S]*markover-lockup\.svg/)
   assert.match(renderer, /function themedBrandSource\(source, primary, secondary\)/)
   assert.match(renderer, /replaceAll\('#c94e1f', primary\)[\s\S]*replaceAll\('#6d211f', secondary\)/)

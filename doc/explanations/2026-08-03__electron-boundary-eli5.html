@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en" data-repo-doc-path="doc/explanations/2026-08-03__electron-boundary-eli5.html">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Markover's Electron boundary, explained simply</title>
+  <style>
+    :root {
+      --brand-orange: #c94e1f;
+      --brand-burgundy: #6d211f;
+      --ink: #26211e;
+      --muted: #756d67;
+      --paper: #eee8e0;
+      --surface: #fffdf9;
+      --line: #ddd5cc;
+      --brand-soft: #f5e3da;
+      --success: #35623f;
+      --warning: #8a4d18;
+      --shadow: 0 14px 36px rgb(109 33 31 / 8%);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      line-height: 1.55;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    a {
+      color: var(--brand-burgundy);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      color: var(--brand-orange);
+    }
+
+    a:focus-visible,
+    summary:focus-visible {
+      outline: 3px solid var(--brand-orange);
+      outline-offset: 3px;
+    }
+
+    .page {
+      width: min(100% - 32px, 980px);
+      margin: 0 auto;
+      padding: 56px 0 72px;
+    }
+
+    header {
+      max-width: 800px;
+      margin-bottom: 34px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.12;
+      text-wrap: balance;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(2.25rem, 7vw, 4.7rem);
+      font-weight: 650;
+      letter-spacing: -0.045em;
+    }
+
+    h1 span {
+      color: var(--brand-orange);
+    }
+
+    .lede {
+      max-width: 710px;
+      margin: 20px 0 0;
+      color: #493f39;
+      font-size: clamp(1.08rem, 2.4vw, 1.34rem);
+    }
+
+    details.truth-context:first-of-type {
+      overflow: hidden;
+      border-top: 4px solid var(--brand-burgundy);
+    }
+
+    .context-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px clamp(20px, 4vw, 30px);
+      list-style: none;
+    }
+
+    .context-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .context-summary:hover {
+      background: #f8f3ed;
+    }
+
+    .context-title {
+      color: var(--ink);
+      font-size: clamp(1.08rem, 2.4vw, 1.25rem);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .context-body {
+      padding: clamp(20px, 4vw, 30px);
+      border-top: 1px solid var(--line);
+    }
+
+    .context-status {
+      flex: none;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.76rem;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    .context-intro {
+      max-width: 820px;
+      margin: 0;
+      color: #514741;
+    }
+
+    .context-stable {
+      max-width: 820px;
+      margin: 12px 0 0;
+      color: #514741;
+    }
+
+    .context-stable strong {
+      color: var(--brand-burgundy);
+    }
+
+    .context-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 22px;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .context-grid h3 {
+      margin: 0 0 8px;
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.92rem;
+      letter-spacing: 0.035em;
+      text-transform: uppercase;
+    }
+
+    .context-grid p,
+    .context-grid ul {
+      margin: 0;
+      color: #514741;
+    }
+
+    .context-grid ul {
+      padding-left: 1.2rem;
+    }
+
+    .context-grid li + li {
+      margin-top: 7px;
+    }
+
+    section {
+      margin-top: 28px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .story {
+      padding: clamp(24px, 5vw, 42px);
+      border-left: 6px solid var(--brand-orange);
+    }
+
+    .story h2,
+    .section-title {
+      margin: 0 0 14px;
+      font-size: clamp(1.55rem, 4vw, 2.2rem);
+      font-weight: 650;
+      letter-spacing: -0.025em;
+    }
+
+    .story p {
+      max-width: 770px;
+      margin: 0;
+      font-size: 1.08rem;
+    }
+
+    .story strong {
+      color: var(--brand-burgundy);
+    }
+
+    .diagram-card {
+      padding: clamp(18px, 4vw, 30px);
+    }
+
+    .diagram-intro {
+      max-width: 700px;
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+
+    .diagram-scroll {
+      overflow-x: auto;
+      padding: 4px 4px 12px;
+    }
+
+    .diagram-scroll svg {
+      display: block;
+      min-width: 760px;
+      width: 100%;
+      height: auto;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.86rem;
+    }
+
+    .legend span::before {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: var(--brand-orange);
+      content: "";
+    }
+
+    .legend span:last-child::before {
+      background: var(--success);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .mini-card {
+      padding: 24px;
+    }
+
+    .mini-card h3 {
+      margin: 0 0 10px;
+      font-size: 1.22rem;
+    }
+
+    .mini-card p {
+      margin: 0;
+      color: #514741;
+    }
+
+    .mini-card .tag {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-burgundy);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.75rem;
+      font-weight: 750;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .comparison {
+      overflow: hidden;
+    }
+
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 150px 1fr 1fr;
+      border-top: 1px solid var(--line);
+    }
+
+    .comparison-row:first-child {
+      border-top: 0;
+    }
+
+    .comparison-row > div {
+      padding: 18px 20px;
+    }
+
+    .comparison-row > div + div {
+      border-left: 1px solid var(--line);
+    }
+
+    .comparison-label,
+    .comparison-head {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-weight: 750;
+    }
+
+    .comparison-label {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .comparison-head {
+      background: #f8f3ed;
+      color: var(--brand-burgundy);
+    }
+
+    .boundary-note {
+      padding: 26px;
+      border: 1px solid #d8b99d;
+      border-radius: 16px;
+      background: #fff8ef;
+    }
+
+    .boundary-note h2 {
+      margin: 0 0 10px;
+      color: var(--warning);
+      font-size: 1.38rem;
+    }
+
+    .boundary-note p {
+      margin: 0;
+    }
+
+    .boundary-note code,
+    .proof code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+    }
+
+    details {
+      border-top: 1px solid var(--line);
+    }
+
+    details:first-of-type {
+      border-top: 0;
+    }
+
+    summary {
+      padding: 18px 22px;
+      cursor: pointer;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-weight: 720;
+    }
+
+    details > div {
+      padding: 0 22px 22px;
+      color: #514741;
+    }
+
+    details p {
+      margin: 0;
+    }
+
+    .proof-list,
+    .reference-list {
+      margin: 0;
+      padding-left: 1.25rem;
+    }
+
+    .proof-list li + li,
+    .reference-list li + li {
+      margin-top: 8px;
+    }
+
+    .proof {
+      padding: 26px;
+    }
+
+    .proof .section-title {
+      font-size: 1.55rem;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      color: var(--success);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.88rem;
+      font-weight: 750;
+    }
+
+    .status::before {
+      display: grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      border: 1px solid #9db7a2;
+      border-radius: 50%;
+      background: #edf5ee;
+      content: "✓";
+    }
+
+    footer {
+      margin-top: 38px;
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.86rem;
+    }
+
+    footer .card {
+      margin-top: 16px;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 700px) {
+      .page {
+        width: min(100% - 20px, 980px);
+        padding-top: 32px;
+      }
+
+      .context-summary {
+        gap: 6px;
+        padding-inline: 12px;
+      }
+
+      .context-title {
+        font-size: 0.9rem;
+      }
+
+      .context-status {
+        padding: 4px 7px;
+        font-size: 0.68rem;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .context-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .comparison-row {
+        grid-template-columns: 1fr;
+      }
+
+      .comparison-row > div + div {
+        border-top: 1px solid var(--line);
+        border-left: 0;
+      }
+
+      .comparison-row:first-child .comparison-label {
+        display: none;
+      }
+
+      .comparison-label {
+        padding-bottom: 8px !important;
+        background: #f8f3ed;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <p class="eyebrow">Issue 22 · Electron shell</p>
+      <h1>Three rooms, one <span>careful doorway</span>.</h1>
+      <p class="lede">
+        Markover's window should be pleasant to use, but it should not automatically
+        inherit every power of the desktop app. This change writes down exactly what
+        may cross that boundary—and asks TypeScript to check both sides.
+      </p>
+    </header>
+
+    <details class="card truth-context">
+      <summary class="context-summary">
+        <span class="context-title">Where this picture is true</span>
+        <span class="context-status">Proposed · PR 38</span>
+      </summary>
+      <div class="context-body">
+        <p class="context-intro">
+          This is a snapshot of the architecture proposed by
+          <a href="https://github.com/lastobelus/markover/pull/38">PR #38</a>, written on
+          August 3, 2026 while the PR was open. It explains that change—not a permanent,
+          canonical map of Markover. Follow the PR and the linked roadmap for current status.
+        </p>
+        <p class="context-stable">
+          <strong>The stable center:</strong> the renderer reaches desktop powers through a
+          narrow preload-owned capability surface. The exact methods, runtime enforcement,
+          and responsibilities behind that doorway are expected to evolve.
+        </p>
+        <div class="context-grid">
+          <div>
+            <h3>Roadmap position</h3>
+            <p>
+              PR #38 implements <a href="https://github.com/lastobelus/markover/issues/22">issue #22</a>,
+              slice 6 of 7 in the strict-TypeScript migration. It belongs to the
+              <a href="https://github.com/lastobelus/markover/issues/5">announcement-readiness</a>
+              roadmap's Focused preview gate, tracked in
+              <a href="https://github.com/users/lastobelus/projects/3">Project #3</a>.
+            </p>
+          </div>
+          <div>
+            <h3>Known change horizon</h3>
+            <ul>
+              <li><a href="https://github.com/lastobelus/markover/issues/26">Issue #26</a> completes the renderer migration and removes the temporary JavaScript boundary.</li>
+              <li><a href="https://github.com/lastobelus/markover/issues/6">Issue #6</a> may strengthen this doorway with runtime sender and payload checks.</li>
+              <li><a href="https://github.com/lastobelus/markover/issues/12">Issue #12</a> secures a separate loopback-service boundary that this three-room picture does not show.</li>
+              <li><a href="https://github.com/lastobelus/markover/issues/39">Issue #39</a> changes autosave durability behind the main process, not the doorway described here.</li>
+              <li><a href="https://github.com/lastobelus/markover/issues/36">Issue #36</a> re-examines prototype-era architecture before the broad announcement and may revise the larger picture.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <section class="card story" aria-labelledby="tiny-story">
+      <h2 id="tiny-story">The Tiny Story</h2>
+      <p>
+        Imagine the app as an office. The <strong>reading room</strong> shows Markdown.
+        The <strong>building manager</strong> can open files, read the clipboard, and
+        save work. A small <strong>front desk</strong> stands between them. Before this
+        PR, the front desk had a handwritten list of services. Now it has one exact,
+        shared menu: if either side misspells an order or changes its shape, the build
+        fails before Markover ships.
+      </p>
+    </section>
+
+    <section class="card diagram-card" aria-labelledby="flow-title">
+      <h2 class="section-title" id="flow-title">What crosses the doorway</h2>
+      <p class="diagram-intro">
+        The reading room never receives Electron's raw messaging machinery. It receives
+        only the named Markover actions exposed by the front desk.
+      </p>
+      <div class="diagram-scroll" role="region" aria-label="Scrollable Electron boundary diagram" tabindex="0">
+        <svg viewBox="0 0 860 350" role="img" aria-labelledby="diagram-title diagram-desc">
+          <title id="diagram-title">Markover Electron process boundary</title>
+          <desc id="diagram-desc">
+            The renderer calls the typed Markover bridge in the preload process. The
+            preload process sends named IPC messages to the main process. Replies return
+            along the same route. Raw Electron messaging is not exposed to the renderer.
+          </desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#c94e1f"></path>
+            </marker>
+            <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#35623f"></path>
+            </marker>
+          </defs>
+
+          <rect x="18" y="58" width="232" height="216" rx="18" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+          <text x="42" y="92" fill="#6d211f" font-family="system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="1.2">READING ROOM</text>
+          <text x="42" y="129" fill="#26211e" font-family="Georgia, serif" font-size="25" font-weight="700">Renderer</text>
+          <text x="42" y="160" fill="#756d67" font-family="system-ui, sans-serif" font-size="15">Shows documents and</text>
+          <text x="42" y="183" fill="#756d67" font-family="system-ui, sans-serif" font-size="15">collects feedback.</text>
+          <rect x="42" y="211" width="183" height="38" rx="10" fill="#f5e3da"></rect>
+          <text x="58" y="235" fill="#6d211f" font-family="ui-monospace, monospace" font-size="14">window.markover</text>
+
+          <rect x="314" y="26" width="232" height="280" rx="18" fill="#fffdf9" stroke="#c94e1f" stroke-width="3"></rect>
+          <text x="338" y="62" fill="#6d211f" font-family="system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="1.2">FRONT DESK</text>
+          <text x="338" y="99" fill="#26211e" font-family="Georgia, serif" font-size="25" font-weight="700">Preload bridge</text>
+          <text x="338" y="130" fill="#756d67" font-family="system-ui, sans-serif" font-size="15">Exposes one approved</text>
+          <text x="338" y="153" fill="#756d67" font-family="system-ui, sans-serif" font-size="15">capability object.</text>
+          <rect x="338" y="180" width="184" height="76" rx="10" fill="#f5e3da"></rect>
+          <text x="354" y="207" fill="#6d211f" font-family="ui-monospace, monospace" font-size="14">openMarkdown()</text>
+          <text x="354" y="230" fill="#6d211f" font-family="ui-monospace, monospace" font-size="14">saveAttachment()</text>
+          <text x="354" y="253" fill="#6d211f" font-family="ui-monospace, monospace" font-size="14">getReviews() …</text>
+          <text x="338" y="282" fill="#35623f" font-family="system-ui, sans-serif" font-size="13" font-weight="700">✓ checked against MarkoverBridge</text>
+
+          <rect x="610" y="58" width="232" height="216" rx="18" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+          <text x="634" y="92" fill="#6d211f" font-family="system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="1.2">BUILDING MANAGER</text>
+          <text x="634" y="129" fill="#26211e" font-family="Georgia, serif" font-size="25" font-weight="700">Main process</text>
+          <text x="634" y="160" fill="#756d67" font-family="system-ui, sans-serif" font-size="15">Owns files, windows,</text>
+          <text x="634" y="183" fill="#756d67" font-family="system-ui, sans-serif" font-size="15">menus, and clipboard.</text>
+          <rect x="634" y="211" width="183" height="38" rx="10" fill="#edf5ee"></rect>
+          <text x="650" y="235" fill="#35623f" font-family="ui-monospace, monospace" font-size="14">ipcMain.handle(…)</text>
+
+          <line x1="250" y1="145" x2="304" y2="145" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+          <text x="257" y="132" fill="#756d67" font-family="system-ui, sans-serif" font-size="12">request</text>
+          <line x1="314" y1="191" x2="260" y2="191" stroke="#35623f" stroke-width="3" marker-end="url(#arrow-green)"></line>
+          <text x="267" y="211" fill="#756d67" font-family="system-ui, sans-serif" font-size="12">reply</text>
+
+          <line x1="546" y1="145" x2="600" y2="145" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+          <text x="553" y="132" fill="#756d67" font-family="system-ui, sans-serif" font-size="12">named IPC</text>
+          <line x1="610" y1="191" x2="556" y2="191" stroke="#35623f" stroke-width="3" marker-end="url(#arrow-green)"></line>
+          <text x="563" y="211" fill="#756d67" font-family="system-ui, sans-serif" font-size="12">result</text>
+
+          <text x="430" y="337" text-anchor="middle" fill="#756d67" font-family="system-ui, sans-serif" font-size="14">The doorway stays the same at runtime; TypeScript now verifies its shape during the build.</text>
+        </svg>
+      </div>
+      <div class="legend" aria-hidden="true">
+        <span>Request toward desktop powers</span>
+        <span>Result back to the interface</span>
+      </div>
+    </section>
+
+    <section aria-labelledby="changes-title">
+      <h2 class="section-title" id="changes-title">What this PR changes</h2>
+      <div class="grid">
+        <article class="card mini-card">
+          <span class="tag">Shared vocabulary</span>
+          <h3>One contract names every capability</h3>
+          <p>
+            Documents, screenshots, settings, review status, and callbacks now have
+            shared shapes instead of being implied independently in several files.
+          </p>
+        </article>
+        <article class="card mini-card">
+          <span class="tag">Exact front desk</span>
+          <h3>The preload object must satisfy the contract</h3>
+          <p>
+            Adding, removing, or mistyping a bridge method becomes a compile error. Raw
+            <code>ipcRenderer</code> is still not handed to the page.
+          </p>
+        </article>
+        <article class="card mini-card">
+          <span class="tag">Typed manager</span>
+          <h3>Electron callbacks stop being mystery values</h3>
+          <p>
+            Window state, IPC events, stored reviews, and asynchronous replies are now
+            checked under the repository's strict TypeScript rules.
+          </p>
+        </article>
+        <article class="card mini-card">
+          <span class="tag">Release guardrail</span>
+          <h3>Source is TypeScript; the app still ships JavaScript</h3>
+          <p>
+            The ordinary build emits the three Electron files the packaged app expects.
+            No runtime TypeScript loader or module-system redesign was introduced.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="comparison-title">
+      <h2 class="section-title" id="comparison-title">Before and after</h2>
+      <div class="card comparison" role="table" aria-label="Before and after comparison">
+        <div class="comparison-row" role="row">
+          <div class="comparison-label" role="columnheader"><span class="visually-hidden">Aspect</span></div>
+          <div class="comparison-head" role="columnheader">Before</div>
+          <div class="comparison-head" role="columnheader">After</div>
+        </div>
+        <div class="comparison-row" role="row">
+          <div class="comparison-label" role="rowheader">User behavior</div>
+          <div role="cell">Open, save, review, focus, and menu behavior already worked.</div>
+          <div role="cell">The same behavior remains; this is deliberately a type migration.</div>
+        </div>
+        <div class="comparison-row" role="row">
+          <div class="comparison-label" role="rowheader">Bridge agreement</div>
+          <div role="cell">The two sides agreed by convention and tests.</div>
+          <div role="cell">Both sides also share a compiler-checked <code>MarkoverBridge</code>.</div>
+        </div>
+        <div class="comparison-row" role="row">
+          <div class="comparison-label" role="rowheader">Shipping</div>
+          <div role="cell">Electron loaded checked-in JavaScript source.</div>
+          <div role="cell">Electron loads generated JavaScript from the normal build.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="boundary-note" aria-labelledby="boundary-title">
+      <h2 id="boundary-title">Important boundary: types are a build-time alarm, not a runtime guard</h2>
+      <p>
+        TypeScript catches mistakes made by this codebase. Its types disappear after
+        compilation, so this PR does <strong>not</strong> claim to validate hostile IPC
+        payloads at runtime or create a new authorization policy. That security review is
+        a separate decision. This PR does preserve Electron's existing
+        <code>contextIsolation</code> setup and its narrow exposed capability object.
+      </p>
+    </section>
+
+    <section aria-labelledby="unchanged-title">
+      <h2 class="section-title" id="unchanged-title">What does not happen</h2>
+      <div class="card">
+        <details>
+          <summary>The main process is not split into a new architecture</summary>
+          <div><p>The same responsibilities stay in the same Electron modules. This PR adds explicit types rather than a second refactor.</p></div>
+        </details>
+        <details>
+          <summary>The browser fallback is not removed</summary>
+          <div><p><code>window.markover</code> remains optional because the renderer can run with its existing browser fallback when Electron is absent.</p></div>
+        </details>
+        <details>
+          <summary>The packaged app does not interpret TypeScript</summary>
+          <div><p>The standard compiler produces <code>build/src/main.js</code>, <code>preload.js</code>, and <code>app-menu.js</code> before packaging.</p></div>
+        </details>
+        <details>
+          <summary>No extra Electron power is exposed</summary>
+          <div><p>The renderer receives the exact <code>bridge</code> object. It does not receive <code>ipcRenderer</code>, Node's filesystem API, or an open-ended send function.</p></div>
+        </details>
+      </div>
+    </section>
+
+    <section class="card proof" aria-labelledby="proof-title">
+      <div class="status">Validated on the supported release path</div>
+      <h2 class="section-title" id="proof-title">How we know the doorway still works</h2>
+      <ul class="proof-list">
+        <li>Strict lint, typecheck, notices, and all 172 tests pass.</li>
+        <li>The complete check and test suite pass on Node 22.13 and Node 24.</li>
+        <li>The macOS arm64 app packages and passes strict code-signature verification.</li>
+        <li>The packaged ASAR contains the three emitted Electron JavaScript files.</li>
+        <li>A focused test asserts that the preload exposes one typed object and never exposes raw <code>ipcRenderer</code>.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="references-title">
+      <h2 class="section-title" id="references-title">References checked</h2>
+      <div class="card proof">
+        <ul class="reference-list">
+          <li><a href="#" data-repo-path="src/contracts.ts" data-repo-line="400">src/contracts.ts:400</a> — the shared <code>MarkoverBridge</code> contract.</li>
+          <li><a href="#" data-repo-path="src/preload.ts" data-repo-line="50">src/preload.ts:50</a> — the exact object exposed to the renderer.</li>
+          <li><a href="#" data-repo-path="src/main.ts" data-repo-line="626">src/main.ts:626</a> — the main-process IPC handlers.</li>
+          <li><a href="#" data-repo-path="src/app-menu.ts" data-repo-line="11">src/app-menu.ts:11</a> — the typed native menu template.</li>
+          <li><a href="#" data-repo-path="test/background-focus.test.ts" data-repo-line="23">test/background-focus.test.ts:23</a> — the narrow-bridge regression check.</li>
+          <li><a href="#" data-repo-path="test/release.test.ts" data-repo-line="136">test/release.test.ts:136</a> — the source-migration release invariant.</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer>
+      <p>Prepared as the plain-language implementation companion for issue 22.</p>
+      <div class="card">
+        <details>
+          <summary>Prompt / context</summary>
+          <div>
+            <p>
+              The request was to explain the Electron-boundary migration for a reader
+              outside this technical specialty. The implementation was constrained to
+              preserve behavior, avoid a module-system redesign, retain the browser
+              fallback, and use the repository's standard strict TypeScript build.
+              Sources checked: the issue acceptance criteria, implementation diff,
+              direct regression tests, packaging output, and Markover brand brief.
+            </p>
+          </div>
+        </details>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    function eli5RepoBase() {
+      const params = new URLSearchParams(window.location.search);
+      const explicit = params.get("baseUrl") || params.get("repoBase");
+      if (explicit) return explicit.replace(/\/$/, "");
+
+      const docPath = document.documentElement.dataset.repoDocPath;
+      if (window.location.protocol === "file:" && docPath) {
+        const fullPath = decodeURIComponent(window.location.pathname);
+        const suffix = `/${docPath.replace(/^\//, "")}`;
+        return fullPath.endsWith(suffix) ? fullPath.slice(0, -suffix.length) : "";
+      }
+
+      return "";
+    }
+
+    function eli5WireRepoLinks() {
+      const repoBase = eli5RepoBase();
+      for (const link of document.querySelectorAll("a[data-repo-path]")) {
+        if (!repoBase) {
+          link.setAttribute("aria-disabled", "true");
+          link.title = "Open the saved file directly or add ?baseUrl=/path/to/worktree.";
+          continue;
+        }
+
+        const repoPath = link.dataset.repoPath.replace(/^\//, "");
+        link.href = encodeURI(`file://${repoBase}/${repoPath}`);
+      }
+    }
+
+    eli5WireRepoLinks();
+  </script>
+</body>
+</html>
