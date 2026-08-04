@@ -21,6 +21,7 @@ import {
 
 interface FakeRunnerOptions {
   architecture?: string
+  embeddedArchitecture?: string
   entitlementDrift?: boolean
   falseAllowJit?: boolean
   failCommand?: string
@@ -99,6 +100,15 @@ function fakeSignedPaths(appPath: string): Promise<string[]> {
       'Contents',
       'Frameworks',
       'Electron Framework.framework'
+    ),
+    path.join(
+      appPath,
+      'Contents',
+      'Frameworks',
+      'Electron Framework.framework',
+      'Versions',
+      'A',
+      'Electron Framework'
     )
   ])
 }
@@ -109,6 +119,7 @@ function fakeRunner(
 ): CommandRunner {
   const {
     architecture = 'arm64',
+    embeddedArchitecture = architecture,
     entitlementDrift = false,
     failCommand,
     falseAllowJit = false,
@@ -149,7 +160,18 @@ function fakeRunner(
       if (key === 'CFBundleShortVersionString') return success('1.2.3\n')
       if (key === 'LSMinimumSystemVersion') return success('14.0\n')
     }
-    if (command === '/usr/bin/lipo') return success(`${architecture}\n`)
+    if (command === '/usr/bin/file') {
+      return success(
+        (args.at(-1) ?? '').endsWith('/Versions/A/Electron Framework')
+          ? 'application/x-mach-binary\n'
+          : 'application/octet-stream\n'
+      )
+    }
+    if (command === '/usr/bin/lipo') {
+      return success(
+        `${(args.at(-1) ?? '').endsWith('/Versions/A/Electron Framework') ? embeddedArchitecture : architecture}\n`
+      )
+    }
     if (command === '/usr/bin/codesign') {
       if (args.includes('--entitlements')) {
         const componentPath = args.at(-1) ?? ''
@@ -302,6 +324,20 @@ test('rejects checksum, bundle metadata, and architecture mismatches', async (t)
       version: '1.2.3'
     }),
     /architectures expected/
+  )
+  await assert.rejects(
+    verifyMacosArtifact({
+      architecture: 'arm64',
+      archivePath: fixture.archivePath,
+      checksumPath: fixture.checksumPath,
+      commandRunner: fakeRunner({ embeddedArchitecture: 'x86_64' }),
+      discoverSignedPaths: fakeSignedPaths,
+      platform: 'darwin',
+      temporaryDirectory: fixture.directory,
+      trustMode: 'ad-hoc',
+      version: '1.2.3'
+    }),
+    /Electron Framework architectures expected/
   )
 })
 

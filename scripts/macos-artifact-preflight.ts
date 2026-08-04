@@ -246,6 +246,14 @@ function verifyComponent(
     'MacOS',
     executableName
   )
+  verifyMachOArchitecture(runner, executablePath, architecture)
+}
+
+function verifyMachOArchitecture(
+  runner: CommandRunner,
+  executablePath: string,
+  architecture: MacosArchitecture
+): void {
   const architectures = requireCommand(
     runner,
     '/usr/bin/lipo',
@@ -254,8 +262,23 @@ function verifyComponent(
   assertExactValues(
     architectures,
     [machOArchitecture(architecture)],
-    `${executableName} architectures`
+    `${path.basename(executablePath)} architectures`
   )
+}
+
+function verifyDiscoveredArchitecture(
+  runner: CommandRunner,
+  signedPath: string,
+  architecture: MacosArchitecture
+): void {
+  const mimeType = requireCommand(
+    runner,
+    '/usr/bin/file',
+    ['--brief', '--mime-type', signedPath]
+  ).stdout.trim()
+  if (mimeType === 'application/x-mach-binary') {
+    verifyMachOArchitecture(runner, signedPath, architecture)
+  }
 }
 
 function verifySignedPath(
@@ -346,6 +369,11 @@ export async function verifyMacosArtifact({
     const signedPaths = new Set(await discoverPaths(appPath))
     signedPaths.add(appPath)
     for (const signedPath of signedPaths) {
+      verifyDiscoveredArchitecture(
+        commandRunner,
+        signedPath,
+        architecture
+      )
       verifySignedPath(commandRunner, appPath, signedPath)
     }
     const gatekeeper = commandRunner(

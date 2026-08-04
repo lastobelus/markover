@@ -191,7 +191,7 @@
         <article class="card mini">
           <span class="tag">Identity</span>
           <h3>The app is Markover</h3>
-          <p>Expected filename, app and helper bundle IDs, version, architecture, and <code>LSMinimumSystemVersion = 14.0</code>.</p>
+          <p>Expected filename, app and helper bundle IDs, version, every embedded Mach-O architecture, and <code>LSMinimumSystemVersion = 14.0</code>.</p>
         </article>
         <article class="card mini">
           <span class="tag">Seal</span>
@@ -224,7 +224,7 @@
     <section class="card proof" aria-labelledby="proof-title">
       <h2 id="proof-title">What passed locally</h2>
       <ul>
-        <li>Deterministic unit tests exercise unsafe paths, malformed metadata, architecture and signature mismatch, entitlement drift, command failure, and cleanup.</li>
+        <li>Deterministic unit tests exercise unsafe paths, malformed metadata, component and embedded-binary architecture mismatch, signature mismatch, entitlement drift, command failure, and cleanup.</li>
         <li>A real arm64 package was produced on macOS; its exact final ZIP passed the native verifier, including expected Gatekeeper rejection.</li>
         <li>Lint, type checking, notices, and all 197 tests pass after merging current <code>main</code>.</li>
         <li>The implementation and this ELI5 are updated together and stop at the slice-1 review boundary.</li>
