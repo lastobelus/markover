@@ -72,10 +72,7 @@ module.exports = defineConfig([
   {
     files: [
       'eslint.config.js',
-      'packages/cli/**/*.js',
-      'scripts/**/*.js',
-      'test/**/*.{js,ts}',
-      'src/{app-menu,local-client,local-service,main,metadata-discovery,preload,review-migration,review-store,service-endpoint,settings-store}.js'
+      'test/**/*.ts'
     ],
     languageOptions: {
       globals: globals.node,
@@ -84,7 +81,7 @@ module.exports = defineConfig([
   },
   {
     files: [
-      'src/{annotation-block,annotations,image-preview,navigation,review-sessions,settings,source-edits,tree}.{js,ts}'
+      'src/{annotation-block,annotations,image-preview,navigation,review-sessions,settings,source-edits,tree}.ts'
     ],
     languageOptions: {
       globals: sharedModuleGlobals,
@@ -108,7 +105,7 @@ module.exports = defineConfig([
     }
   },
   {
-    files: ['docs/site.js', 'src/renderer.ts'],
+    files: ['src/renderer.ts'],
     languageOptions: {
       globals: rendererGlobals,
       sourceType: 'script'
@@ -119,7 +116,14 @@ module.exports = defineConfig([
     }
   },
   {
-    files: ['src/{pierre-diffs-entry,yaml-entry}.{mjs,mts}'],
+    files: ['docs/site.ts'],
+    languageOptions: {
+      globals: globals.browser,
+      sourceType: 'script'
+    }
+  },
+  {
+    files: ['src/{pierre-diffs-entry,yaml-entry}.mts'],
     languageOptions: {
       globals: globals.browser,
       sourceType: 'module'

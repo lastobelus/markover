@@ -1,16 +1,27 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const { JSDOM } = require('jsdom')
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
+import { JSDOM } from 'jsdom'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const html = fs.readFileSync(path.join(projectDirectory, 'docs/index.html'), 'utf8')
-const script = fs.readFileSync(path.join(projectDirectory, 'docs/site.js'), 'utf8')
+const scriptSource = fs.readFileSync(
+  path.join(projectDirectory, 'docs/site.ts'),
+  'utf8'
+)
+const script = fs.readFileSync(
+  path.join(projectDirectory, 'build/docs/site.js'),
+  'utf8'
+)
 const styles = fs.readFileSync(path.join(projectDirectory, 'docs/styles.css'), 'utf8')
 const guide = fs.readFileSync(path.join(projectDirectory, 'docs/guide/index.html'), 'utf8')
 const readme = fs.readFileSync(path.join(projectDirectory, 'README.md'), 'utf8')
 const readmeLeader = fs.readFileSync(path.join(projectDirectory, 'design/brand/markover-readme-leader.svg'), 'utf8')
+const pagesWorkflow = fs.readFileSync(
+  path.join(projectDirectory, '.github/workflows/pages.yml'),
+  'utf8'
+)
 
 const screenshots = [
   'markover-review-editor@2x.png',
@@ -39,9 +50,9 @@ test('the Pages preview offers a navigable high-density screenshot gallery', () 
   assert.equal((html.match(/class="product-slide"/g) || []).length, 4)
   assert.match(html, /class="gallery-control gallery-previous"/)
   assert.match(html, /class="gallery-control gallery-next"/)
-  assert.match(script, /function showSlide\(index\)/)
-  assert.match(script, /event\.key === 'ArrowLeft'/)
-  assert.match(script, /event\.key === 'ArrowRight'/)
+  assert.match(scriptSource, /function showSlide\(index: number\): void/)
+  assert.match(scriptSource, /event\.key === 'ArrowLeft'/)
+  assert.match(scriptSource, /event\.key === 'ArrowRight'/)
 })
 
 test('the Pages gallery opens lazily and navigates with controls or arrows', () => {
@@ -50,27 +61,40 @@ test('the Pages gallery opens lazily and navigates with controls or arrows', () 
     url: 'https://example.test/'
   })
   const { document, KeyboardEvent } = dom.window
-  const dialog = document.querySelector('#product-preview')
+  const dialog = document.querySelector<HTMLDialogElement>('#product-preview')
+  assert.ok(dialog)
   dialog.showModal = () => { dialog.open = true }
   dialog.close = () => { dialog.open = false }
   dom.window.eval(script)
 
-  const slides = [...document.querySelectorAll('.product-slide')]
-  const position = document.querySelector('#gallery-position')
+  const slides = [...document.querySelectorAll<HTMLElement>('.product-slide')]
+  const position = document.querySelector<HTMLElement>('#gallery-position')
+  assert.ok(position)
   const currentIndex = () => slides.findIndex((slide) => !slide.hidden)
+  const image = (index: number): HTMLImageElement => {
+    const slide = slides[index]
+    assert.ok(slide)
+    const result = slide.querySelector<HTMLImageElement>('img')
+    assert.ok(result)
+    return result
+  }
 
-  assert.equal(slides.every((slide) => !slide.querySelector('img').hasAttribute('src')), true)
-  document.querySelector('.product-preview-trigger').click()
+  assert.equal(slides.every((slide) => !image(slides.indexOf(slide)).hasAttribute('src')), true)
+  const trigger = document.querySelector<HTMLElement>('.product-preview-trigger')
+  assert.ok(trigger)
+  trigger.click()
   assert.equal(dialog.open, true)
   assert.equal(currentIndex(), 0)
   assert.equal(position.textContent, '1 / 4')
-  assert.match(slides[0].querySelector('img').src, /markover-review-editor@2x\.png$/)
-  assert.equal(slides[1].querySelector('img').hasAttribute('src'), false)
+  assert.match(image(0).src, /markover-review-editor@2x\.png$/)
+  assert.equal(image(1).hasAttribute('src'), false)
 
-  document.querySelector('.gallery-next').click()
+  const next = document.querySelector<HTMLButtonElement>('.gallery-next')
+  assert.ok(next)
+  next.click()
   assert.equal(currentIndex(), 1)
   assert.equal(position.textContent, '2 / 4')
-  assert.match(slides[1].querySelector('img').src, /markover-annotation-browser@2x\.png$/)
+  assert.match(image(1).src, /markover-annotation-browser@2x\.png$/)
 
   dialog.dispatchEvent(new KeyboardEvent('keydown', {
     key: 'ArrowLeft',
@@ -79,9 +103,27 @@ test('the Pages gallery opens lazily and navigates with controls or arrows', () 
   }))
   assert.equal(currentIndex(), 0)
 
-  document.querySelector('.gallery-previous').click()
+  const previous = document.querySelector<HTMLButtonElement>('.gallery-previous')
+  assert.ok(previous)
+  previous.click()
   assert.equal(currentIndex(), 3)
   assert.equal(position.textContent, '4 / 4')
+})
+
+test('Pages deploys built docs from main only when documentation changes', () => {
+  assert.match(
+    pagesWorkflow,
+    /push:\s+branches:\s+- main\s+paths:\s+- 'docs\/\*\*'\s+- '\.github\/workflows\/pages\.yml'/
+  )
+  assert.match(pagesWorkflow, /workflow_dispatch:/)
+  assert.match(pagesWorkflow, /contents: read\s+pages: write\s+id-token: write/)
+  assert.match(pagesWorkflow, /run: npm ci/)
+  assert.match(pagesWorkflow, /run: npm run build --silent/)
+  assert.match(pagesWorkflow, /actions\/configure-pages@[0-9a-f]{40} # v5/)
+  assert.match(pagesWorkflow, /actions\/upload-pages-artifact@[0-9a-f]{40} # v4/)
+  assert.match(pagesWorkflow, /path: build\/docs/)
+  assert.match(pagesWorkflow, /actions\/deploy-pages@[0-9a-f]{40} # v4/)
+  assert.doesNotMatch(pagesWorkflow, /pull_request:/)
 })
 
 test('public surfaces use the standardized tagged logo arrangements', () => {

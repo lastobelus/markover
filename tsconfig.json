@@ -1,7 +1,5 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": false,
     "esModuleInterop": true,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
@@ -31,7 +29,7 @@
     ]
   },
   "include": [
-    "docs/site.js",
+    "docs/site.ts",
     "packages/cli/src",
     "scripts",
     "src",
