@@ -8,6 +8,7 @@ import {
   appBundleId,
   entitlementKeysForSignedFile,
   expectedArchiveName,
+  machOArchitecture,
   minimumMacosVersion,
   signedAppComponents,
   type MacosArchitecture,
@@ -197,7 +198,11 @@ function verifyComponent(
     '/usr/bin/lipo',
     ['-archs', executablePath]
   ).stdout.trim().split(/\s+/).filter(Boolean)
-  assertExactValues(architectures, [architecture], `${executableName} architectures`)
+  assertExactValues(
+    architectures,
+    [machOArchitecture(architecture)],
+    `${executableName} architectures`
+  )
 }
 
 function verifySignedPath(

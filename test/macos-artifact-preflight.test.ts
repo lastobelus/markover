@@ -35,14 +35,17 @@ interface Fixture {
   directory: string
 }
 
-async function createFixture(): Promise<Fixture> {
+async function createFixture(
+  architecture: 'arm64' | 'x64' = 'arm64'
+): Promise<Fixture> {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-artifact-'))
-  const archivePath = path.join(directory, 'Markover-darwin-arm64.zip')
+  const archiveName = `Markover-darwin-${architecture}.zip`
+  const archivePath = path.join(directory, archiveName)
   const archive = Buffer.from('fake release ZIP')
   await fs.writeFile(archivePath, archive)
   const checksum = crypto.createHash('sha256').update(archive).digest('hex')
   const checksumPath = `${archivePath}.sha256`
-  await fs.writeFile(checksumPath, `${checksum}  Markover-darwin-arm64.zip\n`)
+  await fs.writeFile(checksumPath, `${checksum}  ${archiveName}\n`)
   return { archivePath, checksumPath, directory }
 }
 
@@ -193,6 +196,25 @@ test('verifies the exact hardened ad-hoc final ZIP', async (t) => {
   assert.equal(report.architecture, 'arm64')
   assert.equal(report.gatekeeper, 'rejected-as-expected')
   assert.match(report.sha256, /^[a-f0-9]{64}$/)
+})
+
+test('maps the x64 release name to the x86_64 Mach-O architecture', async (t) => {
+  const fixture = await createFixture('x64')
+  t.after(() => fs.rm(fixture.directory, { recursive: true, force: true }))
+
+  const report = await verifyMacosArtifact({
+    architecture: 'x64',
+    archivePath: fixture.archivePath,
+    checksumPath: fixture.checksumPath,
+    commandRunner: fakeRunner({ architecture: 'x86_64' }),
+    discoverSignedPaths: fakeSignedPaths,
+    platform: 'darwin',
+    temporaryDirectory: fixture.directory,
+    trustMode: 'ad-hoc',
+    version: '1.2.3'
+  })
+
+  assert.equal(report.architecture, 'x64')
 })
 
 test('rejects unsafe ZIP paths before extraction', () => {

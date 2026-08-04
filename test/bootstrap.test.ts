@@ -180,6 +180,11 @@ test('bootstrap validation enforces metadata, architecture, seal, and trust mode
     version: '1.2.3'
   }
   validateMacosApp(appPath, expected, validationRunner())
+  validateMacosApp(
+    appPath,
+    { ...expected, architecture: 'x64' },
+    validationRunner({ architecture: 'x86_64' })
+  )
   assert.throws(
     () => {
       validateMacosApp(

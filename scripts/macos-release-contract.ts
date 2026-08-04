@@ -56,6 +56,12 @@ export function parseMacosArchitecture(value: string): MacosArchitecture {
   return value
 }
 
+export function machOArchitecture(
+  architecture: MacosArchitecture
+): 'arm64' | 'x86_64' {
+  return architecture === 'x64' ? 'x86_64' : architecture
+}
+
 export function parseMacosTrustMode(value: string | undefined): MacosTrustMode {
   if (value !== 'ad-hoc') {
     throw new Error(

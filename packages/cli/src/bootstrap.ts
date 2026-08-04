@@ -30,6 +30,13 @@ export interface InstalledAppValidation {
   version: string
 }
 
+function machOArchitecture(architecture: string): 'arm64' | 'x86_64' {
+  if (architecture !== 'arm64' && architecture !== 'x64') {
+    throw new Error(`Unsupported macOS architecture: ${architecture}`)
+  }
+  return architecture === 'x64' ? 'x86_64' : architecture
+}
+
 const runCommand: BootstrapCommandRunner = (command, args) => {
   const result = spawnSync(command, [...args], { encoding: 'utf8' })
   if (result.error) throw result.error
@@ -76,9 +83,7 @@ export function validateMacosApp(
   { architecture, trustMode, version }: InstalledAppValidation,
   runner: BootstrapCommandRunner = runCommand
 ): void {
-  if (architecture !== 'arm64' && architecture !== 'x64') {
-    throw new Error(`Unsupported macOS architecture: ${architecture}`)
-  }
+  const expectedArchitecture = machOArchitecture(architecture)
   if (trustMode !== 'ad-hoc') {
     throw new Error(`Unsupported macOS trust mode: ${trustMode}`)
   }
@@ -105,7 +110,10 @@ export function validateMacosApp(
     '/usr/bin/lipo',
     ['-archs', executable]
   ).stdout.trim().split(/\s+/).filter(Boolean)
-  if (architectures.length !== 1 || architectures[0] !== architecture) {
+  if (
+    architectures.length !== 1 ||
+    architectures[0] !== expectedArchitecture
+  ) {
     throw new Error(
       `The downloaded app has unexpected architectures: ${architectures.join(', ')}.`
     )
