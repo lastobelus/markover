@@ -28,7 +28,7 @@ function parseRecord(source: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
-test('settings defaults cover the nine persisted preferences', () => {
+test('settings defaults cover the persisted preferences', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS), [
     'palette',
     'appearance',
@@ -38,7 +38,8 @@ test('settings defaults cover the nine persisted preferences', () => {
     'openDocumentsSidebar',
     'defaultTreeView',
     'confirmAttachmentRemoval',
-    'logRejectedApiRequests'
+    'logRejectedApiRequests',
+    'agentInterpretationPolicy'
   ])
 })
 
@@ -53,6 +54,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
     logRejectedApiRequests: true,
+    agentInterpretationPolicy: 'Follow the checklist.',
     unexpected: 'ignored'
   }), {
     palette: 'ocean',
@@ -63,7 +65,8 @@ test('settings normalization accepts known choices and rejects unknown values', 
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
-    logRejectedApiRequests: true
+    logRejectedApiRequests: true,
+    agentInterpretationPolicy: 'Follow the checklist.'
   })
 
   assert.deepEqual(normalizeSettings({ palette: 'neon', appearance: 42 }), {
@@ -100,6 +103,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <select name="defaultTreeView"><option value="all">All</option><option value="annotated">Annotated</option></select>
       <input name="confirmAttachmentRemoval" type="checkbox">
       <input name="logRejectedApiRequests" type="checkbox">
+      <textarea name="agentInterpretationPolicy"></textarea>
     </form>
     <div class="keyboard-help"></div>
   </body></html>`)
@@ -134,6 +138,11 @@ test('renderer settings apply immediately and reset through the same path', () =
     | null
   assert.ok(paletteControl)
   assert.equal(paletteControl.value, 'ocean')
+  const policyControl = view.form.elements.namedItem('agentInterpretationPolicy') as
+    | HTMLTextAreaElement
+    | null
+  assert.ok(policyControl)
+  assert.equal(policyControl.value, DEFAULT_SETTINGS.agentInterpretationPolicy)
 
   applySettingsToView({ ...DEFAULT_SETTINGS, resolvedAppearance: 'light' }, view)
   assert.equal(view.root.dataset.palette, 'ember')
@@ -167,11 +176,16 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   const store = new SettingsStore(filePath)
 
   assert.deepEqual(await store.load(), { ...DEFAULT_SETTINGS })
-  await store.update({ palette: 'ocean', showKeyboardHelp: false })
+  await store.update({
+    palette: 'ocean',
+    showKeyboardHelp: false,
+    agentInterpretationPolicy: 'Use this policy.'
+  })
 
   const restored = new SettingsStore(filePath)
   assert.equal((await restored.load()).palette, 'ocean')
   assert.equal(restored.settings.showKeyboardHelp, false)
+  assert.equal(restored.settings.agentInterpretationPolicy, 'Use this policy.')
 
   await fs.writeFile(filePath, '{not json', 'utf8')
   assert.deepEqual(await restored.load(), { ...DEFAULT_SETTINGS })

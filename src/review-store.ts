@@ -1,6 +1,9 @@
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import './agent-guidance'
+
+const { guidance } = globalThis.MarkoverAgentGuidance
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 export type ReviewStatus = 'editing' | 'pending-agent'
@@ -15,6 +18,7 @@ export interface ReviewEnvelope {
   agentThread: unknown
   git: unknown
   pullRequest: unknown
+  agentGuidance: AgentGuidance
 }
 
 export type ReviewArtifact = Omit<ReviewTree, 'review'> & {
@@ -27,6 +31,7 @@ export interface ReviewCreateInput {
   agentThread?: unknown
   git?: unknown
   pullRequest?: unknown
+  interpretationPolicy?: unknown
 }
 
 export interface ReviewStoreOptions {
@@ -146,7 +151,10 @@ export function assertReviewArtifact(
   }
   if (
     artifact.review.id !== reviewId ||
-    !isReviewStatus(artifact.review.status)
+    !isReviewStatus(artifact.review.status) ||
+    !isRecord(artifact.review.agentGuidance) ||
+    typeof artifact.review.agentGuidance.fixedContract !== 'string' ||
+    typeof artifact.review.agentGuidance.interpretationPolicy !== 'string'
   ) {
     throw new ReviewStoreError(
       'INVALID_REVIEW',
@@ -229,7 +237,8 @@ export class ReviewStore {
     contextSummary,
     agentThread = null,
     git = null,
-    pullRequest = null
+    pullRequest = null,
+    interpretationPolicy
   }: ReviewCreateInput): Promise<ReviewArtifact> {
     assertReviewTree(tree)
     if (typeof contextSummary !== 'string' || !contextSummary.trim()) {
@@ -269,7 +278,8 @@ export class ReviewStore {
             contextSummary,
             agentThread: cloneJson(agentThread),
             git: cloneJson(git),
-            pullRequest: cloneJson(pullRequest)
+            pullRequest: cloneJson(pullRequest),
+            agentGuidance: guidance(interpretationPolicy)
           }
         }
 

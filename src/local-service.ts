@@ -50,6 +50,7 @@ export interface LocalServiceOptions {
     action: 'created' | 'imported' | 'handoff' | 'edit'
   ) => void | Promise<void>) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
+  interpretationPolicy?: (() => string) | undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -131,7 +132,8 @@ export async function startLocalService({
   beforeAction = () => Promise.resolve(undefined),
   importReviews = () => Promise.resolve([]),
   onChange = () => {},
-  onUnauthorized = () => {}
+  onUnauthorized = () => {},
+  interpretationPolicy
 }: LocalServiceOptions): Promise<LocalService> {
   if (
     !SERVICE_INSTANCE_PATTERN.test(identity.instanceId) ||
@@ -259,7 +261,8 @@ export async function startLocalService({
           contextSummary: metadata.contextSummary,
           agentThread: metadata.agentThread,
           git: metadata.git,
-          pullRequest: metadata.pullRequest
+          pullRequest: metadata.pullRequest,
+          interpretationPolicy: interpretationPolicy?.()
         }
         const artifact = await store.create(createInput)
         await onChange(artifact, 'created')

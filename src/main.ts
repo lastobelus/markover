@@ -759,6 +759,7 @@ if (!hasSingleInstanceLock) {
       const startedService = await startLocalService({
         identity,
         store: managedStore,
+        interpretationPolicy: () => store.settings.agentInterpretationPolicy,
         beforeAction: flushManagedReview,
         importReviews: (sourceDirectory) => importLegacyReviews(
           sourceDirectory,

@@ -282,7 +282,11 @@ test('persisted review artifacts satisfy the browser session boundary', () => {
       contextSummary: 'Review the stored document.',
       agentThread: null,
       git: 'legacy metadata',
-      pullRequest: null
+      pullRequest: null,
+      agentGuidance: {
+        fixedContract: 'Interpret feedback by intent.',
+        interpretationPolicy: 'Use your judgment.'
+      }
     }
   } satisfies ReviewArtifact
 

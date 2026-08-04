@@ -1,4 +1,8 @@
 (function exposeSettings(globalScope: typeof globalThis) {
+  const agentGuidance = typeof globalScope.MarkoverAgentGuidance === 'undefined'
+    ? require('./agent-guidance') as MarkoverAgentGuidanceApi
+    : globalScope.MarkoverAgentGuidance
+
   const DEFAULT_SETTINGS: Readonly<MarkoverSettings> = Object.freeze({
     palette: 'ember',
     appearance: 'system',
@@ -8,7 +12,8 @@
     openDocumentsSidebar: true,
     defaultTreeView: 'all',
     confirmAttachmentRemoval: true,
-    logRejectedApiRequests: false
+    logRejectedApiRequests: false,
+    agentInterpretationPolicy: agentGuidance.DEFAULT_INTERPRETATION_POLICY
   })
 
   const OPTIONS: MarkoverSettingsApi['OPTIONS'] = Object.freeze({
@@ -87,6 +92,9 @@
     ] as const) {
       if (typeof input[key] === 'boolean') normalized[key] = input[key]
     }
+    if (typeof input.agentInterpretationPolicy === 'string') {
+      normalized.agentInterpretationPolicy = input.agentInterpretationPolicy
+    }
     return normalized
   }
 
@@ -128,9 +136,10 @@
       const control = view.form.elements.namedItem(key) as
         | HTMLInputElement
         | HTMLSelectElement
+        | HTMLTextAreaElement
         | null
       if (!control) continue
-      if (control.type === 'checkbox') {
+      if ('checked' in control && control.type === 'checkbox') {
         control.checked = value as boolean
       } else {
         control.value = value as string

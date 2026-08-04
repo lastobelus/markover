@@ -345,6 +345,11 @@
             <span><strong>Confirm screenshot removal</strong><small>Ask before removing an attached screenshot and its marker.</small></span>
             <input name="confirmAttachmentRemoval" type="checkbox" role="switch">
           </label>
+          <h3 class="settings-section-title">Agent handoff</h3>
+          <label class="settings-field settings-policy-field">
+            <span><strong>Interpretation policy</strong><small>This policy is copied into newly opened reviews. The fixed Markover contract is not editable.</small></span>
+            <textarea name="agentInterpretationPolicy" rows="5"></textarea>
+          </label>
           <h3 class="settings-section-title">Diagnostics</h3>
           <label class="settings-field settings-switch-field">
             <span><strong>Log rejected API requests</strong><small>Write sanitized request method, path, and rejection reason to stderr. Request contents and credentials are never logged.</small></span>
@@ -369,6 +374,7 @@
     <script src="review-sessions.js"></script>
     <script src="source-edits.js"></script>
     <script src="image-preview.js"></script>
+    <script src="agent-guidance.js"></script>
     <script src="settings.js"></script>
     <script src="vendor/pierre-diffs.js"></script>
     <script src="renderer.js"></script>

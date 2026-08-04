@@ -1953,10 +1953,16 @@ elements.settingsReset.addEventListener('click', () => {
 })
 elements.settingsForm.addEventListener('change', (event) => {
   const control = event.target
-  if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+  if (!(
+    control instanceof HTMLInputElement ||
+    control instanceof HTMLSelectElement ||
+    control instanceof HTMLTextAreaElement
+  )) {
     return
   }
-  const value = control.type === 'checkbox' ? control.checked : control.value
+  const value = control instanceof HTMLInputElement && control.type === 'checkbox'
+    ? control.checked
+    : control.value
   void bridge.updateSettings({ [control.name]: value }).then(applySettings)
 })
 

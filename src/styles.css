@@ -2436,6 +2436,18 @@ body.is-control-pressed .attachment-remove:hover {
   font: 700 11px/1 ui-sans-serif, -apple-system, sans-serif;
 }
 
+.settings-policy-field {
+  grid-template-columns: minmax(0, 0.7fr) minmax(220px, 1.3fr);
+  padding: 12px 0;
+}
+
+.settings-policy-field textarea {
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  font: 500 11px/1.45 ui-sans-serif, -apple-system, sans-serif;
+}
+
 .settings-switch-field {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -2474,7 +2486,7 @@ body.is-control-pressed .attachment-remove:hover {
   transform: translateX(14px);
 }
 
-.settings-field :is(select, input):focus-visible,
+.settings-field :is(select, input, textarea):focus-visible,
 .settings-close:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
