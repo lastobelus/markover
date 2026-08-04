@@ -20,15 +20,18 @@ new ELI5 presentation experiment.
 
 1. Read the repository `AGENTS.md`, the material to explain, and only the related source,
    tests, plans, or design references needed to verify the story.
-2. Identify the smallest useful explanation: the change, why it matters, what remains
+2. Establish the truth context: what artifact or state the explanation describes, its
+   status and roadmap position, where its claims apply, which parts are expected to
+   remain stable, and which known work may change or supersede them.
+3. Identify the smallest useful explanation: the change, why it matters, what remains
    unchanged, the decisions or risks that deserve attention, and any questions the user
    must answer.
-3. Choose a durable repository location and create one self-contained `.html` file.
-4. Write plain-language content first. Add cards, tables, diagrams, or controls only when
+4. Choose a durable repository location and create one self-contained `.html` file.
+5. Write plain-language content first. Add cards, tables, diagrams, or controls only when
    they reduce reading or decision effort.
-5. Verify the saved artifact with Markover's existing Node/npm toolchain and an available
+6. Verify the saved artifact with Markover's existing Node/npm toolchain and an available
    local preview path. Do not install tooling solely to inspect an ELI5 page.
-6. Hand off the real absolute filesystem path as the primary link.
+7. Hand off the real absolute filesystem path as the primary link.
 
 ## File Location
 
@@ -38,8 +41,8 @@ new ELI5 presentation experiment.
 - Put PR or implementation explainers in the most relevant existing `doc/` or `docs/`
   directory. Use `docs/` only when the artifact is intentionally part of the public
   documentation site.
-- Keep committed prose and attributes repository-relative. Never commit absolute
-  worktree paths.
+- Keep local file references and path attributes repository-relative. Never commit
+  absolute worktree paths.
 - Make the HTML directly viewable from its saved filesystem path. Do not make the user
   depend on localhost, an open preview tab, or an agent-owned process.
 
@@ -67,6 +70,8 @@ Keep the document as small as the user's decision needs. Start with a top-level 
 not a comprehensive alternate plan. Include only useful blocks, which may include:
 
 - a clear title and one-paragraph plain-English lede
+- a collapsed truth-context card immediately after the lede when the explanation describes
+  proposed, evolving, historical, branch-specific, or otherwise time-sensitive work
 - `The Tiny Story`: what changed, why it matters, and what does not change
 - a diagram for an important flow, relationship, state change, or mental model that prose
   cannot explain as clearly
@@ -85,6 +90,39 @@ not a comprehensive alternate plan. Include only useful blocks, which may includ
 For a simple explanation, a title, lede, tiny story, one comparison or diagram, and a few
 references may be enough. Do not make the ELI5 longer than its source unless the extra
 structure materially reduces confusion or collects required decisions.
+
+## Truth Context
+
+Treat truth context as part of the explanation, not as prompt provenance. When claims can
+age, make a native `details` element the first card after the title and lede, immediately
+before the Tiny Story. Start it collapsed by omitting `open`. Keep its summary to one
+compact row: a short label such as `Where This Is True` on the left and a precise state
+such as `Proposed · PR 38` on the right. The visible summary keeps applicability upfront
+while leaving the Tiny Story immediately available. Do not hide the entire context in a
+footer or generic prompt disclosure.
+
+Put the supporting context inside the disclosure and keep the summary useful even when
+the reader never expands it. Preserve native `summary` keyboard and screen-reader
+behavior; styling away the default marker is acceptable only when the whole summary row
+still looks and behaves like an interactive disclosure.
+
+Include the smallest set that lets a future reader judge the document correctly:
+
+- the subject and canonical source, such as a PR, issue, plan, release, branch, or commit
+- the subject's status when the explainer was written: proposed, open, merged, accepted,
+  released, historical, or another precise state
+- the snapshot date or immutable revision when exact source state matters
+- the scope where the claims apply, including important boundaries omitted from the model
+- the parent roadmap, launch gate, milestone, or PR-stack position when one exists
+- known follow-on or superseding work and how it may change the picture
+- a clear distinction between the stable center of the explanation and transient details
+- an authoritative place to re-check current truth
+
+Use live canonical links for moving status and immutable links for exact snapshots. A date
+alone is not enough when a PR, issue, roadmap, or plan is the real source of truth. Describe
+known changes with calibrated language such as `will`, `may`, or `outside this diagram`;
+do not invent a future architecture merely to fill the section. Never present an open PR
+or accepted plan as though it were already the timeless architecture of the product.
 
 ## Voice And Visual Style
 
@@ -142,6 +180,8 @@ Keep prompt and conversation context outside the main reading path. Use a small
 - note authoritative sources checked and assumptions worth remembering
 
 Do not let context compete with the Tiny Story, decisions, or feedback controls.
+This disclosure answers why the explainer was made. It does not replace the visible truth
+context that tells the reader when and where its claims apply.
 
 ## Diagrams
 
@@ -179,7 +219,12 @@ the summary only when the row describes a concrete suggestion or decision.
 
 ## Clickable References
 
-Show every reference as a durable repository-relative path. When clickable local source
+Use ordinary `https` links for authoritative remote sources such as the PR, issue,
+roadmap, plan, release, or documentation that establishes truth context. These links are
+navigation, not runtime dependencies. Give them descriptive text and prefer canonical
+sources over search results or copied summaries.
+
+Show local references as durable repository-relative paths. When clickable local source
 links materially help, store only repository-relative metadata in the committed HTML:
 
 ```html
@@ -248,17 +293,24 @@ or external dependencies unless the user explicitly requests them.
 
 For a substantial ELI5 artifact:
 
-1. Confirm the saved HTML is readable and contains no remote URLs, external runtime
-   assets, absolute committed paths, or accidental dependencies.
-2. Use the project's existing Node.js and `jsdom` stack for scripted DOM and interaction
+1. Confirm the saved HTML is readable and contains no remote runtime assets, external
+   dependencies, absolute committed paths, or accidental dependencies. Check that every
+   remote URL is an intentional authoritative navigation link.
+2. For time-sensitive claims, confirm the visible truth context identifies the subject,
+   status, scope, roadmap position when relevant, known change horizon, and current source
+   of truth.
+3. Confirm the truth-context card is the first card, starts collapsed, exposes its label
+   and status in the summary, opens and closes from the keyboard, and leaves the Tiny
+   Story immediately after it.
+4. Use the project's existing Node.js and `jsdom` stack for scripted DOM and interaction
    checks when needed. Add a focused `node:test` test only when the artifact is durable
    product behavior that should remain covered.
-3. Use the T3 in-app preview when available for desktop and narrow visual checks. Prefer
+5. Use the T3 in-app preview when available for desktop and narrow visual checks. Prefer
    direct filesystem preview. Do not install or launch a different browser stack merely
    for routine verification.
-4. If no visual preview path is available, run the strongest static/DOM checks available
+6. If no visual preview path is available, run the strongest static/DOM checks available
    and say once that rendered browser verification was not performed.
-5. Run `npm run check` and `npm test` before committing a completed skill or repository
+7. Run `npm run check` and `npm test` before committing a completed skill or repository
    artifact change.
 
 Check that:

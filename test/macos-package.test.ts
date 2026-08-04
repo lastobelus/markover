@@ -22,7 +22,7 @@ test('macOS packaging produces a branded application bundle', () => {
   const packageJson = JSON.parse(read('package.json')) as PackageManifest
   const packaging = read('scripts/package-macos.ts')
   const iconBuilder = read('scripts/build-macos-icon.ts')
-  const main = read('src/main.js')
+  const main = read('src/main.ts')
   const icon = fs.readFileSync(
     path.join(root, 'design/brand/markover-app-icon.icns')
   )

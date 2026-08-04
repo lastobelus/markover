@@ -1,4 +1,4 @@
-const {
+import {
   app,
   BrowserWindow,
   clipboard,
@@ -6,37 +6,79 @@ const {
   ipcMain,
   Menu,
   nativeImage,
-  nativeTheme
-} = require('electron')
-const crypto = require('node:crypto')
-const fs = require('node:fs/promises')
-const path = require('node:path')
-const { applicationMenuTemplate } = require('./app-menu')
-const { startLocalService } = require('./local-service')
-const { discoverRepositoryRoot } = require('./metadata-discovery')
-const { importLegacyReviews } = require('./review-migration')
-const { ReviewStore } = require('./review-store')
-const {
+  nativeTheme,
+  type IpcMainEvent,
+  type IpcMainInvokeEvent
+} from 'electron'
+import { createHash, randomBytes } from 'node:crypto'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+
+import { applicationMenuTemplate } from './app-menu'
+import { startLocalService, type LocalService } from './local-service'
+import { discoverRepositoryRoot } from './metadata-discovery'
+import { importLegacyReviews } from './review-migration'
+import { ReviewStore, type ReviewArtifact } from './review-store'
+import {
   reviewsDirectory,
   serviceEndpointPath
-} = require('./service-endpoint')
-const { SettingsStore } = require('./settings-store')
+} from './service-endpoint'
+import { SettingsStore } from './settings-store'
+import './settings'
+
 const {
   darkColorization,
   DEFAULT_SETTINGS,
   windowBackground
-} = require('./settings')
+} = globalThis.MarkoverSettings
+
+interface ReviewConfig {
+  inputPath: string | undefined
+  name: string | undefined
+  originalPath: string | null
+  attachmentsDirectory: string | undefined
+  autosavePath: string | null
+  durable: boolean
+}
+
+interface PendingSnapshot {
+  reject: (reason?: unknown) => void
+  resolve: (tree: ReviewTree | null) => void
+  reviewId: string
+  timeout: ReturnType<typeof setTimeout>
+}
+
+interface PendingStatus {
+  reject: (reason?: unknown) => void
+  resolve: () => void
+  timeout: ReturnType<typeof setTimeout>
+}
+
+function errorProperty(
+  error: unknown,
+  key: 'code' | 'message' | 'stack'
+): unknown {
+  return error !== null && typeof error === 'object'
+    ? Reflect.get(error, key)
+    : null
+}
+
+function errorMessage(error: unknown): string {
+  const message = errorProperty(error, 'message')
+  return typeof message === 'string' ? message : String(error)
+}
 
 app.setName('Markover')
 process.title = 'Markover'
 
-function argumentValue(option) {
+function argumentValue(option: string): string | null {
   const index = process.argv.indexOf(option)
   return index === -1 ? null : process.argv[index + 1] || null
 }
 
 const reviewConfigPath = argumentValue('--markover-review-config')
-const reviewMode = process.argv.includes('--markover-review') || Boolean(reviewConfigPath)
+const reviewMode = process.argv.includes('--markover-review') ||
+  Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
 const checkoutDirectory = path.resolve(projectDirectory, '..')
 const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
@@ -45,35 +87,36 @@ const reviewStore = reviewMode
   ? null
   : new ReviewStore(reviewsDirectory())
 const hasSingleInstanceLock = reviewMode || app.requestSingleInstanceLock()
-const backgroundServerMode = !reviewMode && process.argv.includes('--markover-server')
-let reviewDocumentPromise = null
+const backgroundServerMode = !reviewMode &&
+  process.argv.includes('--markover-server')
+let reviewDocumentPromise: Promise<MarkoverDocument> | null = null
 let reviewFinished = false
-let reviewConfigPromise = null
-let attachmentDirectoryPromise = null
+let reviewConfigPromise: Promise<ReviewConfig> | null = null
+let attachmentDirectoryPromise: Promise<string> | null = null
 let attachmentSequence = 0
-let mainWindow = null
-let activeManagedReview = null
-let activeManagedReviewId = null
-let localService = null
-let settingsStore = null
-let settingsUnsubscribe = null
-let pendingAutosave = null
-let autosaveWriter = null
+let mainWindow: BrowserWindow | null = null
+let activeManagedReview: ReviewArtifact | null = null
+let activeManagedReviewId: string | null = null
+let localService: LocalService | null = null
+let settingsStore: SettingsStore | null = null
+let settingsUnsubscribe: (() => void) | null = null
+let pendingAutosave: string | null = null
+let autosaveWriter: Promise<void> | null = null
 let snapshotSequence = 0
 let statusSequence = 0
-let brandAssetsPromise = null
-const pendingSnapshots = new Map()
-const pendingStatuses = new Map()
-const projectRoots = new Map()
+let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
+const pendingSnapshots = new Map<string, PendingSnapshot>()
+const pendingStatuses = new Map<string, PendingStatus>()
+const projectRoots = new Map<string, Promise<string | null>>()
 
-function settingsEnvelope(settings) {
+function settingsEnvelope(settings: MarkoverSettings): MarkoverSettingsEnvelope {
   return {
     ...settings,
     resolvedAppearance: nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   }
 }
 
-function loadBrandAssets() {
+function loadBrandAssets(): Promise<MarkoverBrandAssets> {
   brandAssetsPromise ||= Promise.all([
     fs.readFile(path.join(__dirname, '../design/brand/markover-mark.svg'), 'utf8'),
     fs.readFile(path.join(__dirname, '../design/brand/markover-logotype.svg'), 'utf8'),
@@ -82,7 +125,10 @@ function loadBrandAssets() {
   return brandAssetsPromise
 }
 
-function applyMainSettings(settings, broadcast = true) {
+function applyMainSettings(
+  settings: MarkoverSettings,
+  broadcast = true
+): MarkoverSettingsEnvelope {
   nativeTheme.themeSource = settings.appearance
   const envelope = settingsEnvelope(settings)
   mainWindow?.setBackgroundColor(
@@ -92,38 +138,49 @@ function applyMainSettings(settings, broadcast = true) {
   return envelope
 }
 
-function sendRendererEvent(channel, value) {
+function sendRendererEvent(
+  channel: 'document:open-request' | 'settings:open',
+  value?: unknown
+): void {
   if (!mainWindow || mainWindow.isDestroyed()) createWindow()
-  const send = () => mainWindow?.webContents.send(channel, value)
-  if (mainWindow.webContents.isLoadingMainFrame()) {
-    mainWindow.webContents.once('did-finish-load', send)
+  if (!mainWindow) throw new Error('Markover window could not be created.')
+  const window = mainWindow
+  const send = () => {
+    window.webContents.send(channel, value)
+  }
+  if (window.webContents.isLoadingMainFrame()) {
+    window.webContents.once('did-finish-load', send)
   } else {
     send()
   }
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
+  if (window.isMinimized()) window.restore()
+  window.show()
+  window.focus()
 }
 
-function installApplicationMenu() {
+function installApplicationMenu(): void {
   const template = applicationMenuTemplate({
     appName: 'Markover',
     reviewMode,
-    onOpen: () => sendRendererEvent('document:open-request'),
-    onSettings: () => sendRendererEvent('settings:open')
+    onOpen: () => {
+      sendRendererEvent('document:open-request')
+    },
+    onSettings: () => {
+      sendRendererEvent('settings:open')
+    }
   })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
-function checksum(source) {
-  return `sha256:${crypto.createHash('sha256').update(source, 'utf8').digest('hex')}`
+function checksum(source: string): string {
+  return `sha256:${createHash('sha256').update(source, 'utf8').digest('hex')}`
 }
 
-function bufferChecksum(buffer) {
-  return `sha256:${crypto.createHash('sha256').update(buffer).digest('hex')}`
+function bufferChecksum(buffer: Uint8Array): string {
+  return `sha256:${createHash('sha256').update(buffer).digest('hex')}`
 }
 
-function readClipboardImage() {
+function readClipboardImage(): MarkoverClipboardImage | null {
   const image = clipboard.readImage()
   if (image.isEmpty()) return null
 
@@ -133,10 +190,12 @@ function readClipboardImage() {
   }
 }
 
-async function loadReviewConfig() {
+async function loadReviewConfig(): Promise<ReviewConfig> {
   if (!reviewConfigPromise) {
     reviewConfigPromise = reviewConfigPath
-      ? fs.readFile(reviewConfigPath, 'utf8').then(JSON.parse)
+      ? fs.readFile(reviewConfigPath, 'utf8').then((source) => (
+          JSON.parse(source) as ReviewConfig
+        ))
       : Promise.resolve({
           inputPath: process.env.MARKOVER_REVIEW_INPUT_PATH,
           name: process.env.MARKOVER_REVIEW_NAME,
@@ -149,11 +208,11 @@ async function loadReviewConfig() {
   return reviewConfigPromise
 }
 
-async function atomicWrite(filePath, contents) {
+async function atomicWrite(filePath: string, contents: string): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true })
   const temporaryPath = path.join(
     path.dirname(filePath),
-    `.${path.basename(filePath)}-${process.pid}-${crypto.randomBytes(6).toString('hex')}.tmp`
+    `.${path.basename(filePath)}-${String(process.pid)}-${randomBytes(6).toString('hex')}.tmp`
   )
   try {
     await fs.writeFile(temporaryPath, contents, {
@@ -163,13 +222,13 @@ async function atomicWrite(filePath, contents) {
     })
     await fs.rename(temporaryPath, filePath)
   } finally {
-    await fs.unlink(temporaryPath).catch((error) => {
-      if (error.code !== 'ENOENT') throw error
+    await fs.unlink(temporaryPath).catch((error: unknown) => {
+      if (errorProperty(error, 'code') !== 'ENOENT') throw error
     })
   }
 }
 
-function startAutosaveWriter() {
+function startAutosaveWriter(): void {
   autosaveWriter = (async () => {
     const config = await loadReviewConfig()
     if (!config.autosavePath) {
@@ -188,19 +247,29 @@ function startAutosaveWriter() {
   })
 }
 
-function queueReviewAutosave(tree) {
+function queueReviewAutosave(tree: unknown): Promise<void> {
   if (!reviewMode) return Promise.resolve()
 
   pendingAutosave = JSON.stringify(tree, null, 2)
   if (!autosaveWriter) startAutosaveWriter()
-  return autosaveWriter
+  return autosaveWriter || Promise.resolve()
 }
 
-async function flushReviewAutosave() {
+async function flushReviewAutosave(): Promise<void> {
   while (autosaveWriter) await autosaveWriter
 }
 
-async function attachmentDirectory() {
+async function finishReview(tree: ReviewTree): Promise<void> {
+  if (!reviewMode || reviewFinished) return
+  reviewFinished = true
+  await queueReviewAutosave(tree)
+  await flushReviewAutosave()
+  process.stdout.write(`${JSON.stringify(tree)}\n`, () => {
+    app.exit(0)
+  })
+}
+
+async function attachmentDirectory(): Promise<string> {
   if (!attachmentDirectoryPromise) {
     attachmentDirectoryPromise = loadReviewConfig().then(async (config) => {
       const baseDirectory = path.resolve(
@@ -211,7 +280,7 @@ async function attachmentDirectory() {
 
       if (config.durable) {
         const entries = await fs.readdir(baseDirectory)
-        attachmentSequence = entries.reduce((maximum, entry) => {
+        attachmentSequence = entries.reduce((maximum: number, entry: string) => {
           const match = /^img-(\d+)\./.exec(entry)
           return match ? Math.max(maximum, Number(match[1])) : maximum
         }, 0)
@@ -224,8 +293,12 @@ async function attachmentDirectory() {
   return attachmentDirectoryPromise
 }
 
-async function saveAttachment(_event, attachment, reviewId = null) {
-  const extensions = new Map([
+async function saveAttachment(
+  _event: IpcMainInvokeEvent,
+  attachment: MarkoverClipboardImage,
+  reviewId: string | null = null
+): Promise<ReviewAttachment> {
+  const extensions = new Map<string, string>([
     ['image/jpeg', 'jpg'],
     ['image/png', 'png']
   ])
@@ -238,8 +311,8 @@ async function saveAttachment(_event, attachment, reviewId = null) {
   const image = nativeImage.createFromBuffer(buffer)
   if (image.isEmpty()) throw new Error('The pasted image could not be decoded.')
 
-  let id
-  let directory
+  let id: string
+  let directory: string
   if (reviewId && reviewStore) {
     const saved = await reviewStore.saveAttachmentFile(
       reviewId,
@@ -250,7 +323,7 @@ async function saveAttachment(_event, attachment, reviewId = null) {
     directory = path.dirname(saved.path)
   } else {
     attachmentSequence += 1
-    id = `img-${attachmentSequence}`
+    id = `img-${String(attachmentSequence)}`
     directory = await attachmentDirectory()
   }
   const filePath = path.join(directory, `${id}.${extension}`)
@@ -269,25 +342,27 @@ async function saveAttachment(_event, attachment, reviewId = null) {
   }
 }
 
-async function loadReviewDocument() {
+async function loadReviewDocument(): Promise<MarkoverDocument> {
   const config = await loadReviewConfig()
   const filePath = config.inputPath
   if (!filePath) throw new Error('Missing MARKOVER_REVIEW_INPUT_PATH')
 
   if (config.autosavePath) {
     try {
-      const tree = JSON.parse(await fs.readFile(config.autosavePath, 'utf8'))
+      const tree = JSON.parse(
+        await fs.readFile(config.autosavePath, 'utf8')
+      ) as ReviewTree
       return {
         name: tree.sourceDocument.name || config.name || path.basename(filePath),
         path: tree.sourceDocument.path || config.originalPath || null,
         source: tree.sourceDocument.content,
         checksum: tree.sourceDocument.checksum,
         tree,
-        durable: Boolean(config.durable),
+        durable: config.durable,
         autosavePath: config.autosavePath
       }
     } catch (error) {
-      if (error.code !== 'ENOENT') throw error
+      if (errorProperty(error, 'code') !== 'ENOENT') throw error
     }
   }
 
@@ -297,12 +372,12 @@ async function loadReviewDocument() {
     path: config.originalPath || null,
     source,
     checksum: checksum(source),
-    durable: Boolean(config.durable),
+    durable: config.durable,
     autosavePath: config.autosavePath || null
   }
 }
 
-async function openMarkdown() {
+async function openMarkdown(): Promise<MarkoverDocument | null> {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [
@@ -314,6 +389,7 @@ async function openMarkdown() {
   if (result.canceled || result.filePaths.length === 0) return null
 
   const filePath = result.filePaths[0]
+  if (!filePath) return null
   const source = await fs.readFile(filePath, 'utf8')
   return {
     name: path.basename(filePath),
@@ -323,7 +399,9 @@ async function openMarkdown() {
   }
 }
 
-function createWindow({ show = !backgroundServerMode } = {}) {
+function createWindow(
+  { show = !backgroundServerMode }: { show?: boolean } = {}
+): BrowserWindow {
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
@@ -346,7 +424,7 @@ function createWindow({ show = !backgroundServerMode } = {}) {
     }
   })
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'), {
+  void mainWindow.loadFile(path.join(__dirname, 'index.html'), {
     query: {
       palette: startupSettings.palette,
       appearance: startupSettings.resolvedAppearance,
@@ -365,28 +443,42 @@ function createWindow({ show = !backgroundServerMode } = {}) {
       if (reviewFinished) return
       event.preventDefault()
       reviewFinished = true
-      flushReviewAutosave().finally(() => app.exit(2))
+      void flushReviewAutosave().finally(() => {
+        app.exit(2)
+      })
     })
   }
   return mainWindow
 }
 
-function managedDocument(artifact, projectRoot = null) {
+function repositoryRoot(artifact: ReviewArtifact): string | null {
+  const git = artifact.review.git
+  if (!git || typeof git !== 'object' || Array.isArray(git)) return null
+  const root: unknown = Reflect.get(git, 'repositoryRoot')
+  return typeof root === 'string' && root ? root : null
+}
+
+function managedDocument(
+  artifact: ReviewArtifact,
+  projectRoot: string | null = null
+): MarkoverDocument {
   return {
     reviewId: artifact.review.id,
     name: artifact.sourceDocument.name,
     path: artifact.sourceDocument.path,
     source: artifact.sourceDocument.content,
     checksum: artifact.sourceDocument.checksum,
-    projectRoot: artifact.review.git?.repositoryRoot || projectRoot,
+    projectRoot: repositoryRoot(artifact) || projectRoot,
     tree: artifact,
     durable: true
   }
 }
 
-async function managedDocuments(artifacts) {
+async function managedDocuments(
+  artifacts: ReviewArtifact[]
+): Promise<MarkoverDocument[]> {
   return Promise.all(artifacts.map(async (artifact) => {
-    const existingRoot = artifact.review.git?.repositoryRoot
+    const existingRoot = repositoryRoot(artifact)
     const sourcePath = artifact.sourceDocument.path
     if (existingRoot || !sourcePath) return managedDocument(artifact)
 
@@ -401,35 +493,38 @@ async function managedDocuments(artifacts) {
   }))
 }
 
-function sendManagedReview(artifact) {
+function sendManagedReview(artifact: ReviewArtifact): void {
   activeManagedReview = artifact
   activeManagedReviewId = artifact.review.id
   if (!mainWindow) createWindow({ show: false })
+  if (!mainWindow) throw new Error('Markover window could not be created.')
+  const window = mainWindow
   const send = () => {
-    mainWindow?.webContents.send('review:opened', managedDocument(artifact))
+    window.webContents.send('review:opened', managedDocument(artifact))
   }
-  if (mainWindow.webContents.isLoadingMainFrame()) {
-    mainWindow.webContents.once('did-finish-load', send)
+  if (window.webContents.isLoadingMainFrame()) {
+    window.webContents.once('did-finish-load', send)
   } else {
     send()
   }
 }
 
-function sendManagedStatus(artifact) {
+function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
   if (activeManagedReviewId === artifact.review.id) {
     activeManagedReview = artifact
   }
   if (!mainWindow || mainWindow.isDestroyed()) return Promise.resolve()
 
   statusSequence += 1
-  const requestId = `status-${statusSequence}`
-  return new Promise((resolve, reject) => {
+  const requestId = `status-${String(statusSequence)}`
+  const window = mainWindow
+  return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
       pendingStatuses.delete(requestId)
       reject(new Error(`Timed out updating review ${artifact.review.id}.`))
     }, 5000)
     pendingStatuses.set(requestId, { reject, resolve, timeout })
-    mainWindow.webContents.send('review:status', {
+    window.webContents.send('review:status', {
       requestId,
       reviewId: artifact.review.id,
       status: artifact.review.status
@@ -437,7 +532,7 @@ function sendManagedStatus(artifact) {
   })
 }
 
-function requestRendererSnapshot(reviewId) {
+function requestRendererSnapshot(reviewId: string): Promise<ReviewTree | null> {
   if (
     !mainWindow ||
     mainWindow.isDestroyed()
@@ -446,34 +541,43 @@ function requestRendererSnapshot(reviewId) {
   }
 
   snapshotSequence += 1
-  const requestId = `snapshot-${snapshotSequence}`
-  return new Promise((resolve, reject) => {
+  const requestId = `snapshot-${String(snapshotSequence)}`
+  const window = mainWindow
+  return new Promise<ReviewTree | null>((resolve, reject) => {
     const timeout = setTimeout(() => {
       pendingSnapshots.delete(requestId)
       reject(new Error(`Timed out capturing review ${reviewId}.`))
     }, 5000)
     pendingSnapshots.set(requestId, { reject, resolve, reviewId, timeout })
-    mainWindow.webContents.send('review:snapshot-request', {
+    window.webContents.send('review:snapshot-request', {
       requestId,
       reviewId
     })
   })
 }
 
-async function flushManagedReview(reviewId) {
+function requireReviewStore(): ReviewStore {
+  if (!reviewStore) throw new Error('Managed review storage is unavailable.')
+  return reviewStore
+}
+
+async function flushManagedReview(
+  reviewId: string
+): Promise<() => Promise<void>> {
+  const store = requireReviewStore()
   try {
     const tree = await requestRendererSnapshot(reviewId)
-    if (tree) await reviewStore.updateTree(reviewId, tree)
+    if (tree) await store.updateTree(reviewId, tree)
   } catch (error) {
     try {
-      await sendManagedStatus(await reviewStore.load(reviewId))
+      await sendManagedStatus(await store.load(reviewId))
     } catch {
       // Preserve the original snapshot failure when status recovery also fails.
     }
     throw error
   }
   return async () => {
-    await sendManagedStatus(await reviewStore.load(reviewId))
+    await sendManagedStatus(await store.load(reviewId))
   }
 }
 
@@ -484,14 +588,19 @@ if (!hasSingleInstanceLock) {
     app.on('second-instance', (_event, commandLine) => {
       if (commandLine.includes('--markover-server')) return
       if (!mainWindow) createWindow()
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.show()
-      mainWindow.focus()
+      const window = mainWindow
+      if (!window) throw new Error('Markover window could not be created.')
+      if (window.isMinimized()) window.restore()
+      window.show()
+      window.focus()
     })
   }
 
   app.whenReady().then(async () => {
     if (process.platform === 'darwin' && !app.isPackaged) {
+      if (!app.dock) {
+        throw new Error('The macOS application dock is unavailable.')
+      }
       app.dock.setIcon(appIconPath)
     }
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
@@ -500,24 +609,31 @@ if (!hasSingleInstanceLock) {
       reviewsDirectory()
     )
 
-    settingsStore = new SettingsStore(
+    const store = new SettingsStore(
       path.join(app.getPath('userData'), 'settings.json')
     )
-    const initialSettings = await settingsStore.load()
+    settingsStore = store
+    const initialSettings = await store.load()
     nativeTheme.themeSource = initialSettings.appearance
-    settingsUnsubscribe = await settingsStore.subscribe((settings) => {
+    settingsUnsubscribe = await store.subscribe((settings) => {
       applyMainSettings(settings)
     })
     installApplicationMenu()
 
     ipcMain.handle('document:open', openMarkdown)
     ipcMain.handle('brand:assets', loadBrandAssets)
-    ipcMain.handle('document:checksum', (_event, source) => checksum(source))
+    ipcMain.handle('document:checksum', (
+      _event: IpcMainInvokeEvent,
+      source: string
+    ) => checksum(source))
     ipcMain.handle('attachment:save', saveAttachment)
     ipcMain.handle('clipboard:read-image', readClipboardImage)
-    ipcMain.handle('settings:get', () => settingsEnvelope(settingsStore.settings))
-    ipcMain.handle('settings:update', async (_event, patch) => {
-      const settings = await settingsStore.update(patch)
+    ipcMain.handle('settings:get', () => settingsEnvelope(store.settings))
+    ipcMain.handle('settings:update', async (
+      _event: IpcMainInvokeEvent,
+      patch: unknown
+    ) => {
+      const settings = await store.update(patch)
       return applyMainSettings(settings)
     })
     ipcMain.handle('review:initial-document', () => (
@@ -528,17 +644,23 @@ if (!hasSingleInstanceLock) {
     ipcMain.handle('review:list', async () => (
       reviewMode
         ? []
-        : managedDocuments(await reviewStore.list())
+        : managedDocuments(await requireReviewStore().list())
     ))
-    ipcMain.on('review:snapshot-response', (_event, response) => {
+    ipcMain.on('review:snapshot-response', (
+      _event: IpcMainEvent,
+      response: ReviewSnapshotResponse
+    ) => {
       const pending = pendingSnapshots.get(response.requestId)
       if (!pending || pending.reviewId !== response.reviewId) return
       clearTimeout(pending.timeout)
       pendingSnapshots.delete(response.requestId)
       if (response.error) pending.reject(new Error(response.error))
-      else pending.resolve(response.tree)
+      else pending.resolve(response.tree ?? null)
     })
-    ipcMain.on('review:status-response', (_event, response) => {
+    ipcMain.on('review:status-response', (
+      _event: IpcMainEvent,
+      response: ReviewStatusResponse
+    ) => {
       const pending = pendingStatuses.get(response.requestId)
       if (!pending) return
       clearTimeout(pending.timeout)
@@ -546,36 +668,45 @@ if (!hasSingleInstanceLock) {
       if (response.error) pending.reject(new Error(response.error))
       else pending.resolve()
     })
-    ipcMain.on('clipboard:write', (_event, text) => clipboard.writeText(text))
-    ipcMain.on('review:activate', (_event, reviewId) => {
+    ipcMain.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
+      clipboard.writeText(text)
+    })
+    ipcMain.on('review:activate', (
+      _event: IpcMainEvent,
+      reviewId: string
+    ) => {
       if (reviewMode) return
+      const managedStore = requireReviewStore()
       activeManagedReviewId = reviewId
-      reviewStore.load(reviewId).then((artifact) => {
+      managedStore.load(reviewId).then((artifact) => {
         if (activeManagedReviewId === reviewId) {
           activeManagedReview = artifact
         }
-      }).catch((error) => {
-        process.stderr.write(`markover activate: ${error.message}\n`)
+      }).catch((error: unknown) => {
+        process.stderr.write(`markover activate: ${errorMessage(error)}\n`)
       })
     })
-    ipcMain.on('review:autosave', (_event, reviewId, tree) => {
+    ipcMain.on('review:autosave', (
+      _event: IpcMainEvent,
+      reviewId: string,
+      tree: ReviewTree
+    ) => {
       const autosave = reviewMode
         ? queueReviewAutosave(tree)
-        : reviewStore.updateTree(reviewId, tree).then((artifact) => {
+        : requireReviewStore().updateTree(reviewId, tree).then((artifact) => {
             if (activeManagedReviewId === reviewId) {
               activeManagedReview = artifact
             }
           })
-      autosave.catch((error) => {
-        process.stderr.write(`markover autosave: ${error.message}\n`)
+      autosave.catch((error: unknown) => {
+        process.stderr.write(`markover autosave: ${errorMessage(error)}\n`)
       })
     })
-    ipcMain.on('review:done', async (_event, tree) => {
-      if (!reviewMode || reviewFinished) return
-      reviewFinished = true
-      await queueReviewAutosave(tree)
-      await flushReviewAutosave()
-      process.stdout.write(`${JSON.stringify(tree)}\n`, () => app.exit(0))
+    ipcMain.on('review:done', (
+      _event: IpcMainEvent,
+      tree: ReviewTree
+    ) => {
+      void finishReview(tree)
     })
     ipcMain.on('review:cancel', () => {
       if (!reviewMode || reviewFinished) return
@@ -586,20 +717,21 @@ if (!hasSingleInstanceLock) {
     createWindow()
 
     nativeTheme.on('updated', () => {
-      const envelope = settingsEnvelope(settingsStore.settings)
+      const envelope = settingsEnvelope(store.settings)
       mainWindow?.setBackgroundColor(
-        windowBackground(settingsStore.settings, envelope.resolvedAppearance)
+        windowBackground(store.settings, envelope.resolvedAppearance)
       )
       mainWindow?.webContents.send('settings:changed', envelope)
     })
 
     if (!reviewMode) {
+      const managedStore = requireReviewStore()
       localService = await startLocalService({
-        store: reviewStore,
+        store: managedStore,
         beforeAction: flushManagedReview,
         importReviews: (sourceDirectory) => importLegacyReviews(
           sourceDirectory,
-          reviewStore.directory
+          managedStore.directory
         ),
         async onChange(artifact, action) {
           if (action === 'created') sendManagedReview(artifact)
@@ -619,14 +751,19 @@ if (!hasSingleInstanceLock) {
       mainWindow?.show()
       mainWindow?.focus()
     })
-  }).catch((error) => {
-    process.stderr.write(`markover: ${error.stack || error.message}\n`)
+  }).catch((error: unknown) => {
+    const stack = errorProperty(error, 'stack')
+    process.stderr.write(
+      `markover: ${typeof stack === 'string' ? stack : errorMessage(error)}\n`
+    )
     app.quit()
   })
 
   app.on('before-quit', () => {
     settingsUnsubscribe?.()
-    if (localService) localService.close().catch(() => {})
+    if (localService) localService.close().catch(() => {
+      // Shutdown is already in progress.
+    })
   })
 
   app.on('window-all-closed', () => {
