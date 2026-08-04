@@ -7,6 +7,10 @@ on:
     paths:
       - 'docs/**'
       - '.github/workflows/pages.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/copy-build-assets.ts'
+      - 'tsconfig.json'
   workflow_dispatch:
 
 permissions:

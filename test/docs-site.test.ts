@@ -110,11 +110,21 @@ test('the Pages gallery opens lazily and navigates with controls or arrows', () 
   assert.equal(position.textContent, '4 / 4')
 })
 
-test('Pages deploys built docs from main only when documentation changes', () => {
+test('Pages deploys built docs when a documentation build input changes', () => {
   assert.match(
     pagesWorkflow,
-    /push:\s+branches:\s+- main\s+paths:\s+- 'docs\/\*\*'\s+- '\.github\/workflows\/pages\.yml'/
+    /push:\s+branches:\s+- main\s+paths:/
   )
+  for (const buildInput of [
+    'docs/**',
+    '.github/workflows/pages.yml',
+    'package.json',
+    'package-lock.json',
+    'scripts/copy-build-assets.ts',
+    'tsconfig.json'
+  ]) {
+    assert.equal(pagesWorkflow.includes(`- '${buildInput}'`), true)
+  }
   assert.match(pagesWorkflow, /workflow_dispatch:/)
   assert.match(pagesWorkflow, /contents: read\s+pages: write\s+id-token: write/)
   assert.match(pagesWorkflow, /run: npm ci/)
