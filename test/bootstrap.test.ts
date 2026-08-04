@@ -132,6 +132,7 @@ function validationRunner(overrides: {
   architecture?: string
   bundleId?: string
   embeddedArchitecture?: string
+  embeddedSignature?: string
   signature?: string
   version?: string
   minimumVersion?: string
@@ -184,10 +185,14 @@ function validationRunner(overrides: {
         : { status: 0, stdout: '', stderr: '' }
     }
     if (command === '/usr/bin/codesign') {
+      const signedPath = args.at(-1) ?? ''
       return {
         status: 0,
         stdout: '',
-        stderr: overrides.signature ??
+        stderr: signedPath.endsWith('Electron Framework')
+          ? overrides.embeddedSignature ?? overrides.signature ??
+            'CodeDirectory v=20500 flags=0x10002(adhoc,runtime)\nSignature=adhoc\nTeamIdentifier=not set'
+          : overrides.signature ??
           'CodeDirectory v=20500 flags=0x10002(adhoc,runtime)\nSignature=adhoc\nTeamIdentifier=not set'
       }
     }
@@ -237,6 +242,18 @@ test('bootstrap validation enforces metadata, architecture, seal, and trust mode
       )
     },
     /Electron Framework has unexpected architectures/
+  )
+  assert.throws(
+    () => {
+      validateMacosApp(
+        appPath,
+        expected,
+        validationRunner({
+          embeddedSignature: 'CodeDirectory v=20500 flags=0x2(adhoc)\nSignature=adhoc\nTeamIdentifier=not set'
+        })
+      )
+    },
+    /downloaded Electron Framework does not enable hardened runtime/
   )
   assert.throws(
     () => {

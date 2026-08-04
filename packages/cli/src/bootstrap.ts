@@ -98,27 +98,45 @@ function verifyMachOArchitecture(
   }
 }
 
-function verifyEmbeddedArchitectures(
+function embeddedMachOFiles(
   runner: BootstrapCommandRunner,
   appPath: string,
-  expectedArchitecture: string,
   mainExecutable: string
-): void {
+): string[] {
   const files = requireCommand(
     runner,
     '/usr/bin/find',
     [appPath, '-type', 'f', '-print0']
   ).stdout.split('\0').filter(Boolean)
-  for (const filePath of files) {
-    if (filePath === mainExecutable) continue
+  return files.filter((filePath) => {
+    if (filePath === mainExecutable) return false
     const mimeType = requireCommand(
       runner,
       '/usr/bin/file',
       ['--brief', '--mime-type', filePath]
     ).stdout.trim()
-    if (mimeType === 'application/x-mach-binary') {
-      verifyMachOArchitecture(runner, filePath, expectedArchitecture)
-    }
+    return mimeType === 'application/x-mach-binary'
+  })
+}
+
+function verifyTrustMetadata(
+  runner: BootstrapCommandRunner,
+  signedPath: string,
+  label: string
+): void {
+  const signature = commandOutput(requireCommand(
+    runner,
+    '/usr/bin/codesign',
+    ['--display', '--verbose=4', signedPath]
+  ))
+  if (!/^Signature=adhoc$/m.test(signature)) {
+    throw new Error(`${label} is not ad-hoc signed as expected.`)
+  }
+  if (!/^TeamIdentifier=not set$/m.test(signature)) {
+    throw new Error(`${label} has an unexpected Team ID.`)
+  }
+  if (!/^CodeDirectory .*\bflags=.*\bruntime\b/m.test(signature)) {
+    throw new Error(`${label} does not enable hardened runtime.`)
   }
 }
 
@@ -150,30 +168,30 @@ export function validateMacosApp(
   }
   const executable = path.join(appPath, 'Contents', 'MacOS', 'Markover')
   verifyMachOArchitecture(runner, executable, expectedArchitecture)
-  verifyEmbeddedArchitectures(
+  const embeddedExecutables = embeddedMachOFiles(
     runner,
     appPath,
-    expectedArchitecture,
     executable
   )
+  for (const embeddedExecutable of embeddedExecutables) {
+    verifyMachOArchitecture(
+      runner,
+      embeddedExecutable,
+      expectedArchitecture
+    )
+  }
   requireCommand(
     runner,
     '/usr/bin/codesign',
     ['--verify', '--deep', '--strict', '--verbose=2', appPath]
   )
-  const signature = commandOutput(requireCommand(
-    runner,
-    '/usr/bin/codesign',
-    ['--display', '--verbose=4', appPath]
-  ))
-  if (!/^Signature=adhoc$/m.test(signature)) {
-    throw new Error('The downloaded app is not ad-hoc signed as expected.')
-  }
-  if (!/^TeamIdentifier=not set$/m.test(signature)) {
-    throw new Error('The downloaded app has an unexpected Team ID.')
-  }
-  if (!/^CodeDirectory .*\bflags=.*\bruntime\b/m.test(signature)) {
-    throw new Error('The downloaded app does not enable hardened runtime.')
+  verifyTrustMetadata(runner, appPath, 'The downloaded app')
+  for (const embeddedExecutable of embeddedExecutables) {
+    verifyTrustMetadata(
+      runner,
+      embeddedExecutable,
+      `The downloaded ${path.basename(embeddedExecutable)}`
+    )
   }
 }
 
