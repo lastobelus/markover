@@ -1,4 +1,4 @@
 interface:
   display_name: "ELI5 HTML Doc"
   short_description: "Create truth-scoped technical explainers"
-  default_prompt: "Use $eli5-html-doc to explain this technical work as a concise, self-contained HTML document with visible truth context for claims that may age."
+  default_prompt: "Use $eli5-html-doc to explain this technical work as a concise, self-contained HTML document with a compact, collapsed truth-context card for claims that may age."

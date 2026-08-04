@@ -59,7 +59,10 @@ rejected diagram-as-app interaction model.
 
 Status: accepted.
 
-- Put truth context near the title when an explainer describes a moving target.
+- Keep truth context as the first card after the title and lede when an explainer describes
+  a moving target.
+- Start the card collapsed so its one-row summary names the context and current state while
+  the Tiny Story remains immediately visible.
 - Identify the specific PR, issue, plan, release, branch, or revision whose state is being
   explained, and link to the authoritative source when one exists.
 - Show the roadmap, launch gate, milestone, or stack position that gives the work meaning.
@@ -70,5 +73,6 @@ Status: accepted.
 - Allow intentional remote navigation links to authoritative sources while continuing to
   forbid remote assets and runtime dependencies.
 
-Avoid timeless language for proposed or transient architecture, hiding validity context
-in the footer, or speculating about an unknown future design.
+Avoid timeless language for proposed or transient architecture, expanding truth context
+by default, moving it below the Tiny Story, hiding it entirely in the footer, or
+speculating about an unknown future design.

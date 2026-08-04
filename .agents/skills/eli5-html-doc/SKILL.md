@@ -70,8 +70,8 @@ Keep the document as small as the user's decision needs. Start with a top-level 
 not a comprehensive alternate plan. Include only useful blocks, which may include:
 
 - a clear title and one-paragraph plain-English lede
-- visible truth context near the title when the explanation describes proposed, evolving,
-  historical, branch-specific, or otherwise time-sensitive work
+- a collapsed truth-context card immediately after the lede when the explanation describes
+  proposed, evolving, historical, branch-specific, or otherwise time-sensitive work
 - `The Tiny Story`: what changed, why it matters, and what does not change
 - a diagram for an important flow, relationship, state change, or mental model that prose
   cannot explain as clearly
@@ -94,8 +94,17 @@ structure materially reduces confusion or collects required decisions.
 ## Truth Context
 
 Treat truth context as part of the explanation, not as prompt provenance. When claims can
-age, put a compact, visible `Where This Is True`, `Truth Context`, or equivalent block
-near the title and before the Tiny Story. Do not hide it in a footer or disclosure.
+age, make a native `details` element the first card after the title and lede, immediately
+before the Tiny Story. Start it collapsed by omitting `open`. Keep its summary to one
+compact row: a short label such as `Where This Is True` on the left and a precise state
+such as `Proposed · PR 38` on the right. The visible summary keeps applicability upfront
+while leaving the Tiny Story immediately available. Do not hide the entire context in a
+footer or generic prompt disclosure.
+
+Put the supporting context inside the disclosure and keep the summary useful even when
+the reader never expands it. Preserve native `summary` keyboard and screen-reader
+behavior; styling away the default marker is acceptable only when the whole summary row
+still looks and behaves like an interactive disclosure.
 
 Include the smallest set that lets a future reader judge the document correctly:
 
@@ -290,15 +299,18 @@ For a substantial ELI5 artifact:
 2. For time-sensitive claims, confirm the visible truth context identifies the subject,
    status, scope, roadmap position when relevant, known change horizon, and current source
    of truth.
-3. Use the project's existing Node.js and `jsdom` stack for scripted DOM and interaction
+3. Confirm the truth-context card is the first card, starts collapsed, exposes its label
+   and status in the summary, opens and closes from the keyboard, and leaves the Tiny
+   Story immediately after it.
+4. Use the project's existing Node.js and `jsdom` stack for scripted DOM and interaction
    checks when needed. Add a focused `node:test` test only when the artifact is durable
    product behavior that should remain covered.
-4. Use the T3 in-app preview when available for desktop and narrow visual checks. Prefer
+5. Use the T3 in-app preview when available for desktop and narrow visual checks. Prefer
    direct filesystem preview. Do not install or launch a different browser stack merely
    for routine verification.
-5. If no visual preview path is available, run the strongest static/DOM checks available
+6. If no visual preview path is available, run the strongest static/DOM checks available
    and say once that rendered browser verification was not performed.
-6. Run `npm run check` and `npm test` before committing a completed skill or repository
+7. Run `npm run check` and `npm test` before committing a completed skill or repository
    artifact change.
 
 Check that:
