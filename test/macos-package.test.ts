@@ -10,8 +10,10 @@ import {
 } from '../scripts/package-macos'
 import {
   entitlementsForSignedFile,
+  helperBundleId,
   minimumMacosVersion,
-  parseMacosTrustMode
+  parseMacosTrustMode,
+  signedAppComponents
 } from '../scripts/macos-release-contract'
 
 const root = path.resolve(__dirname, '../..')
@@ -47,6 +49,10 @@ test('macOS packaging produces a branded application bundle', () => {
   assert.match(packaging, /'Markover'/)
   assert.match(packaging, /--app-bundle-id=com\.lastobelus\.markover/)
   assert.match(packaging, /--helper-bundle-id=com\.lastobelus\.markover\.helper/)
+  assert.deepEqual(
+    signedAppComponents.slice(1).map((component) => component.bundleId),
+    Array(4).fill(helperBundleId)
+  )
   assert.match(packaging, /--icon=design\/brand\/markover-app-icon\.icns/)
   assert.equal(packaging.includes('eslint\\\\.config'), true)
   assert.equal(packaging.includes('tsconfig\\\\.json'), true)

@@ -31,6 +31,8 @@ export const signedAppComponents: readonly SignedAppComponent[] = [
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper (GPU).app',
+    // @electron/packager deliberately reuses an explicitly configured
+    // --helper-bundle-id for the GPU, Plugin, and Renderer helpers.
     bundleId: helperBundleId,
     entitlementFile: 'helper-gpu.plist',
     entitlements: allowJit
