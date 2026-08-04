@@ -2390,6 +2390,16 @@ body.is-control-pressed .attachment-remove:hover {
   padding: 4px 20px;
 }
 
+.settings-section-title {
+  margin: 18px 0 0;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .settings-field {
   display: grid;
   min-height: 62px;

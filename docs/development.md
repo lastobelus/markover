@@ -43,11 +43,10 @@ npm test
 Editors should use the committed `.editorconfig` settings. `npm run lint` uses
 the same committed ESLint configuration as `npm run check` and CI.
 
-`npm run build` uses the native TypeScript compiler to emit runnable JavaScript
-and source maps under the ignored `build/` directory. During the incremental
-migration, maintained `.ts` files receive strict type checking while `allowJs`
-keeps only the not-yet-converted `.js` files in the build. The final migration
-PR removes that temporary JavaScript boundary.
+`npm run build` uses the native TypeScript compiler to strictly check maintained
+source and emit runnable JavaScript plus source maps under the ignored `build/`
+directory. Browser entry points remain plain scripts at runtime, but their
+maintained source is TypeScript and no JavaScript migration boundary remains.
 
 The tests cover the Markdown tree, navigation, review sessions and persistence,
 the local service and CLI protocol, settings, source-edit proposals, release

@@ -167,7 +167,7 @@ test('only a bound own marker opens a preview and leave or scroll closes it', ()
 
   bindSneakPeek(own, node, {
     show: (shownNode, marker) => {
-      calls.push(`show:${String(shownNode.id)}:${marker.id}`)
+      calls.push(`show:${shownNode.id}:${marker.id}`)
     },
     hide
   })

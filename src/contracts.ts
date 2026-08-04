@@ -1,3 +1,12 @@
+import type {
+  FileTree,
+  FileTreeDirectoryHandle,
+  FileTreeIcons,
+  FileTreeItemHandle,
+  FileTreeSortEntry,
+  RemappedIcon
+} from '@pierre/trees' with { 'resolution-mode': 'import' }
+
 export interface DiffStats {
   additions: number
   deletions: number
@@ -14,6 +23,14 @@ export interface DiffRenderer {
 }
 
 declare global {
+  type MarkoverDiffStats = DiffStats
+  type MarkoverFileTreeConstructor = typeof FileTree
+  type MarkoverFileTreeDirectoryHandle = FileTreeDirectoryHandle
+  type MarkoverFileTreeIcons = FileTreeIcons
+  type MarkoverFileTreeItemHandle = FileTreeItemHandle
+  type MarkoverFileTreeSortEntry = FileTreeSortEntry
+  type MarkoverRemappedIcon = RemappedIcon
+
   type Palette = 'ember' | 'ocean' | 'olive'
   type Appearance = 'system' | 'light' | 'dark'
   type ResolvedAppearance = 'light' | 'dark'
@@ -31,6 +48,7 @@ declare global {
     openDocumentsSidebar: boolean
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
+    logRejectedApiRequests: boolean
   }
 
   interface SettingsView {
@@ -278,7 +296,11 @@ declare global {
     lineEnd: number
   }
 
-  type RenderedAnnotationNode = AnnotationModelNode & { id: string }
+  interface RenderedAnnotationNode extends AnnotationBlockNode {
+    id: string
+    lineStart: number
+    lineEnd: number
+  }
 
   interface AnnotationContext {
     descriptor?: string
@@ -295,24 +317,30 @@ declare global {
     sourceTitle: string
   }
 
-  interface AnnotationCreateOptions {
-    node: RenderedAnnotationNode
+  interface AnnotationCreateOptions<
+    TNode extends RenderedAnnotationNode = RenderedAnnotationNode
+  > {
+    node: TNode
     context?: AnnotationContext | undefined
     mode?: 'list' | 'peek' | undefined
     attachmentUrl?: ((attachment: ReviewAttachment) => string | null) | undefined
     onAttachment?: ((attachment: ReviewAttachment) => void) | null | undefined
     onInlineImage?: ((source: string, label: string) => void) | undefined
-    onSelect?: ((node: RenderedAnnotationNode) => void) | undefined
-    onEdit?: ((node: RenderedAnnotationNode) => void) | null | undefined
+    onSelect?: ((node: TNode) => void) | undefined
+    onEdit?: ((node: TNode) => void) | null | undefined
     renderTitle?: ((title: string) => string) | undefined
     renderMarkdown: (value: string) => string
   }
 
-  interface AnnotationListOptions extends
-    Omit<AnnotationCreateOptions, 'node' | 'context' | 'mode'> {
-    nodes: RenderedAnnotationNode[]
+  interface AnnotationListOptions<
+    TNode extends RenderedAnnotationNode = RenderedAnnotationNode
+  > extends Omit<
+    AnnotationCreateOptions<TNode>,
+    'node' | 'context' | 'mode'
+  > {
+    nodes: TNode[]
     selectedId: string | null
-    context: (node: RenderedAnnotationNode) => AnnotationContext
+    context: (node: TNode) => AnnotationContext
   }
 
   interface AnnotationTreeNode {
@@ -323,9 +351,9 @@ declare global {
     collapsed?: boolean
   }
 
-  interface AnnotationProjection {
-    node: AnnotationTreeNode
-    children: AnnotationProjection[]
+  interface AnnotationProjection<T extends AnnotationTreeNode = AnnotationTreeNode> {
+    node: T
+    children: AnnotationProjection<T>[]
     contextual: boolean
   }
 
@@ -422,7 +450,7 @@ declare global {
       ) => ReviewTree | null | Promise<ReviewTree | null>
     ) => void
     activateReview: (reviewId: string) => void
-    autosaveReview: (reviewId: string, tree: ReviewTree) => void
+    autosaveReview: (reviewId: string | null, tree: ReviewTree) => void
     finishReview: (tree: ReviewTree) => void
     cancelReview: () => void
     getSettings: () => Promise<MarkoverSettingsEnvelope>
@@ -521,20 +549,20 @@ declare global {
       viewport: { width: number; height: number },
       margin?: number
     ) => { x: number; y: number }
-    create: (
+    create: <TNode extends RenderedAnnotationNode>(
       document: Document,
-      options: AnnotationCreateOptions
+      options: AnnotationCreateOptions<TNode>
     ) => HTMLElement
-    createList: (
+    createList: <TNode extends RenderedAnnotationNode>(
       document: Document,
-      options: AnnotationListOptions
+      options: AnnotationListOptions<TNode>
     ) => HTMLElement
     updateTruncation: (root: ParentNode) => void
-    bindSneakPeek: (
+    bindSneakPeek: <TNode extends AnnotationBlockNode>(
       marker: HTMLElement,
-      node: AnnotationBlockNode,
+      node: TNode,
       handlers: {
-        show: (node: AnnotationBlockNode, marker: HTMLElement) => void
+        show: (node: TNode, marker: HTMLElement) => void
         hide: EventListener
       }
     ) => () => void
@@ -551,8 +579,10 @@ declare global {
 
   interface MarkoverAnnotationsApi {
     hasAnnotation: (node?: AnnotationTreeNode | null) => boolean
-    annotatedNodes: (root: AnnotationTreeNode) => AnnotationTreeNode[]
-    annotatedProjection: (root: AnnotationTreeNode) => AnnotationProjection[]
+    annotatedNodes: <T extends AnnotationTreeNode>(root: T) => T[]
+    annotatedProjection: <T extends AnnotationTreeNode>(
+      root: T
+    ) => AnnotationProjection<T>[]
     annotationPosition: (
       root: AnnotationTreeNode,
       id: string | null

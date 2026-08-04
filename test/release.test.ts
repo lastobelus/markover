@@ -20,8 +20,6 @@ interface PackageManifest {
 
 interface TypeScriptConfig {
   compilerOptions: {
-    allowJs: boolean
-    checkJs: boolean
     exactOptionalPropertyTypes: boolean
     noUncheckedIndexedAccess: boolean
     outDir: string
@@ -107,11 +105,11 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Implemented locally · Slice 1 review · 3 Aug 2026/
+    /Draft PR #45 · Slice 1 accepted · 3 Aug 2026/
   )
   assert.match(
     pages[1] ?? '',
-    /Implemented locally · Awaiting review · 3 Aug 2026/
+    /Draft PR #45 · Accepted slice · 3 Aug 2026/
   )
 })
 
@@ -171,8 +169,8 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   assert.equal(tsconfig.compilerOptions.strict, true)
   assert.equal(tsconfig.compilerOptions.noUncheckedIndexedAccess, true)
   assert.equal(tsconfig.compilerOptions.exactOptionalPropertyTypes, true)
-  assert.equal(tsconfig.compilerOptions.allowJs, true)
-  assert.equal(tsconfig.compilerOptions.checkJs, false)
+  assert.equal('allowJs' in tsconfig.compilerOptions, false)
+  assert.equal('checkJs' in tsconfig.compilerOptions, false)
   assert.equal(tsconfig.compilerOptions.outDir, 'build')
   assert.match(gitignore, /^build\/$/m)
   assert.doesNotMatch(JSON.stringify(packageJson), /(?:ts-node|tsx)/)
@@ -198,6 +196,16 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
   }
+  assert.equal(fs.existsSync(path.join(root, 'docs/site.ts')), true)
+  assert.equal(fs.existsSync(path.join(root, 'docs/site.js')), false)
+  assert.equal(
+    fs.existsSync(path.join(root, 'test/community-surface.test.ts')),
+    true
+  )
+  assert.equal(
+    fs.existsSync(path.join(root, 'test/docs-site.test.ts')),
+    true
+  )
   for (const name of ['main', 'preload']) {
     assert.equal(fs.existsSync(path.join(root, `src/${name}.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `src/${name}.js`)), false)

@@ -77,7 +77,7 @@ test('an empty source draft remains active instead of being lost on navigation',
 
 test('renderer commits source edits before navigation and tree handoff', () => {
   const renderer = fs.readFileSync(
-    path.resolve(__dirname, '../../src/renderer.js'),
+    path.resolve(__dirname, '../../src/renderer.ts'),
     'utf8'
   )
 
@@ -103,10 +103,18 @@ test('renderer commits source edits before navigation and tree handoff', () => {
   )
   assert.match(
     renderer,
-    /copyTreeButton\.addEventListener[\s\S]*finishActiveSourceEdit\(\)[\s\S]*serializeTree\(state\.tree\)/
+    /copyTreeButton\.addEventListener[\s\S]*finishActiveSourceEdit\(\)[\s\S]*serializeTree\(currentTree\(\)\)/
   )
   assert.match(
     renderer,
-    /doneReviewButton\.addEventListener[\s\S]*finishActiveSourceEdit\(\)[\s\S]*finishReview\(state\.tree\)/
+    /doneReviewButton\.addEventListener[\s\S]*finishActiveSourceEdit\(\)[\s\S]*finishReview\(currentTree\(\)\)/
+  )
+  assert.match(
+    renderer,
+    /function autosaveTree\([\s\S]*reviewId: string \| null[\s\S]*bridge\.autosaveReview\(reviewId, tree\)/
+  )
+  assert.doesNotMatch(
+    renderer,
+    /if \(reviewId\) bridge\.autosaveReview/
   )
 })

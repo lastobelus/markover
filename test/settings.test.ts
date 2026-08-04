@@ -28,7 +28,7 @@ function parseRecord(source: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
-test('settings defaults cover the eight persisted preferences', () => {
+test('settings defaults cover the nine persisted preferences', () => {
   assert.deepEqual(Object.keys(DEFAULT_SETTINGS), [
     'palette',
     'appearance',
@@ -37,7 +37,8 @@ test('settings defaults cover the eight persisted preferences', () => {
     'showKeyboardHelp',
     'openDocumentsSidebar',
     'defaultTreeView',
-    'confirmAttachmentRemoval'
+    'confirmAttachmentRemoval',
+    'logRejectedApiRequests'
   ])
 })
 
@@ -51,6 +52,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
+    logRejectedApiRequests: true,
     unexpected: 'ignored'
   }), {
     palette: 'ocean',
@@ -60,7 +62,8 @@ test('settings normalization accepts known choices and rejects unknown values', 
     showKeyboardHelp: false,
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
-    confirmAttachmentRemoval: false
+    confirmAttachmentRemoval: false,
+    logRejectedApiRequests: true
   })
 
   assert.deepEqual(normalizeSettings({ palette: 'neon', appearance: 42 }), {
@@ -96,6 +99,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <input name="openDocumentsSidebar" type="checkbox">
       <select name="defaultTreeView"><option value="all">All</option><option value="annotated">Annotated</option></select>
       <input name="confirmAttachmentRemoval" type="checkbox">
+      <input name="logRejectedApiRequests" type="checkbox">
     </form>
     <div class="keyboard-help"></div>
   </body></html>`)
@@ -282,7 +286,7 @@ test('settings are discoverable from the native menu and wired to a complete dia
   const [main, preload, renderer, html] = await Promise.all([
     read('src/main.ts'),
     read('src/preload.ts'),
-    read('src/renderer.js'),
+    read('src/renderer.ts'),
     read('src/index.html')
   ])
 
@@ -291,7 +295,7 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(main, /installApplicationMenu\(\)/)
   assert.match(preload, /getSettings:/)
   assert.match(preload, /onSettingsOpen:/)
-  assert.match(renderer, /function applySettings\(next, options = \{\}\)/)
+  assert.match(renderer, /function applySettings\([\s\S]*next: unknown,[\s\S]*options: \{ initial\?: boolean \} = \{\}[\s\S]*\): void/)
   assert.match(html, /<dialog id="settings-dialog"/)
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     assert.match(html, new RegExp(`name="${key}"`))
