@@ -42,7 +42,10 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.deepEqual(cliPackage.files, ['bin/markover.js'])
   assert.match(workflow, /macos-15\n/)
   assert.match(workflow, /macos-15-intel/)
-  assert.match(workflow, /Verify tag matches package version/)
+  assert.match(
+    workflow,
+    /Verify stable tag, protected-main ancestry, and required CI/
+  )
   assert.match(workflow, /GITHUB_REF_NAME/)
   assert.match(workflow, /Markover-darwin-\$\{architecture\}\.zip/)
   assert.match(workflow, /shasum -a 256/)
@@ -51,6 +54,38 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.match(workflow, /--trust-mode=ad-hoc/)
   assert.match(workflow, /markover-cli\.tgz/)
   assert.match(workflow, /gh release create/)
+  assert.match(workflow, /permissions: \{\}/)
+  assert.match(workflow, /attestations: write/)
+  assert.match(workflow, /actions\/attest@[a-f0-9]{40}/)
+  assert.match(workflow, /--source-digest "\$GITHUB_SHA"/)
+  assert.match(workflow, /--source-ref "\$GITHUB_REF"/)
+  assert.match(workflow, /--deny-self-hosted-runners/)
+  assert.match(workflow, /--draft/)
+  assert.match(workflow, /environment:\n\s+name: release/)
+  assert.match(workflow, /Wait for every older release run/)
+  assert.match(workflow, /publication-turn/)
+  assert.match(workflow, /select-rollback/)
+  assert.doesNotMatch(workflow, /group: release-publication/)
+  assert.match(workflow, /compare-payloads/)
+  assert.match(workflow, /releases\/assets\/\$\{asset_id\}/)
+  assert.match(workflow, /verify-rollback/)
+  assert.match(workflow, /publish the unchanged immutable release/)
+  assert.match(workflow, /final-draft-release\.json/)
+  assert.match(workflow, /final-candidate/)
+  assert.match(workflow, /-F draft=false/)
+  assert.ok(
+    workflow.indexOf('Wait for every older release run') <
+      workflow.indexOf('Select the current known-good rollback release')
+  )
+  assert.ok(
+    workflow.indexOf('Select the current known-good rollback release') <
+      workflow.indexOf('Assemble complete draft release')
+  )
+  const actionReferences = [...workflow.matchAll(/uses: [^@\s]+@([^\s]+)/g)]
+  assert.ok(actionReferences.length > 0)
+  for (const reference of actionReferences) {
+    assert.match(reference[1] ?? '', /^[a-f0-9]{40}$/)
+  }
 })
 
 test('README exposes the repository-only install-free agent command', () => {
@@ -105,12 +140,35 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /PR #45 in review · Slice 1 accepted · 3 Aug 2026/
+    /Slice 2 · Ready PR #55 · 5 Aug 2026/
   )
   assert.match(
     pages[1] ?? '',
-    /PR #45 in review · Accepted slice · 3 Aug 2026/
+    /PR #45 merged · Implemented on main · 5 Aug 2026/
   )
+  assert.match(
+    pages[2] ?? '',
+    /Slice 2 · Ready PR #55 · 5 Aug 2026/
+  )
+})
+
+test('public release runbook preserves provenance and rollback boundaries', () => {
+  const runbook = read('docs/releasing.md')
+  const sources = [
+    read('README.md'),
+    read('docs/development.md'),
+    read('docs/guide/index.html')
+  ]
+
+  assert.match(runbook, /not\s+Apple-verified/i)
+  assert.match(runbook, /github-readiness/)
+  assert.match(runbook, /protected `release` environment/)
+  assert.match(runbook, /gh attestation verify/)
+  assert.match(runbook, /version-pinned launcher/i)
+  assert.match(runbook, /Application Support\/Markover/)
+  assert.match(runbook, /Never reuse the withdrawn tag/i)
+  assert.match(runbook, /Developer ID activation/)
+  for (const source of sources) assert.match(source, /releas(?:e|ing)\.md/)
 })
 
 test('continuous integration enforces the supported Node versions', () => {

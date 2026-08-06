@@ -86,6 +86,12 @@ Published `v0.1.1` predates the hardened preflight and remains an untouched
 historical release. Consult each release's notes for its exact trust status.
 Apple verification remains gated on Apple Developer Program access.
 
+Post-policy releases publish SHA-256 sidecars, GitHub build-provenance
+attestations, the exact source and workflow, resolved build context, and a
+version-pinned known-good rollback command. Published bytes are never replaced
+under an existing tag. See the [release and rollback runbook](./docs/releasing.md)
+for verification, backup, withdrawal, and future Developer ID activation.
+
 See the [user guide](https://lastobelus.github.io/markover/guide/)
 for the complete review workflow and keyboard controls, or
 [development.md](./docs/development.md) for checkout, testing, packaging, and

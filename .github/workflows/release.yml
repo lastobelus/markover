@@ -5,108 +5,487 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      checks: read
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out the tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.13.0
           cache: npm
-      - run: npm ci
-      - name: Verify tag matches package version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify stable tag, protected-main ancestry, and required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: >-
-          test "${GITHUB_REF_NAME}"
-          = "v$(node -p "require('./packages/cli/package.json').version")"
-      - run: npm run check
-      - run: npm test
+          npm run release:preflight -- verify-tag
+          "--tag=${GITHUB_REF_NAME}"
+          "--commit=${GITHUB_SHA}"
+          "--main-ref=origin/main"
+          "--repository=${GITHUB_REPOSITORY}"
+
+      - name: Run static checks
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Verify tracked files are unchanged
+        run: git diff --exit-code
 
   mac-app:
     needs: test
     strategy:
+      fail-fast: false
       matrix:
         runner:
           - macos-15
           - macos-15-intel
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out the tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.13.0
           cache: npm
-      - run: npm ci
-      - run: npm run package:mac
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package hardened ad-hoc app
+        run: npm run package:mac
+
       - name: Archive app and checksum
         shell: bash
         run: |
           architecture="$(node -p process.arch)"
-          mkdir -p release
+          mkdir -p artifact/verification
           ditto -c -k --sequesterRsrc --keepParent \
             "dist/Markover-darwin-${architecture}/Markover.app" \
-            "release/Markover-darwin-${architecture}.zip"
-          cd release
-          shasum -a 256 "Markover-darwin-${architecture}.zip" \
-            > "Markover-darwin-${architecture}.zip.sha256"
+            "artifact/Markover-darwin-${architecture}.zip"
+          (
+            cd artifact
+            shasum -a 256 "Markover-darwin-${architecture}.zip" \
+              > "Markover-darwin-${architecture}.zip.sha256"
+          )
+          xcode_version="$(xcodebuild -version | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          {
+            printf 'architecture=%s\n' "$architecture"
+            printf 'electron=%s\n' "$(node -p "require('./package.json').devDependencies.electron")"
+            printf 'node=%s\n' "$(node --version)"
+            printf 'npm=%s\n' "$(npm --version)"
+            printf 'os=macOS %s %s\n' "$(sw_vers -productVersion)" "$(uname -m)"
+            printf 'runner=%s\n' "$RUNNER_NAME"
+            printf 'xcode=%s\n' "$xcode_version"
+          } > "artifact/verification/macos-${architecture}.txt"
+
       - name: Verify final macOS artifact
         shell: bash
         run: |
           architecture="$(node -p process.arch)"
           version="$(node -p "require('./package.json').version")"
           npm run release:preflight -- verify-macos \
-            "--archive=release/Markover-darwin-${architecture}.zip" \
-            "--checksum=release/Markover-darwin-${architecture}.zip.sha256" \
+            "--archive=artifact/Markover-darwin-${architecture}.zip" \
+            "--checksum=artifact/Markover-darwin-${architecture}.zip.sha256" \
             "--architecture=${architecture}" \
             "--version=${version}" \
             "--trust-mode=ad-hoc"
-      - uses: actions/upload-artifact@v4
+
+      - name: Retain native payload and sanitized build context
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: app-${{ matrix.runner }}
-          path: release/*
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
 
   cli:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out the tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.13.0
           cache: npm
-      - run: npm ci
-      - run: npm run build:cli
-      - name: Pack bootstrap CLI
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pack bootstrap CLI and checksum
         run: |
-          mkdir -p release
-          npm pack ./packages/cli --pack-destination release
-          mv release/*.tgz release/markover-cli.tgz
-          cd release
-          shasum -a 256 markover-cli.tgz > markover-cli.tgz.sha256
-      - uses: actions/upload-artifact@v4
+          mkdir -p artifact/verification
+          npm run build:cli
+          npm pack ./packages/cli --pack-destination artifact
+          mv artifact/*.tgz artifact/markover-cli.tgz
+          (
+            cd artifact
+            shasum -a 256 markover-cli.tgz > markover-cli.tgz.sha256
+          )
+          {
+            printf 'architecture=portable\n'
+            printf 'electron=%s\n' "$(node -p "require('./package.json').devDependencies.electron")"
+            printf 'node=%s\n' "$(node --version)"
+            printf 'npm=%s\n' "$(npm --version)"
+            printf 'os=%s %s\n' "$(uname -s)" "$(uname -r)"
+            printf 'runner=%s\n' "$RUNNER_NAME"
+          } > artifact/verification/cli.txt
+
+      - name: Retain CLI payload and sanitized build context
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cli
-          path: release/*
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
 
-  publish:
+  stage-release:
     needs:
+      - test
       - mac-app
       - cli
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: release
+    permissions:
+      actions: read
+      attestations: write
+      contents: write
+      id-token: write
+    outputs:
+      previous-tag: ${{ steps.rollback.outputs.previous-tag }}
+      release-id: ${{ steps.draft.outputs.release-id }}
+      release-url: ${{ steps.draft.outputs.release-url }}
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Check out the tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: release
-          merge-multiple: true
-      - name: Publish GitHub release
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for every older release run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          while true
+          do
+            set +e
+            npm run release:preflight -- publication-turn \
+              "--repository=${GITHUB_REPOSITORY}" \
+              "--run-id=${GITHUB_RUN_ID}"
+            queue_status="$?"
+            set -e
+            if [[ "$queue_status" -eq 0 ]]
+            then
+              break
+            fi
+            if [[ "$queue_status" -ne 2 ]]
+            then
+              exit "$queue_status"
+            fi
+            sleep 20
+          done
+
+      - name: Select the current known-good rollback release
+        id: rollback
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          gh release create "${GITHUB_REF_NAME}"
-          --repo "${GITHUB_REPOSITORY}"
-          --title "Markover ${GITHUB_REF_NAME}"
-          --generate-notes
-          release/*
+          npm run release:preflight -- select-rollback
+          "--repository=${GITHUB_REPOSITORY}"
+          "--tag=${GITHUB_REF_NAME}"
+          "--github-output=${GITHUB_OUTPUT}"
+
+      - name: Download native payloads
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: app-*
+          path: staging
+          merge-multiple: true
+
+      - name: Download CLI payload
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cli
+          path: staging
+
+      - name: Independently verify payloads and generate release notes
+        run: |
+          mkdir logs
+          npm run release:preflight -- verify-payloads \
+            "--directory=staging" \
+            | tee logs/stage.txt
+          npm run release:preflight -- prepare-release \
+            "--directory=staging" \
+            "--verification-directory=staging/verification" \
+            "--notes=release-notes.md" \
+            "--repository=${GITHUB_REPOSITORY}" \
+            "--tag=${GITHUB_REF_NAME}" \
+            "--commit=${GITHUB_SHA}" \
+            "--run-id=${GITHUB_RUN_ID}" \
+            "--previous-tag=${{ steps.rollback.outputs.previous-tag }}" \
+            | tee -a logs/stage.txt
+
+      - name: Generate GitHub build-provenance attestations
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            staging/Markover-darwin-arm64.zip
+            staging/Markover-darwin-x64.zip
+            staging/markover-cli.tgz
+
+      - name: Verify generated attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for payload in \
+            staging/Markover-darwin-arm64.zip \
+            staging/Markover-darwin-x64.zip \
+            staging/markover-cli.tgz
+          do
+            gh attestation verify "$payload" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml" \
+              --source-digest "$GITHUB_SHA" \
+              --source-ref "$GITHUB_REF" \
+              --deny-self-hosted-runners
+          done | tee -a logs/stage.txt
+
+      - name: Retain sanitized staging evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-verification-${{ github.ref_name }}
+          path: |
+            release-notes.md
+            logs/*
+            staging/verification/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Assemble complete draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --verify-tag \
+            --draft \
+            --title "Markover ${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md \
+            staging/Markover-darwin-arm64.zip \
+            staging/Markover-darwin-arm64.zip.sha256 \
+            staging/Markover-darwin-x64.zip \
+            staging/Markover-darwin-x64.zip.sha256 \
+            staging/markover-cli.tgz \
+            staging/markover-cli.tgz.sha256
+          release_id="$(gh release view "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)"
+          release_url="$(gh release view "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+          printf 'release-id=%s\n' "$release_id" >> "$GITHUB_OUTPUT"
+          printf 'release-url=%s\n' "$release_url" >> "$GITHUB_OUTPUT"
+
+  publish-release:
+    needs:
+      - test
+      - stage-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: release
+      url: ${{ needs.stage-release.outputs.release-url }}
+    permissions:
+      actions: read
+      attestations: read
+      contents: write
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download expected native payloads
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: app-*
+          path: expected
+          merge-multiple: true
+
+      - name: Download expected CLI payload
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cli
+          path: expected
+
+      - name: Regenerate expected release notes
+        run: >-
+          npm run release:preflight -- prepare-release
+          "--directory=expected"
+          "--verification-directory=expected/verification"
+          "--notes=release-notes.md"
+          "--repository=${GITHUB_REPOSITORY}"
+          "--tag=${GITHUB_REF_NAME}"
+          "--commit=${GITHUB_SHA}"
+          "--run-id=${GITHUB_RUN_ID}"
+          "--previous-tag=${{ needs.stage-release.outputs.previous-tag }}"
+
+      - name: Fetch and verify frozen draft metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.stage-release.outputs.release-id }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            > draft-release.json
+          npm run release:preflight -- verify-draft \
+            "--release=draft-release.json" \
+            "--notes=release-notes.md" \
+            "--tag=${GITHUB_REF_NAME}"
+
+      - name: Download exact draft assets by release ID
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.stage-release.outputs.release-id }}
+        shell: bash
+        run: |
+          mkdir candidate
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" \
+            > draft-assets.json
+          for name in \
+            Markover-darwin-arm64.zip \
+            Markover-darwin-arm64.zip.sha256 \
+            Markover-darwin-x64.zip \
+            Markover-darwin-x64.zip.sha256 \
+            markover-cli.tgz \
+            markover-cli.tgz.sha256
+          do
+            asset_id="$(jq -er --arg name "$name" \
+              '[.[] | select(.name == $name)] | if length == 1 then .[0].id else error("missing or duplicate draft asset") end' \
+              draft-assets.json)"
+            gh api -H 'Accept: application/octet-stream' \
+              "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" \
+              > "candidate/${name}"
+          done
+
+      - name: Reverify unchanged bytes and attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir publication-verification
+          npm run release:preflight -- compare-payloads \
+            "--expected=expected" \
+            "--actual=candidate" \
+            | tee publication-verification/publish.txt
+          for payload in \
+            candidate/Markover-darwin-arm64.zip \
+            candidate/Markover-darwin-x64.zip \
+            candidate/markover-cli.tgz
+          do
+            gh attestation verify "$payload" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml" \
+              --source-digest "$GITHUB_SHA" \
+              --source-ref "$GITHUB_REF" \
+              --deny-self-hosted-runners
+          done | tee -a publication-verification/publish.txt
+
+      - name: Retain sanitized publication evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-publication-verification-${{ github.ref_name }}
+          path: publication-verification/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Revalidate rollback and publish the unchanged immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.stage-release.outputs.release-id }}
+        run: |
+          mkdir final-candidate
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            > final-draft-release.json
+          npm run release:preflight -- verify-draft \
+            "--release=final-draft-release.json" \
+            "--notes=release-notes.md" \
+            "--tag=${GITHUB_REF_NAME}"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" \
+            > final-draft-assets.json
+          for name in \
+            Markover-darwin-arm64.zip \
+            Markover-darwin-arm64.zip.sha256 \
+            Markover-darwin-x64.zip \
+            Markover-darwin-x64.zip.sha256 \
+            markover-cli.tgz \
+            markover-cli.tgz.sha256
+          do
+            asset_id="$(jq -er --arg name "$name" \
+              '[.[] | select(.name == $name)] | if length == 1 then .[0].id else error("missing or duplicate draft asset") end' \
+              final-draft-assets.json)"
+            gh api -H 'Accept: application/octet-stream' \
+              "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" \
+              > "final-candidate/${name}"
+          done
+          npm run release:preflight -- compare-payloads \
+            "--expected=expected" \
+            "--actual=final-candidate"
+          npm run release:preflight -- verify-rollback \
+            "--repository=${GITHUB_REPOSITORY}" \
+            "--expected-tag=${{ needs.stage-release.outputs.previous-tag }}"
+          gh api --method PATCH \
+            "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -F draft=false \
+            -F prerelease=false \
+            -f make_latest=true
