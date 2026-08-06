@@ -490,6 +490,75 @@ test('authenticated requests never cache a successful health preflight', async (
   ])
 })
 
+test('aborted authenticated responses are uncertain requests', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-aborted-response-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  const identity = createServiceIdentity()
+  let mutationReceived = false
+  const fakeService = http.createServer((request, response) => {
+    if (request.url === '/health') {
+      const contents = `${JSON.stringify({
+        status: 'ok',
+        version: 2,
+        instanceId: identity.instanceId
+      })}\n`
+      response.writeHead(200, {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(contents)
+      })
+      response.end(contents)
+      return
+    }
+
+    mutationReceived = true
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': 100
+    })
+    response.flushHeaders()
+    setImmediate(() => {
+      response.destroy()
+    })
+  })
+  await new Promise<void>((resolve) => fakeService.listen(0, '127.0.0.1', resolve))
+  const address = fakeService.address()
+  assert.ok(address && typeof address === 'object')
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: address.port,
+    pid: 1234
+  })
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => {
+      fakeService.close((error) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+    await fs.rm(directory, { recursive: true, force: true })
+  })
+
+  const outcome = await Promise.race([
+    requestJson(endpointPath, 'POST', '/reviews', {
+      tree: tree(),
+      metadata: { contextSummary: 'Simulate a persisted mutation.' }
+    }).catch((error: unknown) => error),
+    new Promise<null>((resolve) => {
+      setTimeout(() => {
+        resolve(null)
+      }, 250)
+    })
+  ])
+
+  assert.equal(mutationReceived, true)
+  assert.ok(outcome instanceof LocalServiceError)
+  assert.equal(outcome.code, 'REQUEST_UNCERTAIN')
+  assert.match(outcome.message, /Inspect Markover before retrying/)
+})
+
 test('rejects an invalid authorization token before listening', async () => {
   await assert.rejects(
     startLocalService({

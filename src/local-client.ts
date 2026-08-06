@@ -158,6 +158,23 @@ async function sendHttpJson({
   }
 
   return new Promise<unknown>((resolve, reject) => {
+    let settled = false
+    const resolveOnce = (value: unknown) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+    const rejectOnce = (error: Error) => {
+      if (settled) return
+      settled = true
+      reject(error)
+    }
+    const rejectTransport = () => {
+      rejectOnce(new LocalServiceError(
+        requestFailureCode,
+        requestFailureMessage
+      ))
+    }
     const request = http.request({
       host: '127.0.0.1',
       port: endpoint.port,
@@ -171,12 +188,18 @@ async function sendHttpJson({
       response.on('data', (chunk: string) => {
         responseBody += chunk
       })
+      response.once('aborted', rejectTransport)
+      response.once('error', rejectTransport)
       response.on('end', () => {
+        if (!response.complete) {
+          rejectTransport()
+          return
+        }
         let parsed: unknown
         try {
           parsed = JSON.parse(responseBody)
         } catch {
-          reject(new LocalServiceError(
+          rejectOnce(new LocalServiceError(
             'INVALID_RESPONSE',
             'Markover returned invalid JSON.',
             response.statusCode
@@ -195,19 +218,17 @@ async function sendHttpJson({
           const message = typeof error.message === 'string'
             ? error.message
             : `Markover returned ${String(statusCode)}.`
-          reject(new LocalServiceError(code, message, statusCode))
+          rejectOnce(new LocalServiceError(code, message, statusCode))
           return
         }
-        resolve(parsed)
+        resolveOnce(parsed)
       })
     })
 
     request.on('timeout', () => {
       request.destroy(new Error('Markover service request timed out.'))
     })
-    request.on('error', () => {
-      reject(new LocalServiceError(requestFailureCode, requestFailureMessage))
-    })
+    request.once('error', rejectTransport)
     if (contents !== null) request.write(contents)
     request.end()
   })
