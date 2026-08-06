@@ -64,6 +64,7 @@ declare global {
     confirmAttachmentRemoval: boolean
     logRejectedApiRequests: boolean
     agentInterpretationPolicy: string
+    autosaveMaximumDelayMs: number
   }
 
   interface SettingsView {

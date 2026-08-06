@@ -39,7 +39,8 @@ test('settings defaults cover the persisted preferences', () => {
     'defaultTreeView',
     'confirmAttachmentRemoval',
     'logRejectedApiRequests',
-    'agentInterpretationPolicy'
+    'agentInterpretationPolicy',
+    'autosaveMaximumDelayMs'
   ])
 })
 
@@ -55,6 +56,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     confirmAttachmentRemoval: false,
     logRejectedApiRequests: true,
     agentInterpretationPolicy: 'Follow the checklist.',
+    autosaveMaximumDelayMs: 2500,
     unexpected: 'ignored'
   }), {
     palette: 'ocean',
@@ -66,12 +68,30 @@ test('settings normalization accepts known choices and rejects unknown values', 
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
     logRejectedApiRequests: true,
-    agentInterpretationPolicy: 'Follow the checklist.'
+    agentInterpretationPolicy: 'Follow the checklist.',
+    autosaveMaximumDelayMs: 2500
   })
 
   assert.deepEqual(normalizeSettings({ palette: 'neon', appearance: 42 }), {
     ...DEFAULT_SETTINGS
   })
+})
+
+test('autosave maximum delay accepts only integer values in the safe range', () => {
+  assert.equal(
+    normalizeSettings({ autosaveMaximumDelayMs: 100 }).autosaveMaximumDelayMs,
+    100
+  )
+  assert.equal(
+    normalizeSettings({ autosaveMaximumDelayMs: 60_000 }).autosaveMaximumDelayMs,
+    60_000
+  )
+  for (const value of [99, 60_001, 2000.5, '2000', null]) {
+    assert.equal(
+      normalizeSettings({ autosaveMaximumDelayMs: value }).autosaveMaximumDelayMs,
+      2000
+    )
+  }
 })
 
 test('partial settings updates retain unrelated values', () => {
@@ -179,13 +199,15 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   await store.update({
     palette: 'ocean',
     showKeyboardHelp: false,
-    agentInterpretationPolicy: 'Use this policy.'
+    agentInterpretationPolicy: 'Use this policy.',
+    autosaveMaximumDelayMs: 3500
   })
 
   const restored = new SettingsStore(filePath)
   assert.equal((await restored.load()).palette, 'ocean')
   assert.equal(restored.settings.showKeyboardHelp, false)
   assert.equal(restored.settings.agentInterpretationPolicy, 'Use this policy.')
+  assert.equal(restored.settings.autosaveMaximumDelayMs, 3500)
 
   await fs.writeFile(filePath, '{not json', 'utf8')
   assert.deepEqual(await restored.load(), { ...DEFAULT_SETTINGS })
@@ -315,7 +337,11 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(html, /<dialog id="fixed-contract-dialog"/)
   assert.match(renderer, /MarkoverAgentGuidance\.FIXED_CONTRACT_STATEMENTS/)
   assert.match(renderer, /elements\.fixedContractDialog\.showModal\(\)/)
-  for (const key of Object.keys(DEFAULT_SETTINGS)) {
+  const dialogSettings = Object.keys(DEFAULT_SETTINGS).filter(
+    (key) => key !== 'autosaveMaximumDelayMs'
+  )
+  for (const key of dialogSettings) {
     assert.match(html, new RegExp(`name="${key}"`))
   }
+  assert.doesNotMatch(html, /name="autosaveMaximumDelayMs"/)
 })
