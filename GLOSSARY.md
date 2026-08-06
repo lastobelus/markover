@@ -106,7 +106,7 @@ Use **review tree** for the serialized data structure and **document tree** for 
 
 An operation that must capture and persist the exact latest review state before acknowledging success.
 
-Handoff, reopen, and graceful quit are durability barriers; ordinary mutations may use bounded autosave scheduling.
+Handoff and reopen are durability barriers; ordinary mutations may use bounded autosave scheduling.
 
 ## editing::
 
