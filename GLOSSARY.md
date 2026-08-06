@@ -134,7 +134,7 @@ Opening or retrieving a review without activating Markover or taking keyboard fo
 
 The non-editable parent review block representing a document's complete YAML frontmatter section.
 
-It can receive general frontmatter feedback but has no source card; editable top-level pairs are frontmatter entries.
+It can receive general frontmatter feedback and its source card is read-only; editable top-level pairs are frontmatter entries.
 
 ## frontmatter entry::
 
