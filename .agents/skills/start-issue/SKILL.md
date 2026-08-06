@@ -187,6 +187,11 @@ explicitly confirms the shared understanding and authorizes implementation.
 After authorization, change the comment to `phase: implementing` and make the
 agreed changes. Keep the comment and Project aligned with these lifecycle rules:
 
+If implementation uncovers a material change to the summary, touch points,
+dependencies, or branch, pause before entering the newly added surface. Update
+the canonical comment, repeat the inflight scan from stage 2 with fresh
+stability samples, and resolve any newly visible overlap before continuing.
+
 - `blocked`: state the concrete blocker in `blocked-by`; keep Project status `In Progress`.
 - `review`: record the handoff in the summary; keep Project status `In Progress`.
 - `completed`: use only when the item is completed or closed; move Project status to `Done`.
