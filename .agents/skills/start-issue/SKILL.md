@@ -44,8 +44,11 @@ any plausible overlap with the target. Flag `In Progress` items that lack a
 work-intent comment; the board remains authoritative even when a comment is
 missing.
 
-Read the live item count again after the scan. If it changed, repeat the query
-and comment checks until one complete pass begins and ends at the same count.
+After the comment checks, refresh the live item count and run the inflight query
+again. Compare the sorted Project item node IDs from the two queries. If either
+the total or the inflight ID set changed, inspect the changed set and repeat
+with the refreshed total as the limit. Complete only after two consecutive
+queries return the same inflight ID set.
 
 If the target already has one or more marked comments, create no new claim.
 Apply the deterministic winner rule in stage 3, show the canonical intent to the
