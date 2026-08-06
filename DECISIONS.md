@@ -256,12 +256,14 @@ foundation for a production architecture.
    unprivileged native jobs build Apple Silicon and Intel apps while another
    job builds the matching CLI. A staging job requires the exact six payload
    and checksum files before it can create a complete draft.
-2. **Publication is a distinct protected operation.** The final job waits at a
-   maintainer-approved `release` environment, then enters an oldest-run-first
-   queue that retains every pending publication. It does not use Actions
-   concurrency's replaceable pending slot. The job downloads the draft assets
-   by release ID and proves every byte and release-note field is unchanged
-   before publishing.
+2. **Draft staging and publication are distinct protected operations.** The
+   `release` environment gates both jobs. The first approval admits the oldest
+   pending tag to rollback selection and complete draft assembly; the second
+   follows clean-machine evidence and admits publication. This retains every
+   pending release without Actions concurrency's replaceable pending slot. The
+   final transition refetches the mutable draft by release ID and proves every
+   byte, release-note field, asset name, and rollback target is still unchanged
+   immediately before publishing.
 3. **GitHub attestations and SHA-256 sidecars have separate jobs.** Sidecars
    provide simple byte checks. GitHub build-provenance attestations identify
    the source repository and release workflow. Neither is a claim of

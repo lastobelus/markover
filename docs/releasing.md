@@ -25,9 +25,12 @@ releases.
 
 1. Create a `release` environment in **Settings → Environments**. Require
    `lastobelus` as reviewer, leave “Prevent self-review” disabled while there is
-   one maintainer, and restrict deployment branches and tags to `v*` tags.
+   one maintainer, and restrict deployment branches and tags to `v*` tags. The
+   workflow uses this environment once to admit ordered draft staging and again
+   to approve publication.
 2. Create an active tag ruleset for exactly `refs/tags/v*`, with no exclusions,
-   that restricts tag creation to the maintainer through an explicit bypass.
+   that restricts tag creation to `lastobelus` through an always-on explicit
+   user bypass.
 3. Create a separate active tag ruleset for the same pattern that blocks tag
    updates and deletion with no bypass actors. Separating these rules lets the
    maintainer create a version while preventing anyone—including the
@@ -76,18 +79,18 @@ The tag-triggered workflow performs four fail-closed stages:
    ancestry, and successful required CI on the tagged commit.
 2. Unprivileged native jobs build separate Apple Silicon and Intel app ZIPs,
    verify their exact final bytes, and build the matching bootstrap CLI.
-3. A staging job independently rehashes all payloads, generates GitHub
-   build-provenance attestations, writes provenance and rollback release notes,
-   and creates one complete draft release. Sanitized build context remains in
-   workflow artifacts rather than permanent release assets.
-4. The `publish-release` job waits at the protected `release` environment.
-   Approve pending jobs in tag order. After approval, an oldest-run-first queue
-   retains every pending publication and waits for all older release runs; it
-   does not use Actions concurrency's replaceable pending slot. The job then
-   downloads the draft assets by release ID, compares every byte and the draft
-   metadata with the staged set, verifies attestations, revalidates the
-   designated rollback release, and publishes without uploading or changing
-   anything.
+3. The staging job waits at the protected `release` environment. Approve only
+   the oldest pending tag. Its oldest-run-first gate waits for every earlier
+   release run before selecting the current rollback target, independently
+   rehashing all payloads, generating attestations and notes, and creating one
+   complete draft. Unapproved jobs remain preserved at the environment gate;
+   Actions concurrency's replaceable pending slot is not used.
+4. After clean-machine evidence, approve the `publish-release` job at the same
+   protected environment. It downloads the draft assets by release ID, compares
+   every byte and metadata field with the staged set, and verifies attestations.
+   In the final publication step it refetches the complete draft and all six
+   assets, compares them again, revalidates the rollback release, and publishes
+   without uploading or changing anything.
 
 For the first post-policy release, leave the publish job waiting while the
 dedicated Sonoma Intel machine downloads the exact draft assets and completes

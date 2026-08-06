@@ -16,6 +16,7 @@ import {
   generateReleaseNotes,
   githubReleaseReadiness,
   publicationTurnReadiness,
+  selectRollbackTarget,
   verifyDraftRelease,
   verifyReleasePayloads,
   verifyRollbackTarget,
@@ -130,6 +131,21 @@ async function verifyTag(flags: readonly string[]): Promise<void> {
   }
 }
 
+async function selectRollback(flags: readonly string[]): Promise<void> {
+  const parsed = parseFlags(
+    flags,
+    ['repository', 'tag'],
+    ['github-output']
+  )
+  const tag = selectRollbackTarget({
+    repository: value(parsed, 'repository'),
+    tag: value(parsed, 'tag')
+  })
+  process.stdout.write(`Known-good rollback release: ${tag}\n`)
+  const githubOutput = parsed.get('github-output')
+  if (githubOutput) await fs.appendFile(githubOutput, `previous-tag=${tag}\n`)
+}
+
 async function verifyPayloads(flags: readonly string[]): Promise<void> {
   const parsed = parseFlags(flags, ['directory'])
   printPayloadReport(await verifyReleasePayloads(value(parsed, 'directory')))
@@ -202,6 +218,9 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
       return
     case 'verify-tag':
       await verifyTag(flags)
+      return
+    case 'select-rollback':
+      await selectRollback(flags)
       return
     case 'verify-payloads':
       await verifyPayloads(flags)

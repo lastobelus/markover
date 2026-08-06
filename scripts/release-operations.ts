@@ -305,11 +305,7 @@ export function verifyReleaseTag({
     )
   }
 
-  const rollbackTag = designatedRollbackTag(repository, runner)
-  const rollbackTarget = parseStableTag(rollbackTag, 'Designated rollback release')
-  if (compareSemver(rollbackTarget, version) >= 0) {
-    throw new Error('The designated rollback release must be older than the new release.')
-  }
+  const rollbackTag = selectRollbackTarget({ repository, runner, tag })
 
   const checksValue = jsonObject(parsedJson(requireCommand(
     runner,
@@ -342,6 +338,24 @@ export function verifyReleaseTag({
     tag,
     version: version.version
   }
+}
+
+export function selectRollbackTarget({
+  repository,
+  tag,
+  runner = runReleaseCommand
+}: {
+  repository: string
+  tag: string
+  runner?: ReleaseCommandRunner
+}): string {
+  const version = parseStableTag(tag, 'New release tag')
+  const rollbackTag = designatedRollbackTag(repository, runner)
+  const rollbackTarget = parseStableTag(rollbackTag, 'Designated rollback release')
+  if (compareSemver(rollbackTarget, version) >= 0) {
+    throw new Error('The designated rollback release must be older than the new release.')
+  }
+  return rollbackTag
 }
 
 export function verifyRollbackTarget({

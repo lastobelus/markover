@@ -62,14 +62,25 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.match(workflow, /--deny-self-hosted-runners/)
   assert.match(workflow, /--draft/)
   assert.match(workflow, /environment:\n\s+name: release/)
-  assert.match(workflow, /Wait for older release publications/)
+  assert.match(workflow, /Wait for every older release run/)
   assert.match(workflow, /publication-turn/)
+  assert.match(workflow, /select-rollback/)
   assert.doesNotMatch(workflow, /group: release-publication/)
   assert.match(workflow, /compare-payloads/)
   assert.match(workflow, /releases\/assets\/\$\{asset_id\}/)
   assert.match(workflow, /verify-rollback/)
   assert.match(workflow, /publish the unchanged immutable release/)
+  assert.match(workflow, /final-draft-release\.json/)
+  assert.match(workflow, /final-candidate/)
   assert.match(workflow, /-F draft=false/)
+  assert.ok(
+    workflow.indexOf('Wait for every older release run') <
+      workflow.indexOf('Select the current known-good rollback release')
+  )
+  assert.ok(
+    workflow.indexOf('Select the current known-good rollback release') <
+      workflow.indexOf('Assemble complete draft release')
+  )
   const actionReferences = [...workflow.matchAll(/uses: [^@\s]+@([^\s]+)/g)]
   assert.ok(actionReferences.length > 0)
   for (const reference of actionReferences) {

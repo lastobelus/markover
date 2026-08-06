@@ -153,9 +153,11 @@ After slice 1 is accepted, revise the release workflow with these controls:
 2. Keep architecture builds parallel, unprivileged, native, and all-or-nothing
    with the matching CLI payload.
 3. Pin actions to full commit SHAs and scope permissions per job.
-4. Serialize final publication through an oldest-run-first queue that retains
-   every pending publication; do not use Actions concurrency's replaceable
-   single pending slot.
+4. Use the protected `release` environment twice. The first approval admits
+   only the oldest pending tag to rollback selection and draft assembly; the
+   second approves publication after clean-machine evidence. This retains every
+   pending release without Actions concurrency's replaceable single pending
+   slot.
 5. Independently rehash downloaded build outputs in the privileged job before
    attestation or draft attachment; no bytes change afterward.
 6. Generate GitHub Actions build-provenance attestations for both app ZIPs and
@@ -167,9 +169,10 @@ After slice 1 is accepted, revise the release workflow with these controls:
 8. Assemble a complete draft release before publication. Detailed sanitized
    verification logs remain workflow artifacts rather than permanent release
    assets.
-9. Publish only through a protected `release` environment requiring the sole
-   maintainer's explicit approval; self-approval remains permitted while there
-   is one maintainer.
+9. Stage and publish only through the protected `release` environment, each
+   requiring the sole maintainer's explicit approval; self-approval remains
+   permitted while there is one maintainer. Immediately before publication,
+   refetch and revalidate the complete mutable draft and rollback target.
 
 Add one Git-style human-facing preflight command with subcommands for current
 ad-hoc release verification and future Developer ID readiness. The subcommands
@@ -222,20 +225,21 @@ origin, while the release attestation proves the published collection.
 ## First post-policy release and clean-machine evidence
 
 The implementation work does not bump versions, create tags, or publish a
-release. The first later release uses a two-stage process:
+release. The first later release uses a protected two-approval process:
 
-1. Actions creates a complete draft.
+1. Approve the oldest pending tag for ordered rollback selection and complete
+   draft assembly.
 2. On the dedicated 2019 Intel Mac running Sonoma, download the exact draft
    assets through authenticated Safari and exercise quarantine, safe Gatekeeper
    override, install, an already-saved review, restart, and version-pinned
    rollback.
-3. A separate approved Actions job revalidates unchanged draft digests and
-   publishes the immutable stable release.
+3. Approve the separate publication job; it refetches and revalidates the
+   complete draft immediately before publishing the immutable stable release.
 
 Record the tested version/digests, Mac model class, macOS version, Gatekeeper
 result, rollback target, and workflow/release links on issue 13 without serial
 numbers or account details. Routine later releases rely on automated native
-checks plus one approval. Repeat clean-machine testing only when signing,
+checks plus the two protected approvals. Repeat clean-machine testing only when signing,
 packaging, bootstrap installation, review-data format, rollback behavior, or
 minimum-macOS policy changes.
 
@@ -310,7 +314,8 @@ last Developer ID release.
 29. GitHub attestations are machine provenance; Markdown is the human view.
 30. Release statements are generated from verified facts.
 31. Actions are SHA-pinned and permissions are job-scoped.
-32. Publication uses an approved `release` environment with self-approval.
+32. Ordered draft staging and publication each use the approved `release`
+    environment with self-approval.
 33. Future notarization uses an App Store Connect Team API key.
 34. Future certificate import uses an ephemeral keychain.
 35. Developer ID activation requires a separate reviewed change.

@@ -121,7 +121,8 @@
       <p>
         Think of a release as a museum exhibit. Two workshops build the Apple Silicon and
         Intel pieces. A curator checks their labels and fingerprints, places the full set
-        in a locked preparation room, and asks for approval. For the first new exhibit,
+        at a first approval gate, checks their labels and fingerprints, and places the
+        full set in a locked preparation room. For the first new exhibit,
         the Intel laptop visits that exact preparation room and tries the real visitor
         journey. Only then does the curator open the doors—and the exhibit cannot be
         quietly swapped afterward.
@@ -134,7 +135,7 @@
       <div class="diagram-scroll" role="region" aria-label="Scrollable release interaction diagram" tabindex="0">
         <svg viewBox="0 0 1080 650" role="img" aria-labelledby="interaction-diagram-title interaction-diagram-desc">
           <title id="interaction-diagram-title">First post-policy release interaction sequence</title>
-          <desc id="interaction-diagram-desc">A maintainer creates a valid tag. Unprivileged Apple Silicon, Intel, and CLI jobs build and attest outputs. A privileged publisher independently rehashes them and creates a complete draft. The maintainer approves clean-machine testing. The Intel Sonoma laptop downloads the exact draft assets and reports evidence. A separate approval enters an oldest-run-first queue, then lets the publisher revalidate unchanged digests and the rollback target before publishing an immutable release.</desc>
+          <desc id="interaction-diagram-desc">A maintainer creates a valid tag. Unprivileged Apple Silicon, Intel, and CLI jobs build outputs. A first protected approval admits the oldest pending tag, selects its rollback target, attests the outputs, and creates a complete draft. The Intel Sonoma laptop downloads the exact draft assets and reports evidence. A second approval lets the publisher refetch and revalidate the complete draft, all six assets, and the rollback target immediately before publishing an immutable release.</desc>
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#c94e1f"></path></marker>
             <marker id="green-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#35623f"></path></marker>
@@ -161,11 +162,11 @@
 
             <text x="24" y="178" fill="#756d67" font-weight="700">2</text>
             <line x1="304" y1="174" x2="507" y2="174" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
-            <text x="405" y="164" text-anchor="middle" fill="#26211e">payloads + digests + attestations</text>
+            <text x="405" y="164" text-anchor="middle" fill="#26211e">payloads + digests</text>
 
             <text x="24" y="238" fill="#756d67" font-weight="700">3</text>
             <rect x="447" y="205" width="140" height="46" rx="10" fill="#f5e3da"></rect>
-            <text x="517" y="224" text-anchor="middle" fill="#6d211f" font-weight="700">rehash every byte</text><text x="517" y="242" text-anchor="middle" fill="#756d67">assemble full set</text>
+            <text x="517" y="224" text-anchor="middle" fill="#6d211f" font-weight="700">first approval + queue</text><text x="517" y="242" text-anchor="middle" fill="#756d67">rollback · rehash · attest</text>
 
             <text x="24" y="296" fill="#756d67" font-weight="700">4</text>
             <line x1="522" y1="292" x2="725" y2="292" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
@@ -185,11 +186,11 @@
 
             <text x="24" y="536" fill="#756d67" font-weight="700">8</text>
             <line x1="96" y1="532" x2="507" y2="532" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
-            <text x="300" y="522" text-anchor="middle" fill="#26211e">protected approval → oldest-run-first queue</text>
+            <text x="300" y="522" text-anchor="middle" fill="#26211e">second protected approval after clean-machine proof</text>
 
             <text x="24" y="596" fill="#756d67" font-weight="700">9</text>
             <line x1="522" y1="592" x2="725" y2="592" stroke="#35623f" stroke-width="3" marker-end="url(#green-arrow)"></line>
-            <text x="623" y="582" text-anchor="middle" fill="#35623f">rehash + rollback recheck → publish immutable</text>
+            <text x="623" y="582" text-anchor="middle" fill="#35623f">refetch all + rollback recheck → publish immutable</text>
           </g>
         </svg>
       </div>
