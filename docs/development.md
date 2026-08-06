@@ -142,21 +142,38 @@ commands preserve JSON-only stdout.
 
 ## Release
 
-The root package and `packages/cli` versions must match. A release tag named
-`vX.Y.Z` must also match that version. The GitHub release workflow then:
+The root package and `packages/cli` versions must match. A stable release tag
+named `vX.Y.Z` must match that version, be strictly newer than the preceding
+stable release, point to protected `main`, and already have both required CI
+checks. Before tagging, verify the external GitHub safeguards:
 
-1. Tests the repository.
-2. Packages Markover for Apple Silicon and Intel Macs.
-3. Generates SHA-256 checksum files.
-4. Runs the native preflight against each exact final ZIP.
-5. Packs the bootstrap CLI.
-6. Publishes the archives, checksums, and `markover-cli.tgz` on the GitHub
-   release.
+```sh
+npm run release:preflight -- github-readiness \
+  --repository=lastobelus/markover
+```
+
+The GitHub release workflow then:
+
+1. Revalidates the tag contract and tests the repository.
+2. Builds and verifies both native apps and the matching CLI in unprivileged
+   jobs.
+3. Independently rehashes the complete payload set and generates GitHub
+   build-provenance attestations.
+4. Creates a complete draft with generated provenance and rollback notes.
+5. Waits for approval at the protected `release` environment.
+6. Downloads the draft assets by release ID, proves their bytes and metadata
+   are unchanged, verifies their attestations, and publishes without another
+   upload.
 
 The project does not currently have the Apple Developer Program access required
 for Developer ID signing and notarization. Activation is a future reviewed
 change; credentials alone must never switch the trust mode or silently fall
-back to ad-hoc signing.
+back to ad-hoc signing. `developer-id-readiness` therefore reports an intentional
+nonzero `blocked` state today.
+
+Follow the canonical [release, rollback, and withdrawal runbook](./releasing.md)
+for one-time repository settings, clean-machine approval, verification,
+version-pinned rollback, and future Developer ID activation.
 
 ## Agent protocol conventions
 

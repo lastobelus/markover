@@ -12,8 +12,10 @@ a deliberate, small, separately reviewed transition. GitHub Actions remains the
 only authoritative producer of official releases; local packages remain
 development builds.
 
-The work is delivered in three slices. This session implements only slice 1,
-commits it after verification, and stops for review.
+The work is delivered in three slices. Slice 1 merged through PR 45 on
+4 August 2026. This session implements slice 2 from that accepted baseline,
+commits it after verification, and stops before repository-setting activation,
+tagging, publication, or slice 3.
 
 ## Current verified baseline
 
@@ -36,6 +38,8 @@ commits it after verification, and stops for review.
   protected. Existing `v0.1.0` and `v0.1.1` releases predate immutable-release
   policy.
 - A 2019 Intel MacBook can be dedicated to the later clean-machine exercise.
+- Slice 1 now enforces the hardened ad-hoc package, final-ZIP, and bootstrap
+  installation contracts on `main`.
 
 ## Scope boundaries
 
@@ -356,12 +360,14 @@ last Developer ID release.
 80. A future unmilestoned security enhancement evaluates App Sandbox.
 81. Repository settings activate only after compatible workflow reaches `main`.
 82. Issue 13 is delivered in three reviewable slices.
-83. This session implements and commits only slice 1.
-84. This plan is reviewed in Markover before implementation begins.
+83. Slice 1 merged through PR 45; this session implements and commits only
+    slice 2.
+84. This plan was reviewed in Markover before slice 1 and remains the canonical
+    decision source for slice 2.
 
 ## Review gate
 
-No implementation file, GitHub setting, issue, tag, release, or future
-enhancement issue changes until this plan is approved. After approval, execute
-slice 1 only. Repository-setting activation, issue 13 evidence, and the App
-Sandbox issue happen at their explicitly defined later checkpoints.
+The plan is approved and slice 1 is merged. Execute slice 2 only. Do not change
+repository settings, create a tag or release, record clean-machine evidence, or
+begin slice 3 from this implementation branch. Repository-setting activation
+occurs only after the compatible workflow reaches `main`.

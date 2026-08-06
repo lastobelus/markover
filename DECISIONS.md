@@ -250,6 +250,34 @@ foundation for a production architecture.
    Apple Developer Program access and a separately reviewed explicit trust-mode
    change. Credentials alone never activate or downgrade a release path.
 
+## Release provenance and rollback
+
+1. **Official releases are draft-first and all-or-nothing.** Separate
+   unprivileged native jobs build Apple Silicon and Intel apps while another
+   job builds the matching CLI. A staging job requires the exact six payload
+   and checksum files before it can create a complete draft.
+2. **Publication is a distinct protected operation.** The final job waits at a
+   maintainer-approved `release` environment, serializes publication without
+   cancellation, downloads the draft assets by release ID, and proves every
+   byte and release-note field is unchanged before publishing.
+3. **GitHub attestations and SHA-256 sidecars have separate jobs.** Sidecars
+   provide simple byte checks. GitHub build-provenance attestations identify
+   the source repository and release workflow. Neither is a claim of
+   bit-for-bit reproducibility.
+4. **Stable version tags only move forward and never move in place.** The
+   release workflow accepts stable SemVer tags whose matching package versions
+   are newer than the preceding stable release, contained in protected `main`,
+   and already green on both required CI checks. Repository rules restrict
+   `v*` creation and separately prohibit updates and deletion without bypass.
+5. **Each release carries its own rollback contract.** Generated notes name one
+   preceding known-good version and an exact version-pinned launcher. Users
+   quit Markover and back up the complete Application Support directory first;
+   rollback is promised only within one review-data format.
+6. **Published bytes are withdrawn, never replaced.** A defective version is
+   marked withdrawn, `latest` returns to the named known-good release, and a
+   fix receives a new version. Deleting an actively dangerous immutable release
+   is an exceptional documented incident action; its tag is never reused.
+
 ## Local service authorization
 
 1. **The first authorization boundary is the local OS account.** Markover
