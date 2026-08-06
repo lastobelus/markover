@@ -74,7 +74,8 @@
       "discussion-addressed:latency-tradeoff"
     ],
     "forbiddenSignals": [
-      "discussion-silently-converted-to-edit:latency-tradeoff"
+      "discussion-silently-converted-to-edit:latency-tradeoff",
+      "revision-applied:invent-latency-rationale"
     ],
     "controls": {
       "positive": [

@@ -106,3 +106,19 @@ test('acting on a question without acknowledging it is an explicit failure', () 
     forbidden: ['question-silently-converted-to-edit:legacy-fallback']
   })
 })
+
+test('addressing context cannot excuse an invented rationale', () => {
+  const evaluationCase = cases.find(
+    ({ id }) => id === 'discussion-with-context'
+  )
+  assert.ok(evaluationCase)
+
+  assert.deepEqual(evaluate(evaluationCase, [
+    'discussion-addressed:latency-tradeoff',
+    'revision-applied:invent-latency-rationale'
+  ]), {
+    pass: false,
+    missing: [],
+    forbidden: ['revision-applied:invent-latency-rationale']
+  })
+})
