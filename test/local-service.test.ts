@@ -84,7 +84,8 @@ async function serviceFixture(
       changes.push({ artifact, action })
       await options.onChange?.(artifact, action)
     },
-    onUnauthorized: options.onUnauthorized
+    onUnauthorized: options.onUnauthorized,
+    interpretationPolicy: options.interpretationPolicy
   })
   await publishServiceConnection({
     endpointPath,
@@ -143,7 +144,9 @@ function tree(): ReviewTree {
 }
 
 test('serves health and a complete open/get/edit workflow', async (t) => {
-  const { changes, endpointPath, identity } = await serviceFixture(t)
+  const { changes, endpointPath, identity } = await serviceFixture(t, {
+    interpretationPolicy: () => 'Use the policy captured at open.'
+  })
 
   assert.deepEqual(
     await requestJson(endpointPath, 'GET', '/health'),
@@ -171,6 +174,10 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
   )
   assert.equal(handedOff.review.status, 'pending-agent')
   assert.equal(handedOff.sourceDocument.content, '# Review\n')
+  assert.equal(
+    handedOff.review.agentGuidance.interpretationPolicy,
+    'Use the policy captured at open.'
+  )
   assert.deepEqual(retry, handedOff)
 
   assert.deepEqual(

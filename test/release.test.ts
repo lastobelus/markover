@@ -240,6 +240,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   assert.equal(fs.existsSync(path.join(root, 'test/pierre-diffs-entry.test.ts')), true)
   for (const name of [
     'app-menu',
+    'agent-guidance',
     'annotation-block',
     'annotations',
     'image-preview',

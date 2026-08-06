@@ -12,6 +12,10 @@ import {
 } from '../src/review-store'
 
 const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
+const {
+  DEFAULT_INTERPRETATION_POLICY,
+  FIXED_CONTRACT
+} = require('../src/agent-guidance') as MarkoverAgentGuidanceApi
 
 function child(node: ReviewNode, index = 0): ReviewNode {
   const result = node.children[index]
@@ -74,12 +78,38 @@ test('creates distinct sessions with exact source and metadata', async (t) => {
     id: 'thread-1'
   })
   assert.deepEqual(first.review.git, { branch: 'feature/reviews' })
+  assert.deepEqual(first.review.agentGuidance, {
+    fixedContract: FIXED_CONTRACT,
+    interpretationPolicy: DEFAULT_INTERPRETATION_POLICY
+  })
   assert.equal(first.sourceDocument.content, '# First\r\n')
   assert.equal(second.sourceDocument.content, '# Second\n')
   assert.deepEqual((await store.list()).map((item) => item.review.id), [
     'mko_aaa11111',
     'mko_bbb22222'
   ])
+})
+
+test('snapshots a custom interpretation policy when the review is created', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Check custom guidance.',
+    interpretationPolicy: 'Apply revisions in checklist order.'
+  })
+
+  assert.deepEqual(created.review.agentGuidance, {
+    fixedContract: FIXED_CONTRACT,
+    interpretationPolicy: 'Apply revisions in checklist order.'
+  })
+  assert.deepEqual((await store.handoff(created.review.id)).review.agentGuidance, {
+    fixedContract: FIXED_CONTRACT,
+    interpretationPolicy: 'Apply revisions in checklist order.'
+  })
 })
 
 test('handoff freezes an idempotent snapshot', async (t) => {

@@ -39,6 +39,20 @@ declare global {
   type DefaultTreeView = 'all' | 'annotated'
   type DarkColorization = 'high' | 'mid' | 'low'
 
+  interface AgentGuidance {
+    fixedContract: string
+    interpretationPolicy: string
+  }
+
+  interface MarkoverAgentGuidanceApi {
+    FIXED_CONTRACT_STATEMENTS: readonly string[]
+    FIXED_CONTRACT: string
+    DEFAULT_INTERPRETATION_POLICY: string
+    guidance: (interpretationPolicy?: unknown) => AgentGuidance
+  }
+
+  var MarkoverAgentGuidance: MarkoverAgentGuidanceApi
+
   interface MarkoverSettings {
     palette: Palette
     appearance: Appearance
@@ -49,6 +63,7 @@ declare global {
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
     logRejectedApiRequests: boolean
+    agentInterpretationPolicy: string
   }
 
   interface SettingsView {

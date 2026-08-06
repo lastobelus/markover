@@ -171,6 +171,11 @@ const elements = {
   documentsListSidebar: requiredElement('#documents-list-sidebar'),
   documentsListTree: requiredElement('#documents-list-tree'),
   emptyWorkspaceLockup: requiredElement<HTMLImageElement>('#empty-workspace-lockup'),
+  fixedContractClose: requiredElement<HTMLButtonElement>('#fixed-contract-close'),
+  fixedContractDialog: requiredElement<HTMLDialogElement>('#fixed-contract-dialog'),
+  fixedContractDone: requiredElement<HTMLButtonElement>('#fixed-contract-done'),
+  fixedContractList: requiredElement<HTMLOListElement>('#fixed-contract-list'),
+  fixedContractOpen: requiredElement<HTMLButtonElement>('#fixed-contract-open'),
   reviewStateBanner: requiredElement('#review-state-banner'),
   settingsClose: requiredElement<HTMLButtonElement>('#settings-close'),
   settingsDialog: requiredElement<HTMLDialogElement>('#settings-dialog'),
@@ -1945,18 +1950,45 @@ function openSettings(): void {
   if (palette instanceof HTMLElement) palette.focus()
 }
 
+function closeFixedContract(): void {
+  elements.fixedContractDialog.close()
+}
+
+for (const statement of MarkoverAgentGuidance.FIXED_CONTRACT_STATEMENTS) {
+  const item = document.createElement('li')
+  item.textContent = statement
+  elements.fixedContractList.append(item)
+}
+
 elements.settingsClose.addEventListener('click', () => {
   elements.settingsDialog.close()
+})
+elements.fixedContractOpen.addEventListener('click', () => {
+  if (!elements.fixedContractDialog.open) {
+    elements.fixedContractDialog.showModal()
+  }
+  elements.fixedContractClose.focus()
+})
+elements.fixedContractClose.addEventListener('click', closeFixedContract)
+elements.fixedContractDone.addEventListener('click', closeFixedContract)
+elements.fixedContractDialog.addEventListener('close', () => {
+  if (elements.settingsDialog.open) elements.fixedContractOpen.focus()
 })
 elements.settingsReset.addEventListener('click', () => {
   void bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS).then(applySettings)
 })
 elements.settingsForm.addEventListener('change', (event) => {
   const control = event.target
-  if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+  if (!(
+    control instanceof HTMLInputElement ||
+    control instanceof HTMLSelectElement ||
+    control instanceof HTMLTextAreaElement
+  )) {
     return
   }
-  const value = control.type === 'checkbox' ? control.checked : control.value
+  const value = control instanceof HTMLInputElement && control.type === 'checkbox'
+    ? control.checked
+    : control.value
   void bridge.updateSettings({ [control.name]: value }).then(applySettings)
 })
 
