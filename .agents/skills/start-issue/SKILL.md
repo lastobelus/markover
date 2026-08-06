@@ -42,8 +42,10 @@ work-intent comment; the board remains authoritative even when a comment is
 missing.
 
 If the target already has a marked comment, show it to the user and ask whether
-this run is a continuation, handoff, or concurrent effort. Preserve it until the
-user resolves ownership; then follow their direction.
+this run is a continuation or handoff. Reuse it only with their approval. A
+separate concurrent effort remains paused until the user chooses a distinct
+tracked issue or pull request; v1 does not represent multiple intents on one
+item.
 
 **Complete when:** every `In Progress` item has been checked and the target has
 no unresolved intent collision.
@@ -63,8 +65,9 @@ with its option IDs from live JSON:
 gh project view 3 --owner lastobelus --format json --jq '.id'
 gh project field-list 3 --owner lastobelus --format json \
   --jq '.fields[] | select(.name == "Status")'
-gh project item-list 3 --owner lastobelus --limit 100 --format json \
-  --jq '.items[] | {id, url: .content.url}'
+gh project item-list 3 --owner lastobelus --limit 10 \
+  --query 'repo:REPOSITORY_OWNER/REPOSITORY_NAME #ITEM_NUMBER' --format json \
+  --jq '.items[] | select(.content.url == "ITEM_URL") | .id'
 ```
 
 Move the item to `In Progress` through those IDs without changing other fields:
