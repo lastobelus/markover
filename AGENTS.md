@@ -1,4 +1,8 @@
-# Project instructions
+# Markover
+
+> Structured review for Markdown
+
+Markover is a macOS app for reviewing Markdown as a document tree and returning block-level feedback to an agent.
 
 ## Agent-facing writing
 
@@ -86,4 +90,9 @@ Commit completed work at natural checkpoints. In particular, when the user
 confirms that something is working and moves on to the next feature, preserve
 that accepted state in a commit before starting the next feature. Also commit a
 completed implementation slice after its tests pass and its requested review
-findings have been addressed.
+findings have been addressed. Ensure such checkpoints are pushed to github.
+
+## Glossary
+GLOSSARY.md contains a list of terms commonly used when working on this project.
+Every entry starts with `## term::`, so the index is available with `rg '^## .*::$' GLOSSARY.md` and a term with `rg -n -i '^## .*term.*::$' GLOSSARY.md`.
+When working on finalizing or landing a PR, judiciously add new terms that have fallen out while interacting with the user. Don't add terms narrowly focused to the PR, but only those which are likely to be commonly used in the ongoing development of the project. When doing so, mention the terms you have added in your user response.
