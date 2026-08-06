@@ -56,11 +56,23 @@ If the target is absent from Project 3, add it:
 gh project item-add 3 --owner lastobelus --url ITEM_URL
 ```
 
-Move it to `In Progress` without changing other Project fields:
+Resolve the Project node ID, the target's item node ID, and the `Status` field
+with its option IDs from live JSON:
 
 ```sh
-gh project item-edit 3 --owner lastobelus --url ITEM_URL \
-  --field Status --value "In Progress"
+gh project view 3 --owner lastobelus --format json --jq '.id'
+gh project field-list 3 --owner lastobelus --format json \
+  --jq '.fields[] | select(.name == "Status")'
+gh project item-list 3 --owner lastobelus --limit 100 --format json \
+  --jq '.items[] | {id, url: .content.url}'
+```
+
+Move the item to `In Progress` through those IDs without changing other fields:
+
+```sh
+gh project item-edit --id ITEM_NODE_ID --project-id PROJECT_NODE_ID \
+  --field-id STATUS_FIELD_NODE_ID \
+  --single-select-option-id IN_PROGRESS_OPTION_NODE_ID
 ```
 
 Create or update one canonical comment using this shape:
@@ -86,8 +98,13 @@ identifier when available. Keep unknown values explicit. Maintain this single
 comment by editing its exact GitHub comment ID; routine changes do not create
 new comments.
 
+Immediately re-read all marked comments on the target. Proceed only when there
+is exactly one and its ID is the claim just created or the continuation the user
+approved. If concurrent claims appeared, show them to the user and pause until
+they resolve which intent remains canonical.
+
 **Complete when:** the Project shows `In Progress` and the canonical comment
-accurately describes what is known so far.
+accurately describes what is known so far, with no competing marked comment.
 
 ## 4. Interview
 
@@ -133,9 +150,10 @@ agreed changes. Keep the comment and Project aligned with these lifecycle rules:
 - `review`: record the handoff in the summary; keep Project status `In Progress`.
 - `completed`: use only when the item is completed or closed; move Project status to `Done`.
 
-Use `gh project item-edit` with the named `Status` field for status changes.
-Treat every other Project field and repository label as read-only in v1; the
-canonical comment carries the additional coordination detail.
+Use the resolved `Status` field and `In Progress` or `Done` option node IDs for
+every status change. Treat every other Project field and repository label as
+read-only in v1; the canonical comment carries the additional coordination
+detail.
 
 **Complete when:** implementation and proportionate verification are finished,
 and the final comment and Project status match the real handoff state.
