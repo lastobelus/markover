@@ -23,14 +23,17 @@ unambiguous.
 
 ## 2. Scan inflight work
 
-Read Markover Project 3 directly:
+Read the Project's live item count, then use it as the inflight query limit:
 
 ```sh
-gh project item-list 3 --owner lastobelus --limit 100 \
+gh project view 3 --owner lastobelus --format json --jq '.items.totalCount'
+gh project item-list 3 --owner lastobelus --limit PROJECT_ITEM_TOTAL \
   --query 'status:"In Progress"' --format json
 ```
 
-For every returned issue or pull request, inspect its comments for this marker:
+For every returned issue or pull request, use paginated `gh api` reads to inspect
+all issue comments for this marker (pull-request conversation comments use the
+same REST endpoint):
 
 ```html
 <!-- start-issue-work-intent -->
@@ -41,11 +44,15 @@ any plausible overlap with the target. Flag `In Progress` items that lack a
 work-intent comment; the board remains authoritative even when a comment is
 missing.
 
-If the target already has a marked comment, show it to the user and ask whether
-this run is a continuation or handoff. Reuse it only with their approval. A
-separate concurrent effort remains paused until the user chooses a distinct
-tracked issue or pull request; v1 does not represent multiple intents on one
-item.
+Read the live item count again after the scan. If it changed, repeat the query
+and comment checks until one complete pass begins and ends at the same count.
+
+If the target already has one or more marked comments, create no new claim.
+Apply the deterministic winner rule in stage 3, show the canonical intent to the
+user, and ask whether this run is a continuation or handoff. Reuse it only with
+their approval. A separate concurrent effort remains paused until the user
+chooses a distinct tracked issue or pull request; v1 does not represent multiple
+intents on one item.
 
 **Complete when:** every `In Progress` item has been checked and the target has
 no unresolved intent collision.
@@ -101,13 +108,17 @@ identifier when available. Keep unknown values explicit. Maintain this single
 comment by editing its exact GitHub comment ID; routine changes do not create
 new comments.
 
-Immediately re-read all marked comments on the target. Proceed only when there
-is exactly one and its ID is the claim just created or the continuation the user
-approved. If concurrent claims appeared, show them to the user and pause until
-they resolve which intent remains canonical.
+Immediately re-read all marked comments on the target with their REST
+`created_at` timestamps and numeric IDs. The canonical claim is the earliest
+`created_at`, breaking a timestamp tie with the smallest numeric ID. Only the
+canonical claimant proceeds. A losing claimant edits its own comment to remove
+the marker, labels it as a superseded claim, and stops; a later claim can never
+displace the established winner. Pause for the user if a losing marker cannot
+be demoted by its author.
 
 **Complete when:** the Project shows `In Progress` and the canonical comment
-accurately describes what is known so far, with no competing marked comment.
+accurately describes what is known so far, every visible losing claim is
+demoted, and the current claimant is the deterministic winner.
 
 ## 4. Interview
 
