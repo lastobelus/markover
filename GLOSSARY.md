@@ -64,12 +64,6 @@ A deterministic document-order identifier for one review block within one exact 
 
 A review ID plus block ID identifies one annotation. Block IDs are not identities across source revisions.
 
-## bounded-loss autosave durability::
-
-The planned guarantee that a crash or restart loses no more than a small fixed window of recent review mutations.
-
-This is issue 39's scope; it is separate from authorization and from the already durable managed-review model.
-
 ## broad announcement::
 
 The later public-release gate requiring distribution trust, accessibility validation, and wider-audience readiness beyond focused preview.
@@ -107,12 +101,6 @@ Publication of the endpoint record after the credential record, making the visib
 The central UI view of the review tree as navigable, collapsible Markdown blocks.
 
 Use **review tree** for the serialized data structure and **document tree** for its presentation and navigation surface.
-
-## dogfoodable Markdown artifact::
-
-A structured Markdown deliverable substantial enough to save and open in Markover for review.
-
-Repository guidance currently uses seven meaningful Markdown blocks as the threshold; do not fragment content merely to reach it.
 
 ## durability barrier::
 
@@ -204,6 +192,12 @@ A durable review created through the inbox protocol, identified by a review ID, 
 
 Use this instead of **durable review**, whose older sessions sometimes meant a detached legacy review process.
 
+## markover-ready document::
+
+A Markdown document substantial enough to save and open in Markover for review.
+
+Repository guidance currently uses seven meaningful Markdown blocks as the threshold; do not fragment content merely to reach it.
+
 ## mixed feedback::
 
 One annotation containing independently actionable parts with different intents, such as a revision request and a question.
@@ -235,6 +229,12 @@ The planned effective interpretation policy copied into a review when it opens s
 The clean-break local-service protocol with capability authorization and paired endpoint and credential records.
 
 There is no protocol-1 fallback or optional-authentication mode.
+
+## q/a discovery::
+
+The initial interview used to establish intent before implementing an issue, pull request, or slice.
+
+Inspired by Matt Pocock's “grilling” skill and currently encapsulated in [`start-issue.md`](.ai/prompts/start-issue.md). Also called issue Q&A, issue/PR interview, or simply interview.
 
 ## question acknowledgment::
 
