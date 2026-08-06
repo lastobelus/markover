@@ -8,7 +8,11 @@ import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 
-import { requestJson } from '../src/local-client'
+import {
+  LocalServiceError,
+  probeService,
+  requestJson
+} from '../src/local-client'
 import {
   discoverReviewMetadata,
   HANDOFF_KEY_PATTERN,
@@ -314,7 +318,7 @@ export function resolveMarkoverApp({
 }
 
 export function startDetachedApp(
-  options: ResolveMarkoverAppOptions & { replaceStale?: boolean } = {}
+  options: ResolveMarkoverAppOptions = {}
 ): void {
   if (process.platform !== 'darwin') {
     throw new Error('Automatic Markover startup currently requires macOS.')
@@ -358,7 +362,7 @@ async function waitForService(
   let lastError: unknown = null
   while (Date.now() < deadline) {
     try {
-      await requestJson(endpointPath, 'GET', '/health')
+      await probeService(endpointPath)
       return
     } catch (error) {
       lastError = error
@@ -371,7 +375,7 @@ async function waitForService(
 
 export interface EnsureServiceOptions {
   endpointPath?: string
-  startApp?: (options: { replaceStale: boolean }) => void
+  startApp?: () => void
   timeoutMilliseconds?: number
 }
 
@@ -381,30 +385,20 @@ export async function ensureService({
   timeoutMilliseconds = 10000
 }: EnsureServiceOptions = {}): Promise<void> {
   try {
-    await requestJson(endpointPath, 'GET', '/health')
+    await probeService(endpointPath)
     return
   } catch {
-    startApp({ replaceStale: false })
+    startApp()
   }
 
   const startedAt = Date.now()
-  const recoveryAt = startedAt + Math.max(
-    500,
-    Math.floor(timeoutMilliseconds * 0.7)
-  )
-  try {
-    await waitForService(endpointPath, recoveryAt)
-    return
-  } catch {
-    startApp({ replaceStale: true })
-  }
-
   try {
     await waitForService(endpointPath, startedAt + timeoutMilliseconds)
   } catch (error) {
-    throw new Error(`Markover did not start: ${errorMessage(error)}`, {
-      cause: error
-    })
+    throw new LocalServiceError(
+      'SERVICE_RESTART_REQUIRED',
+      `Markover could not repair its local service: ${errorMessage(error)} Quit and reopen Markover, then retry.`
+    )
   }
 }
 

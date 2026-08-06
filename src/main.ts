@@ -25,7 +25,8 @@ import {
   reviewsDirectory,
   secureServiceDirectory,
   serviceDirectory,
-  serviceEndpointPath
+  serviceEndpointPath,
+  type ServiceIdentity
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
 import './settings'
@@ -102,6 +103,8 @@ let mainWindow: BrowserWindow | null = null
 let activeManagedReview: ReviewArtifact | null = null
 let activeManagedReviewId: string | null = null
 let localService: LocalService | null = null
+let localServiceIdentity: ServiceIdentity | null = null
+let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
 let settingsUnsubscribe: (() => void) | null = null
 let pendingAutosave: string | null = null
@@ -585,12 +588,33 @@ async function flushManagedReview(
   }
 }
 
+function repairServiceRecords(): Promise<void> {
+  const identity = localServiceIdentity
+  const service = localService
+  if (!identity || !service) return Promise.resolve()
+  serviceRepairQueue = serviceRepairQueue.catch(() => {}).then(() => (
+    publishServiceConnection({
+      endpointPath,
+      identity,
+      port: service.port
+    })
+  ))
+  return serviceRepairQueue
+}
+
 if (!hasSingleInstanceLock) {
   app.quit()
 } else {
   if (!reviewMode) {
     app.on('second-instance', (_event, commandLine) => {
-      if (commandLine.includes('--markover-server')) return
+      if (commandLine.includes('--markover-server')) {
+        repairServiceRecords().catch((error: unknown) => {
+          process.stderr.write(
+            `markover service recovery: ${errorMessage(error)}\n`
+          )
+        })
+        return
+      }
       if (!mainWindow) createWindow()
       const window = mainWindow
       if (!window) throw new Error('Markover window could not be created.')
@@ -733,7 +757,7 @@ if (!hasSingleInstanceLock) {
       const managedStore = requireReviewStore()
       const identity = createServiceIdentity()
       const startedService = await startLocalService({
-        authorizationToken: identity.token,
+        identity,
         store: managedStore,
         beforeAction: flushManagedReview,
         importReviews: (sourceDirectory) => importLegacyReviews(
@@ -758,6 +782,7 @@ if (!hasSingleInstanceLock) {
           port: startedService.port
         })
         localService = startedService
+        localServiceIdentity = identity
       } catch (error) {
         await startedService.close()
         throw error

@@ -13,6 +13,7 @@ import {
   resolveMarkoverApp,
   type ExecuteCommandOptions
 } from '../scripts/markover'
+import { LocalServiceError } from '../src/local-client'
 import { startLocalService, type LocalService } from '../src/local-service'
 import {
   assertReviewArtifact,
@@ -226,7 +227,7 @@ test('executes CLI commands against the local service', async (t) => {
   })
   const identity = createServiceIdentity()
   const service = await startLocalService({
-    authorizationToken: identity.token,
+    identity,
     store
   })
   await publishServiceConnection({
@@ -313,6 +314,7 @@ test('waits for internally started service without external polling', async (t) 
   )
   const endpointPath = path.join(directory, 'service.json')
   let service: LocalService | null = null
+  let startCalls = 0
   t.after(async () => {
     if (service) await service.close()
     await fs.rm(directory, { recursive: true, force: true })
@@ -322,11 +324,12 @@ test('waits for internally started service without external polling', async (t) 
     endpointPath,
     timeoutMilliseconds: 2000,
     startApp() {
+      startCalls += 1
       setTimeout(() => {
         void (async () => {
           const identity = createServiceIdentity()
           service = await startLocalService({
-            authorizationToken: identity.token,
+            identity,
             store: new ReviewStore(path.join(directory, 'reviews'))
           })
           await publishServiceConnection({
@@ -341,6 +344,32 @@ test('waits for internally started service without external polling', async (t) 
   })
 
   assert.ok(service)
+  assert.equal(startCalls, 1)
+})
+
+test('bounded recovery never attempts forced process replacement', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-restart-required-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  let startCalls = 0
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  await assert.rejects(
+    ensureService({
+      endpointPath,
+      timeoutMilliseconds: 1,
+      startApp() {
+        startCalls += 1
+      }
+    }),
+    (error: unknown) => (
+      error instanceof LocalServiceError &&
+      error.code === 'SERVICE_RESTART_REQUIRED' &&
+      /Quit and reopen Markover/.test(error.message)
+    )
+  )
+  assert.equal(startCalls, 1)
 })
 
 test('cold startup prefers a packaged Markover app and supports an override', () => {
