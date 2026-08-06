@@ -40,15 +40,22 @@ same REST endpoint):
 ```
 
 Summarize the inflight items, their declared touch points and dependencies, and
-any plausible overlap with the target. Flag `In Progress` items that lack a
-work-intent comment; the board remains authoritative even when a comment is
-missing.
+any plausible overlap with the target. Treat an `In Progress` item without a
+work-intent comment as unresolved; the board remains authoritative while its
+intent is unknown.
 
 After the comment checks, refresh the live item count and run the inflight query
 again. Compare the sorted Project item node IDs from the two queries. If either
 the total or the inflight ID set changed, inspect the changed set and repeat
 with the refreshed total as the limit. Complete only after two consecutive
 queries return the same inflight ID set.
+
+Re-read every missing-intent item after the inflight set stabilizes. If its
+marker is still absent, inspect its issue or pull request, linked pull requests,
+changed paths, and local worktree metadata for enough evidence to assess
+overlap. Ask the user before claiming the target when that evidence remains
+ambiguous. Complete the scan only after each missing intent has been re-read and
+either reconstructed from live evidence or explicitly resolved by the user.
 
 If the target already has one or more marked comments, create no new claim.
 Apply the deterministic winner rule in stage 3, show the canonical intent to the
