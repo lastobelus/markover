@@ -184,6 +184,10 @@ version-pinned rollback, and future Developer ID activation.
 - `open` returns promptly with an opaque review ID; it does not wait or poll.
 - `get` freezes and returns one review snapshot. Repeating it is idempotent.
 - Reviews retain the exact Markdown source and SHA-256 checksum.
+- Every new review snapshots `review.agentGuidance.fixedContract` and
+  `review.agentGuidance.interpretationPolicy`; `get` returns both unchanged.
+- Agent-facing instructions must preserve the contract's distinction among
+  revisions, questions, discussion, context, and source-edit proposals.
 
 Run the service-free protocol help with:
 

@@ -22,6 +22,7 @@
         <a href="#opening">Opening on macOS</a>
         <a href="#review">Review a document</a>
         <a href="#handoff">Return the handoff</a>
+        <a href="#interpretation">Guide agent interpretation</a>
         <a href="#keyboard">Keyboard controls</a>
         <p>Reference</p>
         <a href="https://github.com/lastobelus/markover/blob/main/docs/development.md">Development</a>
@@ -85,11 +86,29 @@
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover get mko_8f3a2c</code></pre>
-        <p><code>get</code> freezes the latest review, marks it read-only in Markover, and returns one JSON object containing the exact source and checksum, document tree, annotations, attachments, source proposals, and review context.</p>
+        <p><code>get</code> freezes the latest review, marks it read-only in Markover, and returns one JSON object containing the exact source and checksum, document tree, annotations, attachments, source proposals, review context, and agent guidance.</p>
         <p>If the reviewer needs to add or correct feedback, return it to editing with:</p>
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover edit mko_8f3a2c</code></pre>
+      </section>
+
+      <section id="interpretation">
+        <h2>Guide agent interpretation</h2>
+        <p>Annotations are free-form. One annotation can request a revision, ask a question, discuss a tradeoff, and provide context. Every handoff includes a fixed contract that tells the agent to interpret each part by its apparent intent, explicitly acknowledge every question, and treat exact source edits as context-dependent proposals.</p>
+        <p>Markover carries that contract and a configurable policy to the agent. It does not classify annotations into rigid types or apply document changes itself.</p>
+
+        <h3>Default policy</h3>
+        <pre><code>Use your judgment to respond to the review and make useful revisions. Ask for clarification when needed.</code></pre>
+        <p>This default intentionally gives a capable agent latitude. A question may reveal an obvious revision without requiring another round trip, but the response must still acknowledge the question. For example:</p>
+        <pre><code>Removed X—you were right that it had no place there.</code></pre>
+
+        <h3>Optional stricter policies</h3>
+        <p>Edit the interpretation policy in Markover settings before opening a review. The review snapshots that policy when it opens. These examples replace the default; they are starting points, not required formats.</p>
+        <p>Ask before uncertain changes:</p>
+        <pre><code>Apply clear revision requests. Answer every question directly. Before making a change whose intent or effect is materially uncertain, ask for clarification.</code></pre>
+        <p>Use an explicit completion summary:</p>
+        <pre><code>Handle feedback in document order. In your final response, summarize revisions made, answer every question, and list anything left unresolved.</code></pre>
       </section>
 
       <section id="keyboard">

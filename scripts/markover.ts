@@ -20,6 +20,7 @@ import {
   type ReviewMetadataInput
 } from '../src/metadata-discovery'
 import { serviceEndpointPath } from '../src/service-endpoint'
+import '../src/agent-guidance'
 import '../src/tree'
 
 const { parseMarkdown } = MarkoverTree
@@ -80,6 +81,7 @@ function commandError(message: string, usage?: string): CommandError {
 }
 
 export function helpPayload() {
+  const defaultAgentGuidance = globalThis.MarkoverAgentGuidance.guidance()
   return {
     format: 'markover-help',
     version: 1,
@@ -96,8 +98,10 @@ export function helpPayload() {
       'Run open once, then retain the returned reviewId in the agent thread.',
       'Give the user the review ID and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
+      'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'If the user wants to add feedback afterward, run edit before asking them to continue.'
     ],
+    defaultAgentGuidance,
     commands: [
       {
         name: 'open',

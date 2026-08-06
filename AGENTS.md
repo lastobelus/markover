@@ -15,10 +15,14 @@ npm --silent run markover -- help
 
 The normal flow is `open` once, retain the returned `reviewId`, and stop. When
 the user later says “Check Markover,” run `get <reviewId>` once and act on the
-returned review JSON. If they need to change feedback after that, run
-`edit <reviewId>`. Keep `--silent`: agent-facing success output is exactly one
-JSON value on stdout, while errors explain the relevant usage and recovery on
-stderr.
+returned review JSON. Follow both `review.agentGuidance.fixedContract` and
+`review.agentGuidance.interpretationPolicy` before acting. Feedback is
+free-form and can mix revision requests, questions, discussion, and context;
+interpret each part by intent, explicitly acknowledge every question even when
+you also act on it, and treat exact source edits as context-dependent proposals.
+If the user needs to change feedback after handoff, run `edit <reviewId>`.
+Keep `--silent`: agent-facing success output is exactly one JSON value on
+stdout, while errors explain the relevant usage and recovery on stderr.
 
 ## Markover dogfooding
 
