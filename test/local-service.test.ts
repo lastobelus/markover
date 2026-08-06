@@ -5,7 +5,11 @@ import os from 'node:os'
 import path from 'node:path'
 import test, { type TestContext } from 'node:test'
 
-import { LocalServiceError, requestJson } from '../src/local-client'
+import {
+  LocalServiceError,
+  readServiceConnection,
+  requestJson
+} from '../src/local-client'
 import {
   startLocalService,
   type LocalServiceOptions
@@ -26,7 +30,7 @@ const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
 
 type FixtureOptions = Omit<
   LocalServiceOptions,
-  'authorizationToken' | 'store'
+  'identity' | 'store'
 >
 
 function expectRecord(value: unknown): Record<string, unknown> {
@@ -72,7 +76,7 @@ async function serviceFixture(
   })
   const identity = createServiceIdentity()
   const service = await startLocalService({
-    authorizationToken: identity.token,
+    identity,
     store,
     beforeAction: options.beforeAction,
     importReviews: options.importReviews,
@@ -139,11 +143,11 @@ function tree(): ReviewTree {
 }
 
 test('serves health and a complete open/get/edit workflow', async (t) => {
-  const { changes, endpointPath } = await serviceFixture(t)
+  const { changes, endpointPath, identity } = await serviceFixture(t)
 
   assert.deepEqual(
     await requestJson(endpointPath, 'GET', '/health'),
-    { status: 'ok', version: 2 }
+    { status: 'ok', version: 2, instanceId: identity.instanceId }
   )
 
   const opened = await requestJson(endpointPath, 'POST', '/reviews', {
@@ -228,7 +232,11 @@ test('authenticates every non-health request before routing or bodies', async (t
   }
   const health = await rawRequest(fixture.port, 'GET', '/health')
   assert.equal(health.statusCode, 200)
-  assert.deepEqual(health.body, { status: 'ok', version: 2 })
+  assert.deepEqual(health.body, {
+    status: 'ok',
+    version: 2,
+    instanceId: fixture.identity.instanceId
+  })
   assert.deepEqual(
     unauthorized.map(({ method, pathname, reason }) => ({
       method,
@@ -256,7 +264,11 @@ test('categorizes invalid, stale, and rejected service credentials', async (t) =
   await fs.writeFile(tokenPath, '{}')
   assert.deepEqual(
     await requestJson(fixture.endpointPath, 'GET', '/health'),
-    { status: 'ok', version: 2 }
+    {
+      status: 'ok',
+      version: 2,
+      instanceId: fixture.identity.instanceId
+    }
   )
   await assert.rejects(
     requestJson(fixture.endpointPath, 'GET', '/reviews'),
@@ -302,13 +314,261 @@ test('categorizes invalid, stale, and rejected service credentials', async (t) =
   )
 })
 
+test('record reads converge within their bounded retry window', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-record-convergence-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  const identity = createServiceIdentity()
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: 43210,
+    pid: 1234
+  })
+  const mismatchedIdentity = createServiceIdentity()
+  await fs.writeFile(tokenPathForEndpoint(endpointPath), JSON.stringify({
+    version: 1,
+    instanceId: mismatchedIdentity.instanceId,
+    token: identity.token
+  }))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  let waits = 0
+  const connection = await readServiceConnection(endpointPath, {
+    retryDelaysMilliseconds: [0, 1],
+    async wait() {
+      waits += 1
+      await fs.writeFile(tokenPathForEndpoint(endpointPath), JSON.stringify({
+        version: 1,
+        instanceId: identity.instanceId,
+        token: identity.token
+      }))
+    }
+  })
+
+  assert.equal(waits, 1)
+  assert.deepEqual(connection, {
+    endpoint: {
+      version: 2,
+      instanceId: identity.instanceId,
+      port: 43210,
+      pid: 1234
+    },
+    credential: {
+      version: 1,
+      instanceId: identity.instanceId,
+      token: identity.token
+    }
+  })
+})
+
+test('health identity mismatch prevents secret request transmission', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-health-mismatch-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  const identity = createServiceIdentity()
+  const received: Array<{
+    authorization: string | undefined
+    body: string
+    method: string | undefined
+    url: string | undefined
+  }> = []
+  const fakeService = http.createServer((request, response) => {
+    request.setEncoding('utf8')
+    let body = ''
+    request.on('data', (chunk: string) => { body += chunk })
+    request.on('end', () => {
+      received.push({
+        authorization: request.headers.authorization,
+        body,
+        method: request.method,
+        url: request.url
+      })
+      const contents = `${JSON.stringify({
+        status: 'ok',
+        version: 2,
+        instanceId: createServiceIdentity().instanceId
+      })}\n`
+      response.writeHead(200, {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(contents)
+      })
+      response.end(contents)
+    })
+  })
+  await new Promise<void>((resolve) => fakeService.listen(0, '127.0.0.1', resolve))
+  const address = fakeService.address()
+  assert.ok(address && typeof address === 'object')
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: address.port,
+    pid: 1234
+  })
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => {
+      fakeService.close((error) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+    await fs.rm(directory, { recursive: true, force: true })
+  })
+
+  await assert.rejects(
+    requestJson(endpointPath, 'POST', '/reviews', {
+      private: 'review contents'
+    }),
+    (error: unknown) => (
+      error instanceof LocalServiceError && error.code === 'STALE_SERVICE'
+    )
+  )
+  assert.deepEqual(received, [{
+    authorization: undefined,
+    body: '',
+    method: 'GET',
+    url: '/health'
+  }])
+})
+
+test('authenticated requests never cache a successful health preflight', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-health-freshness-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  const identity = createServiceIdentity()
+  const received: Array<{ authorized: boolean; url: string | undefined }> = []
+  const fakeService = http.createServer((request, response) => {
+    received.push({
+      authorized: typeof request.headers.authorization === 'string',
+      url: request.url
+    })
+    const body = request.url === '/health'
+      ? { status: 'ok', version: 2, instanceId: identity.instanceId }
+      : { reviews: [] }
+    const contents = `${JSON.stringify(body)}\n`
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': Buffer.byteLength(contents)
+    })
+    response.end(contents)
+  })
+  await new Promise<void>((resolve) => fakeService.listen(0, '127.0.0.1', resolve))
+  const address = fakeService.address()
+  assert.ok(address && typeof address === 'object')
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: address.port,
+    pid: 1234
+  })
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => {
+      fakeService.close((error) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+    await fs.rm(directory, { recursive: true, force: true })
+  })
+
+  assert.deepEqual(
+    await requestJson(endpointPath, 'GET', '/reviews'),
+    { reviews: [] }
+  )
+  assert.deepEqual(
+    await requestJson(endpointPath, 'GET', '/reviews'),
+    { reviews: [] }
+  )
+  assert.deepEqual(received, [
+    { authorized: false, url: '/health' },
+    { authorized: true, url: '/reviews' },
+    { authorized: false, url: '/health' },
+    { authorized: true, url: '/reviews' }
+  ])
+})
+
+test('aborted authenticated responses are uncertain requests', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-aborted-response-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  const identity = createServiceIdentity()
+  let mutationReceived = false
+  const fakeService = http.createServer((request, response) => {
+    if (request.url === '/health') {
+      const contents = `${JSON.stringify({
+        status: 'ok',
+        version: 2,
+        instanceId: identity.instanceId
+      })}\n`
+      response.writeHead(200, {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(contents)
+      })
+      response.end(contents)
+      return
+    }
+
+    mutationReceived = true
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': 100
+    })
+    response.flushHeaders()
+    setImmediate(() => {
+      response.destroy()
+    })
+  })
+  await new Promise<void>((resolve) => fakeService.listen(0, '127.0.0.1', resolve))
+  const address = fakeService.address()
+  assert.ok(address && typeof address === 'object')
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: address.port,
+    pid: 1234
+  })
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => {
+      fakeService.close((error) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+    await fs.rm(directory, { recursive: true, force: true })
+  })
+
+  const outcome = await Promise.race([
+    requestJson(endpointPath, 'POST', '/reviews', {
+      tree: tree(),
+      metadata: { contextSummary: 'Simulate a persisted mutation.' }
+    }).catch((error: unknown) => error),
+    new Promise<null>((resolve) => {
+      setTimeout(() => {
+        resolve(null)
+      }, 250)
+    })
+  ])
+
+  assert.equal(mutationReceived, true)
+  assert.ok(outcome instanceof LocalServiceError)
+  assert.equal(outcome.code, 'REQUEST_UNCERTAIN')
+  assert.match(outcome.message, /Inspect Markover before retrying/)
+})
+
 test('rejects an invalid authorization token before listening', async () => {
   await assert.rejects(
     startLocalService({
-      authorizationToken: 'short',
+      identity: {
+        instanceId: '11111111-1111-4111-8111-111111111111',
+        token: 'short'
+      },
       store: new ReviewStore('/unused/reviews')
     }),
-    /authorization token is invalid/
+    /service identity is invalid/
   )
 })
 

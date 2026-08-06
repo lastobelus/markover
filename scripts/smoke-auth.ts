@@ -6,10 +6,11 @@ import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 
-import { executeCommand } from './markover'
+import { ensureService, executeCommand } from './markover'
 import { readEndpoint, requestJson } from '../src/local-client'
 import {
   parseServiceCredential,
+  createServiceIdentity,
   serviceEndpointPath,
   tokenPathForEndpoint
 } from '../src/service-endpoint'
@@ -22,6 +23,7 @@ interface SmokeState {
 
 export interface AuthorizationSmokeOptions {
   endpointPath?: string
+  repairService?: (() => Promise<void>) | undefined
   statePath?: string
 }
 
@@ -143,6 +145,7 @@ function parseSmokeState(value: unknown): SmokeState {
 
 export async function prepareAuthorizationSmoke({
   endpointPath = serviceEndpointPath(),
+  repairService,
   statePath = defaultStatePath
 }: AuthorizationSmokeOptions = {}) {
   const stateHandle = await fs.open(statePath, 'wx', 0o600).catch((error: unknown) => {
@@ -160,7 +163,28 @@ export async function prepareAuthorizationSmoke({
   const sourcePath = `${statePath}.md`
   try {
     await verifyPosixModes(endpointPath)
+    const initial = await readConnection(endpointPath)
+    const mismatchedIdentity = createServiceIdentity()
+    await fs.writeFile(
+      tokenPathForEndpoint(endpointPath),
+      `${JSON.stringify({
+        version: 1,
+        instanceId: mismatchedIdentity.instanceId,
+        token: initial.credential.token
+      }, null, 2)}\n`,
+      { mode: 0o600 }
+    )
+    if (process.platform !== 'win32') {
+      await fs.chmod(tokenPathForEndpoint(endpointPath), 0o600)
+    }
+    await (repairService || (() => ensureService({ endpointPath })))()
     const { credential, endpoint } = await readConnection(endpointPath)
+    if (
+      endpoint.instanceId !== initial.endpoint.instanceId ||
+      credential.token !== initial.credential.token
+    ) {
+      throw new Error('Markover rotated its identity during in-place repair.')
+    }
     await requestJson(endpointPath, 'GET', '/health')
     await verifyUnauthorizedDenial(endpoint.port)
     await fs.writeFile(
@@ -211,6 +235,7 @@ export async function prepareAuthorizationSmoke({
       phase: 'prepare',
       status: 'restart-required',
       reviewId: state.reviewId,
+      recordsRepaired: true,
       statePath
     }
   } catch (error) {

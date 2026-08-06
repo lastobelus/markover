@@ -10,7 +10,11 @@ import type {
   ReviewCreateInput,
   ReviewStore
 } from './review-store'
-import { CAPABILITY_TOKEN_PATTERN } from './service-endpoint'
+import {
+  CAPABILITY_TOKEN_PATTERN,
+  SERVICE_INSTANCE_PATTERN,
+  type ServiceIdentity
+} from './service-endpoint'
 
 export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
 
@@ -31,7 +35,7 @@ export interface UnauthorizedRequest {
 }
 
 export interface LocalServiceOptions {
-  authorizationToken: string
+  identity: ServiceIdentity
   store: Pick<
     ReviewStore,
     'create' | 'edit' | 'handoff' | 'list' | 'load'
@@ -122,17 +126,20 @@ export function reviewRoute(pathname: string): ReviewRoute | null {
 }
 
 export async function startLocalService({
-  authorizationToken,
+  identity,
   store,
   beforeAction = () => Promise.resolve(undefined),
   importReviews = () => Promise.resolve([]),
   onChange = () => {},
   onUnauthorized = () => {}
 }: LocalServiceOptions): Promise<LocalService> {
-  if (!CAPABILITY_TOKEN_PATTERN.test(authorizationToken)) {
-    throw new Error('Markover service authorization token is invalid.')
+  if (
+    !SERVICE_INSTANCE_PATTERN.test(identity.instanceId) ||
+    !CAPABILITY_TOKEN_PATTERN.test(identity.token)
+  ) {
+    throw new Error('Markover service identity is invalid.')
   }
-  const expectedToken = Buffer.from(authorizationToken, 'ascii')
+  const expectedToken = Buffer.from(identity.token, 'ascii')
   const actionQueues = new Map<string, Promise<void>>()
   function serializeReviewAction<T>(
     reviewId: string,
@@ -155,7 +162,11 @@ export async function startLocalService({
   ): Promise<void> {
     try {
       if (request.method === 'GET' && request.url === '/health') {
-        sendJson(response, 200, { status: 'ok', version: 2 })
+        sendJson(response, 200, {
+          status: 'ok',
+          version: 2,
+          instanceId: identity.instanceId
+        })
         return
       }
 
