@@ -88,7 +88,11 @@ function artifact(reviewId: string, snapshot: ReviewTree): ReviewArtifact {
       contextSummary: 'Autosave test.',
       agentThread: null,
       git: null,
-      pullRequest: null
+      pullRequest: null,
+      agentGuidance: {
+        fixedContract: 'Test contract.',
+        interpretationPolicy: 'Test policy.'
+      }
     }
   }
 }
