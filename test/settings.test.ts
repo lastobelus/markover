@@ -311,6 +311,10 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(preload, /onSettingsOpen:/)
   assert.match(renderer, /function applySettings\([\s\S]*next: unknown,[\s\S]*options: \{ initial\?: boolean \} = \{\}[\s\S]*\): void/)
   assert.match(html, /<dialog id="settings-dialog"/)
+  assert.match(html, /id="fixed-contract-open"[^>]*>View fixed contract</)
+  assert.match(html, /<dialog id="fixed-contract-dialog"/)
+  assert.match(renderer, /MarkoverAgentGuidance\.FIXED_CONTRACT_STATEMENTS/)
+  assert.match(renderer, /elements\.fixedContractDialog\.showModal\(\)/)
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     assert.match(html, new RegExp(`name="${key}"`))
   }

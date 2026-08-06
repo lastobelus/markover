@@ -45,6 +45,7 @@ declare global {
   }
 
   interface MarkoverAgentGuidanceApi {
+    FIXED_CONTRACT_STATEMENTS: readonly string[]
     FIXED_CONTRACT: string
     DEFAULT_INTERPRETATION_POLICY: string
     guidance: (interpretationPolicy?: unknown) => AgentGuidance

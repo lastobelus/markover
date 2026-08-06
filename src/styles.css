@@ -2415,6 +2415,13 @@ body.is-control-pressed .attachment-remove:hover {
   gap: 3px;
 }
 
+.settings-policy-copy,
+.settings-policy-copy label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
 .settings-field strong {
   font-size: 12px;
 }
@@ -2446,6 +2453,56 @@ body.is-control-pressed .attachment-remove:hover {
   min-height: 92px;
   resize: vertical;
   font: 500 11px/1.45 ui-sans-serif, -apple-system, sans-serif;
+}
+
+.settings-policy-link {
+  width: fit-content;
+  margin-top: 5px;
+  padding: 0;
+  border: 0;
+  color: var(--focus);
+  background: transparent;
+  cursor: pointer;
+  font: 700 10px/1.35 ui-sans-serif, -apple-system, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.settings-policy-link:hover {
+  color: var(--accent);
+}
+
+.fixed-contract-dialog {
+  width: min(540px, calc(100vw - 64px));
+}
+
+.fixed-contract-layout {
+  display: flex;
+  max-height: min(620px, calc(100vh - 64px));
+  flex-direction: column;
+}
+
+.fixed-contract-content {
+  padding: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.fixed-contract-content p {
+  margin: 0 0 16px;
+}
+
+.fixed-contract-content ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 22px;
+  color: var(--ink);
+}
+
+.fixed-contract-footer {
+  justify-content: flex-end;
 }
 
 .settings-switch-field {
@@ -2487,7 +2544,8 @@ body.is-control-pressed .attachment-remove:hover {
 }
 
 .settings-field :is(select, input, textarea):focus-visible,
-.settings-close:focus-visible {
+.settings-close:focus-visible,
+.settings-policy-link:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }

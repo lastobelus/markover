@@ -4,6 +4,7 @@ import test from 'node:test'
 const {
   DEFAULT_INTERPRETATION_POLICY,
   FIXED_CONTRACT,
+  FIXED_CONTRACT_STATEMENTS,
   guidance
 } = require('../src/agent-guidance') as MarkoverAgentGuidanceApi
 
@@ -13,6 +14,9 @@ test('central guidance distinguishes mixed feedback without prescribing workflow
   assert.match(FIXED_CONTRACT, /source edits as proposals/)
   assert.match(DEFAULT_INTERPRETATION_POLICY, /Use your judgment/)
   assert.match(DEFAULT_INTERPRETATION_POLICY, /Ask for clarification when needed/)
+  assert.equal(FIXED_CONTRACT_STATEMENTS.length, 4)
+  assert.equal(FIXED_CONTRACT_STATEMENTS.join(' '), FIXED_CONTRACT)
+  assert.equal(Object.isFrozen(FIXED_CONTRACT_STATEMENTS), true)
 })
 
 test('guidance combines the fixed contract with a replaceable policy', () => {
