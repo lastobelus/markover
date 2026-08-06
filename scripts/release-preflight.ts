@@ -15,8 +15,10 @@ import {
   developerIdReadiness,
   generateReleaseNotes,
   githubReleaseReadiness,
+  publicationTurnReadiness,
   verifyDraftRelease,
   verifyReleasePayloads,
+  verifyRollbackTarget,
   verifyReleaseTag,
   type ReadinessReport,
   type ReleasePayloadReport
@@ -183,6 +185,15 @@ async function verifyDraft(flags: readonly string[]): Promise<void> {
   process.stdout.write('Draft release metadata: unchanged\n')
 }
 
+function verifyRollback(flags: readonly string[]): void {
+  const parsed = parseFlags(flags, ['expected-tag', 'repository'])
+  const tag = verifyRollbackTarget({
+    expectedTag: value(parsed, 'expected-tag'),
+    repository: value(parsed, 'repository')
+  })
+  process.stdout.write(`Known-good rollback release: unchanged at ${tag}\n`)
+}
+
 export async function main(args = process.argv.slice(2)): Promise<void> {
   const [subcommand, ...flags] = args
   switch (subcommand) {
@@ -204,6 +215,20 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     case 'verify-draft':
       await verifyDraft(flags)
       return
+    case 'verify-rollback':
+      verifyRollback(flags)
+      return
+    case 'publication-turn': {
+      const parsed = parseFlags(flags, ['repository', 'run-id'])
+      printReadiness(
+        'Publication queue',
+        publicationTurnReadiness({
+          repository: value(parsed, 'repository'),
+          runId: value(parsed, 'run-id')
+        })
+      )
+      return
+    }
     case 'github-readiness': {
       const parsed = parseFlags(flags, ['repository'])
       printReadiness(

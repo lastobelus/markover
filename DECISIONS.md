@@ -257,22 +257,24 @@ foundation for a production architecture.
    job builds the matching CLI. A staging job requires the exact six payload
    and checksum files before it can create a complete draft.
 2. **Publication is a distinct protected operation.** The final job waits at a
-   maintainer-approved `release` environment, serializes publication without
-   cancellation, downloads the draft assets by release ID, and proves every
-   byte and release-note field is unchanged before publishing.
+   maintainer-approved `release` environment, then enters an oldest-run-first
+   queue that retains every pending publication. It does not use Actions
+   concurrency's replaceable pending slot. The job downloads the draft assets
+   by release ID and proves every byte and release-note field is unchanged
+   before publishing.
 3. **GitHub attestations and SHA-256 sidecars have separate jobs.** Sidecars
    provide simple byte checks. GitHub build-provenance attestations identify
    the source repository and release workflow. Neither is a claim of
    bit-for-bit reproducibility.
 4. **Stable version tags only move forward and never move in place.** The
    release workflow accepts stable SemVer tags whose matching package versions
-   are newer than every published stable version, contained in protected `main`,
+   are newer than every preserved stable tag, contained in protected `main`,
    and already green on both required CI checks. Repository rules restrict
    `v*` creation and separately prohibit updates and deletion without bypass.
 5. **Each release carries its own rollback contract.** Generated notes name one
    stable release explicitly designated `latest` as the known-good version and
    provide its exact version-pinned launcher. Monotonic version checks still
-   compare against every published stable version, including withdrawals. Users
+   compare against every preserved stable tag, including withdrawals. Users
    quit Markover and back up the complete Application Support directory first;
    rollback is promised only within one review-data format.
 6. **Published bytes are withdrawn, never replaced.** A defective version is

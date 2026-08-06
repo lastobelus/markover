@@ -66,6 +66,13 @@ interface CheckRunsResponse {
   check_runs?: unknown
 }
 
+interface WorkflowRun {
+  head_branch?: unknown
+  html_url?: unknown
+  id?: unknown
+  status?: unknown
+}
+
 interface PackageManifest {
   version?: unknown
 }
@@ -150,6 +157,14 @@ function jsonArrayPages(value: string, label: string): unknown[] {
   })
 }
 
+function jsonObjectPages(value: string, label: string): Record<string, unknown>[] {
+  const pages = parsedJson(value, label)
+  if (!Array.isArray(pages)) {
+    throw new Error(`${label} must be a JSON array of pages.`)
+  }
+  return pages.map((page) => jsonObject(page, `${label} page`))
+}
+
 export function parseStableSemver(value: string): StableSemver {
   const match = value.match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/)
   if (!match?.[1] || !match[2] || !match[3]) {
@@ -188,6 +203,25 @@ function packageVersion(rootDirectory: string, relativePath: string): string {
     throw new Error(`${relativePath} does not declare a version.`)
   }
   return manifest.version
+}
+
+function designatedRollbackTag(
+  repository: string,
+  runner: ReleaseCommandRunner
+): string {
+  const latestRelease = jsonObject(parsedJson(requireCommand(
+    runner,
+    'gh',
+    ['api', `repos/${repository}/releases/latest`]
+  ).stdout, 'Latest GitHub release'), 'Latest GitHub release') as GitHubRelease
+  if (
+    latestRelease.draft !== false || latestRelease.prerelease !== false ||
+    typeof latestRelease.tag_name !== 'string'
+  ) {
+    throw new Error('The designated latest release must be a published stable release.')
+  }
+  parseStableTag(latestRelease.tag_name, 'Designated rollback release')
+  return latestRelease.tag_name
 }
 
 export function verifyReleaseTag({
@@ -230,7 +264,7 @@ export function verifyReleaseTag({
       `repos/${repository}/releases?per_page=100`
     ]
   ).stdout, 'GitHub releases')
-  const newestPublished = releasesValue
+  const publishedVersions = releasesValue
     .map((entry): StableSemver | undefined => {
       const release = jsonObject(entry, 'GitHub release') as GitHubRelease
       if (
@@ -247,32 +281,32 @@ export function verifyReleaseTag({
       }
     })
     .filter((entry): entry is StableSemver => entry !== undefined)
+  const preservedTagVersions = requireCommand(
+    runner,
+    'git',
+    ['tag', '--list', 'v*']
+  ).stdout.split(/\r?\n/).flatMap((candidate) => {
+    if (!candidate || candidate === tag) return []
+    try {
+      return [parseStableTag(candidate, 'Preserved release tag')]
+    } catch {
+      return []
+    }
+  })
+  const newestHistorical = [...publishedVersions, ...preservedTagVersions]
     .sort(compareSemver)
     .at(-1)
-  if (!newestPublished) {
+  if (!newestHistorical) {
     throw new Error('A preceding stable release is required for rollback.')
   }
-  if (compareSemver(version, newestPublished) <= 0) {
+  if (compareSemver(version, newestHistorical) <= 0) {
     throw new Error(
-      `${tag} must be newer than every published stable release; newest is v${newestPublished.version}.`
+      `${tag} must be newer than every stable release tag; newest is v${newestHistorical.version}.`
     )
   }
 
-  const latestRelease = jsonObject(parsedJson(requireCommand(
-    runner,
-    'gh',
-    ['api', `repos/${repository}/releases/latest`]
-  ).stdout, 'Latest GitHub release'), 'Latest GitHub release') as GitHubRelease
-  if (
-    latestRelease.draft !== false || latestRelease.prerelease !== false ||
-    typeof latestRelease.tag_name !== 'string'
-  ) {
-    throw new Error('The designated latest release must be a published stable release.')
-  }
-  const rollbackTarget = parseStableTag(
-    latestRelease.tag_name,
-    'Designated rollback release'
-  )
+  const rollbackTag = designatedRollbackTag(repository, runner)
+  const rollbackTarget = parseStableTag(rollbackTag, 'Designated rollback release')
   if (compareSemver(rollbackTarget, version) >= 0) {
     throw new Error('The designated rollback release must be older than the new release.')
   }
@@ -304,10 +338,83 @@ export function verifyReleaseTag({
 
   return {
     commit,
-    previousTag: `v${rollbackTarget.version}`,
+    previousTag: rollbackTag,
     tag,
     version: version.version
   }
+}
+
+export function verifyRollbackTarget({
+  expectedTag,
+  repository,
+  runner = runReleaseCommand
+}: {
+  expectedTag: string
+  repository: string
+  runner?: ReleaseCommandRunner
+}): string {
+  parseStableTag(expectedTag, 'Expected rollback release')
+  const actualTag = designatedRollbackTag(repository, runner)
+  if (actualTag !== expectedTag) {
+    throw new Error(
+      `Rollback release changed from ${expectedTag} to ${actualTag} during staging.`
+    )
+  }
+  return actualTag
+}
+
+export function publicationTurnReadiness({
+  repository,
+  runId,
+  runner = runReleaseCommand
+}: {
+  repository: string
+  runId: string
+  runner?: ReleaseCommandRunner
+}): ReadinessReport {
+  if (!/^[1-9]\d*$/.test(runId) || !Number.isSafeInteger(Number(runId))) {
+    throw new Error(`Workflow run ID ${runId} must be a positive safe integer.`)
+  }
+  const currentRunId = Number(runId)
+  const pages = jsonObjectPages(requireCommand(
+    runner,
+    'gh',
+    [
+      'api',
+      '--paginate',
+      '--slurp',
+      `repos/${repository}/actions/workflows/release.yml/runs?event=push&per_page=100`
+    ]
+  ).stdout, 'Release workflow runs')
+  const runs = pages.flatMap((page) => {
+    if (!Array.isArray(page.workflow_runs)) {
+      throw new Error('Release workflow run page is missing workflow_runs.')
+    }
+    return (page.workflow_runs as unknown[]).map((entry) => (
+      jsonObject(entry, 'Release workflow run') as WorkflowRun
+    ))
+  })
+  const blockers = runs.filter((run) => {
+    if (
+      typeof run.id !== 'number' || !Number.isSafeInteger(run.id) ||
+      typeof run.status !== 'string' || typeof run.head_branch !== 'string'
+    ) {
+      throw new Error('Release workflow run contains malformed queue data.')
+    }
+    return run.id < currentRunId && run.status !== 'completed'
+  })
+  const check: ReadinessCheck = blockers.length === 0
+    ? {
+        name: 'Older release runs',
+        state: 'ready',
+        detail: 'none active'
+      }
+    : {
+        name: 'Older release runs',
+        state: 'blocked',
+        detail: blockers.map((run) => `${String(run.head_branch)} (#${String(run.id)})`).join(', ')
+      }
+  return { checks: [check], state: check.state }
 }
 
 function architectureForAsset(name: string): ReleasePayload['architecture'] {

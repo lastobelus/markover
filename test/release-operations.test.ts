@@ -11,10 +11,12 @@ import {
   generateReleaseNotes,
   githubReleaseReadiness,
   parseStableSemver,
+  publicationTurnReadiness,
   primaryReleaseAssets,
   releaseAssets,
   verifyDraftRelease,
   verifyReleasePayloads,
+  verifyRollbackTarget,
   verifyReleaseTag,
   type ReleaseCommandResult,
   type ReleaseCommandRunner
@@ -55,15 +57,21 @@ function releaseTagRunner({
   checkApp = 'github-actions',
   checks = ['Verify (Node 22.13.0)', 'Verify (Node 24)'],
   latestTag = 'v1.2.2',
-  newestTag = latestTag
+  newestTag = latestTag,
+  stableTags = [newestTag]
 }: {
   checkApp?: string
   checks?: string[]
   latestTag?: string
   newestTag?: string
+  stableTags?: string[]
 } = {}): ReleaseCommandRunner {
   return (command, args) => {
-    if (command === 'git') return success()
+    if (command === 'git') {
+      return args[0] === 'tag'
+        ? success(`${stableTags.join('\n')}\n`)
+        : success()
+    }
     const endpoint = args.at(-1) ?? ''
     if (endpoint.includes('/releases?')) {
       return success(JSON.stringify([[
@@ -151,6 +159,71 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
     tag: 'v1.2.3'
   })
   assert.equal(afterWithdrawal.previousTag, 'v1.2.1')
+
+  assert.throws(() => verifyReleaseTag({
+    commit: 'abc123',
+    mainRef: 'origin/main',
+    repository: 'example/markover',
+    rootDirectory: root,
+    runner: releaseTagRunner({
+      latestTag: 'v1.2.1',
+      newestTag: 'v1.2.1',
+      stableTags: ['v1.2.1', 'v2.0.0']
+    }),
+    tag: 'v1.2.3'
+  }), /newest is v2\.0\.0/)
+})
+
+test('publication revalidates rollback and waits for every older release run', () => {
+  assert.equal(verifyRollbackTarget({
+    expectedTag: 'v1.2.2',
+    repository: 'example/markover',
+    runner: releaseTagRunner()
+  }), 'v1.2.2')
+  assert.throws(() => verifyRollbackTarget({
+    expectedTag: 'v1.2.2',
+    repository: 'example/markover',
+    runner: releaseTagRunner({ latestTag: 'v1.2.1' })
+  }), /changed from v1\.2\.2 to v1\.2\.1/)
+
+  const queueRunner = (runs: unknown[]): ReleaseCommandRunner => (
+    command,
+    args
+  ) => {
+    const endpoint = args.at(-1) ?? ''
+    if (
+      command === 'gh' &&
+      endpoint.includes('/actions/workflows/release.yml/runs?')
+    ) {
+      return success(JSON.stringify([{ workflow_runs: runs }]))
+    }
+    return {
+      status: 127,
+      stdout: '',
+      stderr: `unexpected ${command} ${args.join(' ')}`
+    }
+  }
+  const ready = publicationTurnReadiness({
+    repository: 'example/markover',
+    runId: '42',
+    runner: queueRunner([
+      { id: 41, status: 'completed', head_branch: 'v1.2.2' },
+      { id: 43, status: 'in_progress', head_branch: 'v1.2.4' }
+    ])
+  })
+  assert.equal(ready.state, 'ready')
+
+  const blocked = publicationTurnReadiness({
+    repository: 'example/markover',
+    runId: '42',
+    runner: queueRunner([
+      { id: 40, status: 'in_progress', head_branch: 'v1.2.1' },
+      { id: 41, status: 'queued', head_branch: 'v1.2.2' }
+    ])
+  })
+  assert.equal(blocked.state, 'blocked')
+  assert.match(blocked.checks[0]?.detail ?? '', /v1\.2\.1 \(#40\)/)
+  assert.match(blocked.checks[0]?.detail ?? '', /v1\.2\.2 \(#41\)/)
 })
 
 test('release payload verification requires exact bytes and sidecars', async (t) => {

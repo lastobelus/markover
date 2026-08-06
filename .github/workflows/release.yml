@@ -301,13 +301,10 @@ jobs:
       - test
       - stage-release
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
     environment:
       name: release
       url: ${{ needs.stage-release.outputs.release-url }}
-    concurrency:
-      group: release-publication
-      cancel-in-progress: false
     permissions:
       actions: read
       attestations: read
@@ -326,6 +323,30 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Wait for older release publications
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          while true
+          do
+            set +e
+            npm run release:preflight -- publication-turn \
+              "--repository=${GITHUB_REPOSITORY}" \
+              "--run-id=${GITHUB_RUN_ID}"
+            queue_status="$?"
+            set -e
+            if [[ "$queue_status" -eq 0 ]]
+            then
+              break
+            fi
+            if [[ "$queue_status" -ne 2 ]]
+            then
+              exit "$queue_status"
+            fi
+            sleep 20
+          done
 
       - name: Download expected native payloads
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -419,13 +440,16 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish the unchanged immutable release
+      - name: Revalidate rollback and publish the unchanged immutable release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ needs.stage-release.outputs.release-id }}
-        run: >-
-          gh api --method PATCH
-          "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}"
-          -F draft=false
-          -F prerelease=false
-          -f make_latest=true
+        run: |
+          npm run release:preflight -- verify-rollback \
+            "--repository=${GITHUB_REPOSITORY}" \
+            "--expected-tag=${{ needs.test.outputs.previous-tag }}"
+          gh api --method PATCH \
+            "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -F draft=false \
+            -F prerelease=false \
+            -f make_latest=true

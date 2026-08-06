@@ -153,7 +153,9 @@ After slice 1 is accepted, revise the release workflow with these controls:
 2. Keep architecture builds parallel, unprivileged, native, and all-or-nothing
    with the matching CLI payload.
 3. Pin actions to full commit SHAs and scope permissions per job.
-4. Serialize final publication in one non-cancelling concurrency group.
+4. Serialize final publication through an oldest-run-first queue that retains
+   every pending publication; do not use Actions concurrency's replaceable
+   single pending slot.
 5. Independently rehash downloaded build outputs in the privileged job before
    attestation or draft attachment; no bytes change afterward.
 6. Generate GitHub Actions build-provenance attestations for both app ZIPs and

@@ -49,7 +49,7 @@ and must not be guessed.
 ## Prepare a stable release
 
 1. Choose a stable `vMAJOR.MINOR.PATCH` version strictly newer than every
-   published stable version. The stable release explicitly designated
+   preserved stable tag. The stable release explicitly designated
    `latest` is the known-good rollback target, which may be older than a
    withdrawn version. Prerelease tags use a separately reviewed
    workflow; they do not pass this workflow's stable-release gate.
@@ -81,9 +81,13 @@ The tag-triggered workflow performs four fail-closed stages:
    and creates one complete draft release. Sanitized build context remains in
    workflow artifacts rather than permanent release assets.
 4. The `publish-release` job waits at the protected `release` environment.
-   After approval, it downloads the draft assets by release ID, compares every
-   byte and the draft metadata with the staged set, verifies attestations, and
-   publishes without uploading or changing anything.
+   Approve pending jobs in tag order. After approval, an oldest-run-first queue
+   retains every pending publication and waits for all older release runs; it
+   does not use Actions concurrency's replaceable pending slot. The job then
+   downloads the draft assets by release ID, compares every byte and the draft
+   metadata with the staged set, verifies attestations, revalidates the
+   designated rollback release, and publishes without uploading or changing
+   anything.
 
 For the first post-policy release, leave the publish job waiting while the
 dedicated Sonoma Intel machine downloads the exact draft assets and completes
