@@ -76,11 +76,13 @@ gh project item-add 3 --owner lastobelus --url ITEM_URL
 ```
 
 Resolve the Project node ID, the target's item node ID, and the `Status` field
-with its option IDs from live JSON:
+with its option IDs from live JSON. Read the live field count first so
+`field-list` does not silently stop at its default limit:
 
 ```sh
 gh project view 3 --owner lastobelus --format json --jq '.id'
-gh project field-list 3 --owner lastobelus --format json \
+gh project field-list 3 --owner lastobelus --format json --jq '.totalCount'
+gh project field-list 3 --owner lastobelus --limit PROJECT_FIELD_TOTAL --format json \
   --jq '.fields[] | select(.name == "Status")'
 gh project item-list 3 --owner lastobelus --limit 10 \
   --query 'repo:REPOSITORY_OWNER/REPOSITORY_NAME #ITEM_NUMBER' --format json \
@@ -169,6 +171,12 @@ Update the canonical work intent whenever the interview materially changes its
 summary, touch points, dependencies, branch, or phase. Keep `phase:
 investigating` until the user explicitly confirms shared understanding and
 authorizes implementation.
+
+After every material intent update, repeat the inflight scan from stage 2 with
+fresh stability samples and resolve any newly visible overlap before asking the
+next question. Perform this scan once more after the final material update and
+before accepting implementation authorization, even if no further question is
+needed.
 
 **Complete when:** acceptance criteria, scope boundaries, dependencies,
 touch-points, validation, and meaningful tradeoffs are resolved, and the user
