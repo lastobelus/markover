@@ -230,7 +230,7 @@ export function verifyReleaseTag({
       `repos/${repository}/releases?per_page=100`
     ]
   ).stdout, 'GitHub releases')
-  const previous = releasesValue
+  const newestPublished = releasesValue
     .map((entry): StableSemver | undefined => {
       const release = jsonObject(entry, 'GitHub release') as GitHubRelease
       if (
@@ -249,13 +249,32 @@ export function verifyReleaseTag({
     .filter((entry): entry is StableSemver => entry !== undefined)
     .sort(compareSemver)
     .at(-1)
-  if (!previous) {
+  if (!newestPublished) {
     throw new Error('A preceding stable release is required for rollback.')
   }
-  if (compareSemver(version, previous) <= 0) {
+  if (compareSemver(version, newestPublished) <= 0) {
     throw new Error(
-      `${tag} must be newer than the preceding stable release v${previous.version}.`
+      `${tag} must be newer than every published stable release; newest is v${newestPublished.version}.`
     )
+  }
+
+  const latestRelease = jsonObject(parsedJson(requireCommand(
+    runner,
+    'gh',
+    ['api', `repos/${repository}/releases/latest`]
+  ).stdout, 'Latest GitHub release'), 'Latest GitHub release') as GitHubRelease
+  if (
+    latestRelease.draft !== false || latestRelease.prerelease !== false ||
+    typeof latestRelease.tag_name !== 'string'
+  ) {
+    throw new Error('The designated latest release must be a published stable release.')
+  }
+  const rollbackTarget = parseStableTag(
+    latestRelease.tag_name,
+    'Designated rollback release'
+  )
+  if (compareSemver(rollbackTarget, version) >= 0) {
+    throw new Error('The designated rollback release must be older than the new release.')
   }
 
   const checksValue = jsonObject(parsedJson(requireCommand(
@@ -285,7 +304,7 @@ export function verifyReleaseTag({
 
   return {
     commit,
-    previousTag: `v${previous.version}`,
+    previousTag: `v${rollbackTarget.version}`,
     tag,
     version: version.version
   }
@@ -694,14 +713,18 @@ export function githubReleaseReadiness(
       ), 'Tag ruleset')
       const conditions = jsonObject(detail.conditions, 'Tag ruleset conditions')
       const refName = jsonObject(conditions.ref_name, 'Tag ruleset ref condition')
-      const includes = Array.isArray(refName.include) ? refName.include : []
+      const includes = Array.isArray(refName.include) ? refName.include : undefined
+      const excludes = Array.isArray(refName.exclude) ? refName.exclude : undefined
       const ruleTypes = Array.isArray(detail.rules)
         ? detail.rules.map((entry) => jsonObject(entry, 'Tag rule').type)
         : []
       const bypassActors = Array.isArray(detail.bypass_actors)
         ? detail.bypass_actors.map((entry) => jsonObject(entry, 'Bypass actor'))
         : []
-      if (!includes.includes('refs/tags/v*')) continue
+      if (
+        !includes?.includes('refs/tags/v*') ||
+        excludes === undefined || excludes.length > 0
+      ) continue
       if (
         ruleTypes.includes('creation') && bypassActors.length === 1 &&
         bypassActors[0]?.actor_type === 'User' &&

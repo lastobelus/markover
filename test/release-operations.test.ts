@@ -54,21 +54,31 @@ async function createPayloads(directory: string, suffix = ''): Promise<void> {
 function releaseTagRunner({
   checkApp = 'github-actions',
   checks = ['Verify (Node 22.13.0)', 'Verify (Node 24)'],
-  previousTag = 'v1.2.2'
+  latestTag = 'v1.2.2',
+  newestTag = latestTag
 }: {
   checkApp?: string
   checks?: string[]
-  previousTag?: string
+  latestTag?: string
+  newestTag?: string
 } = {}): ReleaseCommandRunner {
   return (command, args) => {
     if (command === 'git') return success()
     const endpoint = args.at(-1) ?? ''
     if (endpoint.includes('/releases?')) {
       return success(JSON.stringify([[
-        { draft: false, prerelease: false, tag_name: previousTag },
+        { draft: false, prerelease: false, tag_name: newestTag },
+        { draft: false, prerelease: false, tag_name: latestTag },
         { draft: true, prerelease: false, tag_name: 'v9.0.0' },
         { draft: false, prerelease: true, tag_name: 'v8.0.0-beta.1' }
       ]]))
+    }
+    if (endpoint.endsWith('/releases/latest')) {
+      return success(JSON.stringify({
+        draft: false,
+        prerelease: false,
+        tag_name: latestTag
+      }))
     }
     if (endpoint.includes('/check-runs?')) {
       return success(JSON.stringify({
@@ -112,7 +122,7 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
     mainRef: 'origin/main',
     repository: 'example/markover',
     rootDirectory: root,
-    runner: releaseTagRunner({ previousTag: 'v1.2.3' }),
+    runner: releaseTagRunner({ newestTag: 'v1.2.3' }),
     tag: 'v1.2.3'
   }), /must be newer/)
   assert.throws(() => verifyReleaseTag({
@@ -131,6 +141,16 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
     runner: releaseTagRunner({ checkApp: 'untrusted-check-app' }),
     tag: 'v1.2.3'
   }), /Verify \(Node 22\.13\.0\)/)
+
+  const afterWithdrawal = verifyReleaseTag({
+    commit: 'abc123',
+    mainRef: 'origin/main',
+    repository: 'example/markover',
+    rootDirectory: root,
+    runner: releaseTagRunner({ latestTag: 'v1.2.1', newestTag: 'v1.2.2' }),
+    tag: 'v1.2.3'
+  })
+  assert.equal(afterWithdrawal.previousTag, 'v1.2.1')
 })
 
 test('release payload verification requires exact bytes and sidecars', async (t) => {
@@ -260,7 +280,10 @@ test('draft verification freezes metadata and the complete asset set', async (t)
   }), /metadata changed/)
 })
 
-function readinessRunner(configured: boolean): ReleaseCommandRunner {
+function readinessRunner(
+  configured: boolean,
+  tagExcludes: readonly string[] = []
+): ReleaseCommandRunner {
   return (_command, args) => {
     const endpoint = args.at(-1) ?? ''
     if (endpoint.endsWith('/immutable-releases')) {
@@ -305,7 +328,9 @@ function readinessRunner(configured: boolean): ReleaseCommandRunner {
     }
     if (endpoint.endsWith('/rulesets/7')) {
       return success(JSON.stringify({
-        conditions: { ref_name: { include: ['refs/tags/v*'], exclude: [] } },
+        conditions: {
+          ref_name: { include: ['refs/tags/v*'], exclude: tagExcludes }
+        },
         rules: [
           { type: 'creation' },
           { type: 'update' },
@@ -320,7 +345,9 @@ function readinessRunner(configured: boolean): ReleaseCommandRunner {
     }
     if (endpoint.endsWith('/rulesets/8')) {
       return success(JSON.stringify({
-        conditions: { ref_name: { include: ['refs/tags/v*'], exclude: [] } },
+        conditions: {
+          ref_name: { include: ['refs/tags/v*'], exclude: tagExcludes }
+        },
         rules: [{ type: 'update' }, { type: 'deletion' }],
         bypass_actors: []
       }))
@@ -355,5 +382,17 @@ test('readiness fails when a matching ruleset cannot be inspected', () => {
   assert.equal(
     report.checks.find((check) => check.name === 'Protected v* tags')?.state,
     'failed'
+  )
+})
+
+test('readiness rejects release-tag rulesets with exclusions', () => {
+  const report = githubReleaseReadiness(
+    'example/markover',
+    readinessRunner(true, ['refs/tags/v1.2.3'])
+  )
+  assert.equal(report.state, 'blocked')
+  assert.equal(
+    report.checks.find((check) => check.name === 'Protected v* tags')?.state,
+    'blocked'
   )
 })

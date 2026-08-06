@@ -26,8 +26,8 @@ releases.
 1. Create a `release` environment in **Settings → Environments**. Require
    `lastobelus` as reviewer, leave “Prevent self-review” disabled while there is
    one maintainer, and restrict deployment branches and tags to `v*` tags.
-2. Create an active tag ruleset for `refs/tags/v*` that restricts tag creation
-   to the maintainer through an explicit bypass.
+2. Create an active tag ruleset for exactly `refs/tags/v*`, with no exclusions,
+   that restricts tag creation to the maintainer through an explicit bypass.
 3. Create a separate active tag ruleset for the same pattern that blocks tag
    updates and deletion with no bypass actors. Separating these rules lets the
    maintainer create a version while preventing anyone—including the
@@ -48,8 +48,10 @@ and must not be guessed.
 
 ## Prepare a stable release
 
-1. Choose a stable `vMAJOR.MINOR.PATCH` version strictly newer than the latest
-   published stable release. Prerelease tags use a separately reviewed
+1. Choose a stable `vMAJOR.MINOR.PATCH` version strictly newer than every
+   published stable version. The stable release explicitly designated
+   `latest` is the known-good rollback target, which may be older than a
+   withdrawn version. Prerelease tags use a separately reviewed
    workflow; they do not pass this workflow's stable-release gate.
 2. Update the root and bootstrap CLI package versions together.
 3. Merge the version change to protected `main` and wait for both required CI

@@ -119,7 +119,7 @@ async function verifyTag(flags: readonly string[]): Promise<void> {
     'Release tag: verified',
     `Tag: ${report.tag}`,
     `Commit: ${report.commit}`,
-    `Previous stable release: ${report.previousTag}`,
+    `Known-good rollback release: ${report.previousTag}`,
     ''
   ].join('\n'))
   const githubOutput = parsed.get('github-output')
