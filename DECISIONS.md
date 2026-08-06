@@ -277,23 +277,27 @@ foundation for a production architecture.
 6. **Shutdown leaves one coherent stale pair.** Neither record is deleted on
    graceful shutdown. Stale records are useful to startup recovery and reveal
    no live credential once their owning process has stopped.
-7. **Only exact `GET /health` is public.** It returns only
-   `{"status":"ok","version":2}`. Every other request must authenticate before
-   route matching or body reading with exactly one
+7. **Only exact `GET /health` is public.** It returns `status`, protocol version
+   2, and the service's non-secret instance ID. Every other request must
+   authenticate before route matching or body reading with exactly one
    `Authorization: Bearer <token>` header.
 8. **Authorization failures do not become an oracle.** Missing, malformed,
    duplicated, and incorrect credentials all return the same structured
    `401 UNAUTHORIZED` response and Bearer challenge. Validly shaped tokens use
    a constant-time comparison. Unknown routes are also gated before their
    `404`, and unauthorized bodies never reach JSON parsing or state mutation.
-9. **The shared client owns credential propagation.** It reads fresh endpoint
-   metadata and then fresh credentials for every non-health request, requires
-   matching instance IDs, and adds the header internally. Callers neither pass
-   nor receive tokens. Health reads endpoint metadata only.
+9. **The shared client owns credential propagation and preflight.** For every
+   non-health request it reads fresh endpoint metadata and credentials, requires
+   matching record IDs, then calls public health without a token and requires
+   the listener's instance ID to match. Only then does it send the Bearer
+   capability and application request. Callers neither pass nor receive tokens,
+   and successful preflight is not cached.
 10. **Client failures have stable, non-secret categories.** Invalid discovery
     metadata is `INVALID_ENDPOINT`; missing or malformed credentials are
-    `INVALID_CREDENTIAL`; mismatched instance IDs are `STALE_SERVICE`; and a
-    coherent request rejected by the server is `UNAUTHORIZED`.
+    `INVALID_CREDENTIAL`; mismatched record or health IDs are `STALE_SERVICE`;
+    an identity-matched request rejected by the server is `UNAUTHORIZED`;
+    preflight network failure is `SERVICE_UNAVAILABLE`; and an application
+    transport failure is `REQUEST_UNCERTAIN`.
 11. **Rejected-request diagnostics are explicit and redacted.** They are off by
     default and controlled by the live persisted “Log rejected API requests”
     setting. Enabled lines contain only method, query-free pathname, and
@@ -304,11 +308,30 @@ foundation for a production architecture.
     migration. Existing review JSON and attachments remain untouched and need
     not be openable by the latest app. Restarts do not require draining review
     handoffs; issue 39 independently owns bounded-loss restart durability.
-13. **Issue 12 remains a three-PR stack.** This PR establishes capability
+13. **Issue 12 remains a three-PR stack.** PR 1 established capability
     generation, protected publication, server enforcement, minimum client
-    propagation, and the reusable development smoke fixture. The next PR owns
-    stale/mismatched-pair recovery and stale-port impersonation; the final PR
-    owns exhaustive adversarial verification and public privacy/data claims.
+    propagation, and the reusable development smoke fixture. PR 2 owns bounded
+    record convergence, ordinary stale-instance detection, in-place record
+    repair, and deterministic client recovery. PR 3 owns exhaustive adversarial
+    verification and public privacy/data claims.
+14. **Publication recovery is bounded and non-destructive.** Record reads retry
+    missing, malformed, or mismatched pairs for a short fixed convergence
+    window. When complete probing still fails, the CLI invokes one normal
+    launch-or-notify operation. A stopped primary starts normally; a ready
+    primary serially republishes the same in-memory identity and listener. The
+    CLI never deletes records, kills a PID, or forcibly replaces a process.
+15. **The health instance ID is a consistency name tag, not authentication.**
+    It prevents an ordinary unrelated stale-port listener from receiving the
+    capability or review request. A malicious process that observes the public
+    ID and deliberately impersonates the stale listener remains outside the
+    implemented protection; HMAC handshakes, connection pinning, local TLS, and
+    Unix-domain sockets are deferred until real deployment evidence justifies
+    them.
+16. **Ambiguous application requests are never replayed automatically.**
+    Recovery completes before transmission. Once an application request may
+    have reached a listener, transport failure tells the user to inspect
+    Markover before retrying. Automatic retries require a separately designed
+    idempotency contract.
 
 ## Deliberately deferred
 
