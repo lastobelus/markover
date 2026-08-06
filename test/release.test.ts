@@ -129,7 +129,7 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Slice 2 · Draft PR #55 · 5 Aug 2026/
+    /Slice 2 · Ready PR #55 · 5 Aug 2026/
   )
   assert.match(
     pages[1] ?? '',
@@ -137,7 +137,7 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[2] ?? '',
-    /Slice 2 · Draft PR #55 · 5 Aug 2026/
+    /Slice 2 · Ready PR #55 · 5 Aug 2026/
   )
 })
 
