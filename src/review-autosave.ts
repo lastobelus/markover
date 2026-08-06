@@ -6,7 +6,6 @@ export const MAXIMUM_AUTOSAVE_MAXIMUM_DELAY_MS = 60_000
 export const MAXIMUM_AUTOSAVE_RETRY_DELAY_MS = 30_000
 
 interface PendingSnapshot {
-  queuedAt: number
   sequence: number
   tree: ReviewTree
   urgent: boolean
@@ -24,6 +23,7 @@ interface ReviewAutosaveState {
   failureCount: number
   inFlight: boolean
   nextSequence: number
+  nextWriteAt: number
   pending: PendingSnapshot | null
   waiters: SaveWaiter[]
 }
@@ -85,6 +85,7 @@ export class ReviewAutosave {
         failureCount: 0,
         inFlight: false,
         nextSequence: 0,
+        nextWriteAt: Number.NEGATIVE_INFINITY,
         pending: null,
         waiters: []
       }
@@ -100,19 +101,28 @@ export class ReviewAutosave {
   ): { sequence: number; state: ReviewAutosaveState } {
     const state = this.state(reviewId)
     const sequence = ++state.nextSequence
-    const queuedAt = state.pending?.queuedAt ?? this.now()
     const urgent = immediate || state.pending?.urgent === true
+    if (state.pending) {
+      this.rejectWaiters(
+        state,
+        state.pending.sequence,
+        new Error('The exact autosave snapshot was superseded before persistence.')
+      )
+    }
     state.pending = {
-      queuedAt,
       sequence,
       tree: structuredClone(tree),
       urgent
     }
 
-    if (!state.inFlight && (!state.cancelTimer || immediate || state.failed)) {
+    if (!state.inFlight && immediate) {
       state.cancelTimer?.()
       state.cancelTimer = null
       this.startWrite(reviewId, state)
+    } else if (!state.inFlight && !state.cancelTimer && !state.failed) {
+      const delay = state.nextWriteAt - this.now()
+      if (delay <= 0) this.startWrite(reviewId, state)
+      else this.setTimer(reviewId, state, delay)
     }
     return { sequence, state }
   }
@@ -124,6 +134,7 @@ export class ReviewAutosave {
     const attempted = state.pending
     state.pending = null
     state.inFlight = true
+    state.nextWriteAt = this.now() + this.maximumDelayMs
 
     void this.writer.updateTree(reviewId, attempted.tree).then(
       (artifact) => {
@@ -135,10 +146,10 @@ export class ReviewAutosave {
         }
         this.safely(() => { this.onSaved(artifact) })
         const completed = state.waiters.filter(
-          (waiter) => waiter.sequence <= attempted.sequence
+          (waiter) => waiter.sequence === attempted.sequence
         )
         state.waiters = state.waiters.filter(
-          (waiter) => waiter.sequence > attempted.sequence
+          (waiter) => waiter.sequence !== attempted.sequence
         )
         for (const waiter of completed) waiter.resolve(artifact)
         this.schedulePending(reviewId, state)
@@ -149,18 +160,13 @@ export class ReviewAutosave {
         state.failureCount += 1
         if (!state.pending || state.pending.sequence < attempted.sequence) {
           state.pending = attempted
-        } else {
-          state.pending.queuedAt = Math.min(
-            state.pending.queuedAt,
-            attempted.queuedAt
-          )
         }
         this.safely(() => { this.onFailure(reviewId, error) })
         const failed = state.waiters.filter(
-          (waiter) => waiter.sequence <= attempted.sequence
+          (waiter) => waiter.sequence === attempted.sequence
         )
         state.waiters = state.waiters.filter(
-          (waiter) => waiter.sequence > attempted.sequence
+          (waiter) => waiter.sequence !== attempted.sequence
         )
         for (const waiter of failed) waiter.reject(error)
         const retryDelay = Math.min(
@@ -182,10 +188,7 @@ export class ReviewAutosave {
       state,
       state.pending.urgent
         ? 0
-        : Math.max(
-            0,
-            state.pending.queuedAt + this.maximumDelayMs - this.now()
-          )
+        : Math.max(0, state.nextWriteAt - this.now())
     )
   }
 
@@ -207,5 +210,19 @@ export class ReviewAutosave {
     } catch {
       // Observer failures cannot alter persistence behavior.
     }
+  }
+
+  private rejectWaiters(
+    state: ReviewAutosaveState,
+    sequence: number,
+    error: unknown
+  ): void {
+    const superseded = state.waiters.filter(
+      (waiter) => waiter.sequence === sequence
+    )
+    state.waiters = state.waiters.filter(
+      (waiter) => waiter.sequence !== sequence
+    )
+    for (const waiter of superseded) waiter.reject(error)
   }
 }

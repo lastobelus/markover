@@ -128,7 +128,7 @@ test('writes immediately after idle and coalesces sustained edits by deadline', 
 
   writes[0].done.resolve(artifact('mko_aaa11111', writes[0].tree))
   await settle()
-  clock.tick(1499)
+  clock.tick(1249)
   assert.equal(writes.length, 1)
   clock.tick(1)
   assert.equal(writes.length, 2)
@@ -136,8 +136,35 @@ test('writes immediately after idle and coalesces sustained edits by deadline', 
 
   writes[1].done.resolve(artifact('mko_aaa11111', writes[1].tree))
   await settle()
+  clock.tick(2000)
   autosave.queue('mko_aaa11111', tree('# After idle\n'))
   assert.equal(writes.length, 3)
+})
+
+test('fast writes retain the throttle window instead of writing each edit', async () => {
+  const clock = new FakeClock()
+  const writes: ReviewTree[] = []
+  const autosave = new ReviewAutosave({
+    updateTree(reviewId, candidate) {
+      const snapshot = candidate as ReviewTree
+      writes.push(snapshot)
+      return Promise.resolve(artifact(reviewId, snapshot))
+    }
+  }, { maximumDelayMs: 2000, now: clock.now, schedule: clock.schedule })
+
+  autosave.queue('mko_aaa11111', tree('# First\n'))
+  await settle()
+  clock.tick(100)
+  autosave.queue('mko_aaa11111', tree('# Second\n'))
+  clock.tick(100)
+  autosave.queue('mko_aaa11111', tree('# Latest\n'))
+  await settle()
+  assert.equal(writes.length, 1)
+  clock.tick(1799)
+  assert.equal(writes.length, 1)
+  clock.tick(1)
+  assert.equal(writes.length, 2)
+  assert.equal(writes[1]?.sourceDocument.content, '# Latest\n')
 })
 
 test('keeps reviews independent while limiting each to one in-flight write', () => {
@@ -191,7 +218,33 @@ test('saveNow bypasses the trailing delay and resolves after its snapshot persis
   assert.equal(barrierFinished, true)
 })
 
-test('retains the latest snapshot, retries, and reports recovery', async () => {
+test('a superseded saveNow barrier never resolves for a different snapshot', async () => {
+  const clock = new FakeClock()
+  const writes: Array<{ tree: ReviewTree; done: Deferred<ReviewArtifact> }> = []
+  const autosave = new ReviewAutosave({
+    updateTree(_reviewId, candidate) {
+      const snapshot = candidate as ReviewTree
+      const done = deferred<ReviewArtifact>()
+      writes.push({ tree: snapshot, done })
+      return done.promise
+    }
+  }, { maximumDelayMs: 2000, now: clock.now, schedule: clock.schedule })
+
+  autosave.queue('mko_aaa11111', tree('# In flight\n'))
+  const barrier = autosave.saveNow('mko_aaa11111', tree('# Exact\n'))
+  autosave.queue('mko_aaa11111', tree('# Later\n'))
+  await assert.rejects(barrier, /superseded before persistence/)
+
+  const firstWrite = writes[0]
+  assert.ok(firstWrite)
+  firstWrite.done.resolve(artifact('mko_aaa11111', firstWrite.tree))
+  await settle()
+  clock.tick(2000)
+  assert.equal(writes.length, 2)
+  assert.equal(writes[1]?.tree.sourceDocument.content, '# Later\n')
+})
+
+test('retains the latest snapshot behind backoff and reports recovery', async () => {
   const clock = new FakeClock()
   const attempts: ReviewTree[] = []
   const failures: unknown[] = []
@@ -221,10 +274,13 @@ test('retains the latest snapshot, retries, and reports recovery', async () => {
   shouldFail = false
   autosave.queue('mko_aaa11111', tree('# Newest\n'))
   await settle()
+  assert.equal(attempts.length, 1)
+  clock.tick(50)
+  await settle()
   assert.equal(attempts.length, 2)
   assert.equal(attempts[1]?.sourceDocument.content, '# Newest\n')
   assert.deepEqual(recoveries, ['mko_aaa11111'])
-  clock.tick(50)
+  clock.tick(100)
   assert.equal(attempts.length, 2)
 })
 
