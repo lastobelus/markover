@@ -265,6 +265,10 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     fs.existsSync(path.join(root, 'test/docs-site.test.ts')),
     true
   )
+  assert.equal(
+    fs.existsSync(path.join(root, 'evals/annotation-interpretation/cases.json')),
+    true
+  )
   for (const name of ['main', 'preload']) {
     assert.equal(fs.existsSync(path.join(root, `src/${name}.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `src/${name}.js`)), false)
