@@ -126,9 +126,18 @@ the marker, labels it as a superseded claim, and stops; a later claim can never
 displace the established winner. Pause for the user if a losing marker cannot
 be demoted by its author.
 
+After the winner is known, repeat the inflight scan from stage 2 without reusing
+either pre-claim query as a stability sample. Treat the current canonical target
+comment as this run's owned claim, but re-read every item's live intent and
+apply the same set-stability and missing-intent rules. Resolve any newly visible
+overlap with the user before proceeding. This post-claim scan closes the window
+where two agents publish different but overlapping claims after both completed
+their initial scans.
+
 **Complete when:** the Project shows `In Progress` and the canonical comment
 accurately describes what is known so far, every visible losing claim is
-demoted, and the current claimant is the deterministic winner.
+demoted, the current claimant is the deterministic winner, and the post-claim
+inflight scan is stable with no unresolved overlap.
 
 ## 4. Interview
 
