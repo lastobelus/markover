@@ -31,7 +31,7 @@ test('preload exposes one exact typed capability object', () => {
   assert.doesNotMatch(preload, /exposeInMainWorld\([^,]+,\s*ipcRenderer/)
 })
 
-test('background startup stays hidden and background second instances do not activate', () => {
+test('background startup stays hidden and background notifications repair records', () => {
   const main = read('src/main.ts')
 
   assert.match(
@@ -40,7 +40,11 @@ test('background startup stays hidden and background second instances do not act
   )
   assert.match(
     main,
-    /app\.on\('second-instance',[\s\S]*commandLine\.includes\('--markover-server'\)\) return[\s\S]*if \(!mainWindow\) createWindow\(\)[\s\S]*const window = mainWindow[\s\S]*window\.show\(\)[\s\S]*window\.focus\(\)/
+    /app\.on\('second-instance',[\s\S]*commandLine\.includes\('--markover-server'\)\) \{[\s\S]*repairServiceRecords\(\)[\s\S]*return[\s\S]*if \(!mainWindow\) createWindow\(\)[\s\S]*const window = mainWindow[\s\S]*window\.show\(\)[\s\S]*window\.focus\(\)/
+  )
+  assert.match(
+    main,
+    /function repairServiceRecords\(\): Promise<void> \{[\s\S]*serviceRepairQueue = serviceRepairQueue\.catch\(\(\) => \{\}\)\.then[\s\S]*publishServiceConnection\(\{[\s\S]*identity,[\s\S]*port: service\.port/
   )
 })
 
@@ -75,4 +79,5 @@ test('automatic startup uses one-shot hidden background LaunchServices flags', (
   assert.match(cli, /const appArguments = packagedApp\s*\? \['--markover-server'\]/)
   assert.match(cli, /\{ encoding: 'utf8', env: environment \}/)
   assert.doesNotMatch(cli, /launchctl[\s\S]*submit/)
+  assert.doesNotMatch(cli, /replaceStale/)
 })

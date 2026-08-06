@@ -33,7 +33,7 @@ test('smoke fixture proves restart rotation and CLI open/get/edit', async (t) =>
   const start = async () => {
     const identity = createServiceIdentity()
     const startedService = await startLocalService({
-      authorizationToken: identity.token,
+      identity,
       store
     })
     service = startedService
@@ -48,15 +48,30 @@ test('smoke fixture proves restart rotation and CLI open/get/edit', async (t) =>
 
   const first = await start()
   const firstIdentity = first.identity
+  let repairCalls = 0
   assert.deepEqual(
-    await prepareAuthorizationSmoke({ endpointPath, statePath }),
+    await prepareAuthorizationSmoke({
+      endpointPath,
+      statePath,
+      async repairService() {
+        repairCalls += 1
+        await publishServiceConnection({
+          endpointPath,
+          identity: firstIdentity,
+          port: first.service.port,
+          pid: 1234
+        })
+      }
+    }),
     {
       phase: 'prepare',
       status: 'restart-required',
       reviewId: 'mko_smoke001',
+      recordsRepaired: true,
       statePath
     }
   )
+  assert.equal(repairCalls, 1)
   const persisted: unknown = JSON.parse(await fs.readFile(statePath, 'utf8'))
   assert.deepEqual(Object.keys(persisted as Record<string, unknown>), [
     'reviewId',
