@@ -84,9 +84,9 @@ The completed first-release sequence was:
 
 The initial dual-architecture `v0.1.2` attempt stopped after draft assembly and
 was never published. Because its immutable tagged workflow requires both native
-architectures, it cannot be converted into a Silicon-only release. Preserve the
-tag and private draft as historical evidence; use the next strictly greater
-version for the Apple Silicon release.
+architectures, it could not be converted into a Silicon-only release. The tag
+and private draft were preserved as historical evidence, and the next strictly
+greater version, `v0.1.3`, became the published Apple Silicon release.
 
 ## Prepare a stable release
 
