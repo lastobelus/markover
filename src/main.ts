@@ -260,6 +260,20 @@ async function failStartup(
   await startupDiagnostic?.fail(category, error, crashed)
 }
 
+async function failStartupBestEffort(
+  category: StartupFailureCategory,
+  error: unknown,
+  crashed = false
+): Promise<void> {
+  try {
+    await failStartup(category, error, crashed)
+  } catch (diagnosticError) {
+    process.stderr.write(
+      `markover diagnostic: ${errorMessage(diagnosticError)}\n`
+    )
+  }
+}
+
 function mainStartupFailureCategory(): StartupFailureCategory {
   if (activeStartupPhase === 'preparing-interface') {
     return 'interface-preparation'
@@ -612,7 +626,7 @@ function createWindow(
   mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
     markRendererStartupFailed()
     void (async () => {
-      await failStartup(
+      await failStartupBestEffort(
         'renderer-load',
         new Error(`Preload failed (${path.basename(preloadPath)}): ${error.message}`)
       )
@@ -629,7 +643,7 @@ function createWindow(
     if (!isMainFrame || errorCode === -3) return
     markRendererStartupFailed()
     void (async () => {
-      await failStartup(
+      await failStartupBestEffort(
         'renderer-load',
         new Error(`Renderer load failed (${String(errorCode)}): ${errorDescription}`)
       )
@@ -640,7 +654,7 @@ function createWindow(
     const failedDuringStartup = !startupReady
     markRendererStartupFailed()
     void (async () => {
-      await failStartup(
+      await failStartupBestEffort(
         failedDuringStartup ? 'renderer-load' : 'renderer-terminated',
         new Error(`Renderer process terminated: ${details.reason}.`),
         !failedDuringStartup
@@ -652,7 +666,7 @@ function createWindow(
     if (startupReady) return
     markRendererStartupFailed()
     void (async () => {
-      await failStartup(
+      await failStartupBestEffort(
         'renderer-load',
         new Error('Renderer became unresponsive during startup.')
       )
@@ -1256,13 +1270,7 @@ if (!hasSingleInstanceLock) {
         `markover: ${typeof stack === 'string' ? stack : errorMessage(error)}\n`
       )
       if (startupDiagnostic?.snapshot().status === 'starting') {
-        try {
-          await failStartup(mainStartupFailureCategory(), error)
-        } catch (diagnosticError) {
-          process.stderr.write(
-            `markover diagnostic: ${errorMessage(diagnosticError)}\n`
-          )
-        }
+        await failStartupBestEffort(mainStartupFailureCategory(), error)
       }
       await showStartupFailureDialog()
     })()

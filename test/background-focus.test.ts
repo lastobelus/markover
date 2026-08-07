@@ -111,6 +111,31 @@ test('renderer fallback preserves a classified main-process failure', () => {
   )
 })
 
+test('native startup failure dialogs survive diagnostic write failures', () => {
+  const main = read('src/main.ts')
+  const bestEffort = main.match(
+    /async function failStartupBestEffort\([\s\S]*?\n\}/
+  )?.[0] || ''
+  const createWindow = main.slice(
+    main.indexOf('function createWindow('),
+    main.indexOf('function repositoryRoot(')
+  )
+
+  assert.match(
+    bestEffort,
+    /try \{[\s\S]*await failStartup\([\s\S]*catch \(diagnosticError\)[\s\S]*process\.stderr\.write/
+  )
+  assert.equal(
+    createWindow.match(/await failStartupBestEffort\(/g)?.length,
+    4
+  )
+  assert.equal(
+    createWindow.match(/await showStartupFailureDialog\(\)/g)?.length,
+    4
+  )
+  assert.doesNotMatch(createWindow, /await failStartup\(/)
+})
+
 test('startup diagnostic exists before build identity validation', () => {
   const main = read('src/main.ts')
   const startup = main.match(
