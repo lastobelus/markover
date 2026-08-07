@@ -22,9 +22,11 @@ recovery guidance:
 npm --silent run markover -- help
 ```
 
-The normal flow is `open` once, retain the returned `reviewId`, and stop. When
-the user later says “Check Markover,” run `get <reviewId>` once and act on the
-returned review JSON. Follow both `review.agentGuidance.fixedContract` and
+The normal flow is `open` once, retain the returned `reviewId`, give the user a
+normal Markdown link whose target is the returned `reviewUrl`, include the raw
+review ID, and stop. When the user later says “Check Markover,” run
+`get <reviewId>` once and act on the returned review JSON. Follow both
+`review.agentGuidance.fixedContract` and
 `review.agentGuidance.interpretationPolicy` before acting. Feedback is
 free-form and can mix revision requests, questions, discussion, and context;
 interpret each part by intent, explicitly acknowledge every question even when
@@ -57,7 +59,8 @@ Markdown artifact:
    unless the user says not to. Pass an explicit `--thread-id` when available;
    otherwise include a unique high-entropy
    `--handoff-key mko_handoff_<16-to-64-alphanumeric-characters>`.
-5. Report the returned review ID and the persisted review path
+5. Report a normal Markdown link using the returned `reviewUrl`, the raw review
+   ID, and the persisted review path
    `~/Library/Application Support/Markover/reviews/<review-id>/review.json` on
    macOS. Never keep a dogfooding review alive through a blocking T3 exec
    session.

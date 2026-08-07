@@ -21,7 +21,7 @@ export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
 
 interface ReviewRoute {
   reviewId: string
-  action: 'handoff' | 'edit' | null
+  action: 'activate' | 'handoff' | 'edit' | null
 }
 
 export interface LocalService {
@@ -47,6 +47,7 @@ export interface LocalServiceOptions {
     reviewId: string,
     action: 'handoff' | 'edit'
   ) => Promise<undefined | (() => void | Promise<void>)>) | undefined
+  onActivate?: ((reviewId: string) => Promise<ReviewActivationResult>) | undefined
   importReviews?: ((sourceDirectory: string) => Promise<string[]>) | undefined
   onChange?: ((
     artifact: ReviewArtifact,
@@ -105,6 +106,8 @@ export async function readJson(request: IncomingMessage): Promise<unknown> {
 
 function errorStatus(error: unknown): number {
   const code = errorProperty(error, 'code')
+  if (code === 'ACTIVATION_NOT_READY') return 503
+  if (code === 'ACTIVATION_TIMEOUT') return 504
   if (code === 'NOT_FOUND') return 404
   if (
     code === 'INVALID_ID' ||
@@ -122,11 +125,11 @@ function errorStatus(error: unknown): number {
 }
 
 export function reviewRoute(pathname: string): ReviewRoute | null {
-  const match = /^\/reviews\/([^/]+)(?:\/(handoff|edit))?$/.exec(pathname)
+  const match = /^\/reviews\/([^/]+)(?:\/(activate|handoff|edit))?$/.exec(pathname)
   if (!match) return null
   return {
     reviewId: decodeURIComponent(match[1] as string),
-    action: (match[2] as 'handoff' | 'edit' | undefined) || null
+    action: (match[2] as 'activate' | 'handoff' | 'edit' | undefined) || null
   }
 }
 
@@ -134,6 +137,10 @@ export async function startLocalService({
   identity,
   store,
   beforeAction = () => Promise.resolve(undefined),
+  onActivate = () => Promise.reject(serviceError(
+    'ACTIVATION_UNAVAILABLE',
+    'Review activation is unavailable.'
+  )),
   importReviews = () => Promise.resolve([]),
   onChange = () => {},
   onUnauthorized = () => {},
@@ -299,6 +306,15 @@ export async function startLocalService({
       const route = reviewRoute(url.pathname)
       if (route && request.method === 'GET' && !route.action) {
         sendJson(response, 200, await store.load(route.reviewId))
+        return
+      }
+
+      if (
+        route &&
+        request.method === 'POST' &&
+        route.action === 'activate'
+      ) {
+        sendJson(response, 200, await onActivate(route.reviewId))
         return
       }
 

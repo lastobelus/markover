@@ -84,6 +84,7 @@ async function serviceFixture(
       changes.push({ artifact, action })
       await options.onChange?.(artifact, action)
     },
+    onActivate: options.onActivate,
     onUnauthorized: options.onUnauthorized,
     interpretationPolicy: options.interpretationPolicy
   })
@@ -162,8 +163,13 @@ function tree(): ReviewTree {
 }
 
 test('serves health and a complete open/get/edit workflow', async (t) => {
+  const activations: string[] = []
   const { changes, endpointPath, identity } = await serviceFixture(t, {
-    interpretationPolicy: () => 'Use the policy captured at open.'
+    interpretationPolicy: () => 'Use the policy captured at open.',
+    onActivate(reviewId) {
+      activations.push(reviewId)
+      return Promise.resolve({ reviewId, outcome: 'activated' })
+    }
   })
 
   assert.deepEqual(
@@ -179,6 +185,15 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
     reviewId: 'mko_aaa11111',
     status: 'editing'
   })
+  assert.deepEqual(
+    await requestJson(
+      endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/activate'
+    ),
+    { reviewId: 'mko_aaa11111', outcome: 'activated' }
+  )
+  assert.deepEqual(activations, ['mko_aaa11111'])
 
   const handedOff = expectArtifact(await requestJson(
     endpointPath,
@@ -302,6 +317,7 @@ test('gates every current non-health route with real HTTP', async (t) => {
     { method: 'POST', path: '/reviews/import', body: '{' },
     { method: 'POST', path: '/reviews', body: '{' },
     { method: 'GET', path: '/reviews/mko_missing1', body: null },
+    { method: 'POST', path: '/reviews/mko_missing1/activate', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/handoff', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/edit', body: null },
     { method: 'GET', path: '/missing?private=secret', body: null },

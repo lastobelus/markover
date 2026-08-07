@@ -112,7 +112,10 @@ test('README exposes the repository-only install-free agent command', () => {
     )
   }
   assert.match(readme, /retain the returned `reviewId`/)
-  assert.match(readme, /“Check\nMarkover,” run the same launcher with `get <reviewId>`/)
+  assert.match(
+    readme,
+    /“Check\s+Markover,” run the same launcher with `get <reviewId>`/
+  )
 })
 
 test('release documentation states the Sonoma and ad-hoc trust boundary', () => {

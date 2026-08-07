@@ -460,6 +460,30 @@ declare global {
     failedReviewIds: string[]
   }
 
+  type ReviewActivationOutcome =
+    | 'activated'
+    | 'already-active'
+    | 'blocked'
+    | 'missing'
+
+  interface ReviewActivationResult {
+    reviewId: string
+    outcome: ReviewActivationOutcome
+  }
+
+  interface ReviewActivationRequest {
+    requestId: string
+    reviewId: string
+    document: MarkoverDocument | null
+  }
+
+  interface ReviewActivationResponse {
+    requestId: string
+    reviewId: string
+    outcome?: ReviewActivationOutcome
+    error?: string
+  }
+
   interface MarkoverBridge {
     getStartupInfo: () => Promise<StartupInfo>
     reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
@@ -501,6 +525,11 @@ declare global {
     ) => void
     getReviewAutosaveStatus: () => Promise<ReviewAutosaveStatus>
     onReviewShutdownState: (callback: (paused: boolean) => void) => void
+    onReviewActivationRequested: (
+      callback: (
+        request: ReviewActivationRequest
+      ) => ReviewActivationOutcome | Promise<ReviewActivationOutcome>
+    ) => void
     activateReview: (reviewId: string) => void
     autosaveReview: (reviewId: string | null, tree: ReviewTree) => void
     finishReview: (tree: ReviewTree) => void

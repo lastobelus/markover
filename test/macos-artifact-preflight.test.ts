@@ -9,6 +9,7 @@ import test from 'node:test'
 
 import {
   validateArchiveEntries,
+  validateReviewUrlTypes,
   verifyMacosArtifact,
   type CommandResult,
   type CommandRunner
@@ -28,6 +29,7 @@ interface FakeRunnerOptions {
   frameworkEntitlementDrift?: boolean
   gatekeeperAccepted?: boolean
   mainBundleId?: string
+  protocolSchemes?: string[]
   signature?: string
 }
 
@@ -126,6 +128,7 @@ function fakeRunner(
     frameworkEntitlementDrift = false,
     gatekeeperAccepted = false,
     mainBundleId = appBundleId,
+    protocolSchemes = ['markover'],
     signature = 'CodeDirectory v=20500 flags=0x10002(adhoc,runtime)\nSignature=adhoc\nTeamIdentifier=not set'
   } = options
   return (command, args, input) => {
@@ -159,6 +162,12 @@ function fakeRunner(
       }
       if (key === 'CFBundleShortVersionString') return success('1.2.3\n')
       if (key === 'LSMinimumSystemVersion') return success('14.0\n')
+      if (key === 'CFBundleURLTypes') {
+        return success(JSON.stringify([{
+          CFBundleURLName: 'com.lastobelus.markover.review',
+          CFBundleURLSchemes: protocolSchemes
+        }]))
+      }
     }
     if (command === '/usr/bin/file') {
       return success(
@@ -275,6 +284,24 @@ test('rejects unsafe ZIP paths before extraction', () => {
       validateArchiveEntries('readme.txt\n')
     },
     /does not contain/
+  )
+})
+
+test('requires exactly the canonical packaged review URL scheme', () => {
+  assert.doesNotThrow(() => {
+    validateReviewUrlTypes([{
+      CFBundleURLName: 'com.lastobelus.markover.review',
+      CFBundleURLSchemes: ['markover']
+    }])
+  })
+  assert.throws(
+    () => {
+      validateReviewUrlTypes([{
+        CFBundleURLName: 'com.lastobelus.markover.review',
+        CFBundleURLSchemes: ['markover', 'markover-76']
+      }])
+    },
+    /exactly the canonical/
   )
 })
 

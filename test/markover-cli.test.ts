@@ -317,7 +317,7 @@ test('executes CLI commands against the local service', async (t) => {
   const sourcePath = path.join(directory, 'plan.md')
   await fs.writeFile(sourcePath, '# Plan\r\n\r\nKeep this exact.\r\n', 'utf8')
 
-  const reviewIds = ['mko_aaa11111', 'mko_bbb22222']
+  const reviewIds = ['mko_aaa11111', 'mko_bbb22222', 'mko_ccc33333']
   const store = new ReviewStore(reviewsDirectory, {
     idFactory: () => reviewIds.shift() || 'mko_unexpected'
   })
@@ -376,7 +376,11 @@ test('executes CLI commands against the local service', async (t) => {
       pullRequestNumber: 42,
       threadId: 'thread-123'
     }, options),
-    { reviewId: 'mko_aaa11111', status: 'editing' }
+    {
+      reviewId: 'mko_aaa11111',
+      status: 'editing',
+      reviewUrl: 'markover://review/mko_aaa11111'
+    }
   )
 
   const handedOff = await executeCommand({
@@ -419,7 +423,41 @@ test('executes CLI commands against the local service', async (t) => {
       handoffKey: 'mko_handoff_fedcba9876543210',
       threadId: null
     }, options),
-    { reviewId: 'mko_bbb22222', status: 'editing' }
+    {
+      reviewId: 'mko_bbb22222',
+      status: 'editing',
+      reviewUrl: 'markover://review/mko_bbb22222'
+    }
+  )
+  assert.deepEqual(
+    await executeCommand({
+      command: 'open',
+      instance: 'development',
+      sourcePath,
+      contextSummary: 'Review in this PR instance.'
+    }, {
+      ensure: () => Promise.resolve(),
+      resolveTarget(selector) {
+        assert.equal(selector, 'development')
+        return Promise.resolve({
+          checkout: null,
+          scheme: 'markover-76',
+          service: { endpointPath }
+        } as unknown as ResolvedInstance)
+      },
+      discoverMetadata() {
+        return Promise.resolve({
+          agentThread: null,
+          git: null,
+          pullRequest: null
+        })
+      }
+    }),
+    {
+      reviewId: 'mko_ccc33333',
+      status: 'editing',
+      reviewUrl: 'markover-76://review/mko_ccc33333'
+    }
   )
   assert.deepEqual(discoveredHandoffKeys, [
     'mko_handoff_0123456789abcdef',

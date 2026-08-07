@@ -94,6 +94,35 @@ function plistValue(
   ).stdout.trim()
 }
 
+function plistJsonValue(
+  runner: CommandRunner,
+  plistPath: string,
+  key: string
+): unknown {
+  const output = requireCommand(
+    runner,
+    '/usr/bin/plutil',
+    ['-extract', key, 'json', '-o', '-', plistPath]
+  ).stdout
+  try {
+    return JSON.parse(output) as unknown
+  } catch {
+    throw new Error(`Markover.app ${key} metadata is invalid.`)
+  }
+}
+
+export function validateReviewUrlTypes(value: unknown): void {
+  const expected = [{
+    CFBundleURLName: 'com.lastobelus.markover.review',
+    CFBundleURLSchemes: ['markover']
+  }]
+  if (JSON.stringify(value) !== JSON.stringify(expected)) {
+    throw new Error(
+      'Markover.app must declare exactly the canonical markover URL scheme.'
+    )
+  }
+}
+
 export function validateArchiveEntries(entries: string): void {
   const paths = entries.split(/\r?\n/).filter(Boolean)
   if (paths.length === 0) throw new Error('The release ZIP is empty.')
@@ -358,6 +387,9 @@ export async function verifyMacosArtifact({
         `Markover.app must require macOS ${minimumMacosVersion} or newer.`
       )
     }
+    validateReviewUrlTypes(
+      plistJsonValue(commandRunner, appInfo, 'CFBundleURLTypes')
+    )
     requireCommand(
       commandRunner,
       '/usr/bin/codesign',

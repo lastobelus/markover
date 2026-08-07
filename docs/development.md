@@ -56,10 +56,23 @@ npm --silent run markover -- open plan.md --summary "Review this plan"
 npm --silent run markover -- --instance dev open plan.md --summary "Review this plan"
 ```
 
+`open` returns `reviewUrl` with the instance it actually targeted: canonical
+commands emit `markover:` and PR commands emit `markover-N:`. Present that URL
+as a normal Markdown link and retain the accompanying raw review ID for `get`
+and `edit`.
+
 CLI cold starts may build the already-configured target checkout, but never
 fetch, pull, switch branches, or install dependencies. Development URL bridges
 are a separate forwarding-only surface: handler clicks never build or
 cold-start an app.
+
+When manually launching a packaged build for QA, set
+`MARKOVER_SUPPRESS_PROTOCOL_REGISTRATION=1` so the app skips its explicit claim
+and does not consume the recorded first ordinary launch attempt. Launch the
+bundle executable directly when the canonical development handler must retain
+`markover:`: asking LaunchServices to open the QA bundle can register its plist
+independently of the app-level suppression. Link-handler QA must inspect and
+restore the exact prior owner after an explicit LaunchServices exercise.
 
 The development command performs a deterministic one-shot build, verifies the
 exact staged layout under `build/app/`, and launches Electron from that stage.

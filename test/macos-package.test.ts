@@ -53,6 +53,11 @@ test('macOS packaging produces a branded application bundle', () => {
   assert.match(packaging, /'Markover'/)
   assert.match(packaging, /--app-bundle-id=com\.lastobelus\.markover/)
   assert.match(packaging, /--helper-bundle-id=com\.lastobelus\.markover\.helper/)
+  assert.match(packaging, /--extend-info=/)
+  const extendedInfo = read('config/macos/info.plist')
+  assert.match(extendedInfo, /<key>CFBundleURLTypes<\/key>/)
+  assert.match(extendedInfo, /<string>markover<\/string>/)
+  assert.doesNotMatch(extendedInfo, /markover-/)
   assert.deepEqual(
     signedAppComponents.slice(1).map((component) => component.bundleId),
     Array(4).fill(helperBundleId)
