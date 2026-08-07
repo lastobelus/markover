@@ -217,6 +217,8 @@ test('settings store persists normalized settings and recovers malformed JSON', 
 
   await fs.writeFile(filePath, '{not json', 'utf8')
   assert.deepEqual(await restored.load(), { ...DEFAULT_SETTINGS })
+  assert.match(restored.lastRecoveryWarning || '', /preserved/)
+  assert.equal(await fs.readFile(filePath, 'utf8'), '{not json')
 })
 
 test('settings store serializes rapid updates without losing the latest values', async (t) => {

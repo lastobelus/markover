@@ -1,7 +1,4 @@
-(function exposeSettings(globalScope: typeof globalThis) {
-  const agentGuidance = typeof globalScope.MarkoverAgentGuidance === 'undefined'
-    ? require('./agent-guidance') as MarkoverAgentGuidanceApi
-    : globalScope.MarkoverAgentGuidance
+import * as agentGuidance from './agent-guidance'
 
   const DEFAULT_SETTINGS: Readonly<MarkoverSettings> = Object.freeze({
     palette: 'ember',
@@ -190,6 +187,18 @@
     sidebarPreferenceChanged,
     confirmScreenshotRemoval
   } satisfies MarkoverSettingsApi
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-  globalScope.MarkoverSettings = api
-})(typeof window === 'undefined' ? globalThis : window)
+
+export {
+  applySettingsToView,
+  confirmScreenshotRemoval,
+  DARK_COLORIZATION,
+  DEFAULT_SETTINGS,
+  darkColorization,
+  normalizeSettings,
+  OPTIONS,
+  sidebarPreferenceChanged,
+  updateSettings,
+  WINDOW_BACKGROUNDS,
+  windowBackground
+}
+export default api

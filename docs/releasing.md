@@ -12,6 +12,13 @@ Apple-verified**, do not identify an authenticated Developer ID publisher, are
 not notarized, and are expected to require a visible per-app Gatekeeper
 override. Every release note must state this at the download point.
 
+Ad-hoc signatures have no common Team ID, so the exact app and helper
+entitlement profiles disable library validation only to load Electron's
+separately signed framework. Frameworks and other embedded code retain library
+validation. Final-artifact preflight rejects the exception on any other signed
+component; a future Developer ID activation should remove it when all
+components share a Team ID.
+
 Developer ID signing and notarization remain blocked until Apple Developer
 Program access exists and a separate reviewed change explicitly selects the
 `developer-id` trust mode. Adding credentials alone must never activate or
@@ -78,7 +85,8 @@ The tag-triggered workflow performs four fail-closed stages:
 1. It verifies stable SemVer, package-version agreement, protected-main
    ancestry, and successful required CI on the tagged commit.
 2. Unprivileged native jobs build separate Apple Silicon and Intel app ZIPs,
-   verify their exact final bytes, and build the matching bootstrap CLI.
+   verify each final ASAR layout, smoke each signed application, verify the
+   exact final ZIP bytes, and build the matching bootstrap CLI.
 3. The staging job waits at the protected `release` environment. Approve only
    the oldest pending tag. Its oldest-run-first gate waits for every earlier
    release run before selecting the current rollback target, independently

@@ -1,4 +1,3 @@
-(function exposeAnnotations(globalScope: typeof globalThis) {
   function persistedText(value: unknown): string {
     if (!value) return ''
     if (typeof value === 'string') return value
@@ -157,6 +156,15 @@
     normalizeFilter,
     revealAnnotation
   } satisfies MarkoverAnnotationsApi
-  globalScope.MarkoverAnnotations = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(typeof window !== 'undefined' ? window : globalThis)
+
+export {
+  annotatedNodes,
+  annotatedProjection,
+  annotationPosition,
+  hasAnnotation,
+  navigationRoot,
+  nearestAnnotatedId,
+  normalizeFilter,
+  revealAnnotation
+}
+export default api

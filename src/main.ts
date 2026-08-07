@@ -7,11 +7,14 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  shell,
   type IpcMainEvent,
   type IpcMainInvokeEvent
 } from 'electron'
 import { createHash, randomBytes } from 'node:crypto'
+import { mkdirSync, rmSync } from 'node:fs'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 
 import { applicationMenuTemplate } from './app-menu'
@@ -30,13 +33,25 @@ import {
   type ServiceIdentity
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
-import './settings'
-
-const {
+import { smokeReviewTree } from './smoke-fixture'
+import {
+  developmentStartupControls,
+  isStartupPhase,
+  isStartupWarning,
+  type BuildIdentity,
+  type RendererSmokeResult,
+  type StartupFailureCategory,
+  type StartupInfo,
+  type StartupPhase,
+  type StartupReady,
+  type StartupWarning
+} from './startup-contract'
+import { StartupDiagnostic } from './startup-diagnostic'
+import {
   darkColorization,
   DEFAULT_SETTINGS,
   windowBackground
-} = globalThis.MarkoverSettings
+} from './settings'
 
 interface ReviewConfig {
   inputPath: string | undefined
@@ -86,15 +101,38 @@ const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') ||
   Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
-const checkoutDirectory = path.resolve(projectDirectory, '..')
+const checkoutDirectory = path.resolve(projectDirectory, '../..')
 const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
-const endpointPath = serviceEndpointPath()
+const smokeMode = process.argv.includes('--smoke')
+const smokeStateDirectory = smokeMode
+  ? path.join(os.tmpdir(), `markover-smoke-${String(process.pid)}`)
+  : null
+if (smokeStateDirectory) {
+  mkdirSync(smokeStateDirectory)
+  app.setPath('userData', smokeStateDirectory)
+}
+const applicationDataDirectory = smokeStateDirectory || serviceDirectory()
+const endpointPath = smokeStateDirectory
+  ? path.join(smokeStateDirectory, 'service.json')
+  : serviceEndpointPath()
+const startupDiagnosticPath = path.join(
+  applicationDataDirectory,
+  reviewMode
+    ? `startup-diagnostic-review-${String(process.pid)}.json`
+    : 'startup-diagnostic.json'
+)
 const reviewStore = reviewMode
   ? null
-  : new ReviewStore(reviewsDirectory())
-const hasSingleInstanceLock = reviewMode || app.requestSingleInstanceLock()
-const backgroundServerMode = !reviewMode &&
+  : new ReviewStore(
+      smokeStateDirectory
+        ? path.join(smokeStateDirectory, 'reviews')
+        : reviewsDirectory()
+    )
+const hasSingleInstanceLock = reviewMode || smokeMode ||
+  app.requestSingleInstanceLock()
+const backgroundServerMode = smokeMode || (!reviewMode &&
   process.argv.includes('--markover-server')
+  )
 let reviewDocumentPromise: Promise<MarkoverDocument> | null = null
 let reviewFinished = false
 let reviewConfigPromise: Promise<ReviewConfig> | null = null
@@ -114,9 +152,149 @@ let autosaveWriter: Promise<void> | null = null
 let snapshotSequence = 0
 let statusSequence = 0
 let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
+let startupDiagnostic: StartupDiagnostic | null = null
+let startupBuildIdentity: BuildIdentity | null = null
+let startupInfo: StartupInfo | null = null
+let startupReady = false
+let rendererInitializationHandled = false
+let rendererStartupFailed = false
+let activeStartupPhase: StartupPhase | null = null
+const startupWarnings: StartupWarning[] = []
+let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const projectRoots = new Map<string, Promise<string | null>>()
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isRendererSmokeResult(value: unknown): value is RendererSmokeResult {
+  if (
+    !isRecord(value) ||
+    value.format !== 'markover-renderer-smoke' ||
+    value.version !== 1 ||
+    !isRecord(value.checks)
+  ) return false
+  const checks = value.checks
+  const keys = Object.keys(checks).sort()
+  return (
+    keys.join(',') === 'cleanRuntime,documentsList,markdown,sourceDiff,yaml' &&
+    keys.every((key) => typeof checks[key] === 'boolean')
+  )
+}
+
+async function loadBuildIdentity(): Promise<BuildIdentity> {
+  const value: unknown = JSON.parse(await fs.readFile(
+    path.join(projectDirectory, 'build-identity.json'),
+    'utf8'
+  ))
+  if (
+    !isRecord(value) ||
+    typeof value.version !== 'string' ||
+    (value.commit !== null && typeof value.commit !== 'string') ||
+    typeof value.dirty !== 'boolean' ||
+    typeof value.rendererSha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(value.rendererSha256)
+  ) {
+    throw new Error('Markover build identity is invalid.')
+  }
+  return {
+    version: value.version,
+    commit: value.commit,
+    dirty: value.dirty,
+    rendererSha256: value.rendererSha256
+  }
+}
+
+function provisionalBuildIdentity(): BuildIdentity {
+  return {
+    version: app.getVersion(),
+    commit: null,
+    dirty: true,
+    rendererSha256: '0'.repeat(64)
+  }
+}
+
+function requireStartupDiagnostic(): StartupDiagnostic {
+  if (!startupDiagnostic) throw new Error('Startup diagnostic is unavailable.')
+  return startupDiagnostic
+}
+
+function recordStartupWarnings(warnings: StartupWarning[]): Promise<void> {
+  const keys = new Set(startupWarnings.map((warning) => (
+    `${warning.category}\0${warning.subject}`
+  )))
+  for (const warning of warnings) {
+    const key = `${warning.category}\0${warning.subject}`
+    if (!keys.has(key)) {
+      startupWarnings.push(warning)
+      keys.add(key)
+    }
+  }
+  return requireStartupDiagnostic().warnings(startupWarnings)
+}
+
+async function applyMainStartupControl(phase: StartupPhase): Promise<void> {
+  const info = startupInfo
+  if (info?.failPhase === phase) {
+    throw new Error(`Development startup failure at ${phase}.`)
+  }
+  if (info?.holdPhase === phase) {
+    await new Promise<void>(() => {})
+  }
+}
+
+async function beginMainStartupPhase(phase: StartupPhase): Promise<void> {
+  activeStartupPhase = phase
+  process.stderr.write(`markover startup: ${phase}\n`)
+  await requireStartupDiagnostic().begin(phase)
+  await applyMainStartupControl(phase)
+}
+
+async function failStartup(
+  category: StartupFailureCategory,
+  error: unknown,
+  crashed = false
+): Promise<void> {
+  await startupDiagnostic?.fail(category, error, crashed)
+}
+
+async function failStartupBestEffort(
+  category: StartupFailureCategory,
+  error: unknown,
+  crashed = false
+): Promise<void> {
+  try {
+    await failStartup(category, error, crashed)
+  } catch (diagnosticError) {
+    process.stderr.write(
+      `markover diagnostic: ${errorMessage(diagnosticError)}\n`
+    )
+  }
+}
+
+function mainStartupFailureCategory(): StartupFailureCategory {
+  if (activeStartupPhase === 'preparing-interface') {
+    return 'interface-preparation'
+  }
+  if (activeStartupPhase === 'loading-settings') return 'settings-access'
+  return 'unexpected-main-error'
+}
+
+function rendererDidFailStartup(): boolean {
+  return rendererStartupFailed
+}
+
+function markRendererStartupFailed(): void {
+  if (!startupReady) rendererStartupFailed = true
+}
+
+function requireActiveRendererStartup(): void {
+  if (rendererDidFailStartup()) {
+    throw new Error('Renderer failed before startup completed.')
+  }
+}
 
 function settingsEnvelope(settings: MarkoverSettings): MarkoverSettingsEnvelope {
   return {
@@ -420,6 +598,8 @@ function createWindow(
     minWidth: 760,
     minHeight: 520,
     show,
+    focusable: !smokeMode,
+    skipTaskbar: smokeMode,
     backgroundColor: windowBackground(
       startupSettings,
       startupSettings.resolvedAppearance
@@ -442,6 +622,56 @@ function createWindow(
   })
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.setTitle(reviewMode ? 'Markover Review' : 'Markover Inbox')
+  })
+  mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
+    markRendererStartupFailed()
+    void (async () => {
+      await failStartupBestEffort(
+        'renderer-load',
+        new Error(`Preload failed (${path.basename(preloadPath)}): ${error.message}`)
+      )
+      await showStartupFailureDialog()
+    })()
+  })
+  mainWindow.webContents.on('did-fail-load', (
+    _event,
+    errorCode,
+    errorDescription,
+    _validatedUrl,
+    isMainFrame
+  ) => {
+    if (!isMainFrame || errorCode === -3) return
+    markRendererStartupFailed()
+    void (async () => {
+      await failStartupBestEffort(
+        'renderer-load',
+        new Error(`Renderer load failed (${String(errorCode)}): ${errorDescription}`)
+      )
+      await showStartupFailureDialog()
+    })()
+  })
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    const failedDuringStartup = !startupReady
+    markRendererStartupFailed()
+    void (async () => {
+      await failStartupBestEffort(
+        failedDuringStartup ? 'renderer-load' : 'renderer-terminated',
+        new Error(`Renderer process terminated: ${details.reason}.`),
+        !failedDuringStartup
+      )
+      if (failedDuringStartup) await showStartupFailureDialog()
+    })()
+  })
+  mainWindow.on('unresponsive', () => {
+    if (startupReady) return
+    markRendererStartupFailed()
+    void (async () => {
+      await failStartupBestEffort(
+        'renderer-load',
+        new Error('Renderer became unresponsive during startup.')
+      )
+      await showStartupFailureDialog()
+    })()
   })
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -598,6 +828,98 @@ async function flushManagedReview(
   }
 }
 
+async function startAndPublishService(): Promise<void> {
+  if (reviewMode || smokeMode) return
+  const managedStore = requireReviewStore()
+  const store = settingsStore
+  if (!store) throw new Error('Settings are unavailable for service startup.')
+  const identity = createServiceIdentity()
+  const startedService = await startLocalService({
+    identity,
+    store: managedStore,
+    interpretationPolicy: () => store.settings.agentInterpretationPolicy,
+    beforeAction: flushManagedReview,
+    importReviews: (sourceDirectory) => importLegacyReviews(
+      sourceDirectory,
+      managedStore.directory
+    ),
+    async onChange(artifact, action) {
+      if (action === 'created') sendManagedReview(artifact)
+      else await sendManagedStatus(artifact)
+    },
+    onUnauthorized(event) {
+      if (!store.settings.logRejectedApiRequests) return
+      process.stderr.write(
+        `markover authorization: ${event.method} ${event.pathname} (${event.reason})\n`
+      )
+    }
+  })
+  try {
+    await publishServiceConnection({
+      endpointPath,
+      identity,
+      port: startedService.port
+    })
+    localService = startedService
+    localServiceIdentity = identity
+  } catch (error) {
+    await startedService.close()
+    throw error
+  }
+}
+
+async function stopPublishedService(): Promise<void> {
+  const service = localService
+  localService = null
+  localServiceIdentity = null
+  if (service) await service.close()
+}
+
+async function copyStartupDiagnostic(): Promise<void> {
+  clipboard.writeText(await fs.readFile(startupDiagnosticPath, 'utf8'))
+}
+
+async function showStartupFailureDialog(): Promise<void> {
+  if (startupFailureDialogShown) return
+  startupFailureDialogShown = true
+  let diagnosticUnavailable = false
+  for (;;) {
+    const diagnosticAvailable = !diagnosticUnavailable &&
+      startupDiagnostic?.available === true &&
+      await fs.access(startupDiagnosticPath).then(
+        () => true,
+        () => false
+      )
+    const { response } = await dialog.showMessageBox({
+      type: 'error',
+      buttons: diagnosticAvailable
+        ? ['Copy details', 'Show diagnostic', 'Quit Markover']
+        : ['Quit Markover'],
+      cancelId: diagnosticAvailable ? 2 : 0,
+      defaultId: diagnosticAvailable ? 2 : 0,
+      noLink: true,
+      message: 'Markover couldn’t start.',
+      detail: diagnosticAvailable
+        ? `A sanitized diagnostic is available at:\n${startupDiagnosticPath}`
+        : 'The startup diagnostic could not be written. Details were sent to the terminal log.'
+    })
+    if (!diagnosticAvailable || response === 2) {
+      app.quit()
+      return
+    }
+    if (response === 0) {
+      try {
+        await copyStartupDiagnostic()
+      } catch (error) {
+        diagnosticUnavailable = true
+        process.stderr.write(
+          `markover diagnostic copy: ${errorMessage(error)}\n`
+        )
+      }
+    } else shell.showItemInFolder(startupDiagnosticPath)
+  }
+}
+
 function repairServiceRecords(): Promise<void> {
   const identity = localServiceIdentity
   const service = localService
@@ -635,19 +957,44 @@ if (!hasSingleInstanceLock) {
   }
 
   app.whenReady().then(async () => {
-    if (!reviewMode) await secureServiceDirectory(serviceDirectory())
-    if (process.platform === 'darwin' && !app.isPackaged) {
+    const provisionalBuild = provisionalBuildIdentity()
+    startupBuildIdentity = provisionalBuild
+    startupDiagnostic = new StartupDiagnostic({
+      appDirectory: projectDirectory,
+      build: provisionalBuild,
+      filePath: startupDiagnosticPath
+    })
+    await startupDiagnostic.start()
+    const build = await loadBuildIdentity()
+    startupBuildIdentity = build
+    await startupDiagnostic.setBuildIdentity(build)
+    const controls = developmentStartupControls(
+      process.argv,
+      app.isPackaged,
+      smokeMode
+    )
+    startupInfo = {
+      development: !app.isPackaged,
+      diagnosticPath: startupDiagnosticPath,
+      smoke: smokeMode,
+      ...controls
+    }
+    await beginMainStartupPhase('preparing-interface')
+    if (!reviewMode) await secureServiceDirectory(applicationDataDirectory)
+    if (process.platform === 'darwin' && !app.isPackaged && !smokeMode) {
       if (!app.dock) {
         throw new Error('The macOS application dock is unavailable.')
       }
       app.dock.setIcon(appIconPath)
     }
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
-    else if (!app.isPackaged) await importLegacyReviews(
+    else if (!app.isPackaged && !smokeMode) await importLegacyReviews(
       path.join(checkoutDirectory, '.markover', 'reviews'),
       reviewsDirectory()
     )
+    await startupDiagnostic.complete('preparing-interface')
 
+    await beginMainStartupPhase('loading-settings')
     const store = new SettingsStore(
       path.join(app.getPath('userData'), 'settings.json')
     )
@@ -672,8 +1019,131 @@ if (!hasSingleInstanceLock) {
     settingsUnsubscribe = await store.subscribe((settings) => {
       applyMainSettings(settings)
     })
+    if (store.lastRecoveryWarning) {
+      await recordStartupWarnings([{
+        category: 'settings-recovered',
+        subject: 'settings.json'
+      }])
+    }
+    await startupDiagnostic.complete('loading-settings')
     installApplicationMenu()
 
+    if (smokeMode) {
+      await requireReviewStore().create({
+        tree: smokeReviewTree(),
+        contextSummary: 'Fixed renderer smoke fixture.'
+      })
+    }
+
+    ipcMain.handle('startup:info', () => startupInfo)
+    ipcMain.handle('startup:phase', async (
+      _event: IpcMainInvokeEvent,
+      phaseEvent: unknown
+    ) => {
+      if (
+        !isRecord(phaseEvent) ||
+        !isStartupPhase(phaseEvent.phase) ||
+        (phaseEvent.state !== 'begin' && phaseEvent.state !== 'complete')
+      ) {
+        throw new Error('Invalid startup phase event.')
+      }
+      if (phaseEvent.state === 'begin') {
+        activeStartupPhase = phaseEvent.phase
+        process.stderr.write(`markover startup: ${phaseEvent.phase}\n`)
+        await requireStartupDiagnostic().begin(phaseEvent.phase)
+      } else {
+        await requireStartupDiagnostic().complete(phaseEvent.phase)
+      }
+    })
+    ipcMain.handle('startup:renderer-initialized', async (
+      _event: IpcMainInvokeEvent,
+      initialization: unknown
+    ): Promise<StartupReady> => {
+      if (
+        rendererInitializationHandled ||
+        rendererStartupFailed ||
+        !isRecord(initialization) ||
+        !Array.isArray(initialization.warnings) ||
+        !initialization.warnings.every(isStartupWarning)
+      ) {
+        throw new Error('Invalid or duplicate renderer initialization.')
+      }
+      rendererInitializationHandled = true
+      await recordStartupWarnings(initialization.warnings)
+      try {
+        await beginMainStartupPhase('publishing-service')
+        await startAndPublishService()
+        requireActiveRendererStartup()
+        await requireStartupDiagnostic().complete('publishing-service')
+        requireActiveRendererStartup()
+        await beginMainStartupPhase('ready')
+        requireActiveRendererStartup()
+        await requireStartupDiagnostic().complete('ready')
+        requireActiveRendererStartup()
+        await requireStartupDiagnostic().ready()
+        requireActiveRendererStartup()
+        startupReady = true
+        return { warnings: [...startupWarnings] }
+      } catch (error) {
+        await stopPublishedService()
+        if (!rendererDidFailStartup()) {
+          await failStartup('service-publication', error)
+        }
+        throw error
+      }
+    })
+    ipcMain.handle('startup:failure', async (
+      _event: IpcMainInvokeEvent,
+      failure: unknown
+    ) => {
+      if (
+        !isRecord(failure) ||
+        startupReady ||
+        rendererStartupFailed ||
+        failure.category !== 'renderer-initialization' ||
+        typeof failure.message !== 'string' ||
+        (failure.stack !== null && typeof failure.stack !== 'string')
+      ) {
+        throw new Error('Invalid renderer startup failure.')
+      }
+      rendererStartupFailed = true
+      if (requireStartupDiagnostic().snapshot().status === 'starting') {
+        await failStartup('renderer-initialization', {
+          message: failure.message,
+          stack: failure.stack
+        })
+      }
+      return {
+        diagnosticAvailable: requireStartupDiagnostic().available
+      }
+    })
+    ipcMain.handle('startup:copy-diagnostic', copyStartupDiagnostic)
+    ipcMain.handle('startup:reveal-diagnostic', () => {
+      shell.showItemInFolder(startupDiagnosticPath)
+    })
+    ipcMain.on('startup:quit', () => {
+      app.quit()
+    })
+    ipcMain.handle('smoke:result', (
+      _event: IpcMainInvokeEvent,
+      result: unknown
+    ) => {
+      if (!smokeMode || !isRendererSmokeResult(result) || !startupBuildIdentity) {
+        throw new Error('Invalid renderer smoke result.')
+      }
+      const checksPassed = Object.values(result.checks).every(Boolean)
+      const output = {
+        format: 'markover-smoke',
+        version: 1,
+        ok: checksPassed,
+        build: startupBuildIdentity,
+        checks: result.checks,
+        phases: requireStartupDiagnostic().snapshot().phases
+      }
+      process.stdout.write(`${JSON.stringify(output)}\n`, () => {
+        app.exit(checksPassed ? 0 : 1)
+      })
+    })
     ipcMain.handle('document:open', openMarkdown)
     ipcMain.handle('brand:assets', loadBrandAssets)
     ipcMain.handle('document:checksum', (
@@ -695,11 +1165,22 @@ if (!hasSingleInstanceLock) {
         ? reviewDocumentPromise
         : activeManagedReview && managedDocument(activeManagedReview)
     ))
-    ipcMain.handle('review:list', async () => (
-      reviewMode
-        ? []
-        : managedDocuments(await requireReviewStore().list())
-    ))
+    ipcMain.handle('review:list', async () => {
+      if (reviewMode) return []
+      try {
+        const result = await requireReviewStore().listWithWarnings()
+        if (result.warnings.length) {
+          await recordStartupWarnings(result.warnings.map((warning) => ({
+            category: 'review-skipped',
+            subject: `${warning.reviewId} (${warning.reason})`
+          })))
+        }
+        return await managedDocuments(result.reviews)
+      } catch (error) {
+        await failStartup('review-storage-access', error)
+        throw error
+      }
+    })
     ipcMain.on('review:snapshot-response', (
       _event: IpcMainEvent,
       response: ReviewSnapshotResponse
@@ -775,55 +1256,23 @@ if (!hasSingleInstanceLock) {
       mainWindow?.webContents.send('settings:changed', envelope)
     })
 
-    if (!reviewMode) {
-      const managedStore = requireReviewStore()
-      const identity = createServiceIdentity()
-      const startedService = await startLocalService({
-        identity,
-        store: managedStore,
-        interpretationPolicy: () => store.settings.agentInterpretationPolicy,
-        beforeAction: flushManagedReview,
-        importReviews: (sourceDirectory) => importLegacyReviews(
-          sourceDirectory,
-          managedStore.directory
-        ),
-        async onChange(artifact, action) {
-          if (action === 'created') sendManagedReview(artifact)
-          else await sendManagedStatus(artifact)
-        },
-        onUnauthorized(event) {
-          if (!store.settings.logRejectedApiRequests) return
-          process.stderr.write(
-            `markover authorization: ${event.method} ${event.pathname} (${event.reason})\n`
-          )
-        }
-      })
-      try {
-        await publishServiceConnection({
-          endpointPath,
-          identity,
-          port: startedService.port
-        })
-        localService = startedService
-        localServiceIdentity = identity
-      } catch (error) {
-        await startedService.close()
-        throw error
-      }
-    }
-
     app.on('activate', () => {
-      if (reviewMode) return
+      if (reviewMode || smokeMode) return
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
       mainWindow?.show()
       mainWindow?.focus()
     })
   }).catch((error: unknown) => {
-    const stack = errorProperty(error, 'stack')
-    process.stderr.write(
-      `markover: ${typeof stack === 'string' ? stack : errorMessage(error)}\n`
-    )
-    app.quit()
+    void (async () => {
+      const stack = errorProperty(error, 'stack')
+      process.stderr.write(
+        `markover: ${typeof stack === 'string' ? stack : errorMessage(error)}\n`
+      )
+      if (startupDiagnostic?.snapshot().status === 'starting') {
+        await failStartupBestEffort(mainStartupFailureCategory(), error)
+      }
+      await showStartupFailureDialog()
+    })()
   })
 
   app.on('before-quit', () => {
@@ -833,9 +1282,26 @@ if (!hasSingleInstanceLock) {
     })
   })
 
+  app.on('will-quit', () => {
+    if (
+      reviewMode &&
+      startupDiagnostic?.snapshot().status === 'ready'
+    ) rmSync(startupDiagnosticPath, { force: true })
+    if (
+      smokeStateDirectory &&
+      process.env.MARKOVER_SMOKE_RUNNER !== '1'
+    ) {
+      rmSync(smokeStateDirectory, { recursive: true, force: true })
+    }
+  })
+
   app.on('window-all-closed', () => {
     if (reviewMode) {
       if (!reviewFinished) app.exit(2)
+      return
+    }
+    if (smokeMode) {
+      app.quit()
       return
     }
     if (process.platform !== 'darwin') app.quit()

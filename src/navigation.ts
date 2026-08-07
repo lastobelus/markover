@@ -1,4 +1,3 @@
-(function exposeNavigation(globalScope: typeof globalThis) {
   function findContext(
     root: NavigationNode,
     id: string | null
@@ -72,6 +71,6 @@
 
   const api = { findContext, isOutsideViewport, move, nextPane } satisfies
     MarkoverNavigationApi
-  globalScope.MarkoverNavigation = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(typeof window !== 'undefined' ? window : globalThis)
+
+export { findContext, isOutsideViewport, move, nextPane }
+export default api

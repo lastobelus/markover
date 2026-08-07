@@ -549,6 +549,32 @@ test('listing leaves legacy durable reviews untouched and unmanaged', async (t) 
   assert.equal(legacy.sourceDocument.content, '# Legacy\n')
 })
 
+test('listing isolates malformed reviews and reports preserved warnings', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const malformedDirectory = path.join(directory, 'mko_broken1')
+  await fs.mkdir(malformedDirectory)
+  const malformedPath = path.join(malformedDirectory, 'review.json')
+  await fs.writeFile(malformedPath, '{not json', 'utf8')
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Review valid listing.'
+  })
+
+  const result = await store.listWithWarnings()
+  assert.deepEqual(result.reviews.map((review) => review.review.id), [
+    created.review.id
+  ])
+  assert.deepEqual(result.warnings, [{
+    reviewId: 'mko_broken1',
+    reason: 'invalid'
+  }])
+  assert.equal(await fs.readFile(malformedPath, 'utf8'), '{not json')
+})
+
 test('retries an ID collision without disturbing the existing review', async (t) => {
   const ids = ['mko_aaa11111', 'mko_aaa11111', 'mko_bbb22222']
   const { directory, store } = await temporaryStore({

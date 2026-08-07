@@ -20,7 +20,10 @@ function element<T extends Element>(value: T | null): T {
   return value
 }
 
-const styles = fs.readFileSync(path.join(__dirname, '../src/styles.css'), 'utf8')
+const styles = fs.readFileSync(
+  path.join(__dirname, '../app/src/styles.css'),
+  'utf8'
+)
 
 test('builds one annotation view model for previews and list entries', () => {
   assert.deepEqual(model({

@@ -1,4 +1,3 @@
-(function exposeSourceEdits(globalScope: typeof globalThis) {
   function savedSource(node: SourceEditableNode): string {
     return node.sourceEdit?.current || node.raw
   }
@@ -52,6 +51,6 @@
 
   const api = { begin, cancel, commit, savedSource, update } satisfies
     MarkoverSourceEditsApi
-  globalScope.MarkoverSourceEdits = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(typeof window !== 'undefined' ? window : globalThis)
+
+export { begin, cancel, commit, savedSource, update }
+export default api

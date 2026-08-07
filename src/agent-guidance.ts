@@ -1,4 +1,3 @@
-(function exposeAgentGuidance(globalScope: typeof globalThis) {
   const FIXED_CONTRACT_STATEMENTS = Object.freeze([
     'Feedback is free-form and may mix revision requests, questions, discussion, and context.',
     'Interpret each part according to its apparent intent.',
@@ -12,7 +11,7 @@
     'Ask for clarification when needed.'
   ].join(' ')
 
-  function guidance(interpretationPolicy: unknown): AgentGuidance {
+  function guidance(interpretationPolicy?: unknown): AgentGuidance {
     return {
       fixedContract: FIXED_CONTRACT,
       interpretationPolicy: typeof interpretationPolicy === 'string'
@@ -27,6 +26,11 @@
     DEFAULT_INTERPRETATION_POLICY,
     guidance
   } satisfies MarkoverAgentGuidanceApi
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-  globalScope.MarkoverAgentGuidance = api
-})(typeof window === 'undefined' ? globalThis : window)
+
+export {
+  DEFAULT_INTERPRETATION_POLICY,
+  FIXED_CONTRACT,
+  FIXED_CONTRACT_STATEMENTS,
+  guidance
+}
+export default api

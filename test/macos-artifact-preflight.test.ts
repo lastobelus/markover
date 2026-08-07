@@ -182,6 +182,9 @@ function fakeRunner(
         const keys = appOrHelper && !plugin
           ? ['com.apple.security.cs.allow-jit']
           : []
+        if (appOrHelper) {
+          keys.push('com.apple.security.cs.disable-library-validation')
+        }
         if (entitlementDrift && componentPath.endsWith('Markover.app')) {
           keys.push('com.apple.security.device.camera')
         }

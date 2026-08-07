@@ -1,37 +1,29 @@
-interface MarkdownToken {
-  attrGet(name: string): string | null
-  content: string
-}
+import MarkdownIt from 'markdown-it'
 
-interface MarkdownParser {
-  enable(rule: string): void
-  render(value: string): string
-  renderInline(value: string): string
-  renderer: {
-    rules: Record<
-      string,
-      ((tokens: MarkdownToken[], index: number) => string) | undefined
-    >
-  }
-  utils: { escapeHtml(value: string): string }
-}
+import type { DiffRenderer } from './contracts'
+import type {
+  StartupInfo,
+  StartupPhase,
+  StartupWarning
+} from './startup-contract'
+import { userFacingStartupWarnings } from './startup-contract'
+import * as MarkoverAgentGuidance from './agent-guidance'
+import * as MarkoverAnnotationBlock from './annotation-block'
+import * as MarkoverAnnotations from './annotations'
+import * as MarkoverImagePreview from './image-preview'
+import * as MarkoverNavigation from './navigation'
+import * as MarkoverReviewSessions from './review-sessions'
+import * as MarkoverSettings from './settings'
+import * as MarkoverSourceEdits from './source-edits'
+import * as MarkoverTree from './tree'
 
-type MarkdownItFactory = (
-  preset: string,
-  options: Record<string, boolean>
-) => MarkdownParser
 type FileTreeModel = InstanceType<MarkoverFileTreeConstructor>
-
-interface Window {
-  markdownit: MarkdownItFactory
-}
 
 interface RendererState {
   attachmentPreviewUrls: Map<string, string>
   documentName: string
   documentPath: string | null
   durableReview: boolean
-  fallbackAttachmentSequence: number
   finishAttachmentLabelEdit: ((commit?: boolean) => void) | null
   hoveredId: string | null
   reviewId: string | null
@@ -189,7 +181,6 @@ const state: RendererState = {
   documentName: 'sample.md',
   documentPath: null,
   durableReview: false,
-  fallbackAttachmentSequence: 0,
   finishAttachmentLabelEdit: null,
   hoveredId: null,
   reviewId: null,
@@ -219,11 +210,29 @@ let documentsListProjectPaths: string[] = []
 let documentsListStatuses = new Map<string, ReviewSessionStatus>()
 let brandAssetSources: MarkoverBrandAssets | null = null
 let brandAssetLoad: Promise<MarkoverBrandAssets | null> | null = null
+let brandFallbackUsed = false
 let sourceDiffCleanup: (() => void) | null = null
+let sourceDiffModule: Promise<DiffRenderer> | null = null
+let sourceDiffRenderer: DiffRenderer | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
+let smokeRuntimeClean = true
+const consoleError = console.error.bind(console)
+console.error = (...values: unknown[]) => {
+  smokeRuntimeClean = false
+  consoleError(...values)
+}
+for (const eventName of [
+  'error',
+  'securitypolicyviolation',
+  'unhandledrejection'
+] as const) {
+  window.addEventListener(eventName, () => {
+    smokeRuntimeClean = false
+  }, true)
+}
 
-import('../node_modules/@pierre/trees/dist/index.js')
+const documentsListReady = import('@pierre/trees')
   .then(({ FileTree }) => {
     DocumentsListFileTree = FileTree
     renderDocumentsList()
@@ -231,81 +240,69 @@ import('../node_modules/@pierre/trees/dist/index.js')
   .catch((error: unknown) => {
     console.error('Failed to load documents list tree', error)
     elements.documentsListTree.textContent = `Documents list unavailable: ${error instanceof Error ? error.message : String(error)}`
+    throw error
   })
 
-const fallbackBridge = {
-  getBrandAssets() {
-    return Promise.resolve(null)
-  },
-  async checksum(source) {
-    const bytes = new TextEncoder().encode(source)
-    const digest = await crypto.subtle.digest('SHA-256', bytes)
-    const hex = [...new Uint8Array(digest)]
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('')
-    return `sha256:${hex}`
-  },
-  openMarkdown() {
-    return Promise.resolve(null)
-  },
-  onOpenMarkdownRequested() {},
-  copyText(text) {
-    void navigator.clipboard.writeText(text)
-  },
-  getSettings() {
-    return Promise.resolve({
-      ...MarkoverSettings.DEFAULT_SETTINGS,
-      resolvedAppearance: 'light' as const
-    })
-  },
-  updateSettings(patch) {
-    return Promise.resolve({
-      ...MarkoverSettings.updateSettings(preferences, patch),
-      resolvedAppearance
-    })
-  },
-  onSettingsOpen() {},
-  onSettingsChanged() {},
-  async saveAttachment(attachment) {
-    state.fallbackAttachmentSequence += 1
-    const id = `img-${state.fallbackAttachmentSequence}`
-    const digest = await crypto.subtle.digest(
-      'SHA-256',
-      new Uint8Array(attachment.bytes).buffer
-    )
-    const checksum = [...new Uint8Array(digest)]
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('')
-    return {
-      id,
-      type: 'image',
-      mimeType: attachment.mimeType,
-      checksum: `sha256:${checksum}`,
-      width: null,
-      height: null,
-      label: ''
-    }
-  },
-  getInitialReview() {
-    return Promise.resolve(null)
-  },
-  getReviews() {
-    return Promise.resolve([])
-  },
-  readClipboardImage() {
-    return Promise.resolve(null)
-  },
-  onReviewOpened() {},
-  onReviewSnapshotRequested() {},
-  onReviewStatus() {},
-  activateReview() {},
-  autosaveReview() {},
-  finishReview() {},
-  cancelReview() {}
-} satisfies MarkoverBridge
-const bridge: MarkoverBridge = window.markover || fallbackBridge
+const BRIDGE_METHODS = [
+  'activateReview',
+  'autosaveReview',
+  'cancelReview',
+  'checksum',
+  'copyText',
+  'copyStartupDiagnostic',
+  'finishReview',
+  'getBrandAssets',
+  'getInitialReview',
+  'getReviews',
+  'getSettings',
+  'getStartupInfo',
+  'onOpenMarkdownRequested',
+  'onReviewOpened',
+  'onReviewSnapshotRequested',
+  'onReviewStatus',
+  'onSettingsChanged',
+  'onSettingsOpen',
+  'openMarkdown',
+  'readClipboardImage',
+  'reportRendererInitialized',
+  'reportSmokeResult',
+  'reportStartupFailure',
+  'reportStartupPhase',
+  'revealStartupDiagnostic',
+  'saveAttachment',
+  'quitStartup',
+  'updateSettings'
+] as const satisfies ReadonlyArray<keyof MarkoverBridge>
 
-const inlineMarkdown = window.markdownit('commonmark', {
+function requireBridge(candidate: MarkoverBridge | undefined): MarkoverBridge {
+  if (!candidate) throw new Error('Markover preload bridge is unavailable.')
+  const missing = BRIDGE_METHODS.filter(
+    (name) => typeof candidate[name] !== 'function'
+  )
+  if (missing.length) {
+    throw new Error(`Markover preload bridge is missing: ${missing.join(', ')}.`)
+  }
+  return candidate
+}
+
+const bridge = requireBridge(window.markover)
+
+function requireStartupUi(candidate: MarkoverStartupUi | undefined): MarkoverStartupUi {
+  if (!candidate) throw new Error('Markover startup UI is unavailable.')
+  return candidate
+}
+
+const startupUi = requireStartupUi(window.markoverStartup)
+
+function loadSourceDiffModule(): Promise<DiffRenderer> {
+  sourceDiffModule ??= import('./pierre-diffs-entry.mjs').then((module) => {
+    sourceDiffRenderer = module
+    return module
+  })
+  return sourceDiffModule
+}
+
+const inlineMarkdown = MarkdownIt('commonmark', {
   html: false,
   linkify: false,
   typographer: false
@@ -348,8 +345,8 @@ function wireSourceImagePreviews(content: ParentNode): void {
 }
 
 function sourceDiffStats(node: SourceEditableNode): MarkoverDiffStats | null {
-  if (!node.sourceEdit) return null
-  return MarkoverDiffs.stats(node.sourceEdit.original, node.sourceEdit.current)
+  if (!node.sourceEdit || !sourceDiffRenderer) return null
+  return sourceDiffRenderer.stats(node.sourceEdit.original, node.sourceEdit.current)
 }
 
 function renderDiffStats(element: HTMLElement, stats: MarkoverDiffStats): void {
@@ -1169,16 +1166,26 @@ function renderSourcePanel(node: ReviewNode): void {
     const stats = sourceDiffStats(node)
     if (stats) renderDiffStats(elements.sourceDiffStats, stats)
     if (!state.sourceCollapsed) {
-      try {
-        sourceDiffCleanup = MarkoverDiffs.render(
+      const renderKey = `${state.reviewId || 'local'}:${node.id}:${node.sourceEdit.current}`
+      elements.sourceDiff.dataset.renderKey = renderKey
+      elements.sourceDiff.textContent = 'Loading diff…'
+      void loadSourceDiffModule().then((diffs) => {
+        if (elements.sourceDiff.dataset.renderKey !== renderKey) return
+        renderDiffStats(
+          elements.sourceDiffStats,
+          diffs.stats(node.sourceEdit?.original || '', node.sourceEdit?.current || '')
+        )
+        sourceDiffCleanup = diffs.render(
           elements.sourceDiff,
-          node.sourceEdit.original,
-          node.sourceEdit.current,
+          node.sourceEdit?.original || '',
+          node.sourceEdit?.current || '',
           `${state.reviewId || 'local'}:${node.id}`
         )
-      } catch (error) {
+      }).catch((error: unknown) => {
+        if (elements.sourceDiff.dataset.renderKey !== renderKey) return
+        console.error('Failed to load source diff renderer', error)
         elements.sourceDiff.textContent = `Diff unavailable: ${error instanceof Error ? error.message : String(error)}`
-      }
+      })
     }
   } else {
     elements.sourceDiffStats.replaceChildren()
@@ -1887,7 +1894,10 @@ async function themeBrandAssets(): Promise<void> {
   try {
     brandAssetLoad ||= bridge.getBrandAssets()
     brandAssetSources ||= await brandAssetLoad
-    if (!brandAssetSources) return
+    if (!brandAssetSources) {
+      brandFallbackUsed = true
+      return
+    }
     const palette = getComputedStyle(document.documentElement)
     const primary = palette.getPropertyValue('--markover-primary').trim()
     const secondary = palette.getPropertyValue('--markover-secondary').trim()
@@ -1907,6 +1917,7 @@ async function themeBrandAssets(): Promise<void> {
       secondary
     )
   } catch (error) {
+    brandFallbackUsed = true
     console.error('Failed to theme brand assets', error)
   } finally {
     document.documentElement.classList.add('is-brand-ready')
@@ -2706,7 +2717,100 @@ elements.previewPane.addEventListener('focus', () => {
   elements.annotationPane.classList.remove('focus-within')
 })
 
+async function rendererStartupPhase<T>(
+  info: StartupInfo,
+  phase: StartupPhase,
+  operation: () => T | Promise<T>,
+  report = true
+): Promise<T> {
+  startupUi.phase(phase)
+  if (report) await bridge.reportStartupPhase({ phase, state: 'begin' })
+  if (info.failPhase === phase) {
+    throw new Error(`Development startup failure at ${phase}.`)
+  }
+  if (info.holdPhase === phase) {
+    await new Promise<void>(() => {})
+  }
+  const result = await operation()
+  if (report) await bridge.reportStartupPhase({ phase, state: 'complete' })
+  return result
+}
+
+function showStartupWarnings(warnings: StartupWarning[]): void {
+  if (!warnings.length) return
+  elements.toast.textContent = warnings.length === 1
+    ? 'Startup recovered one item. Click to show the diagnostic.'
+    : `Startup recovered or skipped ${String(warnings.length)} items. Click to show the diagnostic.`
+  elements.toast.classList.add('is-visible')
+  elements.toast.setAttribute('aria-hidden', 'false')
+  elements.toast.setAttribute('role', 'button')
+  elements.toast.tabIndex = 0
+  const reveal = (): void => {
+    void bridge.revealStartupDiagnostic()
+  }
+  elements.toast.addEventListener('click', reveal, { once: true })
+  const revealFromKeyboard = (event: KeyboardEvent): void => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    elements.toast.removeEventListener('keydown', revealFromKeyboard)
+    reveal()
+  }
+  elements.toast.addEventListener('keydown', revealFromKeyboard)
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      resolve()
+    })
+  })
+}
+
+async function rendererSmokeResult(): Promise<{
+  format: 'markover-renderer-smoke'
+  version: 1
+  checks: {
+    cleanRuntime: boolean
+    documentsList: boolean
+    markdown: boolean
+    sourceDiff: boolean
+    yaml: boolean
+  }
+}> {
+  await documentsListReady
+  await nextFrame()
+  const treeText = elements.tree.textContent || ''
+  const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
+  const documentsList = Boolean(
+    shadowRoot?.querySelector('button[data-item-type="file"]')
+  )
+  const sourceNode = MarkoverTree.findNode(currentTree().root, 'smoke-heading')
+  let sourceDiff = false
+  if (sourceNode?.sourceEdit) {
+    await loadSourceDiffModule()
+    selectNode(sourceNode.id, false)
+    renderSourcePanel(sourceNode)
+    await nextFrame()
+    sourceDiff = sourceDiffCleanup !== null &&
+      elements.sourceDiffStats.textContent.includes('+1') &&
+      elements.sourceDiffStats.textContent.includes('−1')
+  }
+  return {
+    format: 'markover-renderer-smoke',
+    version: 1,
+    checks: {
+      cleanRuntime: smokeRuntimeClean,
+      documentsList,
+      markdown: treeText.includes('Bundled Markdown renders here.'),
+      sourceDiff,
+      yaml: Boolean(elements.tree.querySelector('[data-node-id="smoke-yaml-title"]'))
+    }
+  }
+}
+
 async function initialize(): Promise<void> {
+  const startupInfo = await bridge.getStartupInfo()
+  startupUi.development(startupInfo.development)
   bridge.onOpenMarkdownRequested(() => {
     void openMarkdownDocument()
   })
@@ -2714,7 +2818,10 @@ async function initialize(): Promise<void> {
   bridge.onSettingsChanged((settings) => {
     applySettings(settings)
   })
-  applySettings(await bridge.getSettings(), { initial: true })
+  await rendererStartupPhase(startupInfo, 'loading-settings', async () => {
+    applySettings(await bridge.getSettings(), { initial: true })
+  }, false)
+  await rendererStartupPhase(startupInfo, 'loading-brand', themeBrandAssets)
 
   bridge.onReviewOpened(async (reviewDocument) => {
     configureManagedMode()
@@ -2765,37 +2872,42 @@ async function initialize(): Promise<void> {
     return reviewSessions.snapshot(reviewId)
   })
 
-  const reviewDocument = await bridge.getInitialReview()
-  if (
-    reviewDocument?.reviewId &&
-    reviewDocument.tree &&
-    isReviewSessionTree(reviewDocument.tree)
-  ) {
-    configureManagedMode()
-    const reviews = await bridge.getReviews()
-    for (const document of reviews) {
-      addManagedReview(managedReviewDocument(document), false)
+  let reviewDocument: MarkoverDocument | null = null
+  let reviews: MarkoverDocument[] = []
+  await rendererStartupPhase(startupInfo, 'restoring-reviews', async () => {
+    reviewDocument = await bridge.getInitialReview()
+    if (!reviewDocument || reviewDocument.reviewId) {
+      reviews = await bridge.getReviews()
     }
-    await loadDocument(reviewDocument)
-  } else if (reviewDocument) {
-    state.reviewMode = true
-    state.durableReview = Boolean(reviewDocument.durable)
-    if (state.durableReview) {
-      elements.openButton.hidden = true
-      elements.standardActions.hidden = false
-      elements.reviewActions.hidden = true
-      elements.annotationGuidance.textContent =
-        'Annotations autosave continuously. Copy feedback JSON when you’re done.'
-    } else {
-      elements.standardActions.hidden = true
-      elements.reviewActions.hidden = false
-      elements.annotationGuidance.textContent =
-        'Add feedback to any blocks, then click Done to return the review to the agent.'
-    }
-    await loadDocument(reviewDocument)
-  } else {
-    const reviews = await bridge.getReviews()
-    if (reviews.length) {
+  })
+  await rendererStartupPhase(startupInfo, 'restoring-workspace', async () => {
+    if (
+      reviewDocument?.reviewId &&
+      reviewDocument.tree &&
+      isReviewSessionTree(reviewDocument.tree)
+    ) {
+      configureManagedMode()
+      for (const document of reviews) {
+        addManagedReview(managedReviewDocument(document), false)
+      }
+      await loadDocument(reviewDocument)
+    } else if (reviewDocument) {
+      state.reviewMode = true
+      state.durableReview = Boolean(reviewDocument.durable)
+      if (state.durableReview) {
+        elements.openButton.hidden = true
+        elements.standardActions.hidden = false
+        elements.reviewActions.hidden = true
+        elements.annotationGuidance.textContent =
+          'Annotations autosave continuously. Copy feedback JSON when you’re done.'
+      } else {
+        elements.standardActions.hidden = true
+        elements.reviewActions.hidden = false
+        elements.annotationGuidance.textContent =
+          'Add feedback to any blocks, then click Done to return the review to the agent.'
+      }
+      await loadDocument(reviewDocument)
+    } else if (reviews.length) {
       configureManagedMode()
       for (const document of reviews) {
         addManagedReview(managedReviewDocument(document), false)
@@ -2805,10 +2917,40 @@ async function initialize(): Promise<void> {
     } else {
       setWorkspaceEmpty(true)
     }
+    if (elements.emptyWorkspace.hidden) elements.previewPane.focus()
+    else elements.emptyOpenButton.focus()
+    await documentsListReady
+    renderDocumentsList()
+  })
+
+  const warnings: StartupWarning[] = brandFallbackUsed
+    ? [{ category: 'brand-fallback', subject: 'canonical brand assets' }]
+    : []
+  startupUi.phase('publishing-service')
+  const ready = await bridge.reportRendererInitialized({ warnings })
+  startupUi.phase('ready')
+  startupUi.ready()
+  showStartupWarnings(userFacingStartupWarnings(ready.warnings))
+  if (startupInfo.smoke) {
+    if (ready.warnings.length) smokeRuntimeClean = false
+    await bridge.reportSmokeResult(await rendererSmokeResult())
   }
-  if (elements.emptyWorkspace.hidden) elements.previewPane.focus()
-  else elements.emptyOpenButton.focus()
 }
 
 applyDocumentsListWidth()
-void initialize()
+void initialize().catch(async (error: unknown) => {
+  startupUi.fail()
+  const message = error instanceof Error ? error.message : String(error)
+  const stack = error instanceof Error ? error.stack || null : null
+  try {
+    const failure = await bridge.reportStartupFailure({
+      category: 'renderer-initialization',
+      message,
+      stack
+    })
+    startupUi.fail(failure.diagnosticAvailable)
+  } catch (reportError) {
+    console.error('Failed to record renderer startup failure', reportError)
+  }
+  console.error('Markover renderer startup failed', error)
+})

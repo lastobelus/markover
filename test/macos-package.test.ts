@@ -6,7 +6,8 @@ import test from 'node:test'
 
 import {
   adHocSigningOptions,
-  copyThirdPartyNotices
+  copyThirdPartyNotices,
+  runPackagedSmoke
 } from '../scripts/package-macos'
 import {
   entitlementsForSignedFile,
@@ -39,6 +40,7 @@ test('macOS packaging produces a branded application bundle', () => {
 
   assert.equal(packageJson.productName, 'Markover')
   assert.equal(typeof packageJson.devDependencies['@electron/packager'], 'string')
+  assert.equal(typeof packageJson.devDependencies['@electron/asar'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/osx-sign'], 'string')
   const packageCommand = packageJson.scripts['package:mac']
   assert.ok(packageCommand)
@@ -53,12 +55,17 @@ test('macOS packaging produces a branded application bundle', () => {
     signedAppComponents.slice(1).map((component) => component.bundleId),
     Array(4).fill(helperBundleId)
   )
-  assert.match(packaging, /--icon=design\/brand\/markover-app-icon\.icns/)
-  assert.equal(packaging.includes('eslint\\\\.config'), true)
-  assert.equal(packaging.includes('tsconfig\\\\.json'), true)
-  assert.match(packaging, /examples\|packages\|scripts\|src\|test/)
+  assert.match(packaging, /const appDirectory = path\.join\(projectDirectory, 'build\/app'\)/)
+  assert.match(packaging, /`--icon=\$\{path\.join\(projectDirectory, 'design\/brand\/markover-app-icon\.icns'\)\}`/)
+  assert.match(packaging, /appDirectory,\n {4}'Markover'/)
+  assert.match(packaging, /'--prune=false'/)
+  assert.doesNotMatch(packaging, /--ignore=/)
   assert.doesNotMatch(packaging, /--deep/)
   assert.match(packaging, /await sign\(adHocSigningOptions\(appPath\)\)/)
+  assert.ok(
+    packaging.indexOf('await verifyPackagedAppLayout(appPath)') <
+      packaging.indexOf('copyThirdPartyNotices(appPath)')
+  )
   assert.ok(
     packaging.indexOf('copyThirdPartyNotices(appPath)') <
       packaging.indexOf('setMinimumSystemVersion(appPath)')
@@ -67,10 +74,31 @@ test('macOS packaging produces a branded application bundle', () => {
     packaging.indexOf('setMinimumSystemVersion(appPath)') <
       packaging.indexOf('await sign(adHocSigningOptions(appPath))')
   )
+  assert.ok(
+    packaging.indexOf('await sign(adHocSigningOptions(appPath))') <
+      packaging.indexOf('runPackagedSmoke(appPath)')
+  )
   assert.match(packaging, /hardened ad-hoc-signed build/)
   assert.match(packaging, /not Apple-verified or notarized/)
-  assert.match(main, /new ReviewStore\(reviewsDirectory\(\)\)/)
-  assert.match(main, /process\.platform === 'darwin' && !app\.isPackaged/)
+  assert.match(
+    main,
+    /new ReviewStore\([\s\S]*smokeStateDirectory[\s\S]*: reviewsDirectory\(\)/
+  )
+  assert.match(main, /process\.platform === 'darwin' && !app\.isPackaged && !smokeMode/)
+})
+
+test('packaged smoke uses the signed application executable and release timeout', () => {
+  // Spawning the actual runner belongs to the end-to-end package test.
+  const packaging = read('scripts/package-macos.ts')
+  assert.match(
+    packaging,
+    /\[runnerPath, '--timeout=60', `--app=\$\{executablePath\}`\]/
+  )
+  assert.match(
+    packaging,
+    /const executablePath = path\.join\(appPath, 'Contents\/MacOS\/Markover'\)/
+  )
+  assert.equal(typeof runPackagedSmoke, 'function')
 })
 
 test('macOS packaging uses an explicit fail-closed ad-hoc signing contract', () => {
@@ -124,7 +152,7 @@ test('macOS packaging uses an explicit fail-closed ad-hoc signing contract', () 
   assert.equal(minimumMacosVersion, '14.0')
 })
 
-test('checked-in entitlements exclude broad device and memory grants', () => {
+test('checked-in entitlements keep the ad-hoc exception on Electron processes', () => {
   const directory = path.join(root, 'config/macos/entitlements')
   const files = fs.readdirSync(directory).sort()
   assert.deepEqual(files, [
@@ -141,7 +169,14 @@ test('checked-in entitlements exclude broad device and memory grants', () => {
   )).join('\n')
   assert.doesNotMatch(contents, /device\.|personal-information/)
   assert.doesNotMatch(contents, /allow-unsigned-executable-memory/)
-  assert.doesNotMatch(contents, /disable-library-validation/)
+  for (const file of files) {
+    const source = fs.readFileSync(path.join(directory, file), 'utf8')
+    if (file === 'code.plist') {
+      assert.doesNotMatch(source, /disable-library-validation/)
+    } else {
+      assert.match(source, /disable-library-validation/)
+    }
+  }
 })
 
 test('macOS packaging places application and runtime notices inside the app', (t) => {

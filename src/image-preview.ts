@@ -1,4 +1,3 @@
-(function exposeImagePreview(globalScope: typeof globalThis) {
   function fileUrl(filePath?: string | null): string | null {
     if (!filePath?.startsWith('/')) return null
     return `file://${filePath
@@ -43,6 +42,6 @@
 
   const api = { fileUrl, labelFor, sourceLabel, sourceUrl } satisfies
     MarkoverImagePreviewApi
-  globalScope.MarkoverImagePreview = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(typeof window !== 'undefined' ? window : globalThis)
+
+export { fileUrl, labelFor, sourceLabel, sourceUrl }
+export default api

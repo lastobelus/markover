@@ -6,6 +6,15 @@ import type {
   FileTreeSortEntry,
   RemappedIcon
 } from '@pierre/trees' with { 'resolution-mode': 'import' }
+import type {
+  RendererInitialization,
+  RendererSmokeResult,
+  RendererStartupFailure,
+  RendererStartupFailureResult,
+  StartupInfo,
+  StartupPhaseEvent,
+  StartupReady
+} from './startup-contract'
 
 export interface DiffStats {
   additions: number
@@ -23,6 +32,12 @@ export interface DiffRenderer {
 }
 
 declare global {
+  interface MarkoverStartupUi {
+    development: (value: boolean) => void
+    phase: (value: string) => void
+    ready: () => void
+    fail: (diagnosticAvailable?: boolean) => void
+  }
   type MarkoverDiffStats = DiffStats
   type MarkoverFileTreeConstructor = typeof FileTree
   type MarkoverFileTreeDirectoryHandle = FileTreeDirectoryHandle
@@ -50,8 +65,6 @@ declare global {
     DEFAULT_INTERPRETATION_POLICY: string
     guidance: (interpretationPolicy?: unknown) => AgentGuidance
   }
-
-  var MarkoverAgentGuidance: MarkoverAgentGuidanceApi
 
   interface MarkoverSettings {
     palette: Palette
@@ -443,6 +456,18 @@ declare global {
   }
 
   interface MarkoverBridge {
+    getStartupInfo: () => Promise<StartupInfo>
+    reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
+    reportRendererInitialized: (
+      initialization: RendererInitialization
+    ) => Promise<StartupReady>
+    reportStartupFailure: (
+      failure: RendererStartupFailure
+    ) => Promise<RendererStartupFailureResult>
+    copyStartupDiagnostic: () => Promise<void>
+    revealStartupDiagnostic: () => Promise<void>
+    quitStartup: () => void
+    reportSmokeResult: (result: RendererSmokeResult) => Promise<void>
     getBrandAssets: () => Promise<MarkoverBrandAssets | null>
     openMarkdown: () => Promise<MarkoverDocument | null>
     onOpenMarkdownRequested: (callback: () => void) => void
@@ -667,17 +692,8 @@ declare global {
     ) => ReviewSessionsContract
   }
 
-  var MarkoverAnnotationBlock: MarkoverAnnotationBlockApi
-  var MarkoverAnnotations: MarkoverAnnotationsApi
-  var MarkoverDiffs: DiffRenderer
-  var MarkoverImagePreview: MarkoverImagePreviewApi
-  var MarkoverNavigation: MarkoverNavigationApi
-  var MarkoverReviewSessions: MarkoverReviewSessionsApi
-  var MarkoverSettings: MarkoverSettingsApi
-  var MarkoverSourceEdits: MarkoverSourceEditsApi
-  var MarkoverTree: MarkoverTreeApi
-
   interface Window {
     markover?: MarkoverBridge
+    markoverStartup?: MarkoverStartupUi
   }
 }

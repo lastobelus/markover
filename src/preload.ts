@@ -48,6 +48,20 @@ async function respondToReviewSnapshot(
 }
 
 const bridge = {
+  getStartupInfo: () => ipcRenderer.invoke('startup:info'),
+  reportStartupPhase: (event) => ipcRenderer.invoke('startup:phase', event),
+  reportRendererInitialized: (initialization) => (
+    ipcRenderer.invoke('startup:renderer-initialized', initialization)
+  ),
+  reportStartupFailure: (failure) => (
+    ipcRenderer.invoke('startup:failure', failure)
+  ),
+  copyStartupDiagnostic: () => ipcRenderer.invoke('startup:copy-diagnostic'),
+  revealStartupDiagnostic: () => ipcRenderer.invoke('startup:reveal-diagnostic'),
+  quitStartup: () => {
+    ipcRenderer.send('startup:quit')
+  },
+  reportSmokeResult: (result) => ipcRenderer.invoke('smoke:result', result),
   getBrandAssets: () => ipcRenderer.invoke('brand:assets'),
   openMarkdown: () => ipcRenderer.invoke('document:open'),
   onOpenMarkdownRequested: (callback) => {

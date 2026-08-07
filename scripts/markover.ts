@@ -20,11 +20,9 @@ import {
   type ReviewMetadataInput
 } from '../src/metadata-discovery'
 import { serviceEndpointPath } from '../src/service-endpoint'
-import '../src/agent-guidance'
-import '../src/settings'
-import '../src/tree'
-
-const { parseMarkdown } = MarkoverTree
+import { guidance } from '../src/agent-guidance'
+import { normalizeSettings } from '../src/settings'
+import { parseMarkdown } from '../src/tree'
 const loadElectron = createRequire(__filename)
 
 const projectDirectory = path.resolve(__dirname, '../..')
@@ -82,7 +80,7 @@ function commandError(message: string, usage?: string): CommandError {
 }
 
 export function helpPayload() {
-  const defaultAgentGuidance = globalThis.MarkoverAgentGuidance.guidance()
+  const defaultAgentGuidance = guidance()
   return {
     format: 'markover-help',
     version: 1,
@@ -387,7 +385,7 @@ export interface EnsureServiceOptions {
 export async function ensureService({
   endpointPath = defaultEndpointPath,
   startApp = startDetachedApp,
-  timeoutMilliseconds = 10000
+  timeoutMilliseconds = 30_000
 }: EnsureServiceOptions = {}): Promise<void> {
   try {
     await probeService(endpointPath)
@@ -400,9 +398,13 @@ export async function ensureService({
   try {
     await waitForService(endpointPath, startedAt + timeoutMilliseconds)
   } catch (error) {
+    const diagnosticPath = path.join(
+      path.dirname(endpointPath),
+      'startup-diagnostic.json'
+    )
     throw new LocalServiceError(
-      'SERVICE_RESTART_REQUIRED',
-      `Markover could not repair its local service: ${errorMessage(error)} Quit and reopen Markover, then retry.`
+      'SERVICE_STARTUP_TIMEOUT',
+      `Markover did not become ready: ${errorMessage(error)} Inspect ${diagnosticPath}; the app remains available to inspect or quit.`
     )
   }
 }
@@ -422,7 +424,7 @@ export async function readSessionDiscoverySetting(
 ): Promise<boolean> {
   try {
     const value: unknown = JSON.parse(await fs.readFile(settingsPath, 'utf8'))
-    return MarkoverSettings.normalizeSettings(value)
+    return normalizeSettings(value)
       .discoverAgentThreadFromLocalSessions
   } catch (error) {
     return errorCode(error) === 'ENOENT'

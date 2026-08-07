@@ -190,9 +190,31 @@ test('continuous integration enforces the supported Node versions', () => {
   assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/)
   assert.match(workflow, /npm ci/)
   assert.match(workflow, /npm run check/)
-  assert.match(workflow, /npm test/)
+  assert.match(workflow, /npm run test:built/)
+  assert.match(
+    workflow,
+    /sudo chown root:root node_modules\/electron\/dist\/chrome-sandbox/
+  )
+  assert.match(
+    workflow,
+    /sudo chmod 4755 node_modules\/electron\/dist\/chrome-sandbox/
+  )
+  assert.doesNotMatch(workflow, /--no-sandbox/)
+  assert.match(workflow, /xvfb-run --auto-servernum npm run smoke:built -- --timeout=60/)
+  assert.equal(
+    (workflow.match(/Run bundled Electron smoke/g) || []).length,
+    1
+  )
+  assert.match(workflow, /retention-days: 7/)
   assert.match(workflow, /git diff --exit-code/)
   assert.equal(rootPackage.scripts.pretest, 'install-electron --no')
+  const localCi = rootPackage.scripts['ci:local']
+  assert.ok(localCi)
+  assert.match(localCi, /--timeout=10/)
+  assert.equal(
+    (localCi.match(/npm run build/g) || []).length,
+    1
+  )
   assert.match(developmentGuide, /Require approval for all external\s+contributors/)
   assert.match(developmentGuide, /approval_policy=all_external_contributors/)
   assert.match(developmentGuide, /requires review\s+conversations to be resolved/)
@@ -213,7 +235,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   const tsconfig = readJson('tsconfig.json') as TypeScriptConfig
   const gitignore = read('.gitignore')
 
-  assert.equal(packageJson.main, 'build/src/main.js')
+  assert.equal(packageJson.main, 'build/app/src/main.js')
   assert.equal(packageJson.bin.markover, 'build/scripts/markover.js')
   assert.equal(
     packageJson.devDependencies['@typescript/native'],

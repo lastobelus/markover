@@ -45,10 +45,7 @@ async function main(): Promise<void> {
     'THIRD_PARTY_NOTICES.md',
     'favicon.svg',
     'package.json',
-    'packages/cli/package.json',
-    'src/index.html',
-    'src/styles.css',
-    'src/vendor'
+    'packages/cli/package.json'
   ]) {
     await copy(relativePath)
   }

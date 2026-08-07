@@ -19,8 +19,14 @@ npm install
 npm start
 ```
 
-The development command uses the repository checkout directly. Managed reviews
-are stored outside the checkout under:
+The development command performs a deterministic one-shot build, verifies the
+exact staged layout under `build/app/`, and launches Electron from that stage.
+Additional command-line arguments and environment variables are forwarded to
+Electron unchanged, except `ELECTRON_RUN_AS_NODE` is removed. Paths beneath
+`build/app/` are private build details; other development tooling should depend
+only on the staging root.
+
+Managed reviews are stored outside the checkout under:
 
 ```text
 ~/Library/Application Support/Markover/reviews/<review-id>/
@@ -32,25 +38,52 @@ important reviews.
 
 ## Checks
 
-Run the repository-owned ESLint and TypeScript checks plus the test suite before
-committing a completed slice:
+Run the full local pre-PR gate before committing a completed slice:
+
+```sh
+npm run ci:local
+```
+
+It performs one clean build followed by lint, type checking, notice validation,
+the compiled Node tests, and a hidden Electron renderer smoke against that same
+stage. The local smoke has a strict 10-second deadline so a fixable startup
+regression is caught before it can consume hosted CI time.
+
+Focused commands remain available:
 
 ```sh
 npm run check
 npm test
+npm run smoke
 ```
 
 Editors should use the committed `.editorconfig` settings. `npm run lint` uses
 the same committed ESLint configuration as `npm run check` and CI.
 
-`npm run build` uses the native TypeScript compiler to strictly check maintained
-source and emit runnable JavaScript plus source maps under the ignored `build/`
-directory. Browser entry points remain plain scripts at runtime, but their
-maintained source is TypeScript and no JavaScript migration boundary remains.
+`npm run build` uses the native TypeScript compiler for Node-side code and
+esbuild for one unminified, non-split ESM renderer bundle with an external
+source map. It emits the sole runnable application root at `build/app/` and
+rejects missing, extra, symlinked, or runtime dependency files before
+succeeding. The renderer resolves no package from `node_modules` at runtime.
+
+Development startup reports stable phases in the startup screen, stderr, and a
+sanitized diagnostic. Reproduce a fixed failure or hold with:
+
+```sh
+npm start -- --dev-fail-startup=restoring-workspace
+npm start -- --dev-hold-startup=publishing-service
+```
+
+Accepted phases are `preparing-interface`, `loading-settings`, `loading-brand`,
+`restoring-reviews`, `restoring-workspace`, `publishing-service`, and `ready`.
+These controls are rejected for packaged applications and disabled in smoke.
 
 The tests cover the Markdown tree, navigation, review sessions and persistence,
-the local service and CLI protocol, settings, source-edit proposals, release
-artifacts, and the documentation site.
+the local service and CLI protocol, settings, startup/readiness, the staged
+application, source-edit proposals, release artifacts, and the documentation
+site. Hosted CI runs the live Electron smoke once at the minimum supported Node
+version with a 60-second deadline and retains only a small failure-evidence
+bundle for seven days.
 
 ### GitHub Actions cost controls
 
@@ -89,11 +122,21 @@ open "dist/Markover-darwin-$(node -p process.arch)/Markover.app"
 ```
 
 The package command selects an explicit, fail-closed `ad-hoc` trust mode. It
-finishes bundle metadata and notices before using `@electron/osx-sign` to sign
-components inside-out with hardened runtime, no timestamp, and the minimal
-checked-in profiles under `config/macos/entitlements/`. The bundle requires
-macOS 14 Sonoma or newer. It is **not Apple-verified**: it has no authenticated
-Developer ID publisher and is not notarized.
+extracts the final ASAR and verifies it against the same exact staged-layout
+contract, finishes bundle metadata and notices, then uses `@electron/osx-sign`
+to sign components inside-out with hardened runtime, no timestamp, and the
+minimal checked-in profiles under `config/macos/entitlements/`. Finally it runs
+the hidden renderer smoke against the signed executable with a 60-second
+deadline. The bundle requires macOS 14 Sonoma or newer. It is **not
+Apple-verified**: it has no authenticated Developer ID publisher and is not
+notarized.
+
+Because ad-hoc signatures have no shared Team ID, the hardened Electron app and
+helper processes use `com.apple.security.cs.disable-library-validation` so they
+can load the separately signed Electron framework. Frameworks and other
+embedded code do not receive that exception, and final-artifact verification
+enforces the exact placement. A future Developer ID build should remove the
+exception once every component shares the authenticated Team ID.
 
 To exercise the exact final-ZIP preflight in a verification-only directory:
 

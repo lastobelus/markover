@@ -1,4 +1,3 @@
-(function exposeReviewSessions(globalScope: typeof globalThis) {
   function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
   }
@@ -262,6 +261,14 @@
     ReviewMutationTracker,
     ReviewSessions
   } satisfies MarkoverReviewSessionsApi
-  globalScope.MarkoverReviewSessions = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(typeof window !== 'undefined' ? window : globalThis)
+
+export {
+  clampDocumentsListWidth,
+  formatRelativeTime,
+  isTreeEditable,
+  projectIdentity,
+  relativeTimeRefreshDelay,
+  ReviewMutationTracker,
+  ReviewSessions
+}
+export default api

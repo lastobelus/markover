@@ -1,9 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import './agent-guidance'
-
-const { guidance } = globalThis.MarkoverAgentGuidance
+import { guidance } from './agent-guidance'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 export type ReviewStatus = 'editing' | 'pending-agent'
@@ -37,6 +35,16 @@ export interface ReviewCreateInput {
 export interface ReviewStoreOptions {
   idFactory?: () => string
   now?: () => string | number | Date
+}
+
+export interface ReviewListWarning {
+  reviewId: string
+  reason: 'incomplete' | 'invalid' | 'legacy' | 'unreadable'
+}
+
+export interface ReviewListResult {
+  reviews: ReviewArtifact[]
+  warnings: ReviewListWarning[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -319,29 +327,49 @@ export class ReviewStore {
   }
 
   async list(): Promise<ReviewArtifact[]> {
+    return (await this.listWithWarnings()).reviews
+  }
+
+  async listWithWarnings(): Promise<ReviewListResult> {
     await fs.mkdir(this.directory, { recursive: true })
     const entries = await fs.readdir(this.directory, { withFileTypes: true })
     const reviewIds = entries
       .filter((entry) => entry.isDirectory() && REVIEW_ID_PATTERN.test(entry.name))
       .map((entry) => entry.name)
 
+    const warnings: ReviewListWarning[] = []
     const reviews = await Promise.all(reviewIds.map(async (reviewId) => {
       try {
         return await this.load(reviewId)
       } catch (error) {
-        if (
-          errorCode(error) === 'NOT_FOUND' ||
-          errorCode(error) === 'UNMANAGED_REVIEW'
-        ) {
+        const code = errorCode(error)
+        if (code === 'NOT_FOUND') {
+          warnings.push({ reviewId, reason: 'incomplete' })
+          return null
+        }
+        if (code === 'UNMANAGED_REVIEW') {
+          warnings.push({ reviewId, reason: 'legacy' })
+          return null
+        }
+        if (code === 'INVALID_REVIEW' || error instanceof SyntaxError) {
+          warnings.push({ reviewId, reason: 'invalid' })
+          return null
+        }
+        if (code === 'EACCES' || code === 'EPERM' || code === 'EISDIR') {
+          warnings.push({ reviewId, reason: 'unreadable' })
           return null
         }
         throw error
       }
     }))
-    return reviews.filter((review): review is ReviewArtifact => review !== null).sort((left, right) => (
+    const sorted = reviews.filter(
+      (review): review is ReviewArtifact => review !== null
+    ).sort((left, right) => (
       left.review.createdAt.localeCompare(right.review.createdAt) ||
       left.review.id.localeCompare(right.review.id)
     ))
+    warnings.sort((left, right) => left.reviewId.localeCompare(right.reviewId))
+    return { reviews: sorted, warnings }
   }
 
   async updateTree(reviewId: string, tree: unknown): Promise<ReviewArtifact> {

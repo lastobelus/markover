@@ -59,11 +59,105 @@ test('development startup imports legacy reviews from the checkout root', () => 
 
   assert.match(
     main,
-    /const checkoutDirectory = path\.resolve\(projectDirectory, '\.\.'\)/
+    /const checkoutDirectory = path\.resolve\(projectDirectory, '\.\.\/\.\.'\)/
   )
   assert.match(
     main,
-    /!app\.isPackaged\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
+    /!app\.isPackaged && !smokeMode\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
+  )
+})
+
+test('smoke output flushes before Electron exits', () => {
+  const main = read('src/main.ts')
+  const smokeResult = main.match(
+    /ipcMain\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
+  )?.[0] || ''
+
+  assert.match(
+    smokeResult,
+    /process\.stdout\.write\(`\$\{JSON\.stringify\(output\)\}\\n`, \(\) => \{\s*app\.exit\(checksPassed \? 0 : 1\)/
+  )
+  assert.doesNotMatch(smokeResult, /setImmediate/)
+})
+
+test('every pre-ready failure blocks readiness and closes the service', () => {
+  const main = read('src/main.ts')
+  const termination = main.match(
+    /webContents\.on\('render-process-gone',[\s\S]*?\n {2}\}\)/
+  )?.[0] || ''
+  const readiness = main.match(
+    /ipcMain\.handle\('startup:renderer-initialized',[\s\S]*?\n {4}\}\)/
+  )?.[0] || ''
+
+  assert.match(
+    termination,
+    /const failedDuringStartup = !startupReady\s*markRendererStartupFailed\(\)\s*void/
+  )
+  assert.match(
+    readiness,
+    /catch \(error\) \{\s*await stopPublishedService\(\)\s*if \(!rendererDidFailStartup\(\)\)/
+  )
+})
+
+test('renderer fallback preserves a classified main-process failure', () => {
+  const main = read('src/main.ts')
+  const failureHandler = main.match(
+    /ipcMain\.handle\('startup:failure',[\s\S]*?\n {4}\}\)/
+  )?.[0] || ''
+
+  assert.match(
+    failureHandler,
+    /snapshot\(\)\.status === 'starting'[\s\S]*failStartup\('renderer-initialization'/
+  )
+})
+
+test('native startup failure dialogs survive diagnostic write failures', () => {
+  const main = read('src/main.ts')
+  const bestEffort = main.match(
+    /async function failStartupBestEffort\([\s\S]*?\n\}/
+  )?.[0] || ''
+  const createWindow = main.slice(
+    main.indexOf('function createWindow('),
+    main.indexOf('function repositoryRoot(')
+  )
+
+  assert.match(
+    bestEffort,
+    /try \{[\s\S]*await failStartup\([\s\S]*catch \(diagnosticError\)[\s\S]*process\.stderr\.write/
+  )
+  assert.equal(
+    createWindow.match(/await failStartupBestEffort\(/g)?.length,
+    4
+  )
+  assert.equal(
+    createWindow.match(/await showStartupFailureDialog\(\)/g)?.length,
+    4
+  )
+  assert.doesNotMatch(createWindow, /await failStartup\(/)
+})
+
+test('startup diagnostic exists before build identity validation', () => {
+  const main = read('src/main.ts')
+  const startup = main.match(
+    /app\.whenReady\(\)\.then\(async \(\) => \{[\s\S]*?await beginMainStartupPhase\('preparing-interface'\)/
+  )?.[0] || ''
+
+  assert.match(
+    startup,
+    /new StartupDiagnostic\([\s\S]*await startupDiagnostic\.start\(\)[\s\S]*await loadBuildIdentity\(\)[\s\S]*setBuildIdentity\(build\)/
+  )
+})
+
+test('lock-free review processes use isolated startup diagnostics', () => {
+  const main = read('src/main.ts')
+
+  assert.match(
+    main,
+    /reviewMode\s*\? `startup-diagnostic-review-\$\{String\(process\.pid\)\}\.json`\s*: 'startup-diagnostic\.json'/
+  )
+  assert.match(
+    main,
+    /reviewMode &&\s*startupDiagnostic\?\.snapshot\(\)\.status === 'ready'[\s\S]*rmSync\(startupDiagnosticPath, \{ force: true \}\)/
   )
 })
 
