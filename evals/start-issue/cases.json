@@ -1,0 +1,276 @@
+[
+  {
+    "id": "untracked-work-selects-tracker-before-write",
+    "description": "An untracked idea must be routed through one numbered tracker choice before an issue or claim is created.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "untracked-idea",
+        "trackerAttachments": []
+      },
+      "repositoryTrackers": {
+        "openProjects": [
+          {
+            "owner": "repository-owner",
+            "title": "Announcement Readiness"
+          }
+        ],
+        "openMilestones": [
+          {
+            "repository": "current-repository",
+            "title": "Focused Preview"
+          }
+        ]
+      },
+      "interactionState": "tracker-not-selected"
+    },
+    "requiredActions": [
+      "tracker-choice-presented:open-project",
+      "tracker-choice-presented:open-milestone",
+      "tracker-choice-presented:new-project",
+      "tracker-choice-presented:new-milestone",
+      "question-count:one",
+      "write-withheld:before-tracker-selection"
+    ],
+    "forbiddenActions": [
+      "issue-created:before-tracker-selection",
+      "tracker-assumed:existing-project",
+      "implementation-started:before-claim"
+    ],
+    "controls": {
+      "positive": [
+        "tracker-choice-presented:open-project",
+        "tracker-choice-presented:open-milestone",
+        "tracker-choice-presented:new-project",
+        "tracker-choice-presented:new-milestone",
+        "question-count:one",
+        "write-withheld:before-tracker-selection"
+      ],
+      "negative": {
+        "signals": [
+          "tracker-choice-presented:open-project",
+          "tracker-choice-presented:open-milestone",
+          "tracker-choice-presented:new-project",
+          "tracker-choice-presented:new-milestone",
+          "question-count:one",
+          "issue-created:before-tracker-selection"
+        ],
+        "expectedMissing": [
+          "write-withheld:before-tracker-selection"
+        ],
+        "expectedForbidden": [
+          "issue-created:before-tracker-selection"
+        ]
+      }
+    }
+  },
+  {
+    "id": "confirmed-new-project-uses-repository-owner",
+    "description": "A confirmed Project definition is created under the repository owner, linked to the repository, and then returns to the work item.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "existing-issue",
+        "trackerAttachments": []
+      },
+      "selectedTracker": "new-project",
+      "trackerDefinition": {
+        "title": "Release Readiness",
+        "purpose": "Coordinate one repository's release work",
+        "owner": "repository-owner",
+        "repository": "current-repository",
+        "initialStatusOptions": [
+          "Todo",
+          "In Progress",
+          "Done"
+        ],
+        "confirmed": true
+      },
+      "interactionState": "tracker-decisions-confirmed"
+    },
+    "requiredActions": [
+      "project-created:repository-owner",
+      "project-linked:current-repository",
+      "project-status-options-created:todo-in-progress-done",
+      "workflow-returned:work-item"
+    ],
+    "forbiddenActions": [
+      "project-created:personal-owner",
+      "project-created:before-confirmation",
+      "work-item-interview-started:before-tracker-ready"
+    ],
+    "controls": {
+      "positive": [
+        "project-created:repository-owner",
+        "project-linked:current-repository",
+        "project-status-options-created:todo-in-progress-done",
+        "workflow-returned:work-item"
+      ],
+      "negative": {
+        "signals": [
+          "project-created:personal-owner",
+          "project-status-options-created:todo-in-progress-done",
+          "workflow-returned:work-item"
+        ],
+        "expectedMissing": [
+          "project-created:repository-owner",
+          "project-linked:current-repository"
+        ],
+        "expectedForbidden": [
+          "project-created:personal-owner"
+        ]
+      }
+    }
+  },
+  {
+    "id": "new-milestone-interviews-before-creation",
+    "description": "Selecting New Milestone starts the tracker interview and withholds writes while material tracker decisions remain unresolved.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "existing-issue",
+        "trackerAttachments": []
+      },
+      "selectedTracker": "new-milestone",
+      "trackerDefinition": {
+        "title": "unresolved",
+        "purpose": "unresolved",
+        "repository": "current-repository",
+        "description": "unresolved",
+        "dueDate": "unresolved",
+        "confirmed": false
+      },
+      "interactionState": "tracker-decisions-unresolved"
+    },
+    "requiredActions": [
+      "tracker-interview-started:new-milestone",
+      "question-asked:milestone-title",
+      "question-count:one",
+      "write-withheld:tracker-decisions-unconfirmed"
+    ],
+    "forbiddenActions": [
+      "milestone-created:before-confirmation",
+      "work-item-interview-started:before-tracker-ready"
+    ],
+    "controls": {
+      "positive": [
+        "tracker-interview-started:new-milestone",
+        "question-asked:milestone-title",
+        "question-count:one",
+        "write-withheld:tracker-decisions-unconfirmed"
+      ],
+      "negative": {
+        "signals": [
+          "tracker-interview-started:new-milestone",
+          "question-count:one",
+          "milestone-created:before-confirmation",
+          "work-item-interview-started:before-tracker-ready"
+        ],
+        "expectedMissing": [
+          "question-asked:milestone-title",
+          "write-withheld:tracker-decisions-unconfirmed"
+        ],
+        "expectedForbidden": [
+          "milestone-created:before-confirmation",
+          "work-item-interview-started:before-tracker-ready"
+        ]
+      }
+    }
+  },
+  {
+    "id": "multiple-trackers-retain-all-active-attachments",
+    "description": "An issue attached to multiple active trackers keeps the full tracker set, reports conflicting Project statuses, and scans each tracker.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "existing-issue",
+        "trackerAttachments": [
+          {
+            "type": "project",
+            "title": "Announcement Readiness",
+            "state": "open",
+            "status": "Todo"
+          },
+          {
+            "type": "project",
+            "title": "Engineering Work",
+            "state": "open",
+            "status": "In Progress"
+          },
+          {
+            "type": "milestone",
+            "title": "Focused Preview",
+            "state": "open"
+          },
+          {
+            "type": "project",
+            "title": "Archived Planning",
+            "state": "closed",
+            "status": "Done"
+          }
+        ]
+      },
+      "interactionState": "active-attachments-already-known"
+    },
+    "requiredActions": [
+      "tracker-retained:announcement-readiness",
+      "tracker-retained:engineering-work",
+      "tracker-retained:focused-preview",
+      "tracker-reported-historical:archived-planning",
+      "tracker-excluded-from-active-set:archived-planning",
+      "project-status-conflict-reported:todo-vs-in-progress",
+      "inflight-scan-performed:each-active-tracker",
+      "tracker-choice-skipped:attachments-already-present"
+    ],
+    "forbiddenActions": [
+      "single-active-tracker-selected",
+      "closed-project-included-in-active-set",
+      "milestone-status-mapping-assumed",
+      "tracker-choice-question-asked"
+    ],
+    "controls": {
+      "positive": [
+        "tracker-retained:announcement-readiness",
+        "tracker-retained:engineering-work",
+        "tracker-retained:focused-preview",
+        "tracker-reported-historical:archived-planning",
+        "tracker-excluded-from-active-set:archived-planning",
+        "project-status-conflict-reported:todo-vs-in-progress",
+        "inflight-scan-performed:each-active-tracker",
+        "tracker-choice-skipped:attachments-already-present"
+      ],
+      "negative": {
+        "signals": [
+          "tracker-retained:announcement-readiness",
+          "single-active-tracker-selected",
+          "tracker-choice-question-asked"
+        ],
+        "expectedMissing": [
+          "tracker-retained:engineering-work",
+          "tracker-retained:focused-preview",
+          "tracker-reported-historical:archived-planning",
+          "tracker-excluded-from-active-set:archived-planning",
+          "project-status-conflict-reported:todo-vs-in-progress",
+          "inflight-scan-performed:each-active-tracker",
+          "tracker-choice-skipped:attachments-already-present"
+        ],
+        "expectedForbidden": [
+          "single-active-tracker-selected",
+          "tracker-choice-question-asked"
+        ]
+      }
+    }
+  }
+]
