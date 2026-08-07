@@ -91,6 +91,7 @@ export class StartupDiagnostic {
   private readonly now: () => Date
   private readonly temporaryDirectory: string
   private document: StartupDiagnosticDocument
+  private latestWriteAvailable = false
   private writer: Promise<void> = Promise.resolve()
 
   constructor({
@@ -122,6 +123,15 @@ export class StartupDiagnostic {
   }
 
   start(): Promise<void> {
+    return this.write()
+  }
+
+  get available(): boolean {
+    return this.latestWriteAvailable
+  }
+
+  setBuildIdentity(build: BuildIdentity): Promise<void> {
+    this.document.build = { ...build }
     return this.write()
   }
 
@@ -166,7 +176,7 @@ export class StartupDiagnostic {
     if (
       this.document.status === 'failed' ||
       this.document.status === 'crashed'
-    ) return this.writer
+    ) return this.write()
     const options = {
       appDirectory: this.appDirectory,
       temporaryDirectory: this.temporaryDirectory
@@ -196,7 +206,8 @@ export class StartupDiagnostic {
 
   private write(): Promise<void> {
     const snapshot = this.snapshot()
-    this.writer = this.writer.then(async () => {
+    this.writer = this.writer.catch(() => {}).then(async () => {
+      this.latestWriteAvailable = false
       const directory = path.dirname(this.filePath)
       await fs.mkdir(directory, { recursive: true, mode: 0o700 })
       if (process.platform !== 'win32') await fs.chmod(directory, 0o700)
@@ -212,6 +223,7 @@ export class StartupDiagnostic {
         )
         if (process.platform !== 'win32') await fs.chmod(temporaryPath, 0o600)
         await fs.rename(temporaryPath, this.filePath)
+        this.latestWriteAvailable = true
       } finally {
         await fs.unlink(temporaryPath).catch((error: unknown) => {
           if (

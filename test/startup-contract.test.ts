@@ -127,3 +127,30 @@ test('startup diagnostic preserves the first classified failure', async (t) => {
   assert.equal(failure.category, 'review-storage-access')
   assert.equal(failure.message, 'storage failed')
 })
+
+test('startup diagnostic retries after a write failure', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-startup-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const blockedDirectory = path.join(directory, 'blocked')
+  const filePath = path.join(blockedDirectory, 'startup-diagnostic.json')
+  await fs.writeFile(blockedDirectory, 'not a directory')
+  const diagnostic = new StartupDiagnostic({
+    appDirectory: '/Applications/Markover.app',
+    build,
+    filePath
+  })
+
+  await assert.rejects(diagnostic.start())
+  assert.equal(diagnostic.available, false)
+  await fs.unlink(blockedDirectory)
+  await diagnostic.fail('unexpected-main-error', new Error('startup failed'))
+
+  assert.equal(diagnostic.available, true)
+  const persisted = JSON.parse(await fs.readFile(filePath, 'utf8')) as {
+    failure: { category: string; message: string }
+    status: string
+  }
+  assert.equal(persisted.status, 'failed')
+  assert.equal(persisted.failure.category, 'unexpected-main-error')
+  assert.equal(persisted.failure.message, 'startup failed')
+})

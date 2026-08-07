@@ -205,6 +205,15 @@ async function loadBuildIdentity(): Promise<BuildIdentity> {
   }
 }
 
+function provisionalBuildIdentity(): BuildIdentity {
+  return {
+    version: app.getVersion(),
+    commit: null,
+    dirty: true,
+    rendererSha256: '0'.repeat(64)
+  }
+}
+
 function requireStartupDiagnostic(): StartupDiagnostic {
   if (!startupDiagnostic) throw new Error('Startup diagnostic is unavailable.')
   return startupDiagnostic
@@ -857,22 +866,41 @@ async function copyStartupDiagnostic(): Promise<void> {
 async function showStartupFailureDialog(): Promise<void> {
   if (startupFailureDialogShown) return
   startupFailureDialogShown = true
+  let diagnosticUnavailable = false
   for (;;) {
+    const diagnosticAvailable = !diagnosticUnavailable &&
+      startupDiagnostic?.available === true &&
+      await fs.access(startupDiagnosticPath).then(
+        () => true,
+        () => false
+      )
     const { response } = await dialog.showMessageBox({
       type: 'error',
-      buttons: ['Copy details', 'Show diagnostic', 'Quit Markover'],
-      cancelId: 2,
-      defaultId: 2,
+      buttons: diagnosticAvailable
+        ? ['Copy details', 'Show diagnostic', 'Quit Markover']
+        : ['Quit Markover'],
+      cancelId: diagnosticAvailable ? 2 : 0,
+      defaultId: diagnosticAvailable ? 2 : 0,
       noLink: true,
       message: 'Markover couldn’t start.',
-      detail: `A sanitized diagnostic is available at:\n${startupDiagnosticPath}`
+      detail: diagnosticAvailable
+        ? `A sanitized diagnostic is available at:\n${startupDiagnosticPath}`
+        : 'The startup diagnostic could not be written. Details were sent to the terminal log.'
     })
-    if (response === 0) await copyStartupDiagnostic()
-    else if (response === 1) shell.showItemInFolder(startupDiagnosticPath)
-    else {
+    if (!diagnosticAvailable || response === 2) {
       app.quit()
       return
     }
+    if (response === 0) {
+      try {
+        await copyStartupDiagnostic()
+      } catch (error) {
+        diagnosticUnavailable = true
+        process.stderr.write(
+          `markover diagnostic copy: ${errorMessage(error)}\n`
+        )
+      }
+    } else shell.showItemInFolder(startupDiagnosticPath)
   }
 }
 
@@ -913,8 +941,17 @@ if (!hasSingleInstanceLock) {
   }
 
   app.whenReady().then(async () => {
+    const provisionalBuild = provisionalBuildIdentity()
+    startupBuildIdentity = provisionalBuild
+    startupDiagnostic = new StartupDiagnostic({
+      appDirectory: projectDirectory,
+      build: provisionalBuild,
+      filePath: startupDiagnosticPath
+    })
+    await startupDiagnostic.start()
     const build = await loadBuildIdentity()
     startupBuildIdentity = build
+    await startupDiagnostic.setBuildIdentity(build)
     const controls = developmentStartupControls(
       process.argv,
       app.isPackaged,
@@ -926,12 +963,6 @@ if (!hasSingleInstanceLock) {
       smoke: smokeMode,
       ...controls
     }
-    startupDiagnostic = new StartupDiagnostic({
-      appDirectory: projectDirectory,
-      build,
-      filePath: startupDiagnosticPath
-    })
-    await startupDiagnostic.start()
     await beginMainStartupPhase('preparing-interface')
     if (!reviewMode) await secureServiceDirectory(applicationDataDirectory)
     if (process.platform === 'darwin' && !app.isPackaged && !smokeMode) {
@@ -1220,7 +1251,13 @@ if (!hasSingleInstanceLock) {
         `markover: ${typeof stack === 'string' ? stack : errorMessage(error)}\n`
       )
       if (startupDiagnostic?.snapshot().status === 'starting') {
-        await failStartup(mainStartupFailureCategory(), error)
+        try {
+          await failStartup(mainStartupFailureCategory(), error)
+        } catch (diagnosticError) {
+          process.stderr.write(
+            `markover diagnostic: ${errorMessage(diagnosticError)}\n`
+          )
+        }
       }
       await showStartupFailureDialog()
     })()

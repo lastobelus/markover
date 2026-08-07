@@ -111,6 +111,18 @@ test('renderer fallback preserves a classified main-process failure', () => {
   )
 })
 
+test('startup diagnostic exists before build identity validation', () => {
+  const main = read('src/main.ts')
+  const startup = main.match(
+    /app\.whenReady\(\)\.then\(async \(\) => \{[\s\S]*?await beginMainStartupPhase\('preparing-interface'\)/
+  )?.[0] || ''
+
+  assert.match(
+    startup,
+    /new StartupDiagnostic\([\s\S]*await startupDiagnostic\.start\(\)[\s\S]*await loadBuildIdentity\(\)[\s\S]*setBuildIdentity\(build\)/
+  )
+})
+
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {
   const cli = read('scripts/markover.ts')
 
