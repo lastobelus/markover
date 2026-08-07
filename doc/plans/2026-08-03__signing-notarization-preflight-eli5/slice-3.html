@@ -91,21 +91,24 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">PR #68 blocked by #43 · Exact ZIPs verified · Clean Intel pending</span>
+        <span class="context-status">PR #68 rebased on cd4b344 · Local passed · Native CI and clean Intel pending</span>
       </summary>
       <div class="context-body">
         <p>
           This page describes slice 3 of
           <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>
           in <a href="https://github.com/lastobelus/markover/pull/68">draft PR #68</a>
-          on <code>t3code/issue-13-slice-3-packaged-smoke</code>, snapshot 6 August
-          2026, from current merged <code>main</code> baseline <code>7364ffd</code> containing
+          on <code>t3code/issue-13-slice-3-packaged-smoke</code>, snapshot 7 August
+          2026, rebased locally onto current merged <code>main</code> baseline
+          <code>cd4b344</code> containing
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
-          <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>.
-          The runner and native CI evidence contract are implemented in the draft. Both
-          exact native ZIPs package and pass preflight; both lifecycle jobs then stop at
-          issue #43's known renderer snapshot boundary. No clean Intel/Sonoma result,
-          version tag, draft release, or release is claimed here.
+          <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>, plus
+          <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
+          verified renderer startup. The runner and native evidence contract are
+          implemented. Local checks, packaged startup smoke, and Apple Silicon exact-ZIP
+          preflight pass; native arm64 and x64 CI validation is pending. Earlier native failures at issue #43 are historical and do not
+          count as a pass. No clean Intel/Sonoma result, version tag, draft release, or
+          release is claimed here.
         </p>
         <div class="context-grid">
           <div>
@@ -114,7 +117,7 @@
           </div>
           <div>
             <h3>Follow-ups and change horizon</h3>
-            <p>First, issue #43's independent renderer repair must merge and PR #68 must rebase and pass both lifecycle jobs. After slice merge, version and release work waits for explicit approval. The dedicated 2019 Intel Mac must later collect Sonoma quarantine, visible override, installation, smoke, and rollback evidence from the exact draft. Developer ID remains blocked on Apple access.</p>
+            <p>PR #70's renderer repair is merged, PR #68 is rebased, and local validation passes. Next, both native lifecycle jobs and current-head Codex review must pass. After slice merge, version and release work waits for explicit approval. The dedicated 2019 Intel Mac must later collect Sonoma quarantine, visible override, installation, smoke, and rollback evidence from the exact draft. Developer ID remains blocked on Apple access.</p>
           </div>
           <div>
             <h3>Stable claims and current truth</h3>

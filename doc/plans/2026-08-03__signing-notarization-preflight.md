@@ -14,8 +14,11 @@ development builds.
 
 The work is delivered in three slices. Slice 1 merged through PR 45 on
 4 August 2026, and slice 2 merged through PR 55 on 6 August 2026. Slice 3 is
-implemented from merged baseline `7364ffd` on branch
-`t3code/issue-13-slice-3-packaged-smoke` in draft PR 68. It adds shared packaged happy-path
+rebased locally onto merged baseline `cd4b344`, including PR 70's verified
+renderer startup and PR 61's development-instance work, on branch
+`t3code/issue-13-slice-3-packaged-smoke` in draft PR 68. Its current-head
+local checks plus Apple Silicon packaging and exact-ZIP preflight pass; native
+arm64 and x64 CI validation is pending. It adds shared packaged happy-path
 evidence and the clean Intel/Sonoma procedure, then stops after merge before
 any version change, tag, draft, or release operation.
 
@@ -280,11 +283,14 @@ installed bundle to have the same file tree, file bytes, executable modes, and
 symlink targets. Quarantine extended attributes remain intentionally outside
 that byte comparison and are checked separately.
 
-Draft PR 68 native CI has packaged and preflighted both exact hardened ad-hoc
-ZIPs. The arm64 and x64 lifecycle jobs then reach the known issue 43 renderer
-snapshot boundary and return the CLI's uncertain-request result. Slice 3 is
-blocked on issue 43's independent renderer-layout repair and will rebase that
-merged fix; it does not duplicate the repair here.
+PR 70 merged issue 43's independent verified-renderer startup and packaged
+smoke pipeline. Draft PR 68 is now rebased onto that merged repair and current
+`main`; local checks, the isolated packaged startup smoke, and Apple Silicon
+exact-ZIP preflight pass. Its arm64 and x64 package, preflight, lifecycle, and
+evidence jobs must pass on the rebased head before the slice can leave draft review. Earlier runs
+preflighted both exact hardened ad-hoc ZIPs but stopped at the now-repaired
+renderer snapshot boundary; those runs are historical failure evidence, not a
+current-head pass.
 
 Clean Intel evidence is not collected by this implementation branch. The
 dedicated 2019 Intel Mac on Sonoma must later use the exact authenticated draft

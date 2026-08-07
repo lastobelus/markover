@@ -162,7 +162,7 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Slice 3 PR #68 blocked by #43 · Clean Intel pending · 6 Aug 2026</span>
+        <span class="context-status">Slice 3 PR #68 rebased · Local passed · Native CI and clean Intel pending · 7 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
@@ -171,16 +171,18 @@
           <a href="#" data-repo-path="doc/plans/2026-08-03__signing-notarization-preflight.md">signing preflight plan</a>
           from the merged baseline containing
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
-          <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a> at
-          current merged <code>main</code> baseline <code>7364ffd</code> (which also
-          includes later authorization work from PR #67). Snapshot 6 August 2026:
-          slices 1 and 2 are merged on
-          <code>main</code>; slice 3 is blocked in
+          <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>.
+          Current merged <code>main</code> baseline <code>cd4b344</code> also includes
+          <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
+          verified renderer startup and PR #61's development-instance work. Snapshot
+          7 August 2026: slices 1 and 2 are merged on <code>main</code>; slice 3 is
+          rebased locally and remains a draft in
           <a href="https://github.com/lastobelus/markover/pull/68">draft PR #68</a> on
-          <code>t3code/issue-13-slice-3-packaged-smoke</code>. Native CI has packaged
-          and preflighted both exact ZIPs, but both lifecycle runs stop at the known
-          <a href="https://github.com/lastobelus/markover/issues/43">issue #43</a>
-          renderer snapshot boundary. No clean-Intel evidence has been collected.
+          <code>t3code/issue-13-slice-3-packaged-smoke</code>. Current-head local checks,
+          packaged startup smoke, and Apple Silicon exact-ZIP preflight pass; native
+          arm64 and x64 CI validation is pending. Earlier native runs preflighted both exact
+          ZIPs but stopped at issue #43's now-repaired boundary, so they do not prove
+          the rebased head. No clean-Intel evidence has been collected.
         </p>
         <div class="context-grid">
           <div>
@@ -200,8 +202,10 @@
               post-policy draft; Developer ID activation still needs Apple access and a
               separate reviewed change. App Sandbox remains in
               <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>.
-              Slice 3 will rebase issue #43 after its independent repair merges.
-              Runner details and evidence fields may still change during review.
+              Slice 3 must now pass local checks, both native lifecycle jobs, and a
+              current-head Codex review before merge. After merge, version and release
+              work still waits for explicit approval. Runner details and evidence fields
+              may still change during review.
             </p>
           </div>
           <div>
