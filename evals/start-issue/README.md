@@ -23,12 +23,15 @@ trace must produce, preventing an unrelated failure from satisfying the test.
 ## Provenance
 
 Synthetic cases use `provenance.kind: synthetic`. A case derived from a live
-run may record a source thread ID and a concise observation, but raw transcripts
+run records source thread IDs and a concise observation, while raw transcripts
 and T3 storage paths stay outside the corpus. Provenance explains why a case
 exists; it does not become fixture input.
 
-The first live post-#66 run is evaluated only after this offline fixture slice
-passes. Its findings may sharpen a case in a later checkpoint.
+The post-claim scan case comes from the same failure in a pre-#66 run and a run
+using merged #66 guidance: both refreshed candidate IDs and markers but reused
+pre-claim evidence for unmarked Project items. This repeated observation makes
+the freshness requirement evidence-backed without coupling tests to either
+transcript.
 
 ## Running the controls
 

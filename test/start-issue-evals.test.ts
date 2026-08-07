@@ -55,12 +55,13 @@ function evaluate(
   }
 }
 
-test('start-issue corpus covers the four v1 coordination branches', () => {
+test('start-issue corpus covers the five v1 coordination branches', () => {
   assert.deepEqual(cases.map(({ id }) => id), [
     'untracked-work-selects-tracker-before-write',
     'confirmed-new-project-uses-repository-owner',
     'new-milestone-interviews-before-creation',
-    'multiple-trackers-retain-all-active-attachments'
+    'multiple-trackers-retain-all-active-attachments',
+    'post-claim-scan-reconstructs-unmarked-items'
   ])
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
 })
@@ -105,6 +106,19 @@ test('live provenance stays explanatory rather than becoming fixture input', () 
       assert.ok(evaluationCase.provenance.observation)
     }
   }
+})
+
+test('post-claim freshness case records both independent live observations', () => {
+  const evaluationCase = cases.find(
+    ({ id }) => id === 'post-claim-scan-reconstructs-unmarked-items'
+  )
+  assert.ok(evaluationCase)
+  assert.equal(evaluationCase.provenance.kind, 'live-thread')
+  assert.deepEqual(evaluationCase.provenance.sourceThreadIds, [
+    '6bcd8df5-d1e2-4ebc-90c4-7c765ffd56af',
+    '2fdb0272-8eb1-4549-a47a-2051b6d37b01'
+  ])
+  assert.match(evaluationCase.provenance.observation ?? '', /reused pre-claim/)
 })
 
 for (const evaluationCase of cases) {

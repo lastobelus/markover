@@ -272,5 +272,85 @@
         ]
       }
     }
+  },
+  {
+    "id": "post-claim-scan-reconstructs-unmarked-items",
+    "description": "A post-claim scan must rebuild overlap evidence for every still-unmarked Project item instead of reusing the pre-claim reconstruction.",
+    "provenance": {
+      "kind": "live-thread",
+      "sourceThreadIds": [
+        "6bcd8df5-d1e2-4ebc-90c4-7c765ffd56af",
+        "2fdb0272-8eb1-4549-a47a-2051b6d37b01"
+      ],
+      "observation": "Both runs collected fresh post-claim candidate and marker snapshots but reused pre-claim evidence for still-unmarked Project items."
+    },
+    "observations": {
+      "workItem": {
+        "state": "existing-issue",
+        "trackerAttachments": [
+          {
+            "type": "project",
+            "title": "Announcement Readiness",
+            "state": "open",
+            "status": "In Progress"
+          }
+        ]
+      },
+      "scanCheckpoint": "post-claim",
+      "preClaimReconstructionAvailable": true,
+      "postClaimState": {
+        "consecutiveCandidateSetsMatch": true,
+        "allCandidateMarkersRead": true,
+        "unmarkedProjectItems": [
+          {
+            "key": "umbrella-issue",
+            "currentContentAvailable": true
+          },
+          {
+            "key": "active-feature",
+            "linkedChangesAvailable": true,
+            "worktreeMetadataAvailable": true
+          },
+          {
+            "key": "stale-closed-item",
+            "currentContentAvailable": true
+          }
+        ]
+      }
+    },
+    "requiredActions": [
+      "postclaim-snapshot-collected:fresh",
+      "postclaim-marker-read:every-candidate",
+      "postclaim-missing-intent-reconstructed:every-unmarked-project-item",
+      "postclaim-overlap-assessed:fresh-evidence"
+    ],
+    "forbiddenActions": [
+      "postclaim-missing-intent-reused:preclaim-evidence",
+      "postclaim-scan-completed:ids-and-markers-only"
+    ],
+    "controls": {
+      "positive": [
+        "postclaim-snapshot-collected:fresh",
+        "postclaim-marker-read:every-candidate",
+        "postclaim-missing-intent-reconstructed:every-unmarked-project-item",
+        "postclaim-overlap-assessed:fresh-evidence"
+      ],
+      "negative": {
+        "signals": [
+          "postclaim-snapshot-collected:fresh",
+          "postclaim-marker-read:every-candidate",
+          "postclaim-missing-intent-reused:preclaim-evidence",
+          "postclaim-scan-completed:ids-and-markers-only"
+        ],
+        "expectedMissing": [
+          "postclaim-missing-intent-reconstructed:every-unmarked-project-item",
+          "postclaim-overlap-assessed:fresh-evidence"
+        ],
+        "expectedForbidden": [
+          "postclaim-missing-intent-reused:preclaim-evidence",
+          "postclaim-scan-completed:ids-and-markers-only"
+        ]
+      }
+    }
   }
 ]
