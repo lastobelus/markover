@@ -1,6 +1,6 @@
 ---
 name: babysit
-description: "Babysit GitHub pull requests through review, rebases, and CI until green. Use when the user says 'babysit' or asks to keep a PR moving; when they say 'babysit & merge', merge only after green."
+description: "Babysit GitHub pull requests. Use when the user says 'babysit', 'babysit pr', 'babysit #42', 'babysit and merge', etc."
 ---
 
 # Babysit
@@ -8,9 +8,9 @@ description: "Babysit GitHub pull requests through review, rebases, and CI until
 1. Resolve the explicit PR, otherwise the most recently worked-on or mentioned
    PR, then the current branch's PR. Ask only when the target is ambiguous. For
    an explicit stack, preserve dependency order. Mark a draft ready.
-2. Set the finish line: `babysit` stops green and does not merge;
-   `babysit & merge` merges the exact green head with the repository's enabled
-   method and verifies the merge.
+2. Set the finish line: `babysit` stops green and does not merge; an explicit
+   `babysit & merge` or `babysit and merge` merges the exact green head with the
+   repository's enabled method and verifies the merge.
 3. Take one immediate GitHub snapshot of the head, base drift, mergeability,
    checks, reviews, reactions, and unresolved threads. While pending, run one
    foreground `sleep 100` before each later status read; use no live watch or
