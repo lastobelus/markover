@@ -55,9 +55,16 @@ The readiness command must report `ready`. A `blocked` result identifies an
 expected missing safeguard; `failed` means a fact was unavailable or malformed
 and must not be guessed.
 
-## First Apple Silicon post-policy release
+## Published Apple Silicon post-policy release
 
-The first public post-policy release uses this sequence:
+`v0.1.3` is the first published release under this policy. It points to
+`03e52ac083091ce23f7b0ea91f7065d75394552e`, was produced by workflow run
+31221075875, and contains exactly the arm64 app and portable CLI plus their
+checksum sidecars. The release is hardened ad-hoc signed, not Apple-verified,
+and not notarized. Issue #11 owns clean-machine Apple Silicon follow-up; issue
+#80 owns all native Intel publication and physical Intel/Sonoma evidence.
+
+The completed first-release sequence was:
 
 1. Select a stable version newer than every preserved tag and update the root
    and bootstrap CLI versions together.

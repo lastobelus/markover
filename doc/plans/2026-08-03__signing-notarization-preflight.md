@@ -15,13 +15,20 @@ six-asset private draft, but its publication job was cancelled before release.
 No clean physical Intel/Sonoma evidence was claimed and `v0.1.2` was never
 published.
 
-The current objective is to publish the first guarded release for Apple Silicon
-without waiting for Intel hardware. The release contract, public compatibility
-claims, bootstrap behavior, provenance notes, exact-draft verifier, tests, and
-ELI5 truth context must all agree on one public native artifact:
+The first guarded Apple Silicon release is now published without waiting for
+Intel hardware. PR #81 merged the exact four-asset release contract as
+`03e52ac083091ce23f7b0ea91f7065d75394552e`. Immutable `v0.1.3` was produced
+and published by workflow run 31221075875 with one native app artifact,
 `Markover-darwin-arm64.zip`, plus its checksum and the portable bootstrap CLI
-with its checksum. The first eligible version is `v0.1.3` because preserved
-version tags are immutable and strictly monotonic.
+with its checksum.
+
+The primary digests are
+`4219a1f2e5369d4091f94e76f1373bd12fa98b8867f95e0e173d45bd0b38c3c6`
+for the arm64 ZIP and
+`7f7d30e620fcc3044563745fc827d0269641d6dc654fbe99afcab5a8d2496e97`
+for the CLI. The retained CI evidence covers the packaged happy path and says
+`cleanMachine: false`; clean-machine Apple Silicon validation remains issue
+#11 and no Intel evidence is claimed.
 
 Native Intel release activation and exact physical Intel/Sonoma evidence are
 deferred to issue #80 in the Broad announcement roadmap. Future Developer ID
@@ -120,23 +127,24 @@ The user has authorized publication of the Apple Silicon-only release after
 these controls pass. No physical Intel evidence is a publication gate for this
 release.
 
-## Version and release sequence
+## Completed v0.1.3 release sequence
 
-1. Merge the Apple Silicon release-contract change to protected `main` after
+1. PR #81 merged the Apple Silicon release-contract change to protected `main` after
    local checks, required CI, completed automated Codex review, and resolution
    of every actionable finding.
-2. Keep root and bootstrap CLI versions synchronized at `0.1.3` in the release
-   commit and wait for required CI on that exact protected-main commit.
-3. Re-check GitHub readiness as `ready` and Developer ID readiness as
+2. Root and bootstrap CLI versions were synchronized at `0.1.3`; required CI
+   passed on exact protected-main commit `03e52ac`.
+3. GitHub readiness reported `ready`; Developer ID readiness remained
    intentionally `blocked`.
-4. Create annotated immutable tag `v0.1.3` from that verified `main` commit.
-5. Approve only the oldest pending tag at the first release gate.
-6. Verify the complete draft contains exactly four assets and that notes,
+4. Annotated immutable tag `v0.1.3` was created from that verified commit.
+5. The oldest pending tag passed the first protected release gate.
+6. The complete draft contained exactly four assets, and its notes,
    sidecars, digests, attestations, packaged-smoke evidence, source commit, and
    rollback target agree.
-7. Approve the separate publication job and verify the published immutable
-   release remains byte-for-byte and metadata-identical to the draft.
-8. Record the release checkpoint on issue #13 and update the ELI5 truth context.
+7. The separate publication job reverified and published the unchanged
+   immutable release.
+8. The release checkpoint was recorded on issue #13; this document and the
+   ELI5 truth context record the published result.
 
 The private `v0.1.2` draft may remain as historical audit evidence. Its
 publication job stays cancelled, its tag is never moved or reused, and none of
@@ -196,7 +204,7 @@ remains non-reusable and the incident remains documented.
 ## Canonical decisions
 
 1. `v0.1.2` remains an unpublished immutable historical attempt.
-2. `v0.1.3` is the first eligible Apple Silicon-only guarded release.
+2. `v0.1.3` is the first published Apple Silicon-only guarded release.
 3. Public release assets are arm64 plus the portable CLI, each with a sidecar.
 4. The bootstrap rejects unsupported Intel hosts before downloading.
 5. Internal x64 verification primitives and CI regression coverage may remain.
