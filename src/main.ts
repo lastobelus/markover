@@ -948,6 +948,7 @@ async function restorePublishedServiceForEditing(): Promise<void> {
     localService = null
     localServiceIdentity = null
   }
+  await serviceRepairQueue.catch(() => {})
   if (!localService) await startAndPublishService()
 }
 
@@ -1087,13 +1088,14 @@ function repairServiceRecords(): Promise<void> {
   const identity = localServiceIdentity
   const service = localService
   if (!identity || !service) return Promise.resolve()
-  serviceRepairQueue = serviceRepairQueue.catch(() => {}).then(() => (
-    publishServiceConnection({
+  serviceRepairQueue = serviceRepairQueue.catch(() => {}).then(() => {
+    if (localServiceIdentity !== identity || localService !== service) return
+    return publishServiceConnection({
       endpointPath,
       identity,
       port: service.port
     })
-  ))
+  })
   return serviceRepairQueue
 }
 
