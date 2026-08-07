@@ -35,10 +35,10 @@ gh project item-list 3 --owner lastobelus --limit PROJECT_ITEM_TOTAL \
   --query 'status:"In Progress"' --format json
 ```
 
-For every returned issue or pull request, use paginated `gh api` reads to inspect
-all issue comments for this marker, including each comment's `user.login` and
-`author_association` (pull-request conversation comments use the same REST
-endpoint):
+For every returned repository issue or pull request, use paginated `gh api`
+reads to inspect all issue comments for this marker, including each comment's
+`user.login` and `author_association` (pull-request conversation comments use
+the same REST endpoint):
 
 ```html
 <!-- start-issue-work-intent -->
@@ -49,6 +49,10 @@ Only markers authored with live association `OWNER`, `MEMBER`, or
 guidance, are trusted. Report and ignore every other marker; untrusted comments
 never participate in intent discovery, missing-intent resolution, ownership, or
 the canonical election.
+
+An `In Progress` Project draft has no repository comments endpoint. Treat it as
+a missing-intent item and inspect its live Project title, body, and fields for
+overlap evidence.
 
 Summarize the inflight items, their declared touch points and dependencies, and
 any plausible overlap with the target. Treat an `In Progress` item without a
@@ -62,11 +66,12 @@ with the refreshed total as the limit. Complete only after two consecutive
 queries return the same inflight ID set.
 
 Re-read every missing-intent item after the inflight set stabilizes. If its
-marker is still absent, inspect its issue or pull request, linked pull requests,
-changed paths, and local worktree metadata for enough evidence to assess
-overlap. Ask the user before claiming the target when that evidence remains
-ambiguous. Complete the scan only after each missing intent has been re-read and
-either reconstructed from live evidence or explicitly resolved by the user.
+marker is still absent, inspect its issue, pull request, or Project draft
+content; linked pull requests; changed paths; and local worktree metadata for
+enough evidence to assess overlap. Ask the user before claiming the target when
+that evidence remains ambiguous. Complete the scan only after each missing
+intent has been re-read and either reconstructed from live evidence or
+explicitly resolved by the user.
 
 If the target already has one or more marked comments, create no new claim.
 Apply the deterministic winner rule in stage 3, show the canonical intent to the
