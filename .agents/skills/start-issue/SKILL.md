@@ -5,22 +5,19 @@ description: Use when starting, taking over, or roadmapping GitHub issue or pull
 
 # Start Issue
 
-Treat attached GitHub Projects and the repository milestone as the target's
-tracker set. A Project can provide a kanban status ledger; a milestone only
-groups repository issues and pull requests. Always use the work-intent comment
-as the change-surface and ownership ledger. Complete the stages in order.
-
-For `lastobelus/markover`, use **3: Markover Announcement Readiness**,
-owned by `lastobelus`, as the primary Project while it remains open. Include it
-in the tracker set even when the target is not yet attached; stage 3 will add
-the target. Resolve its identity and open state from live GitHub data. When it
-is closed or absent, use the discovery flow below.
+Treat Projects linked to the current repository and its milestones as the
+target's tracker set. A Project can provide a kanban status ledger; a milestone
+only groups repository issues and pull requests. Always use the work-intent
+comment as the change-surface and ownership ledger. Complete the stages in
+order.
 
 ## 1. Orient and select tracking
 
-Confirm `gh auth status`, then resolve the repository, item type, number, URL,
-title, body, relationships, comments, current branch, and attached trackers.
-Inspect the repository and GitHub for facts; reserve questions for decisions.
+Confirm `gh auth status`, then resolve the current checkout's repository. Keep
+all tracking and work-item operations in that repository. Resolve the item type,
+number, URL, title, body, relationships, comments, current branch, and attached
+trackers. Inspect the repository and GitHub for facts; reserve questions for
+decisions.
 
 For an existing issue or pull request, inspect both tracker types:
 
@@ -35,32 +32,42 @@ target's `projectItems` connection and each item's `project` identity. Use every
 Project and milestone already attached to the target unless the user asks to
 change its tracking. Report conflicting Project statuses before proceeding.
 
-If the target has no attached tracker, discover live candidates instead of
-assuming an owner or number:
+If the target has no attached tracker, discover live candidates from the
+current repository instead of assuming an owner or number. Use paginated
+GraphQL to read its `projectsV2` connection, including each Project's owner,
+number, node ID, title, URL, and closed state. Read its open milestones through
+the REST API:
 
 ```sh
-gh project list --owner REPOSITORY_OWNER --limit 100 --format json
-gh project list --owner @me --limit 100 --format json
+gh api graphql --paginate \
+  -f owner=REPOSITORY_OWNER -f name=REPOSITORY_NAME \
+  -f query='query($owner: String!, $name: String!, $endCursor: String) {
+    repository(owner: $owner, name: $name) {
+      projectsV2(first: 100, after: $endCursor) {
+        nodes { id number title url closed owner { ... on User { login } ... on Organization { login } } }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }'
 gh api --paginate 'repos/REPOSITORY_OWNER/REPOSITORY_NAME/milestones?state=open&per_page=100'
 ```
 
-Skip the duplicate Project query when the repository owner is the authenticated
-user. Present one numbered choice list containing the discovered Projects and
+Present one numbered choice list containing the repository-linked Projects and
 milestones, followed by `New Project` and `New Milestone`. Include tracker type,
 owner or repository, title, and number in each choice. Ask exactly one question
 so the user can answer with a number. Retain the chosen tracker identity.
 
-For an untracked idea, infer the repository when possible, then present the
-same tracker choices before creating the issue. If the repository is ambiguous,
-resolve it with one question first. Create a repository issue before claiming
-the work so milestones, comments, and ownership use one uniform path.
+For an untracked idea, present the same tracker choices before creating the
+issue. Create the issue in the current repository before claiming the work so
+milestones, comments, and ownership use one uniform path.
 
 If the user selects `New Project` or `New Milestone`, interview about that
 tracker before the work item. Resolve its title, purpose, owner or repository,
 and the minimum useful configuration. For a Project, also resolve its initial
-Status options; for a milestone, resolve any useful description or due date.
-Create it only after the user confirms those decisions, then return to the work
-item workflow.
+Status options, create it under the repository owner, and link it to the current
+repository. For a milestone, resolve any useful description or due date. Create
+it only after the user confirms those decisions, then return to the work-item
+workflow.
 
 For every selected Project, resolve its fields and status options from live
 JSON. Use an existing `Status` field and semantically matching `In Progress`
