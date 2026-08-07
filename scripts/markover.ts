@@ -102,7 +102,7 @@ export function helpPayload() {
     repository: 'https://github.com/lastobelus/markover',
     invocation: `${invocation()} [--instance <canonical|dev>] <command>`,
     requirements: {
-      platform: 'macOS (Apple Silicon or Intel)',
+      platform: 'macOS 14 Sonoma or newer (Apple Silicon only)',
       node: '22.13.0 or newer',
       installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first use.'
     },

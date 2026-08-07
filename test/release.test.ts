@@ -31,7 +31,7 @@ function readJson(relativePath: string): unknown {
   return JSON.parse(read(relativePath)) as unknown
 }
 
-test('release workflow publishes both Mac architectures and the tiny CLI', () => {
+test('release workflow publishes Apple Silicon and the tiny CLI', () => {
   const workflow = read('.github/workflows/release.yml')
   const rootPackage = readJson('package.json') as PackageManifest
   const cliPackage = readJson('packages/cli/package.json') as PackageManifest
@@ -41,7 +41,7 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.equal(cliPackage.dependencies, undefined)
   assert.deepEqual(cliPackage.files, ['bin/markover.js'])
   assert.match(workflow, /macos-15\n/)
-  assert.match(workflow, /macos-15-intel/)
+  assert.doesNotMatch(workflow, /macos-15-intel/)
   assert.match(
     workflow,
     /Verify stable tag, protected-main ancestry, and required CI/
@@ -63,7 +63,8 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
     workflow,
     /--evidence=artifact\/verification\/packaged-smoke-/
   )
-  assert.match(workflow, /name: packaged-smoke-\$\{\{ matrix\.runner \}\}/)
+  assert.match(workflow, /name: packaged-smoke-macos-15/)
+  assert.doesNotMatch(workflow, /Markover-darwin-x64\.zip/)
   assert.match(workflow, /markover-cli\.tgz/)
   assert.match(workflow, /gh release create/)
   assert.match(workflow, /permissions: \{\}/)
@@ -124,8 +125,11 @@ test('release documentation states the Sonoma and ad-hoc trust boundary', () => 
     assert.match(source, /macOS 14 Sonoma/)
     assert.match(source, /not Apple-verified/i)
     assert.match(source, /Apple Developer Program/)
+    assert.doesNotMatch(source, /Apple Silicon (?:and|or) Intel/)
     assert.doesNotMatch(source, /xattr\s+-[a-zA-Z]*r/)
   }
+  assert.match(sources[0] ?? '', /issue #80/)
+  assert.match(sources[1] ?? '', /issues\/80/)
   assert.match(sources[0] ?? '', /## Opening Markover on macOS/)
   assert.match(sources[1] ?? '', /System Settings → Privacy &amp; Security/)
 })
@@ -158,9 +162,9 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Slice 3 PR #68 implementation complete · Live merge gates at PR #68 · Clean Intel pending · 7 Aug 2026/
+    /Merged baseline 0461b67 · Apple Silicon v0\.1\.3 implementation · Intel deferred to #80 · 7 Aug 2026/
   )
-  assert.match(pages[0] ?? '', /main<\/code> baseline <code>9a621c8<\/code>/)
+  assert.match(pages[0] ?? '', /main<\/code> baseline <code>0461b67<\/code>/)
   assert.match(
     pages[0] ?? '',
     /<\/header>\s*<details class="card truth-context">\s*<summary/
@@ -175,11 +179,11 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[2] ?? '',
-    /PR #55 merged · Slice 3 native CI passed · Safeguards ready · 7 Aug 2026/
+    /Safeguards live · v0\.1\.2 unpublished · Apple Silicon v0\.1\.3 in progress · 7 Aug 2026/
   )
   assert.match(
     pages[3] ?? '',
-    /PR #68 implementation complete · Live merge gates at PR #68 · Clean Intel pending/
+    /PR #68 merged · arm64 release evidence active · Intel evidence deferred to #80/
   )
 })
 
@@ -201,7 +205,9 @@ test('public release runbook preserves provenance and rollback boundaries', () =
   assert.match(runbook, /Developer ID activation/)
   assert.match(runbook, /GitHub readiness is `ready`/)
   assert.match(runbook, /Developer ID readiness is\s+intentionally `blocked`/)
-  assert.match(runbook, /clean Intel\/Sonoma procedure/i)
+  assert.match(runbook, /Deferred Intel\/Sonoma procedure/i)
+  assert.match(runbook, /Apple Silicon only/i)
+  assert.match(runbook, /issue #80/i)
   assert.match(runbook, /markover-packaged-smoke-evidence/)
   assert.match(runbook, /Do not mark the clean\s+machine or overall result passed/)
   for (const source of sources) assert.match(source, /releas(?:e|ing)\.md/)

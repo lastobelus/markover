@@ -7,7 +7,8 @@ packages are development builds.
 
 ## Current trust boundary
 
-Markover releases are hardened and ad-hoc signed. They are **not
+Markover releases are currently Apple Silicon only, hardened, and ad-hoc
+signed. They are **not
 Apple-verified**, do not identify an authenticated Developer ID publisher, are
 not notarized, and are expected to require a visible per-app Gatekeeper
 override. Every release note must state this at the download point.
@@ -26,9 +27,11 @@ downgrade a release path.
 
 ## Verified repository safeguards
 
-The compatible slice-2 workflow is on `main`. Existing `v0.1.0` and `v0.1.1`
-releases remain untouched historical releases. The live release safeguards have
-been verified `ready`:
+The compatible guarded workflow is on `main`. Existing `v0.1.0` and `v0.1.1`
+releases remain untouched historical releases. Immutable tag `v0.1.2` is an
+unpublished dual-architecture attempt whose publication job was cancelled when
+Intel distribution moved to issue #80. The live release safeguards have been
+verified `ready`:
 
 - Immutable releases are enabled for future published releases; drafts remain
   editable until publication.
@@ -52,15 +55,9 @@ The readiness command must report `ready`. A `blocked` result identifies an
 expected missing safeguard; `failed` means a fact was unavailable or malformed
 and must not be guessed.
 
-## Slice-3 merge boundary
+## First Apple Silicon post-policy release
 
-The slice-3 implementation may merge after required CI is clean, automated
-Codex review has completed, every actionable finding is addressed, and Codex
-reports approval or no issues. After merge, stop and report readiness. Do not
-change versions, create a tag, create or approve a draft, or publish a release
-without explicit maintainer approval for the version/release operation.
-
-After that approval, the first-release sequence is:
+The first public post-policy release uses this sequence:
 
 1. Select a stable version newer than every preserved tag and update the root
    and bootstrap CLI versions together.
@@ -71,13 +68,18 @@ After that approval, the first-release sequence is:
 4. Create the immutable version tag from that verified `main` commit.
 5. Approve the oldest pending tag at the first `release` gate to create the
    complete draft.
-6. Run the clean Intel/Sonoma procedure below against the exact authenticated
-   draft downloads, including version-pinned rollback.
-7. Record the accepted evidence on issue 13 without serial numbers or account
-   details.
-8. Approve the separate publication job and verify the unchanged immutable
+6. Confirm the complete draft contains exactly the Apple Silicon ZIP and
+   checksum plus the portable CLI and checksum. Verify the generated notes,
+   digests, attestations, automated packaged smoke, and rollback target.
+7. Approve the separate publication job and verify the unchanged immutable
    release.
-9. Update the signing-preflight ELI5 truth context.
+8. Update issue 13 and the signing-preflight ELI5 truth context.
+
+The initial dual-architecture `v0.1.2` attempt stopped after draft assembly and
+was never published. Because its immutable tagged workflow requires both native
+architectures, it cannot be converted into a Silicon-only release. Preserve the
+tag and private draft as historical evidence; use the next strictly greater
+version for the Apple Silicon release.
 
 ## Prepare a stable release
 
@@ -107,28 +109,28 @@ The tag-triggered workflow performs four fail-closed stages:
 
 1. It verifies stable SemVer, package-version agreement, protected-main
    ancestry, and successful required CI on the tagged commit.
-2. Unprivileged native jobs build separate Apple Silicon and Intel app ZIPs,
-   verify each final ASAR layout, smoke each signed application, verify the
-   exact final ZIP bytes, and build the matching bootstrap CLI.
+2. An unprivileged native job builds the Apple Silicon app ZIP, verifies its
+   final ASAR layout, smokes the signed application, verifies the exact final
+   ZIP bytes, and builds the matching bootstrap CLI in a separate unprivileged
+   job.
 3. The staging job waits at the protected `release` environment. Approve only
    the oldest pending tag. Its oldest-run-first gate waits for every earlier
    release run before selecting the current rollback target, independently
    rehashing all payloads, generating attestations and notes, and creating one
    complete draft. Unapproved jobs remain preserved at the environment gate;
    Actions concurrency's replaceable pending slot is not used.
-4. After clean-machine evidence, approve the `publish-release` job at the same
-   protected environment. It downloads the draft assets by release ID, compares
+4. After inspecting the complete Apple Silicon draft, approve the
+   `publish-release` job at the same protected environment. It downloads the
+   draft assets by release ID, compares
    every byte and metadata field with the staged set, and verifies attestations.
-   In the final publication step it refetches the complete draft and all six
+   In the final publication step it refetches the complete draft and all four
    assets, compares them again, revalidates the rollback release, and publishes
    without uploading or changing anything.
 
-For the first post-policy release, leave the publish job waiting while the
-dedicated Sonoma Intel machine downloads the exact draft assets and completes
-the clean-machine exercise owned jointly with issues 11 and 13. Record version,
-digests, Mac model class, macOS version, Gatekeeper result, rollback target,
-and workflow/release links without serial numbers or account details. Approve
-publication only after that evidence passes.
+Native Intel artifacts and their clean physical Intel/Sonoma exercise are not
+part of the Apple Silicon release set. Issue #80 owns their Broad announcement
+activation. Do not upload an x64 asset manually or imply that a CI-built x64
+artifact is a supported release.
 
 If a failed or interrupted run leaves a draft for the tag, do not rerun blindly
 or replace individual assets. Confirm in GitHub that the release is still a
@@ -138,9 +140,9 @@ single run produces and verifies the complete set again.
 
 ## Shared packaged smoke evidence
 
-Each native release builder runs the same narrow happy path against its exact
-final ZIP and retains `packaged-smoke-arm64.json` or
-`packaged-smoke-x64.json` in a separate `packaged-smoke-*` workflow artifact.
+The native release builder runs the narrow happy path against its exact Apple
+Silicon final ZIP and retains `packaged-smoke-arm64.json` in a separate
+`packaged-smoke-*` workflow artifact.
 Keeping these outside the exact toolchain-report directory preserves the
 release staging contract. The runner:
 
@@ -165,14 +167,16 @@ unauthorized or mismatched credentials. It is not issue 39's durability suite
 and does not crash the app, measure a loss window, race writes, or claim a
 bounded-loss guarantee.
 
-### Clean Intel/Sonoma procedure
+### Deferred Intel/Sonoma procedure — issue #80
 
-Use the dedicated 2019 Intel Mac running Sonoma. Keep it isolated from normal
-Markover work and quit any running Markover before starting.
+This procedure is outside Apple Silicon publication and must not block it. Use
+it only when issue #80 resumes for the Broad announcement. Use the dedicated
+2019 Intel Mac running Sonoma, keep it isolated from normal Markover work, and
+quit any running Markover before starting.
 
-1. Through authenticated Safari, download the complete exact draft asset set,
-   including both native ZIPs and sidecars plus `markover-cli.tgz`. Record the
-   draft and workflow links. Do not substitute `latest` assets.
+1. Through authenticated Safari, download the complete exact Intel-enabled
+   draft asset set, including its x64 ZIP and sidecar plus the exact portable
+   CLI. Record the draft and workflow links. Do not substitute `latest` assets.
 2. Verify every digest and GitHub build attestation as described below. Record
    the x64 ZIP digest used for the machine exercise.
 3. Extract the x64 ZIP into a dedicated installation directory while preserving
@@ -199,7 +203,7 @@ Markover work and quit any running Markover before starting.
      --trust-mode=ad-hoc \
      --app=/path/to/installed/Markover.app \
      --evidence-kind=clean-intel-sonoma \
-     --evidence=/path/to/issue-13-clean-intel-evidence.json
+     --evidence=/path/to/issue-80-clean-intel-evidence.json
    ```
 
    Before launch, the runner extracts the verified ZIP again and rejects the
@@ -222,7 +226,7 @@ Markover work and quit any running Markover before starting.
    Record rollback separately because the packaged smoke JSON deliberately
    covers only the shared happy path.
 
-### Issue 13 evidence format
+### Issue 80 evidence format
 
 Post one issue comment only after the real clean-machine run passes. Use this
 shape and omit serial numbers, usernames, paths containing account names, and
@@ -233,8 +237,8 @@ Apple/GitHub account details:
 
 - Source commit: `<40-hex commit>`
 - Draft / workflow: `<authenticated draft link>` / `<Actions run link>`
-- Exact assets: `arm64 <sha256>`; `x64 <sha256>`; `CLI <sha256>`
-- Automated native smoke: `arm64 passed` / `x64 passed` with workflow-artifact links
+- Exact assets: `x64 <sha256>`; `CLI <sha256>`; any other published payload digests
+- Automated native smoke: `x64 passed` with its workflow-artifact link
 - Clean host: `2019 Intel MacBook class`; `macOS 14.x Sonoma`; `x86_64`
 - Trust result: `hardened ad-hoc`; `not Apple-verified`; `not notarized`;
   `Gatekeeper rejected before the visible per-app override`
@@ -267,9 +271,10 @@ gh attestation verify ./Markover-darwin-arm64.zip \
   --deny-self-hosted-runners
 ```
 
-Repeat this for the Intel ZIP and `markover-cli.tgz`. Confirm the release notes
-name the exact source commit, Actions run, resolved toolchains, three digests,
-current ad-hoc trust state, and preceding known-good rollback version.
+Repeat this for `markover-cli.tgz`. Confirm the release notes name the exact
+source commit, Actions run, resolved Apple Silicon and CLI toolchains, both
+digests, current ad-hoc trust state, Apple Silicon-only compatibility, and
+preceding known-good rollback version.
 
 ## Roll back safely
 
@@ -282,8 +287,8 @@ ditto "$HOME/Library/Application Support/Markover" "$markover_backup"
 ```
 
 Use the exact version-pinned launcher command in the release notes. It downloads
-the named CLI and that CLI downloads the matching architecture-specific app
-from the same versioned release. Do not substitute a `latest` URL.
+the named CLI and that CLI downloads the Apple Silicon app from the same
+versioned release. Do not substitute a `latest` URL.
 
 Rollback is guaranteed only between releases using the same review-data
 format. A format-changing release must add tested backup, migration, and
