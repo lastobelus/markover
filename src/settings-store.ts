@@ -3,7 +3,7 @@ import { watch, type FSWatcher } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { normalizeSettings, updateSettings } from './settings'
+import { DEFAULT_SETTINGS, normalizeSettings, updateSettings } from './settings'
 
 interface SettingsReadResult {
   recoveredMalformedFile: boolean
@@ -36,14 +36,16 @@ export class SettingsStore {
   readonly filePath: string
   lastRecoveryWarning: string | null
   settings: MarkoverSettings
+  private readonly initialSettings: MarkoverSettings
   private writer: Promise<unknown>
   private writeSequence: number
   private watcher: FSWatcher | null
 
-  constructor(filePath: string) {
+  constructor(filePath: string, initialSettings: unknown = DEFAULT_SETTINGS) {
     this.filePath = filePath
     this.lastRecoveryWarning = null
-    this.settings = normalizeSettings()
+    this.initialSettings = normalizeSettings(initialSettings)
+    this.settings = { ...this.initialSettings }
     this.writer = Promise.resolve()
     this.writeSequence = 0
     this.watcher = null
@@ -60,13 +62,13 @@ export class SettingsStore {
       if (errorProperty(error, 'code') === 'ENOENT') {
         return {
           recoveredMalformedFile: false,
-          settings: normalizeSettings()
+          settings: { ...this.initialSettings }
         }
       }
       if (errorProperty(error, 'name') === 'SyntaxError') {
         return {
           recoveredMalformedFile: true,
-          settings: normalizeSettings()
+          settings: { ...this.initialSettings }
         }
       }
       throw error
