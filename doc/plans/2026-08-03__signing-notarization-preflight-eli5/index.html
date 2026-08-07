@@ -162,7 +162,7 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Slices 1–2 merged · Slice 3 draft PR #68 · 6 Aug 2026</span>
+        <span class="context-status">Slice 3 PR #68 blocked by #43 · Clean Intel pending · 6 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
@@ -175,10 +175,12 @@
           current merged <code>main</code> baseline <code>7364ffd</code> (which also
           includes later authorization work from PR #67). Snapshot 6 August 2026:
           slices 1 and 2 are merged on
-          <code>main</code>; slice 3 is validating in
+          <code>main</code>; slice 3 is blocked in
           <a href="https://github.com/lastobelus/markover/pull/68">draft PR #68</a> on
-          <code>t3code/issue-13-slice-3-packaged-smoke</code> and has not yet collected
-          clean-Intel evidence.
+          <code>t3code/issue-13-slice-3-packaged-smoke</code>. Native CI has packaged
+          and preflighted both exact ZIPs, but both lifecycle runs stop at the known
+          <a href="https://github.com/lastobelus/markover/issues/43">issue #43</a>
+          renderer snapshot boundary. No clean-Intel evidence has been collected.
         </p>
         <div class="context-grid">
           <div>
@@ -198,7 +200,8 @@
               post-policy draft; Developer ID activation still needs Apple access and a
               separate reviewed change. App Sandbox remains in
               <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>.
-              Runner details and evidence fields may change during slice-3 review.
+              Slice 3 will rebase issue #43 after its independent repair merges.
+              Runner details and evidence fields may still change during review.
             </p>
           </div>
           <div>

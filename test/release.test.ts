@@ -150,7 +150,7 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Slices 1–2 merged · Slice 3 draft PR #68 · 6 Aug 2026/
+    /Slice 3 PR #68 blocked by #43 · Clean Intel pending · 6 Aug 2026/
   )
   assert.match(
     pages[0] ?? '',
@@ -170,7 +170,7 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[3] ?? '',
-    /Slice 3 draft PR #68 · Clean Intel pending · 6 Aug 2026/
+    /PR #68 blocked by #43 · Exact ZIPs verified · Clean Intel pending/
   )
 })
 

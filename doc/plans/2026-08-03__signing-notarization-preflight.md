@@ -270,6 +270,12 @@ performs CLI get and edit/reopen, and emits sanitized versioned JSON evidence.
 The runner neither sends unauthorized requests nor measures loss windows,
 crash timing, concurrent writes, or durability.
 
+Draft PR 68 native CI has packaged and preflighted both exact hardened ad-hoc
+ZIPs. The arm64 and x64 lifecycle jobs then reach the known issue 43 renderer
+snapshot boundary and return the CLI's uncertain-request result. Slice 3 is
+blocked on issue 43's independent renderer-layout repair and will rebase that
+merged fix; it does not duplicate the repair here.
+
 Clean Intel evidence is not collected by this implementation branch. The
 dedicated 2019 Intel Mac on Sonoma must later use the exact authenticated draft
 download, preserve Safari quarantine, exercise the visible Gatekeeper override,
