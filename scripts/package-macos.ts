@@ -19,8 +19,9 @@ const packagerPath = path.join(
   'node_modules/.bin/electron-packager'
 )
 
-export interface CopyThirdPartyNoticesOptions {
-  rootDirectory?: string
+export interface ThirdPartyNotice {
+  contents: Buffer
+  name: string
 }
 
 export interface AdHocSigningOptions {
@@ -38,9 +39,23 @@ export interface AdHocSigningOptions {
   strictVerify: true
 }
 
+export function loadThirdPartyNotices(
+  rootDirectory = projectDirectory
+): ThirdPartyNotice[] {
+  const sources: Array<readonly [string, string]> = [
+    [path.join(rootDirectory, 'THIRD_PARTY_NOTICES.md'), 'THIRD_PARTY_NOTICES.md'],
+    [path.join(rootDirectory, 'node_modules/electron/LICENSE'), 'ELECTRON_LICENSE'],
+    [path.join(rootDirectory, 'node_modules/electron/dist/LICENSES.chromium.html'), 'CHROMIUM_LICENSES.html']
+  ]
+  return sources.map(([source, name]) => ({
+    contents: fs.readFileSync(source),
+    name
+  }))
+}
+
 export function copyThirdPartyNotices(
   appPath: string,
-  { rootDirectory = projectDirectory }: CopyThirdPartyNoticesOptions = {}
+  notices: readonly ThirdPartyNotice[]
 ): void {
   const licensesDirectory = path.join(
     appPath,
@@ -49,13 +64,8 @@ export function copyThirdPartyNotices(
     'licenses'
   )
   fs.mkdirSync(licensesDirectory, { recursive: true })
-  const notices: Array<readonly [string, string]> = [
-    [path.join(rootDirectory, 'THIRD_PARTY_NOTICES.md'), 'THIRD_PARTY_NOTICES.md'],
-    [path.join(rootDirectory, 'node_modules/electron/dist/LICENSE'), 'ELECTRON_LICENSE'],
-    [path.join(rootDirectory, 'node_modules/electron/dist/LICENSES.chromium.html'), 'CHROMIUM_LICENSES.html']
-  ]
-  for (const [source, name] of notices) {
-    fs.copyFileSync(source, path.join(licensesDirectory, name))
+  for (const { contents, name } of notices) {
+    fs.writeFileSync(path.join(licensesDirectory, name), contents)
   }
 }
 
@@ -151,6 +161,7 @@ export async function main(commandArguments = process.argv.slice(2)): Promise<vo
     throw new Error('Packaging Markover for macOS requires macOS.')
   }
   parseMacosTrustMode(trustModeArgument(commandArguments))
+  const thirdPartyNotices = loadThirdPartyNotices()
 
   const manifest = JSON.parse(fs.readFileSync(
     path.join(projectDirectory, 'package.json'),
@@ -191,7 +202,7 @@ export async function main(commandArguments = process.argv.slice(2)): Promise<vo
     'Markover.app'
   )
   await verifyPackagedAppLayout(appPath)
-  copyThirdPartyNotices(appPath)
+  copyThirdPartyNotices(appPath, thirdPartyNotices)
   setMinimumSystemVersion(appPath)
   const { sign } = await import('@electron/osx-sign')
   await sign(adHocSigningOptions(appPath))
