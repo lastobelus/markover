@@ -6,5 +6,6 @@ packages/cli/bin/
 .DS_Store
 npm-debug.log*
 .markover/
+tmp/
 src/vendor/
 *.af~lock~

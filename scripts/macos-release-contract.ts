@@ -15,19 +15,28 @@ export interface SignedAppComponent {
 }
 
 const allowJit = { 'com.apple.security.cs.allow-jit': true } as const
+const electronProcessEntitlements = {
+  ...allowJit,
+  // Ad-hoc signatures have no common Team ID, so hardened runtime otherwise
+  // rejects Electron's separately signed framework at launch.
+  'com.apple.security.cs.disable-library-validation': true
+} as const
+const electronPluginEntitlements = {
+  'com.apple.security.cs.disable-library-validation': true
+} as const
 
 export const signedAppComponents: readonly SignedAppComponent[] = [
   {
     relativePath: '',
     bundleId: appBundleId,
     entitlementFile: 'app.plist',
-    entitlements: allowJit
+    entitlements: electronProcessEntitlements
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper.app',
     bundleId: helperBundleId,
     entitlementFile: 'helper.plist',
-    entitlements: allowJit
+    entitlements: electronProcessEntitlements
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper (GPU).app',
@@ -35,19 +44,19 @@ export const signedAppComponents: readonly SignedAppComponent[] = [
     // --helper-bundle-id for the GPU, Plugin, and Renderer helpers.
     bundleId: helperBundleId,
     entitlementFile: 'helper-gpu.plist',
-    entitlements: allowJit
+    entitlements: electronProcessEntitlements
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper (Plugin).app',
     bundleId: helperBundleId,
     entitlementFile: 'helper-plugin.plist',
-    entitlements: {}
+    entitlements: electronPluginEntitlements
   },
   {
     relativePath: 'Contents/Frameworks/Markover Helper (Renderer).app',
     bundleId: helperBundleId,
     entitlementFile: 'helper-renderer.plist',
-    entitlements: allowJit
+    entitlements: electronProcessEntitlements
   }
 ]
 

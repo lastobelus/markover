@@ -6,6 +6,14 @@ import type {
   FileTreeSortEntry,
   RemappedIcon
 } from '@pierre/trees' with { 'resolution-mode': 'import' }
+import type {
+  RendererInitialization,
+  RendererSmokeResult,
+  RendererStartupFailure,
+  StartupInfo,
+  StartupPhaseEvent,
+  StartupReady
+} from './startup-contract'
 
 export interface DiffStats {
   additions: number
@@ -23,6 +31,12 @@ export interface DiffRenderer {
 }
 
 declare global {
+  interface MarkoverStartupUi {
+    development: (value: boolean) => void
+    phase: (value: string) => void
+    ready: () => void
+    fail: () => void
+  }
   type MarkoverDiffStats = DiffStats
   type MarkoverFileTreeConstructor = typeof FileTree
   type MarkoverFileTreeDirectoryHandle = FileTreeDirectoryHandle
@@ -441,6 +455,16 @@ declare global {
   }
 
   interface MarkoverBridge {
+    getStartupInfo: () => Promise<StartupInfo>
+    reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
+    reportRendererInitialized: (
+      initialization: RendererInitialization
+    ) => Promise<StartupReady>
+    reportStartupFailure: (failure: RendererStartupFailure) => Promise<void>
+    copyStartupDiagnostic: () => Promise<void>
+    revealStartupDiagnostic: () => Promise<void>
+    quitStartup: () => void
+    reportSmokeResult: (result: RendererSmokeResult) => Promise<void>
     getBrandAssets: () => Promise<MarkoverBrandAssets | null>
     openMarkdown: () => Promise<MarkoverDocument | null>
     onOpenMarkdownRequested: (callback: () => void) => void
@@ -667,5 +691,6 @@ declare global {
 
   interface Window {
     markover?: MarkoverBridge
+    markoverStartup?: MarkoverStartupUi
   }
 }

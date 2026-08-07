@@ -385,7 +385,7 @@ export interface EnsureServiceOptions {
 export async function ensureService({
   endpointPath = defaultEndpointPath,
   startApp = startDetachedApp,
-  timeoutMilliseconds = 10000
+  timeoutMilliseconds = 30_000
 }: EnsureServiceOptions = {}): Promise<void> {
   try {
     await probeService(endpointPath)
@@ -398,9 +398,13 @@ export async function ensureService({
   try {
     await waitForService(endpointPath, startedAt + timeoutMilliseconds)
   } catch (error) {
+    const diagnosticPath = path.join(
+      path.dirname(endpointPath),
+      'startup-diagnostic.json'
+    )
     throw new LocalServiceError(
-      'SERVICE_RESTART_REQUIRED',
-      `Markover could not repair its local service: ${errorMessage(error)} Quit and reopen Markover, then retry.`
+      'SERVICE_STARTUP_TIMEOUT',
+      `Markover did not become ready: ${errorMessage(error)} Inspect ${diagnosticPath}; the app remains available to inspect or quit.`
     )
   }
 }

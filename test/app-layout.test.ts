@@ -22,6 +22,15 @@ async function fixture(t: TestContext): Promise<string> {
     JSON.stringify({ main: 'src/main.js' })
   )
   await fs.writeFile(
+    path.join(directory, 'build-identity.json'),
+    JSON.stringify({
+      version: '1.0.0',
+      commit: null,
+      dirty: false,
+      rendererSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    })
+  )
+  await fs.writeFile(
     path.join(directory, 'src/index.html'),
     [
       '<meta http-equiv="Content-Security-Policy">',
@@ -59,5 +68,14 @@ test('application layout rejects symlinks', async (t) => {
   await assert.rejects(
     verifyAppLayout(directory),
     /contains a symlink: src\/styles\.css/
+  )
+})
+
+test('application layout binds build identity to renderer bytes', async (t) => {
+  const directory = await fixture(t)
+  await fs.appendFile(path.join(directory, 'src/renderer.js'), '\n// changed\n')
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /build identity is invalid/
   )
 })

@@ -67,12 +67,6 @@ async function main(): Promise<void> {
       )
     }
   }
-  for (const name of ['startup.js', 'startup.js.map']) {
-    await copyFile(
-      path.join(buildDirectory, 'src', name),
-      path.join(appSourceDirectory, name)
-    )
-  }
   for (const name of ['index.html', 'styles.css']) {
     await copyFile(
       path.join(projectDirectory, 'src', name),
@@ -85,6 +79,19 @@ async function main(): Promise<void> {
       path.join(appDirectory, 'design/brand', name)
     )
   }
+
+  await build({
+    absWorkingDir: projectDirectory,
+    bundle: true,
+    entryPoints: ['src/startup.ts'],
+    format: 'iife',
+    logLevel: 'warning',
+    outfile: path.join(appSourceDirectory, 'startup.js'),
+    platform: 'browser',
+    sourcemap: 'external',
+    sourcesContent: true,
+    target: 'chrome150'
+  })
 
   const result = await build({
     absWorkingDir: projectDirectory,
@@ -138,6 +145,11 @@ async function main(): Promise<void> {
     dirty,
     rendererSha256: await sha256(rendererPath)
   }
+  await fs.writeFile(
+    path.join(appDirectory, 'build-identity.json'),
+    `${JSON.stringify(buildIdentity, null, 2)}\n`,
+    'utf8'
+  )
   const layoutManifest = {
     format: 'markover-app-layout',
     version: 1,

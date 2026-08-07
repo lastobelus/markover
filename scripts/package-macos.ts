@@ -2,8 +2,10 @@
 
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
+import { verifyAppLayout } from './app-layout'
 import {
   entitlementsForSignedFile,
   minimumMacosVersion,
@@ -103,6 +105,40 @@ export function setMinimumSystemVersion(appPath: string): void {
   }
 }
 
+export async function verifyPackagedAppLayout(appPath: string): Promise<void> {
+  const archivePath = path.join(appPath, 'Contents/Resources/app.asar')
+  const extractedDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'markover-asar-')
+  )
+  try {
+    const { extractAll } = await import('@electron/asar')
+    extractAll(archivePath, extractedDirectory)
+    await verifyAppLayout(extractedDirectory)
+  } finally {
+    fs.rmSync(extractedDirectory, { recursive: true, force: true })
+  }
+}
+
+export function runPackagedSmoke(appPath: string): string {
+  const executablePath = path.join(appPath, 'Contents/MacOS/Markover')
+  const runnerPath = path.join(projectDirectory, 'build/scripts/run-smoke.js')
+  const result = spawnSync(
+    process.execPath,
+    [runnerPath, '--timeout=60', `--app=${executablePath}`],
+    {
+      cwd: projectDirectory,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    }
+  )
+  if (result.status !== 0) {
+    throw new Error(
+      result.stderr.trim() || `packaged smoke exited ${String(result.status)}`
+    )
+  }
+  return result.stdout
+}
+
 function trustModeArgument(args: readonly string[]): string | undefined {
   if (args.length !== 1 || !args[0]?.startsWith('--trust-mode=')) {
     return undefined
@@ -154,11 +190,14 @@ export async function main(commandArguments = process.argv.slice(2)): Promise<vo
     `Markover-darwin-${process.arch}`,
     'Markover.app'
   )
+  await verifyPackagedAppLayout(appPath)
   copyThirdPartyNotices(appPath)
   setMinimumSystemVersion(appPath)
   const { sign } = await import('@electron/osx-sign')
   await sign(adHocSigningOptions(appPath))
+  const smokeOutput = runPackagedSmoke(appPath)
   process.stdout.write(result.stdout)
+  process.stdout.write(smokeOutput)
   process.stdout.write(
     'Created a hardened ad-hoc-signed build; it is not Apple-verified or notarized.\n'
   )

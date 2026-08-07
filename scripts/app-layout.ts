@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -12,7 +13,10 @@ export const runtimeModuleNames = [
   'review-store',
   'service-endpoint',
   'settings',
-  'settings-store'
+  'settings-store',
+  'smoke-fixture',
+  'startup-contract',
+  'startup-diagnostic'
 ] as const
 
 export const brandAssetNames = [
@@ -23,6 +27,7 @@ export const brandAssetNames = [
 ] as const
 
 export const expectedStageEntries = [
+  'build-identity.json',
   'package.json',
   ...runtimeModuleNames.flatMap((name) => [
     `src/${name}.js`,
@@ -90,6 +95,31 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
     throw new Error('Staged package.json must use src/main.js as its entry point.')
   }
 
+  const rendererBuffer = await fs.readFile(
+    path.join(appDirectory, 'src/renderer.js')
+  )
+  const rendererSha256 = crypto.createHash('sha256')
+    .update(rendererBuffer)
+    .digest('hex')
+  const buildIdentity: unknown = JSON.parse(await fs.readFile(
+    path.join(appDirectory, 'build-identity.json'),
+    'utf8'
+  ))
+  if (
+    buildIdentity === null ||
+    typeof buildIdentity !== 'object' ||
+    !Reflect.get(buildIdentity, 'version') ||
+    typeof Reflect.get(buildIdentity, 'version') !== 'string' ||
+    (
+      Reflect.get(buildIdentity, 'commit') !== null &&
+      typeof Reflect.get(buildIdentity, 'commit') !== 'string'
+    ) ||
+    typeof Reflect.get(buildIdentity, 'dirty') !== 'boolean' ||
+    Reflect.get(buildIdentity, 'rendererSha256') !== rendererSha256
+  ) {
+    throw new Error('Staged build identity is invalid.')
+  }
+
   const html = await fs.readFile(path.join(appDirectory, 'src/index.html'), 'utf8')
   for (const required of [
     'http-equiv="Content-Security-Policy"',
@@ -106,10 +136,7 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
     }
   }
 
-  const renderer = await fs.readFile(
-    path.join(appDirectory, 'src/renderer.js'),
-    'utf8'
-  )
+  const renderer = rendererBuffer.toString('utf8')
   for (const forbidden of ['../node_modules/', 'src/vendor/']) {
     if (renderer.includes(forbidden)) {
       throw new Error(`Renderer bundle contains a forbidden runtime path: ${forbidden}`)

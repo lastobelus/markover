@@ -44,7 +44,7 @@ test('production icon assets preserve the approved mark treatment', () => {
   assert.match(main, /new BrowserWindow\(\{[\s\S]*icon: appIconPath,/)
   assert.match(
     main,
-    /process\.platform === 'darwin' && !app\.isPackaged\)[\s\S]*app\.dock\.setIcon\(appIconPath\)/
+    /process\.platform === 'darwin' && !app\.isPackaged && !smokeMode\)[\s\S]*app\.dock\.setIcon\(appIconPath\)/
   )
 })
 

@@ -399,7 +399,7 @@ test('waits for internally started service without external polling', async (t) 
   assert.equal(startCalls, 1)
 })
 
-test('bounded recovery never attempts forced process replacement', async (t) => {
+test('bounded startup reports the diagnostic without relaunching', async (t) => {
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'markover-restart-required-test-')
   )
@@ -417,8 +417,9 @@ test('bounded recovery never attempts forced process replacement', async (t) => 
     }),
     (error: unknown) => (
       error instanceof LocalServiceError &&
-      error.code === 'SERVICE_RESTART_REQUIRED' &&
-      /Quit and reopen Markover/.test(error.message)
+      error.code === 'SERVICE_STARTUP_TIMEOUT' &&
+      /startup-diagnostic\.json/.test(error.message) &&
+      /remains available/.test(error.message)
     )
   )
   assert.equal(startCalls, 1)

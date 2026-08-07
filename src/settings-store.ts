@@ -3,8 +3,12 @@ import { watch, type FSWatcher } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-const { normalizeSettings, updateSettings } = require('./settings') as
-  MarkoverSettingsApi
+import { normalizeSettings, updateSettings } from './settings'
+
+interface SettingsReadResult {
+  recoveredMalformedFile: boolean
+  settings: MarkoverSettings
+}
 
 function errorProperty(error: unknown, key: 'code' | 'name'): unknown {
   return error !== null && typeof error === 'object' ? Reflect.get(error, key) : null
@@ -30,6 +34,7 @@ async function releaseOwnedLock(lockPath: string, owner: string): Promise<void> 
 
 export class SettingsStore {
   readonly filePath: string
+  lastRecoveryWarning: string | null
   settings: MarkoverSettings
   private writer: Promise<unknown>
   private writeSequence: number
@@ -37,27 +42,47 @@ export class SettingsStore {
 
   constructor(filePath: string) {
     this.filePath = filePath
+    this.lastRecoveryWarning = null
     this.settings = normalizeSettings()
     this.writer = Promise.resolve()
     this.writeSequence = 0
     this.watcher = null
   }
 
-  async read(): Promise<MarkoverSettings> {
+  private async readResult(): Promise<SettingsReadResult> {
     try {
       const parsed: unknown = JSON.parse(await fs.readFile(this.filePath, 'utf8'))
-      return normalizeSettings(parsed)
+      return {
+        recoveredMalformedFile: false,
+        settings: normalizeSettings(parsed)
+      }
     } catch (error) {
-      if (
-        errorProperty(error, 'code') !== 'ENOENT' &&
-        errorProperty(error, 'name') !== 'SyntaxError'
-      ) throw error
-      return normalizeSettings()
+      if (errorProperty(error, 'code') === 'ENOENT') {
+        return {
+          recoveredMalformedFile: false,
+          settings: normalizeSettings()
+        }
+      }
+      if (errorProperty(error, 'name') === 'SyntaxError') {
+        return {
+          recoveredMalformedFile: true,
+          settings: normalizeSettings()
+        }
+      }
+      throw error
     }
   }
 
+  async read(): Promise<MarkoverSettings> {
+    return (await this.readResult()).settings
+  }
+
   async load(): Promise<MarkoverSettings> {
-    this.settings = await this.read()
+    const result = await this.readResult()
+    this.settings = result.settings
+    this.lastRecoveryWarning = result.recoveredMalformedFile
+      ? 'The settings file is malformed; defaults were used and the file was preserved.'
+      : null
     return { ...this.settings }
   }
 

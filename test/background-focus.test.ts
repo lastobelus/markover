@@ -63,7 +63,7 @@ test('development startup imports legacy reviews from the checkout root', () => 
   )
   assert.match(
     main,
-    /!app\.isPackaged\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
+    /!app\.isPackaged && !smokeMode\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
   )
 })
 

@@ -12,6 +12,23 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <section id="startup-screen" class="startup-screen" aria-live="polite">
+      <img
+        class="startup-mark"
+        src="../design/brand/markover-mark.svg"
+        alt=""
+        aria-hidden="true"
+      >
+      <p id="startup-status" class="startup-status">Starting Markover…</p>
+      <p id="startup-detail" class="startup-detail" hidden></p>
+      <div id="startup-actions" class="startup-actions" hidden>
+        <button id="startup-copy-diagnostic" type="button">Copy details</button>
+        <button id="startup-reveal-diagnostic" type="button">Show diagnostic</button>
+      </div>
+      <button id="startup-quit" class="startup-quit" type="button" hidden>
+        Quit Markover
+      </button>
+    </section>
     <header class="app-header is-empty">
       <div class="brand" role="img" aria-label="Markover">
         <img

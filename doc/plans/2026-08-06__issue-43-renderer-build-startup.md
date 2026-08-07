@@ -66,6 +66,8 @@ Add `npm run ci:local` as the documented pre-PR gate. It performs one clean buil
 
 Run Node/static/layout coverage in the existing Node matrix, but launch Electron/Xvfb only once at the minimum supported Node version. Do not run native macOS packaging on each PR. Release packaging continues on Apple Silicon and Intel; every `npm run package:mac` verifies the final ASAR and runs hidden smoke against the signed application before succeeding. The release workflow uses that same command before archiving and publication.
 
+Hardened ad-hoc signatures do not provide a common Team ID, so the app and helper processes require the exact `com.apple.security.cs.disable-library-validation` entitlement to load Electron's separately signed framework. Do not grant it to frameworks or other embedded code. Final-artifact preflight enforces that placement. Remove the exception in a future Developer ID mode once all components share the authenticated Team ID.
+
 ## Definition of done
 
 - `npm start` launches the staged development app without a symlink, import map, copied dependency tree, or runtime browser `node_modules` URL.
