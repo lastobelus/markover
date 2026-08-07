@@ -1,6 +1,6 @@
 ---
 name: start-issue
-description: Use when starting, taking over, or roadmapping GitHub issue or pull-request work before implementation.
+description: Use when starting or taking over a GitHub issue or pull request, or turning an untracked roadmap idea into an issue, before implementation.
 ---
 
 # Start Issue
@@ -29,8 +29,11 @@ gh pr view ITEM_URL --json milestone,projectItems
 Run only the command matching the item type. When the CLI summary omits a
 Project's owner, number, or node ID, use paginated GraphQL to resolve the
 target's `projectItems` connection and each item's `project` identity. Use every
-Project and milestone already attached to the target unless the user asks to
-change its tracking. Report conflicting Project statuses before proceeding.
+open Project and milestone already attached to the target unless the user asks
+to change its tracking. Report attached closed Projects as historical and
+exclude them from the tracker set, scans, and status writes. Include one only
+after the user explicitly chooses to reactivate it and live data shows it open.
+Report conflicting active Project statuses before proceeding.
 
 If the target has no attached tracker, discover live candidates from the
 current repository instead of assuming an owner or number. Use paginated
@@ -52,7 +55,7 @@ gh api graphql --paginate \
 gh api --paginate 'repos/REPOSITORY_OWNER/REPOSITORY_NAME/milestones?state=open&per_page=100'
 ```
 
-Present one numbered choice list containing the repository-linked Projects and
+Present one numbered choice list containing open repository-linked Projects and
 milestones, followed by `New Project` and `New Milestone`. Include tracker type,
 owner or repository, title, and number in each choice. Ask exactly one question
 so the user can answer with a number. Retain the chosen tracker identity.
@@ -173,8 +176,9 @@ belong to multiple Projects but only one milestone.
 
 For each selected Project with a status mapping, resolve the Project node ID,
 target item node ID, Status field node ID, and option node IDs from live JSON.
-Read live field and item counts before using them as `--limit` values. Move the
-item to the mapped `In Progress` option without changing other fields:
+Read live field and item counts before using them as `--limit` values. Treat an
+item already in the mapped `In Progress` option as a no-op. Otherwise move it
+there without changing other fields:
 
 ```sh
 gh project item-edit --id ITEM_NODE_ID --project-id PROJECT_NODE_ID \
@@ -199,6 +203,11 @@ branch: "current branch or unknown"
 thread: "this run's owner token"
 ```
 ````
+
+Use `phase: implementing` instead of `phase: investigating` when the opening
+request already resolves every material implementation decision and explicitly
+authorizes implementation. Keep the phase truthful; do not transition merely
+because the claim exists.
 
 Use issue or pull-request references in dependency fields. Include a thread
 identifier when available. Keep unknown values explicit. Maintain this single
@@ -233,9 +242,15 @@ is stable with no unresolved overlap.
 
 ## 4. Interview
 
-Interview relentlessly until every material implementation decision and its
-dependencies are resolved. Ask exactly one question per response and wait for
-the answer. Number tracker choices, decisions, and questions in one sequence.
+Interview relentlessly about unresolved material implementation decisions and
+their dependencies. Ask exactly one question per response and wait for the
+answer. Number tracker choices, decisions, and questions in one sequence.
+
+Use a zero-question path when the opening request already resolves acceptance
+criteria, scope boundaries, dependencies, touch points, validation, and
+meaningful tradeoffs, and explicitly authorizes implementation. Record the
+resolved decisions, synchronize the canonical intent, perform the required
+fresh final inflight scan, and complete this stage without inventing a question.
 
 Look up discoverable facts instead of asking for them. Decisions belong to the
 user. When standards and repository evidence make an answer unusually clear,
@@ -269,14 +284,15 @@ before accepting implementation authorization, even if no further question is
 needed.
 
 **Complete when:** acceptance criteria, scope boundaries, dependencies,
-touch-points, validation, and meaningful tradeoffs are resolved, and the user
-explicitly confirms the shared understanding and authorizes implementation.
+touch-points, validation, and meaningful tradeoffs are resolved, and either the
+opening request or a later response explicitly confirms the shared
+understanding and authorizes implementation.
 
 ## 5. Implement and maintain intent
 
-After authorization, change the comment to `phase: implementing` and make the
-agreed changes. Keep the comment and trackers aligned with these lifecycle
-rules:
+After authorization, change the comment to `phase: implementing` if needed and
+make the agreed changes. Keep the comment and trackers aligned with these
+lifecycle rules:
 
 If implementation uncovers a material change to the summary, touch points,
 dependencies, or branch, pause before entering the newly added surface. Update
@@ -289,9 +305,9 @@ stability snapshots, and resolve newly visible overlap before continuing.
 
 Keep the milestone attached throughout the work; its progress changes when the
 issue or pull request closes. For Project status changes, reuse the resolved
-field and option IDs. Treat every other Project field, milestone property, and
-repository label as read-only after selection; the canonical comment carries
-the additional coordination detail.
+field and option IDs, and treat an already-correct value as a no-op. Treat every
+other Project field, milestone property, and repository label as read-only after
+selection; the canonical comment carries the additional coordination detail.
 
 **Complete when:** implementation and proportionate verification are finished,
 and the final comment, Project statuses, milestone membership, and item state
