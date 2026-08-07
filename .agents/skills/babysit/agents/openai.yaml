@@ -1,0 +1,4 @@
+interface:
+  display_name: "Babysit PR"
+  short_description: "Keep a pull request moving until green"
+  default_prompt: "Use $babysit to keep the pull request moving through reviews and CI until it is green."
