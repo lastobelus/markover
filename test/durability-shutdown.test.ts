@@ -8,7 +8,7 @@ import {
 } from '../src/durability-shutdown'
 
 async function waitForEvent(events: string[], expected: string): Promise<void> {
-  for (let attempt = 0; attempt < 10 && !events.includes(expected); attempt += 1) {
+  for (let attempt = 0; attempt < 50 && !events.includes(expected); attempt += 1) {
     await Promise.resolve()
   }
   assert.ok(events.includes(expected), `Missing event: ${expected}`)
@@ -207,4 +207,58 @@ test('shutdown cancels at five seconds without advancing after late work', async
   releaseAttachments()
   await Promise.resolve()
   assert.equal(events.includes('snapshots'), false)
+})
+
+test('shutdown deadline remains active while the local service closes', async () => {
+  const events: string[] = []
+  let fireDeadline!: () => void
+  let releaseClose!: () => void
+  const close = new Promise<void>((resolve) => { releaseClose = resolve })
+  const shutdown = runDurabilityShutdown({
+    pauseMutations() {
+      events.push('pause')
+      return Promise.resolve()
+    },
+    waitForAttachments() {
+      events.push('attachments')
+      return Promise.resolve()
+    },
+    captureSnapshots() {
+      events.push('snapshots')
+      return Promise.resolve()
+    },
+    flushAutosaves() {
+      events.push('autosaves')
+      return Promise.resolve()
+    },
+    async closeService() {
+      events.push('close')
+      await close
+      events.push('closed')
+    },
+    resumeMutations() { events.push('resume') }
+  }, {
+    schedule(operation) {
+      fireDeadline = operation
+      return () => { events.push('deadline:cancel') }
+    }
+  })
+
+  await waitForEvent(events, 'close')
+  fireDeadline()
+  await assert.rejects(
+    shutdown,
+    (error: unknown) => error instanceof DurabilityShutdownDeadlineError
+  )
+  assert.deepEqual(events, [
+    'pause',
+    'attachments',
+    'snapshots',
+    'autosaves',
+    'close',
+    'deadline:cancel',
+    'resume'
+  ])
+  releaseClose()
+  await waitForEvent(events, 'closed')
 })

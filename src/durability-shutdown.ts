@@ -64,8 +64,8 @@ export async function runDurabilityShutdown(
     await beforeDeadline(steps.waitForAttachments)
     await beforeDeadline(steps.captureSnapshots)
     await beforeDeadline(steps.flushAutosaves)
+    await beforeDeadline(steps.closeService)
     cancelDeadline()
-    await steps.closeService()
   } catch (error) {
     cancelDeadline()
     steps.resumeMutations()
