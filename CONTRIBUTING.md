@@ -45,9 +45,11 @@ npm install
 npm start
 ```
 
-See [Developing Markover](docs/development.md) for storage paths, packaging,
-release details, and the complete repository map. Read [DECISIONS.md](DECISIONS.md)
-before changing established behavior or data boundaries.
+Start at the [developer documentation](docs/developer/README.md), then see
+[Developing Markover](docs/developer/development.md) for storage paths,
+packaging, release details, and the complete repository map. Read
+[DECISIONS.md](DECISIONS.md) before changing established behavior or data
+boundaries.
 
 ## Validate changes
 

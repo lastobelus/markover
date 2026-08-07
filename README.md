@@ -9,18 +9,18 @@
   ·
   <a href="https://lastobelus.github.io/markover/privacy/">Privacy and local data</a>
   ·
-  <a href="./docs/development.md">Development</a>
+  <a href="https://lastobelus.github.io/markover/limitations/">Limitations</a>
 </p>
 
-Markover is a macOS app for reviewing Markdown as a document tree and returning
-block-level feedback to an agent.
+Markover is an **Early macOS preview** for reviewing Markdown as a document
+tree and returning block-level feedback to an agent.
 
 <p align="center">
-  <img src="./docs/assets/markover-review-editor@2x.png" width="920" alt="Markover showing a document inbox, structured Markdown, and an annotation with labeled screenshots.">
+  <img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover showing a document inbox, structured Markdown, and an annotation with labeled screenshots.">
 </p>
 
 <p align="center">
-  <img src="./docs/assets/markover-annotation-browser@2x.png" width="920" alt="Markover showing every rendered annotation in the active document.">
+  <img src="./docs/user/assets/markover-annotation-browser@2x.png" width="920" alt="Markover showing every rendered annotation in the active document.">
 </p>
 
 ## Features
@@ -38,10 +38,28 @@ block-level feedback to an agent.
 - One-shot agent handoff containing the exact source, checksum, document tree,
   annotations, attachments, and review context.
 
+## Before you try the early preview
+
+- Markover supports macOS 14 Sonoma or newer on Apple Silicon and Intel Macs.
+- The launcher requires Node.js 22.13.0 or newer.
+- Downloads are hardened and ad-hoc signed, but **not Apple-verified** or
+  notarized. macOS is expected to block the first launch.
+- Ordinary review work stays in your macOS account. Markover has no telemetry,
+  analytics, cloud sync, or automatic review upload.
+- Early-preview review formats may change without migration guarantees.
+  Historical review JSON and attachments are preserved, but a newer Markover
+  version may not open every older review. Back up important review data before
+  changing versions.
+
+Read [Privacy, storage, and recovery](https://lastobelus.github.io/markover/privacy/)
+for local-data and cleanup consequences, and [Markdown support and preview
+limitations](https://lastobelus.github.io/markover/limitations/) before relying
+on extension-specific rendering. Ask usage questions in [GitHub
+Discussions](https://github.com/lastobelus/markover/discussions).
+
 ## Try without installing
 
-Markover supports macOS 14 Sonoma or newer on Apple Silicon Macs and
-requires Node.js 22.13.0 or newer for the launcher. Open a document with:
+Open a document with:
 
 ```sh
 npx --yes \
@@ -103,15 +121,19 @@ Apple verification remains gated on Apple Developer Program access.
 Post-policy releases publish SHA-256 sidecars, GitHub build-provenance
 attestations, the exact source and workflow, resolved build context, and a
 version-pinned known-good rollback command. Published bytes are never replaced
-under an existing tag. See the [release and rollback runbook](./docs/releasing.md)
-for verification, backup, withdrawal, and future Developer ID activation.
+under an existing tag.
 
 See the [user guide](https://lastobelus.github.io/markover/guide/)
 for the complete review workflow and keyboard controls, read
-[Privacy and local data](https://lastobelus.github.io/markover/privacy/)
-for Markover's storage, network, and macOS-account boundary, or see
-[development.md](./docs/development.md) for checkout, testing, packaging, and
-release notes.
+[Privacy, storage, and recovery](https://lastobelus.github.io/markover/privacy/)
+for Markover's storage, network, and macOS-account boundary.
+
+## Contributing
+
+Contributor and implementation documentation is kept separately from the user
+guide. Start with the [developer documentation](./docs/developer/README.md) for
+checkout setup, architecture, security mechanics, tests, packaging, and release
+operations.
 
 ## Community
 
@@ -120,4 +142,4 @@ release notes.
 - [Security policy](./SECURITY.md)
 - [Code of conduct](./CODE_OF_CONDUCT.md)
 - [Discussions](https://github.com/lastobelus/markover/discussions) for early
-  ideas and questions
+  ideas, usage questions, and general support

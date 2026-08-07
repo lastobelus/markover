@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#eee8e0">
+    <meta name="description" content="Markdown structures and early-preview behaviors Markover supports, treats as whole blocks, or leaves unstructured.">
+    <title>Markdown support and preview limitations — Markover documentation</title>
+    <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body class="docs-page">
+    <aside class="docs-sidebar">
+      <a class="docs-brand brand-lockup brand-lockup-vertical" href="../" aria-label="Markover home">
+        <img class="brand-lockup-logo" src="../assets/markover-lockup.svg" alt="Markover">
+        <span class="brand-lockup-tagline">Structured review for Markdown.</span>
+      </a>
+      <nav class="docs-nav" aria-label="Documentation">
+        <p>Guide</p>
+        <a href="../guide/">Getting started</a>
+        <p>Reference</p>
+        <a href="#overview" aria-current="page">Markdown and limitations</a>
+        <a href="../privacy/">Privacy, storage, and recovery</a>
+        <a href="https://github.com/lastobelus/markover/discussions">Support</a>
+        <p>Contributors</p>
+        <a href="https://github.com/lastobelus/markover/blob/main/DECISIONS.md">Parser decisions</a>
+      </nav>
+      <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
+    </aside>
+
+    <header class="docs-mobile-header">
+      <a href="../"><img src="../assets/markover-mark.svg" alt=""><span>Markover docs</span></a>
+      <a href="../guide/">Guide</a>
+    </header>
+
+    <main class="docs-content">
+      <p class="eyebrow">Early-preview reference</p>
+      <h1 id="overview">Markdown support and preview limitations</h1>
+      <p class="docs-lede">Markover preserves the original Markdown while turning the structures it understands into selectable review blocks. Some structures are selectable only as a whole, and extension-specific syntax may remain ordinary or literal content.</p>
+
+      <section id="structured">
+        <h2>Selectable document structure</h2>
+        <p>Markover creates review-tree structure for YAML frontmatter, headings, paragraphs, ordered and unordered lists, task markers, fenced and indented code blocks, thematic breaks, tables, and block quotes.</p>
+        <p>Headings and nested lists organize the tree. Paragraphs, tasks, code, and thematic breaks can be selected and annotated as individual blocks.</p>
+      </section>
+
+      <section id="whole-blocks">
+        <h2>Tables and block quotes are whole blocks</h2>
+        <p>Tables and block quotes render and can be selected for feedback, but their internal rows, cells, and quoted children do not become separately selectable review-tree nodes.</p>
+        <div class="callout"><strong>Practical consequence.</strong> Attach feedback to the complete table or quote. If row-level or nested-quote feedback matters, describe the exact row or passage in the annotation.</div>
+      </section>
+
+      <section id="extensions">
+        <h2>Extensions may lose specialized meaning</h2>
+        <p>Footnotes, definition lists, strikethrough, raw HTML, and other Markdown extensions have no specialized review structure. Depending on the syntax, they may appear as ordinary CommonMark content or literal text.</p>
+        <p>Do not rely on Markover's preview as the authoritative renderer for a site-specific or extension-heavy Markdown dialect. Compare important formatting in the tool that will publish or consume the document.</p>
+      </section>
+
+      <section id="links-images">
+        <h2>Links stay inert; remote images require consent</h2>
+        <p>Rendered links do not navigate when clicked in a review. A remote HTTP or HTTPS image starts as an inert preview button. Markover requests it only after you explicitly choose to preview it; the image host then receives ordinary request metadata, including your IP address.</p>
+        <p>Local pasted screenshot attachments are stored with the review. Inspect attachments and review content before sharing a handoff.</p>
+      </section>
+
+      <section id="source-preservation">
+        <h2>The original source remains the reference</h2>
+        <p>Markover retains the exact reviewed Markdown and its checksum even when it cannot give extension-specific syntax its own tree structure. Editing a source block creates a proposal; Markover does not rewrite the original review target.</p>
+        <p>A complete handoff therefore preserves the source for an agent or developer to inspect rather than pretending every syntax feature was represented perfectly by the preview.</p>
+      </section>
+
+      <section id="preview-boundary">
+        <h2>Early-preview product boundary</h2>
+        <ul>
+          <li>Markover supports macOS 14 Sonoma or newer on Apple Silicon and Intel Macs.</li>
+          <li>The launcher requires Node.js 22.13.0 or newer.</li>
+          <li>Current downloads are hardened and ad-hoc signed, but not Apple-verified or notarized.</li>
+          <li>Review formats may change without migration guarantees. Historical JSON and attachments are preserved, but a newer app may not open every older review.</li>
+          <li>Review deletion and cache management currently use the manual procedures in <a href="../privacy/#retention">Privacy, storage, and recovery</a>.</li>
+        </ul>
+      </section>
+
+      <section id="support">
+        <h2>Ask about a document or report a defect</h2>
+        <p>Use <a href="https://github.com/lastobelus/markover/discussions">GitHub Discussions</a> when you are unsure whether a document or syntax will work well. Use the <a href="https://github.com/lastobelus/markover/issues/new?template=bug.yml">bug report form</a> for a reproducible defect, including the smallest sanitized example that demonstrates it.</p>
+      </section>
+
+      <nav class="docs-next" aria-label="Next page">
+        <span>Understand local data</span>
+        <a href="../privacy/">Privacy, storage, and recovery →</a>
+      </nav>
+    </main>
+  </body>
+</html>

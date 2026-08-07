@@ -40,8 +40,8 @@ test('generic agent and public guidance preserve the same semantics', async () =
   const [agents, readme, guide, development] = await Promise.all([
     read('AGENTS.md'),
     read('README.md'),
-    read('docs/guide/index.html'),
-    read('docs/development.md')
+    read('docs/user/guide/index.html'),
+    read('docs/developer/development.md')
   ])
 
   assert.match(agents, /review\.agentGuidance\.fixedContract/)

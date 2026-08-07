@@ -159,7 +159,10 @@ a { color: inherit; text-underline-offset: .18em; }
 .docs-lede { max-width: 680px; margin: 23px 0 60px; color: var(--muted); font-size: 19px; line-height: 1.65; }
 .docs-content section { padding: 30px 0; border-top: 1px solid var(--line); scroll-margin-top: 24px; }
 .docs-content section h2 { margin: 0 0 14px; font-size: 27px; letter-spacing: -.025em; }
+.docs-content section h3 { margin: 26px 0 10px; font-size: 18px; letter-spacing: -.015em; }
 .docs-content section p { color: #554d48; line-height: 1.75; }
+.docs-content section ul, .docs-content section ol { padding-left: 1.45rem; color: #554d48; }
+.docs-content section li { margin: 8px 0; line-height: 1.65; }
 .docs-content code { font-size: .92em; }
 .docs-table { width: 100%; border-collapse: collapse; color: #554d48; font-size: 14px; line-height: 1.5; }
 .docs-table th, .docs-table td { padding: 12px 14px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
