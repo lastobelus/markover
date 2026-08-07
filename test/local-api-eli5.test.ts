@@ -18,7 +18,7 @@ test('local API ELI5 is self-contained and truth-scoped', () => {
   assert.doesNotMatch(source, /https?:\/\/[^"']+\.(?:css|js|woff2?)/)
   assert.match(
     source,
-    /Implementation in progress · issue 12 PR 3 · 6 Aug 2026/
+    /Draft PR 67 · issue 12 final slice · 6 Aug 2026/
   )
   assert.match(source, /name tag, not a lock/i)
   assert.match(source, /never kill/i)

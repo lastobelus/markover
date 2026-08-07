@@ -3,7 +3,7 @@
 Intent: confirmed 2026-08-06
 
 Status: approved without notes on 2026-08-06; implemented and locally verified;
-draft pull request pending.
+draft PR #67 open.
 
 ## Outcome
 
