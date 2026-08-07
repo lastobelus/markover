@@ -139,8 +139,10 @@ single run produces and verifies the complete set again.
 ## Shared packaged smoke evidence
 
 Each native release builder runs the same narrow happy path against its exact
-final ZIP and retains `verification/packaged-smoke-arm64.json` or
-`verification/packaged-smoke-x64.json` with the build artifacts. The runner:
+final ZIP and retains `packaged-smoke-arm64.json` or
+`packaged-smoke-x64.json` in a separate `packaged-smoke-*` workflow artifact.
+Keeping these outside the exact toolchain-report directory preserves the
+release staging contract. The runner:
 
 1. repeats final-ZIP checksum, structure, architecture, signing, entitlement,
    and expected ad-hoc Gatekeeper verification;

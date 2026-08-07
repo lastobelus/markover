@@ -127,7 +127,15 @@ jobs:
             "--version=${version}" \
             "--trust-mode=ad-hoc" \
             "--evidence-kind=ci" \
-            "--evidence=artifact/verification/packaged-smoke-${architecture}.json"
+            "--evidence=smoke-evidence/packaged-smoke-${architecture}.json"
+
+      - name: Retain packaged smoke evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packaged-smoke-${{ matrix.runner }}
+          path: smoke-evidence/
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Retain native payload and sanitized build context
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

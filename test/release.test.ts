@@ -55,7 +55,15 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.match(workflow, /Exercise packaged happy path/)
   assert.match(workflow, /npm run smoke:packaged/)
   assert.match(workflow, /--evidence-kind=ci/)
-  assert.match(workflow, /packaged-smoke-\$\{architecture\}\.json/)
+  assert.match(
+    workflow,
+    /--evidence=smoke-evidence\/packaged-smoke-\$\{architecture\}\.json/
+  )
+  assert.doesNotMatch(
+    workflow,
+    /--evidence=artifact\/verification\/packaged-smoke-/
+  )
+  assert.match(workflow, /name: packaged-smoke-\$\{\{ matrix\.runner \}\}/)
   assert.match(workflow, /markover-cli\.tgz/)
   assert.match(workflow, /gh release create/)
   assert.match(workflow, /permissions: \{\}/)
@@ -267,6 +275,7 @@ test('continuous integration validates both native packaged happy paths', () => 
   assert.match(workflow, /npm run release:preflight -- verify-macos/)
   assert.match(workflow, /npm run smoke:packaged --/)
   assert.match(workflow, /--evidence-kind=ci/)
+  assert.match(workflow, /--evidence=smoke-evidence\/packaged-smoke-/)
   assert.match(workflow, /packaged-smoke-\$\{\{ matrix\.runner \}\}/)
 })
 
