@@ -117,7 +117,9 @@ const endpointPath = smokeStateDirectory
   : serviceEndpointPath()
 const startupDiagnosticPath = path.join(
   applicationDataDirectory,
-  'startup-diagnostic.json'
+  reviewMode
+    ? `startup-diagnostic-review-${String(process.pid)}.json`
+    : 'startup-diagnostic.json'
 )
 const reviewStore = reviewMode
   ? null
@@ -1271,6 +1273,10 @@ if (!hasSingleInstanceLock) {
   })
 
   app.on('will-quit', () => {
+    if (
+      reviewMode &&
+      startupDiagnostic?.snapshot().status === 'ready'
+    ) rmSync(startupDiagnosticPath, { force: true })
     if (
       smokeStateDirectory &&
       process.env.MARKOVER_SMOKE_RUNNER !== '1'

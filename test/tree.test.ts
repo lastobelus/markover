@@ -308,6 +308,17 @@ test('keeps flow maps and explicit keys on the read-only parent', () => {
   }
 })
 
+test('ignores a nullable YAML mapping key without failing the document', () => {
+  const source = '---\n: value\n---\n'
+  const frontmatter = expectNode(
+    parseMarkdown(source).root.children[0],
+    'frontmatter'
+  )
+
+  assert.deepEqual(frontmatter.children, [])
+  assert.equal(frontmatter.raw, source.trimEnd())
+})
+
 test('leaves unclosed, malformed, and non-mapping frontmatter to Markdown', () => {
   const sources = [
     '---\ntitle: unclosed\n',

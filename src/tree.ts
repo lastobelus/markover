@@ -84,7 +84,13 @@ import * as YAML from 'yaml'
     }
 
     const entries = (contents?.items || []).map((pair) => {
-      const keyRange = pair.key.range
+      // `yaml` can emit a null key although its Pair declaration excludes it.
+      const keyRange = (
+        pair as unknown as {
+          key?: { range?: [number, number, number] } | null
+        }
+      ).key?.range
+      if (!keyRange || keyRange[0] === keyRange[1]) return null
       const keyStart = keyRange[0]
       const valueEnd = pair.value ? pair.value.range[2] : keyRange[2]
       if (!Number.isInteger(keyStart) || !Number.isInteger(valueEnd)) return null

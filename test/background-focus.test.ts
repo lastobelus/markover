@@ -123,6 +123,19 @@ test('startup diagnostic exists before build identity validation', () => {
   )
 })
 
+test('lock-free review processes use isolated startup diagnostics', () => {
+  const main = read('src/main.ts')
+
+  assert.match(
+    main,
+    /reviewMode\s*\? `startup-diagnostic-review-\$\{String\(process\.pid\)\}\.json`\s*: 'startup-diagnostic\.json'/
+  )
+  assert.match(
+    main,
+    /reviewMode &&\s*startupDiagnostic\?\.snapshot\(\)\.status === 'ready'[\s\S]*rmSync\(startupDiagnosticPath, \{ force: true \}\)/
+  )
+})
+
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {
   const cli = read('scripts/markover.ts')
 
