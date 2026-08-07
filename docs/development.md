@@ -81,6 +81,41 @@ Electron unchanged, except `ELECTRON_RUN_AS_NODE` is removed. Paths beneath
 `build/app/` are private build details; other development tooling should depend
 only on the staging root.
 
+## Development review links
+
+Install or inspect the forwarding-only handler for the current worktree's open
+PR with:
+
+```sh
+npm --silent run link-handler -- --instance dev install
+npm --silent run link-handler -- --instance dev status
+```
+
+Use `--instance canonical` for the canonical development handler. Installation
+is idempotent for the same exact binding. `repair` rebuilds and reregisters that
+binding; `replace` is the explicit conflict-accepting operation after inspecting
+the reported owner. Routine starts never change handler ownership.
+
+The bridge forwards only to the selected instance's already-running,
+authenticated local service. It never builds, launches, searches worktrees,
+or contacts GitHub. If the instance is stopped, its one-button native modal
+tells the developer to return to the owning thread, start or fix the build, and
+open the link again. Terminal.app and iTerm2 may not linkify the custom scheme;
+the reliable fallback is `open '<reviewUrl>'`.
+
+Remove a handler by exact scheme, including after its worktree has disappeared:
+
+```sh
+npm --silent run link-handler -- status markover-N
+npm --silent run link-handler -- remove markover-N
+```
+
+Removal unregisters and deletes only the expected generated app under
+`~/Library/Application Support/Markover/Development/Link Handlers/`; review
+state is unchanged. A conflicting owner requires explicit `--force`, which
+still removes only Markover's expected generated app and does not alter the
+other owner.
+
 Canonical managed reviews are stored outside the checkout under:
 
 ```text
@@ -117,9 +152,9 @@ bounded-loss claim covers an app-process crash, not power loss, unhealthy or
 unusually slow storage, or operating-system or hardware failure.
 
 PR state is intentionally removed by normal worktree deletion. To make that
-cleanup recoverable, first quit the exact instance and use #52's handler
-uninstall command for its `markover-N:` scheme, then run from the surviving
-worktree:
+cleanup recoverable, first quit the exact instance, run
+`npm --silent run link-handler -- remove markover-N`, then run from the
+surviving worktree:
 
 ```sh
 npm --silent run markover -- --instance dev cleanup pr-N
