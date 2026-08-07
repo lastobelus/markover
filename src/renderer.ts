@@ -2942,11 +2942,12 @@ void initialize().catch(async (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
   const stack = error instanceof Error ? error.stack || null : null
   try {
-    await bridge.reportStartupFailure({
+    const failure = await bridge.reportStartupFailure({
       category: 'renderer-initialization',
       message,
       stack
     })
+    startupUi.fail(failure.diagnosticAvailable)
   } catch (reportError) {
     console.error('Failed to record renderer startup failure', reportError)
   }

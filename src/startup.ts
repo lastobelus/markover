@@ -97,12 +97,13 @@ export function installStartup({
       const screen = element('startup-screen')
       if (screen) screen.hidden = true
     },
-    fail() {
+    fail(diagnosticAvailable = false) {
       failed = true
       startupDocument.documentElement.dataset.startup = 'failed'
       const screen = element('startup-screen')
       if (screen) screen.hidden = false
-      element('startup-actions')?.removeAttribute('hidden')
+      const actions = element('startup-actions')
+      if (actions) actions.hidden = !diagnosticAvailable
       element('startup-quit')?.removeAttribute('hidden')
       refresh()
     }
@@ -132,6 +133,8 @@ export function installStartup({
       category: 'renderer-initialization',
       message,
       stack
+    }).then(({ diagnosticAvailable }) => {
+      api.fail(diagnosticAvailable)
     }).catch(() => {})
   }
   startupWindow.addEventListener('error', failEarly)

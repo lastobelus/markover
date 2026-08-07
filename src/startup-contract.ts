@@ -71,6 +71,10 @@ export interface RendererStartupFailure {
   stack: string | null
 }
 
+export interface RendererStartupFailureResult {
+  diagnosticAvailable: boolean
+}
+
 export interface RendererSmokeResult {
   format: 'markover-renderer-smoke'
   version: 1

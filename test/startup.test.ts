@@ -30,7 +30,7 @@ function view(search = ''): {
     quitStartup: () => { actions.quit += 1 },
     reportStartupFailure: () => {
       actions.reported += 1
-      return Promise.resolve()
+      return Promise.resolve({ diagnosticAvailable: true })
     },
     revealStartupDiagnostic: () => {
       actions.revealed += 1
@@ -91,7 +91,7 @@ test('slow and failed startup expose bounded user actions', () => {
   assert.equal(status?.textContent, 'Still starting…')
   assert.equal(quit?.hidden, false)
 
-  startup.fail()
+  startup.fail(true)
   assert.equal(status.textContent, 'Markover couldn’t start.')
   assert.equal(
     dom.window.document.querySelector<HTMLElement>('#startup-actions')?.hidden,
@@ -109,6 +109,19 @@ test('slow and failed startup expose bounded user actions', () => {
   assert.deepEqual(actions, { copied: 1, quit: 1, reported: 0, revealed: 1 })
 })
 
+test('failed startup hides diagnostic actions until the latest write succeeds', () => {
+  const { dom, startup } = view()
+  const diagnosticActions = dom.window.document.querySelector<HTMLElement>(
+    '#startup-actions'
+  )
+  assert.ok(diagnosticActions)
+
+  startup.fail(true)
+  assert.equal(diagnosticActions.hidden, false)
+  startup.fail()
+  assert.equal(diagnosticActions.hidden, true)
+})
+
 test('early renderer errors report once before the renderer module loads', async () => {
   const { actions, dom } = view()
   dom.window.dispatchEvent(new dom.window.ErrorEvent('error', {
@@ -121,6 +134,10 @@ test('early renderer errors report once before the renderer module loads', async
   }))
   await Promise.resolve()
   assert.equal(actions.reported, 1)
+  assert.equal(
+    dom.window.document.querySelector<HTMLElement>('#startup-actions')?.hidden,
+    false
+  )
   assert.equal(
     dom.window.document.documentElement.dataset.startup,
     'failed'

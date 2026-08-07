@@ -1100,6 +1100,9 @@ if (!hasSingleInstanceLock) {
           stack: failure.stack
         })
       }
+      return {
+        diagnosticAvailable: requireStartupDiagnostic().available
+      }
     })
     ipcMain.handle('startup:copy-diagnostic', copyStartupDiagnostic)
     ipcMain.handle('startup:reveal-diagnostic', () => {

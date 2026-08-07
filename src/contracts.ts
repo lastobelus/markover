@@ -10,6 +10,7 @@ import type {
   RendererInitialization,
   RendererSmokeResult,
   RendererStartupFailure,
+  RendererStartupFailureResult,
   StartupInfo,
   StartupPhaseEvent,
   StartupReady
@@ -35,7 +36,7 @@ declare global {
     development: (value: boolean) => void
     phase: (value: string) => void
     ready: () => void
-    fail: () => void
+    fail: (diagnosticAvailable?: boolean) => void
   }
   type MarkoverDiffStats = DiffStats
   type MarkoverFileTreeConstructor = typeof FileTree
@@ -460,7 +461,9 @@ declare global {
     reportRendererInitialized: (
       initialization: RendererInitialization
     ) => Promise<StartupReady>
-    reportStartupFailure: (failure: RendererStartupFailure) => Promise<void>
+    reportStartupFailure: (
+      failure: RendererStartupFailure
+    ) => Promise<RendererStartupFailureResult>
     copyStartupDiagnostic: () => Promise<void>
     revealStartupDiagnostic: () => Promise<void>
     quitStartup: () => void
