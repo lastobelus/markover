@@ -117,7 +117,11 @@ export interface PackagedSmokeDependencies {
     timeoutMilliseconds: number,
     onLaunch: () => void
   ) => Promise<ServiceEndpoint>) | undefined
-  stopApp?: ((endpointPath: string, timeoutMilliseconds: number) => Promise<void>) | undefined
+  stopApp?: ((
+    endpointPath: string,
+    timeoutMilliseconds: number,
+    expectedPid: number | null
+  ) => Promise<void>) | undefined
   verifyArtifact?: ((options: PackagedSmokeOptions) => Promise<MacosArtifactReport>) | undefined
 }
 
@@ -205,18 +209,46 @@ async function defaultStartApp(
 
 async function defaultStopApp(
   endpointPath: string,
-  timeoutMilliseconds: number
+  timeoutMilliseconds: number,
+  expectedPid: number | null
 ): Promise<void> {
+  let pid = expectedPid
+  if (pid === null) {
+    try {
+      pid = (await probeService(endpointPath)).endpoint.pid
+    } catch {
+      // A failed launch may not have published an endpoint; quit by bundle ID.
+    }
+  }
   command('/usr/bin/osascript', [
     '-e',
     `tell application id "${appBundleId}" to quit`
   ])
   const deadline = Date.now() + timeoutMilliseconds
   while (Date.now() < deadline) {
-    if (!await defaultServiceRunning(endpointPath)) return
+    if (
+      !await defaultServiceRunning(endpointPath) &&
+      (pid === null || !processIsRunning(pid))
+    ) return
     await delay(100)
   }
-  throw new Error('Packaged Markover did not quit before the restart deadline.')
+  throw new Error(
+    'Packaged Markover service or process did not quit before the restart deadline.'
+  )
+}
+
+function processIsRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      Reflect.get(error, 'code') === 'ESRCH'
+    ) return false
+    throw error
+  }
 }
 
 async function defaultPrepareApp(
@@ -490,6 +522,7 @@ export async function runPackagedSmoke(
     )
   })
   let appStarted = false
+  let appPid: number | null = null
   try {
     const host = (dependencies.host || defaultHost)()
     const quarantinePresent = (
@@ -504,28 +537,38 @@ export async function runPackagedSmoke(
       endpointPath,
       null,
       timeout,
-      () => { appStarted = true }
+      () => {
+        appStarted = true
+        appPid = null
+      }
     )
     appStarted = true
+    appPid = first.pid
     const reviewId = await openReview(endpointPath, sourcePath)
     assertPersistedReview(await loadReview(reviewId), reviewId)
 
-    await stopApp(endpointPath, timeout)
+    await stopApp(endpointPath, timeout, appPid)
     appStarted = false
-    await startApp(
+    appPid = null
+    const second = await startApp(
       prepared.appPath,
       endpointPath,
       first.pid,
       timeout,
-      () => { appStarted = true }
+      () => {
+        appStarted = true
+        appPid = null
+      }
     )
     appStarted = true
+    appPid = second.pid
     assertPersistedReview(await loadReview(reviewId), reviewId)
 
     await handoffAndReopen(endpointPath, reviewId)
     assertPersistedReview(await loadReview(reviewId), reviewId)
-    await stopApp(endpointPath, timeout)
+    await stopApp(endpointPath, timeout, appPid)
     appStarted = false
+    appPid = null
 
     const cleanMachine = options.evidenceKind === 'clean-intel-sonoma'
     const evidence: PackagedSmokeEvidence = {
@@ -578,7 +621,9 @@ export async function runPackagedSmoke(
     )
     return evidence
   } finally {
-    if (appStarted) await stopApp(endpointPath, timeout).catch(() => {})
+    if (appStarted) {
+      await stopApp(endpointPath, timeout, appPid).catch(() => {})
+    }
     await fs.unlink(sourcePath).catch(() => {})
     await prepared.cleanup()
   }

@@ -267,6 +267,8 @@ The implementation composes only the fixture's create/open and get/edit
 helpers. Each native release job verifies its exact final ZIP, launches the
 packaged app, confirms saved state before a normal restart, confirms restoration,
 performs CLI get and edit/reopen, and emits sanitized versioned JSON evidence.
+The planned restart waits for both endpoint shutdown and exit of the exact
+recorded packaged-app PID before launching the replacement instance.
 The JSON is retained as a separate `packaged-smoke-*` workflow artifact so it
 cannot broaden the release staging directory's exact toolchain-report set.
 The runner neither sends unauthorized requests nor measures loss windows,

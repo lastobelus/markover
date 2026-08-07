@@ -122,8 +122,8 @@ function dependencies(
         pid: 100 + start
       })
     },
-    stopApp() {
-      calls.push('stop')
+    stopApp(_endpointPath, _timeoutMilliseconds, expectedPid) {
+      calls.push(`stop:${String(expectedPid)}`)
       return Promise.resolve()
     },
     openReview() {
@@ -242,7 +242,7 @@ test('a launch that times out is still stopped and cleaned up', async (t) => {
     'verify:arm64',
     'extract',
     'start-failed',
-    'stop',
+    'stop:null',
     'cleanup'
   ])
 })
@@ -274,12 +274,12 @@ for (const architecture of ['arm64', 'x64'] as const) {
       'start:null',
       'open',
       'load',
-      'stop',
+      'stop:101',
       'start:101',
       'load',
       'get-edit:mko_smoke001',
       'load',
-      'stop',
+      'stop:102',
       'cleanup'
     ])
     assert.deepEqual(

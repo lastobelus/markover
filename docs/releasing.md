@@ -157,6 +157,8 @@ release staging contract. The runner:
 
 If an app launch begins but service readiness fails or times out, the runner
 still sends the normal quit request and cleans its extracted staging directory.
+For a planned restart, it waits for both service shutdown and termination of
+the exact recorded app PID before launching the replacement instance.
 
 This is not issue 12's adversarial authorization suite and does not send
 unauthorized or mismatched credentials. It is not issue 39's durability suite
