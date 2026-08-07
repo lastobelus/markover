@@ -108,7 +108,8 @@ function dependencies(
       architecture: architecture === 'arm64' ? 'arm64' : 'x86_64',
       macosVersion: '15.6',
       model: 'GitHubActionsMac',
-      runner: `macos-${architecture}`
+      runner: `macos-${architecture}`,
+      translated: false
     }),
     startApp(_appPath, _endpointPath, previousPid) {
       start += 1
@@ -308,7 +309,8 @@ test('clean Intel evidence is admitted only on installed quarantined Sonoma x64'
     architecture: 'x86_64',
     macosVersion: '14.7.7',
     model: 'MacBookPro16,1',
-    runner: null
+    runner: null,
+    translated: false
   })
 
   const report = await runPackagedSmoke({
@@ -334,9 +336,28 @@ test('clean Intel evidence is admitted only on installed quarantined Sonoma x64'
         architecture: 'x86_64',
         macosVersion: '15.0',
         model: 'MacBookPro16,1',
-        runner: null
+        runner: null,
+        translated: false
       })
     }),
     /requires macOS 14 Sonoma/
+  )
+
+  await assert.rejects(
+    runPackagedSmoke({
+      ...options(path.join(directory, 'rosetta.json'), 'x64'),
+      appPath: '/Applications/Markover.app',
+      evidenceKind: 'clean-intel-sonoma'
+    }, {
+      ...deps,
+      host: () => ({
+        architecture: 'x86_64',
+        macosVersion: '14.7.7',
+        model: 'MacBookPro18,3',
+        runner: null,
+        translated: true
+      })
+    }),
+    /cannot run under Rosetta translation/
   )
 })

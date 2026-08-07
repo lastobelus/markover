@@ -52,6 +52,7 @@ export interface PackagedSmokeHost {
   macosVersion: string
   model: string
   runner: string | null
+  translated: boolean
 }
 
 export interface PackagedSmokeEvidence {
@@ -398,12 +399,29 @@ export async function assertEquivalentAppBundle(
   )
 }
 
+function defaultTranslated(): boolean {
+  const result = spawnSync('/usr/sbin/sysctl', [
+    '-in',
+    'sysctl.proc_translated'
+  ], { encoding: 'utf8' })
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    if (/unknown oid/i.test(result.stderr)) return false
+    throw new Error('Could not determine whether packaged smoke is running under Rosetta.')
+  }
+  const value = result.stdout.trim()
+  if (value === '0') return false
+  if (value === '1') return true
+  throw new Error('The Rosetta translation state was not 0 or 1.')
+}
+
 function defaultHost(): PackagedSmokeHost {
   return {
     architecture: command('/usr/bin/uname', ['-m']),
     macosVersion: command('/usr/bin/sw_vers', ['-productVersion']),
     model: command('/usr/sbin/sysctl', ['-n', 'hw.model']),
-    runner: process.env.RUNNER_NAME || null
+    runner: process.env.RUNNER_NAME || null,
+    translated: defaultTranslated()
   }
 }
 
@@ -450,6 +468,9 @@ function assertCleanIntelContext(
 ): void {
   if (options.architecture !== 'x64' || host.architecture !== 'x86_64') {
     throw new Error('Clean Intel evidence requires a native Intel artifact and host.')
+  }
+  if (host.translated) {
+    throw new Error('Clean Intel evidence cannot run under Rosetta translation.')
   }
   if (!/^14(?:\.|$)/.test(host.macosVersion)) {
     throw new Error('Clean Intel evidence requires macOS 14 Sonoma.')

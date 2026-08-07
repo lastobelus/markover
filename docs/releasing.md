@@ -205,11 +205,14 @@ Markover work and quit any running Markover before starting.
    Before launch, the runner extracts the verified ZIP again and rejects the
    installed app unless its tree, bytes, executable modes, and symlink targets
    match. Safari quarantine metadata is allowed to differ and remains required.
+   It also rejects Rosetta translation so only the physical Intel host can
+   produce clean-Intel evidence.
 
 6. Confirm the JSON says `format: "markover-packaged-smoke-evidence"`,
    `status: "passed"`, `cleanMachine: true`, names the
    expected source commit, x64 digest, model class, Sonoma version, expected
-   ad-hoc Gatekeeper rejection, quarantine, launch, saved-state restart,
+   native (not Rosetta-translated) host state, ad-hoc Gatekeeper rejection,
+   quarantine, launch, saved-state restart,
    restoration, CLI open/get/edit, and edit/reopen results. It must also say
    `appleVerified: false`, `notarized: false`, and list adversarial authorization
    and bounded-loss durability as exclusions.
