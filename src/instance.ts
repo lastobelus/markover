@@ -22,6 +22,7 @@ export type ColdStartBlock =
   | 'already-running'
   | 'canonical-descriptor-missing'
   | 'canonical-checkout-invalid'
+  | 'cleanup-only'
   | 'pull-request-closed'
   | 'pull-request-merged'
 
@@ -97,6 +98,7 @@ export interface ResolveInstanceOptions extends ServiceDirectoryOptions {
   checkoutDirectory?: string
   expectedPullRequestNumber?: number
   inspectPullRequest?: PullRequestLookup
+  operation?: 'cleanup' | 'route'
   probe?: ServiceProbe
 }
 
@@ -400,6 +402,7 @@ export function parseResolvedInstance(value: unknown): ResolvedInstance | null {
     blockedBy !== 'already-running' &&
     blockedBy !== 'canonical-descriptor-missing' &&
     blockedBy !== 'canonical-checkout-invalid' &&
+    blockedBy !== 'cleanup-only' &&
     blockedBy !== 'pull-request-closed' &&
     blockedBy !== 'pull-request-merged'
   ) return null
@@ -589,23 +592,25 @@ async function resolveDevelopmentInstance(
   const runtimeIdentity = parseRuntimeInstanceIdentity(
     await readJson(runtimeInstancePath(stateRoot))
   )
-  let identity = running && runtimeIdentity?.kind === 'development'
+  let identity = runtimeIdentity?.kind === 'development'
     ? runtimeIdentity
     : null
   let pullRequestState: PullRequestState = 'unknown'
 
   if (identity) {
     assertExpectedPullRequest(identity, options.expectedPullRequestNumber)
-    try {
-      const inspection = await inspectPullRequest(checkout)
-      const inspectedIdentity = developmentIdentity(inspection.number)
-      assertExpectedPullRequest(inspectedIdentity, identity.pullRequestNumber)
-      pullRequestState = inspection.state
-    } catch (error) {
-      if (!running || (
-        error instanceof InstanceResolutionError &&
-        error.code === 'INSTANCE_IDENTITY_MISMATCH'
-      )) throw error
+    if (options.operation !== 'cleanup') {
+      try {
+        const inspection = await inspectPullRequest(checkout)
+        const inspectedIdentity = developmentIdentity(inspection.number)
+        assertExpectedPullRequest(inspectedIdentity, identity.pullRequestNumber)
+        pullRequestState = inspection.state
+      } catch (error) {
+        if (!running || (
+          error instanceof InstanceResolutionError &&
+          error.code === 'INSTANCE_IDENTITY_MISMATCH'
+        )) throw error
+      }
     }
   } else {
     if (running) {
@@ -622,6 +627,8 @@ async function resolveDevelopmentInstance(
 
   const blockedBy: ColdStartBlock | null = running
     ? 'already-running'
+    : options.operation === 'cleanup'
+        ? 'cleanup-only'
     : pullRequestState === 'closed'
         ? 'pull-request-closed'
         : pullRequestState === 'merged'

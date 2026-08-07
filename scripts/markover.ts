@@ -571,7 +571,12 @@ export async function executeCommand(
   )
   if (parsed.command === 'cleanup') {
     const pullRequestNumber = Number(parsed.expectedIdentity.slice(3))
-    const instance = await resolveTarget('development', pullRequestNumber)
+    const instance = options.resolveTarget
+      ? await resolveTarget('development', pullRequestNumber)
+      : await resolveInstance('development', {
+          expectedPullRequestNumber: pullRequestNumber,
+          operation: 'cleanup'
+        })
     const cleanup = options.cleanup || cleanupDevelopmentInstance
     return cleanup(instance, parsed.expectedIdentity)
   }

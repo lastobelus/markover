@@ -323,6 +323,44 @@ test('a stopped instance fails closed when GitHub cannot verify its PR', async (
   )
 })
 
+test('a stopped persisted identity cannot be relabeled after a branch switch', async (t) => {
+  const checkout = await temporaryDirectory(t)
+  await publishRuntimeInstanceIdentity(developmentStateRoot(checkout), {
+    kind: 'development',
+    key: 'pr-61',
+    pullRequestNumber: 61
+  })
+  await assert.rejects(
+    resolveInstance('development', {
+      checkoutDirectory: checkout,
+      inspectPullRequest: pullRequest(62),
+      probe: () => Promise.resolve(false)
+    }),
+    (error: unknown) => error instanceof InstanceResolutionError &&
+      error.code === 'INSTANCE_IDENTITY_MISMATCH'
+  )
+
+  const cleanup = await resolveInstance('development', {
+    checkoutDirectory: checkout,
+    expectedPullRequestNumber: 61,
+    inspectPullRequest: () => {
+      throw new Error('cleanup must use the persisted identity offline')
+    },
+    operation: 'cleanup',
+    probe: () => Promise.resolve(false)
+  })
+  assert.deepEqual(cleanup.identity, {
+    kind: 'development',
+    key: 'pr-61',
+    pullRequestNumber: 61
+  })
+  assert.deepEqual(cleanup.pullRequest, { number: 61, state: 'unknown' })
+  assert.deepEqual(cleanup.coldStart, {
+    eligible: false,
+    blockedBy: 'cleanup-only'
+  })
+})
+
 test('explicit PR targeting refuses a different checkout identity', async (t) => {
   const checkout = await temporaryDirectory(t)
   await assert.rejects(

@@ -6,7 +6,8 @@ import test, { type TestContext } from 'node:test'
 
 import {
   cleanupDevelopmentInstance,
-  InstanceCleanupError
+  InstanceCleanupError,
+  moveDirectoryToTrash
 } from '../src/instance-cleanup'
 import {
   developmentStateRoot,
@@ -64,6 +65,42 @@ test('cleanup moves one exact stopped PR root to a recoverable Trash path', asyn
       'review.json'
     ), 'utf8'),
     '{"preserved":true}\n'
+  )
+})
+
+test('cleanup falls back to a recoverable cross-device move', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-exdev-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const source = path.join(directory, 'instance')
+  const destination = path.join(directory, 'Trash', 'Markover-pr-61')
+  await fs.mkdir(path.join(source, 'reviews'), { recursive: true })
+  await fs.mkdir(path.dirname(destination), { recursive: true })
+  await fs.writeFile(path.join(source, 'reviews', 'review.json'), 'preserved')
+  let renameCalls = 0
+
+  await moveDirectoryToTrash(source, destination, {
+    randomSuffix: () => 'cross-device',
+    rename(from, to) {
+      renameCalls += 1
+      if (renameCalls === 1) {
+        return Promise.reject(Object.assign(
+          new Error('cross-device link not permitted'),
+          { code: 'EXDEV' }
+        ))
+      }
+      return fs.rename(from, to)
+    }
+  })
+
+  assert.equal(renameCalls, 3)
+  await assert.rejects(fs.access(source))
+  assert.equal(
+    await fs.readFile(path.join(destination, 'reviews', 'review.json'), 'utf8'),
+    'preserved'
+  )
+  assert.deepEqual(
+    (await fs.readdir(path.dirname(destination))).sort(),
+    ['Markover-pr-61']
   )
 })
 

@@ -7,6 +7,7 @@ import path from 'node:path'
 import type { ResolvedInstance } from './instance'
 
 export type SchemeHandlerLookup = (scheme: string) => Promise<string[]>
+export type TrashMover = (source: string, destination: string) => Promise<void>
 
 export interface CleanupDevelopmentInstanceOptions {
   handlersForScheme?: SchemeHandlerLookup
@@ -15,6 +16,7 @@ export interface CleanupDevelopmentInstanceOptions {
   platform?: NodeJS.Platform
   randomSuffix?: () => string
   trashDirectory?: string
+  moveToTrash?: TrashMover
 }
 
 export interface CleanupDevelopmentInstanceResult {
@@ -71,6 +73,64 @@ function timestamp(date: Date): string {
   return date.toISOString().replaceAll(/[-:.]/g, '').replace('Z', 'Z')
 }
 
+function errorCode(error: unknown): unknown {
+  return error !== null && typeof error === 'object'
+    ? Reflect.get(error, 'code')
+    : null
+}
+
+export interface CrossDeviceMoveOptions {
+  copy?: typeof fs.cp
+  randomSuffix?: () => string
+  remove?: typeof fs.rm
+  rename?: typeof fs.rename
+}
+
+export async function moveDirectoryToTrash(
+  source: string,
+  destination: string,
+  {
+    copy = fs.cp,
+    randomSuffix = () => randomBytes(6).toString('hex'),
+    remove = fs.rm,
+    rename = fs.rename
+  }: CrossDeviceMoveOptions = {}
+): Promise<void> {
+  try {
+    await rename(source, destination)
+    return
+  } catch (error) {
+    if (errorCode(error) !== 'EXDEV') throw error
+  }
+
+  const suffix = `${String(process.pid)}-${randomSuffix()}`
+  const partialDestination = `${destination}.partial-${suffix}`
+  const sourceTombstone = path.join(
+    path.dirname(source),
+    `.${path.basename(source)}-trashed-${suffix}`
+  )
+  try {
+    await copy(source, partialDestination, {
+      errorOnExist: true,
+      force: false,
+      preserveTimestamps: true,
+      recursive: true,
+      verbatimSymlinks: true
+    })
+    await rename(partialDestination, destination)
+    try {
+      await rename(source, sourceTombstone)
+    } catch (error) {
+      await remove(destination, { recursive: true, force: true }).catch(() => {})
+      throw error
+    }
+    await remove(sourceTombstone, { recursive: true, force: true }).catch(() => {})
+  } finally {
+    await remove(partialDestination, { recursive: true, force: true })
+      .catch(() => {})
+  }
+}
+
 async function unusedTrashPath(
   trashDirectory: string,
   identity: `pr-${number}`,
@@ -102,6 +162,7 @@ export async function cleanupDevelopmentInstance(
     handlersForScheme = macosSchemeHandlers,
     homeDirectory = os.homedir(),
     now = () => new Date(),
+    moveToTrash = moveDirectoryToTrash,
     platform = process.platform,
     randomSuffix = () => randomBytes(6).toString('hex'),
     trashDirectory = path.join(homeDirectory, '.Trash')
@@ -184,7 +245,7 @@ export async function cleanupDevelopmentInstance(
     now,
     randomSuffix
   )
-  await fs.rename(actualStateRoot, recoveryPath)
+  await moveToTrash(actualStateRoot, recoveryPath)
   return {
     status: 'trashed',
     identity: instance.identity.key,
