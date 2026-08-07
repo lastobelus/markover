@@ -15,6 +15,7 @@ import {
   publishRuntimeInstanceIdentity,
   resolveInstance,
   runtimeInstancePath,
+  writeCanonicalInstanceDescriptor,
   type PullRequestLookup
 } from '../src/instance'
 
@@ -289,5 +290,32 @@ test('runtime identity records are private and parseable', async (t) => {
       'utf8'
     ))),
     { kind: 'development', key: 'pr-61', pullRequestNumber: 61 }
+  )
+})
+
+test('canonical descriptor writer gives installers one validated private path', async (t) => {
+  const directory = await temporaryDirectory(t)
+  const destination = path.join(directory, 'Markover', 'canonical-instance.json')
+  const descriptor = await writeCanonicalInstanceDescriptor({
+    version: 1,
+    checkout: '/checkouts/main',
+    blessedBranch: 'main'
+  }, { destination, platform: 'darwin' })
+  assert.deepEqual(descriptor, {
+    version: 1,
+    checkout: '/checkouts/main',
+    blessedBranch: 'main'
+  })
+  assert.equal((await fs.stat(path.dirname(destination))).mode & 0o777, 0o700)
+  assert.equal((await fs.stat(destination)).mode & 0o777, 0o600)
+  assert.deepEqual(JSON.parse(await fs.readFile(destination, 'utf8')), descriptor)
+  await assert.rejects(
+    writeCanonicalInstanceDescriptor({
+      version: 1,
+      checkout: 'relative',
+      blessedBranch: 'main'
+    }, { destination }),
+    (error: unknown) => error instanceof InstanceResolutionError &&
+      error.code === 'CANONICAL_DESCRIPTOR_INVALID'
   )
 })

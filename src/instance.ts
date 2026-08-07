@@ -504,3 +504,43 @@ export async function publishRuntimeInstanceIdentity(
     await fs.unlink(temporary).catch(() => {})
   }
 }
+
+export interface WriteCanonicalInstanceDescriptorOptions {
+  destination?: string
+  platform?: NodeJS.Platform
+}
+
+export async function writeCanonicalInstanceDescriptor(
+  value: unknown,
+  {
+    destination = canonicalDescriptorPath(),
+    platform = process.platform
+  }: WriteCanonicalInstanceDescriptorOptions = {}
+): Promise<CanonicalInstanceDescriptor> {
+  const descriptor = parseCanonicalInstanceDescriptor(value)
+  if (!descriptor) {
+    throw new InstanceResolutionError(
+      'CANONICAL_DESCRIPTOR_INVALID',
+      'Canonical instance configuration requires an absolute checkout and a blessed branch.'
+    )
+  }
+  const directory = path.dirname(destination)
+  await fs.mkdir(directory, { recursive: true, mode: 0o700 })
+  if (platform !== 'win32') await fs.chmod(directory, 0o700)
+  const temporary = path.join(
+    directory,
+    `.${path.basename(destination)}-${String(process.pid)}-${randomBytes(6).toString('hex')}.tmp`
+  )
+  try {
+    await fs.writeFile(temporary, `${JSON.stringify(descriptor, null, 2)}\n`, {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: 0o600
+    })
+    if (platform !== 'win32') await fs.chmod(temporary, 0o600)
+    await fs.rename(temporary, destination)
+  } finally {
+    await fs.unlink(temporary).catch(() => {})
+  }
+  return descriptor
+}
