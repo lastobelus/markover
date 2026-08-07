@@ -125,13 +125,19 @@ test('release documentation states the Sonoma and ad-hoc trust boundary', () => 
 test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   const directory =
     'doc/plans/2026-08-03__signing-notarization-preflight-eli5'
-  const pages = ['index.html', 'slice-1.html', 'release-roadmap.html']
+  const pages = [
+    'index.html',
+    'slice-1.html',
+    'release-roadmap.html',
+    'slice-3.html'
+  ]
     .map((name) => read(`${directory}/${name}`))
   for (const page of pages) {
     assert.match(page, /<nav class="tabs"/)
     assert.match(page, /href="index\.html"/)
     assert.match(page, /href="slice-1\.html"/)
     assert.match(page, /href="release-roadmap\.html"/)
+    assert.match(page, /href="slice-3\.html"/)
     assert.match(page, /<details class="card truth-context">/)
     assert.match(page, /Where This Is True/)
     assert.match(page, /<svg[^>]+role="img"/)
@@ -160,7 +166,11 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[2] ?? '',
-    /Slice 2 · Ready PR #55 · 5 Aug 2026/
+    /PR #55 merged · Safeguards ready · 6 Aug 2026/
+  )
+  assert.match(
+    pages[3] ?? '',
+    /Slice 3 implementing · Clean Intel pending · 6 Aug 2026/
   )
 })
 
@@ -180,6 +190,11 @@ test('public release runbook preserves provenance and rollback boundaries', () =
   assert.match(runbook, /Application Support\/Markover/)
   assert.match(runbook, /Never reuse the withdrawn tag/i)
   assert.match(runbook, /Developer ID activation/)
+  assert.match(runbook, /GitHub readiness is `ready`/)
+  assert.match(runbook, /Developer ID readiness is\s+intentionally `blocked`/)
+  assert.match(runbook, /clean Intel\/Sonoma procedure/i)
+  assert.match(runbook, /markover-packaged-smoke-evidence/)
+  assert.match(runbook, /Do not mark the clean\s+machine or overall result passed/)
   for (const source of sources) assert.match(source, /releas(?:e|ing)\.md/)
 })
 

@@ -74,10 +74,11 @@
       <a href="index.html">Overview</a>
       <a href="slice-1.html">Slice 1 · Package</a>
       <a href="release-roadmap.html" aria-current="page">Slice 2 · Release</a>
+      <a href="slice-3.html">Slice 3 · Smoke</a>
     </nav>
 
     <header>
-      <p class="eyebrow">Issue 13 · Slice 2 and later evidence</p>
+      <p class="eyebrow">Issue 13 · Slice 2 release path</p>
       <h1>Draft it, test it, then <span>freeze it</span>.</h1>
       <p class="lede">
         Slice 2 turns native build outputs into a traceable release collection. No
@@ -89,28 +90,28 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Slice 2 · Ready PR #55 · 5 Aug 2026</span>
+        <span class="context-status">PR #55 merged · Safeguards ready · 6 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
-          This page explains implementing slice 2 and planned slice 3 of
+          This page explains merged slice 2 and its first-release handoff for
           <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>,
           based on the reviewed
           <a href="#" data-repo-path="doc/plans/2026-08-03__signing-notarization-preflight.md">preflight plan</a>
-          after merged <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a>,
-          on branch <code>t3code/issue-13-release-provenance</code> in
-          <a href="https://github.com/lastobelus/markover/pull/55">PR #55, ready for review</a>, snapshot
-          5 August 2026. The slice-2 workflow and runbook are being implemented;
-          repository settings, tags, releases, and slice-3 evidence are not changed here.
+          after merged <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a>
+          and <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>,
+          snapshot 6 August 2026. The release safeguards are verified ready;
+          slice 3 is implementing separately, and no new tag, draft, release,
+          or clean-Intel evidence exists yet.
         </p>
         <div class="context-grid">
           <div>
             <h3>Roadmap dependencies</h3>
-            <p>Slice 2 follows merged slice 1. Settings activate only after its compatible workflow reaches <code>main</code>. Slice 3 reuses issue #12's landed happy-path fixture but not issue #39's durability work.</p>
+            <p>Slice 2 follows merged slice 1 and is now on <code>main</code>. The protected environment, immutable releases, and tag rules are active. Slice 3 reuses issue #12's landed happy-path fixture but not issue #39's durability work.</p>
           </div>
           <div>
             <h3>Stable center and follow-up</h3>
-            <p>Stable: draft-first, exact-byte rehashing, attestations, approval, immutable publication, and version-pinned rollback. Workflow details may change during review. Apple verification remains future work; App Sandbox is tracked by <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>. Re-check issue #13, the plan, workflow, runbook, and repository settings.</p>
+            <p>Stable: draft-first, exact-byte rehashing, attestations, approval, immutable publication, and version-pinned rollback. Version and release details remain unset until explicit approval. Apple verification remains future work; App Sandbox is tracked by <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>. Re-check issue #13, the plan, workflow, runbook, and live repository settings.</p>
           </div>
         </div>
       </div>
@@ -223,9 +224,9 @@
     </section>
 
     <aside class="boundary">
-      <strong>Settings order matters.</strong> The protected release environment, tag
-      ruleset, and immutable-release setting are activated only after the compatible
-      slice-2 workflow has merged to <code>main</code>. This branch does not mutate them.
+      <strong>The safeguards are live.</strong> The protected release environment, tag
+      rulesets, and immutable-release setting are verified ready. Slice 3 does not use
+      that readiness to create a version, tag, draft, or release automatically.
     </aside>
 
     <section aria-labelledby="future-title">
@@ -249,15 +250,15 @@
       <div class="card mini">
         <ul>
           <li><a href="#" data-repo-path="doc/plans/2026-08-03__signing-notarization-preflight.md">The reviewed issue 13 plan</a> — canonical decisions and slice boundaries.</li>
-          <li><a href="#" data-repo-path=".github/workflows/release.yml">.github/workflows/release.yml</a> — current publication workflow that slice 2 will replace.</li>
+          <li><a href="#" data-repo-path=".github/workflows/release.yml">.github/workflows/release.yml</a> — merged guarded publication and native evidence workflow.</li>
           <li><a href="https://github.com/lastobelus/markover/issues/12">Issue #12</a> — shared auth fixture and development evidence.</li>
           <li><a href="https://github.com/lastobelus/markover/issues/39">Issue #39</a> — durability and bounded-loss ownership.</li>
         </ul>
       </div>
     </section>
 
-    <a class="card next" href="index.html">
-      <span><strong>Back to overview:</strong> compare today's seal with the future Apple passport.</span>
+    <a class="card next" href="slice-3.html">
+      <span><strong>Next:</strong> see the narrow packaged path each native artifact must prove.</span>
       <span aria-hidden="true">→</span>
     </a>
 
@@ -266,7 +267,7 @@
       <div class="card">
         <details>
           <summary>Prompt / context</summary>
-          <div><p>The user requested a short interaction-focused explanation of the full setup before implementation. This page deliberately labels slice 2, slice 3, clean-machine evidence, and Developer ID activation as future work so the roadmap cannot be mistaken for current release behavior.</p></div>
+          <div><p>The user requested a short interaction-focused explanation of the full release setup. This page now distinguishes merged slice 2 and live safeguards from implementing slice 3, still-uncollected clean-machine evidence, and future Developer ID activation.</p></div>
         </details>
       </div>
     </footer>

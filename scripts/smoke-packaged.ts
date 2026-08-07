@@ -350,14 +350,6 @@ export async function runPackagedSmoke(
   const loadReview = dependencies.loadReview || ((reviewId: string) => (
     new ReviewStore(reviewsDirectory()).load(reviewId)
   ))
-  const host = (dependencies.host || defaultHost)()
-  const quarantinePresent = (
-    dependencies.quarantinePresent || defaultQuarantinePresent
-  )(prepared.appPath)
-  if (options.evidenceKind === 'clean-intel-sonoma') {
-    assertCleanIntelContext(options, prepared, host, quarantinePresent)
-  }
-
   const timeout = options.launchTimeoutMilliseconds ?? 120_000
   const sourcePath = path.join(
     os.tmpdir(),
@@ -385,6 +377,14 @@ export async function runPackagedSmoke(
   })
   let appStarted = false
   try {
+    const host = (dependencies.host || defaultHost)()
+    const quarantinePresent = (
+      dependencies.quarantinePresent || defaultQuarantinePresent
+    )(prepared.appPath)
+    if (options.evidenceKind === 'clean-intel-sonoma') {
+      assertCleanIntelContext(options, prepared, host, quarantinePresent)
+    }
+
     const first = await startApp(prepared.appPath, endpointPath, null, timeout)
     appStarted = true
     const reviewId = await openReview(endpointPath, sourcePath)
@@ -398,6 +398,8 @@ export async function runPackagedSmoke(
 
     await handoffAndReopen(endpointPath, reviewId)
     assertPersistedReview(await loadReview(reviewId), reviewId)
+    await stopApp(endpointPath, timeout)
+    appStarted = false
 
     const cleanMachine = options.evidenceKind === 'clean-intel-sonoma'
     const evidence: PackagedSmokeEvidence = {

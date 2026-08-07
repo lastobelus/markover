@@ -24,28 +24,24 @@ Program access exists and a separate reviewed change explicitly selects the
 `developer-id` trust mode. Adding credentials alone must never activate or
 downgrade a release path.
 
-## One-time repository safeguards
+## Verified repository safeguards
 
-Apply these settings only after the compatible slice-2 workflow has merged to
-`main`. Existing `v0.1.0` and `v0.1.1` releases remain untouched historical
-releases.
+The compatible slice-2 workflow is on `main`. Existing `v0.1.0` and `v0.1.1`
+releases remain untouched historical releases. The live release safeguards have
+been verified `ready`:
 
-1. Create a `release` environment in **Settings → Environments**. Require
-   `lastobelus` as reviewer, leave “Prevent self-review” disabled while there is
-   one maintainer, and restrict deployment branches and tags to `v*` tags. The
-   workflow uses this environment once to admit ordered draft staging and again
-   to approve publication.
-2. Create an active tag ruleset for exactly `refs/tags/v*`, with no exclusions,
-   that restricts tag creation to `lastobelus` through an always-on explicit
-   user bypass.
-3. Create a separate active tag ruleset for the same pattern that blocks tag
-   updates and deletion with no bypass actors. Separating these rules lets the
-   maintainer create a version while preventing anyone—including the
-   maintainer—from moving or reusing it.
-4. Enable immutable releases in **Settings → General → Releases**. Immutability
-   applies to future published releases; drafts remain editable until
-   publication.
-5. Verify the resulting state without mutating it:
+- Immutable releases are enabled for future published releases; drafts remain
+  editable until publication.
+- The protected `release` environment requires `lastobelus`, permits
+  self-approval while there is one maintainer, disallows administrator bypass,
+  and accepts only `v*` tags. The workflow uses it once for ordered draft
+  staging and again for publication approval.
+- One active ruleset restricts exactly `refs/tags/v*` creation through the
+  explicit `lastobelus` user bypass.
+- A separate unbypassable ruleset blocks updates and deletion for exactly
+  `refs/tags/v*`.
+
+Re-check this state without mutating it before every release:
 
    ```sh
    npm run release:preflight -- github-readiness \
@@ -55,6 +51,33 @@ releases.
 The readiness command must report `ready`. A `blocked` result identifies an
 expected missing safeguard; `failed` means a fact was unavailable or malformed
 and must not be guessed.
+
+## Slice-3 merge boundary
+
+The slice-3 implementation may merge after required CI is clean, automated
+Codex review has completed, every actionable finding is addressed, and Codex
+reports approval or no issues. After merge, stop and report readiness. Do not
+change versions, create a tag, create or approve a draft, or publish a release
+without explicit maintainer approval for the version/release operation.
+
+After that approval, the first-release sequence is:
+
+1. Select a stable version newer than every preserved tag and update the root
+   and bootstrap CLI versions together.
+2. Merge the version change to protected `main` and wait for required CI on
+   that exact commit.
+3. Confirm GitHub readiness is `ready` and Developer ID readiness is
+   intentionally `blocked`.
+4. Create the immutable version tag from that verified `main` commit.
+5. Approve the oldest pending tag at the first `release` gate to create the
+   complete draft.
+6. Run the clean Intel/Sonoma procedure below against the exact authenticated
+   draft downloads, including version-pinned rollback.
+7. Record the accepted evidence on issue 13 without serial numbers or account
+   details.
+8. Approve the separate publication job and verify the unchanged immutable
+   release.
+9. Update the signing-preflight ELI5 truth context.
 
 ## Prepare a stable release
 
@@ -112,6 +135,106 @@ or replace individual assets. Confirm in GitHub that the release is still a
 draft for that exact unpublished tag. Then make an explicit maintainer decision
 to delete only the draft release—not the tag—and rerun the whole workflow so a
 single run produces and verifies the complete set again.
+
+## Shared packaged smoke evidence
+
+Each native release builder runs the same narrow happy path against its exact
+final ZIP and retains `verification/packaged-smoke-arm64.json` or
+`verification/packaged-smoke-x64.json` with the build artifacts. The runner:
+
+1. repeats final-ZIP checksum, structure, architecture, signing, entitlement,
+   and expected ad-hoc Gatekeeper verification;
+2. launches the packaged app and uses the shared issue-12 fixture helpers to
+   create/open one real review;
+3. confirms the review is saved before a normal app restart;
+4. relaunches the same packaged app and confirms the saved review restores;
+5. runs CLI get and edit/reopen and confirms the reopened state on disk; and
+6. writes versioned, sanitized JSON evidence while preserving the review.
+
+This is not issue 12's adversarial authorization suite and does not send
+unauthorized or mismatched credentials. It is not issue 39's durability suite
+and does not crash the app, measure a loss window, race writes, or claim a
+bounded-loss guarantee.
+
+### Clean Intel/Sonoma procedure
+
+Use the dedicated 2019 Intel Mac running Sonoma. Keep it isolated from normal
+Markover work and quit any running Markover before starting.
+
+1. Through authenticated Safari, download the complete exact draft asset set,
+   including both native ZIPs and sidecars plus `markover-cli.tgz`. Record the
+   draft and workflow links. Do not substitute `latest` assets.
+2. Verify every digest and GitHub build attestation as described below. Record
+   the x64 ZIP digest used for the machine exercise.
+3. Extract the x64 ZIP into a dedicated installation directory while preserving
+   extended attributes. Confirm the app still has Safari's quarantine marker:
+
+   ```sh
+   /usr/bin/xattr -p com.apple.quarantine \
+     "/path/to/installed/Markover.app"
+   ```
+
+4. Control-click **Open**. Confirm Gatekeeper blocks the ad-hoc app, then use
+   **System Settings → Privacy & Security → Open Anyway** for this app. Never
+   remove quarantine recursively. After the approved app opens, quit it so the
+   scripted restart exercise begins from a stopped state.
+5. From the exact tagged source checkout, run the shared packaged smoke. Choose
+   a new evidence path; the command refuses to overwrite evidence:
+
+   ```sh
+   npm run smoke:packaged -- \
+     --archive=/path/to/Markover-darwin-x64.zip \
+     --checksum=/path/to/Markover-darwin-x64.zip.sha256 \
+     --architecture=x64 \
+     --version=VERSION_WITHOUT_V \
+     --trust-mode=ad-hoc \
+     --app=/path/to/installed/Markover.app \
+     --evidence-kind=clean-intel-sonoma \
+     --evidence=/path/to/issue-13-clean-intel-evidence.json
+   ```
+
+6. Confirm the JSON says `format: "markover-packaged-smoke-evidence"`,
+   `status: "passed"`, `cleanMachine: true`, names the
+   expected source commit, x64 digest, model class, Sonoma version, expected
+   ad-hoc Gatekeeper rejection, quarantine, launch, saved-state restart,
+   restoration, CLI open/get/edit, and edit/reopen results. It must also say
+   `appleVerified: false`, `notarized: false`, and list adversarial authorization
+   and bounded-loss durability as exclusions.
+7. Quit Markover and back up the complete Application Support directory. Run
+   the exact version-pinned rollback command from the draft notes, reopen the
+   preserved smoke review, and confirm its already-saved state remains usable.
+   Record rollback separately because the packaged smoke JSON deliberately
+   covers only the shared happy path.
+
+### Issue 13 evidence format
+
+Post one issue comment only after the real clean-machine run passes. Use this
+shape and omit serial numbers, usernames, paths containing account names, and
+Apple/GitHub account details:
+
+```markdown
+### First post-policy clean Intel evidence — vX.Y.Z
+
+- Source commit: `<40-hex commit>`
+- Draft / workflow: `<authenticated draft link>` / `<Actions run link>`
+- Exact assets: `arm64 <sha256>`; `x64 <sha256>`; `CLI <sha256>`
+- Automated native smoke: `arm64 passed` / `x64 passed` with workflow-artifact links
+- Clean host: `2019 Intel MacBook class`; `macOS 14.x Sonoma`; `x86_64`
+- Trust result: `hardened ad-hoc`; `not Apple-verified`; `not notarized`;
+  `Gatekeeper rejected before the visible per-app override`
+- Clean packaged smoke: `<source commit>` / `<x64 digest>` / `<review ID>` / `passed`
+- Covered: launch; CLI create/open; saved state before restart; restart/restoration;
+  CLI get; CLI edit/reopen; reopened state on disk
+- Excluded: adversarial authorization (#12); bounded-loss durability (#39)
+- Rollback target / command: `vA.B.C` / `<exact version-pinned command>`
+- Rollback result: `<passed or failed, with preserved-review observation>`
+- Overall result: `<accepted or rejected>`
+```
+
+The JSON file is machine evidence for the packaged happy path. The issue
+comment joins that result to the attestation, Gatekeeper, installation, and
+rollback observations needed for the release decision. Do not mark the clean
+machine or overall result passed before those actions actually occur.
 
 ## Verify a published release
 
