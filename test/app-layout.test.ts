@@ -79,3 +79,15 @@ test('application layout binds build identity to renderer bytes', async (t) => {
     /build identity is invalid/
   )
 })
+
+test('application layout verifies the emitted main-process closure', async (t) => {
+  const directory = await fixture(t)
+  await fs.writeFile(
+    path.join(directory, 'src/main.js'),
+    "require('./not-staged')\n"
+  )
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /main requires missing src\/not-staged\.js/
+  )
+})

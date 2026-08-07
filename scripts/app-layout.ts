@@ -9,6 +9,7 @@ export const runtimeModuleNames = [
   'main',
   'metadata-discovery',
   'preload',
+  'review-autosave',
   'review-migration',
   'review-store',
   'service-endpoint',
@@ -81,6 +82,25 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
       ...(missing.length ? [`Missing: ${missing.join(', ')}`] : []),
       ...(unexpected.length ? [`Unexpected: ${unexpected.join(', ')}`] : [])
     ].join('\n'))
+  }
+
+  const actualEntrySet = new Set(actualEntries)
+  for (const moduleName of runtimeModuleNames) {
+    const modulePath = path.join(appDirectory, 'src', `${moduleName}.js`)
+    const source = await fs.readFile(modulePath, 'utf8')
+    for (const match of source.matchAll(/require\(["'](\.\.?\/[^"']+)["']\)/g)) {
+      const request = match[1]
+      if (!request) continue
+      const target = path.posix.normalize(path.posix.join(
+        'src',
+        request.endsWith('.js') ? request : `${request}.js`
+      ))
+      if (!actualEntrySet.has(target)) {
+        throw new Error(
+          `Staged runtime module ${moduleName} requires missing ${target}.`
+        )
+      }
+    }
   }
 
   const manifest: unknown = JSON.parse(await fs.readFile(
