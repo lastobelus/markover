@@ -18,6 +18,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { applicationMenuTemplate } from './app-menu'
+import { AsyncMutationTracker } from './async-mutation-tracker'
 import { loadDevelopmentConfig } from './development-config'
 import { runtimeInstanceFromEnvironment } from './instance'
 import { startLocalService, type LocalService } from './local-service'
@@ -168,6 +169,7 @@ let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const projectRoots = new Map<string, Promise<string | null>>()
+const managedAttachmentMutations = new AsyncMutationTracker()
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -1164,7 +1166,17 @@ if (!hasSingleInstanceLock) {
       _event: IpcMainInvokeEvent,
       source: string
     ) => checksum(source))
-    ipcMain.handle('attachment:save', saveAttachment)
+    ipcMain.handle('attachment:save', (
+      event: IpcMainInvokeEvent,
+      attachment: MarkoverClipboardImage,
+      reviewId: string | null = null
+    ) => (
+      reviewId
+        ? managedAttachmentMutations.track(() => (
+            saveAttachment(event, attachment, reviewId)
+          ))
+        : saveAttachment(event, attachment, reviewId)
+    ))
     ipcMain.handle('clipboard:read-image', readClipboardImage)
     ipcMain.handle('settings:get', () => settingsEnvelope(store.settings))
     ipcMain.handle('settings:update', async (

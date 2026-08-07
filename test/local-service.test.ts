@@ -97,7 +97,7 @@ async function serviceFixture(
     await service.close()
     await fs.rm(directory, { recursive: true, force: true })
   })
-  return { changes, endpointPath, identity, port: service.port, store }
+  return { changes, endpointPath, identity, port: service.port, service, store }
 }
 
 async function rawRequest(
@@ -907,4 +907,56 @@ test('handoff and edit serialize across the renderer snapshot', async (t) => {
     (await fixture.store.load('mko_aaa11111')).review.status,
     'editing'
   )
+})
+
+test('pausing mutations drains active work and rejects new mutations', async (t) => {
+  let releaseSnapshot!: () => void
+  let snapshotStarted!: () => void
+  const snapshotReady = new Promise<void>((resolve) => {
+    snapshotStarted = resolve
+  })
+  const snapshotBarrier = new Promise<void>((resolve) => {
+    releaseSnapshot = resolve
+  })
+  const fixture = await serviceFixture(t, {
+    async beforeAction() {
+      snapshotStarted()
+      await snapshotBarrier
+    }
+  })
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Review shutdown mutation gating.' }
+  })
+
+  const handoff = requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff'
+  )
+  await snapshotReady
+  let paused = false
+  const pause = fixture.service.pauseMutations().then(() => { paused = true })
+  await Promise.resolve()
+  assert.equal(paused, false)
+  await assert.rejects(
+    requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/edit'
+    ),
+    (error: unknown) => hasServiceError(error, 'SHUTTING_DOWN', 503)
+  )
+
+  releaseSnapshot()
+  await handoff
+  await pause
+  assert.equal(paused, true)
+  fixture.service.resumeMutations()
+  const edited = expectRecord(await requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/edit'
+  ))
+  assert.equal(edited.status, 'editing')
 })

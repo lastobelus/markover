@@ -314,6 +314,90 @@ test('saveNow reports a failed attempt while retaining it for retry', async () =
   assert.equal(attempts[1]?.sourceDocument.content, '# Barrier\n')
 })
 
+test('flush bypasses the trailing delay and waits for the latest pending write', async () => {
+  const clock = new FakeClock()
+  const writes: Array<{ tree: ReviewTree; done: Deferred<ReviewArtifact> }> = []
+  const autosave = new ReviewAutosave({
+    updateTree(_reviewId, candidate) {
+      const snapshot = candidate as ReviewTree
+      const done = deferred<ReviewArtifact>()
+      writes.push({ tree: snapshot, done })
+      return done.promise
+    }
+  }, { maximumDelayMs: 2000, now: clock.now, schedule: clock.schedule })
+
+  autosave.queue('mko_aaa11111', tree('# First\n'))
+  autosave.queue('mko_aaa11111', tree('# Latest\n'))
+  let flushed = false
+  const flush = autosave.flush('mko_aaa11111').then(() => { flushed = true })
+  assert.equal(writes.length, 1)
+  const initialWrite = writes[0]
+  assert.ok(initialWrite)
+  initialWrite.done.resolve(artifact('mko_aaa11111', initialWrite.tree))
+  await settle()
+  assert.equal(clock.nextDelay(), 0)
+  clock.tick(0)
+  assert.equal(writes.length, 2)
+  assert.equal(writes[1]?.tree.sourceDocument.content, '# Latest\n')
+  assert.equal(flushed, false)
+  writes[1].done.resolve(artifact('mko_aaa11111', writes[1].tree))
+  await flush
+  assert.equal(flushed, true)
+})
+
+test('flushAll drains reviews independently', async () => {
+  const writes = new Map<string, Deferred<ReviewArtifact>>()
+  const autosave = new ReviewAutosave({
+    updateTree(reviewId, candidate) {
+      const done = deferred<ReviewArtifact>()
+      writes.set(reviewId, done)
+      const snapshot = candidate as ReviewTree
+      return done.promise.then(() => artifact(reviewId, snapshot))
+    }
+  })
+  autosave.queue('mko_aaa11111', tree('# First\n'))
+  autosave.queue('mko_bbb22222', tree('# Second\n'))
+
+  let flushed = false
+  const flush = autosave.flushAll().then(() => { flushed = true })
+  writes.get('mko_aaa11111')?.resolve(artifact(
+    'mko_aaa11111',
+    tree('# First\n')
+  ))
+  await settle()
+  assert.equal(flushed, false)
+  writes.get('mko_bbb22222')?.resolve(artifact(
+    'mko_bbb22222',
+    tree('# Second\n')
+  ))
+  await flush
+  assert.equal(flushed, true)
+})
+
+test('flush reports persistence failure and exposes recovery state', async () => {
+  const clock = new FakeClock()
+  let shouldFail = true
+  const autosave = new ReviewAutosave({
+    updateTree(reviewId, candidate) {
+      const snapshot = candidate as ReviewTree
+      return shouldFail
+        ? Promise.reject(new Error('disk unavailable'))
+        : Promise.resolve(artifact(reviewId, snapshot))
+    }
+  }, { now: clock.now, schedule: clock.schedule })
+
+  autosave.queue('mko_aaa11111', tree('# Pending\n'))
+  await assert.rejects(
+    autosave.flush('mko_aaa11111'),
+    /disk unavailable/
+  )
+  assert.deepEqual(autosave.failedReviewIds(), ['mko_aaa11111'])
+  shouldFail = false
+  clock.tick(100)
+  await settle()
+  assert.deepEqual(autosave.failedReviewIds(), [])
+})
+
 test('retry backoff is bounded at thirty seconds', async () => {
   const clock = new FakeClock()
   const autosave = new ReviewAutosave({
