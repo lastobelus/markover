@@ -36,6 +36,15 @@ const root = path.resolve(__dirname, '../..')
 const casesPath = path.join(root, 'evals/start-issue/cases.json')
 const casesSource = fs.readFileSync(casesPath, 'utf8')
 const cases = JSON.parse(casesSource) as StartIssueCase[]
+const skillDirectory = path.join(root, '.agents/skills/start-issue')
+const skillSource = fs.readFileSync(path.join(skillDirectory, 'SKILL.md'), 'utf8')
+
+function readReference(name: string): string {
+  return fs.readFileSync(
+    path.join(skillDirectory, 'references', name),
+    'utf8'
+  )
+}
 
 function evaluate(
   evaluationCase: StartIssueCase,
@@ -67,6 +76,31 @@ test('start-issue corpus covers the eight coordination branches', () => {
     'merged-pr-followup-issue-only-chooses-tracker'
   ])
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
+})
+
+test('branch-only guidance is progressively disclosed', () => {
+  assert.doesNotMatch(skillSource, /^### Follow-ups to merged pull requests$/m)
+  assert.match(
+    skillSource,
+    /Untracked or post-merge work:[\s\S]*references\/work-item-routing\.md/
+  )
+  assert.match(
+    skillSource,
+    /Tracker selection:[\s\S]*references\/tracker-selection\.md/
+  )
+  assert.match(
+    skillSource,
+    /material decision remains unresolved[\s\S]*references\/interview\.md/
+  )
+  assert.match(
+    skillSource,
+    /target already has one or more trusted marked comments[\s\S]*references\/existing-claim\.md/
+  )
+
+  assert.match(readReference('work-item-routing.md'), /## Follow-up after merge/)
+  assert.match(readReference('tracker-selection.md'), /## Discover candidates/)
+  assert.match(readReference('interview.md'), /# Implementation interview/)
+  assert.match(readReference('existing-claim.md'), /# Existing work-intent claim/)
 })
 
 test('fixtures contain normalized observations rather than live GitHub output', () => {
