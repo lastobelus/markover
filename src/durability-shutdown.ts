@@ -1,6 +1,7 @@
 export interface DurabilityShutdownSteps {
   pauseMutations: () => Promise<void>
   captureSnapshots: () => Promise<void>
+  blockNewAttachments: () => Promise<void>
   waitForAttachments: () => Promise<void>
   flushAutosaves: () => Promise<void>
   closeService: () => Promise<void>
@@ -61,8 +62,9 @@ export async function runDurabilityShutdown(
 
   try {
     await beforeDeadline(steps.pauseMutations)
-    await beforeDeadline(steps.waitForAttachments)
     await beforeDeadline(steps.captureSnapshots)
+    await beforeDeadline(steps.blockNewAttachments)
+    await beforeDeadline(steps.waitForAttachments)
     await beforeDeadline(steps.flushAutosaves)
     await beforeDeadline(steps.closeService)
     cancelDeadline()

@@ -168,7 +168,7 @@ let startupInfo: StartupInfo | null = null
 let startupReady = false
 let rendererInitializationHandled = false
 let rendererStartupFailed = false
-let managedMutationsPaused = false
+let managedAttachmentSavesBlocked = false
 let managedShutdownComplete = false
 let managedShutdownStarted = false
 let activeStartupPhase: StartupPhase | null = null
@@ -795,8 +795,7 @@ function sendManagedAutosaveStatus(): void {
   } satisfies ReviewAutosaveStatus)
 }
 
-function setManagedMutationPause(paused: boolean): void {
-  managedMutationsPaused = paused
+function setManagedRendererPause(paused: boolean): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
   mainWindow.webContents.send('review:shutdown-state', paused)
 }
@@ -930,18 +929,23 @@ async function stopPublishedService(): Promise<void> {
 }
 
 function resumeManagedMutations(): void {
+  managedAttachmentSavesBlocked = false
   localService?.resumeMutations()
-  setManagedMutationPause(false)
+  setManagedRendererPause(false)
 }
 
 async function runManagedDurabilityShutdown(): Promise<void> {
   await runDurabilityShutdown({
     async pauseMutations() {
-      setManagedMutationPause(true)
+      setManagedRendererPause(true)
       await localService?.pauseMutations()
     },
-    waitForAttachments: () => managedAttachmentMutations.wait(),
     captureSnapshots: captureEditableManagedReviews,
+    blockNewAttachments() {
+      managedAttachmentSavesBlocked = true
+      return Promise.resolve()
+    },
+    waitForAttachments: () => managedAttachmentMutations.wait(),
     flushAutosaves: () => requireManagedAutosave().flushAll(),
     closeService: stopPublishedService,
     resumeMutations: resumeManagedMutations
@@ -1285,7 +1289,7 @@ if (!hasSingleInstanceLock) {
       attachment: MarkoverClipboardImage,
       reviewId: string | null = null
     ) => {
-      if (reviewId && managedMutationsPaused) {
+      if (reviewId && managedAttachmentSavesBlocked) {
         throw new Error('Markover is finishing review saves before quitting.')
       }
       return reviewId

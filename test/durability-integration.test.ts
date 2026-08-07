@@ -44,10 +44,12 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
     main.indexOf("app.on('will-quit'")
   )
 
-  assert.match(barrier, /setManagedMutationPause\(true\)/)
+  assert.match(barrier, /setManagedRendererPause\(true\)/)
   assert.match(barrier, /localService\?\.pauseMutations\(\)/)
-  assert.match(barrier, /managedAttachmentMutations\.wait\(\)/)
-  assert.match(barrier, /captureEditableManagedReviews/)
+  assert.match(
+    barrier,
+    /captureSnapshots: captureEditableManagedReviews,[\s\S]*blockNewAttachments[\s\S]*managedAttachmentMutations\.wait\(\)/
+  )
   assert.match(barrier, /requireManagedAutosave\(\)\.flushAll\(\)/)
   assert.match(barrier, /closeService: stopPublishedService/)
   assert.match(beforeQuit, /event\.preventDefault\(\)/)
@@ -77,17 +79,21 @@ test('autosave storage failures use a dedicated persistent renderer warning', ()
   )
 })
 
-test('renderer mutation controls pause during each graceful-shutdown attempt', () => {
+test('renderer mutations drain before main blocks new attachment saves', () => {
   const main = read('src/main.ts')
   const renderer = read('src/renderer.ts')
 
   assert.match(
     main,
-    /setManagedMutationPause\(paused: boolean\)[\s\S]*review:shutdown-state/
+    /setManagedRendererPause\(paused: boolean\)[\s\S]*review:shutdown-state/
   )
   assert.match(
     main,
-    /if \(reviewId && managedMutationsPaused\)[\s\S]*finishing review saves before quitting/
+    /captureSnapshots: captureEditableManagedReviews,[\s\S]*managedAttachmentSavesBlocked = true[\s\S]*managedAttachmentMutations\.wait\(\)/
+  )
+  assert.match(
+    main,
+    /if \(reviewId && managedAttachmentSavesBlocked\)[\s\S]*finishing review saves before quitting/
   )
   assert.match(
     renderer,

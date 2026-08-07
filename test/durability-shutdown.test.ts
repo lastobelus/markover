@@ -46,7 +46,7 @@ test('editable review snapshots capture and persist independently in parallel', 
   assert.deepEqual(persisted, ['mko_bbb22222', 'mko_aaa11111'])
 })
 
-test('shutdown drains attachments before its final snapshot and autosave flush', async () => {
+test('shutdown snapshots renderer work before blocking and draining attachments', async () => {
   const events: string[] = []
   let releaseAttachments!: () => void
   const attachments = new Promise<void>((resolve) => {
@@ -60,6 +60,10 @@ test('shutdown drains attachments before its final snapshot and autosave flush',
     },
     captureSnapshots() {
       events.push('snapshots')
+      return Promise.resolve()
+    },
+    blockNewAttachments() {
+      events.push('attachments:block')
       return Promise.resolve()
     },
     async waitForAttachments() {
@@ -82,20 +86,82 @@ test('shutdown drains attachments before its final snapshot and autosave flush',
   await waitForEvent(events, 'attachments:start')
   assert.deepEqual(events, [
     'pause',
+    'snapshots',
+    'attachments:block',
     'attachments:start'
   ])
   releaseAttachments()
   await shutdown
   assert.deepEqual(events, [
     'pause',
+    'snapshots',
+    'attachments:block',
     'attachments:start',
     'attachments:done',
-    'snapshots',
     'autosaves:start',
     'autosaves:done',
     'close'
   ])
   assert.equal(events.includes('resume'), false)
+})
+
+test('a renderer paste started before shutdown can save before attachments block', async () => {
+  const events: string[] = []
+  let attachmentsBlocked = false
+  let releaseImageRead!: () => void
+  const imageRead = new Promise<void>((resolve) => { releaseImageRead = resolve })
+  const paste = (async () => {
+    events.push('paste:started')
+    await imageRead
+    assert.equal(attachmentsBlocked, false)
+    events.push('attachment:saved')
+  })()
+
+  const shutdown = runDurabilityShutdown({
+    pauseMutations() {
+      events.push('pause')
+      return Promise.resolve()
+    },
+    async captureSnapshots() {
+      events.push('snapshot:start')
+      await paste
+      events.push('snapshot:done')
+    },
+    blockNewAttachments() {
+      attachmentsBlocked = true
+      events.push('attachments:block')
+      return Promise.resolve()
+    },
+    waitForAttachments() {
+      events.push('attachments:drained')
+      return Promise.resolve()
+    },
+    flushAutosaves() {
+      events.push('autosaves')
+      return Promise.resolve()
+    },
+    closeService() {
+      events.push('close')
+      return Promise.resolve()
+    },
+    resumeMutations() { events.push('resume') }
+  })
+
+  await waitForEvent(events, 'snapshot:start')
+  assert.deepEqual(events, ['paste:started', 'pause', 'snapshot:start'])
+  releaseImageRead()
+  await shutdown
+  assert.deepEqual(events, [
+    'paste:started',
+    'pause',
+    'snapshot:start',
+    'attachment:saved',
+    'snapshot:done',
+    'attachments:block',
+    'attachments:drained',
+    'autosaves',
+    'close'
+  ])
 })
 
 test('shutdown resumes mutations and leaves the service open after failure', async () => {
@@ -107,6 +173,10 @@ test('shutdown resumes mutations and leaves the service open after failure', asy
     },
     captureSnapshots() {
       events.push('snapshots')
+      return Promise.resolve()
+    },
+    blockNewAttachments() {
+      events.push('attachments:block')
       return Promise.resolve()
     },
     waitForAttachments() {
@@ -123,7 +193,12 @@ test('shutdown resumes mutations and leaves the service open after failure', asy
     resumeMutations() { events.push('resume') }
   }), /attachment drain failed/)
 
-  assert.deepEqual(events, ['pause', 'resume'])
+  assert.deepEqual(events, [
+    'pause',
+    'snapshots',
+    'attachments:block',
+    'resume'
+  ])
 })
 
 test('shutdown resumes mutations when pausing fails partway through', async () => {
@@ -135,6 +210,10 @@ test('shutdown resumes mutations when pausing fails partway through', async () =
     },
     captureSnapshots() {
       events.push('snapshots')
+      return Promise.resolve()
+    },
+    blockNewAttachments() {
+      events.push('attachments:block')
       return Promise.resolve()
     },
     waitForAttachments() {
@@ -167,13 +246,17 @@ test('shutdown cancels at five seconds without advancing after late work', async
       events.push('pause')
       return Promise.resolve()
     },
-    async waitForAttachments() {
-      events.push('attachments')
-      await attachments
-    },
     captureSnapshots() {
       events.push('snapshots')
       return Promise.resolve()
+    },
+    blockNewAttachments() {
+      events.push('attachments:block')
+      return Promise.resolve()
+    },
+    async waitForAttachments() {
+      events.push('attachments')
+      await attachments
     },
     flushAutosaves() {
       events.push('autosaves')
@@ -200,13 +283,15 @@ test('shutdown cancels at five seconds without advancing after late work', async
   )
   assert.deepEqual(events, [
     'pause',
+    'snapshots',
+    'attachments:block',
     'attachments',
     'deadline:cancel',
     'resume'
   ])
   releaseAttachments()
   await Promise.resolve()
-  assert.equal(events.includes('snapshots'), false)
+  assert.equal(events.includes('autosaves'), false)
 })
 
 test('shutdown deadline remains active while the local service closes', async () => {
@@ -225,6 +310,10 @@ test('shutdown deadline remains active while the local service closes', async ()
     },
     captureSnapshots() {
       events.push('snapshots')
+      return Promise.resolve()
+    },
+    blockNewAttachments() {
+      events.push('attachments:block')
       return Promise.resolve()
     },
     flushAutosaves() {
@@ -252,8 +341,9 @@ test('shutdown deadline remains active while the local service closes', async ()
   )
   assert.deepEqual(events, [
     'pause',
-    'attachments',
     'snapshots',
+    'attachments:block',
+    'attachments',
     'autosaves',
     'close',
     'deadline:cancel',
