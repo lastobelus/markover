@@ -15,6 +15,8 @@ const outputPath = path.join(
   'design/brand/markover-app-icon.icns'
 )
 
+export type IconCommandRunner = (command: string, args: string[]) => void
+
 function run(command: string, args: string[]): void {
   const result = spawnSync(command, args, { encoding: 'utf8' })
   if (result.status !== 0) {
@@ -25,8 +27,20 @@ function run(command: string, args: string[]): void {
   }
 }
 
-export function main(): void {
-  if (process.platform !== 'darwin') {
+export interface BuildMacosIconOptions {
+  sourcePath?: string
+  outputPath?: string
+  platform?: NodeJS.Platform
+  runCommand?: IconCommandRunner
+}
+
+export function buildMacosIcon({
+  sourcePath: selectedSourcePath = sourcePath,
+  outputPath: selectedOutputPath = outputPath,
+  platform = process.platform,
+  runCommand = run
+}: BuildMacosIconOptions = {}): void {
+  if (platform !== 'darwin') {
     throw new Error('Building the macOS icon requires macOS.')
   }
 
@@ -51,25 +65,29 @@ export function main(): void {
 
   try {
     for (const [size, filename] of variants) {
-      run('/usr/bin/sips', [
+      runCommand('/usr/bin/sips', [
         '-z',
         String(size),
         String(size),
-        sourcePath,
+        selectedSourcePath,
         '--out',
         path.join(iconsetPath, filename)
       ])
     }
-    run('/usr/bin/iconutil', [
+    runCommand('/usr/bin/iconutil', [
       '-c',
       'icns',
       iconsetPath,
       '-o',
-      outputPath
+      selectedOutputPath
     ])
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true })
   }
+}
+
+export function main(): void {
+  buildMacosIcon()
 }
 
 if (require.main === module) {
