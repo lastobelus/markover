@@ -314,7 +314,9 @@ foundation for a production architecture.
 7. **Only exact `GET /health` is public.** It returns `status`, protocol version
    2, and the service's non-secret instance ID. Every other request must
    authenticate before route matching or body reading with exactly one
-   `Authorization: Bearer <token>` header.
+   Authorization field. The Bearer scheme is case-insensitive and permits one
+   or more spaces as HTTP specifies; the capability retains its exact
+   43-character base64url shape, and the client emits the canonical form.
 8. **Authorization failures do not become an oracle.** Missing, malformed,
    duplicated, and incorrect credentials all return the same structured
    `401 UNAUTHORIZED` response and Bearer challenge. Validly shaped tokens use
@@ -366,6 +368,36 @@ foundation for a production architecture.
     have reached a listener, transport failure tells the user to inspect
     Markover before retrying. Automatic retries require a separately designed
     idempotency contract.
+17. **Authorization evidence uses a layered real-HTTP matrix.** Every current
+    protected route is denied with missing and validly-shaped incorrect
+    credentials, while every hostile credential class is exercised against a
+    representative mutation. Unauthorized requests stop before routing, body
+    parsing, callbacks, or state changes. Unknown routes authenticate before
+    `404`; tests do not invent attachment or deletion APIs that do not exist.
+18. **Local session discovery is visible and controllable.** The default-on
+    “Discover agent thread from local session logs” setting controls only
+    handoff-key-based Codex session scanning. Explicit thread IDs and Git
+    provenance remain available. The CLI reads the shared per-user setting
+    without adding a service route; a missing file uses the default, while an
+    existing malformed or unreadable file skips scanning. Opt-out is silent and
+    never prevents a review from opening.
+19. **Public privacy claims distinguish local storage from safe sharing.** The
+    public page names stored review content, attachments, local paths, Git and
+    agent provenance, storage locations, indefinite retention, and the current
+    quit-then-delete procedure. Source-edit proposals do not mutate original
+    Markdown. Reviews remain local to the macOS account, but same-user and
+    privileged processes remain inside the trust boundary.
+20. **Network and handoff boundaries are explicit.** Ordinary review handling
+    has no telemetry, analytics, cloud sync, or automatic review upload.
+    Installation can contact npm or GitHub, and explicitly previewing a remote
+    Markdown image contacts its host; the image remains inert before that
+    action. After an authenticated agent retrieves a handoff, the recipient's
+    storage, logging, and network behavior is outside Markover's control.
+21. **Issue 12 closes at the verified authorization boundary.** Issue 39 owns
+    bounded-loss durability, issue 13 owns packaged happy-path smoke, issue 9
+    owns broader preview documentation and cleanup guidance, issue 15 owns
+    deletion, and issue 64 owns the future in-app privacy link. The final slice
+    does not absorb those roadmapped responsibilities.
 
 ## Deliberately deferred
 

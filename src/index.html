@@ -353,6 +353,11 @@
             </div>
             <textarea id="agent-interpretation-policy" name="agentInterpretationPolicy" rows="5"></textarea>
           </div>
+          <h3 class="settings-section-title">Privacy</h3>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex session records for the review's handoff key. Nothing is uploaded.</small></span>
+            <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
+          </label>
           <h3 class="settings-section-title">Diagnostics</h3>
           <label class="settings-field settings-switch-field">
             <span><strong>Log rejected API requests</strong><small>Write sanitized request method, path, and rejection reason to stderr. Request contents and credentials are never logged.</small></span>

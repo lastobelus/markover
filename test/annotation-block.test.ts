@@ -152,7 +152,13 @@ test('inline Markdown images are static in peeks and interactive when requested'
     onInlineImage: (source, label) => calls.push(`${source}:${label}`),
     renderMarkdown
   })
-  element(list.querySelector<HTMLElement>('button.inline-image')).click()
+  const button = element(
+    list.querySelector<HTMLButtonElement>('button.inline-image')
+  )
+  assert.equal(list.querySelector('img'), null)
+  assert.equal(button.getAttribute('src'), null)
+  assert.deepEqual(calls, [])
+  button.click()
   assert.deepEqual(calls, ['diagram.png:diagram'])
 })
 

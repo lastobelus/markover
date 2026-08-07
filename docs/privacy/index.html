@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#eee8e0">
+    <meta name="description" content="What Markover stores locally, when it uses the network, and how its local authorization boundary works.">
+    <title>Privacy and local data — Markover documentation</title>
+    <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body class="docs-page">
+    <aside class="docs-sidebar">
+      <a class="docs-brand brand-lockup brand-lockup-vertical" href="../" aria-label="Markover home">
+        <img class="brand-lockup-logo" src="../assets/markover-lockup.svg" alt="Markover">
+        <span class="brand-lockup-tagline">Structured review for Markdown.</span>
+      </a>
+      <nav class="docs-nav" aria-label="Documentation">
+        <p>Guide</p>
+        <a href="../guide/">Getting started</a>
+        <p>Reference</p>
+        <a href="#overview" aria-current="page">Privacy and local data</a>
+        <a href="https://github.com/lastobelus/markover/blob/main/docs/development.md">Development</a>
+        <a href="https://github.com/lastobelus/markover">Source</a>
+      </nav>
+      <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
+    </aside>
+
+    <header class="docs-mobile-header">
+      <a href="../"><img src="../assets/markover-mark.svg" alt=""><span>Markover docs</span></a>
+      <a href="../guide/">Guide</a>
+    </header>
+
+    <main class="docs-content">
+      <p class="eyebrow">Reference</p>
+      <h1 id="overview">Privacy and local data</h1>
+      <p class="docs-lede">Markover keeps ordinary review work on your Mac. This page explains what “local” means, what is stored, which deliberate actions can use the network, and what leaves Markover when you hand a review to an agent.</p>
+
+      <section id="local-only">
+        <h2>Local means your macOS account</h2>
+        <p>Markover stores reviews and runs its loopback API inside the current macOS account. Each account—including accounts active through Fast User Switching—runs an independent Markover instance with separate data, endpoint records, and credentials.</p>
+        <p>The application-data directory is restricted to its owner on supported macOS systems. A process running as another ordinary account can connect to loopback but cannot read Markover's protected capability, so the API denies it.</p>
+        <div class="callout"><strong>The trust boundary is the OS account.</strong> Other processes running as you, system administrators, and root can ordinarily read your files or credentials and remain inside this boundary. Markover does not claim to isolate data from them.</div>
+      </section>
+
+      <section id="authorization">
+        <h2>How the local API is protected</h2>
+        <p>Each Markover service process creates a fresh 256-bit capability. The application-data directory uses POSIX mode <code>0700</code>, while <code>service.json</code> and <code>service.token</code> use <code>0600</code>. Every review route requires that capability before route handling or request-body processing.</p>
+        <p>Exact <code>GET /health</code> is public and returns only service status, protocol version, and a temporary instance ID. The instance ID is a non-secret name tag that helps the client avoid sending its capability to an ordinary unrelated listener. It is not authentication or cryptographic proof against a process already running as you.</p>
+        <p>Rejected-request diagnostics are off by default. If enabled in Settings, they contain only the method, path without its query, and a coarse rejection reason—never the capability, authorization field, request body, or review content.</p>
+      </section>
+
+      <section id="stored">
+        <h2>What Markover stores</h2>
+        <p>A review can contain the complete Markdown source, parsed document structure, annotations, source-edit proposals, attachment files and metadata, review state, and timestamps. Proposed source edits stay in the review; Markover does not apply them to the original Markdown source.</p>
+        <p>When available, provenance can include source and repository paths, a sanitized Git remote, branch, commit, pull-request number, and agent-thread details such as IDs, working directory, parent or fork information, and the selected local session-log path.</p>
+        <div class="callout"><strong>Local does not mean safe to publish.</strong> Review JSON, attachments, and otherwise legitimate command output can contain private content and identifying paths or IDs. Inspect or sanitize them before sharing.</div>
+      </section>
+
+      <section id="locations">
+        <h2>Where data lives</h2>
+        <p>On macOS, Markover's per-user root is:</p>
+        <pre><code>~/Library/Application Support/Markover/</code></pre>
+        <p>Managed reviews live under <code>reviews/&lt;review-id&gt;/</code>. Each directory contains <code>review.json</code> and, when present, attachment files. The root also contains <code>settings.json</code> and temporary service discovery records named <code>service.json</code> and <code>service.token</code>.</p>
+      </section>
+
+      <section id="discovery">
+        <h2>Local provenance discovery</h2>
+        <p>Markover may run read-only Git commands beside the reviewed source to record repository root, sanitized remote URL, branch, and commit. URL credentials, query strings, and fragments are removed before a URL-style remote is retained.</p>
+        <p>If an agent supplies a unique handoff key but no explicit thread ID, Markover can search a bounded set of recent local Codex session records for an exact match. It stores selected provenance from one unambiguous match, not a copy of the scanned logs.</p>
+        <p>This search is enabled by default. Turn off <strong>Discover agent thread from local session logs</strong> in Markover's Privacy settings to skip it on subsequent <code>open</code> commands. Explicit thread IDs and Git provenance remain available.</p>
+      </section>
+
+      <section id="agent-handoff">
+        <h2>When an agent retrieves a review</h2>
+        <p>An authenticated <code>get</code> returns the review source, annotations, attachments metadata, provenance, and agent guidance to the requesting local agent. Markover itself does not upload that handoff.</p>
+        <p>After another agent or tool receives the data, its storage, logging, sharing, and network behavior are outside Markover's control. Apply that recipient's privacy policy and trust model as well as Markover's.</p>
+      </section>
+
+      <section id="network">
+        <h2>When the internet may be used</h2>
+        <p>Ordinary review handling has no telemetry, analytics, cloud synchronization, or automatic upload of review content.</p>
+        <ul>
+          <li>Installing or updating through the launcher can download packages and release files from npm or GitHub.</li>
+          <li>A remote Markdown image starts as an inert preview button. If you explicitly open it, Markover requests its HTTP or HTTPS URL. The image host receives ordinary request metadata, including your IP address.</li>
+        </ul>
+        <p>These user-triggered connections are why Markover does not claim that it never connects to the internet.</p>
+      </section>
+
+      <section id="retention">
+        <h2>Retention and deletion</h2>
+        <p>Reviews and attachments remain until you remove them. Markover does not currently provide in-app review deletion.</p>
+        <p>For temporary manual deletion, first quit Markover. Then remove only the relevant directory under <code>~/Library/Application Support/Markover/reviews/</code>. Quitting first prevents active in-memory state from writing that review again. A safer in-app deletion flow is tracked separately.</p>
+      </section>
+
+      <nav class="docs-next" aria-label="Next page">
+        <span>Start reviewing</span>
+        <a href="../guide/">Read the user guide →</a>
+      </nav>
+    </main>
+  </body>
+</html>

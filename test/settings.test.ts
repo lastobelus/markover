@@ -38,6 +38,7 @@ test('settings defaults cover the persisted preferences', () => {
     'openDocumentsSidebar',
     'defaultTreeView',
     'confirmAttachmentRemoval',
+    'discoverAgentThreadFromLocalSessions',
     'logRejectedApiRequests',
     'agentInterpretationPolicy',
     'autosaveMaximumDelayMs'
@@ -54,6 +55,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
+    discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
     agentInterpretationPolicy: 'Follow the checklist.',
     autosaveMaximumDelayMs: 2500,
@@ -67,6 +69,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
+    discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
     agentInterpretationPolicy: 'Follow the checklist.',
     autosaveMaximumDelayMs: 2500
@@ -122,6 +125,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <input name="openDocumentsSidebar" type="checkbox">
       <select name="defaultTreeView"><option value="all">All</option><option value="annotated">Annotated</option></select>
       <input name="confirmAttachmentRemoval" type="checkbox">
+      <input name="discoverAgentThreadFromLocalSessions" type="checkbox">
       <input name="logRejectedApiRequests" type="checkbox">
       <textarea name="agentInterpretationPolicy"></textarea>
     </form>
@@ -199,6 +203,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   await store.update({
     palette: 'ocean',
     showKeyboardHelp: false,
+    discoverAgentThreadFromLocalSessions: false,
     agentInterpretationPolicy: 'Use this policy.',
     autosaveMaximumDelayMs: 3500
   })
@@ -206,6 +211,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   const restored = new SettingsStore(filePath)
   assert.equal((await restored.load()).palette, 'ocean')
   assert.equal(restored.settings.showKeyboardHelp, false)
+  assert.equal(restored.settings.discoverAgentThreadFromLocalSessions, false)
   assert.equal(restored.settings.agentInterpretationPolicy, 'Use this policy.')
   assert.equal(restored.settings.autosaveMaximumDelayMs, 3500)
 

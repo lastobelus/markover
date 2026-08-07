@@ -18,11 +18,16 @@ test('local API ELI5 is self-contained and truth-scoped', () => {
   assert.doesNotMatch(source, /https?:\/\/[^"']+\.(?:css|js|woff2?)/)
   assert.match(
     source,
-    /Implemented locally · live smoke pending · 5 Aug 2026/
+    /Draft PR 67 · issue 12 final slice · 6 Aug 2026/
   )
   assert.match(source, /name tag, not a lock/i)
   assert.match(source, /never kill/i)
   assert.match(source, /does not replay/i)
+  assert.match(source, /One gate in front of every review route/)
+  assert.match(source, /No telemetry, analytics, cloud sync/)
+  assert.match(source, /Discover agent thread from local session logs/)
+  assert.match(source, /An agent handoff crosses the Markover boundary/)
+  assert.match(source, /One process per macOS user/)
   assert.ok(
     source.indexOf('<details class="truth-context">') <
       source.indexOf('The Tiny Story')
@@ -50,7 +55,7 @@ test('local API ELI5 diagrams and local references remain accessible', () => {
   const localLinks = [...document.querySelectorAll<HTMLAnchorElement>(
     'a[data-repo-path]'
   )]
-  assert.ok(localLinks.length >= 6)
+  assert.ok(localLinks.length >= 8)
   for (const link of localLinks) {
     assert.match(link.href, /^file:\/\//)
     assert.doesNotMatch(link.getAttribute('href') || '', /\.\./)

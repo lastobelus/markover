@@ -62,6 +62,7 @@ declare global {
     openDocumentsSidebar: boolean
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
+    discoverAgentThreadFromLocalSessions: boolean
     logRejectedApiRequests: boolean
     agentInterpretationPolicy: string
     autosaveMaximumDelayMs: number

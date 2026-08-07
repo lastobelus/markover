@@ -7,6 +7,8 @@
   ·
   <a href="https://lastobelus.github.io/markover/guide/">User guide</a>
   ·
+  <a href="https://lastobelus.github.io/markover/privacy/">Privacy and local data</a>
+  ·
   <a href="./docs/development.md">Development</a>
 </p>
 
@@ -100,7 +102,9 @@ under an existing tag. See the [release and rollback runbook](./docs/releasing.m
 for verification, backup, withdrawal, and future Developer ID activation.
 
 See the [user guide](https://lastobelus.github.io/markover/guide/)
-for the complete review workflow and keyboard controls, or
+for the complete review workflow and keyboard controls, read
+[Privacy and local data](https://lastobelus.github.io/markover/privacy/)
+for Markover's storage, network, and macOS-account boundary, or see
 [development.md](./docs/development.md) for checkout, testing, packaging, and
 release notes.
 

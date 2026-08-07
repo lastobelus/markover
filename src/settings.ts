@@ -12,6 +12,7 @@
     openDocumentsSidebar: true,
     defaultTreeView: 'all',
     confirmAttachmentRemoval: true,
+    discoverAgentThreadFromLocalSessions: true,
     logRejectedApiRequests: false,
     agentInterpretationPolicy: agentGuidance.DEFAULT_INTERPRETATION_POLICY,
     autosaveMaximumDelayMs: 2000
@@ -89,6 +90,7 @@
       'showKeyboardHelp',
       'openDocumentsSidebar',
       'confirmAttachmentRemoval',
+      'discoverAgentThreadFromLocalSessions',
       'logRejectedApiRequests'
     ] as const) {
       if (typeof input[key] === 'boolean') normalized[key] = input[key]
