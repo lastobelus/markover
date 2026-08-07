@@ -82,6 +82,23 @@ ignored development configuration initially selects Ocean with dark
 appearance. Persisted settings inside that instance may override those initial
 defaults.
 
+### Autosave durability setting
+
+Managed reviews use a two-second maximum-loss window by default while the app
+process is responsive and local storage is healthy. Advanced users can change
+`autosaveMaximumDelayMs` in the instance's persisted `settings.json` to an
+integer from `100` through `60000` milliseconds. The setting is intentionally
+absent from the Settings UI. Quit Markover before editing the file and restart
+it afterward; changing the value changes the stated maximum-loss window.
+
+A persistent in-app autosave warning means a write failed and the normal bound
+is suspended. Markover retains the newest snapshot and retries with bounded
+backoff. Normal quit snapshots every editable review, waits for attachment and
+review persistence, then closes the service. If that barrier cannot finish in
+five seconds, Markover offers Retry Quit, Cancel Quit, or Quit Anyway. The
+bounded-loss claim covers an app-process crash, not power loss, unhealthy
+storage, or operating-system or hardware failure.
+
 PR state is intentionally removed by normal worktree deletion. To make that
 cleanup recoverable, first quit the exact instance and use #52's handler
 uninstall command for its `markover-N:` scheme, then run from the surviving

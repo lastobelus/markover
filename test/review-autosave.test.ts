@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  DEFAULT_AUTOSAVE_MAXIMUM_DELAY_MS,
   MAXIMUM_AUTOSAVE_RETRY_DELAY_MS,
   ReviewAutosave
 } from '../src/review-autosave'
@@ -169,6 +170,36 @@ test('fast writes retain the throttle window instead of writing each edit', asyn
   clock.tick(1)
   assert.equal(writes.length, 2)
   assert.equal(writes[1]?.sourceDocument.content, '# Latest\n')
+})
+
+test('the default bound persists the newest sustained edit every two seconds', async () => {
+  const clock = new FakeClock()
+  const writes: Array<{ at: number; tree: ReviewTree }> = []
+  const autosave = new ReviewAutosave({
+    updateTree(reviewId, candidate) {
+      const snapshot = candidate as ReviewTree
+      writes.push({ at: clock.current, tree: snapshot })
+      return Promise.resolve(artifact(reviewId, snapshot))
+    }
+  }, { now: clock.now, schedule: clock.schedule })
+
+  assert.equal(autosave.maximumDelayMs, DEFAULT_AUTOSAVE_MAXIMUM_DELAY_MS)
+  autosave.queue('mko_aaa11111', tree('# Edit 0\n'))
+  await settle()
+
+  for (let edit = 1; edit < 60; edit += 1) {
+    clock.tick(100)
+    autosave.queue('mko_aaa11111', tree(`# Edit ${String(edit)}\n`))
+    await settle()
+  }
+  clock.tick(100)
+  await settle()
+
+  assert.deepEqual(writes.map(({ at }) => at), [0, 2000, 4000, 6000])
+  assert.deepEqual(
+    writes.map(({ tree: snapshot }) => snapshot.sourceDocument.content),
+    ['# Edit 0\n', '# Edit 19\n', '# Edit 39\n', '# Edit 59\n']
+  )
 })
 
 test('keeps reviews independent while limiting each to one in-flight write', () => {

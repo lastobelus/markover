@@ -30,6 +30,9 @@ block-level feedback to an agent.
 - Markdown feedback and labeled screenshot attachments on individual blocks.
 - A durable multi-document inbox grouped by project, with an all-annotations
   browser.
+- A documented two-second default process-crash autosave window with automatic
+  restart recovery; see [Durability and recovery](https://lastobelus.github.io/markover/guide/#durability)
+  for the guarantee and its limits.
 - Exact source-edit proposals shown as word-level diffs without changing the
   original review target.
 - One-shot agent handoff containing the exact source, checksum, document tree,
