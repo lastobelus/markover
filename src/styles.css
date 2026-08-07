@@ -405,6 +405,18 @@ textarea {
   -webkit-app-region: drag;
 }
 
+.durability-warning {
+  flex: none;
+  padding: 8px 22px;
+  border-block: 1px solid color-mix(in srgb, var(--source-error) 55%, var(--line));
+  color: var(--ink);
+  background: color-mix(in srgb, var(--source-error) 14%, var(--surface));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .brand,
 .document-actions {
   display: flex;

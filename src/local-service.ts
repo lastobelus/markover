@@ -5,6 +5,7 @@ import http, {
 } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
+import { AsyncMutationTracker } from './async-mutation-tracker'
 import type {
   ReviewArtifact,
   ReviewCreateInput,
@@ -26,6 +27,8 @@ interface ReviewRoute {
 export interface LocalService {
   port: number
   close: () => Promise<void>
+  pauseMutations: () => Promise<void>
+  resumeMutations: () => void
 }
 
 export interface UnauthorizedRequest {
@@ -113,6 +116,7 @@ function errorStatus(error: unknown): number {
     return 400
   }
   if (code === 'NOT_EDITABLE') return 409
+  if (code === 'SHUTTING_DOWN') return 503
   if (code === 'BODY_TOO_LARGE') return 413
   return 500
 }
@@ -143,6 +147,19 @@ export async function startLocalService({
   }
   const expectedToken = Buffer.from(identity.token, 'ascii')
   const actionQueues = new Map<string, Promise<void>>()
+  const mutations = new AsyncMutationTracker()
+  let acceptingMutations = true
+
+  function runMutation<T>(operation: () => Promise<T>): Promise<T> {
+    if (!acceptingMutations) {
+      return Promise.reject(serviceError(
+        'SHUTTING_DOWN',
+        'Markover is preparing to quit; retry after it restarts.'
+      ))
+    }
+    return mutations.track(operation)
+  }
+
   function serializeReviewAction<T>(
     reviewId: string,
     operation: () => Promise<T>
@@ -233,39 +250,45 @@ export async function startLocalService({
       }
 
       if (request.method === 'POST' && url.pathname === '/reviews/import') {
-        const body = await readJson(request)
-        if (
-          !isRecord(body) ||
-          typeof body.sourceDirectory !== 'string' ||
-          !body.sourceDirectory
-        ) {
-          throw serviceError(
-            'INVALID_IMPORT',
-            'A review import source directory is required.'
-          )
-        }
-        const reviewIds = await importReviews(body.sourceDirectory)
-        for (const reviewId of reviewIds) {
-          await onChange(await store.load(reviewId), 'imported')
-        }
+        const reviewIds = await runMutation(async () => {
+          const body = await readJson(request)
+          if (
+            !isRecord(body) ||
+            typeof body.sourceDirectory !== 'string' ||
+            !body.sourceDirectory
+          ) {
+            throw serviceError(
+              'INVALID_IMPORT',
+              'A review import source directory is required.'
+            )
+          }
+          const imported = await importReviews(body.sourceDirectory)
+          for (const reviewId of imported) {
+            await onChange(await store.load(reviewId), 'imported')
+          }
+          return imported
+        })
         sendJson(response, 200, { imported: reviewIds })
         return
       }
 
       if (request.method === 'POST' && url.pathname === '/reviews') {
-        const body = await readJson(request)
-        const record = isRecord(body) ? body : {}
-        const metadata = isRecord(record.metadata) ? record.metadata : {}
-        const createInput: ReviewCreateInput = {
-          tree: record.tree,
-          contextSummary: metadata.contextSummary,
-          agentThread: metadata.agentThread,
-          git: metadata.git,
-          pullRequest: metadata.pullRequest,
-          interpretationPolicy: interpretationPolicy?.()
-        }
-        const artifact = await store.create(createInput)
-        await onChange(artifact, 'created')
+        const artifact = await runMutation(async () => {
+          const body = await readJson(request)
+          const record = isRecord(body) ? body : {}
+          const metadata = isRecord(record.metadata) ? record.metadata : {}
+          const createInput: ReviewCreateInput = {
+            tree: record.tree,
+            contextSummary: metadata.contextSummary,
+            agentThread: metadata.agentThread,
+            git: metadata.git,
+            pullRequest: metadata.pullRequest,
+            interpretationPolicy: interpretationPolicy?.()
+          }
+          const created = await store.create(createInput)
+          await onChange(created, 'created')
+          return created
+        })
         sendJson(response, 201, {
           reviewId: artifact.review.id,
           status: artifact.review.status
@@ -285,26 +308,28 @@ export async function startLocalService({
         (route.action === 'handoff' || route.action === 'edit')
       ) {
         const action = route.action
-        const artifact = await serializeReviewAction(route.reviewId, async () => {
-          let rollbackHandoff: undefined | (() => void | Promise<void>)
-          if (action === 'handoff') {
-            const current = await store.load(route.reviewId)
-            if (current.review.status === 'editing') {
-              rollbackHandoff = await beforeAction(route.reviewId, action)
+        const artifact = await runMutation(() => (
+          serializeReviewAction(route.reviewId, async () => {
+            let rollbackHandoff: undefined | (() => void | Promise<void>)
+            if (action === 'handoff') {
+              const current = await store.load(route.reviewId)
+              if (current.review.status === 'editing') {
+                rollbackHandoff = await beforeAction(route.reviewId, action)
+              }
             }
-          }
-          let changed
-          try {
-            changed = action === 'handoff'
-              ? await store.handoff(route.reviewId)
-              : await store.edit(route.reviewId)
-          } catch (error) {
-            if (rollbackHandoff) await rollbackHandoff()
-            throw error
-          }
-          await onChange(changed, action)
-          return changed
-        })
+            let changed
+            try {
+              changed = action === 'handoff'
+                ? await store.handoff(route.reviewId)
+                : await store.edit(route.reviewId)
+            } catch (error) {
+              if (rollbackHandoff) await rollbackHandoff()
+              throw error
+            }
+            await onChange(changed, action)
+            return changed
+          })
+        ))
         sendJson(
           response,
           200,
@@ -343,10 +368,24 @@ export async function startLocalService({
   })
 
   const address = server.address() as AddressInfo
+  let closePromise: Promise<void> | null = null
   return {
     port: address.port,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => { if (error) reject(error); else resolve() })
-    })
+    pauseMutations: async () => {
+      acceptingMutations = false
+      await mutations.wait()
+    },
+    resumeMutations: () => {
+      if (!closePromise) acceptingMutations = true
+    },
+    close: () => {
+      acceptingMutations = false
+      closePromise ||= mutations.wait().then(() => new Promise<void>(
+        (resolve, reject) => {
+          server.close((error) => { if (error) reject(error); else resolve() })
+        }
+      ))
+      return closePromise
+    }
   }
 }

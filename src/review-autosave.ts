@@ -17,6 +17,11 @@ interface SaveWaiter {
   sequence: number
 }
 
+interface FlushWaiter {
+  reject: (error: unknown) => void
+  resolve: () => void
+}
+
 interface ReviewAutosaveState {
   cancelTimer: (() => void) | null
   failed: boolean
@@ -25,6 +30,7 @@ interface ReviewAutosaveState {
   nextSequence: number
   nextWriteAt: number
   pending: PendingSnapshot | null
+  flushWaiters: FlushWaiter[]
   waiters: SaveWaiter[]
 }
 
@@ -76,6 +82,34 @@ export class ReviewAutosave {
     })
   }
 
+  flush(reviewId: string): Promise<void> {
+    const state = this.states.get(reviewId)
+    if (!state || (!state.inFlight && !state.pending)) return Promise.resolve()
+
+    return new Promise((resolve, reject) => {
+      state.flushWaiters.push({ reject, resolve })
+      if (state.pending) state.pending.urgent = true
+      if (!state.inFlight && state.pending) {
+        state.cancelTimer?.()
+        state.cancelTimer = null
+        this.startWrite(reviewId, state)
+      }
+    })
+  }
+
+  async flushAll(): Promise<void> {
+    await Promise.all([...this.states.keys()].map((reviewId) => (
+      this.flush(reviewId)
+    )))
+  }
+
+  failedReviewIds(): string[] {
+    return [...this.states.entries()]
+      .filter(([, state]) => state.failed)
+      .map(([reviewId]) => reviewId)
+      .sort()
+  }
+
   private state(reviewId: string): ReviewAutosaveState {
     let state = this.states.get(reviewId)
     if (!state) {
@@ -87,6 +121,7 @@ export class ReviewAutosave {
         nextSequence: 0,
         nextWriteAt: Number.NEGATIVE_INFINITY,
         pending: null,
+        flushWaiters: [],
         waiters: []
       }
       this.states.set(reviewId, state)
@@ -140,7 +175,7 @@ export class ReviewAutosave {
       (artifact) => {
         state.inFlight = false
         state.failureCount = 0
-        if (state.failed) {
+        if (state.failed && !state.pending) {
           state.failed = false
           this.safely(() => { this.onRecovered(reviewId) })
         }
@@ -153,6 +188,7 @@ export class ReviewAutosave {
         )
         for (const waiter of completed) waiter.resolve(artifact)
         this.schedulePending(reviewId, state)
+        if (!state.pending) this.resolveFlushWaiters(state)
       },
       (error: unknown) => {
         state.inFlight = false
@@ -169,6 +205,7 @@ export class ReviewAutosave {
           (waiter) => waiter.sequence !== attempted.sequence
         )
         for (const waiter of failed) waiter.reject(error)
+        this.rejectFlushWaiters(state, error)
         const retryDelay = Math.min(
           100 * 2 ** Math.min(state.failureCount - 1, 20),
           MAXIMUM_AUTOSAVE_RETRY_DELAY_MS
@@ -224,5 +261,18 @@ export class ReviewAutosave {
       (waiter) => waiter.sequence !== sequence
     )
     for (const waiter of superseded) waiter.reject(error)
+  }
+
+  private resolveFlushWaiters(state: ReviewAutosaveState): void {
+    const waiters = state.flushWaiters.splice(0)
+    for (const waiter of waiters) waiter.resolve()
+  }
+
+  private rejectFlushWaiters(
+    state: ReviewAutosaveState,
+    error: unknown
+  ): void {
+    const waiters = state.flushWaiters.splice(0)
+    for (const waiter of waiters) waiter.reject(error)
   }
 }

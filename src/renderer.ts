@@ -10,6 +10,7 @@ import { userFacingStartupWarnings } from './startup-contract'
 import * as MarkoverAgentGuidance from './agent-guidance'
 import * as MarkoverAnnotationBlock from './annotation-block'
 import * as MarkoverAnnotations from './annotations'
+import { autosaveFailureMessage } from './durability-status'
 import * as MarkoverImagePreview from './image-preview'
 import * as MarkoverNavigation from './navigation'
 import * as MarkoverReviewSessions from './review-sessions'
@@ -117,6 +118,7 @@ const elements = {
   emptyWorkspace: requiredElement('#empty-workspace'),
   documentTabs: requiredElement('#document-tabs'),
   doneReviewButton: requiredElement<HTMLButtonElement>('#done-review-button'),
+  durabilityWarning: requiredElement('#durability-warning'),
   imagePreview: requiredElement('#image-preview'),
   imagePreviewClose: requiredElement<HTMLButtonElement>('#image-preview-close'),
   imagePreviewContent: requiredElement<HTMLImageElement>('#image-preview-content'),
@@ -2847,7 +2849,27 @@ async function initialize(): Promise<void> {
       renderReviewContext()
     }
   })
-  bridge.onReviewSnapshotRequested(async (reviewId) => {
+  const applyReviewAutosaveStatus = ({
+    failedReviewIds
+  }: ReviewAutosaveStatus): void => {
+    const message = autosaveFailureMessage(failedReviewIds)
+    elements.durabilityWarning.textContent = message || ''
+    elements.durabilityWarning.hidden = message === null
+  }
+  bridge.onReviewAutosaveStatus(applyReviewAutosaveStatus)
+  applyReviewAutosaveStatus(await bridge.getReviewAutosaveStatus())
+  bridge.onReviewShutdownState((paused) => {
+    for (const element of [
+      elements.appHeader,
+      elements.documentTabs,
+      elements.emptyWorkspace,
+      elements.workspace
+    ]) {
+      element.inert = paused
+    }
+    document.documentElement.classList.toggle('is-shutting-down', paused)
+  })
+  bridge.onReviewSnapshotRequested(async ({ reviewId, purpose }) => {
     const paneHadFocus = (
       reviewId === state.reviewId &&
       elements.annotationPane.contains(document.activeElement)
@@ -2855,18 +2877,24 @@ async function initialize(): Promise<void> {
     if (reviewId === state.reviewId) {
       state.finishAttachmentLabelEdit?.(true)
       if (!finishActiveSourceEdit()) {
-        throw new Error('Finish or cancel the empty source edit before handoff.')
+        throw new Error(
+          purpose === 'handoff'
+            ? 'Finish or cancel the empty source edit before handoff.'
+            : 'Finish or cancel the empty source edit before Markover can quit.'
+        )
       }
     }
     const session = reviewSessions.get(reviewId)
     if (!session) throw new Error(`Cannot snapshot missing review ${reviewId}.`)
-    reviewSessions.updateStatus(reviewId, 'handoff-in-progress')
-    renderDocumentTabs()
-    if (reviewId === state.reviewId) {
-      const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
-      if (selected) renderAnnotation(selected)
-      renderReviewContext()
-      if (paneHadFocus) focusAnnotationPane()
+    if (purpose === 'handoff') {
+      reviewSessions.updateStatus(reviewId, 'handoff-in-progress')
+      renderDocumentTabs()
+      if (reviewId === state.reviewId) {
+        const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
+        if (selected) renderAnnotation(selected)
+        renderReviewContext()
+        if (paneHadFocus) focusAnnotationPane()
+      }
     }
     await reviewMutations.wait(reviewId)
     return reviewSessions.snapshot(reviewId)

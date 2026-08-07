@@ -18,7 +18,12 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { applicationMenuTemplate } from './app-menu'
+import { AsyncMutationTracker } from './async-mutation-tracker'
 import { loadDevelopmentConfig } from './development-config'
+import {
+  persistReviewSnapshots,
+  runDurabilityShutdown
+} from './durability-shutdown'
 import { runtimeInstanceFromEnvironment } from './instance'
 import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
@@ -62,6 +67,7 @@ interface ReviewConfig {
 }
 
 interface PendingSnapshot {
+  purpose: ReviewSnapshotRequest['purpose']
   reject: (reason?: unknown) => void
   resolve: (tree: ReviewTree | null) => void
   reviewId: string
@@ -146,6 +152,7 @@ let mainWindow: BrowserWindow | null = null
 let activeManagedReview: ReviewArtifact | null = null
 let activeManagedReviewId: string | null = null
 let localService: LocalService | null = null
+let closingPublishedService: LocalService | null = null
 let localServiceIdentity: ServiceIdentity | null = null
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
@@ -162,12 +169,16 @@ let startupInfo: StartupInfo | null = null
 let startupReady = false
 let rendererInitializationHandled = false
 let rendererStartupFailed = false
+let managedAttachmentSavesBlocked = false
+let managedShutdownComplete = false
+let managedShutdownStarted = false
 let activeStartupPhase: StartupPhase | null = null
 const startupWarnings: StartupWarning[] = []
 let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const projectRoots = new Map<string, Promise<string | null>>()
+const managedAttachmentMutations = new AsyncMutationTracker()
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -778,7 +789,29 @@ function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
   })
 }
 
-function requestRendererSnapshot(reviewId: string): Promise<ReviewTree | null> {
+function sendManagedAutosaveStatus(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send(
+    'review:autosave-status',
+    currentManagedAutosaveStatus()
+  )
+}
+
+function currentManagedAutosaveStatus(): ReviewAutosaveStatus {
+  return {
+    failedReviewIds: managedAutosave?.failedReviewIds() || []
+  }
+}
+
+function setManagedRendererPause(paused: boolean): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send('review:shutdown-state', paused)
+}
+
+function requestRendererSnapshot(
+  reviewId: string,
+  purpose: ReviewSnapshotRequest['purpose']
+): Promise<ReviewTree | null> {
   if (
     !mainWindow ||
     mainWindow.isDestroyed()
@@ -794,11 +827,18 @@ function requestRendererSnapshot(reviewId: string): Promise<ReviewTree | null> {
       pendingSnapshots.delete(requestId)
       reject(new Error(`Timed out capturing review ${reviewId}.`))
     }, 5000)
-    pendingSnapshots.set(requestId, { reject, resolve, reviewId, timeout })
+    pendingSnapshots.set(requestId, {
+      purpose,
+      reject,
+      resolve,
+      reviewId,
+      timeout
+    })
     window.webContents.send('review:snapshot-request', {
       requestId,
-      reviewId
-    })
+      reviewId,
+      purpose
+    } satisfies ReviewSnapshotRequest)
   })
 }
 
@@ -818,7 +858,7 @@ async function flushManagedReview(
 ): Promise<() => Promise<void>> {
   const store = requireReviewStore()
   try {
-    const tree = await requestRendererSnapshot(reviewId)
+    const tree = await requestRendererSnapshot(reviewId, 'handoff')
     if (tree && action === 'handoff') {
       await requireManagedAutosave().saveNow(reviewId, tree)
     }
@@ -833,6 +873,17 @@ async function flushManagedReview(
   return async () => {
     await sendManagedStatus(await store.load(reviewId))
   }
+}
+
+async function captureEditableManagedReviews(): Promise<void> {
+  const reviewIds = (await requireReviewStore().list())
+    .filter((artifact) => artifact.review.status === 'editing')
+    .map((artifact) => artifact.review.id)
+  await persistReviewSnapshots(
+    reviewIds,
+    (reviewId) => requestRendererSnapshot(reviewId, 'shutdown'),
+    (reviewId, tree) => requireManagedAutosave().saveNow(reviewId, tree)
+  )
 }
 
 async function startAndPublishService(): Promise<void> {
@@ -877,9 +928,115 @@ async function startAndPublishService(): Promise<void> {
 
 async function stopPublishedService(): Promise<void> {
   const service = localService
-  localService = null
-  localServiceIdentity = null
-  if (service) await service.close()
+  if (!service) return
+  closingPublishedService = service
+  await service.close()
+  if (closingPublishedService === service) {
+    closingPublishedService = null
+  }
+  if (localService === service) {
+    localService = null
+    localServiceIdentity = null
+  }
+}
+
+async function restorePublishedServiceForEditing(): Promise<void> {
+  if (
+    closingPublishedService &&
+    localService === closingPublishedService
+  ) {
+    localService = null
+    localServiceIdentity = null
+  }
+  await serviceRepairQueue.catch(() => {})
+  if (!localService) await startAndPublishService()
+}
+
+function resumeManagedMutations(): void {
+  managedAttachmentSavesBlocked = false
+  localService?.resumeMutations()
+  setManagedRendererPause(false)
+}
+
+async function runManagedDurabilityShutdown(): Promise<void> {
+  await runDurabilityShutdown({
+    async pauseMutations() {
+      setManagedRendererPause(true)
+      await localService?.pauseMutations()
+    },
+    captureSnapshots: captureEditableManagedReviews,
+    blockNewAttachments() {
+      managedAttachmentSavesBlocked = true
+      return Promise.resolve()
+    },
+    waitForAttachments: () => managedAttachmentMutations.wait(),
+    flushAutosaves: () => requireManagedAutosave().flushAll(),
+    closeService: stopPublishedService,
+    resumeMutations: resumeManagedMutations
+  })
+}
+
+function stopSettingsSubscription(): void {
+  settingsUnsubscribe?.()
+  settingsUnsubscribe = null
+}
+
+async function showDurabilityShutdownDialog(error: unknown): Promise<number> {
+  const options = {
+    type: 'warning' as const,
+    buttons: ['Retry Quit', 'Cancel Quit', 'Quit Anyway'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+    message: 'Markover could not finish saving review work.',
+    detail: [
+      errorMessage(error),
+      '',
+      'Retry waits for storage again. Cancel Quit returns to editing. ' +
+        'Quit Anyway uses the latest completed autosave.'
+    ].join('\n')
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showMessageBox(window, options)
+    : await dialog.showMessageBox(options)
+  return result.response
+}
+
+async function finishManagedShutdown(): Promise<void> {
+  for (;;) {
+    let failure: unknown
+    try {
+      await runManagedDurabilityShutdown()
+      managedShutdownComplete = true
+      stopSettingsSubscription()
+      app.quit()
+      return
+    } catch (error) {
+      failure = error
+    }
+
+    for (;;) {
+      process.stderr.write(`markover shutdown: ${errorMessage(failure)}\n`)
+      const response = await showDurabilityShutdownDialog(failure)
+      if (response === 2) {
+        stopSettingsSubscription()
+        app.exit(0)
+        return
+      }
+      if (response === 1) {
+        try {
+          await restorePublishedServiceForEditing()
+          managedShutdownStarted = false
+          return
+        } catch (error) {
+          failure = error
+          continue
+        }
+      }
+      break
+    }
+  }
 }
 
 async function copyStartupDiagnostic(): Promise<void> {
@@ -931,13 +1088,14 @@ function repairServiceRecords(): Promise<void> {
   const identity = localServiceIdentity
   const service = localService
   if (!identity || !service) return Promise.resolve()
-  serviceRepairQueue = serviceRepairQueue.catch(() => {}).then(() => (
-    publishServiceConnection({
+  serviceRepairQueue = serviceRepairQueue.catch(() => {}).then(() => {
+    if (localServiceIdentity !== identity || localService !== service) return
+    return publishServiceConnection({
       endpointPath,
       identity,
       port: service.port
     })
-  ))
+  })
   return serviceRepairQueue
 }
 
@@ -1021,6 +1179,10 @@ if (!hasSingleInstanceLock) {
           process.stderr.write(
             `markover autosave ${reviewId}: ${errorMessage(error)}\n`
           )
+          sendManagedAutosaveStatus()
+        },
+        onRecovered() {
+          sendManagedAutosaveStatus()
         },
         onSaved(artifact) {
           if (activeManagedReviewId === artifact.review.id) {
@@ -1155,7 +1317,8 @@ if (!hasSingleInstanceLock) {
         phases: requireStartupDiagnostic().snapshot().phases
       }
       process.stdout.write(`${JSON.stringify(output)}\n`, () => {
-        app.exit(checksPassed ? 0 : 1)
+        if (checksPassed) app.quit()
+        else app.exit(1)
       })
     })
     ipcMain.handle('document:open', openMarkdown)
@@ -1164,8 +1327,25 @@ if (!hasSingleInstanceLock) {
       _event: IpcMainInvokeEvent,
       source: string
     ) => checksum(source))
-    ipcMain.handle('attachment:save', saveAttachment)
+    ipcMain.handle('attachment:save', (
+      event: IpcMainInvokeEvent,
+      attachment: MarkoverClipboardImage,
+      reviewId: string | null = null
+    ) => {
+      if (reviewId && managedAttachmentSavesBlocked) {
+        throw new Error('Markover is finishing review saves before quitting.')
+      }
+      return reviewId
+        ? managedAttachmentMutations.track(() => (
+            saveAttachment(event, attachment, reviewId)
+          ))
+        : saveAttachment(event, attachment, reviewId)
+    })
     ipcMain.handle('clipboard:read-image', readClipboardImage)
+    ipcMain.handle(
+      'review:autosave-status:get',
+      currentManagedAutosaveStatus
+    )
     ipcMain.handle('settings:get', () => settingsEnvelope(store.settings))
     ipcMain.handle('settings:update', async (
       _event: IpcMainInvokeEvent,
@@ -1200,7 +1380,11 @@ if (!hasSingleInstanceLock) {
       response: ReviewSnapshotResponse
     ) => {
       const pending = pendingSnapshots.get(response.requestId)
-      if (!pending || pending.reviewId !== response.reviewId) return
+      if (
+        !pending ||
+        pending.reviewId !== response.reviewId ||
+        pending.purpose !== response.purpose
+      ) return
       clearTimeout(pending.timeout)
       pendingSnapshots.delete(response.requestId)
       if (response.error) pending.reject(new Error(response.error))
@@ -1289,11 +1473,24 @@ if (!hasSingleInstanceLock) {
     })()
   })
 
-  app.on('before-quit', () => {
-    settingsUnsubscribe?.()
-    if (localService) localService.close().catch(() => {
-      // Shutdown is already in progress.
-    })
+  app.on('before-quit', (event) => {
+    if (
+      reviewMode ||
+      !startupReady ||
+      managedShutdownComplete ||
+      !managedAutosave
+    ) {
+      stopSettingsSubscription()
+      if (localService) void stopPublishedService().catch(() => {
+        // Startup failure and review-mode shutdown are already in progress.
+      })
+      return
+    }
+
+    event.preventDefault()
+    if (managedShutdownStarted) return
+    managedShutdownStarted = true
+    void finishManagedShutdown()
   })
 
   app.on('will-quit', () => {

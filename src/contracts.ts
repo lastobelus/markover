@@ -448,11 +448,16 @@ declare global {
   interface ReviewSnapshotRequest {
     requestId: string
     reviewId: string
+    purpose: 'handoff' | 'shutdown'
   }
 
   interface ReviewSnapshotResponse extends ReviewSnapshotRequest {
     tree?: ReviewTree | null
     error?: string
+  }
+
+  interface ReviewAutosaveStatus {
+    failedReviewIds: string[]
   }
 
   interface MarkoverBridge {
@@ -488,9 +493,14 @@ declare global {
     ) => void
     onReviewSnapshotRequested: (
       callback: (
-        reviewId: string
+        request: ReviewSnapshotRequest
       ) => ReviewTree | null | Promise<ReviewTree | null>
     ) => void
+    onReviewAutosaveStatus: (
+      callback: (status: ReviewAutosaveStatus) => void
+    ) => void
+    getReviewAutosaveStatus: () => Promise<ReviewAutosaveStatus>
+    onReviewShutdownState: (callback: (paused: boolean) => void) => void
     activateReview: (reviewId: string) => void
     autosaveReview: (reviewId: string | null, tree: ReviewTree) => void
     finishReview: (tree: ReviewTree) => void
