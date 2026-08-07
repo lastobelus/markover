@@ -135,6 +135,23 @@ test('canonical cold starts require an explicit valid blessed checkout', async (
   assert.deepEqual(resolved.coldStart, { eligible: true, blockedBy: null })
 })
 
+test('a running canonical service remains routable without a start descriptor', async (t) => {
+  const directory = await temporaryDirectory(t)
+  const resolved = await resolveInstance('canonical', {
+    canonicalDescriptorPath: path.join(directory, 'missing.json'),
+    platform: 'darwin',
+    homeDirectory: directory,
+    environment: {},
+    probe: () => Promise.resolve(true)
+  })
+  assert.deepEqual(resolved.process, { status: 'running' })
+  assert.deepEqual(resolved.coldStart, {
+    eligible: false,
+    blockedBy: 'already-running'
+  })
+  assert.equal(resolved.checkout, null)
+})
+
 test('open pull requests resolve isolated development contracts', async (t) => {
   const checkout = await temporaryDirectory(t)
   const resolved = await resolveInstance('development', {
@@ -225,6 +242,27 @@ test('a running PR instance remains addressable when GitHub is unavailable', asy
   assert.deepEqual(resolved.pullRequest, { number: 42, state: 'unknown' })
 })
 
+test('a running closed PR remains addressable but reports its closed state', async (t) => {
+  const checkout = await temporaryDirectory(t)
+  const stateRoot = developmentStateRoot(checkout)
+  await publishRuntimeInstanceIdentity(stateRoot, {
+    kind: 'development',
+    key: 'pr-42',
+    pullRequestNumber: 42
+  })
+  const resolved = await resolveInstance('development', {
+    checkoutDirectory: checkout,
+    inspectPullRequest: pullRequest(42, 'closed'),
+    probe: () => Promise.resolve(true)
+  })
+  assert.deepEqual(resolved.process, { status: 'running' })
+  assert.deepEqual(resolved.pullRequest, { number: 42, state: 'closed' })
+  assert.deepEqual(resolved.coldStart, {
+    eligible: false,
+    blockedBy: 'already-running'
+  })
+})
+
 test('a stopped instance fails closed when GitHub cannot verify its PR', async (t) => {
   const checkout = await temporaryDirectory(t)
   await assert.rejects(
@@ -257,16 +295,28 @@ test('separate worktrees resolve separate simultaneous identities', async (t) =>
   const first = path.join(parent, 'first')
   const second = path.join(parent, 'second')
   await Promise.all([fs.mkdir(first), fs.mkdir(second)])
+  await Promise.all([
+    publishRuntimeInstanceIdentity(developmentStateRoot(first), {
+      kind: 'development',
+      key: 'pr-42',
+      pullRequestNumber: 42
+    }),
+    publishRuntimeInstanceIdentity(developmentStateRoot(second), {
+      kind: 'development',
+      key: 'pr-43',
+      pullRequestNumber: 43
+    })
+  ])
   const [pr42, pr43] = await Promise.all([
     resolveInstance('development', {
       checkoutDirectory: first,
       inspectPullRequest: pullRequest(42),
-      probe: () => Promise.resolve(false)
+      probe: () => Promise.resolve(true)
     }),
     resolveInstance('development', {
       checkoutDirectory: second,
       inspectPullRequest: pullRequest(43),
-      probe: () => Promise.resolve(false)
+      probe: () => Promise.resolve(true)
     })
   ])
   assert.notEqual(pr42.stateRoot, pr43.stateRoot)
