@@ -789,10 +789,17 @@ function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
 }
 
 function sendManagedAutosaveStatus(): void {
-  if (!mainWindow || mainWindow.isDestroyed() || !managedAutosave) return
-  mainWindow.webContents.send('review:autosave-status', {
-    failedReviewIds: managedAutosave.failedReviewIds()
-  } satisfies ReviewAutosaveStatus)
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send(
+    'review:autosave-status',
+    currentManagedAutosaveStatus()
+  )
+}
+
+function currentManagedAutosaveStatus(): ReviewAutosaveStatus {
+  return {
+    failedReviewIds: managedAutosave?.failedReviewIds() || []
+  }
 }
 
 function setManagedRendererPause(paused: boolean): void {
@@ -921,11 +928,15 @@ async function startAndPublishService(): Promise<void> {
 async function stopPublishedService(): Promise<void> {
   const service = localService
   if (!service) return
-  await service.close()
   if (localService === service) {
     localService = null
     localServiceIdentity = null
   }
+  await service.close()
+}
+
+async function restorePublishedServiceForEditing(): Promise<void> {
+  if (!localService) await startAndPublishService()
 }
 
 function resumeManagedMutations(): void {
@@ -981,6 +992,7 @@ async function showDurabilityShutdownDialog(error: unknown): Promise<number> {
 
 async function finishManagedShutdown(): Promise<void> {
   for (;;) {
+    let failure: unknown
     try {
       await runManagedDurabilityShutdown()
       managedShutdownComplete = true
@@ -988,17 +1000,28 @@ async function finishManagedShutdown(): Promise<void> {
       app.quit()
       return
     } catch (error) {
-      process.stderr.write(`markover shutdown: ${errorMessage(error)}\n`)
-      const response = await showDurabilityShutdownDialog(error)
+      failure = error
+    }
+
+    for (;;) {
+      process.stderr.write(`markover shutdown: ${errorMessage(failure)}\n`)
+      const response = await showDurabilityShutdownDialog(failure)
       if (response === 2) {
         stopSettingsSubscription()
         app.exit(0)
         return
       }
       if (response === 1) {
-        managedShutdownStarted = false
-        return
+        try {
+          await restorePublishedServiceForEditing()
+          managedShutdownStarted = false
+          return
+        } catch (error) {
+          failure = error
+          continue
+        }
       }
+      break
     }
   }
 }
@@ -1305,6 +1328,10 @@ if (!hasSingleInstanceLock) {
         : saveAttachment(event, attachment, reviewId)
     })
     ipcMain.handle('clipboard:read-image', readClipboardImage)
+    ipcMain.handle(
+      'review:autosave-status:get',
+      currentManagedAutosaveStatus
+    )
     ipcMain.handle('settings:get', () => settingsEnvelope(store.settings))
     ipcMain.handle('settings:update', async (
       _event: IpcMainInvokeEvent,

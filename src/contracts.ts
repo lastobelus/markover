@@ -499,6 +499,7 @@ declare global {
     onReviewAutosaveStatus: (
       callback: (status: ReviewAutosaveStatus) => void
     ) => void
+    getReviewAutosaveStatus: () => Promise<ReviewAutosaveStatus>
     onReviewShutdownState: (callback: (paused: boolean) => void) => void
     activateReview: (reviewId: string) => void
     autosaveReview: (reviewId: string | null, tree: ReviewTree) => void

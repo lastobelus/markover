@@ -61,13 +61,18 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   assert.match(main, /response === 2[\s\S]*app\.exit\(0\)/)
   assert.match(
     main,
-    /response === 1[\s\S]*managedShutdownStarted = false[\s\S]*return/
+    /response === 1[\s\S]*restorePublishedServiceForEditing\(\)[\s\S]*managedShutdownStarted = false[\s\S]*return/
+  )
+  assert.match(
+    main,
+    /stopPublishedService[\s\S]*localService = null[\s\S]*await service\.close\(\)/
   )
 })
 
 test('autosave storage failures use a dedicated persistent renderer warning', () => {
   const html = read('src/index.html')
   const main = read('src/main.ts')
+  const preload = read('src/preload.ts')
   const renderer = read('src/renderer.ts')
 
   assert.match(
@@ -80,7 +85,19 @@ test('autosave storage failures use a dedicated persistent renderer warning', ()
   )
   assert.match(
     renderer,
-    /onReviewAutosaveStatus[\s\S]*autosaveFailureMessage\(failedReviewIds\)[\s\S]*durabilityWarning\.hidden = message === null/
+    /onReviewAutosaveStatus\(applyReviewAutosaveStatus\)[\s\S]*await bridge\.getReviewAutosaveStatus\(\)/
+  )
+  assert.match(
+    renderer,
+    /autosaveFailureMessage\(failedReviewIds\)[\s\S]*durabilityWarning\.hidden = message === null/
+  )
+  assert.match(
+    preload,
+    /getReviewAutosaveStatus[\s\S]*review:autosave-status:get/
+  )
+  assert.match(
+    main,
+    /review:autosave-status:get[\s\S]*currentManagedAutosaveStatus/
   )
 })
 

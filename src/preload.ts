@@ -113,6 +113,9 @@ const bridge = {
       callback(status)
     })
   },
+  getReviewAutosaveStatus: () => (
+    ipcRenderer.invoke('review:autosave-status:get')
+  ),
   onReviewShutdownState: (callback) => {
     ipcRenderer.on('review:shutdown-state', (
       _event: IpcRendererEvent,

@@ -2849,11 +2849,15 @@ async function initialize(): Promise<void> {
       renderReviewContext()
     }
   })
-  bridge.onReviewAutosaveStatus(({ failedReviewIds }) => {
+  const applyReviewAutosaveStatus = ({
+    failedReviewIds
+  }: ReviewAutosaveStatus): void => {
     const message = autosaveFailureMessage(failedReviewIds)
     elements.durabilityWarning.textContent = message || ''
     elements.durabilityWarning.hidden = message === null
-  })
+  }
+  bridge.onReviewAutosaveStatus(applyReviewAutosaveStatus)
+  applyReviewAutosaveStatus(await bridge.getReviewAutosaveStatus())
   bridge.onReviewShutdownState((paused) => {
     for (const element of [
       elements.appHeader,
