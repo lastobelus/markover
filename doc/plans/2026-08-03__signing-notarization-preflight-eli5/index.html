@@ -162,7 +162,7 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Slice 3 PR #68 rebased · Local passed · Native CI and clean Intel pending · 7 Aug 2026</span>
+        <span class="context-status">Slice 3 PR #68 · Native CI evidence passed · Codex review and clean Intel pending · 7 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
@@ -179,8 +179,10 @@
           rebased locally and remains a draft in
           <a href="https://github.com/lastobelus/markover/pull/68">draft PR #68</a> on
           <code>t3code/issue-13-slice-3-packaged-smoke</code>. Current-head local checks,
-          packaged startup smoke, and Apple Silicon exact-ZIP preflight pass; native
-          arm64 and x64 CI validation is pending. Earlier native runs preflighted both exact
+          packaged startup smoke, and Apple Silicon exact-ZIP preflight pass. Native
+          <a href="https://github.com/lastobelus/markover/actions/runs/31212845030">CI run 31212845030</a>
+          passed the complete arm64 and x64 lifecycle and retained evidence against
+          synthetic PR merge <code>92d6c5f</code>. Earlier native runs preflighted both exact
           ZIPs but stopped at issue #43's now-repaired boundary, so they do not prove
           the rebased head. No clean-Intel evidence has been collected.
         </p>
@@ -202,8 +204,8 @@
               post-policy draft; Developer ID activation still needs Apple access and a
               separate reviewed change. App Sandbox remains in
               <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>.
-              Slice 3 must now pass local checks, both native lifecycle jobs, and a
-              current-head Codex review before merge. After merge, version and release
+              Slice 3 must now receive a clean current-head Codex review and retain green
+              final PR checks before merge. After merge, version and release
               work still waits for explicit approval. Runner details and evidence fields
               may still change during review.
             </p>

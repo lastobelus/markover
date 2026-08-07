@@ -91,7 +91,7 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">PR #68 rebased on cd4b344 · Local passed · Native CI and clean Intel pending</span>
+        <span class="context-status">PR #68 · Native CI evidence passed · Codex review and clean Intel pending</span>
       </summary>
       <div class="context-body">
         <p>
@@ -106,7 +106,9 @@
           <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
           verified renderer startup. The runner and native evidence contract are
           implemented. Local checks, packaged startup smoke, and Apple Silicon exact-ZIP
-          preflight pass; native arm64 and x64 CI validation is pending. Earlier native failures at issue #43 are historical and do not
+          preflight pass. Native <a href="https://github.com/lastobelus/markover/actions/runs/31212845030">CI run 31212845030</a>
+          passed the complete arm64 and x64 lifecycle against synthetic PR merge
+          <code>92d6c5f</code>. Earlier native failures at issue #43 are historical and do not
           count as a pass. No clean Intel/Sonoma result, version tag, draft release, or
           release is claimed here.
         </p>
@@ -117,11 +119,11 @@
           </div>
           <div>
             <h3>Follow-ups and change horizon</h3>
-            <p>PR #70's renderer repair is merged, PR #68 is rebased, and local validation passes. Next, both native lifecycle jobs and current-head Codex review must pass. After slice merge, version and release work waits for explicit approval. The dedicated 2019 Intel Mac must later collect Sonoma quarantine, visible override, installation, smoke, and rollback evidence from the exact draft. Developer ID remains blocked on Apple access.</p>
+            <p>PR #70's renderer repair is merged, PR #68 is rebased, and local plus both native lifecycle validations pass. Next, current-head Codex review and final PR checks must stay clean. After slice merge, version and release work waits for explicit approval. The dedicated 2019 Intel Mac must later collect Sonoma quarantine, visible override, installation, smoke, and rollback evidence from the exact draft. Developer ID remains blocked on Apple access.</p>
           </div>
           <div>
             <h3>Stable claims and current truth</h3>
-            <p>Stable: exact ZIP input, byte-matched installed clean-machine app, separate native architectures, saved-state restart after the old PID exits, CLI open/get/edit, failed-launch cleanup, versioned sanitized evidence in separate workflow artifacts, and explicit exclusions. Quarantine metadata is checked separately from app bytes; evidence cannot broaden release staging's exact toolchain set. Command details may change in review. Re-check issue #13, the draft PR, plan, runbook, release workflow, and this card.</p>
+            <p>Stable: exact ZIP input, byte-matched installed clean-machine app, separate native architectures, saved-state restart after the old PID exits, CLI open/get/edit, failed-launch cleanup, versioned sanitized evidence in separate workflow artifacts, and explicit exclusions. Run 31212845030 records arm64 digest <code>2c331f…b9ae</code> and x64 digest <code>7d3e7f…e5af</code>; it is CI evidence, not clean Intel evidence. Quarantine metadata is checked separately from app bytes; evidence cannot broaden release staging's exact toolchain set. Command details may change in review. Re-check issue #13, the draft PR, plan, runbook, release workflow, and this card.</p>
           </div>
         </div>
       </div>

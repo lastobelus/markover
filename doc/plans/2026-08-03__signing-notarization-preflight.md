@@ -18,9 +18,9 @@ rebased locally onto merged baseline `cd4b344`, including PR 70's verified
 renderer startup and PR 61's development-instance work, on branch
 `t3code/issue-13-slice-3-packaged-smoke` in draft PR 68. Its current-head
 local checks plus Apple Silicon packaging and exact-ZIP preflight pass; native
-arm64 and x64 CI validation is pending. It adds shared packaged happy-path
-evidence and the clean Intel/Sonoma procedure, then stops after merge before
-any version change, tag, draft, or release operation.
+arm64 and x64 CI evidence passes in run 31212845030. It adds shared packaged
+happy-path evidence and the clean Intel/Sonoma procedure, then stops after
+merge before any version change, tag, draft, or release operation.
 
 ## Current verified baseline
 
@@ -287,10 +287,23 @@ PR 70 merged issue 43's independent verified-renderer startup and packaged
 smoke pipeline. Draft PR 68 is now rebased onto that merged repair and current
 `main`; local checks, the isolated packaged startup smoke, and Apple Silicon
 exact-ZIP preflight pass. Its arm64 and x64 package, preflight, lifecycle, and
-evidence jobs must pass on the rebased head before the slice can leave draft review. Earlier runs
+evidence jobs passed in run 31212845030. Current-head Codex review and final PR
+checks must remain clean before the slice can leave draft review. Earlier runs
 preflighted both exact hardened ad-hoc ZIPs but stopped at the now-repaired
 renderer snapshot boundary; those runs are historical failure evidence, not a
-current-head pass.
+pass.
+
+Native CI run 31212845030 passed the complete packaged happy path for both
+architectures against synthetic PR merge commit
+`92d6c5fadb939c098f35432d24e322b1600666be` (head `f4ae8ac` on baseline
+`cd4b344`). The retained arm64 artifact digest is
+`2c331f1ebe662b3304b549887ca41eed92572a5e875fac54e1af26f82241b9ae`;
+the x64 digest is
+`7d3e7fbf0b4c30d02fbe78db873066314ac828d16212c73a916efcd909ace5af`.
+Both evidence files record every happy-path step as passed, ad-hoc trust with
+expected Gatekeeper rejection, `appleVerified: false`, `notarized: false`, and
+explicit adversarial-authorization and bounded-loss-durability exclusions.
+They are CI evidence, not clean Intel/Sonoma evidence.
 
 Clean Intel evidence is not collected by this implementation branch. The
 dedicated 2019 Intel Mac on Sonoma must later use the exact authenticated draft
