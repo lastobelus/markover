@@ -55,13 +55,16 @@ function evaluate(
   }
 }
 
-test('start-issue corpus covers the five v1 coordination branches', () => {
+test('start-issue corpus covers the eight coordination branches', () => {
   assert.deepEqual(cases.map(({ id }) => id), [
-    'untracked-work-selects-tracker-before-write',
+    'untracked-single-session-work-uses-direct-pr',
+    'untracked-durable-work-uses-issue',
     'confirmed-new-project-uses-repository-owner',
     'new-milestone-interviews-before-creation',
     'multiple-trackers-retain-all-active-attachments',
-    'post-claim-scan-reconstructs-unmarked-items'
+    'post-claim-scan-reconstructs-unmarked-items',
+    'merged-pr-followup-apply-now-reuses-tracker',
+    'merged-pr-followup-issue-only-chooses-tracker'
   ])
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
 })
@@ -119,6 +122,25 @@ test('post-claim freshness case records both independent live observations', () 
     '2fdb0272-8eb1-4549-a47a-2051b6d37b01'
   ])
   assert.match(evaluationCase.provenance.observation ?? '', /reused pre-claim/)
+})
+
+test('post-merge cases record the issue-and-PR live failure', () => {
+  const evaluationCases = cases.filter(({ id }) =>
+    id.startsWith('merged-pr-followup-')
+  )
+  assert.equal(evaluationCases.length, 2)
+  evaluationCases.forEach((evaluationCase) => {
+    assert.equal(evaluationCase.provenance.kind, 'live-thread')
+    assert.deepEqual(evaluationCase.provenance.sourceThreadIds, [
+      '04ce5c52-8191-4917-8d4a-0503e18f1850'
+    ])
+  })
+  const applyNowCase = evaluationCases[0]
+  assert.ok(applyNowCase)
+  assert.match(
+    applyNowCase.provenance.observation ?? '',
+    /created issue #72.*opened draft PR #73/
+  )
 })
 
 for (const evaluationCase of cases) {
