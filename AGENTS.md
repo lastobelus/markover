@@ -33,6 +33,16 @@ If the user needs to change feedback after handoff, run `edit <reviewId>`.
 Keep `--silent`: agent-facing success output is exactly one JSON value on
 stdout, while errors explain the relevant usage and recovery on stderr.
 
+Whenever opening or later referencing a document in Markover for review, keep
+the normal Markdown link and raw review ID, and also include the returned review
+URL as an inline-code Terminal command, alone on its own line:
+
+`open '<reviewUrl>'`
+
+This standalone command is the fallback when T3Code strips a custom-scheme
+link; keeping it isolated makes it easy to triple-click and paste into the
+attached terminal.
+
 ## Markover dogfooding
 
 When communicating a plan, proposal, review, or other structured response that

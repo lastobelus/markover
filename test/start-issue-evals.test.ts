@@ -38,6 +38,7 @@ const casesSource = fs.readFileSync(casesPath, 'utf8')
 const cases = JSON.parse(casesSource) as StartIssueCase[]
 const skillDirectory = path.join(root, '.agents/skills/start-issue')
 const skillSource = fs.readFileSync(path.join(skillDirectory, 'SKILL.md'), 'utf8')
+const agentsSource = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
 
 function readReference(name: string): string {
   return fs.readFileSync(
@@ -106,7 +107,7 @@ test('branch-only guidance is progressively disclosed', () => {
   )
   assert.match(
     skillSource,
-    /Markover reviews:[\s\S]*references\/markover-review\.md/
+    /PR-local Markover:[\s\S]*references\/markover-review\.md/
   )
 
   assert.match(readReference('work-item-routing.md'), /## Follow-up after merge/)
@@ -114,9 +115,15 @@ test('branch-only guidance is progressively disclosed', () => {
   assert.match(readReference('interview.md'), /# Implementation interview/)
   assert.match(readReference('existing-claim.md'), /# Existing work-intent claim/)
   const markoverReference = readReference('markover-review.md')
-  assert.match(markoverReference, /^`open '<reviewUrl>'`$/m)
   assert.match(markoverReference, /--instance dev open PATH/)
-  for (const fencedBlock of markoverReference.match(/```[\s\S]*?```/g) ?? []) {
+  assert.doesNotMatch(markoverReference, /open '<reviewUrl>'/)
+})
+
+test('root guidance owns the terminal-friendly Markover handoff', () => {
+  assert.match(agentsSource, /^`open '<reviewUrl>'`$/m)
+  assert.match(agentsSource, /normal Markdown link and raw review ID/)
+  assert.match(agentsSource, /T3Code strips a custom-scheme/)
+  for (const fencedBlock of agentsSource.match(/```[\s\S]*?```/g) ?? []) {
     assert.doesNotMatch(fencedBlock, /open '<reviewUrl>'/)
   }
 })
