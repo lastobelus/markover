@@ -7,6 +7,7 @@ import test from 'node:test'
 import {
   adHocSigningOptions,
   copyThirdPartyNotices,
+  loadThirdPartyNotices,
   runPackagedSmoke
 } from '../scripts/package-macos'
 import {
@@ -39,6 +40,7 @@ test('macOS packaging produces a branded application bundle', () => {
   )
 
   assert.equal(packageJson.productName, 'Markover')
+  assert.match(packageJson.scripts['package:mac'] ?? '', /^install-electron --no &&/)
   assert.equal(typeof packageJson.devDependencies['@electron/packager'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/asar'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/osx-sign'], 'string')
@@ -64,10 +66,10 @@ test('macOS packaging produces a branded application bundle', () => {
   assert.match(packaging, /await sign\(adHocSigningOptions\(appPath\)\)/)
   assert.ok(
     packaging.indexOf('await verifyPackagedAppLayout(appPath)') <
-      packaging.indexOf('copyThirdPartyNotices(appPath)')
+      packaging.indexOf('copyThirdPartyNotices(appPath, thirdPartyNotices)')
   )
   assert.ok(
-    packaging.indexOf('copyThirdPartyNotices(appPath)') <
+    packaging.indexOf('copyThirdPartyNotices(appPath, thirdPartyNotices)') <
       packaging.indexOf('setMinimumSystemVersion(appPath)')
   )
   assert.ok(
@@ -188,10 +190,12 @@ test('macOS packaging places application and runtime notices inside the app', (t
   const electronDirectory = path.join(directory, 'node_modules/electron/dist')
   fs.mkdirSync(electronDirectory, { recursive: true })
   fs.writeFileSync(path.join(directory, 'THIRD_PARTY_NOTICES.md'), 'application')
-  fs.writeFileSync(path.join(electronDirectory, 'LICENSE'), 'electron')
+  fs.writeFileSync(path.join(directory, 'node_modules/electron/LICENSE'), 'electron')
   fs.writeFileSync(path.join(electronDirectory, 'LICENSES.chromium.html'), 'chromium')
 
-  copyThirdPartyNotices(appPath, { rootDirectory: directory })
+  const notices = loadThirdPartyNotices(directory)
+  fs.rmSync(electronDirectory, { recursive: true, force: true })
+  copyThirdPartyNotices(appPath, notices)
 
   const licenses = path.join(appPath, 'Contents/Resources/licenses')
   assert.equal(fs.readFileSync(path.join(licenses, 'THIRD_PARTY_NOTICES.md'), 'utf8'), 'application')

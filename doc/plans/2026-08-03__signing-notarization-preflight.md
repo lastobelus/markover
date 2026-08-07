@@ -13,9 +13,16 @@ only authoritative producer of official releases; local packages remain
 development builds.
 
 The work is delivered in three slices. Slice 1 merged through PR 45 on
-4 August 2026. This session implements slice 2 from that accepted baseline,
-commits it after verification, and stops before repository-setting activation,
-tagging, publication, or slice 3.
+4 August 2026, and slice 2 merged through PR 55 on 6 August 2026. Slice 3 is
+rebased onto merged baseline `9a621c8`, including PR 70's verified
+renderer startup, PR 61's development-instance work, and PR 73's cleanup fix,
+on branch `t3code/issue-13-slice-3-packaged-smoke` in PR 68. Its implementation
+is complete; the live PR records the exact-head merge-gate state.
+Its current-head local checks plus Apple Silicon packaging and exact-ZIP
+preflight pass; final native arm64 and x64 CI evidence passes in run
+31213261762, and automated Codex review reports no issues. It adds shared packaged
+happy-path evidence and the clean Intel/Sonoma procedure, then stops after
+merge before any version change, tag, draft, or release operation.
 
 ## Current verified baseline
 
@@ -34,12 +41,18 @@ tagging, publication, or slice 3.
   `~/Library/Application Support/Markover`, separately from versioned app
   caches. Released review data currently uses format version 1 and is written
   atomically, but there is no general downgrade migration or backup system.
-- The repository is public. `main` has a ruleset, but `v*` tags are not
-  protected. Existing `v0.1.0` and `v0.1.1` releases predate immutable-release
-  policy.
+- The repository is public. Release readiness is verified `ready`, immutable
+  releases are enabled, and the protected `release` environment requires
+  `lastobelus`, permits self-approval, disallows administrator bypass, and
+  accepts only `v*` tags.
+- `v*` creation is restricted through the explicit `lastobelus` user bypass;
+  tag updates and deletion are blocked without bypass. Existing `v0.1.0` and
+  `v0.1.1` releases predate this policy.
 - A 2019 Intel MacBook can be dedicated to the later clean-machine exercise.
 - Slice 1 now enforces the hardened ad-hoc package, final-ZIP, and bootstrap
   installation contracts on `main`.
+- Slice 2 now enforces guarded draft-first provenance, approval, immutable
+  publication, withdrawal, and rollback contracts on `main`.
 
 ## Scope boundaries
 
@@ -146,7 +159,7 @@ slice and stop for review before changing release permissions or publication.
 
 ## Slice 2: provenance, release operations, and rollback
 
-After slice 1 is accepted, revise the release workflow with these controls:
+Slice 2 is implemented on `main` through PR 55 with these controls:
 
 1. Require a strictly increasing stable SemVer tag whose commit is contained in
    protected `main` and has passed required CI.
@@ -204,19 +217,18 @@ release; `latest` returns to the known-good release. An actively dangerous
 immutable release may be removed as a whole, but its tag name is never reused
 and the incident remains documented.
 
-## GitHub setting activation order
+## GitHub safeguard state
 
 Existing `v0.1.0` and `v0.1.1` releases remain untouched historical
-pre-policy releases. Do not enable new repository settings while the compatible
-workflow exists only on a branch.
+pre-policy releases. The compatible slice-2 workflow is on `main`, release
+readiness has been verified `ready`, and the safeguards are active:
 
-After slice 2 merges to `main`, verify the proposed mutations, then:
-
-1. create the protected `release` environment;
-2. add a tag ruleset restricting `v*` creation to maintainers and preventing
-   tag update/deletion;
-3. enable GitHub immutable releases for future releases; and
-4. rerun the read-only readiness check.
+1. the protected `release` environment requires `lastobelus`, permits
+   self-approval, disallows administrator bypass, and accepts only `v*` tags;
+2. one active ruleset restricts `v*` creation through the explicit
+   `lastobelus` user bypass;
+3. a separate unbypassable ruleset blocks `v*` updates and deletion; and
+4. immutable releases are enabled for future releases.
 
 Immutable releases lock assets and tags and add GitHub's release attestation.
 Keep the explicit Actions build attestations because they prove workflow
@@ -255,6 +267,53 @@ restart, restore already-saved state, hand off/get, and reopen/edit. Issue 13
 may proceed independently of issue 39 and must not assert bounded-loss or
 adversarial-auth behavior. It is not complete until the shared packaged smoke
 is available.
+
+The implementation composes only the fixture's create/open and get/edit
+helpers. Each native release job verifies its exact final ZIP, launches the
+packaged app, confirms saved state before a normal restart, confirms restoration,
+performs CLI get and edit/reopen, and emits sanitized versioned JSON evidence.
+The planned restart waits for both endpoint shutdown and exit of the exact
+recorded packaged-app PID before launching the replacement instance.
+The JSON is retained as a separate `packaged-smoke-*` workflow artifact so it
+cannot broaden the release staging directory's exact toolchain-report set.
+The runner neither sends unauthorized requests nor measures loss windows,
+crash timing, concurrent writes, or durability.
+
+When the clean-machine procedure supplies an installed `Markover.app`, the
+runner extracts the already-verified ZIP as a reference and requires the
+installed bundle to have the same file tree, file bytes, executable modes, and
+symlink targets. Quarantine extended attributes remain intentionally outside
+that byte comparison and are checked separately.
+
+PR 70 merged issue 43's independent verified-renderer startup and packaged
+smoke pipeline. PR 68 is now rebased onto that merged repair and current
+`main`; local checks, the isolated packaged startup smoke, and Apple Silicon
+exact-ZIP preflight pass. Its final arm64 and x64 package, preflight, lifecycle,
+and evidence jobs passed in run 31213261762. Current-head automated Codex review
+reported no issues before the PR 73 rebase; the live PR records the repeated
+exact-head merge-gate state. Earlier runs
+preflighted both exact hardened ad-hoc ZIPs but stopped at the now-repaired
+renderer snapshot boundary; those runs are historical failure evidence, not a
+pass.
+
+Retained native CI run 31213261762 passed the complete packaged happy path for both
+architectures against synthetic PR merge commit
+`c0cebfe42ef7d312f6510a05f63cd32f71e8c63f` (head `ca0f969` on baseline
+`cd4b344`, before the non-overlapping PR 73 rebase). The retained arm64 artifact digest is
+`96d0cb3fecb08078110cd2ff8835a697d1c53bb1746592d8e5fda86234adefc8`;
+the x64 digest is
+`25e0751dea8f13de90406ddff4e80b6af1ab188ce1496567afc650f21524c340`.
+Both evidence files record every happy-path step as passed, ad-hoc trust with
+expected Gatekeeper rejection, `appleVerified: false`, `notarized: false`, and
+explicit adversarial-authorization and bounded-loss-durability exclusions.
+They are CI evidence, not clean Intel/Sonoma evidence.
+
+Clean Intel evidence is not collected by this implementation branch. The
+dedicated 2019 Intel Mac on Sonoma must later use the exact authenticated draft
+download, preserve Safari quarantine, exercise the visible Gatekeeper override,
+install the app, run the same packaged happy path, and verify the documented
+version-pinned rollback. Record that evidence on issue 13 only after the real
+run passes.
 
 ## Future Developer ID activation contract
 
@@ -367,14 +426,23 @@ last Developer ID release.
 80. A future unmilestoned security enhancement evaluates App Sandbox.
 81. Repository settings activate only after compatible workflow reaches `main`.
 82. Issue 13 is delivered in three reviewable slices.
-83. Slice 1 merged through PR 45; this session implements and commits only
-    slice 2.
+83. Slices 1 and 2 merged through PRs 45 and 55; slice 3 starts from their
+    merged `main` baseline.
 84. This plan was reviewed in Markover before slice 1 and remains the canonical
-    decision source for slice 2.
+    decision source for all three slices.
+85. Slice 3 emits versioned, sanitized happy-path evidence for each native
+    artifact and leaves adversarial authorization and durability to issues 12
+    and 39.
+86. The slice-3 PR may merge after CI and completed automated Codex review are
+    clean, but no version, tag, draft, release, or approval follows without
+    explicit maintainer authorization.
+87. Live GitHub release safeguards are verified `ready`; Developer ID readiness
+    remains intentionally blocked while Apple Program access is absent.
 
 ## Review gate
 
-The plan is approved and slice 1 is merged. Execute slice 2 only. Do not change
-repository settings, create a tag or release, record clean-machine evidence, or
-begin slice 3 from this implementation branch. Repository-setting activation
-occurs only after the compatible workflow reaches `main`.
+The plan is approved; slices 1 and 2 are merged and the repository safeguards
+are active. Execute slice 3 through a clean reviewed merge. Do not change
+versions, create a tag, create or approve a draft, publish a release, or record
+clean-Intel evidence from this branch. After merge, report readiness and wait
+for explicit approval before beginning the first-release sequence.

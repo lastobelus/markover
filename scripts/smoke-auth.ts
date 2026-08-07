@@ -21,6 +21,18 @@ interface SmokeState {
   tokenDigest: string
 }
 
+export interface HappyPathSmokeOptions {
+  endpointPath: string
+  sourceContent: string
+  sourcePath: string
+  contextSummary: string
+}
+
+export interface HappyPathSmokeResult {
+  reviewId: string
+  status: 'editing'
+}
+
 export interface AuthorizationSmokeOptions {
   endpointPath?: string
   repairService?: (() => Promise<void>) | undefined
@@ -38,6 +50,79 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function tokenDigest(token: string): string {
   return createHash('sha256').update(token, 'ascii').digest('hex')
+}
+
+export async function openHappyPathSmokeReview({
+  endpointPath,
+  sourceContent,
+  sourcePath,
+  contextSummary
+}: HappyPathSmokeOptions): Promise<HappyPathSmokeResult> {
+  await fs.writeFile(sourcePath, sourceContent, { mode: 0o600 })
+  const opened = await executeCommand({
+    command: 'open',
+    sourcePath,
+    contextSummary,
+    branch: null,
+    handoffKey: null,
+    pullRequestNumber: null,
+    threadId: null
+  }, {
+    endpointPath,
+    ensure: () => Promise.resolve(),
+    discoverMetadata: () => Promise.resolve({
+      git: null,
+      agentThread: null,
+      pullRequest: null
+    })
+  })
+  if (
+    !isRecord(opened) ||
+    typeof opened.reviewId !== 'string' ||
+    opened.status !== 'editing'
+  ) {
+    throw new Error('Smoke review was not created.')
+  }
+  return {
+    reviewId: opened.reviewId,
+    status: 'editing'
+  }
+}
+
+export async function handoffAndReopenHappyPathSmokeReview(
+  endpointPath: string,
+  reviewId: string
+): Promise<HappyPathSmokeResult> {
+  const handedOff = await executeCommand({
+    command: 'get',
+    reviewId
+  }, {
+    endpointPath,
+    ensure: () => Promise.resolve()
+  })
+  if (
+    !isRecord(handedOff) ||
+    !isRecord(handedOff.review) ||
+    handedOff.review.id !== reviewId ||
+    handedOff.review.status !== 'pending-agent'
+  ) {
+    throw new Error('Smoke get did not return the prepared review.')
+  }
+  const edited = await executeCommand({
+    command: 'edit',
+    reviewId
+  }, {
+    endpointPath,
+    ensure: () => Promise.resolve()
+  })
+  if (
+    !isRecord(edited) ||
+    edited.reviewId !== reviewId ||
+    edited.status !== 'editing'
+  ) {
+    throw new Error('Smoke edit did not reopen the prepared review.')
+  }
+  return { reviewId, status: 'editing' }
 }
 
 async function readConnection(endpointPath: string) {
@@ -187,41 +272,18 @@ export async function prepareAuthorizationSmoke({
     }
     await requestJson(endpointPath, 'GET', '/health')
     await verifyUnauthorizedDenial(endpoint.port)
-    await fs.writeFile(
+    const opened = await openHappyPathSmokeReview({
+      endpointPath,
       sourcePath,
-      [
+      sourceContent: [
         '# Markover authorization smoke review',
         '',
         'This real review was created by `npm run smoke:auth -- prepare`.',
         'It is intentionally preserved as protocol-v2 smoke evidence.',
         ''
       ].join('\n'),
-      { mode: 0o600 }
-    )
-    const opened = await executeCommand({
-      command: 'open',
-      sourcePath,
-      contextSummary: 'Authorization smoke fixture — safe to preserve.',
-      branch: null,
-      handoffKey: null,
-      pullRequestNumber: null,
-      threadId: null
-    }, {
-      endpointPath,
-      ensure: () => Promise.resolve(),
-      discoverMetadata: () => Promise.resolve({
-        git: null,
-        agentThread: null,
-        pullRequest: null
-      })
+      contextSummary: 'Authorization smoke fixture — safe to preserve.'
     })
-    if (
-      !isRecord(opened) ||
-      typeof opened.reviewId !== 'string' ||
-      opened.status !== 'editing'
-    ) {
-      throw new Error('Authorization smoke review was not created.')
-    }
     const state: SmokeState = {
       reviewId: opened.reviewId,
       instanceId: endpoint.instanceId,
@@ -264,35 +326,7 @@ export async function verifyAuthorizationSmoke({
     throw new Error('Markover authorization token did not rotate after restart.')
   }
 
-  const handedOff = await executeCommand({
-    command: 'get',
-    reviewId: state.reviewId
-  }, {
-    endpointPath,
-    ensure: () => Promise.resolve()
-  })
-  if (
-    !isRecord(handedOff) ||
-    !isRecord(handedOff.review) ||
-    handedOff.review.id !== state.reviewId ||
-    handedOff.review.status !== 'pending-agent'
-  ) {
-    throw new Error('Authorization smoke get did not return the prepared review.')
-  }
-  const edited = await executeCommand({
-    command: 'edit',
-    reviewId: state.reviewId
-  }, {
-    endpointPath,
-    ensure: () => Promise.resolve()
-  })
-  if (
-    !isRecord(edited) ||
-    edited.reviewId !== state.reviewId ||
-    edited.status !== 'editing'
-  ) {
-    throw new Error('Authorization smoke edit did not reopen the prepared review.')
-  }
+  await handoffAndReopenHappyPathSmokeReview(endpointPath, state.reviewId)
   await fs.unlink(statePath)
   return {
     phase: 'verify',

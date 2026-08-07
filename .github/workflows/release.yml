@@ -115,6 +115,28 @@ jobs:
             "--version=${version}" \
             "--trust-mode=ad-hoc"
 
+      - name: Exercise packaged happy path
+        shell: bash
+        run: |
+          architecture="$(node -p process.arch)"
+          version="$(node -p "require('./package.json').version")"
+          npm run smoke:packaged -- \
+            "--archive=artifact/Markover-darwin-${architecture}.zip" \
+            "--checksum=artifact/Markover-darwin-${architecture}.zip.sha256" \
+            "--architecture=${architecture}" \
+            "--version=${version}" \
+            "--trust-mode=ad-hoc" \
+            "--evidence-kind=ci" \
+            "--evidence=smoke-evidence/packaged-smoke-${architecture}.json"
+
+      - name: Retain packaged smoke evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packaged-smoke-${{ matrix.runner }}
+          path: smoke-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Retain native payload and sanitized build context
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

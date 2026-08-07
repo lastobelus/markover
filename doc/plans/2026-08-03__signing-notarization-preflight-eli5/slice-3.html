@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en" data-repo-doc-path="doc/plans/2026-08-03__signing-notarization-preflight-eli5/slice-3.html">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Packaged smoke evidence, explained simply</title>
+  <style>
+    :root {
+      --brand-orange: #c94e1f; --brand-burgundy: #6d211f; --ink: #26211e;
+      --muted: #756d67; --paper: #eee8e0; --surface: #fffdf9; --line: #ddd5cc;
+      --brand-soft: #f5e3da; --success: #35623f; --warning: #8a4d18;
+      --shadow: 0 14px 36px rgb(109 33 31 / 8%);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--paper); color: var(--ink); font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif; line-height: 1.55; }
+    body { margin: 0; }
+    a { color: var(--brand-burgundy); text-underline-offset: .18em; }
+    a:hover { color: var(--brand-orange); }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--brand-orange); outline-offset: 3px; }
+    .page { width: min(100% - 32px, 980px); margin: 0 auto; padding: 24px 0 64px; }
+    .tabs { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 42px; padding: 6px; border: 1px solid var(--line); border-radius: 14px; background: rgb(255 253 249 / 72%); font-family: ui-sans-serif, system-ui, sans-serif; }
+    .tabs a { flex: 1 0 max-content; padding: 9px 14px; border-radius: 9px; color: var(--muted); font-size: .86rem; font-weight: 700; text-align: center; text-decoration: none; }
+    .tabs a[aria-current="page"] { background: var(--brand-burgundy); color: white; }
+    header { max-width: 810px; margin-bottom: 28px; }
+    .eyebrow, .tag { color: var(--brand-burgundy); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .77rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    h1, h2, h3 { line-height: 1.14; text-wrap: balance; }
+    h1 { margin: 8px 0 0; font-size: clamp(2.2rem, 7vw, 4.45rem); letter-spacing: -.045em; }
+    h1 span { color: var(--brand-orange); }
+    .lede { max-width: 740px; margin: 18px 0 0; color: #493f39; font-size: clamp(1.06rem, 2.3vw, 1.3rem); }
+    .card { margin: 22px 0; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
+    details.truth-context:first-of-type { overflow: hidden; border-top: 4px solid var(--brand-burgundy); }
+    .context-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px clamp(18px, 4vw, 28px); list-style: none; cursor: pointer; }
+    .context-summary::-webkit-details-marker { display: none; }
+    .context-summary:hover { background: #f8f3ed; }
+    .context-title { font-size: 1.12rem; font-weight: 750; }
+    .context-status { flex: none; padding: 5px 9px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-burgundy); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .73rem; font-weight: 800; }
+    .context-body { padding: 22px clamp(18px, 4vw, 28px); border-top: 1px solid var(--line); }
+    .context-grid, .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .context-grid { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .context-grid h3 { margin: 0 0 7px; color: var(--brand-burgundy); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .88rem; text-transform: uppercase; }
+    .context-grid p { margin: 0; }
+    section { margin: 42px 0; }
+    section.card { padding: clamp(22px, 4vw, 34px); }
+    h2 { margin: 0 0 12px; font-size: clamp(1.55rem, 4vw, 2.25rem); }
+    h3 { margin: 8px 0; font-size: 1.17rem; }
+    p { margin: 0 0 12px; }
+    ul { padding-left: 1.25rem; }
+    li + li { margin-top: 7px; }
+    code { padding: .1em .3em; border-radius: 4px; background: #f3ece5; font-family: ui-monospace, monospace; font-size: .9em; }
+    .diagram-scroll { overflow-x: auto; padding: 10px 0 2px; }
+    svg { display: block; min-width: 1040px; width: 100%; height: auto; }
+    .mini { padding: 20px; margin: 0; }
+    .mini p { color: #554b45; }
+    .boundary { border-left: 5px solid var(--brand-orange); padding: 18px 20px; background: #fff8f1; }
+    .next { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; text-decoration: none; }
+    footer { margin-top: 50px; color: var(--muted); font-size: .9rem; }
+    footer details { padding: 14px 18px; }
+    footer summary { cursor: pointer; font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
+    footer details div { padding-top: 12px; }
+    @media (max-width: 700px) {
+      .page { width: min(100% - 20px, 980px); }
+      .tabs { gap: 3px; margin-bottom: 30px; padding: 4px; }
+      .tabs a { flex: 1 1 0; min-width: 0; padding: 7px 4px; font-size: .68rem; white-space: nowrap; }
+      .context-summary { align-items: flex-start; flex-direction: column; }
+      .context-grid, .grid { grid-template-columns: 1fr; }
+      .context-status { white-space: normal; }
+      h1 { font-size: clamp(2.2rem, 14vw, 3.6rem); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="tabs" aria-label="Signing preflight explainer">
+      <a href="index.html">Overview</a>
+      <a href="slice-1.html">Slice 1 · Package</a>
+      <a href="release-roadmap.html">Slice 2 · Release</a>
+      <a href="slice-3.html" aria-current="page">Slice 3 · Smoke</a>
+    </nav>
+
+    <header>
+      <p class="eyebrow">Issue 13 · Slice 3</p>
+      <h1>Prove the saved path, <span>not every failure mode</span>.</h1>
+      <p class="lede">
+        Slice 3 takes each exact native release ZIP on a short real journey: launch the
+        packaged app, save one review, restart, restore it, hand it to the CLI, and reopen
+        it. Authorization attacks and crash-loss timing stay in their own test suites.
+      </p>
+    </header>
+
+    <details class="card truth-context">
+      <summary class="context-summary">
+        <span class="context-title">Where This Is True</span>
+        <span class="context-status">PR #68 implementation complete · Live merge gates at PR #68 · Clean Intel pending</span>
+      </summary>
+      <div class="context-body">
+        <p>
+          This page describes slice 3 of
+          <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>
+          in <a href="https://github.com/lastobelus/markover/pull/68">PR #68</a>
+          on <code>t3code/issue-13-slice-3-packaged-smoke</code>, snapshot 7 August
+          2026, rebased locally onto current merged <code>main</code> baseline
+          <code>9a621c8</code> containing
+          <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
+          <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>, plus
+          <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
+          verified renderer startup plus PR #61 and PR #73. The runner and native evidence contract are
+          implemented. Local checks, packaged startup smoke, and Apple Silicon exact-ZIP
+          preflight pass. Retained native <a href="https://github.com/lastobelus/markover/actions/runs/31213261762">CI run 31213261762</a>
+          passed the complete arm64 and x64 lifecycle against synthetic PR merge
+          <code>c0cebfe</code>, and automated Codex review reported no issues before the
+          non-overlapping PR #73 rebase. PR #68 is authoritative for live exact-head gates.
+          Earlier native failures at issue #43 are historical and do not
+          count as a pass. No clean Intel/Sonoma result, version tag, draft release, or
+          release is claimed here.
+        </p>
+        <div class="context-grid">
+          <div>
+            <h3>Scope and roadmap position</h3>
+            <p>Final credential-free slice: native arm64 and x64 package evidence before the first post-policy release. It reuses issue #12's happy-path helpers only; issue #12 keeps adversarial auth and issue #39 keeps bounded-loss durability.</p>
+          </div>
+          <div>
+            <h3>Follow-ups and change horizon</h3>
+            <p>PR #70's renderer repair and the non-overlapping PR #73 cleanup fix are merged; PR #68 is rebased with implementation complete. Re-check PR #68 for live exact-head CI, automated Codex review, and merge state. After slice merge, version and release work waits for explicit approval. The dedicated 2019 Intel Mac must later collect Sonoma quarantine, visible override, installation, smoke, and rollback evidence from the exact draft. Developer ID remains blocked on Apple access.</p>
+          </div>
+          <div>
+            <h3>Stable claims and current truth</h3>
+            <p>Stable: exact ZIP input, byte-matched installed clean-machine app, a physical Intel host that rejects Rosetta translation, separate native architectures, saved-state restart after the old PID exits, CLI open/get/edit, failed-launch cleanup, versioned sanitized evidence in separate workflow artifacts, and explicit exclusions. Retained run 31213261762 records arm64 digest <code>96d0cb…efc8</code> and x64 digest <code>25e075…340</code>; it is CI evidence, not clean Intel evidence. Quarantine metadata is checked separately from app bytes; evidence cannot broaden release staging's exact toolchain set. Command details may change in a later reviewed update. Re-check issue #13, PR #68, plan, runbook, release workflow, and this card.</p>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <section class="card" aria-labelledby="tiny-story">
+      <h2 id="tiny-story">The Tiny Story</h2>
+      <p>
+        The auth fixture is a road map. Slice 3 borrows only the ordinary route—open,
+        save, get, edit—and drives it with the actual packaged car. It does not rerun the
+        fixture's break-in drills, and it does not crash the car to measure how much
+        luggage survives.
+      </p>
+      <p>
+        A pass means one already-saved review survived a normal packaged-app restart and
+        remained usable through the real CLI contract. It says nothing broader about
+        hostile callers or bounded-loss behavior.
+      </p>
+    </section>
+
+    <section class="card" aria-labelledby="flow-title">
+      <h2 id="flow-title">One narrow trip through each native package</h2>
+      <p>The Apple Silicon and Intel jobs run the same sequence against their own exact final ZIP.</p>
+      <div class="diagram-scroll" role="region" aria-label="Scrollable packaged smoke evidence flow" tabindex="0">
+        <svg viewBox="0 0 1160 600" role="img" aria-labelledby="flow-diagram-title flow-diagram-desc">
+          <title id="flow-diagram-title">Packaged happy-path smoke and evidence flow</title>
+          <desc id="flow-diagram-desc">An exact arm64 or x64 ZIP passes release preflight, launches Markover, creates and saves a review through CLI open, quits normally, relaunches, restores the saved review, hands it off with CLI get, reopens it with CLI edit, confirms the reopened state on disk, and writes sanitized JSON evidence. Adversarial authorization and bounded-loss durability branch to separate issues and are not run here.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#c94e1f"></path></marker>
+            <marker id="green-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#35623f"></path></marker>
+          </defs>
+          <g font-family="system-ui" font-size="13">
+            <text x="20" y="32" fill="#6d211f" font-weight="800">THE SHARED PACKAGED HAPPY PATH</text>
+            <rect x="20" y="55" width="170" height="84" rx="14" fill="#fff8f1" stroke="#c94e1f" stroke-width="3"></rect>
+            <text x="105" y="84" text-anchor="middle" fill="#6d211f" font-weight="800">EXACT FINAL ZIP</text><text x="105" y="107" text-anchor="middle" fill="#26211e">arm64 or x64</text><text x="105" y="127" text-anchor="middle" fill="#756d67">preflight verified</text>
+            <line x1="190" y1="97" x2="226" y2="97" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="236" y="55" width="160" height="84" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="316" y="89" text-anchor="middle" fill="#26211e" font-weight="700">Launch package</text><text x="316" y="114" text-anchor="middle" fill="#756d67">real native app</text>
+            <line x1="396" y1="97" x2="432" y2="97" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="442" y="55" width="180" height="84" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="532" y="87" text-anchor="middle" fill="#26211e" font-weight="700">CLI open / create</text><text x="532" y="111" text-anchor="middle" fill="#756d67">one real review</text><text x="532" y="130" text-anchor="middle" fill="#756d67">confirm saved on disk</text>
+            <line x1="622" y1="97" x2="658" y2="97" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="668" y="55" width="160" height="84" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="748" y="88" text-anchor="middle" fill="#26211e" font-weight="700">Normal quit</text><text x="748" y="113" text-anchor="middle" fill="#756d67">saved state only</text>
+            <line x1="828" y1="97" x2="864" y2="97" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="874" y="55" width="160" height="84" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="954" y="88" text-anchor="middle" fill="#26211e" font-weight="700">Relaunch package</text><text x="954" y="113" text-anchor="middle" fill="#756d67">restore saved review</text>
+
+            <line x1="954" y1="139" x2="954" y2="224" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="874" y="234" width="160" height="84" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="954" y="267" text-anchor="middle" fill="#26211e" font-weight="700">CLI get</text><text x="954" y="292" text-anchor="middle" fill="#756d67">handoff saved review</text>
+            <line x1="874" y1="276" x2="838" y2="276" stroke="#c94e1f" stroke-width="3" marker-end="url(#arrow)"></line>
+            <rect x="648" y="234" width="180" height="84" rx="14" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="738" y="267" text-anchor="middle" fill="#26211e" font-weight="700">CLI edit / reopen</text><text x="738" y="292" text-anchor="middle" fill="#756d67">return to editing</text>
+            <line x1="648" y1="276" x2="612" y2="276" stroke="#35623f" stroke-width="3" marker-end="url(#green-arrow)"></line>
+            <rect x="422" y="224" width="180" height="104" rx="14" fill="#edf5ee" stroke="#35623f" stroke-width="3"></rect>
+            <text x="512" y="257" text-anchor="middle" fill="#35623f" font-weight="800">EVIDENCE JSON</text><text x="512" y="282" text-anchor="middle" fill="#26211e">version · commit · digest</text><text x="512" y="304" text-anchor="middle" fill="#756d67">host · steps · exclusions</text>
+
+            <text x="20" y="388" fill="#6d211f" font-weight="800">SEPARATE OWNERS — NOT DUPLICATED</text>
+            <rect x="120" y="420" width="390" height="105" rx="16" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="315" y="454" text-anchor="middle" fill="#6d211f" font-weight="800">ISSUE #12 · ADVERSARIAL AUTHORIZATION</text><text x="315" y="482" text-anchor="middle" fill="#756d67">missing, malformed, mismatched, and unauthorized requests</text><text x="315" y="505" text-anchor="middle" fill="#756d67">remain outside packaged smoke</text>
+            <rect x="650" y="420" width="390" height="105" rx="16" fill="#fffdf9" stroke="#ddd5cc" stroke-width="2"></rect>
+            <text x="845" y="454" text-anchor="middle" fill="#6d211f" font-weight="800">ISSUE #39 · BOUNDED-LOSS DURABILITY</text><text x="845" y="482" text-anchor="middle" fill="#756d67">crashes, timing, concurrent writes, and loss windows</text><text x="845" y="505" text-anchor="middle" fill="#756d67">remain outside packaged smoke</text>
+            <text x="580" y="578" text-anchor="middle" fill="#756d67">The two exclusions appear in every evidence file so a narrow pass cannot grow into a broader claim.</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section aria-labelledby="adds-title">
+      <h2 id="adds-title">What this adds</h2>
+      <div class="grid">
+        <article class="card mini"><span class="tag">Native symmetry</span><h3>Same proof, two builders</h3><p>The release matrix runs the exact same runner natively on Apple Silicon and Intel and retains one sanitized evidence file per architecture.</p></article>
+        <article class="card mini"><span class="tag">Saved state</span><h3>Persistence before restart</h3><p>The runner reads the durable review before quitting, restores it after relaunch, then confirms edit/reopen reaches disk.</p></article>
+        <article class="card mini"><span class="tag">Clean Intel gate</span><h3>Claims require real conditions</h3><p>Clean evidence is admitted only for x64 on Sonoma, with a separately installed quarantined app. No synthetic unit result becomes release evidence.</p></article>
+        <article class="card mini"><span class="tag">Honest evidence</span><h3>Ad-hoc stays explicit</h3><p>The JSON records expected Gatekeeper rejection, <code>appleVerified: false</code>, <code>notarized: false</code>, and both excluded suites.</p></article>
+      </div>
+    </section>
+
+    <aside class="boundary">
+      <strong>The stop line is after merge.</strong> A clean PR does not create a version,
+      tag, draft, or release. The maintainer must explicitly approve that separate
+      operation; only then can the dedicated Intel Mac collect the still-pending evidence.
+    </aside>
+
+    <section aria-labelledby="references-title">
+      <h2 id="references-title">References checked</h2>
+      <div class="card mini">
+        <ul>
+          <li><a href="#" data-repo-path="scripts/smoke-packaged.ts">scripts/smoke-packaged.ts</a> — native lifecycle and evidence writer.</li>
+          <li><a href="#" data-repo-path="scripts/smoke-auth.ts">scripts/smoke-auth.ts</a> — shared create/open and get/edit happy-path helpers.</li>
+          <li><a href="#" data-repo-path=".github/workflows/release.yml">.github/workflows/release.yml</a> — arm64 and x64 execution and retained evidence.</li>
+          <li><a href="#" data-repo-path="docs/releasing.md">docs/releasing.md</a> — clean Intel/Sonoma procedure, issue evidence format, and post-merge stop.</li>
+          <li><a href="https://github.com/lastobelus/markover/issues/12">Issue #12</a> and <a href="https://github.com/lastobelus/markover/issues/39">issue #39</a> — boundaries this runner does not duplicate.</li>
+        </ul>
+      </div>
+    </section>
+
+    <a class="card next" href="index.html">
+      <span><strong>Back to overview:</strong> place packaged evidence in the full trust roadmap.</span>
+      <span aria-hidden="true">→</span>
+    </a>
+
+    <footer>
+      <p>Prepared as the maintained slice-3 companion to issue 13.</p>
+      <div class="card">
+        <details>
+          <summary>Prompt / context</summary>
+          <div><p>The user requested shared packaged smoke evidence through merge, with exact happy-path boundaries, a prepared clean Intel/Sonoma procedure, no premature clean-machine claim, and a hard stop before release operations.</p></div>
+        </details>
+      </div>
+    </footer>
+  </main>
+  <script>
+    function eli5RepoBase() {
+      const params = new URLSearchParams(window.location.search);
+      const explicit = params.get("baseUrl") || params.get("repoBase");
+      if (explicit) return explicit.replace(/\/$/, "");
+      const docPath = document.documentElement.dataset.repoDocPath;
+      if (window.location.protocol === "file:" && docPath) {
+        const fullPath = decodeURIComponent(window.location.pathname);
+        const suffix = "/" + docPath.replace(/^\//, "");
+        return fullPath.endsWith(suffix) ? fullPath.slice(0, -suffix.length) : "";
+      }
+      return "";
+    }
+    const repoBase = eli5RepoBase();
+    for (const link of document.querySelectorAll("a[data-repo-path]")) {
+      if (!repoBase) {
+        link.setAttribute("aria-disabled", "true");
+        link.title = "Open the saved file directly or add ?baseUrl=/path/to/worktree.";
+      } else {
+        link.href = encodeURI("file://" + repoBase + "/" + link.dataset.repoPath.replace(/^\//, ""));
+      }
+    }
+  </script>
+</body>
+</html>

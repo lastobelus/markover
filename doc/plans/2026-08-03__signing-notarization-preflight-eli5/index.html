@@ -146,6 +146,7 @@
       <a href="index.html" aria-current="page">Overview</a>
       <a href="slice-1.html">Slice 1 · Package</a>
       <a href="release-roadmap.html">Slice 2 · Release</a>
+      <a href="slice-3.html">Slice 3 · Smoke</a>
     </nav>
 
     <header>
@@ -161,39 +162,67 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Slice 2 · Ready PR #55 · 5 Aug 2026</span>
+        <span class="context-status">Slice 3 PR #68 implementation complete · Live merge gates at PR #68 · Clean Intel pending · 7 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
           This explains <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>
           as constrained by the reviewed
           <a href="#" data-repo-path="doc/plans/2026-08-03__signing-notarization-preflight.md">signing preflight plan</a>
-          after merged
-          <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a>,
-          and on slice-2 branch <code>t3code/issue-13-release-provenance</code> in
-          <a href="https://github.com/lastobelus/markover/pull/55">PR #55, ready for review</a>,
-          snapshot 5 August 2026. Slice 1 is implemented on <code>main</code>;
-          slice 2 is in progress; slice 3 remains roadmap work.
+          from the merged baseline containing
+          <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
+          <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>.
+          Current merged <code>main</code> baseline <code>9a621c8</code> also includes
+          <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
+          verified renderer startup, PR #61's development-instance work, and PR #73's
+          cleanup fix. Snapshot
+          7 August 2026: slices 1 and 2 are merged on <code>main</code>; slice 3 is
+          rebased with implementation complete in
+          <a href="https://github.com/lastobelus/markover/pull/68">PR #68</a> on
+          <code>t3code/issue-13-slice-3-packaged-smoke</code>. Current-head local checks,
+          packaged startup smoke, and Apple Silicon exact-ZIP preflight pass. Native
+          <a href="https://github.com/lastobelus/markover/actions/runs/31213261762">retained CI run 31213261762</a>
+          passed the complete arm64 and x64 lifecycle and retained evidence against
+          synthetic PR merge <code>c0cebfe</code>; automated Codex review reported no
+          issues before the non-overlapping PR #73 rebase. Re-check PR #68 for the live
+          exact-head gate state. Earlier native runs preflighted both exact
+          ZIPs but stopped at issue #43's now-repaired boundary, so they do not prove
+          the rebased head. No clean-Intel evidence has been collected.
         </p>
         <div class="context-grid">
           <div>
             <h3>Scope and roadmap position</h3>
             <p>
               This is credential-free preflight for the signing/notarization launch gate.
-              Slice 1 hardens local packaging and installation. Slice 2 now adds release
-              provenance, protected publication, and rollback. Slice 3 consumes issue #12's packaged happy-path
-              fixture; issue #39 separately owns durability.
+              Slice 1 owns hardened native packages; slice 2 owns provenance and guarded
+              publication; slice 3 reuses issue #12's happy-path fixture against packaged
+              Apple Silicon and Intel apps. Issue #12 keeps adversarial authorization,
+              and issue #39 keeps bounded-loss and durability behavior.
             </p>
           </div>
           <div>
-            <h3>Stable center and change horizon</h3>
+            <h3>Follow-ups and change horizon</h3>
+            <p>
+              The clean Intel/Sonoma run remains future evidence for the first
+              post-policy draft; Developer ID activation still needs Apple access and a
+              separate reviewed change. App Sandbox remains in
+              <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>.
+              Slice 3's implementation is complete; PR #68 is the authority for its live
+              exact-head CI, review, and merge state. After merge, version and release
+              work still waits for explicit approval. Runner details and evidence fields
+              may change in a later reviewed update.
+            </p>
+          </div>
+          <div>
+            <h3>Stable claims and current truth</h3>
             <p>
               Stable: explicit trust modes, fail-closed checks, two native architectures,
-              honest “not Apple-verified” language, and no silent fallback. Exact
-              workflow syntax and repository settings may change during slice 2. App Sandbox is
-              tracked separately by
-              <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>.
-              Re-check issue #13, PR #55, the plan, and this card for current truth.
+              byte-matched clean-machine app and ZIP, a physical Intel host that rejects
+              Rosetta translation, honest “not Apple-verified”
+              language, no silent fallback, and no duplicate auth or durability suite.
+              Re-check issue #13, PR #68, the
+              plan, release runbook, release workflow, and this card before relying on
+              current implementation or evidence status.
             </p>
           </div>
         </div>
@@ -270,14 +299,14 @@
           <p>Uses supported inside-out signing, minimal entitlements, Sonoma as the floor, and strict checks before cache installation. PR #45 is merged.</p>
         </article>
         <article class="card mini">
-          <span class="tag">Slice 2 · implementing</span>
+          <span class="tag">Slice 2 · merged</span>
           <h3>Prove where releases came from</h3>
-          <p>Add attestations, draft-first publication, protected approval, immutable releases, and precise rollback instructions.</p>
+          <p>PR #55 adds attestations, draft-first publication, protected approval, immutable releases, and precise rollback instructions.</p>
         </article>
         <article class="card mini">
-          <span class="tag">Slice 3 · after issue 12 fixture</span>
+          <span class="tag">Slice 3 · implementation complete</span>
           <h3>Exercise the packaged happy path</h3>
-          <p>Reuse the auth fixture against final packaged apps and the clean Intel Mac without duplicating adversarial or durability tests.</p>
+          <p>Reuse the landed auth fixture against native packaged apps and prepare the clean Intel procedure without claiming evidence before it is collected.</p>
         </article>
         <article class="card mini">
           <span class="tag">Still blocked</span>
