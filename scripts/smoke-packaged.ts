@@ -401,7 +401,7 @@ export async function assertEquivalentAppBundle(
 
 function defaultTranslated(): boolean {
   const result = spawnSync('/usr/sbin/sysctl', [
-    '-in',
+    '-n',
     'sysctl.proc_translated'
   ], { encoding: 'utf8' })
   if (result.error) throw result.error
