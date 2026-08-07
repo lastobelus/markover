@@ -172,9 +172,6 @@ async function main(): Promise<void> {
   )
 
   await verifyAppLayout(appDirectory)
-  process.stdout.write(
-    `Verified build/app (${String(layoutManifest.sizes.rendererBytes)} byte renderer).\n`
-  )
 }
 
 void main()
