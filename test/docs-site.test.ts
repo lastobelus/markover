@@ -5,19 +5,32 @@ import test from 'node:test'
 import { JSDOM } from 'jsdom'
 
 const projectDirectory = path.resolve(__dirname, '../..')
-const html = fs.readFileSync(path.join(projectDirectory, 'docs/index.html'), 'utf8')
+const userDirectory = path.join(projectDirectory, 'docs/user')
+const html = fs.readFileSync(path.join(userDirectory, 'index.html'), 'utf8')
 const scriptSource = fs.readFileSync(
-  path.join(projectDirectory, 'docs/site.ts'),
+  path.join(userDirectory, 'site.ts'),
   'utf8'
 )
 const script = fs.readFileSync(
-  path.join(projectDirectory, 'build/docs/site.js'),
+  path.join(projectDirectory, 'build/docs/user/site.js'),
   'utf8'
 )
-const styles = fs.readFileSync(path.join(projectDirectory, 'docs/styles.css'), 'utf8')
-const guide = fs.readFileSync(path.join(projectDirectory, 'docs/guide/index.html'), 'utf8')
+const styles = fs.readFileSync(path.join(userDirectory, 'styles.css'), 'utf8')
+const guide = fs.readFileSync(path.join(userDirectory, 'guide/index.html'), 'utf8')
 const privacy = fs.readFileSync(
-  path.join(projectDirectory, 'docs/privacy/index.html'),
+  path.join(userDirectory, 'privacy/index.html'),
+  'utf8'
+)
+const limitations = fs.readFileSync(
+  path.join(userDirectory, 'limitations/index.html'),
+  'utf8'
+)
+const developerIndex = fs.readFileSync(
+  path.join(projectDirectory, 'docs/developer/README.md'),
+  'utf8'
+)
+const developerSecurity = fs.readFileSync(
+  path.join(projectDirectory, 'docs/developer/local-service-security.md'),
   'utf8'
 )
 const readme = fs.readFileSync(path.join(projectDirectory, 'README.md'), 'utf8')
@@ -36,7 +49,7 @@ const screenshots = [
 
 test('the Pages preview offers a navigable high-density screenshot gallery', () => {
   for (const screenshot of screenshots) {
-    const filePath = path.join(projectDirectory, 'docs/assets', screenshot)
+    const filePath = path.join(userDirectory, 'assets', screenshot)
     assert.equal(fs.existsSync(filePath), true, `${screenshot} should exist`)
     const bytes = fs.readFileSync(filePath)
     const header = bytes.subarray(0, 24)
@@ -135,7 +148,24 @@ test('Pages deploys built docs when a documentation build input changes', () => 
   assert.match(pagesWorkflow, /run: npm run build --silent/)
   assert.match(pagesWorkflow, /actions\/configure-pages@[0-9a-f]{40} # v5/)
   assert.match(pagesWorkflow, /actions\/upload-pages-artifact@[0-9a-f]{40} # v4/)
-  assert.match(pagesWorkflow, /path: build\/docs/)
+  assert.match(pagesWorkflow, /path: build\/docs\/user/)
+  assert.doesNotMatch(pagesWorkflow, /path: build\/docs\s/)
+  assert.equal(
+    fs.existsSync(path.join(projectDirectory, 'build/docs/user/index.html')),
+    true
+  )
+  assert.equal(
+    fs.existsSync(path.join(projectDirectory, 'build/docs/user/limitations/index.html')),
+    true
+  )
+  assert.equal(
+    fs.existsSync(path.join(projectDirectory, 'build/docs/user/.nojekyll')),
+    true
+  )
+  assert.equal(
+    fs.existsSync(path.join(projectDirectory, 'build/docs/user/developer')),
+    false
+  )
   assert.match(pagesWorkflow, /actions\/deploy-pages@[0-9a-f]{40} # v4/)
   assert.doesNotMatch(pagesWorkflow, /pull_request:/)
 })
@@ -172,16 +202,110 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
     'discovery',
     'agent-handoff',
     'network',
-    'retention'
+    'retention',
+    'reinstall',
+    'delete-one',
+    'reset',
+    'compatibility',
+    'support'
   ]) {
     assert.match(privacy, new RegExp(`id="${section}"`))
   }
-  assert.match(privacy, /0700/)
-  assert.match(privacy, /service\.token/)
+  assert.doesNotMatch(privacy, /0700|0600|service\.token|256-bit/)
   assert.match(privacy, /no telemetry, analytics, cloud synchronization/)
   assert.match(privacy, /remote Markdown image starts as an inert preview button/)
   assert.match(privacy, /Discover agent thread from local session logs/)
-  assert.match(privacy, /first quit Markover/)
+  assert.match(privacy, /Quit Markover/)
   assert.match(privacy, /does not apply them to the original Markdown source/)
   assert.match(privacy, /outside Markover's control/)
+  assert.match(privacy, /Library\/Caches\/Markover/)
+  assert.match(privacy, /Application Support\/Markover/)
+  assert.match(privacy, /may not open every review created by an older version/)
+  assert.match(privacy, /github\.com\/lastobelus\/markover\/discussions/)
+})
+
+test('user and developer documentation have explicit audience roots', () => {
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/user/index.html')), true)
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/developer/README.md')), true)
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/index.html')), false)
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/development.md')), false)
+  assert.match(readme, /docs\/developer\/README\.md/)
+  assert.match(developerIndex, /User pages explain consequences\s+and actions/)
+  assert.match(developerIndex, /Developer documentation may link to those pages/)
+  assert.match(developerSecurity, /32-byte capability/)
+  assert.match(developerSecurity, /POSIX mode `0700`/)
+  assert.match(developerSecurity, /`service\.json` and `service\.token`/)
+  assert.match(developerSecurity, /Authorization is checked before URL route handling/)
+  assert.match(developerSecurity, /Issue #39 owns that behavior/)
+})
+
+test('the early-preview contract is concise and consistent on user entry paths', () => {
+  for (const source of [html, guide, readme]) {
+    assert.match(source, /Early macOS preview/)
+  }
+  for (const source of [guide, readme, limitations]) {
+    assert.match(source, /macOS 14 Sonoma/)
+    assert.match(source, /Apple Silicon and Intel/)
+    assert.match(source, /Node\.js 22\.13\.0 or newer/)
+    assert.match(source, /not Apple-verified/i)
+    assert.match(source, /may not open every older review|may not open every review created by an older version/)
+  }
+  assert.match(guide, /href="\.\.\/limitations\/"/)
+  assert.match(guide, /github\.com\/lastobelus\/markover\/discussions/)
+  assert.match(readme, /markover\/limitations\//)
+})
+
+test('Markdown limitations distinguish selectable, whole-block, and extension behavior', () => {
+  for (const section of [
+    'structured',
+    'whole-blocks',
+    'extensions',
+    'links-images',
+    'source-preservation',
+    'preview-boundary',
+    'support'
+  ]) {
+    assert.match(limitations, new RegExp(`id="${section}"`))
+  }
+  assert.match(limitations, /YAML frontmatter/)
+  assert.match(limitations, /internal rows, cells, and quoted children do not become separately selectable/)
+  assert.match(limitations, /Footnotes, definition lists, strikethrough, raw HTML/)
+  assert.match(limitations, /original Markdown/)
+  assert.doesNotMatch(limitations, /markdown-it|token mapping|node contract/)
+})
+
+test('every local user-documentation link and asset stays inside the user root', () => {
+  const deployedUserDirectory = path.join(projectDirectory, 'build/docs/user')
+  for (const relativePath of [
+    'index.html',
+    'guide/index.html',
+    'limitations/index.html',
+    'privacy/index.html'
+  ]) {
+    const filePath = path.join(deployedUserDirectory, relativePath)
+    const dom = new JSDOM(fs.readFileSync(filePath, 'utf8'))
+    const elements = dom.window.document.querySelectorAll<HTMLElement>(
+      '[href], [src], [data-src]'
+    )
+    for (const element of elements) {
+      for (const attribute of ['href', 'src', 'data-src']) {
+        const target = element.getAttribute(attribute)
+        if (!target || /^(?:https?:|#)/.test(target)) continue
+        const localTarget = target.split(/[?#]/, 1)[0]
+        if (!localTarget) continue
+        let resolved = path.resolve(path.dirname(filePath), localTarget)
+        if (localTarget.endsWith('/')) resolved = path.join(resolved, 'index.html')
+        assert.equal(
+          resolved.startsWith(`${deployedUserDirectory}${path.sep}`),
+          true,
+          `${relativePath}: ${attribute}=${target} escapes docs/user`
+        )
+        assert.equal(
+          fs.existsSync(resolved),
+          true,
+          `${relativePath}: ${attribute}=${target} does not resolve`
+        )
+      }
+    }
+  }
 })

@@ -18,6 +18,7 @@
       <nav class="docs-nav" aria-label="Documentation">
         <p>Guide</p>
         <a href="#overview" aria-current="page">Getting started</a>
+        <a href="#before-you-try">Before you try</a>
         <a href="#run">Launch Markover</a>
         <a href="#opening">Opening on macOS</a>
         <a href="#review">Review a document</a>
@@ -27,7 +28,10 @@
         <a href="#keyboard">Keyboard controls</a>
         <p>Reference</p>
         <a href="../privacy/">Privacy and local data</a>
-        <a href="https://github.com/lastobelus/markover/blob/main/docs/development.md">Development</a>
+        <a href="../limitations/">Markdown and limitations</a>
+        <a href="https://github.com/lastobelus/markover/discussions">Support</a>
+        <p>Contributors</p>
+        <a href="https://github.com/lastobelus/markover/blob/main/docs/developer/README.md">Developer documentation</a>
         <a href="https://github.com/lastobelus/markover">Source</a>
       </nav>
       <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
@@ -43,10 +47,12 @@
       <h1 id="overview">Getting started</h1>
       <p class="docs-lede">Markover opens Markdown as a navigable document tree, stores feedback on individual blocks, and returns the complete review to an agent.</p>
 
-      <section>
-        <h2>Requirements</h2>
-        <p>Markover supports macOS 14 Sonoma or newer on Apple Silicon Macs and requires Node.js 22.13.0 or newer for the bootstrap command. Native Intel releases are deferred to the <a href="https://github.com/lastobelus/markover/issues/80">Broad announcement roadmap</a>. You do not need to clone the repository or install an npm package globally.</p>
+      <section id="before-you-try">
+        <h2>Before you try the early preview</h2>
+        <p><strong>Markover is an Early macOS preview.</strong> It supports macOS 14 Sonoma or newer on Apple Silicon Macs and requires Node.js 22.13.0 or newer for the bootstrap command. Native Intel releases are deferred to the <a href="https://github.com/lastobelus/markover/issues/80">Broad announcement roadmap</a>. You do not need to clone the repository or install an npm package globally.</p>
         <div class="callout"><strong>Not Apple-verified.</strong> Markover uses a hardened ad-hoc code signature, but it has no authenticated Developer ID publisher and is not notarized. Gatekeeper is expected to block its first launch.</div>
+        <p>Ordinary review work stays in your macOS account. Markover has no telemetry, analytics, cloud sync, or automatic review upload. Early-preview review formats may change without migration guarantees: historical JSON and attachments are preserved, but a newer app may not open every older review.</p>
+        <p>Before relying on Markover, read <a href="../limitations/">Markdown support and preview limitations</a> and <a href="../privacy/">Privacy, storage, and recovery</a>. Ask usage questions in <a href="https://github.com/lastobelus/markover/discussions">GitHub Discussions</a>.</p>
       </section>
 
       <section id="run">
@@ -72,7 +78,7 @@
         </ol>
         <p>If you downloaded <code>Markover.app</code> manually, Control-click it in Finder, choose <strong>Open</strong>, and confirm <strong>Open</strong>. Override only an archive whose SHA-256 checksum came from the same GitHub Release. Do not recursively remove quarantine attributes.</p>
         <div class="callout"><strong>Historical release.</strong> Published <code>v0.1.1</code> predates the hardened preflight. Consult a release's notes for its exact trust status. Apple verification remains gated on Apple Developer Program access.</div>
-        <p>Post-policy release notes identify the exact source and workflow, list SHA-256 digests and GitHub build-provenance verification, and name one version-pinned known-good rollback target. Published bytes are never replaced under an existing tag. Maintainers follow the <a href="https://github.com/lastobelus/markover/blob/main/docs/releasing.md">public release and rollback runbook</a>.</p>
+        <p>Post-policy release notes identify the exact source and workflow, list SHA-256 digests and GitHub build-provenance verification, and name one version-pinned known-good rollback target. Published bytes are never replaced under an existing tag.</p>
       </section>
 
       <section id="review">
@@ -137,8 +143,8 @@
       </section>
 
       <nav class="docs-next" aria-label="Next page">
-        <span>Understand the boundary</span>
-        <a href="../privacy/">Privacy and local data →</a>
+        <span>Know what the preview supports</span>
+        <a href="../limitations/">Markdown and limitations →</a>
       </nav>
     </main>
   </body>
