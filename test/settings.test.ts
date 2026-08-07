@@ -353,8 +353,8 @@ test('settings are discoverable from the native menu and wired to a complete dia
     read('src/index.html')
   ])
 
-  assert.match(main, /app\.setName\('Markover'\)/)
-  assert.match(main, /process\.title = 'Markover'/)
+  assert.match(main, /app\.setName\(addressedInstance\.branding\.appName\)/)
+  assert.match(main, /process\.title = addressedInstance\.branding\.appName/)
   assert.match(main, /installApplicationMenu\(\)/)
   assert.match(preload, /getSettings:/)
   assert.match(preload, /onSettingsOpen:/)

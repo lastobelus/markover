@@ -15,6 +15,7 @@ export const CANONICAL_INSTANCE_KEY = 'canonical'
 export const CANONICAL_INSTANCE_SCHEME = 'markover'
 export const CANONICAL_DESCRIPTOR_NAME = 'canonical-instance.json'
 export const RUNTIME_INSTANCE_NAME = 'addressed-instance.json'
+export const RESOLVED_INSTANCE_ENVIRONMENT = 'MARKOVER_RESOLVED_INSTANCE'
 
 export type PullRequestState = 'open' | 'closed' | 'merged' | 'unknown'
 export type ColdStartBlock =
@@ -102,6 +103,7 @@ export interface ResolveInstanceOptions extends ServiceDirectoryOptions {
 export class InstanceResolutionError extends Error {
   readonly code:
     | 'CANONICAL_DESCRIPTOR_INVALID'
+    | 'CHECKOUT_INVALID'
     | 'DEVELOPMENT_INSTANCE_IDENTITY_MISSING'
     | 'INSTANCE_IDENTITY_MISMATCH'
     | 'NO_PULL_REQUEST'
@@ -145,6 +147,23 @@ export function developmentGeneratedRoot(checkout: string): string {
 
 export function runtimeInstancePath(stateRoot: string): string {
   return path.join(stateRoot, RUNTIME_INSTANCE_NAME)
+}
+
+export async function discoverCheckoutRoot(
+  candidate = process.cwd()
+): Promise<string> {
+  const result = await Promise.resolve().then(() => spawnSync(
+    'git',
+    ['rev-parse', '--show-toplevel'],
+    { cwd: candidate, encoding: 'utf8' }
+  ))
+  if (result.error || result.status !== 0 || !result.stdout.trim()) {
+    throw new InstanceResolutionError(
+      'CHECKOUT_INVALID',
+      `Could not resolve a Git checkout from ${path.resolve(candidate)}.`
+    )
+  }
+  return fs.realpath(result.stdout.trim())
 }
 
 export function parseCanonicalInstanceDescriptor(
@@ -321,6 +340,160 @@ function serviceContract(root: string): ResolvedInstance['service'] {
   }
 }
 
+function canonicalRuntimeInstance(
+  options: ServiceDirectoryOptions = {}
+): ResolvedInstance {
+  const stateRoot = serviceDirectory(options)
+  return {
+    version: 1,
+    identity: { kind: 'canonical', key: CANONICAL_INSTANCE_KEY },
+    stateRoot,
+    checkout: null,
+    service: serviceContract(stateRoot),
+    scheme: CANONICAL_INSTANCE_SCHEME,
+    process: { status: 'stopped' },
+    coldStart: {
+      eligible: false,
+      blockedBy: 'canonical-descriptor-missing'
+    },
+    branding: canonicalBranding(),
+    pullRequest: null
+  }
+}
+
+function parseServiceContract(
+  value: unknown,
+  stateRoot: string
+): ResolvedInstance['service'] | null {
+  if (!isRecord(value)) return null
+  const expected = serviceContract(stateRoot)
+  return value.root === expected.root &&
+    value.endpointPath === expected.endpointPath &&
+    value.tokenPath === expected.tokenPath &&
+    value.singleInstanceLockRoot === expected.singleInstanceLockRoot
+    ? expected
+    : null
+}
+
+export function parseResolvedInstance(value: unknown): ResolvedInstance | null {
+  if (
+    !isRecord(value) ||
+    value.version !== 1 ||
+    typeof value.stateRoot !== 'string' ||
+    !path.isAbsolute(value.stateRoot) ||
+    typeof value.scheme !== 'string' ||
+    !isRecord(value.process) ||
+    (value.process.status !== 'running' && value.process.status !== 'stopped') ||
+    !isRecord(value.coldStart) ||
+    typeof value.coldStart.eligible !== 'boolean' ||
+    !isRecord(value.branding)
+  ) return null
+  const identity = parseRuntimeInstanceIdentity({
+    version: 1,
+    ...(isRecord(value.identity) ? value.identity : {})
+  })
+  const service = parseServiceContract(value.service, value.stateRoot)
+  if (!identity || !service) return null
+  const blockedBy = value.coldStart.blockedBy
+  if (
+    blockedBy !== null &&
+    blockedBy !== 'already-running' &&
+    blockedBy !== 'canonical-descriptor-missing' &&
+    blockedBy !== 'canonical-checkout-invalid' &&
+    blockedBy !== 'pull-request-closed' &&
+    blockedBy !== 'pull-request-merged'
+  ) return null
+  if (
+    typeof value.branding.appName !== 'string' ||
+    (value.branding.headerBadge !== null &&
+      typeof value.branding.headerBadge !== 'string') ||
+    (value.branding.iconLabel !== null &&
+      typeof value.branding.iconLabel !== 'string') ||
+    typeof value.branding.iconSvgPath !== 'string' ||
+    typeof value.branding.iconPngPath !== 'string' ||
+    typeof value.branding.iconIcnsPath !== 'string'
+  ) return null
+
+  if (identity.kind === 'canonical') {
+    if (
+      value.scheme !== CANONICAL_INSTANCE_SCHEME ||
+      value.pullRequest !== null ||
+      (value.checkout !== null && typeof value.checkout !== 'string')
+    ) return null
+  } else {
+    if (
+      typeof value.checkout !== 'string' ||
+      !path.isAbsolute(value.checkout) ||
+      value.stateRoot !== developmentStateRoot(value.checkout) ||
+      value.scheme !== `markover-${String(identity.pullRequestNumber)}` ||
+      !isRecord(value.pullRequest) ||
+      value.pullRequest.number !== identity.pullRequestNumber ||
+      (
+        value.pullRequest.state !== 'open' &&
+        value.pullRequest.state !== 'closed' &&
+        value.pullRequest.state !== 'merged' &&
+        value.pullRequest.state !== 'unknown'
+      )
+    ) return null
+    const expectedBranding = developmentBranding(
+      value.checkout,
+      identity.pullRequestNumber
+    )
+    if (JSON.stringify(value.branding) !== JSON.stringify(expectedBranding)) {
+      return null
+    }
+  }
+  return {
+    version: 1,
+    identity,
+    stateRoot: value.stateRoot,
+    checkout: typeof value.checkout === 'string' ? value.checkout : null,
+    service,
+    scheme: value.scheme,
+    process: { status: value.process.status },
+    coldStart: {
+      eligible: value.coldStart.eligible,
+      blockedBy
+    },
+    branding: value.branding as unknown as InstanceBranding,
+    pullRequest: isRecord(value.pullRequest)
+      ? {
+          number: value.pullRequest.number as number,
+          state: value.pullRequest.state as PullRequestState
+        }
+      : null
+  }
+}
+
+export function resolvedInstanceEnvironment(instance: ResolvedInstance): string {
+  return JSON.stringify(instance)
+}
+
+export function runtimeInstanceFromEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+  serviceOptions: ServiceDirectoryOptions = {}
+): ResolvedInstance {
+  const source = environment[RESOLVED_INSTANCE_ENVIRONMENT]
+  if (!source) return canonicalRuntimeInstance(serviceOptions)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(source) as unknown
+  } catch {
+    throw new InstanceResolutionError(
+      'INSTANCE_IDENTITY_MISMATCH',
+      'The resolved Markover instance environment is invalid.'
+    )
+  }
+  const instance = parseResolvedInstance(parsed)
+  if (!instance) {
+    throw new InstanceResolutionError(
+      'INSTANCE_IDENTITY_MISMATCH',
+      'The resolved Markover instance environment is invalid.'
+    )
+  }
+  return instance
+}
+
 async function canonicalCheckoutIsValid(
   descriptor: CanonicalInstanceDescriptor
 ): Promise<boolean> {
@@ -404,7 +577,9 @@ async function resolveCanonicalInstance(
 async function resolveDevelopmentInstance(
   options: ResolveInstanceOptions
 ): Promise<ResolvedInstance> {
-  const checkout = path.resolve(options.checkoutDirectory || process.cwd())
+  const checkout = options.checkoutDirectory
+    ? path.resolve(options.checkoutDirectory)
+    : await discoverCheckoutRoot()
   const stateRoot = developmentStateRoot(checkout)
   const endpointPath = path.join(stateRoot, 'service.json')
   const probe = options.probe || defaultProbe

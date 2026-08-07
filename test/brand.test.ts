@@ -40,7 +40,10 @@ test('production icon assets preserve the approved mark treatment', () => {
     crypto.createHash('sha256').update(appIconPng).digest('hex'),
     'eb9e6459ded7f8e89fc5b534dcccd657504a7cca45c691be37cb4bede3730a2e'
   )
-  assert.match(main, /const appIconPath = path\.join\(projectDirectory, 'design\/brand\/markover-app-icon\.png'\)/)
+  assert.match(
+    main,
+    /const appIconPath = path\.isAbsolute\(addressedInstance\.branding\.iconPngPath\)[\s\S]*path\.join\(projectDirectory, addressedInstance\.branding\.iconPngPath\)/
+  )
   assert.match(main, /new BrowserWindow\(\{[\s\S]*icon: appIconPath,/)
   assert.match(
     main,

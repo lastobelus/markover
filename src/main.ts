@@ -18,6 +18,8 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { applicationMenuTemplate } from './app-menu'
+import { loadDevelopmentConfig } from './development-config'
+import { runtimeInstanceFromEnvironment } from './instance'
 import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { importLegacyReviews } from './review-migration'
@@ -26,10 +28,7 @@ import { ReviewStore, type ReviewArtifact } from './review-store'
 import {
   createServiceIdentity,
   publishServiceConnection,
-  reviewsDirectory,
   secureServiceDirectory,
-  serviceDirectory,
-  serviceEndpointPath,
   type ServiceIdentity
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
@@ -89,8 +88,9 @@ function errorMessage(error: unknown): string {
   return typeof message === 'string' ? message : String(error)
 }
 
-app.setName('Markover')
-process.title = 'Markover'
+const addressedInstance = runtimeInstanceFromEnvironment()
+app.setName(addressedInstance.branding.appName)
+process.title = addressedInstance.branding.appName
 
 function argumentValue(option: string): string | null {
   const index = process.argv.indexOf(option)
@@ -101,8 +101,10 @@ const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') ||
   Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
-const checkoutDirectory = path.resolve(projectDirectory, '../..')
-const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
+const checkoutDirectory = addressedInstance.checkout
+const appIconPath = path.isAbsolute(addressedInstance.branding.iconPngPath)
+  ? addressedInstance.branding.iconPngPath
+  : path.join(projectDirectory, addressedInstance.branding.iconPngPath)
 const smokeMode = process.argv.includes('--smoke')
 const smokeStateDirectory = smokeMode
   ? path.join(os.tmpdir(), `markover-smoke-${String(process.pid)}`)
@@ -110,11 +112,13 @@ const smokeStateDirectory = smokeMode
 if (smokeStateDirectory) {
   mkdirSync(smokeStateDirectory)
   app.setPath('userData', smokeStateDirectory)
+} else {
+  app.setPath('userData', addressedInstance.stateRoot)
 }
-const applicationDataDirectory = smokeStateDirectory || serviceDirectory()
+const applicationDataDirectory = smokeStateDirectory || addressedInstance.stateRoot
 const endpointPath = smokeStateDirectory
   ? path.join(smokeStateDirectory, 'service.json')
-  : serviceEndpointPath()
+  : addressedInstance.service.endpointPath
 const startupDiagnosticPath = path.join(
   applicationDataDirectory,
   reviewMode
@@ -126,7 +130,7 @@ const reviewStore = reviewMode
   : new ReviewStore(
       smokeStateDirectory
         ? path.join(smokeStateDirectory, 'reviews')
-        : reviewsDirectory()
+        : path.join(addressedInstance.stateRoot, 'reviews')
     )
 const hasSingleInstanceLock = reviewMode || smokeMode ||
   app.requestSingleInstanceLock()
@@ -347,7 +351,7 @@ function sendRendererEvent(
 
 function installApplicationMenu(): void {
   const template = applicationMenuTemplate({
-    appName: 'Markover',
+    appName: addressedInstance.branding.appName,
     reviewMode,
     onOpen: () => {
       sendRendererEvent('document:open-request')
@@ -617,11 +621,14 @@ function createWindow(
     query: {
       palette: startupSettings.palette,
       appearance: startupSettings.resolvedAppearance,
-      colorization: darkColorization(startupSettings.palette)
+      colorization: darkColorization(startupSettings.palette),
+      instanceBadge: addressedInstance.branding.headerBadge || ''
     }
   })
   mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow?.setTitle(reviewMode ? 'Markover Review' : 'Markover Inbox')
+    mainWindow?.setTitle(reviewMode
+      ? `${addressedInstance.branding.appName} Review`
+      : `${addressedInstance.branding.appName} Inbox`)
   })
   mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
     markRendererStartupFailed()
@@ -988,15 +995,22 @@ if (!hasSingleInstanceLock) {
       app.dock.setIcon(appIconPath)
     }
     if (reviewMode) reviewDocumentPromise = loadReviewDocument()
-    else if (!app.isPackaged && !smokeMode) await importLegacyReviews(
-      path.join(checkoutDirectory, '.markover', 'reviews'),
-      reviewsDirectory()
-    )
+    else if (!app.isPackaged && !smokeMode && checkoutDirectory) {
+      await importLegacyReviews(
+        path.join(checkoutDirectory, '.markover', 'reviews'),
+        path.join(addressedInstance.stateRoot, 'reviews')
+      )
+    }
     await startupDiagnostic.complete('preparing-interface')
 
     await beginMainStartupPhase('loading-settings')
+    const instanceDefaults = addressedInstance.identity.kind === 'development' &&
+      checkoutDirectory
+      ? (await loadDevelopmentConfig(checkoutDirectory)).settings
+      : DEFAULT_SETTINGS
     const store = new SettingsStore(
-      path.join(app.getPath('userData'), 'settings.json')
+      path.join(app.getPath('userData'), 'settings.json'),
+      instanceDefaults
     )
     settingsStore = store
     const initialSettings = await store.load()

@@ -15,6 +15,7 @@
     "package:mac": "npm run build:icon:mac && npm run notices:check:built && node build/scripts/package-macos.js --trust-mode=ad-hoc",
     "release:preflight": "npm run build --silent && node build/scripts/release-preflight.js",
     "markover": "npm run build --silent && node build/scripts/markover.js",
+    "setup:canonical": "npm run build --silent && node build/scripts/setup-canonical.js",
     "start": "npm run build --silent && node build/scripts/start.js",
     "review": "npm run build --silent && node build/scripts/review.js",
     "review:open": "npm run build --silent && node build/scripts/open-review.js",

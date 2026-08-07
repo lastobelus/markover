@@ -59,11 +59,11 @@ test('development startup imports legacy reviews from the checkout root', () => 
 
   assert.match(
     main,
-    /const checkoutDirectory = path\.resolve\(projectDirectory, '\.\.\/\.\.'\)/
+    /const checkoutDirectory = addressedInstance\.checkout/
   )
   assert.match(
     main,
-    /!app\.isPackaged && !smokeMode\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
+    /!app\.isPackaged && !smokeMode && checkoutDirectory\) \{\s*await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\),\s*path\.join\(addressedInstance\.stateRoot, 'reviews'\)/
   )
 })
 
@@ -170,7 +170,8 @@ test('automatic startup uses one-shot hidden background LaunchServices flags', (
   }
   assert.match(cli, /delete environment\.ELECTRON_RUN_AS_NODE/)
   assert.match(cli, /resolveMarkoverApp/)
-  assert.match(cli, /const appArguments = packagedApp\s*\? \['--markover-server'\]/)
+  assert.match(cli, /packagedApp,[\s\S]*'--args',[\s\S]*'--markover-server'/)
+  assert.match(cli, /\['start', '--', '--instance', selector, '--markover-server'\]/)
   assert.match(cli, /\{ encoding: 'utf8', env: environment \}/)
   assert.doesNotMatch(cli, /launchctl[\s\S]*submit/)
   assert.doesNotMatch(cli, /replaceStale/)

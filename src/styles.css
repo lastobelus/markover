@@ -434,6 +434,19 @@ textarea {
   opacity: 0;
 }
 
+.instance-badge {
+  align-self: center;
+  margin-left: 8px;
+  padding: 7px 12px 6px;
+  border: 1px solid color-mix(in srgb, var(--markover-primary) 18%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 84%, var(--paper));
+  color: var(--ink);
+  font: 600 17px/1 ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
 .empty-workspace-lockup {
   opacity: 0;
 }
@@ -451,6 +464,10 @@ p {
 .app-header.is-empty .brand,
 .app-header.is-empty .document-actions {
   visibility: hidden;
+}
+
+.app-header.is-empty .instance-badge:not([hidden]) {
+  visibility: visible;
 }
 
 .empty-workspace {
@@ -2623,6 +2640,10 @@ body.is-control-pressed .attachment-remove:hover {
 
   .brand-logotype {
     display: none;
+  }
+
+  .instance-badge {
+    margin-left: 4px;
   }
 
   .document-meta,

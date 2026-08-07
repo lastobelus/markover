@@ -1,9 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import './settings'
-
-const { normalizeSettings } = globalThis.MarkoverSettings
+import { normalizeSettings } from './settings'
 
 export const DEVELOPMENT_CONFIG_RELATIVE_PATH = path.join(
   '.markover',

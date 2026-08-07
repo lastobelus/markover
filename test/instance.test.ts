@@ -7,13 +7,17 @@ import test, { type TestContext } from 'node:test'
 
 import {
   canonicalDescriptorPath,
+  discoverCheckoutRoot,
   developmentGeneratedRoot,
   developmentStateRoot,
   InstanceResolutionError,
   parseCanonicalInstanceDescriptor,
+  parseResolvedInstance,
   parseRuntimeInstanceIdentity,
   publishRuntimeInstanceIdentity,
   resolveInstance,
+  resolvedInstanceEnvironment,
+  runtimeInstanceFromEnvironment,
   runtimeInstancePath,
   writeCanonicalInstanceDescriptor,
   type PullRequestLookup
@@ -89,6 +93,24 @@ test('parses only exact canonical and runtime descriptors', () => {
     key: 'pr-41',
     pullRequestNumber: 42
   }), null)
+})
+
+test('discovers the enclosing worktree without accepting a non-checkout', async (t) => {
+  const checkout = await temporaryDirectory(t)
+  assert.equal(spawnSync('git', ['init', '-b', 'feature'], {
+    cwd: checkout,
+    encoding: 'utf8'
+  }).status, 0)
+  const nested = path.join(checkout, 'nested', 'directory')
+  await fs.mkdir(nested, { recursive: true })
+  assert.equal(await discoverCheckoutRoot(nested), await fs.realpath(checkout))
+
+  const outside = await temporaryDirectory(t)
+  await assert.rejects(
+    discoverCheckoutRoot(outside),
+    (error: unknown) => error instanceof InstanceResolutionError &&
+      error.code === 'CHECKOUT_INVALID'
+  )
 })
 
 test('canonical cold starts require an explicit valid blessed checkout', async (t) => {
@@ -203,6 +225,31 @@ test('open pull requests resolve isolated development contracts', async (t) => {
       'markover-app-icon.icns'
     )
   })
+
+  const serialized = resolvedInstanceEnvironment(resolved)
+  assert.deepEqual(
+    runtimeInstanceFromEnvironment({ MARKOVER_RESOLVED_INSTANCE: serialized }),
+    resolved
+  )
+  const mutated = JSON.parse(serialized) as {
+    service: { endpointPath: string }
+  }
+  mutated.service.endpointPath = path.join(checkout, 'wrong-service.json')
+  assert.equal(parseResolvedInstance(mutated), null)
+})
+
+test('an app without an instance environment remains canonical', () => {
+  const canonical = runtimeInstanceFromEnvironment({}, {
+    platform: 'darwin',
+    homeDirectory: '/Users/reviewer',
+    environment: {}
+  })
+  assert.deepEqual(canonical.identity, { kind: 'canonical', key: 'canonical' })
+  assert.equal(canonical.scheme, 'markover')
+  assert.equal(
+    canonical.service.endpointPath,
+    '/Users/reviewer/Library/Application Support/Markover/service.json'
+  )
 })
 
 test('closed and merged pull requests refuse cold starts', async (t) => {

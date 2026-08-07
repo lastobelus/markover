@@ -43,6 +43,7 @@ export function installStartup({
   startupDocument.documentElement.dataset.palette = palette
   startupDocument.documentElement.dataset.appearance = appearance
   startupDocument.documentElement.dataset.colorization = colorization
+  const requestedInstanceBadge = parameters.get('instanceBadge') || ''
 
   let currentPhase = 'preparing-interface'
   let development = false
@@ -66,6 +67,11 @@ export function installStartup({
     }
   }
   const attach = (): void => {
+    const instanceBadge = element('instance-badge')
+    if (instanceBadge && /^PR [1-9]\d*$/.test(requestedInstanceBadge)) {
+      instanceBadge.textContent = requestedInstanceBadge
+      instanceBadge.hidden = false
+    }
     refresh()
     for (const [id, action] of [
       ['startup-quit', () => bridge?.quitStartup()],

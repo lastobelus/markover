@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -23,7 +22,14 @@ import { serviceEndpointPath } from '../src/service-endpoint'
 import { guidance } from '../src/agent-guidance'
 import { normalizeSettings } from '../src/settings'
 import { parseMarkdown } from '../src/tree'
-const loadElectron = createRequire(__filename)
+import {
+  cleanupDevelopmentInstance,
+  type CleanupDevelopmentInstanceResult
+} from '../src/instance-cleanup'
+import {
+  resolveInstance,
+  type ResolvedInstance
+} from '../src/instance'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
@@ -38,8 +44,15 @@ function recoveryHint(): string {
   return `Run "${invocation()} help" for complete usage.`
 }
 
-export type ParsedCommand =
+export type InstanceSelector = 'canonical' | 'development'
+
+interface ParsedInstanceTarget {
+  instance?: InstanceSelector
+}
+
+export type ParsedCommand = ParsedInstanceTarget & (
   | { command: 'help' }
+  | { command: 'cleanup'; expectedIdentity: `pr-${number}` }
   | { command: 'get' | 'edit'; reviewId: string }
   | {
       command: 'open'
@@ -50,6 +63,7 @@ export type ParsedCommand =
       pullRequestNumber?: number | null
       threadId?: string | null
     }
+)
 
 export class CommandError extends Error {
   readonly usage: string | undefined
@@ -86,7 +100,7 @@ export function helpPayload() {
     version: 1,
     purpose: 'Review Markdown as a block tree and return structured feedback to an agent.',
     repository: 'https://github.com/lastobelus/markover',
-    invocation: `${invocation()} <command>`,
+    invocation: `${invocation()} [--instance <canonical|dev>] <command>`,
     requirements: {
       platform: 'macOS (Apple Silicon or Intel)',
       node: '22.13.0 or newer',
@@ -118,6 +132,11 @@ export function helpPayload() {
         purpose: 'Return a frozen review to editing so the user can add or change feedback.'
       },
       {
+        name: 'cleanup',
+        usage: '--instance dev cleanup <pr-N>',
+        purpose: 'Move one stopped worktree-local instance to macOS Trash after its development URL handler has been removed.'
+      },
+      {
         name: 'help',
         aliases: ['info', '--help', '-h'],
         usage: 'help',
@@ -125,7 +144,7 @@ export function helpPayload() {
       }
     ],
     stdout: 'Success writes exactly one JSON value to stdout. Diagnostics use stderr and a non-zero exit status.',
-    persistence: 'Markover user data/reviews/<review-id>/review.json'
+    persistence: 'Canonical reviews use Markover user data; development reviews use the current worktree .markover/instance/reviews directory.'
   }
 }
 
@@ -138,7 +157,30 @@ export function formatCommandError(error: unknown): string {
 }
 
 export function parseCommandArguments(args: string[]): ParsedCommand {
-  const [command, ...rest] = args
+  let instance: InstanceSelector | undefined
+  let commandArguments = args
+  if (args[0] === '--instance') {
+    const value = args[1]
+    if (value !== 'canonical' && value !== 'dev') {
+      throw commandError(
+        '--instance requires canonical or dev.',
+        'markover [--instance <canonical|dev>] <command>'
+      )
+    }
+    instance = value === 'dev' ? 'development' : 'canonical'
+    commandArguments = args.slice(2)
+  }
+  if (commandArguments.includes('--instance')) {
+    throw commandError(
+      '--instance is a global option and must appear before the command.',
+      'markover [--instance <canonical|dev>] <command>'
+    )
+  }
+
+  const targeted = <T extends object>(command: T): T & ParsedInstanceTarget => (
+    instance ? { ...command, instance } : command
+  )
+  const [command, ...rest] = commandArguments
   if (!command || helpAliases.has(command)) {
     if (rest.length) {
       throw commandError(
@@ -146,9 +188,14 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
         'markover help'
       )
     }
-    return { command: 'help' }
+    return targeted({ command: 'help' as const })
   }
-  if (command !== 'open' && command !== 'get' && command !== 'edit') {
+  if (
+    command !== 'open' &&
+    command !== 'get' &&
+    command !== 'edit' &&
+    command !== 'cleanup'
+  ) {
     if (command === 'check') {
       throw commandError(
         'There is no check command. After the user says “Check Markover,” run get with the retained review ID.',
@@ -163,8 +210,32 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       `Unknown command: ${command}`,
-      'markover <open|get|edit|help> ...'
+      'markover <open|get|edit|cleanup|help> ...'
     )
+  }
+
+  if (command === 'cleanup') {
+    const expectedIdentity = rest[0]
+    if (instance !== 'development') {
+      throw commandError(
+        'cleanup is available only for the current development worktree.',
+        'markover --instance dev cleanup <pr-N>'
+      )
+    }
+    if (
+      rest.length !== 1 ||
+      expectedIdentity === undefined ||
+      !/^pr-[1-9]\d*$/.test(expectedIdentity)
+    ) {
+      throw commandError(
+        'cleanup requires one exact pr-N identity.',
+        'markover --instance dev cleanup <pr-N>'
+      )
+    }
+    return targeted({
+      command: 'cleanup' as const,
+      expectedIdentity: expectedIdentity as `pr-${number}`
+    })
   }
 
   if (command === 'get' || command === 'edit') {
@@ -175,7 +246,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
         `markover ${command} <review-id>`
       )
     }
-    return { command, reviewId }
+    return targeted({ command, reviewId })
   }
 
   let sourcePath = null
@@ -274,7 +345,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       )
     }
   }
-  return {
+  return targeted({
     command,
     sourcePath,
     contextSummary,
@@ -282,7 +353,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     handoffKey,
     pullRequestNumber,
     threadId
-  }
+  })
 }
 
 export function checksum(source: string): string {
@@ -328,34 +399,79 @@ export function startDetachedApp(
   }
 
   const packagedApp = resolveMarkoverApp(options)
-  let application = packagedApp
-  if (!application) {
-    const loadedElectron: unknown = loadElectron('electron')
-    if (typeof loadedElectron !== 'string') {
-      throw new Error('Electron executable path is unavailable.')
-    }
-    application = path.resolve(path.dirname(loadedElectron), '../..')
+  if (!packagedApp) {
+    throw new Error('The canonical Markover application is not installed.')
   }
   const environment = { ...process.env }
   delete environment.ELECTRON_RUN_AS_NODE
-  const appArguments = packagedApp
-    ? ['--markover-server']
-    : [projectDirectory, '--markover-server']
   const result = spawnSync(
     '/usr/bin/open',
     [
       '-g',
       '-j',
       '-n',
-      application,
+      packagedApp,
       '--args',
-      ...appArguments
+      '--markover-server'
     ],
     { encoding: 'utf8', env: environment }
   )
   if (result.status !== 0) {
     throw new Error(result.stderr.trim() || `open exited ${String(result.status)}`)
   }
+}
+
+export interface StartDetachedInstanceOptions extends ResolveMarkoverAppOptions {
+  platform?: NodeJS.Platform
+  spawnProcess?: typeof spawn
+}
+
+export function startDetachedInstance(
+  instance: ResolvedInstance,
+  {
+    platform = process.platform,
+    spawnProcess = spawn,
+    ...appOptions
+  }: StartDetachedInstanceOptions = {}
+): void {
+  if (platform !== 'darwin') {
+    throw new Error('Automatic Markover startup currently requires macOS.')
+  }
+  if (instance.identity.kind === 'canonical') {
+    const packagedApp = resolveMarkoverApp(appOptions)
+    if (packagedApp) {
+      startDetachedApp({
+        ...appOptions,
+        exists: (candidate) => candidate === packagedApp
+      })
+      return
+    }
+  }
+  if (
+    instance.process.status !== 'stopped' ||
+    !instance.coldStart.eligible ||
+    !instance.checkout
+  ) {
+    throw new Error(
+      `Cannot cold-start ${instance.identity.key}: ${instance.coldStart.blockedBy || 'checkout unavailable'}.`
+    )
+  }
+  const environment = { ...process.env }
+  delete environment.ELECTRON_RUN_AS_NODE
+  const selector = instance.identity.kind === 'development'
+    ? 'dev'
+    : 'canonical'
+  const child = spawnProcess(
+    'npm',
+    ['start', '--', '--instance', selector, '--markover-server'],
+    {
+      cwd: instance.checkout,
+      detached: true,
+      env: environment,
+      stdio: 'ignore'
+    }
+  )
+  child.unref()
 }
 
 async function waitForService(
@@ -412,6 +528,14 @@ export async function ensureService({
 export interface ExecuteCommandOptions {
   endpointPath?: string
   ensure?: () => Promise<void>
+  resolveTarget?: (
+    selector: InstanceSelector,
+    expectedPullRequestNumber?: number
+  ) => Promise<ResolvedInstance>
+  cleanup?: (
+    instance: ResolvedInstance,
+    expectedIdentity: string
+  ) => Promise<CleanupDevelopmentInstanceResult>
   discoverMetadata?: (
     input: ReviewMetadataInput
   ) => Promise<ReviewMetadata>
@@ -433,20 +557,51 @@ export async function readSessionDiscoverySetting(
 
 export async function executeCommand(
   parsed: ParsedCommand,
-  {
-    endpointPath = defaultEndpointPath,
-    ensure = () => ensureService({ endpointPath }),
+  options: ExecuteCommandOptions = {}
+): Promise<unknown> {
+  if (parsed.command === 'help') return helpPayload()
+
+  const selector = parsed.instance || 'canonical'
+  const resolveTarget = options.resolveTarget || (
+    (target, expectedPullRequestNumber) => resolveInstance(target, {
+      ...(expectedPullRequestNumber === undefined
+        ? {}
+        : { expectedPullRequestNumber })
+    })
+  )
+  if (parsed.command === 'cleanup') {
+    const pullRequestNumber = Number(parsed.expectedIdentity.slice(3))
+    const instance = await resolveTarget('development', pullRequestNumber)
+    const cleanup = options.cleanup || cleanupDevelopmentInstance
+    return cleanup(instance, parsed.expectedIdentity)
+  }
+
+  const instance = options.endpointPath
+    ? null
+    : await resolveTarget(selector)
+  const endpointPath = options.endpointPath || instance?.service.endpointPath ||
+    defaultEndpointPath
+  const ensure = options.ensure || (() => ensureService({
+    endpointPath,
+    startApp: instance
+      ? () => {
+          startDetachedInstance(instance)
+        }
+      : startDetachedApp
+  }))
+  const {
     discoverMetadata = discoverReviewMetadata,
     readSessionDiscoverySetting: readDiscoverySetting = readSessionDiscoverySetting,
     settingsPath = path.join(path.dirname(endpointPath), 'settings.json')
-  }: ExecuteCommandOptions = {}
-): Promise<unknown> {
-  if (parsed.command === 'help') return helpPayload()
+  } = options
+  const importSource = instance?.checkout
+    ? path.join(instance.checkout, '.markover', 'reviews')
+    : path.join(projectDirectory, '.markover', 'reviews')
 
   const prepareService = async () => {
     await ensure()
     await requestJson(endpointPath, 'POST', '/reviews/import', {
-      sourceDirectory: path.join(projectDirectory, '.markover', 'reviews')
+      sourceDirectory: importSource
     })
   }
 
