@@ -10,6 +10,12 @@ tracker set. A Project can provide a kanban status ledger; a milestone only
 groups repository issues and pull requests. Always use the work-intent comment
 as the change-surface and ownership ledger. Complete the stages in order.
 
+For `lastobelus/markover`, use **Markover Announcement Readiness (Project 3)**,
+owned by `lastobelus`, as the primary Project while it remains open. Include it
+in the tracker set even when the target is not yet attached; stage 3 will add
+the target. Resolve its identity and open state from live GitHub data. When it
+is closed or absent, use the discovery flow below.
+
 ## 1. Orient and select tracking
 
 Confirm `gh auth status`, then resolve the repository, item type, number, URL,
