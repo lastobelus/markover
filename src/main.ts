@@ -101,7 +101,7 @@ const reviewConfigPath = argumentValue('--markover-review-config')
 const reviewMode = process.argv.includes('--markover-review') ||
   Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
-const checkoutDirectory = path.resolve(projectDirectory, '..')
+const checkoutDirectory = path.resolve(projectDirectory, '../..')
 const appIconPath = path.join(projectDirectory, 'design/brand/markover-app-icon.png')
 const smokeMode = process.argv.includes('--smoke')
 const smokeStateDirectory = smokeMode
@@ -1063,8 +1063,7 @@ if (!hasSingleInstanceLock) {
         checks: result.checks,
         phases: requireStartupDiagnostic().snapshot().phases
       }
-      process.stdout.write(`${JSON.stringify(output)}\n`)
-      setImmediate(() => {
+      process.stdout.write(`${JSON.stringify(output)}\n`, () => {
         app.exit(checksPassed ? 0 : 1)
       })
     })

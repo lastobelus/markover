@@ -59,12 +59,25 @@ test('development startup imports legacy reviews from the checkout root', () => 
 
   assert.match(
     main,
-    /const checkoutDirectory = path\.resolve\(projectDirectory, '\.\.'\)/
+    /const checkoutDirectory = path\.resolve\(projectDirectory, '\.\.\/\.\.'\)/
   )
   assert.match(
     main,
     /!app\.isPackaged && !smokeMode\) await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\)/
   )
+})
+
+test('smoke output flushes before Electron exits', () => {
+  const main = read('src/main.ts')
+  const smokeResult = main.match(
+    /ipcMain\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
+  )?.[0] || ''
+
+  assert.match(
+    smokeResult,
+    /process\.stdout\.write\(`\$\{JSON\.stringify\(output\)\}\\n`, \(\) => \{\s*app\.exit\(checksPassed \? 0 : 1\)/
+  )
+  assert.doesNotMatch(smokeResult, /setImmediate/)
 })
 
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {
