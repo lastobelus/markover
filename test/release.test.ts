@@ -257,6 +257,19 @@ test('continuous integration enforces the supported Node versions', () => {
   }
 })
 
+test('continuous integration validates both native packaged happy paths', () => {
+  const workflow = read('.github/workflows/ci.yml')
+
+  assert.match(workflow, /name: Packaged smoke \(\$\{\{ matrix\.runner \}\}\)/)
+  assert.match(workflow, /- macos-15\n\s+- macos-15-intel/)
+  assert.match(workflow, /npm run package:mac/)
+  assert.match(workflow, /Verify exact native artifact/)
+  assert.match(workflow, /npm run release:preflight -- verify-macos/)
+  assert.match(workflow, /npm run smoke:packaged --/)
+  assert.match(workflow, /--evidence-kind=ci/)
+  assert.match(workflow, /packaged-smoke-\$\{\{ matrix\.runner \}\}/)
+})
+
 test('TypeScript build is strict, generated, and runtime-loader free', () => {
   const packageJson = readJson('package.json') as PackageManifest
   const tsconfig = readJson('tsconfig.json') as TypeScriptConfig
