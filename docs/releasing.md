@@ -155,6 +155,9 @@ release staging contract. The runner:
 6. runs CLI get and edit/reopen and confirms the reopened state on disk; and
 7. writes versioned, sanitized JSON evidence while preserving the review.
 
+If an app launch begins but service readiness fails or times out, the runner
+still sends the normal quit request and cleans its extracted staging directory.
+
 This is not issue 12's adversarial authorization suite and does not send
 unauthorized or mismatched credentials. It is not issue 39's durability suite
 and does not crash the app, measure a loss window, race writes, or claim a

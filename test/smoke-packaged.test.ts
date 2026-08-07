@@ -215,6 +215,38 @@ test('provided app must be byte-equivalent to the verified archive app', async (
   )
 })
 
+test('a launch that times out is still stopped and cleaned up', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-startup-cleanup-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const calls: string[] = []
+  const deps = dependencies(calls, 'arm64')
+  deps.startApp = (
+    _appPath,
+    _endpointPath,
+    _previousPid,
+    _timeoutMilliseconds,
+    onLaunch
+  ) => {
+    calls.push('start-failed')
+    onLaunch()
+    return Promise.reject(new Error('readiness timed out'))
+  }
+
+  await assert.rejects(
+    runPackagedSmoke(options(path.join(directory, 'evidence.json')), deps),
+    /readiness timed out/
+  )
+  assert.deepEqual(calls, [
+    'verify:arm64',
+    'extract',
+    'start-failed',
+    'stop',
+    'cleanup'
+  ])
+})
+
 for (const architecture of ['arm64', 'x64'] as const) {
   test(`packaged ${architecture} smoke records only the saved happy path`, async (t) => {
     const directory = await fs.mkdtemp(

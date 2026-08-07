@@ -114,7 +114,8 @@ export interface PackagedSmokeDependencies {
     appPath: string,
     endpointPath: string,
     previousPid: number | null,
-    timeoutMilliseconds: number
+    timeoutMilliseconds: number,
+    onLaunch: () => void
   ) => Promise<ServiceEndpoint>) | undefined
   stopApp?: ((endpointPath: string, timeoutMilliseconds: number) => Promise<void>) | undefined
   verifyArtifact?: ((options: PackagedSmokeOptions) => Promise<MacosArtifactReport>) | undefined
@@ -183,7 +184,8 @@ async function defaultStartApp(
   appPath: string,
   endpointPath: string,
   previousPid: number | null,
-  timeoutMilliseconds: number
+  timeoutMilliseconds: number,
+  onLaunch: () => void
 ): Promise<ServiceEndpoint> {
   command('/usr/bin/open', [
     '-g',
@@ -193,6 +195,7 @@ async function defaultStartApp(
     '--args',
     '--markover-server'
   ])
+  onLaunch()
   return await waitForStartedService(
     endpointPath,
     previousPid,
@@ -496,14 +499,26 @@ export async function runPackagedSmoke(
       assertCleanIntelContext(options, prepared, host, quarantinePresent)
     }
 
-    const first = await startApp(prepared.appPath, endpointPath, null, timeout)
+    const first = await startApp(
+      prepared.appPath,
+      endpointPath,
+      null,
+      timeout,
+      () => { appStarted = true }
+    )
     appStarted = true
     const reviewId = await openReview(endpointPath, sourcePath)
     assertPersistedReview(await loadReview(reviewId), reviewId)
 
     await stopApp(endpointPath, timeout)
     appStarted = false
-    await startApp(prepared.appPath, endpointPath, first.pid, timeout)
+    await startApp(
+      prepared.appPath,
+      endpointPath,
+      first.pid,
+      timeout,
+      () => { appStarted = true }
+    )
     appStarted = true
     assertPersistedReview(await loadReview(reviewId), reviewId)
 
