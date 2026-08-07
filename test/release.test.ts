@@ -52,6 +52,10 @@ test('release workflow publishes both Mac architectures and the tiny CLI', () =>
   assert.match(workflow, /Verify final macOS artifact/)
   assert.match(workflow, /release:preflight -- verify-macos/)
   assert.match(workflow, /--trust-mode=ad-hoc/)
+  assert.match(workflow, /Exercise packaged happy path/)
+  assert.match(workflow, /npm run smoke:packaged/)
+  assert.match(workflow, /--evidence-kind=ci/)
+  assert.match(workflow, /packaged-smoke-\$\{architecture\}\.json/)
   assert.match(workflow, /markover-cli\.tgz/)
   assert.match(workflow, /gh release create/)
   assert.match(workflow, /permissions: \{\}/)
@@ -140,7 +144,15 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Slice 2 · Ready PR #55 · 5 Aug 2026/
+    /Slices 1–2 merged · Slice 3 implementing · 6 Aug 2026/
+  )
+  assert.match(
+    pages[0] ?? '',
+    /<\/header>\s*<details class="card truth-context">\s*<summary/
+  )
+  assert.doesNotMatch(
+    pages[0] ?? '',
+    /<details class="card truth-context"[^>]*\sopen(?:\s|>|=)/
   )
   assert.match(
     pages[1] ?? '',

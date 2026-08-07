@@ -22,6 +22,7 @@
     "smoke:auth": "npm run build --silent && node build/scripts/smoke-auth.js",
     "smoke": "npm run build --silent && npm run smoke:built",
     "smoke:built": "node build/scripts/run-smoke.js",
+    "smoke:packaged": "npm run build --silent && node build/scripts/smoke-packaged.js",
     "pretest": "install-electron --no",
     "test": "npm run build --silent && npm run test:built",
     "test:built": "node --test build/test/*.test.js",
