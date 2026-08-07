@@ -14,6 +14,7 @@ import {
   resolveMarkoverApp,
   type ExecuteCommandOptions
 } from '../scripts/markover'
+import type { ResolvedInstance } from '../src/instance'
 import { guidance } from '../src/agent-guidance'
 import { LocalServiceError } from '../src/local-client'
 import { startLocalService, type LocalService } from '../src/local-service'
@@ -60,6 +61,73 @@ test('parses open, get, and edit commands', () => {
   )
 })
 
+test('development targeting is worktree-local and cleanup requires an exact identity', () => {
+  assert.deepEqual(
+    parseCommandArguments(['--instance', 'dev', 'get', 'mko_aaa11111']),
+    {
+      command: 'get',
+      instance: 'development',
+      reviewId: 'mko_aaa11111'
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['--instance', 'dev', 'cleanup', 'pr-61']),
+    {
+      command: 'cleanup',
+      expectedIdentity: 'pr-61',
+      instance: 'development'
+    }
+  )
+  assert.throws(
+    () => parseCommandArguments(['cleanup', 'pr-61']),
+    /only for the current development worktree/
+  )
+  assert.throws(
+    () => parseCommandArguments(['--instance', 'dev', 'cleanup', 'pr-0']),
+    /requires one exact pr-N identity|cleanup/,
+  )
+  assert.throws(
+    () => parseCommandArguments(['get', 'mko_aaa11111', '--instance', 'dev']),
+    /global option/
+  )
+})
+
+test('cleanup resolves the current PR exactly without starting a service', async () => {
+  const instance = {
+    identity: { kind: 'development', key: 'pr-61', pullRequestNumber: 61 }
+  } as unknown as ResolvedInstance
+  let resolved: readonly [string, number | undefined] | null = null
+  let cleaned: readonly [ResolvedInstance, string] | null = null
+  const result = await executeCommand({
+    command: 'cleanup',
+    expectedIdentity: 'pr-61',
+    instance: 'development'
+  }, {
+    resolveTarget(selector, expectedPullRequestNumber) {
+      resolved = [selector, expectedPullRequestNumber]
+      return Promise.resolve(instance)
+    },
+    cleanup(target, expectedIdentity) {
+      cleaned = [target, expectedIdentity]
+      return Promise.resolve({
+        status: 'trashed',
+        identity: 'pr-61',
+        recoveryPath: '/Users/reviewer/.Trash/Markover-pr-61-instance'
+      })
+    },
+    ensure() {
+      throw new Error('cleanup must not start Markover')
+    }
+  })
+  assert.deepEqual(resolved, ['development', 61])
+  assert.deepEqual(cleaned, [instance, 'pr-61'])
+  assert.deepEqual(result, {
+    status: 'trashed',
+    identity: 'pr-61',
+    recoveryPath: '/Users/reviewer/.Trash/Markover-pr-61-instance'
+  })
+})
+
 test('help and info aliases return service-free machine-readable guidance', async () => {
   for (const args of [[], ['help'], ['info'], ['--help'], ['-h']]) {
     const parsed = parseCommandArguments(args)
@@ -103,7 +171,7 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.equal(misuse.status, 1)
   assert.equal(misuse.stdout, '')
   assert.match(misuse.stderr, /Unknown command: wat/)
-  assert.match(misuse.stderr, /Usage: markover <open\|get\|edit\|help>/)
+  assert.match(misuse.stderr, /Usage: markover <open\|get\|edit\|cleanup\|help>/)
   assert.match(
     misuse.stderr,
     /Run "npm --silent run markover -- help" for complete usage\./

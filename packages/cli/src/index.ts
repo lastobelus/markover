@@ -21,7 +21,11 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
     await markover.main(args)
     return
   }
-  if (parsed.command !== 'help') {
+  if (
+    parsed.command !== 'help' &&
+    parsed.command !== 'cleanup' &&
+    parsed.instance !== 'development'
+  ) {
     try {
       process.env.MARKOVER_APP_PATH = await ensureInstalledApp({
         version: packageJson.version

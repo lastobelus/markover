@@ -10,14 +10,56 @@ contacts that app and keeps agent-facing output machine-readable.
 - npm
 - macOS for running and packaging the desktop app
 
-## Local setup
+## Local instances and setup
 
-Install dependencies and start the development app:
+Markover development uses one canonical instance and any number of isolated PR
+instances. Configure the checkout and currently checked-out branch that should
+own canonical cold starts once from `main` (or another intentionally blessed
+branch):
 
 ```sh
-npm install
+npm ci
+npm run setup:canonical -- main
 npm start
 ```
+
+The descriptor is private user state under macOS Application Support. Canonical
+launches validate that its exact checkout still exists and still has the
+blessed branch checked out; they do not scan worktrees, switch branches, pull,
+or install dependencies. Unqualified `npm start` selects canonical only from
+that configured checkout.
+
+T3 worktrees have an automatic **Setup Worktree** action. It runs `npm ci` and
+copies `config/development.defaults.json` to the ignored, worktree-local
+`.markover/development.json` only when the destination does not already exist.
+Run the same setup manually outside T3 with:
+
+```sh
+./scripts/setup-worktree.sh
+npm start
+```
+
+From a PR worktree, an unqualified start infers the current open pull request
+and launches `Markover-N`; `npm start -- --instance dev` makes that selection
+explicit. A stopped PR instance requires a live `gh pr view` result proving the
+PR remains open. An already-running instance remains addressable if that check
+is temporarily unavailable or the PR has since closed, but a closed or merged
+PR cannot cold-start.
+
+The same local-only targeting applies to the CLI:
+
+```sh
+# Canonical, from any checkout
+npm --silent run markover -- open plan.md --summary "Review this plan"
+
+# Current PR worktree only; there is no machine-wide PR registry
+npm --silent run markover -- --instance dev open plan.md --summary "Review this plan"
+```
+
+CLI cold starts may build the already-configured target checkout, but never
+fetch, pull, switch branches, or install dependencies. Development URL bridges
+are a separate forwarding-only surface: handler clicks never build or
+cold-start an app.
 
 The development command performs a deterministic one-shot build, verifies the
 exact staged layout under `build/app/`, and launches Electron from that stage.
@@ -26,15 +68,41 @@ Electron unchanged, except `ELECTRON_RUN_AS_NODE` is removed. Paths beneath
 `build/app/` are private build details; other development tooling should depend
 only on the staging root.
 
-Managed reviews are stored outside the checkout under:
+Canonical managed reviews are stored outside the checkout under:
 
 ```text
 ~/Library/Application Support/Markover/reviews/<review-id>/
 ```
 
-This is also the review store used by packaged builds, so avoid running a
-development instance at the same time as the packaged app when working with
-important reviews.
+Each PR instance instead uses `.markover/instance` as its complete Electron
+user-data and service boundary. Its settings, reviews, singleton lock, service
+endpoint, and credentials cannot collide with canonical or another worktree.
+Generated watermarked icons are cached under `.markover/generated`, and the
+ignored development configuration initially selects Ocean with dark
+appearance. Persisted settings inside that instance may override those initial
+defaults.
+
+PR state is intentionally removed by normal worktree deletion. To make that
+cleanup recoverable, first quit the exact instance and use #52's handler
+uninstall command for its `markover-N:` scheme, then run from the surviving
+worktree:
+
+```sh
+npm --silent run markover -- --instance dev cleanup pr-N
+```
+
+Cleanup refuses canonical state, a different PR identity, a running process,
+an installed handler, symlinked state, or anything outside the exact
+worktree-local root. It moves `.markover/instance` to a collision-safe location
+in macOS Trash and prints that recovery path as JSON. It is never automatic;
+removing only the handler preserves all instance state.
+
+The shared `ResolvedInstance` contract consumed by development protocol
+handlers contains identity, scheme, state and service roots, endpoint and
+credential paths, checkout, process status, PR state, cold-start eligibility,
+and branding. Consumers must not reconstruct paths or infer identities. A
+running process takes precedence only within the addressed identity:
+`markover:` is canonical and `markover-N:` is PR N.
 
 ## Checks
 
@@ -84,6 +152,10 @@ application, source-edit proposals, release artifacts, and the documentation
 site. Hosted CI runs the live Electron smoke once at the minimum supported Node
 version with a 60-second deadline and retains only a small failure-evidence
 bundle for seven days.
+
+Node's test runner retains its default test-file concurrency. Keep it enabled
+unless profiling demonstrates that a different setting improves the complete
+local gate.
 
 ### GitHub Actions cost controls
 

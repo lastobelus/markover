@@ -20,6 +20,7 @@ function view(search = ''): {
       </div>
       <button id="startup-quit" hidden></button>
     </section>
+    <span id="instance-badge" hidden></span>
   </body></html>`, { url: `file:///app/index.html${search}` })
   const actions = { copied: 0, quit: 0, reported: 0, revealed: 0 }
   ;(dom.window as unknown as Window).markover = {
@@ -64,6 +65,23 @@ test('first paint accepts only supported visual tokens', () => {
   assert.equal(dom.window.document.documentElement.dataset.palette, 'ember')
   assert.equal(dom.window.document.documentElement.dataset.appearance, 'dark')
   assert.equal(dom.window.document.documentElement.dataset.colorization, 'low')
+})
+
+test('first paint exposes only a validated PR instance badge', () => {
+  const development = view('?instanceBadge=PR%2061')
+  const badge = development.dom.window.document.querySelector<HTMLElement>(
+    '#instance-badge'
+  )
+  assert.ok(badge)
+  assert.equal(badge.hidden, false)
+  assert.equal(badge.textContent, 'PR 61')
+
+  const invalid = view('?instanceBadge=main')
+  const invalidBadge = invalid.dom.window.document.querySelector<HTMLElement>(
+    '#instance-badge'
+  )
+  assert.ok(invalidBadge)
+  assert.equal(invalidBadge.hidden, true)
 })
 
 test('development shows phases while release remains generic', () => {

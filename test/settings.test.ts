@@ -221,6 +221,25 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   assert.equal(await fs.readFile(filePath, 'utf8'), '{not json')
 })
 
+test('settings store uses instance defaults only until settings are persisted', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-settings-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const filePath = path.join(directory, 'settings.json')
+  const developmentDefaults = {
+    ...DEFAULT_SETTINGS,
+    palette: 'ocean' as const,
+    appearance: 'dark' as const
+  }
+  const store = new SettingsStore(filePath, developmentDefaults)
+
+  assert.deepEqual(await store.load(), developmentDefaults)
+  await store.update({ palette: 'olive' })
+
+  const restored = new SettingsStore(filePath, developmentDefaults)
+  assert.equal((await restored.load()).palette, 'olive')
+  assert.equal(restored.settings.appearance, 'dark')
+})
+
 test('settings store serializes rapid updates without losing the latest values', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-settings-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
@@ -334,8 +353,8 @@ test('settings are discoverable from the native menu and wired to a complete dia
     read('src/index.html')
   ])
 
-  assert.match(main, /app\.setName\('Markover'\)/)
-  assert.match(main, /process\.title = 'Markover'/)
+  assert.match(main, /app\.setName\(addressedInstance\.branding\.appName\)/)
+  assert.match(main, /process\.title = addressedInstance\.branding\.appName/)
   assert.match(main, /installApplicationMenu\(\)/)
   assert.match(preload, /getSettings:/)
   assert.match(preload, /onSettingsOpen:/)

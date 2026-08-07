@@ -82,7 +82,7 @@ test('macOS packaging produces a branded application bundle', () => {
   assert.match(packaging, /not Apple-verified or notarized/)
   assert.match(
     main,
-    /new ReviewStore\([\s\S]*smokeStateDirectory[\s\S]*: reviewsDirectory\(\)/
+    /new ReviewStore\([\s\S]*smokeStateDirectory[\s\S]*: path\.join\(addressedInstance\.stateRoot, 'reviews'\)/
   )
   assert.match(main, /process\.platform === 'darwin' && !app\.isPackaged && !smokeMode/)
 })
