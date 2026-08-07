@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>How Markover finds its local service safely</title>
+  <title>How Markover keeps local reviews behind one clear boundary</title>
   <style>
     :root {
       color-scheme: light;
@@ -111,24 +111,24 @@
 </head>
 <body>
   <main>
-    <div class="eyebrow">Issue 12 · authorization PR 2 of 3</div>
-    <h1>A locked note, a name tag, and a calm repair path</h1>
-    <p class="lede">Markover’s API lives only on your machine. The protected token answers “may this caller enter?” The instance ID answers a simpler question first: “is this still the Markover process named by these files?”</p>
+    <div class="eyebrow">Issue 12 · final authorization slice</div>
+    <h1>A locked note, a name tag, and an honest meaning of “local”</h1>
+    <p class="lede">Markover keeps review work inside your macOS account and puts one capability check in front of every review route. This page explains the lock, the calm repair path, what is stored, and where Markover’s guarantee ends.</p>
 
     <details class="truth-context">
-      <summary><span>Where This Is True</span><span>Implemented locally · live smoke pending · 5 Aug 2026</span></summary>
+      <summary><span>Where This Is True</span><span>Implementation in progress · issue 12 PR 3 · 6 Aug 2026</span></summary>
       <div>
-        <p>This explains the second pull request in <a href="https://github.com/lastobelus/markover/issues/12">issue 12</a>, implemented on <code>agent/launch-api-client-auth</code> after merged <a href="https://github.com/lastobelus/markover/pull/41">PR 41</a>. The reviewed source of truth is <a href="#" data-repo-path="doc/plans/2026-08-03__issue-12-recovery-hardening.md">the recovery-hardening plan</a>.</p>
-        <p>The stable center is the OS-account capability boundary plus bounded, non-destructive recovery. PR 3 still owns exhaustive adversarial evidence and final public privacy claims. <a href="https://github.com/lastobelus/markover/issues/39">Issue 39</a> independently owns bounded-loss crash and restart durability.</p>
+        <p>This explains the complete three-part implementation in <a href="https://github.com/lastobelus/markover/issues/12">issue 12</a>: the capability boundary from merged <a href="https://github.com/lastobelus/markover/pull/41">PR 41</a>, recovery from merged <a href="https://github.com/lastobelus/markover/pull/56">PR 56</a>, and final verification and public claims on <code>agent/launch-api-security-verification</code>. The reviewed source of truth is <a href="#" data-repo-path="doc/plans/2026-08-06__issue-12-adversarial-verification-and-public-privacy.md">the final-slice plan</a>.</p>
+        <p>The stable center is the macOS-account capability boundary plus bounded, non-destructive recovery. <a href="https://github.com/lastobelus/markover/issues/39">Issue 39</a> independently owns bounded-loss crash durability; deletion, packaged smoke, broader preview docs, and the in-app privacy link also remain separate roadmap work. Re-check issue 12 and the public <a href="#" data-repo-path="docs/privacy/index.html">privacy page</a> for current truth.</p>
       </div>
     </details>
 
     <section>
       <h2>The Tiny Story</h2>
       <div class="card story">
-        <article><strong>Already protected</strong><p>Every non-health request needs a short-lived capability stored where another OS account cannot read it.</p></article>
-        <article><strong>Now safer to recover</strong><p>Before sending that capability, the client checks the listener’s instance name tag. Broken records can be republished in place.</p></article>
-        <article><strong>Still intentionally small</strong><p>No process killing, TLS, daemon, socket migration, request replay, or elaborate cryptographic handshake.</p></article>
+        <article><strong>The lock</strong><p>Every review request needs a short-lived capability stored where another ordinary macOS account cannot read it.</p></article>
+        <article><strong>The name tag</strong><p>Before sending that capability, the client checks that the listener matches the instance named by its files. Broken records can be republished in place.</p></article>
+        <article><strong>The honest limit</strong><p>A process already running as you can read the same files. Markover does not pretend to defend against that process, an administrator, or root.</p></article>
       </div>
     </section>
 
@@ -178,6 +178,15 @@
       <div class="card name-tag">
         <div class="tag-icon" aria-hidden="true">ID</div>
         <p><strong>The instance ID is a name tag, not a lock.</strong> It catches ordinary stale or unrelated listeners before a secret is sent. Because health exposes it publicly, a deliberately prepared malicious listener could copy it. Preventing that would require a more complex authentication design, which is deferred until Markover’s real deployment needs justify it.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>One gate in front of every review route</h2>
+      <div class="grid three">
+        <article class="card"><h3>One public peephole</h3><p>Exact <code>GET /health</code> reveals status, protocol version, and the non-secret instance name tag. A query or different method is no longer that exact public request.</p></article>
+        <article class="card"><h3>Everything else is locked</h3><p>List, import, create, read, handoff, edit, and even unknown routes must present the capability before Markover chooses a route or reads JSON.</p></article>
+        <article class="card"><h3>One boring denial</h3><p>Missing, malformed, duplicated, and incorrect credentials all receive the same <code>401</code>. They cannot use errors to map routes or trigger mutations.</p></article>
       </div>
     </section>
 
@@ -232,18 +241,44 @@
     </section>
 
     <section>
+      <h2>What “local” includes</h2>
+      <div class="grid">
+        <article class="card"><h3>Stored on this account</h3><p>Review JSON can contain the full Markdown source, annotations, proposals, attachments, local paths, Git details, and agent-thread provenance. Local does not mean automatically safe to share.</p></article>
+        <article class="card"><h3>Original source stays put</h3><p>A source edit is a proposal inside the review artifact. Markover does not apply it to the original Markdown file.</p></article>
+        <article class="card"><h3>Optional local discovery</h3><p>A bounded exact-key search can associate a review with a recent Codex session. The default-on <strong>Discover agent thread from local session logs</strong> Privacy setting can disable that search without disabling explicit thread IDs or Git provenance.</p></article>
+        <article class="card"><h3>One process per macOS user</h3><p>Fast User Switching can leave separate Markover instances running. Each user gets separate application data, endpoint files, capability, and reviews.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Two deliberate network edges</h2>
+      <div class="grid three">
+        <article class="card"><h3>Ordinary reviewing</h3><p>No telemetry, analytics, cloud sync, or automatic review upload.</p></article>
+        <article class="card"><h3>Install and update</h3><p>The launcher can download packages and release files from npm or GitHub.</p></article>
+        <article class="card"><h3>Remote images</h3><p>A remote Markdown image starts as an inert button. Clicking preview requests its host, which receives ordinary request metadata such as your IP address.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <div class="card name-tag guardrail">
+        <div class="tag-icon" aria-hidden="true">→</div>
+        <p><strong>An agent handoff crosses the Markover boundary.</strong> Markover does not upload the review, but an authenticated <code>get</code> gives its contents and metadata to the requesting agent. What that recipient stores, logs, or transmits is governed by the recipient—not Markover.</p>
+      </div>
+    </section>
+
+    <section>
       <h2>Guardrails against overengineering</h2>
       <div class="grid">
-        <article class="card guardrail"><h3>Not added</h3><ul><li>HMAC challenge-response or connection pinning</li><li>Local TLS, certificates, or Unix sockets</li><li>Watchdogs, daemons, migrations, or new dependencies</li></ul></article>
-        <article class="card"><h3>Still separate</h3><ul><li>Issue 39: bounded-loss autosave durability</li><li>Issue 13: packaged release smoke</li><li>Issue 12 PR 3: adversarial matrix and public claims</li></ul></article>
+        <article class="card guardrail"><h3>Not added</h3><ul><li>Same-user isolation or cryptographic server proof</li><li>Local TLS, certificates, Unix sockets, daemons, or new dependencies</li><li>Fuzzing, load machinery, compatibility readers, or speculative migrations</li></ul></article>
+        <article class="card"><h3>Still separate</h3><ul><li>Issue 39: bounded-loss autosave durability</li><li>Issue 13: packaged release smoke</li><li>Issues 9, 15, and 64: broader docs, deletion, and the app Help link</li></ul></article>
       </div>
     </section>
 
     <section>
       <h2>Evidence before handoff</h2>
       <div class="grid">
-        <article class="card"><h3>Automated</h3><ul><li>Fresh preflight on every authenticated request</li><li>No token, body, or application route on health mismatch</li><li>Bounded convergence, one recovery signal, and no forced replacement</li><li>All existing authorization and CLI workflows</li></ul></article>
-        <article class="card"><h3>Focused live smoke</h3><ul><li>Break and repair the pair without rotation</li><li>Restart only after explicit user approval</li><li>Prove real rotation and authenticated <code>get/edit</code></li><li>Do not test durability or packaged artifacts here</li></ul></article>
+        <article class="card"><h3>Automated</h3><ul><li>Real HTTP denial across every current protected route</li><li>Hostile credential forms produce one response before body parsing or mutation</li><li>Standards-valid Bearer spelling and spaces work</li><li>Permissions, redaction, discovery opt-out, and inert remote images stay covered</li></ul></article>
+        <article class="card"><h3>Integrated</h3><ul><li>The completed development smoke proved repair, restart rotation, and authenticated <code>open/get/edit</code></li><li>PR 3 reuses automated smoke coverage instead of repeating the live restart</li><li>Issue 13 reruns the happy path against packaged artifacts</li><li>Issue 39 owns crash-loss evidence</li></ul></article>
       </div>
     </section>
 
@@ -253,16 +288,18 @@
         <ul>
           <li><a href="https://github.com/lastobelus/markover/issues/12">Issue 12 — authenticate the loopback review API</a></li>
           <li><a href="https://github.com/lastobelus/markover/pull/41">Merged PR 41 — capability boundary foundation</a></li>
-          <li><a href="#" data-repo-path="doc/plans/2026-08-03__issue-12-recovery-hardening.md">doc/plans/2026-08-03__issue-12-recovery-hardening.md</a></li>
+          <li><a href="https://github.com/lastobelus/markover/pull/56">Merged PR 56 — recovery hardening</a></li>
+          <li><a href="#" data-repo-path="doc/plans/2026-08-06__issue-12-adversarial-verification-and-public-privacy.md">doc/plans/2026-08-06__issue-12-adversarial-verification-and-public-privacy.md</a></li>
+          <li><a href="#" data-repo-path="docs/privacy/index.html">docs/privacy/index.html</a></li>
           <li><a href="#" data-repo-path="DECISIONS.md">DECISIONS.md</a></li>
-          <li><a href="#" data-repo-path="src/local-client.ts">src/local-client.ts</a>, <a href="#" data-repo-path="src/local-service.ts">src/local-service.ts</a>, and <a href="#" data-repo-path="src/main.ts">src/main.ts</a></li>
+          <li><a href="#" data-repo-path="src/local-client.ts">src/local-client.ts</a>, <a href="#" data-repo-path="src/local-service.ts">src/local-service.ts</a>, <a href="#" data-repo-path="src/settings.ts">src/settings.ts</a>, and <a href="#" data-repo-path="scripts/markover.ts">scripts/markover.ts</a></li>
           <li><a href="#" data-repo-path="scripts/smoke-auth.ts">scripts/smoke-auth.ts</a> — focused two-phase evidence fixture</li>
         </ul>
       </div>
     </section>
 
     <footer>
-      <details><summary>Prompt / context</summary><p>Updated after the user approved the no-note PR-2 recovery plan but asked for an ELI5 because local authorization and recovery are outside their usual wheelhouse. The explanation deliberately emphasizes proportionality: local-first protection, ordinary recovery, no forced restarts, no speculative compatibility, and no cryptographic machinery without deployment evidence.</p></details>
+      <details><summary>Prompt / context</summary><p>Updated for the final issue-12 slice after the user approved the adversarial-verification and public-privacy plan without notes. Because this system is outside the user’s usual wheelhouse, the explanation favors one complete mental model and emphasizes the milestone constraint: protect the real macOS-account boundary, state its limits honestly, and stop before rare edge cases accrete machinery that Markover’s pre-preview user base does not justify.</p></details>
     </footer>
   </main>
   <script>

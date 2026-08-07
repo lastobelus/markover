@@ -16,6 +16,10 @@ const script = fs.readFileSync(
 )
 const styles = fs.readFileSync(path.join(projectDirectory, 'docs/styles.css'), 'utf8')
 const guide = fs.readFileSync(path.join(projectDirectory, 'docs/guide/index.html'), 'utf8')
+const privacy = fs.readFileSync(
+  path.join(projectDirectory, 'docs/privacy/index.html'),
+  'utf8'
+)
 const readme = fs.readFileSync(path.join(projectDirectory, 'README.md'), 'utf8')
 const readmeLeader = fs.readFileSync(path.join(projectDirectory, 'design/brand/markover-readme-leader.svg'), 'utf8')
 const pagesWorkflow = fs.readFileSync(
@@ -153,4 +157,31 @@ test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(readme, /alt="Markover — Structured review for Markdown\."/)
   assert.match(readmeLeader, /<desc[^>]*>Structured review for Markdown\.<\/desc>/)
   assert.match(readmeLeader, /<text class="tagline" x="100" y="164">Structured review for Markdown\.<\/text>/)
+})
+
+test('privacy and local-data claims stay linked to the public workflow', () => {
+  assert.match(html, /href="\.\/privacy\/">Privacy/)
+  assert.match(guide, /href="\.\.\/privacy\/">Privacy and local data/)
+  assert.match(readme, /markover\/privacy\//)
+
+  for (const section of [
+    'local-only',
+    'authorization',
+    'stored',
+    'locations',
+    'discovery',
+    'agent-handoff',
+    'network',
+    'retention'
+  ]) {
+    assert.match(privacy, new RegExp(`id="${section}"`))
+  }
+  assert.match(privacy, /0700/)
+  assert.match(privacy, /service\.token/)
+  assert.match(privacy, /no telemetry, analytics, cloud synchronization/)
+  assert.match(privacy, /remote Markdown image starts as an inert preview button/)
+  assert.match(privacy, /Discover agent thread from local session logs/)
+  assert.match(privacy, /first quit Markover/)
+  assert.match(privacy, /does not apply them to the original Markdown source/)
+  assert.match(privacy, /outside Markover's control/)
 })
