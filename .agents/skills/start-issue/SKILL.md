@@ -18,8 +18,12 @@ comments, current branch, and Project fields. Inspect the repository for facts;
 reserve questions for decisions. Confirm `gh auth status` before GitHub reads or
 writes.
 
+Establish one stable owner token for this run. Use the agent thread identifier
+when available; otherwise generate and retain a unique `start-issue-...` token.
+Every independent run uses a different token.
+
 **Complete when:** the tracked item and its current local and GitHub context are
-unambiguous.
+unambiguous and this run has a unique owner token.
 
 ## 2. Scan inflight work
 
@@ -59,10 +63,13 @@ either reconstructed from live evidence or explicitly resolved by the user.
 
 If the target already has one or more marked comments, create no new claim.
 Apply the deterministic winner rule in stage 3, show the canonical intent to the
-user, and ask whether this run is a continuation or handoff. Reuse it only with
-their approval. A separate concurrent effort remains paused until the user
-chooses a distinct tracked issue or pull request; v1 does not represent multiple
-intents on one item.
+user, and ask whether this run is a continuation or handoff. Reuse the comment
+only when its `thread` equals this run's owner token and the user approves the
+continuation. For an approved handoff or a legacy null token, preserve the
+intent data, demote the old marker to handoff history, then create a new marked
+claim with this run's token in stage 3. A separate concurrent effort remains
+paused until the user chooses a distinct tracked issue or pull request; v1 does
+not represent multiple active intents on one item.
 
 **Complete when:** every `In Progress` item has been checked and the target has
 no unresolved intent collision.
@@ -111,7 +118,7 @@ touch-points:
 blocked-by: []
 may-block: []
 branch: "current branch or unknown"
-thread: null
+thread: "this run's owner token"
 ```
 ````
 
@@ -127,6 +134,11 @@ canonical claimant proceeds. A losing claimant edits its own comment to remove
 the marker, labels it as a superseded claim, and stops; a later claim can never
 displace the established winner. Pause for the user if a losing marker cannot
 be demoted by its author.
+
+Before every later edit to the work-intent comment, re-read all target markers.
+Proceed only while this comment remains canonical and its `thread` equals this
+run's owner token. Stop on any ownership mismatch before changing the comment
+or implementation.
 
 After the winner is known, repeat the inflight scan from stage 2 without reusing
 either pre-claim query as a stability sample. Treat the current canonical target
