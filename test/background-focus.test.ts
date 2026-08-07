@@ -80,6 +80,37 @@ test('smoke output flushes before Electron exits', () => {
   assert.doesNotMatch(smokeResult, /setImmediate/)
 })
 
+test('renderer termination synchronously blocks readiness and closes service', () => {
+  const main = read('src/main.ts')
+  const termination = main.match(
+    /webContents\.on\('render-process-gone',[\s\S]*?\n {2}\}\)/
+  )?.[0] || ''
+  const readiness = main.match(
+    /ipcMain\.handle\('startup:renderer-initialized',[\s\S]*?\n {4}\}\)/
+  )?.[0] || ''
+
+  assert.match(
+    termination,
+    /const failedDuringStartup = !startupReady\s*markRendererStartupFailed\(\)\s*void/
+  )
+  assert.match(
+    readiness,
+    /if \(rendererDidFailStartup\(\)\) \{\s*await stopPublishedService\(\)/
+  )
+})
+
+test('renderer fallback preserves a classified main-process failure', () => {
+  const main = read('src/main.ts')
+  const failureHandler = main.match(
+    /ipcMain\.handle\('startup:failure',[\s\S]*?\n {4}\}\)/
+  )?.[0] || ''
+
+  assert.match(
+    failureHandler,
+    /snapshot\(\)\.status === 'starting'[\s\S]*failStartup\('renderer-initialization'/
+  )
+})
+
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {
   const cli = read('scripts/markover.ts')
 

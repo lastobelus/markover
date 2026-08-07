@@ -261,6 +261,16 @@ function rendererDidFailStartup(): boolean {
   return rendererStartupFailed
 }
 
+function markRendererStartupFailed(): void {
+  if (!startupReady) rendererStartupFailed = true
+}
+
+function requireActiveRendererStartup(): void {
+  if (rendererDidFailStartup()) {
+    throw new Error('Renderer failed before startup completed.')
+  }
+}
+
 function settingsEnvelope(settings: MarkoverSettings): MarkoverSettingsEnvelope {
   return {
     ...settings,
@@ -589,6 +599,7 @@ function createWindow(
     mainWindow?.setTitle(reviewMode ? 'Markover Review' : 'Markover Inbox')
   })
   mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
+    markRendererStartupFailed()
     void (async () => {
       await failStartup(
         'renderer-load',
@@ -605,6 +616,7 @@ function createWindow(
     isMainFrame
   ) => {
     if (!isMainFrame || errorCode === -3) return
+    markRendererStartupFailed()
     void (async () => {
       await failStartup(
         'renderer-load',
@@ -614,17 +626,20 @@ function createWindow(
     })()
   })
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    const failedDuringStartup = !startupReady
+    markRendererStartupFailed()
     void (async () => {
       await failStartup(
-        startupReady ? 'renderer-terminated' : 'renderer-load',
+        failedDuringStartup ? 'renderer-load' : 'renderer-terminated',
         new Error(`Renderer process terminated: ${details.reason}.`),
-        startupReady
+        !failedDuringStartup
       )
-      if (!startupReady) await showStartupFailureDialog()
+      if (failedDuringStartup) await showStartupFailureDialog()
     })()
   })
   mainWindow.on('unresponsive', () => {
     if (startupReady) return
+    markRendererStartupFailed()
     void (async () => {
       await failStartup(
         'renderer-load',
@@ -828,6 +843,13 @@ async function startAndPublishService(): Promise<void> {
   }
 }
 
+async function stopPublishedService(): Promise<void> {
+  const service = localService
+  localService = null
+  localServiceIdentity = null
+  if (service) await service.close()
+}
+
 async function copyStartupDiagnostic(): Promise<void> {
   clipboard.writeText(await fs.readFile(startupDiagnosticPath, 'utf8'))
 }
@@ -1004,17 +1026,21 @@ if (!hasSingleInstanceLock) {
       try {
         await beginMainStartupPhase('publishing-service')
         await startAndPublishService()
-        if (rendererDidFailStartup()) {
-          throw new Error('Renderer failed while the service was publishing.')
-        }
+        requireActiveRendererStartup()
         await requireStartupDiagnostic().complete('publishing-service')
+        requireActiveRendererStartup()
         await beginMainStartupPhase('ready')
+        requireActiveRendererStartup()
         await requireStartupDiagnostic().complete('ready')
+        requireActiveRendererStartup()
         await requireStartupDiagnostic().ready()
+        requireActiveRendererStartup()
         startupReady = true
         return { warnings: [...startupWarnings] }
       } catch (error) {
-        if (!rendererDidFailStartup()) {
+        if (rendererDidFailStartup()) {
+          await stopPublishedService()
+        } else {
           await failStartup('service-publication', error)
         }
         throw error
@@ -1035,10 +1061,12 @@ if (!hasSingleInstanceLock) {
         throw new Error('Invalid renderer startup failure.')
       }
       rendererStartupFailed = true
-      await failStartup('renderer-initialization', {
-        message: failure.message,
-        stack: failure.stack
-      })
+      if (requireStartupDiagnostic().snapshot().status === 'starting') {
+        await failStartup('renderer-initialization', {
+          message: failure.message,
+          stack: failure.stack
+        })
+      }
     })
     ipcMain.handle('startup:copy-diagnostic', copyStartupDiagnostic)
     ipcMain.handle('startup:reveal-diagnostic', () => {

@@ -163,6 +163,10 @@ export class StartupDiagnostic {
     error: unknown,
     crashed = false
   ): Promise<void> {
+    if (
+      this.document.status === 'failed' ||
+      this.document.status === 'crashed'
+    ) return this.writer
     const options = {
       appDirectory: this.appDirectory,
       temporaryDirectory: this.temporaryDirectory

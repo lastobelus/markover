@@ -105,3 +105,25 @@ test('diagnostic sanitization retains useful frames without secrets or paths', (
   assert.match(sanitized, /<temp>\/cache\.js:3:1/)
   assert.doesNotMatch(sanitized, /person:secret|a{43}/)
 })
+
+test('startup diagnostic preserves the first classified failure', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-startup-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const diagnostic = new StartupDiagnostic({
+    appDirectory: '/Applications/Markover.app',
+    build,
+    filePath: path.join(directory, 'startup-diagnostic.json')
+  })
+
+  await diagnostic.start()
+  await diagnostic.fail('review-storage-access', new Error('storage failed'))
+  await diagnostic.fail(
+    'renderer-initialization',
+    new Error('renderer observed the rejection')
+  )
+
+  const failure = diagnostic.snapshot().failure
+  assert.ok(failure)
+  assert.equal(failure.category, 'review-storage-access')
+  assert.equal(failure.message, 'storage failed')
+})
