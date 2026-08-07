@@ -30,13 +30,11 @@ import {
   type ServiceIdentity
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
-import './settings'
-
-const {
+import {
   darkColorization,
   DEFAULT_SETTINGS,
   windowBackground
-} = globalThis.MarkoverSettings
+} from './settings'
 
 interface ReviewConfig {
   inputPath: string | undefined

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "build",
+    "packages/cli/bin",
+    "src/pierre-diffs-entry.mts",
+    "src/renderer.ts",
+    "src/vendor"
+  ]
+}

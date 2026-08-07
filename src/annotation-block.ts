@@ -1,4 +1,3 @@
-(function exposeAnnotationBlock(globalScope: typeof globalThis) {
   function persistedText(value: unknown): string {
     if (!value) return ''
     if (typeof value === 'string') return value
@@ -290,6 +289,15 @@
     popoverPosition,
     updateTruncation
   } satisfies MarkoverAnnotationBlockApi
-  globalScope.MarkoverAnnotationBlock = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(typeof window !== 'undefined' ? window : globalThis)
+
+export {
+  bindDismiss,
+  bindListKeyboard,
+  bindSneakPeek,
+  create,
+  createList,
+  model,
+  popoverPosition,
+  updateTruncation
+}
+export default api

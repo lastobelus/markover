@@ -152,7 +152,40 @@ export function resolveOverrideSources(
   })
 }
 
-export function productionPackages(
+function bundledPackageLocations(rootDirectory: string): string[] {
+  const metafilePath = path.join(
+    rootDirectory,
+    'build/artifacts/renderer-metafile.json'
+  )
+  const metafile: unknown = JSON.parse(fs.readFileSync(metafilePath, 'utf8'))
+  if (!isRecord(metafile) || !isRecord(metafile.inputs)) {
+    throw new Error('renderer metafile is missing input records')
+  }
+  const lock: unknown = JSON.parse(fs.readFileSync(
+    path.join(rootDirectory, 'package-lock.json'),
+    'utf8'
+  ))
+  if (!isRecord(lock) || !isRecord(lock.packages)) {
+    throw new Error('package-lock.json is missing package records')
+  }
+  const packageLocations = Object.keys(lock.packages)
+    .filter((location) => location.startsWith('node_modules/'))
+    .sort((left, right) => right.length - left.length)
+  const shipped = new Set<string>()
+  for (const input of Object.keys(metafile.inputs)) {
+    if (!input.startsWith('node_modules/')) continue
+    const location = packageLocations.find((candidate) => (
+      input === candidate || input.startsWith(`${candidate}/`)
+    ))
+    if (!location) {
+      throw new Error(`Bundled input ${input} has no package-lock record`)
+    }
+    shipped.add(location)
+  }
+  return [...shipped].sort((left, right) => left.localeCompare(right))
+}
+
+export function shippedPackages(
   rootDirectory = projectDirectory,
   overrides = loadOverrides(rootDirectory)
 ): PackageRecord[] {
@@ -164,11 +197,7 @@ export function productionPackages(
     throw new Error('package-lock.json is missing package records')
   }
   const packages: PackageRecord[] = []
-  for (const [location, lockEntry] of Object.entries(lock.packages)) {
-    if (
-      !location.startsWith('node_modules/') ||
-      (isRecord(lockEntry) && lockEntry.dev === true)
-    ) continue
+  for (const location of bundledPackageLocations(rootDirectory)) {
     const packageDirectory = path.join(rootDirectory, location)
     if (!fs.existsSync(packageDirectory)) continue
     const manifest: unknown = JSON.parse(fs.readFileSync(
@@ -272,7 +301,7 @@ export function renderNotices(packages: PackageRecord[]): string {
 }
 
 export function generatedNotices(rootDirectory = projectDirectory): string {
-  return renderNotices(productionPackages(rootDirectory))
+  return renderNotices(shippedPackages(rootDirectory))
 }
 
 export function main(args: string[] = process.argv.slice(2)): void {

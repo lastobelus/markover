@@ -213,7 +213,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   const tsconfig = readJson('tsconfig.json') as TypeScriptConfig
   const gitignore = read('.gitignore')
 
-  assert.equal(packageJson.main, 'build/src/main.js')
+  assert.equal(packageJson.main, 'build/app/src/main.js')
   assert.equal(packageJson.bin.markover, 'build/scripts/markover.js')
   assert.equal(
     packageJson.devDependencies['@typescript/native'],

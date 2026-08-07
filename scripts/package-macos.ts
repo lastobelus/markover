@@ -11,6 +11,7 @@ import {
 } from './macos-release-contract'
 
 const projectDirectory = path.resolve(__dirname, '../..')
+const appDirectory = path.join(projectDirectory, 'build/app')
 const packagerPath = path.join(
   projectDirectory,
   'node_modules/.bin/electron-packager'
@@ -115,23 +116,27 @@ export async function main(commandArguments = process.argv.slice(2)): Promise<vo
   }
   parseMacosTrustMode(trustModeArgument(commandArguments))
 
+  const manifest = JSON.parse(fs.readFileSync(
+    path.join(projectDirectory, 'package.json'),
+    'utf8'
+  )) as { devDependencies?: { electron?: string } }
+  const electronVersion = manifest.devDependencies?.electron
+  if (!electronVersion) throw new Error('package.json must pin Electron.')
+
   const packagerArguments = [
-    projectDirectory,
+    appDirectory,
     'Markover',
     '--platform=darwin',
     `--arch=${process.arch}`,
+    `--electron-version=${electronVersion}`,
     '--out=dist',
     '--overwrite',
     '--asar',
-    '--icon=design/brand/markover-app-icon.icns',
+    `--icon=${path.join(projectDirectory, 'design/brand/markover-app-icon.icns')}`,
+    '--prune=false',
     '--app-bundle-id=com.lastobelus.markover',
     '--helper-bundle-id=com.lastobelus.markover.helper',
-    '--app-category-type=public.app-category.developer-tools',
-    '--ignore=^/(?:\\.git|\\.markover|config|dist|doc|docs|examples|packages|scripts|src|test|third_party|tmp)(?:/|$)',
-    '--ignore=^/build/(?:\\.github|docs|examples|packages|scripts|test)(?:/|$)',
-    '--ignore=^/design(?:/|$)',
-    '--ignore=^/(?:\\.editorconfig|\\.github|\\.gitignore|AGENTS\\.md|CODE_OF_CONDUCT\\.md|CONTRIBUTING\\.md|DECISIONS\\.md|README\\.md|ROADMAP\\.md|SCREENSHOT-ATTACHMENT-QUESTIONS\\.md|SECURITY\\.md|THIRD_PARTY_NOTICES\\.md|eslint\\.config\\.js|favicon\\.svg|tsconfig\\.json)$',
-    '--ignore=\\.af$'
+    '--app-category-type=public.app-category.developer-tools'
   ]
   const result = spawnSync(packagerPath, packagerArguments, {
     cwd: projectDirectory,

@@ -14,6 +14,7 @@ import {
   resolveMarkoverApp,
   type ExecuteCommandOptions
 } from '../scripts/markover'
+import { guidance } from '../src/agent-guidance'
 import { LocalServiceError } from '../src/local-client'
 import { startLocalService, type LocalService } from '../src/local-service'
 import {
@@ -89,7 +90,7 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(helpPayload().requirements.installation, /needs no installation/)
   assert.deepEqual(
     helpPayload().defaultAgentGuidance,
-    globalThis.MarkoverAgentGuidance.guidance()
+    guidance()
   )
   assert.match(
     helpPayload().workflow.join(' '),

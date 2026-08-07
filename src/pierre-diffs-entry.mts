@@ -63,7 +63,4 @@ function render(
   }
 }
 
-const api = { render, stats }
-globalThis.MarkoverDiffs = api
-
 export { render, stats }

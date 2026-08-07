@@ -1,4 +1,6 @@
-(function exposeTree(globalScope: typeof globalThis) {
+import MarkdownIt from 'markdown-it'
+import * as YAML from 'yaml'
+
   type LineMap = [number, number]
   interface MarkdownToken {
     type: string
@@ -9,40 +11,6 @@
     markup: string
     nesting: number
     attrGet(name: string): string | null
-  }
-  interface MarkdownParser {
-    enable(rule: string): void
-    parse(source: string, environment: object): MarkdownToken[]
-  }
-  type MarkdownItFactory = (
-    preset: string,
-    options: Record<string, boolean>
-  ) => MarkdownParser
-  interface YamlRangeNode {
-    range?: [number, number, number?]
-  }
-  interface YamlPair {
-    key?: YamlRangeNode | null
-    value?: YamlRangeNode | null
-  }
-  interface YamlError {
-    linePos?: Array<{ line?: number; col?: number }>
-    message: string
-  }
-  interface YamlDocument {
-    errors: YamlError[]
-    contents?: { items: YamlPair[] } | null
-  }
-  interface YamlApi {
-    parseDocument(
-      source: string,
-      options: { prettyErrors: boolean }
-    ): YamlDocument
-    isMap(value: unknown): boolean
-  }
-  interface BrowserDependencies {
-    markdownit: MarkdownItFactory
-    MarkoverYaml: YamlApi
   }
   interface FrontmatterEntry {
     key: string
@@ -69,14 +37,6 @@
   type NewNode<T extends ReviewNode> = Omit<T, NodeDefaults> &
     Partial<Pick<T, 'collapsed' | 'children'>>
 
-  const browserDependencies = globalScope as typeof globalThis &
-    BrowserDependencies
-  const MarkdownIt = typeof require === 'function'
-    ? require('markdown-it') as MarkdownItFactory
-    : browserDependencies.markdownit
-  const YAML = typeof require === 'function'
-    ? require('yaml') as YamlApi
-    : browserDependencies.MarkoverYaml
   const markdown = MarkdownIt('commonmark', {
     html: false,
     linkify: false,
@@ -88,16 +48,16 @@
     const document = YAML.parseDocument(source, { prettyErrors: true })
     const error = document.errors[0]
     if (error) {
-      const start = error.linePos?.[0] || {}
+      const start = error.linePos?.[0]
       return {
-        line: start.line || null,
-        column: start.col || null,
+        line: start?.line || null,
+        column: start?.col || null,
         message: error.message.trim()
       }
     }
 
     const contents = document.contents
-    if (YAML.isMap(contents) && contents?.items.length) {
+    if (YAML.isMap(contents) && contents.items.length) {
       return null
     }
 
@@ -118,23 +78,23 @@
 
     const source = lines.slice(1, closingIndex).join('\n')
     const document = YAML.parseDocument(source, { prettyErrors: false })
-    if (document.errors.length || (document.contents && !YAML.isMap(document.contents))) {
+    const contents = document.contents
+    if (document.errors.length || (contents && !YAML.isMap(contents))) {
       return null
     }
 
-    const entries = (document.contents?.items || []).map((pair) => {
-      const keyRange = pair.key?.range
-      const keyStart = keyRange?.[0]
-      const valueEnd = pair.value?.range?.[2] ?? keyRange?.[2]
+    const entries = (contents?.items || []).map((pair) => {
+      const keyRange = pair.key.range
+      const keyStart = keyRange[0]
+      const valueEnd = pair.value ? pair.value.range[2] : keyRange[2]
       if (!Number.isInteger(keyStart) || !Number.isInteger(valueEnd)) return null
 
-      const start = source.lastIndexOf('\n', (keyStart as number) - 1) + 1
+      const start = source.lastIndexOf('\n', keyStart - 1) + 1
       if (source.slice(start, keyStart).trim()) return null
 
-      const numericValueEnd = valueEnd as number
-      const rangeEnd = source[numericValueEnd - 1] === '\n'
-        ? numericValueEnd - 1
-        : numericValueEnd
+      const rangeEnd = source[valueEnd - 1] === '\n'
+        ? valueEnd - 1
+        : valueEnd
       const nextBreak = source.indexOf('\n', rangeEnd)
       const end = nextBreak === -1 ? source.length : nextBreak
       if (source.slice(rangeEnd, end).trim()) return null
@@ -142,7 +102,7 @@
       const raw = source.slice(start, end)
       const linesBefore = source.slice(0, start).split('\n').length - 1
       return {
-        key: source.slice(keyRange?.[0], keyRange?.[1]),
+        key: source.slice(keyRange[0], keyRange[1]),
         raw,
         lineStart: linesBefore + 2,
         lineEnd: linesBefore + 1 + raw.split('\n').length
@@ -526,6 +486,13 @@
     visitNodes,
     yamlDiagnostic
   } satisfies MarkoverTreeApi
-  globalScope.MarkoverTree = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(typeof window !== 'undefined' ? window : globalThis)
+
+export {
+  findNode,
+  nodePosition,
+  parseMarkdown,
+  serializeTree,
+  visitNodes,
+  yamlDiagnostic
+}
+export default api

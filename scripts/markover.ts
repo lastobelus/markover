@@ -20,11 +20,9 @@ import {
   type ReviewMetadataInput
 } from '../src/metadata-discovery'
 import { serviceEndpointPath } from '../src/service-endpoint'
-import '../src/agent-guidance'
-import '../src/settings'
-import '../src/tree'
-
-const { parseMarkdown } = MarkoverTree
+import { guidance } from '../src/agent-guidance'
+import { normalizeSettings } from '../src/settings'
+import { parseMarkdown } from '../src/tree'
 const loadElectron = createRequire(__filename)
 
 const projectDirectory = path.resolve(__dirname, '../..')
@@ -82,7 +80,7 @@ function commandError(message: string, usage?: string): CommandError {
 }
 
 export function helpPayload() {
-  const defaultAgentGuidance = globalThis.MarkoverAgentGuidance.guidance()
+  const defaultAgentGuidance = guidance()
   return {
     format: 'markover-help',
     version: 1,
@@ -422,7 +420,7 @@ export async function readSessionDiscoverySetting(
 ): Promise<boolean> {
   try {
     const value: unknown = JSON.parse(await fs.readFile(settingsPath, 'utf8'))
-    return MarkoverSettings.normalizeSettings(value)
+    return normalizeSettings(value)
       .discoverAgentThreadFromLocalSessions
   } catch (error) {
     return errorCode(error) === 'ENOENT'

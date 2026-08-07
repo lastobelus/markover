@@ -51,8 +51,6 @@ declare global {
     guidance: (interpretationPolicy?: unknown) => AgentGuidance
   }
 
-  var MarkoverAgentGuidance: MarkoverAgentGuidanceApi
-
   interface MarkoverSettings {
     palette: Palette
     appearance: Appearance
@@ -666,16 +664,6 @@ declare global {
       options?: { now?: () => number }
     ) => ReviewSessionsContract
   }
-
-  var MarkoverAnnotationBlock: MarkoverAnnotationBlockApi
-  var MarkoverAnnotations: MarkoverAnnotationsApi
-  var MarkoverDiffs: DiffRenderer
-  var MarkoverImagePreview: MarkoverImagePreviewApi
-  var MarkoverNavigation: MarkoverNavigationApi
-  var MarkoverReviewSessions: MarkoverReviewSessionsApi
-  var MarkoverSettings: MarkoverSettingsApi
-  var MarkoverSourceEdits: MarkoverSourceEditsApi
-  var MarkoverTree: MarkoverTreeApi
 
   interface Window {
     markover?: MarkoverBridge

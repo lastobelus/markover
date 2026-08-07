@@ -1,9 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import './agent-guidance'
-
-const { guidance } = globalThis.MarkoverAgentGuidance
+import { guidance } from './agent-guidance'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 export type ReviewStatus = 'editing' | 'pending-agent'

@@ -53,10 +53,11 @@ test('macOS packaging produces a branded application bundle', () => {
     signedAppComponents.slice(1).map((component) => component.bundleId),
     Array(4).fill(helperBundleId)
   )
-  assert.match(packaging, /--icon=design\/brand\/markover-app-icon\.icns/)
-  assert.equal(packaging.includes('eslint\\\\.config'), true)
-  assert.equal(packaging.includes('tsconfig\\\\.json'), true)
-  assert.match(packaging, /examples\|packages\|scripts\|src\|test/)
+  assert.match(packaging, /const appDirectory = path\.join\(projectDirectory, 'build\/app'\)/)
+  assert.match(packaging, /`--icon=\$\{path\.join\(projectDirectory, 'design\/brand\/markover-app-icon\.icns'\)\}`/)
+  assert.match(packaging, /appDirectory,\n {4}'Markover'/)
+  assert.match(packaging, /'--prune=false'/)
+  assert.doesNotMatch(packaging, /--ignore=/)
   assert.doesNotMatch(packaging, /--deep/)
   assert.match(packaging, /await sign\(adHocSigningOptions\(appPath\)\)/)
   assert.ok(

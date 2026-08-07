@@ -3,29 +3,13 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    >
     <title>Markover</title>
-    <script>
-      const startupTheme = new URLSearchParams(window.location.search)
-      const startupPalette = startupTheme.get('palette') || 'ember'
-      document.documentElement.dataset.palette = startupPalette
-      document.documentElement.dataset.appearance = startupTheme.get('appearance') || 'light'
-      document.documentElement.dataset.colorization = startupTheme.get('colorization') || ({
-        ember: 'low',
-        ocean: 'mid',
-        olive: 'low'
-      }[startupPalette] || 'low')
-    </script>
+    <script src="startup.js"></script>
     <link rel="stylesheet" href="styles.css">
-    <script type="importmap">
-      {
-        "imports": {
-          "preact": "../node_modules/preact/dist/preact.mjs",
-          "preact/hooks": "../node_modules/preact/hooks/dist/hooks.mjs",
-          "preact/jsx-runtime": "../node_modules/preact/jsx-runtime/dist/jsxRuntime.mjs",
-          "preact-render-to-string": "../node_modules/preact-render-to-string/dist/index.mjs"
-        }
-      }
-    </script>
   </head>
   <body>
     <header class="app-header is-empty">
@@ -397,18 +381,6 @@
       </div>
     </dialog>
 
-    <script src="../node_modules/markdown-it/dist/markdown-it.js"></script>
-    <script src="vendor/yaml.js"></script>
-    <script src="tree.js"></script>
-    <script src="annotations.js"></script>
-    <script src="annotation-block.js"></script>
-    <script src="navigation.js"></script>
-    <script src="review-sessions.js"></script>
-    <script src="source-edits.js"></script>
-    <script src="image-preview.js"></script>
-    <script src="agent-guidance.js"></script>
-    <script src="settings.js"></script>
-    <script src="vendor/pierre-diffs.js"></script>
-    <script src="renderer.js"></script>
+    <script type="module" src="renderer.js"></script>
   </body>
 </html>

@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test, { type TestContext } from 'node:test'
+
+import {
+  expectedStageEntries,
+  verifyAppLayout
+} from '../scripts/app-layout'
+
+async function fixture(t: TestContext): Promise<string> {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-app-'))
+  t.after(async () => fs.rm(directory, { recursive: true, force: true }))
+  for (const entry of expectedStageEntries) {
+    const filePath = path.join(directory, entry)
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(filePath, '')
+  }
+  await fs.writeFile(
+    path.join(directory, 'package.json'),
+    JSON.stringify({ main: 'src/main.js' })
+  )
+  await fs.writeFile(
+    path.join(directory, 'src/index.html'),
+    [
+      '<meta http-equiv="Content-Security-Policy">',
+      '<script src="startup.js"></script>',
+      '<script type="module" src="renderer.js"></script>'
+    ].join('\n')
+  )
+  return directory
+}
+
+test('application layout accepts only the declared runtime stage', async (t) => {
+  const directory = await fixture(t)
+  await verifyAppLayout(directory)
+
+  await fs.writeFile(path.join(directory, 'src/accidental.ts'), '')
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /Unexpected: src\/accidental\.ts/
+  )
+})
+
+test('application layout reports missing required files', async (t) => {
+  const directory = await fixture(t)
+  await fs.rm(path.join(directory, 'src/preload.js'))
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /Missing: src\/preload\.js/
+  )
+})
+
+test('application layout rejects symlinks', async (t) => {
+  const directory = await fixture(t)
+  await fs.rm(path.join(directory, 'src/styles.css'))
+  await fs.symlink('index.html', path.join(directory, 'src/styles.css'))
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /contains a symlink: src\/styles\.css/
+  )
+})

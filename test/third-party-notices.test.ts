@@ -7,7 +7,7 @@ import test, { type TestContext } from 'node:test'
 import {
   generatedNotices,
   groupedTexts,
-  productionPackages,
+  shippedPackages,
   type PackageRecord
 } from '../scripts/generate-third-party-notices'
 
@@ -20,6 +20,7 @@ interface FixturePackage {
   text?: string
   dev?: boolean
   installed?: boolean
+  bundled?: boolean
 }
 
 function fixture(t: TestContext, packages: FixturePackage[]): string {
@@ -30,11 +31,15 @@ function fixture(t: TestContext, packages: FixturePackage[]): string {
   const lockPackages: Record<string, Record<string, unknown>> = {
     '': { name: 'fixture', version: '1.0.0' }
   }
+  const inputs: Record<string, Record<string, never>> = {}
   for (const packageEntry of packages) {
     const location = `node_modules/${packageEntry.name}`
     lockPackages[location] = {
       version: packageEntry.version,
       dev: packageEntry.dev
+    }
+    if (packageEntry.bundled !== false) {
+      inputs[`${location}/index.js`] = {}
     }
     if (packageEntry.installed === false) continue
     const packageDirectory = path.join(directory, location)
@@ -52,35 +57,53 @@ function fixture(t: TestContext, packages: FixturePackage[]): string {
     lockfileVersion: 3,
     packages: lockPackages
   }))
+  fs.mkdirSync(path.join(directory, 'build/artifacts'), { recursive: true })
+  fs.writeFileSync(
+    path.join(directory, 'build/artifacts/renderer-metafile.json'),
+    JSON.stringify({ inputs })
+  )
   return directory
 }
 
-test('committed third-party notices match installed production dependencies', () => {
+test('committed third-party notices match bundled renderer dependencies', () => {
   const committed = fs.readFileSync(path.join(root, 'THIRD_PARTY_NOTICES.md'), 'utf8')
   assert.equal(committed, generatedNotices(root))
   assert.match(committed, /`@pierre\/theming`/)
-  assert.match(committed, /`lru_map`/)
   assert.match(committed, /`yaml`/)
+  assert.doesNotMatch(committed, /`lru_map`/)
 })
 
-test('production discovery ignores development and absent platform packages', (t) => {
+test('shipped discovery follows bundle inputs regardless of dependency kind', (t) => {
   const directory = fixture(t, [
     { name: 'runtime', version: '1.0.0', license: 'MIT', text: 'same' },
     { name: 'development', version: '1.0.0', license: 'MIT', text: 'dev', dev: true },
-    { name: 'absent', version: '1.0.0', license: 'MIT', installed: false }
+    {
+      name: 'unbundled',
+      version: '1.0.0',
+      license: 'MIT',
+      text: 'unused',
+      bundled: false
+    },
+    {
+      name: 'absent-platform',
+      version: '1.0.0',
+      license: 'MIT',
+      installed: false,
+      bundled: false
+    }
   ])
   assert.deepEqual(
-    productionPackages(directory, {}).map((entry) => entry.id),
-    ['runtime@1.0.0']
+    shippedPackages(directory, {}).map((entry) => entry.id),
+    ['development@1.0.0', 'runtime@1.0.0']
   )
 })
 
-test('production discovery fails when license text is missing', (t) => {
+test('shipped discovery fails when license text is missing', (t) => {
   const directory = fixture(t, [
     { name: 'missing', version: '1.0.0', license: 'MIT' }
   ])
   assert.throws(
-    () => productionPackages(directory, {}),
+    () => shippedPackages(directory, {}),
     /missing@1\.0\.0 does not include usable license text/
   )
 })

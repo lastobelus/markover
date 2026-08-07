@@ -1,37 +1,23 @@
-interface MarkdownToken {
-  attrGet(name: string): string | null
-  content: string
-}
+import MarkdownIt from 'markdown-it'
 
-interface MarkdownParser {
-  enable(rule: string): void
-  render(value: string): string
-  renderInline(value: string): string
-  renderer: {
-    rules: Record<
-      string,
-      ((tokens: MarkdownToken[], index: number) => string) | undefined
-    >
-  }
-  utils: { escapeHtml(value: string): string }
-}
+import type { DiffRenderer } from './contracts'
+import * as MarkoverAgentGuidance from './agent-guidance'
+import * as MarkoverAnnotationBlock from './annotation-block'
+import * as MarkoverAnnotations from './annotations'
+import * as MarkoverImagePreview from './image-preview'
+import * as MarkoverNavigation from './navigation'
+import * as MarkoverReviewSessions from './review-sessions'
+import * as MarkoverSettings from './settings'
+import * as MarkoverSourceEdits from './source-edits'
+import * as MarkoverTree from './tree'
 
-type MarkdownItFactory = (
-  preset: string,
-  options: Record<string, boolean>
-) => MarkdownParser
 type FileTreeModel = InstanceType<MarkoverFileTreeConstructor>
-
-interface Window {
-  markdownit: MarkdownItFactory
-}
 
 interface RendererState {
   attachmentPreviewUrls: Map<string, string>
   documentName: string
   documentPath: string | null
   durableReview: boolean
-  fallbackAttachmentSequence: number
   finishAttachmentLabelEdit: ((commit?: boolean) => void) | null
   hoveredId: string | null
   reviewId: string | null
@@ -189,7 +175,6 @@ const state: RendererState = {
   documentName: 'sample.md',
   documentPath: null,
   durableReview: false,
-  fallbackAttachmentSequence: 0,
   finishAttachmentLabelEdit: null,
   hoveredId: null,
   reviewId: null,
@@ -220,10 +205,12 @@ let documentsListStatuses = new Map<string, ReviewSessionStatus>()
 let brandAssetSources: MarkoverBrandAssets | null = null
 let brandAssetLoad: Promise<MarkoverBrandAssets | null> | null = null
 let sourceDiffCleanup: (() => void) | null = null
+let sourceDiffModule: Promise<DiffRenderer> | null = null
+let sourceDiffRenderer: DiffRenderer | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
 
-import('../node_modules/@pierre/trees/dist/index.js')
+import('@pierre/trees')
   .then(({ FileTree }) => {
     DocumentsListFileTree = FileTree
     renderDocumentsList()
@@ -233,79 +220,51 @@ import('../node_modules/@pierre/trees/dist/index.js')
     elements.documentsListTree.textContent = `Documents list unavailable: ${error instanceof Error ? error.message : String(error)}`
   })
 
-const fallbackBridge = {
-  getBrandAssets() {
-    return Promise.resolve(null)
-  },
-  async checksum(source) {
-    const bytes = new TextEncoder().encode(source)
-    const digest = await crypto.subtle.digest('SHA-256', bytes)
-    const hex = [...new Uint8Array(digest)]
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('')
-    return `sha256:${hex}`
-  },
-  openMarkdown() {
-    return Promise.resolve(null)
-  },
-  onOpenMarkdownRequested() {},
-  copyText(text) {
-    void navigator.clipboard.writeText(text)
-  },
-  getSettings() {
-    return Promise.resolve({
-      ...MarkoverSettings.DEFAULT_SETTINGS,
-      resolvedAppearance: 'light' as const
-    })
-  },
-  updateSettings(patch) {
-    return Promise.resolve({
-      ...MarkoverSettings.updateSettings(preferences, patch),
-      resolvedAppearance
-    })
-  },
-  onSettingsOpen() {},
-  onSettingsChanged() {},
-  async saveAttachment(attachment) {
-    state.fallbackAttachmentSequence += 1
-    const id = `img-${state.fallbackAttachmentSequence}`
-    const digest = await crypto.subtle.digest(
-      'SHA-256',
-      new Uint8Array(attachment.bytes).buffer
-    )
-    const checksum = [...new Uint8Array(digest)]
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('')
-    return {
-      id,
-      type: 'image',
-      mimeType: attachment.mimeType,
-      checksum: `sha256:${checksum}`,
-      width: null,
-      height: null,
-      label: ''
-    }
-  },
-  getInitialReview() {
-    return Promise.resolve(null)
-  },
-  getReviews() {
-    return Promise.resolve([])
-  },
-  readClipboardImage() {
-    return Promise.resolve(null)
-  },
-  onReviewOpened() {},
-  onReviewSnapshotRequested() {},
-  onReviewStatus() {},
-  activateReview() {},
-  autosaveReview() {},
-  finishReview() {},
-  cancelReview() {}
-} satisfies MarkoverBridge
-const bridge: MarkoverBridge = window.markover || fallbackBridge
+const BRIDGE_METHODS = [
+  'activateReview',
+  'autosaveReview',
+  'cancelReview',
+  'checksum',
+  'copyText',
+  'finishReview',
+  'getBrandAssets',
+  'getInitialReview',
+  'getReviews',
+  'getSettings',
+  'onOpenMarkdownRequested',
+  'onReviewOpened',
+  'onReviewSnapshotRequested',
+  'onReviewStatus',
+  'onSettingsChanged',
+  'onSettingsOpen',
+  'openMarkdown',
+  'readClipboardImage',
+  'saveAttachment',
+  'updateSettings'
+] as const satisfies ReadonlyArray<keyof MarkoverBridge>
 
-const inlineMarkdown = window.markdownit('commonmark', {
+function requireBridge(candidate: MarkoverBridge | undefined): MarkoverBridge {
+  if (!candidate) throw new Error('Markover preload bridge is unavailable.')
+  const missing = BRIDGE_METHODS.filter(
+    (name) => typeof candidate[name] !== 'function'
+  )
+  if (missing.length) {
+    throw new Error(`Markover preload bridge is missing: ${missing.join(', ')}.`)
+  }
+  return candidate
+}
+
+const bridge = requireBridge(window.markover)
+
+function loadSourceDiffModule(): Promise<DiffRenderer> {
+  sourceDiffModule ??= import('./pierre-diffs-entry.mjs').then((module) => {
+    sourceDiffRenderer = module
+    return module
+  })
+  return sourceDiffModule
+}
+
+const inlineMarkdown = MarkdownIt('commonmark', {
   html: false,
   linkify: false,
   typographer: false
@@ -348,8 +307,8 @@ function wireSourceImagePreviews(content: ParentNode): void {
 }
 
 function sourceDiffStats(node: SourceEditableNode): MarkoverDiffStats | null {
-  if (!node.sourceEdit) return null
-  return MarkoverDiffs.stats(node.sourceEdit.original, node.sourceEdit.current)
+  if (!node.sourceEdit || !sourceDiffRenderer) return null
+  return sourceDiffRenderer.stats(node.sourceEdit.original, node.sourceEdit.current)
 }
 
 function renderDiffStats(element: HTMLElement, stats: MarkoverDiffStats): void {
@@ -1169,16 +1128,26 @@ function renderSourcePanel(node: ReviewNode): void {
     const stats = sourceDiffStats(node)
     if (stats) renderDiffStats(elements.sourceDiffStats, stats)
     if (!state.sourceCollapsed) {
-      try {
-        sourceDiffCleanup = MarkoverDiffs.render(
+      const renderKey = `${state.reviewId || 'local'}:${node.id}:${node.sourceEdit.current}`
+      elements.sourceDiff.dataset.renderKey = renderKey
+      elements.sourceDiff.textContent = 'Loading diff…'
+      void loadSourceDiffModule().then((diffs) => {
+        if (elements.sourceDiff.dataset.renderKey !== renderKey) return
+        renderDiffStats(
+          elements.sourceDiffStats,
+          diffs.stats(node.sourceEdit?.original || '', node.sourceEdit?.current || '')
+        )
+        sourceDiffCleanup = diffs.render(
           elements.sourceDiff,
-          node.sourceEdit.original,
-          node.sourceEdit.current,
+          node.sourceEdit?.original || '',
+          node.sourceEdit?.current || '',
           `${state.reviewId || 'local'}:${node.id}`
         )
-      } catch (error) {
+      }).catch((error: unknown) => {
+        if (elements.sourceDiff.dataset.renderKey !== renderKey) return
+        console.error('Failed to load source diff renderer', error)
         elements.sourceDiff.textContent = `Diff unavailable: ${error instanceof Error ? error.message : String(error)}`
-      }
+      })
     }
   } else {
     elements.sourceDiffStats.replaceChildren()
