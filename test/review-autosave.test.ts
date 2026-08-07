@@ -398,6 +398,44 @@ test('flush reports persistence failure and exposes recovery state', async () =>
   assert.deepEqual(autosave.failedReviewIds(), [])
 })
 
+test('storage failure remains visible until the newest queued snapshot succeeds', async () => {
+  const clock = new FakeClock()
+  const writes: Array<{ tree: ReviewTree; done: Deferred<ReviewArtifact> }> = []
+  const recovered: string[] = []
+  const autosave = new ReviewAutosave({
+    updateTree(_reviewId, candidate) {
+      const done = deferred<ReviewArtifact>()
+      writes.push({ tree: candidate as ReviewTree, done })
+      return done.promise
+    }
+  }, {
+    maximumDelayMs: 100,
+    now: clock.now,
+    schedule: clock.schedule,
+    onRecovered(reviewId) { recovered.push(reviewId) }
+  })
+
+  autosave.queue('mko_aaa11111', tree('# Failed\n'))
+  writes[0]?.done.reject(new Error('disk unavailable'))
+  await settle()
+  assert.deepEqual(autosave.failedReviewIds(), ['mko_aaa11111'])
+
+  clock.tick(100)
+  assert.equal(writes.length, 2)
+  autosave.queue('mko_aaa11111', tree('# Newest\n'))
+  writes[1]?.done.resolve(artifact('mko_aaa11111', writes[1].tree))
+  await settle()
+  assert.deepEqual(autosave.failedReviewIds(), ['mko_aaa11111'])
+  assert.deepEqual(recovered, [])
+
+  clock.tick(100)
+  assert.equal(writes.length, 3)
+  writes[2]?.done.resolve(artifact('mko_aaa11111', writes[2].tree))
+  await settle()
+  assert.deepEqual(autosave.failedReviewIds(), [])
+  assert.deepEqual(recovered, ['mko_aaa11111'])
+})
+
 test('retry backoff is bounded at thirty seconds', async () => {
   const clock = new FakeClock()
   const autosave = new ReviewAutosave({

@@ -67,7 +67,7 @@ test('development startup imports legacy reviews from the checkout root', () => 
   )
 })
 
-test('smoke output flushes before Electron exits', () => {
+test('successful smoke output flushes before exercising graceful quit', () => {
   const main = read('src/main.ts')
   const smokeResult = main.match(
     /ipcMain\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
@@ -75,7 +75,7 @@ test('smoke output flushes before Electron exits', () => {
 
   assert.match(
     smokeResult,
-    /process\.stdout\.write\(`\$\{JSON\.stringify\(output\)\}\\n`, \(\) => \{\s*app\.exit\(checksPassed \? 0 : 1\)/
+    /process\.stdout\.write\(`\$\{JSON\.stringify\(output\)\}\\n`, \(\) => \{\s*if \(checksPassed\) app\.quit\(\)\s*else app\.exit\(1\)/
   )
   assert.doesNotMatch(smokeResult, /setImmediate/)
 })

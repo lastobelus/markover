@@ -5,7 +5,9 @@ import path from 'node:path'
 export const runtimeModuleNames = [
   'agent-guidance',
   'app-menu',
+  'async-mutation-tracker',
   'development-config',
+  'durability-shutdown',
   'instance',
   'local-client',
   'local-service',

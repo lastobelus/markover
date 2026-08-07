@@ -27,21 +27,23 @@ async function respondToReviewStatus(
 
 async function respondToReviewSnapshot(
   callback: (
-    reviewId: string
+    request: ReviewSnapshotRequest
   ) => ReviewTree | null | Promise<ReviewTree | null>,
   request: ReviewSnapshotRequest
 ): Promise<void> {
   try {
-    const tree = await callback(request.reviewId)
+    const tree = await callback(request)
     ipcRenderer.send('review:snapshot-response', {
       requestId: request.requestId,
       reviewId: request.reviewId,
+      purpose: request.purpose,
       tree
     } satisfies ReviewSnapshotResponse)
   } catch (error) {
     ipcRenderer.send('review:snapshot-response', {
       requestId: request.requestId,
       reviewId: request.reviewId,
+      purpose: request.purpose,
       error: errorMessage(error)
     } satisfies ReviewSnapshotResponse)
   }
@@ -101,6 +103,22 @@ const bridge = {
       request: ReviewSnapshotRequest
     ) => {
       void respondToReviewSnapshot(callback, request)
+    })
+  },
+  onReviewAutosaveStatus: (callback) => {
+    ipcRenderer.on('review:autosave-status', (
+      _event: IpcRendererEvent,
+      status: ReviewAutosaveStatus
+    ) => {
+      callback(status)
+    })
+  },
+  onReviewShutdownState: (callback) => {
+    ipcRenderer.on('review:shutdown-state', (
+      _event: IpcRendererEvent,
+      paused: boolean
+    ) => {
+      callback(paused)
     })
   },
   activateReview: (reviewId) => {

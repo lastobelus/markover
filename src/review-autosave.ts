@@ -107,6 +107,7 @@ export class ReviewAutosave {
     return [...this.states.entries()]
       .filter(([, state]) => state.failed)
       .map(([reviewId]) => reviewId)
+      .sort()
   }
 
   private state(reviewId: string): ReviewAutosaveState {
@@ -174,7 +175,7 @@ export class ReviewAutosave {
       (artifact) => {
         state.inFlight = false
         state.failureCount = 0
-        if (state.failed) {
+        if (state.failed && !state.pending) {
           state.failed = false
           this.safely(() => { this.onRecovered(reviewId) })
         }
