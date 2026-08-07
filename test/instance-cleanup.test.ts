@@ -7,6 +7,7 @@ import test, { type TestContext } from 'node:test'
 import {
   cleanupDevelopmentInstance,
   InstanceCleanupError,
+  macosSchemeHandlers,
   moveDirectoryToTrash
 } from '../src/instance-cleanup'
 import {
@@ -38,6 +39,30 @@ function errorCode(code: InstanceCleanupError['code']) {
   return (error: unknown): boolean => error instanceof InstanceCleanupError &&
     error.code === code
 }
+
+test('macOS handler lookup passes valid multiline Swift and parses paths', async () => {
+  const invocations: Array<{ command: string; args: string[] }> = []
+  const handlers = await macosSchemeHandlers('markover-61', (command, args) => {
+    invocations.push({ command, args })
+    return {
+      status: 0,
+      stderr: '',
+      stdout: '/Applications/Markover-61 Bridge.app\n/Other.app\n\n'
+    }
+  })
+
+  assert.deepEqual(handlers, [
+    '/Applications/Markover-61 Bridge.app',
+    '/Other.app'
+  ])
+  assert.equal(invocations.length, 1)
+  const [invocation] = invocations
+  assert.ok(invocation)
+  assert.equal(invocation.command, '/usr/bin/swift')
+  assert.equal(invocation.args[2], 'markover-61')
+  assert.match(invocation.args[1] || '', /\{\n {2}print\(app\.path\)\n\}/)
+  assert.doesNotMatch(invocation.args[1] || '', /\{;/)
+})
 
 test('cleanup moves one exact stopped PR root to a recoverable Trash path', async (t) => {
   const { instance, stateFile, trash } = await fixture(t)

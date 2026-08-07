@@ -7,6 +7,16 @@ import path from 'node:path'
 import type { ResolvedInstance } from './instance'
 
 export type SchemeHandlerLookup = (scheme: string) => Promise<string[]>
+export type SchemeHandlerCommandRunner = (
+  command: string,
+  args: string[],
+  options: { encoding: BufferEncoding }
+) => {
+  error?: Error
+  status: number | null
+  stderr: string
+  stdout: string
+}
 export type TrashMover = (source: string, destination: string) => Promise<void>
 
 export interface CleanupDevelopmentInstanceOptions {
@@ -43,17 +53,20 @@ export class InstanceCleanupError extends Error {
   }
 }
 
-const schemeHandlersSource = [
+export const schemeHandlersSource = [
   'import AppKit',
   'import Foundation',
   'let url = URL(string: CommandLine.arguments[1] + "://handler-status")!',
   'for app in NSWorkspace.shared.urlsForApplications(toOpen: url) {',
   '  print(app.path)',
   '}'
-].join('; ')
+].join('\n')
 
-export async function macosSchemeHandlers(scheme: string): Promise<string[]> {
-  const result = await Promise.resolve().then(() => spawnSync(
+export async function macosSchemeHandlers(
+  scheme: string,
+  runCommand: SchemeHandlerCommandRunner = spawnSync
+): Promise<string[]> {
+  const result = await Promise.resolve().then(() => runCommand(
     '/usr/bin/swift',
     ['-e', schemeHandlersSource, scheme],
     { encoding: 'utf8' }

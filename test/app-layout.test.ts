@@ -91,3 +91,11 @@ test('application layout verifies the emitted main-process closure', async (t) =
     /main requires missing src\/not-staged\.js/
   )
 })
+
+test('successful application builds reserve stdout for their caller', async () => {
+  const buildSource = await fs.readFile(
+    path.resolve('scripts/build-app.ts'),
+    'utf8'
+  )
+  assert.doesNotMatch(buildSource, /process\.stdout/)
+})
