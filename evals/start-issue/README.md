@@ -43,6 +43,11 @@ issue #72 and draft PR #73 for an immediately implemented fix. They separate
 the intended branches: apply now creates one tracked follow-up pull request;
 record for later chooses a tracker and stops after creating the linked issue.
 
+The PR-local Markover case protects the landed #61 instance boundary: a new
+review for an open pull request explicitly targets that worktree's development
+instance, retains the selector with its review ID, and preserves instance state
+through routine handoff.
+
 ## Running the controls
 
 Run the normal test suite:

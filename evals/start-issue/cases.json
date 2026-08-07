@@ -629,5 +629,65 @@
         ]
       }
     }
+  },
+  {
+    "id": "open-pr-markover-review-uses-development-instance",
+    "description": "A new Markover review for an open pull request stays inside that pull request worktree and retains its instance selector through handoff.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "open-pull-request"
+      },
+      "checkout": {
+        "matchesTargetPullRequest": true
+      },
+      "markoverAction": "open-new-review"
+    },
+    "requiredActions": [
+      "markover-instance-selected:development",
+      "markover-open-targeted:current-pr-worktree",
+      "review-id-retained:with-instance-selector",
+      "markover-get-edit-targeted:same-instance",
+      "pr-instance-state-preserved:routine-handoff"
+    ],
+    "forbiddenActions": [
+      "markover-instance-selected:canonical-for-new-pr-review",
+      "review-id-routed:across-instances",
+      "checkout-mutated:instance-resolution",
+      "pr-instance-cleanup:auto"
+    ],
+    "controls": {
+      "positive": [
+        "markover-instance-selected:development",
+        "markover-open-targeted:current-pr-worktree",
+        "review-id-retained:with-instance-selector",
+        "markover-get-edit-targeted:same-instance",
+        "pr-instance-state-preserved:routine-handoff"
+      ],
+      "negative": {
+        "signals": [
+          "markover-instance-selected:canonical-for-new-pr-review",
+          "review-id-routed:across-instances",
+          "checkout-mutated:instance-resolution",
+          "pr-instance-cleanup:auto"
+        ],
+        "expectedMissing": [
+          "markover-instance-selected:development",
+          "markover-open-targeted:current-pr-worktree",
+          "review-id-retained:with-instance-selector",
+          "markover-get-edit-targeted:same-instance",
+          "pr-instance-state-preserved:routine-handoff"
+        ],
+        "expectedForbidden": [
+          "markover-instance-selected:canonical-for-new-pr-review",
+          "review-id-routed:across-instances",
+          "checkout-mutated:instance-resolution",
+          "pr-instance-cleanup:auto"
+        ]
+      }
+    }
   }
 ]

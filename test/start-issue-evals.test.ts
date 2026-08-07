@@ -64,7 +64,7 @@ function evaluate(
   }
 }
 
-test('start-issue corpus covers the eight coordination branches', () => {
+test('start-issue corpus covers the nine coordination branches', () => {
   assert.deepEqual(cases.map(({ id }) => id), [
     'untracked-single-session-work-uses-direct-pr',
     'untracked-durable-work-uses-issue',
@@ -73,7 +73,8 @@ test('start-issue corpus covers the eight coordination branches', () => {
     'multiple-trackers-retain-all-active-attachments',
     'post-claim-scan-reconstructs-unmarked-items',
     'merged-pr-followup-apply-now-reuses-tracker',
-    'merged-pr-followup-issue-only-chooses-tracker'
+    'merged-pr-followup-issue-only-chooses-tracker',
+    'open-pr-markover-review-uses-development-instance'
   ])
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
 })
@@ -96,11 +97,19 @@ test('branch-only guidance is progressively disclosed', () => {
     skillSource,
     /target already has one or more trusted marked comments[\s\S]*references\/existing-claim\.md/
   )
+  assert.match(
+    skillSource,
+    /PR-local Markover:[\s\S]*references\/pr-development-instance\.md/
+  )
 
   assert.match(readReference('work-item-routing.md'), /## Follow-up after merge/)
   assert.match(readReference('tracker-selection.md'), /## Discover candidates/)
   assert.match(readReference('interview.md'), /# Implementation interview/)
   assert.match(readReference('existing-claim.md'), /# Existing work-intent claim/)
+  assert.match(
+    readReference('pr-development-instance.md'),
+    /--instance dev open PATH/
+  )
 })
 
 test('fixtures contain normalized observations rather than live GitHub output', () => {
