@@ -6,6 +6,7 @@ import type {
   StartupPhase,
   StartupWarning
 } from './startup-contract'
+import { userFacingStartupWarnings } from './startup-contract'
 import * as MarkoverAgentGuidance from './agent-guidance'
 import * as MarkoverAnnotationBlock from './annotation-block'
 import * as MarkoverAnnotations from './annotations'
@@ -2929,7 +2930,7 @@ async function initialize(): Promise<void> {
   const ready = await bridge.reportRendererInitialized({ warnings })
   startupUi.phase('ready')
   startupUi.ready()
-  showStartupWarnings(ready.warnings)
+  showStartupWarnings(userFacingStartupWarnings(ready.warnings))
   if (startupInfo.smoke) {
     if (ready.warnings.length) smokeRuntimeClean = false
     await bridge.reportSmokeResult(await rendererSmokeResult())

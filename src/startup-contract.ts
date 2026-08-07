@@ -57,6 +57,12 @@ export function isStartupWarning(value: unknown): value is StartupWarning {
   ) && typeof Reflect.get(value, 'subject') === 'string'
 }
 
+export function userFacingStartupWarnings(
+  warnings: readonly StartupWarning[]
+): StartupWarning[] {
+  return warnings.filter((warning) => warning.category !== 'brand-fallback')
+}
+
 export interface RendererInitialization {
   warnings: StartupWarning[]
 }

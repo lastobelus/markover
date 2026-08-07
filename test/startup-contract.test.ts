@@ -6,7 +6,8 @@ import test from 'node:test'
 
 import {
   developmentStartupControls,
-  STARTUP_PHASES
+  STARTUP_PHASES,
+  userFacingStartupWarnings
 } from '../src/startup-contract'
 import {
   sanitizeDiagnosticText,
@@ -47,6 +48,17 @@ test('development startup controls accept only fixed phases', () => {
     /known startup phase/
   )
   assert.deepEqual(STARTUP_PHASES.at(-1), 'ready')
+})
+
+test('user-facing recovery warnings exclude cosmetic brand fallback', () => {
+  assert.deepEqual(userFacingStartupWarnings([
+    { category: 'brand-fallback', subject: 'canonical brand assets' },
+    { category: 'settings-recovered', subject: 'settings.json' },
+    { category: 'review-skipped', subject: 'broken-review' }
+  ]), [
+    { category: 'settings-recovered', subject: 'settings.json' },
+    { category: 'review-skipped', subject: 'broken-review' }
+  ])
 })
 
 test('startup diagnostic is atomic, private, and clears stale failure', async (t) => {

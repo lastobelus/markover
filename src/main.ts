@@ -1085,9 +1085,8 @@ if (!hasSingleInstanceLock) {
         startupReady = true
         return { warnings: [...startupWarnings] }
       } catch (error) {
-        if (rendererDidFailStartup()) {
-          await stopPublishedService()
-        } else {
+        await stopPublishedService()
+        if (!rendererDidFailStartup()) {
           await failStartup('service-publication', error)
         }
         throw error

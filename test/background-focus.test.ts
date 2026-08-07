@@ -80,7 +80,7 @@ test('smoke output flushes before Electron exits', () => {
   assert.doesNotMatch(smokeResult, /setImmediate/)
 })
 
-test('renderer termination synchronously blocks readiness and closes service', () => {
+test('every pre-ready failure blocks readiness and closes the service', () => {
   const main = read('src/main.ts')
   const termination = main.match(
     /webContents\.on\('render-process-gone',[\s\S]*?\n {2}\}\)/
@@ -95,7 +95,7 @@ test('renderer termination synchronously blocks readiness and closes service', (
   )
   assert.match(
     readiness,
-    /if \(rendererDidFailStartup\(\)\) \{\s*await stopPublishedService\(\)/
+    /catch \(error\) \{\s*await stopPublishedService\(\)\s*if \(!rendererDidFailStartup\(\)\)/
   )
 })
 
