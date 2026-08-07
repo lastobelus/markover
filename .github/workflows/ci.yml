@@ -62,6 +62,12 @@ jobs:
       - name: Run tests
         run: npm run test:built
 
+      - name: Configure Electron sandbox
+        if: matrix.node-version == '22.13.0'
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+
       - name: Run bundled Electron smoke
         if: matrix.node-version == '22.13.0'
         run: xvfb-run --auto-servernum npm run smoke:built -- --timeout=60

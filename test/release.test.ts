@@ -191,6 +191,15 @@ test('continuous integration enforces the supported Node versions', () => {
   assert.match(workflow, /npm ci/)
   assert.match(workflow, /npm run check/)
   assert.match(workflow, /npm run test:built/)
+  assert.match(
+    workflow,
+    /sudo chown root:root node_modules\/electron\/dist\/chrome-sandbox/
+  )
+  assert.match(
+    workflow,
+    /sudo chmod 4755 node_modules\/electron\/dist\/chrome-sandbox/
+  )
+  assert.doesNotMatch(workflow, /--no-sandbox/)
   assert.match(workflow, /xvfb-run --auto-servernum npm run smoke:built -- --timeout=60/)
   assert.equal(
     (workflow.match(/Run bundled Electron smoke/g) || []).length,
