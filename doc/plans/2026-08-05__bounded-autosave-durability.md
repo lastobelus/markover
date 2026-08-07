@@ -78,7 +78,9 @@ Sync this stack with the completed issue #43 renderer architecture before implem
 
 Add deterministic bound proofs plus a compact real child-process test that terminates without cleanup and restores from disk. Cover rapid edits, editing and pending-agent states, attachment ordering, and multiple reviews. Keep the child scenario short enough that total CI growth stays under two seconds per lane.
 
-Perform packaged-app restart validation locally on the current Mac. Issue #11 later owns clean-machine Apple Silicon and Intel release evidence.
+Perform packaged-app restart validation locally on the current Mac. Issue #11
+later owns clean-machine Apple Silicon release evidence; issue #80 owns deferred
+physical Intel/Sonoma release evidence at Broad announcement.
 
 Publish the guarantee in a Durability and recovery section of the user guide. Document the advanced override in `docs/development.md`, and add only a concise claim and guide link to the README. Issue #9 later incorporates this source of truth into broader privacy, retention, deletion, and support guidance.
 

@@ -37,7 +37,7 @@ block-level feedback to an agent.
 
 ## Try without installing
 
-Markover supports macOS 14 Sonoma or newer on Apple Silicon and Intel Macs and
+Markover supports macOS 14 Sonoma or newer on Apple Silicon Macs and
 requires Node.js 22.13.0 or newer for the launcher. Open a document with:
 
 ```sh
@@ -47,7 +47,9 @@ npx --yes \
   --summary "Explain why this document exists and what feedback would help."
 ```
 
-The command downloads the app for the current Mac architecture on first use.
+The command downloads the Apple Silicon app on first use. Native Intel releases
+are deferred to the Broad announcement roadmap in
+[issue #80](https://github.com/lastobelus/markover/issues/80).
 Release launchers produced from the hardened preflight verify its checksum,
 bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and
 code seal before moving it into the cache. Later commands reuse that validated

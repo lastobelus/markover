@@ -44,7 +44,7 @@
 
       <section>
         <h2>Requirements</h2>
-        <p>Markover supports macOS 14 Sonoma or newer on Apple Silicon and Intel Macs and requires Node.js 22.13.0 or newer for the bootstrap command. You do not need to clone the repository or install an npm package globally.</p>
+        <p>Markover supports macOS 14 Sonoma or newer on Apple Silicon Macs and requires Node.js 22.13.0 or newer for the bootstrap command. Native Intel releases are deferred to the <a href="https://github.com/lastobelus/markover/issues/80">Broad announcement roadmap</a>. You do not need to clone the repository or install an npm package globally.</p>
         <div class="callout"><strong>Not Apple-verified.</strong> Markover uses a hardened ad-hoc code signature, but it has no authenticated Developer ID publisher and is not notarized. Gatekeeper is expected to block its first launch.</div>
       </section>
 
@@ -55,7 +55,7 @@
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover open ./DOCUMENT.md \
   --summary "Review these decisions before implementation."</code></pre>
-        <p>On first use, a release launcher produced from the hardened preflight downloads the app for the current Mac architecture; verifies its SHA-256 checksum, bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and code seal; then atomically caches it. The command opens the document in Markover and exits with one JSON value:</p>
+        <p>On first use, a release launcher produced from the hardened preflight downloads the Apple Silicon app; verifies its SHA-256 checksum, bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and code seal; then atomically caches it. The command opens the document in Markover and exits with one JSON value:</p>
         <pre><code>{"reviewId":"mko_8f3a2c","status":"editing"}</code></pre>
         <div class="callout"><strong>Keep the review ID.</strong> It identifies this review when the agent retrieves the handoff.</div>
       </section>

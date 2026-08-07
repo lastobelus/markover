@@ -229,10 +229,12 @@ foundation for a production architecture.
    code receive an empty profile. Device, personal-information, unsigned-memory,
    and disabled-library-validation grants are rejected by tests and final
    artifact verification.
-3. **The release contract starts at macOS 14 Sonoma.** Apple Silicon and Intel
-   remain separate native ZIPs. Packaging writes
-   `LSMinimumSystemVersion = 14.0`, and both the release preflight and
-   bootstrap require the declared architecture and floor.
+3. **The release contract starts at macOS 14 Sonoma and currently publishes
+   Apple Silicon only.** Packaging keeps separate native architecture
+   primitives and writes `LSMinimumSystemVersion = 14.0`; release preflight and
+   bootstrap require the declared architecture and floor. Native Intel release
+   activation and physical evidence are deferred to issue #80 at Broad
+   announcement.
 4. **The exact final ZIP is the release-verification boundary.** Native
    preflight verifies its checksum, safe extraction, app and helper IDs,
    version, architecture, strict code seal, hardened-runtime flags, exact
@@ -252,14 +254,15 @@ foundation for a production architecture.
 
 ## Release provenance and rollback
 
-1. **Official releases are draft-first and all-or-nothing.** Separate
-   unprivileged native jobs build Apple Silicon and Intel apps while another
-   job builds the matching CLI. A staging job requires the exact six payload
-   and checksum files before it can create a complete draft.
+1. **Official releases are draft-first and all-or-nothing.** An unprivileged
+   native job builds the Apple Silicon app while another builds the matching
+   CLI. A staging job requires exactly those two payloads and their checksums
+   before it can create a complete four-asset draft. Internal x64 CI is not a
+   supported or published Intel release.
 2. **Draft staging and publication are distinct protected operations.** The
    `release` environment gates both jobs. The first approval admits the oldest
    pending tag to rollback selection and complete draft assembly; the second
-   follows clean-machine evidence and admits publication. This retains every
+   follows exact-draft inspection and admits publication. This retains every
    pending release without Actions concurrency's replaceable pending slot. The
    final transition refetches the mutable draft by release ID and proves every
    byte, release-note field, asset name, and rollback target is still unchanged

@@ -18,10 +18,28 @@ import {
 } from '../packages/cli/src/bootstrap'
 import { main as buildCli } from '../scripts/build-cli'
 
-test('release assets are architecture-specific', () => {
+test('release assets are Apple Silicon only', () => {
   assert.equal(releaseAssetName('arm64'), 'Markover-darwin-arm64.zip')
-  assert.equal(releaseAssetName('x64'), 'Markover-darwin-x64.zip')
-  assert.throws(() => releaseAssetName('ia32'), /Unsupported macOS architecture/)
+  assert.throws(() => releaseAssetName('x64'), /Apple Silicon only/)
+  assert.throws(() => releaseAssetName('ia32'), /Apple Silicon only/)
+})
+
+test('Intel bootstrap stops before cache or download work', async () => {
+  let downloaded = false
+  await assert.rejects(
+    ensureInstalledApp({
+      architecture: 'x64',
+      cacheDirectory: '/unused',
+      platform: 'darwin',
+      version: '1.2.3',
+      downloadFile() {
+        downloaded = true
+        return Promise.resolve()
+      }
+    }),
+    /Apple Silicon only/
+  )
+  assert.equal(downloaded, false)
 })
 
 test('invalid syntax is reported before bootstrap starts', () => {

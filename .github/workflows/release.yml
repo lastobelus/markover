@@ -51,13 +51,7 @@ jobs:
 
   mac-app:
     needs: test
-    strategy:
-      fail-fast: false
-      matrix:
-        runner:
-          - macos-15
-          - macos-15-intel
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-15
     timeout-minutes: 20
     permissions:
       contents: read
@@ -132,7 +126,7 @@ jobs:
       - name: Retain packaged smoke evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: packaged-smoke-${{ matrix.runner }}
+          name: packaged-smoke-macos-15
           path: smoke-evidence/
           if-no-files-found: error
           retention-days: 30
@@ -140,7 +134,7 @@ jobs:
       - name: Retain native payload and sanitized build context
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: app-${{ matrix.runner }}
+          name: app-macos-15
           path: artifact/
           if-no-files-found: error
           retention-days: 30
@@ -295,7 +289,6 @@ jobs:
         with:
           subject-path: |
             staging/Markover-darwin-arm64.zip
-            staging/Markover-darwin-x64.zip
             staging/markover-cli.tgz
 
       - name: Verify generated attestations
@@ -304,7 +297,6 @@ jobs:
         run: |
           for payload in \
             staging/Markover-darwin-arm64.zip \
-            staging/Markover-darwin-x64.zip \
             staging/markover-cli.tgz
           do
             gh attestation verify "$payload" \
@@ -340,8 +332,6 @@ jobs:
             --notes-file release-notes.md \
             staging/Markover-darwin-arm64.zip \
             staging/Markover-darwin-arm64.zip.sha256 \
-            staging/Markover-darwin-x64.zip \
-            staging/Markover-darwin-x64.zip.sha256 \
             staging/markover-cli.tgz \
             staging/markover-cli.tgz.sha256
           release_id="$(gh release view "$GITHUB_REF_NAME" \
@@ -428,8 +418,6 @@ jobs:
           for name in \
             Markover-darwin-arm64.zip \
             Markover-darwin-arm64.zip.sha256 \
-            Markover-darwin-x64.zip \
-            Markover-darwin-x64.zip.sha256 \
             markover-cli.tgz \
             markover-cli.tgz.sha256
           do
@@ -452,7 +440,6 @@ jobs:
             | tee publication-verification/publish.txt
           for payload in \
             candidate/Markover-darwin-arm64.zip \
-            candidate/Markover-darwin-x64.zip \
             candidate/markover-cli.tgz
           do
             gh attestation verify "$payload" \
@@ -488,8 +475,6 @@ jobs:
           for name in \
             Markover-darwin-arm64.zip \
             Markover-darwin-arm64.zip.sha256 \
-            Markover-darwin-x64.zip \
-            Markover-darwin-x64.zip.sha256 \
             markover-cli.tgz \
             markover-cli.tgz.sha256
           do

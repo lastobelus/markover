@@ -64,7 +64,12 @@ The external runner owns the deadline and cleanup. Local smoke defaults to 10 se
 
 Add `npm run ci:local` as the documented pre-PR gate. It performs one clean build, then static/notices checks, compiled Node tests, and local renderer smoke against that same stage. Keep focused standalone commands available. `npm start` performs only clean build, mandatory layout verification, and visible development launch.
 
-Run Node/static/layout coverage in the existing Node matrix, but launch Electron/Xvfb only once at the minimum supported Node version. Do not run native macOS packaging on each PR. Release packaging continues on Apple Silicon and Intel; every `npm run package:mac` verifies the final ASAR and runs hidden smoke against the signed application before succeeding. The release workflow uses that same command before archiving and publication.
+Run Node/static/layout coverage in the existing Node matrix, but launch
+Electron/Xvfb only once at the minimum supported Node version. Do not run native
+macOS packaging on each PR. Native CI may continue to exercise Apple Silicon
+and Intel, while the current public release workflow archives only Apple
+Silicon. Every `npm run package:mac` verifies the final ASAR and runs hidden
+smoke against the signed application before succeeding.
 
 Hardened ad-hoc signatures do not provide a common Team ID, so the app and helper processes require the exact `com.apple.security.cs.disable-library-validation` entitlement to load Electron's separately signed framework. Do not grant it to frameworks or other embedded code. Final-artifact preflight enforces that placement. Remove the exception in a future Developer ID mode once all components share the authenticated Team ID.
 

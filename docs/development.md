@@ -270,8 +270,8 @@ npm run release:preflight -- github-readiness \
 The GitHub release workflow then:
 
 1. Revalidates the tag contract and tests the repository.
-2. Builds and verifies both native apps and the matching CLI in unprivileged
-   jobs.
+2. Builds and verifies the native Apple Silicon app and matching CLI in
+   unprivileged jobs. Native Intel release activation is deferred to issue #80.
 3. Independently rehashes the complete payload set and generates GitHub
    build-provenance attestations.
 4. Creates a complete draft with generated provenance and rollback notes.

@@ -13,7 +13,7 @@ prepares a candid early macOS preview for a small group of agent-tool users. It
 focuses on:
 
 - secure application, renderer, and loopback-service boundaries;
-- repeatable Apple Silicon and Intel installation and release validation;
+- repeatable Apple Silicon installation and release validation;
 - dependable interpretation of reviewer annotations;
 - accurate privacy, storage, deletion, support, and compatibility guidance;
 - continuous correctness checks and honest public launch materials; and
@@ -26,6 +26,7 @@ is Markover's broad-launch phase. In addition to the focused-preview gate, it
 requires:
 
 - Developer ID signing, notarization, provenance, and rollback guidance;
+- native Intel release activation and physical Intel/Sonoma validation;
 - accessible keyboard and VoiceOver workflows;
 - understandable review-history controls and Markdown compatibility limits;
 - contributor, conduct, and private security-reporting surfaces; and
