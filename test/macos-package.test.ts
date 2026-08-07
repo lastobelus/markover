@@ -40,6 +40,7 @@ test('macOS packaging produces a branded application bundle', () => {
   )
 
   assert.equal(packageJson.productName, 'Markover')
+  assert.match(packageJson.scripts['package:mac'] ?? '', /^install-electron --no &&/)
   assert.equal(typeof packageJson.devDependencies['@electron/packager'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/asar'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/osx-sign'], 'string')
