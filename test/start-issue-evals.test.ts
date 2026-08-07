@@ -106,17 +106,19 @@ test('branch-only guidance is progressively disclosed', () => {
   )
   assert.match(
     skillSource,
-    /PR-local Markover:[\s\S]*references\/pr-development-instance\.md/
+    /Markover reviews:[\s\S]*references\/markover-review\.md/
   )
 
   assert.match(readReference('work-item-routing.md'), /## Follow-up after merge/)
   assert.match(readReference('tracker-selection.md'), /## Discover candidates/)
   assert.match(readReference('interview.md'), /# Implementation interview/)
   assert.match(readReference('existing-claim.md'), /# Existing work-intent claim/)
-  assert.match(
-    readReference('pr-development-instance.md'),
-    /--instance dev open PATH/
-  )
+  const markoverReference = readReference('markover-review.md')
+  assert.match(markoverReference, /^`open '<reviewUrl>'`$/m)
+  assert.match(markoverReference, /--instance dev open PATH/)
+  for (const fencedBlock of markoverReference.match(/```[\s\S]*?```/g) ?? []) {
+    assert.doesNotMatch(fencedBlock, /open '<reviewUrl>'/)
+  }
 })
 
 test('fixtures contain normalized observations rather than live GitHub output', () => {
