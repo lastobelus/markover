@@ -162,7 +162,7 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Slice 3 PR #68 · Native CI evidence passed · Codex review and clean Intel pending · 7 Aug 2026</span>
+        <span class="context-status">Slice 3 PR #68 implementation complete · Live merge gates at PR #68 · Clean Intel pending · 7 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
@@ -172,17 +172,20 @@
           from the merged baseline containing
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
           <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>.
-          Current merged <code>main</code> baseline <code>cd4b344</code> also includes
+          Current merged <code>main</code> baseline <code>9a621c8</code> also includes
           <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
-          verified renderer startup and PR #61's development-instance work. Snapshot
+          verified renderer startup, PR #61's development-instance work, and PR #73's
+          cleanup fix. Snapshot
           7 August 2026: slices 1 and 2 are merged on <code>main</code>; slice 3 is
-          rebased locally and remains a draft in
-          <a href="https://github.com/lastobelus/markover/pull/68">draft PR #68</a> on
+          rebased with implementation complete in
+          <a href="https://github.com/lastobelus/markover/pull/68">PR #68</a> on
           <code>t3code/issue-13-slice-3-packaged-smoke</code>. Current-head local checks,
           packaged startup smoke, and Apple Silicon exact-ZIP preflight pass. Native
-          <a href="https://github.com/lastobelus/markover/actions/runs/31212845030">CI run 31212845030</a>
+          <a href="https://github.com/lastobelus/markover/actions/runs/31213261762">retained CI run 31213261762</a>
           passed the complete arm64 and x64 lifecycle and retained evidence against
-          synthetic PR merge <code>92d6c5f</code>. Earlier native runs preflighted both exact
+          synthetic PR merge <code>c0cebfe</code>; automated Codex review reported no
+          issues before the non-overlapping PR #73 rebase. Re-check PR #68 for the live
+          exact-head gate state. Earlier native runs preflighted both exact
           ZIPs but stopped at issue #43's now-repaired boundary, so they do not prove
           the rebased head. No clean-Intel evidence has been collected.
         </p>
@@ -204,10 +207,10 @@
               post-policy draft; Developer ID activation still needs Apple access and a
               separate reviewed change. App Sandbox remains in
               <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>.
-              Slice 3 must now receive a clean current-head Codex review and retain green
-              final PR checks before merge. After merge, version and release
+              Slice 3's implementation is complete; PR #68 is the authority for its live
+              exact-head CI, review, and merge state. After merge, version and release
               work still waits for explicit approval. Runner details and evidence fields
-              may still change during review.
+              may change in a later reviewed update.
             </p>
           </div>
           <div>
@@ -216,7 +219,7 @@
               Stable: explicit trust modes, fail-closed checks, two native architectures,
               byte-matched clean-machine app and ZIP, honest “not Apple-verified”
               language, no silent fallback, and no duplicate auth or durability suite.
-              Re-check issue #13, draft PR #68, the
+              Re-check issue #13, PR #68, the
               plan, release runbook, release workflow, and this card before relying on
               current implementation or evidence status.
             </p>
@@ -300,7 +303,7 @@
           <p>PR #55 adds attestations, draft-first publication, protected approval, immutable releases, and precise rollback instructions.</p>
         </article>
         <article class="card mini">
-          <span class="tag">Slice 3 · implementing</span>
+          <span class="tag">Slice 3 · implementation complete</span>
           <h3>Exercise the packaged happy path</h3>
           <p>Reuse the landed auth fixture against native packaged apps and prepare the clean Intel procedure without claiming evidence before it is collected.</p>
         </article>

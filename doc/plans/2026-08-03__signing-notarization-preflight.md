@@ -14,11 +14,13 @@ development builds.
 
 The work is delivered in three slices. Slice 1 merged through PR 45 on
 4 August 2026, and slice 2 merged through PR 55 on 6 August 2026. Slice 3 is
-rebased locally onto merged baseline `cd4b344`, including PR 70's verified
-renderer startup and PR 61's development-instance work, on branch
-`t3code/issue-13-slice-3-packaged-smoke` in draft PR 68. Its current-head
-local checks plus Apple Silicon packaging and exact-ZIP preflight pass; native
-arm64 and x64 CI evidence passes in run 31212845030. It adds shared packaged
+rebased onto merged baseline `9a621c8`, including PR 70's verified
+renderer startup, PR 61's development-instance work, and PR 73's cleanup fix,
+on branch `t3code/issue-13-slice-3-packaged-smoke` in PR 68. Its implementation
+is complete; the live PR records the exact-head merge-gate state.
+Its current-head local checks plus Apple Silicon packaging and exact-ZIP
+preflight pass; final native arm64 and x64 CI evidence passes in run
+31213261762, and automated Codex review reports no issues. It adds shared packaged
 happy-path evidence and the clean Intel/Sonoma procedure, then stops after
 merge before any version change, tag, draft, or release operation.
 
@@ -284,22 +286,23 @@ symlink targets. Quarantine extended attributes remain intentionally outside
 that byte comparison and are checked separately.
 
 PR 70 merged issue 43's independent verified-renderer startup and packaged
-smoke pipeline. Draft PR 68 is now rebased onto that merged repair and current
+smoke pipeline. PR 68 is now rebased onto that merged repair and current
 `main`; local checks, the isolated packaged startup smoke, and Apple Silicon
-exact-ZIP preflight pass. Its arm64 and x64 package, preflight, lifecycle, and
-evidence jobs passed in run 31212845030. Current-head Codex review and final PR
-checks must remain clean before the slice can leave draft review. Earlier runs
+exact-ZIP preflight pass. Its final arm64 and x64 package, preflight, lifecycle,
+and evidence jobs passed in run 31213261762. Current-head automated Codex review
+reported no issues before the PR 73 rebase; the live PR records the repeated
+exact-head merge-gate state. Earlier runs
 preflighted both exact hardened ad-hoc ZIPs but stopped at the now-repaired
 renderer snapshot boundary; those runs are historical failure evidence, not a
 pass.
 
-Native CI run 31212845030 passed the complete packaged happy path for both
+Retained native CI run 31213261762 passed the complete packaged happy path for both
 architectures against synthetic PR merge commit
-`92d6c5fadb939c098f35432d24e322b1600666be` (head `f4ae8ac` on baseline
-`cd4b344`). The retained arm64 artifact digest is
-`2c331f1ebe662b3304b549887ca41eed92572a5e875fac54e1af26f82241b9ae`;
+`c0cebfe42ef7d312f6510a05f63cd32f71e8c63f` (head `ca0f969` on baseline
+`cd4b344`, before the non-overlapping PR 73 rebase). The retained arm64 artifact digest is
+`96d0cb3fecb08078110cd2ff8835a697d1c53bb1746592d8e5fda86234adefc8`;
 the x64 digest is
-`7d3e7fbf0b4c30d02fbe78db873066314ac828d16212c73a916efcd909ace5af`.
+`25e0751dea8f13de90406ddff4e80b6af1ab188ce1496567afc650f21524c340`.
 Both evidence files record every happy-path step as passed, ad-hoc trust with
 expected Gatekeeper rejection, `appleVerified: false`, `notarized: false`, and
 explicit adversarial-authorization and bounded-loss-durability exclusions.

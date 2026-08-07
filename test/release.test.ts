@@ -158,9 +158,9 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Slice 3 PR #68 · Native CI evidence passed · Codex review and clean Intel pending · 7 Aug 2026/
+    /Slice 3 PR #68 implementation complete · Live merge gates at PR #68 · Clean Intel pending · 7 Aug 2026/
   )
-  assert.match(pages[0] ?? '', /main<\/code> baseline <code>cd4b344<\/code>/)
+  assert.match(pages[0] ?? '', /main<\/code> baseline <code>9a621c8<\/code>/)
   assert.match(
     pages[0] ?? '',
     /<\/header>\s*<details class="card truth-context">\s*<summary/
@@ -179,7 +179,7 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[3] ?? '',
-    /PR #68 · Native CI evidence passed · Codex review and clean Intel pending/
+    /PR #68 implementation complete · Live merge gates at PR #68 · Clean Intel pending/
   )
 })
 
