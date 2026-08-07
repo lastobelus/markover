@@ -4,6 +4,7 @@ export const DEFAULT_AUTOSAVE_MAXIMUM_DELAY_MS = 2000
 export const MINIMUM_AUTOSAVE_MAXIMUM_DELAY_MS = 100
 export const MAXIMUM_AUTOSAVE_MAXIMUM_DELAY_MS = 60_000
 export const MAXIMUM_AUTOSAVE_RETRY_DELAY_MS = 30_000
+export const MAXIMUM_AUTOSAVE_PERSISTENCE_BUDGET_MS = 500
 
 interface PendingSnapshot {
   sequence: number
@@ -23,6 +24,7 @@ interface FlushWaiter {
 }
 
 interface ReviewAutosaveState {
+  cancelPersistenceDeadline: (() => void) | null
   cancelTimer: (() => void) | null
   failed: boolean
   failureCount: number
@@ -52,6 +54,8 @@ function defaultSchedule(operation: () => void, delayMs: number): () => void {
 
 export class ReviewAutosave {
   readonly maximumDelayMs: number
+  readonly persistenceBudgetMs: number
+  readonly writeIntervalMs: number
   private readonly now: () => number
   private readonly onFailure: (reviewId: string, error: unknown) => void
   private readonly onRecovered: (reviewId: string) => void
@@ -64,6 +68,11 @@ export class ReviewAutosave {
     this.writer = writer
     this.maximumDelayMs = options.maximumDelayMs ??
       DEFAULT_AUTOSAVE_MAXIMUM_DELAY_MS
+    this.persistenceBudgetMs = Math.min(
+      MAXIMUM_AUTOSAVE_PERSISTENCE_BUDGET_MS,
+      Math.floor(this.maximumDelayMs / 2)
+    )
+    this.writeIntervalMs = this.maximumDelayMs - this.persistenceBudgetMs
     this.now = options.now ?? (() => performance.now())
     this.schedule = options.schedule ?? defaultSchedule
     this.onFailure = options.onFailure ?? (() => {})
@@ -114,6 +123,7 @@ export class ReviewAutosave {
     let state = this.states.get(reviewId)
     if (!state) {
       state = {
+        cancelPersistenceDeadline: null,
         cancelTimer: null,
         failed: false,
         failureCount: 0,
@@ -169,10 +179,26 @@ export class ReviewAutosave {
     const attempted = state.pending
     state.pending = null
     state.inFlight = true
-    state.nextWriteAt = this.now() + this.maximumDelayMs
+    state.nextWriteAt = this.now() + this.writeIntervalMs
+    state.cancelPersistenceDeadline?.()
+    state.cancelPersistenceDeadline = this.schedule(() => {
+      state.cancelPersistenceDeadline = null
+      if (!state.inFlight || state.failed) return
+      state.failed = true
+      this.safely(() => {
+        this.onFailure(
+          reviewId,
+          new Error(
+            `Autosave persistence exceeded its ${String(this.persistenceBudgetMs)}ms healthy-storage budget.`
+          )
+        )
+      })
+    }, this.persistenceBudgetMs)
 
     void this.writer.updateTree(reviewId, attempted.tree).then(
       (artifact) => {
+        state.cancelPersistenceDeadline?.()
+        state.cancelPersistenceDeadline = null
         state.inFlight = false
         state.failureCount = 0
         if (state.failed && !state.pending) {
@@ -191,6 +217,8 @@ export class ReviewAutosave {
         if (!state.pending) this.resolveFlushWaiters(state)
       },
       (error: unknown) => {
+        state.cancelPersistenceDeadline?.()
+        state.cancelPersistenceDeadline = null
         state.inFlight = false
         state.failed = true
         state.failureCount += 1

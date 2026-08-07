@@ -153,15 +153,15 @@ test('public guidance states the tested durability contract and its limits', () 
 
   assert.match(
     guide,
-    /id="durability"[\s\S]*two-second window by default[\s\S]*reviews already inflight with an agent/
+    /id="durability"[\s\S]*two-second window by default[\s\S]*1\.5 seconds apart[\s\S]*500 milliseconds[\s\S]*reviews already inflight with an agent/
   )
   assert.match(
     guide,
-    /Power loss, operating-system or hardware failure, and unhealthy storage are outside it/
+    /Power loss, operating-system or hardware failure, and unhealthy or unusually slow storage are outside it/
   )
   assert.match(
     development,
-    /autosaveMaximumDelayMs[\s\S]*integer from `100` through `60000` milliseconds[\s\S]*restart\s+it afterward/
+    /autosaveMaximumDelayMs[\s\S]*integer from `100` through `60000`\s+milliseconds[\s\S]*restart\s+it afterward/
   )
   assert.match(readme, /guide\/#durability/)
 })

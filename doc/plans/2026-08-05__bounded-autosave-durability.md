@@ -4,7 +4,7 @@ Status: accepted and in final-slice implementation on issue [#39](https://github
 
 ## Outcome
 
-With default configuration, a responsive Markover process and healthy local storage never leave more than two seconds of accepted review work outside the durable managed-review snapshot. Sustained typing cannot build an unbounded persistence queue. Handoff and graceful shutdown use explicit barriers rather than waiting for the ordinary autosave cadence.
+With default configuration, a responsive Markover process and healthy local storage never leave more than two seconds of accepted review work outside the durable managed-review snapshot. Sustained-edit writes start at most 1.5 seconds apart, reserving 500 milliseconds for the flushed replacement to finish; exceeding that persistence budget suspends the guarantee and raises the same persistent warning as a failed write. Sustained typing cannot build an unbounded persistence queue. Handoff and graceful shutdown use explicit barriers rather than waiting for the ordinary autosave cadence.
 
 The guarantee covers Markover process crashes and normal restarts. It does not claim durability through disk failure, operating-system failure, hardware failure, or power loss. Markover reports when storage errors suspend the guarantee.
 
@@ -12,9 +12,10 @@ The guarantee covers Markover process crashes and normal restarts. It does not c
 
 - `autosaveMaximumDelayMs` defaults to `2000` and accepts whole numbers from `100` through `60000` in the persisted settings file.
 - The override is intentionally absent from the Settings UI, takes effect after restart, and changes the user's maximum-loss window.
+- The coordinator reserves up to 500 milliseconds, or half of a shorter configured window, for persistence and warns if a write exceeds that budget.
 - Each managed review has an independent leading-and-trailing throttle. The first change after an idle window writes promptly; later changes replace the pending snapshot and cannot postpone the trailing write beyond the configured window.
 - At most one managed-review snapshot write per review is in flight. A slow review cannot delay another review.
-- A failed write retains the newest snapshot, retries with exponential backoff capped at 30 seconds, and keeps the storage failure observable until a current snapshot succeeds.
+- A failed write retains the newest snapshot, retries with exponential backoff capped at 30 seconds, and keeps the storage failure observable until a current snapshot succeeds. A write that exceeds its reserved persistence budget suspends the guarantee and raises the same warning until current state becomes durable.
 - Attachment bytes become durable before their marker or metadata can become durable. Interrupted work may leave an orphan file but never a persisted reference to missing bytes.
 - Handoff and reopen transitions persist their exact snapshot and status before acknowledging success. The transient `handoff-in-progress` renderer state is never stored.
 - Graceful shutdown stops new service mutations, snapshots every loaded editable review, waits for attachment mutations and persistence, closes the service, and then quits.

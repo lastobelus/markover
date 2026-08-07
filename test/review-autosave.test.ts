@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   DEFAULT_AUTOSAVE_MAXIMUM_DELAY_MS,
+  MAXIMUM_AUTOSAVE_PERSISTENCE_BUDGET_MS,
   MAXIMUM_AUTOSAVE_RETRY_DELAY_MS,
   ReviewAutosave
 } from '../src/review-autosave'
@@ -125,15 +126,15 @@ test('writes immediately after idle and coalesces sustained edits by deadline', 
   assert.equal(writes.length, 1)
   assert.equal(writes[0]?.tree.sourceDocument.content, '# First\n')
 
-  clock.tick(250)
+  clock.tick(100)
   autosave.queue('mko_aaa11111', tree('# Second\n'))
-  clock.tick(500)
+  clock.tick(100)
   autosave.queue('mko_aaa11111', tree('# Latest\n'))
   assert.equal(writes.length, 1)
 
   writes[0].done.resolve(artifact('mko_aaa11111', writes[0].tree))
   await settle()
-  clock.tick(1249)
+  clock.tick(1299)
   assert.equal(writes.length, 1)
   clock.tick(1)
   assert.equal(writes.length, 2)
@@ -141,7 +142,7 @@ test('writes immediately after idle and coalesces sustained edits by deadline', 
 
   writes[1].done.resolve(artifact('mko_aaa11111', writes[1].tree))
   await settle()
-  clock.tick(2000)
+  clock.tick(1500)
   autosave.queue('mko_aaa11111', tree('# After idle\n'))
   assert.equal(writes.length, 3)
 })
@@ -165,14 +166,14 @@ test('fast writes retain the throttle window instead of writing each edit', asyn
   autosave.queue('mko_aaa11111', tree('# Latest\n'))
   await settle()
   assert.equal(writes.length, 1)
-  clock.tick(1799)
+  clock.tick(1299)
   assert.equal(writes.length, 1)
   clock.tick(1)
   assert.equal(writes.length, 2)
   assert.equal(writes[1]?.sourceDocument.content, '# Latest\n')
 })
 
-test('the default bound persists the newest sustained edit every two seconds', async () => {
+test('the default bound reserves persistence time during sustained edits', async () => {
   const clock = new FakeClock()
   const writes: Array<{ at: number; tree: ReviewTree }> = []
   const autosave = new ReviewAutosave({
@@ -184,6 +185,14 @@ test('the default bound persists the newest sustained edit every two seconds', a
   }, { now: clock.now, schedule: clock.schedule })
 
   assert.equal(autosave.maximumDelayMs, DEFAULT_AUTOSAVE_MAXIMUM_DELAY_MS)
+  assert.equal(
+    autosave.persistenceBudgetMs,
+    MAXIMUM_AUTOSAVE_PERSISTENCE_BUDGET_MS
+  )
+  assert.equal(
+    autosave.writeIntervalMs + autosave.persistenceBudgetMs,
+    autosave.maximumDelayMs
+  )
   autosave.queue('mko_aaa11111', tree('# Edit 0\n'))
   await settle()
 
@@ -195,14 +204,87 @@ test('the default bound persists the newest sustained edit every two seconds', a
   clock.tick(100)
   await settle()
 
-  assert.deepEqual(writes.map(({ at }) => at), [0, 2000, 4000, 6000])
+  assert.deepEqual(writes.map(({ at }) => at), [0, 1500, 3000, 4500, 6000])
   assert.deepEqual(
     writes.map(({ tree: snapshot }) => snapshot.sourceDocument.content),
-    ['# Edit 0\n', '# Edit 19\n', '# Edit 39\n', '# Edit 59\n']
+    ['# Edit 0\n', '# Edit 14\n', '# Edit 29\n', '# Edit 44\n', '# Edit 59\n']
   )
 })
 
+test('reserved write latency keeps durable completions inside the default bound', async () => {
+  const clock = new FakeClock()
+  const completionTimes: number[] = []
+  let attempt = 0
+  const autosave = new ReviewAutosave({
+    updateTree(reviewId, candidate) {
+      const snapshot = candidate as ReviewTree
+      const delay = attempt++ % 2 === 0 ? 0 : 400
+      if (delay === 0) {
+        completionTimes.push(clock.current)
+        return Promise.resolve(artifact(reviewId, snapshot))
+      }
+      return new Promise((resolve) => {
+        clock.schedule(() => {
+          completionTimes.push(clock.current)
+          resolve(artifact(reviewId, snapshot))
+        }, delay)
+      })
+    }
+  }, { now: clock.now, schedule: clock.schedule })
+
+  autosave.queue('mko_aaa11111', tree('# Edit 0\n'))
+  await settle()
+  for (let edit = 1; edit < 60; edit += 1) {
+    clock.tick(100)
+    await settle()
+    autosave.queue('mko_aaa11111', tree(`# Edit ${String(edit)}\n`))
+  }
+  clock.tick(500)
+  await settle()
+
+  assert.deepEqual(completionTimes, [0, 1900, 3000, 4900, 6000])
+  for (let index = 1; index < completionTimes.length; index += 1) {
+    const completed = completionTimes[index]
+    const previous = completionTimes[index - 1]
+    assert.ok(completed !== undefined && previous !== undefined)
+    assert.ok(completed - previous <= DEFAULT_AUTOSAVE_MAXIMUM_DELAY_MS)
+  }
+})
+
+test('a write exceeding its persistence budget suspends the guarantee', async () => {
+  const clock = new FakeClock()
+  const writes: Array<Deferred<ReviewArtifact>> = []
+  const failures: string[] = []
+  const recoveries: string[] = []
+  const snapshot = tree('# Slow write\n')
+  const autosave = new ReviewAutosave({
+    updateTree() {
+      const done = deferred<ReviewArtifact>()
+      writes.push(done)
+      return done.promise
+    }
+  }, {
+    now: clock.now,
+    schedule: clock.schedule,
+    onFailure(_reviewId, error) { failures.push(String(error)) },
+    onRecovered(reviewId) { recoveries.push(reviewId) }
+  })
+
+  autosave.queue('mko_aaa11111', snapshot)
+  clock.tick(autosave.persistenceBudgetMs - 1)
+  assert.deepEqual(failures, [])
+  clock.tick(1)
+  assert.match(failures.join('\n'), /exceeded its 500ms healthy-storage budget/)
+  assert.deepEqual(autosave.failedReviewIds(), ['mko_aaa11111'])
+
+  writes[0]?.resolve(artifact('mko_aaa11111', snapshot))
+  await settle()
+  assert.deepEqual(autosave.failedReviewIds(), [])
+  assert.deepEqual(recoveries, ['mko_aaa11111'])
+})
+
 test('keeps reviews independent while limiting each to one in-flight write', () => {
+  const clock = new FakeClock()
   const writes: string[] = []
   const never = new Promise<ReviewArtifact>(() => {})
   const autosave = new ReviewAutosave({
@@ -210,7 +292,7 @@ test('keeps reviews independent while limiting each to one in-flight write', () 
       writes.push(reviewId)
       return never
     }
-  })
+  }, { now: clock.now, schedule: clock.schedule })
 
   autosave.queue('mko_aaa11111', tree('# A1\n'))
   autosave.queue('mko_aaa11111', tree('# A2\n'))
