@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -217,15 +219,6 @@ async function defaultStopApp(
 async function defaultPrepareApp(
   options: PackagedSmokeOptions
 ): Promise<PreparedApp> {
-  if (options.appPath) {
-    const appPath = path.resolve(options.appPath)
-    const stats = await fs.stat(appPath)
-    if (!stats.isDirectory() || path.basename(appPath) !== 'Markover.app') {
-      throw new Error('--app must identify an installed Markover.app directory.')
-    }
-    return { appPath, cleanup: () => Promise.resolve(), provided: true }
-  }
-
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'markover-packaged-smoke-')
   )
@@ -236,13 +229,29 @@ async function defaultPrepareApp(
       path.resolve(options.archivePath),
       directory
     ])
-    const appPath = path.join(directory, 'Markover.app')
-    const stats = await fs.stat(appPath)
+    const extractedAppPath = path.join(directory, 'Markover.app')
+    const stats = await fs.stat(extractedAppPath)
     if (!stats.isDirectory()) {
       throw new Error('The verified release ZIP did not extract Markover.app.')
     }
+    if (options.appPath) {
+      const appPath = path.resolve(options.appPath)
+      const providedStats = await fs.stat(appPath)
+      if (
+        !providedStats.isDirectory() ||
+        path.basename(appPath) !== 'Markover.app'
+      ) {
+        throw new Error('--app must identify an installed Markover.app directory.')
+      }
+      await assertEquivalentAppBundle(extractedAppPath, appPath)
+      return {
+        appPath,
+        provided: true,
+        cleanup: () => fs.rm(directory, { recursive: true, force: true })
+      }
+    }
     return {
-      appPath,
+      appPath: extractedAppPath,
       provided: false,
       cleanup: () => fs.rm(directory, { recursive: true, force: true })
     }
@@ -250,6 +259,108 @@ async function defaultPrepareApp(
     await fs.rm(directory, { recursive: true, force: true })
     throw error
   }
+}
+
+async function fileDigest(filePath: string): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    const stream = createReadStream(filePath)
+    stream.on('data', (chunk) => {
+      hash.update(chunk)
+    })
+    stream.on('error', reject)
+    stream.on('end', () => {
+      resolve(hash.digest('hex'))
+    })
+  })
+}
+
+function entryKind(
+  stats: Awaited<ReturnType<typeof fs.lstat>>
+): 'directory' | 'file' | 'symlink' | 'unsupported' {
+  if (stats.isDirectory()) return 'directory'
+  if (stats.isFile()) return 'file'
+  if (stats.isSymbolicLink()) return 'symlink'
+  return 'unsupported'
+}
+
+async function assertEquivalentAppEntry(
+  referencePath: string,
+  providedPath: string,
+  relativePath: string
+): Promise<void> {
+  const [referenceStats, providedStats] = await Promise.all([
+    fs.lstat(referencePath),
+    fs.lstat(providedPath)
+  ])
+  const referenceKind = entryKind(referenceStats)
+  const providedKind = entryKind(providedStats)
+  if (referenceKind !== providedKind || referenceKind === 'unsupported') {
+    throw new Error(
+      `The installed app differs from the verified archive at ${relativePath}.`
+    )
+  }
+  if (referenceKind === 'directory') {
+    const [referenceNames, providedNames] = await Promise.all([
+      fs.readdir(referencePath),
+      fs.readdir(providedPath)
+    ])
+    referenceNames.sort()
+    providedNames.sort()
+    if (referenceNames.join('\0') !== providedNames.join('\0')) {
+      throw new Error(
+        `The installed app differs from the verified archive at ${relativePath}.`
+      )
+    }
+    for (const name of referenceNames) {
+      await assertEquivalentAppEntry(
+        path.join(referencePath, name),
+        path.join(providedPath, name),
+        path.join(relativePath, name)
+      )
+    }
+    return
+  }
+  if (referenceKind === 'symlink') {
+    const [referenceTarget, providedTarget] = await Promise.all([
+      fs.readlink(referencePath),
+      fs.readlink(providedPath)
+    ])
+    if (referenceTarget !== providedTarget) {
+      throw new Error(
+        `The installed app differs from the verified archive at ${relativePath}.`
+      )
+    }
+    return
+  }
+  if (
+    referenceStats.size !== providedStats.size ||
+    (referenceStats.mode & 0o777) !== (providedStats.mode & 0o777)
+  ) {
+    throw new Error(
+      `The installed app differs from the verified archive at ${relativePath}.`
+    )
+  }
+  const [referenceDigest, providedDigest] = await Promise.all([
+    fileDigest(referencePath),
+    fileDigest(providedPath)
+  ])
+  if (referenceDigest !== providedDigest) {
+    throw new Error(
+      `The installed app differs from the verified archive at ${relativePath}.`
+    )
+  }
+}
+
+export async function assertEquivalentAppBundle(
+  referenceAppPath: string,
+  providedAppPath: string
+): Promise<void> {
+  await assertEquivalentAppEntry(
+    referenceAppPath,
+    providedAppPath,
+    'Markover.app'
+  )
 }
 
 function defaultHost(): PackagedSmokeHost {

@@ -270,6 +270,12 @@ performs CLI get and edit/reopen, and emits sanitized versioned JSON evidence.
 The runner neither sends unauthorized requests nor measures loss windows,
 crash timing, concurrent writes, or durability.
 
+When the clean-machine procedure supplies an installed `Markover.app`, the
+runner extracts the already-verified ZIP as a reference and requires the
+installed bundle to have the same file tree, file bytes, executable modes, and
+symlink targets. Quarantine extended attributes remain intentionally outside
+that byte comparison and are checked separately.
+
 Draft PR 68 native CI has packaged and preflighted both exact hardened ad-hoc
 ZIPs. The arm64 and x64 lifecycle jobs then reach the known issue 43 renderer
 snapshot boundary and return the CLI's uncertain-request result. Slice 3 is

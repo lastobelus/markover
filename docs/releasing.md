@@ -144,12 +144,14 @@ final ZIP and retains `verification/packaged-smoke-arm64.json` or
 
 1. repeats final-ZIP checksum, structure, architecture, signing, entitlement,
    and expected ad-hoc Gatekeeper verification;
-2. launches the packaged app and uses the shared issue-12 fixture helpers to
+2. when an installed app is supplied, requires its complete bundle contents to
+   match the verified ZIP while leaving quarantine attributes intact;
+3. launches the packaged app and uses the shared issue-12 fixture helpers to
    create/open one real review;
-3. confirms the review is saved before a normal app restart;
-4. relaunches the same packaged app and confirms the saved review restores;
-5. runs CLI get and edit/reopen and confirms the reopened state on disk; and
-6. writes versioned, sanitized JSON evidence while preserving the review.
+4. confirms the review is saved before a normal app restart;
+5. relaunches the same packaged app and confirms the saved review restores;
+6. runs CLI get and edit/reopen and confirms the reopened state on disk; and
+7. writes versioned, sanitized JSON evidence while preserving the review.
 
 This is not issue 12's adversarial authorization suite and does not send
 unauthorized or mismatched credentials. It is not issue 39's durability suite
@@ -192,6 +194,10 @@ Markover work and quit any running Markover before starting.
      --evidence-kind=clean-intel-sonoma \
      --evidence=/path/to/issue-13-clean-intel-evidence.json
    ```
+
+   Before launch, the runner extracts the verified ZIP again and rejects the
+   installed app unless its tree, bytes, executable modes, and symlink targets
+   match. Safari quarantine metadata is allowed to differ and remains required.
 
 6. Confirm the JSON says `format: "markover-packaged-smoke-evidence"`,
    `status: "passed"`, `cleanMachine: true`, names the

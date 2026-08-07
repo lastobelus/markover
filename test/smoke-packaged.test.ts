@@ -5,6 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  assertEquivalentAppBundle,
   parsePackagedSmokeOptions,
   runPackagedSmoke,
   type PackagedSmokeDependencies,
@@ -179,6 +180,38 @@ test('packaged smoke parses its explicit evidence contract', () => {
       '--version=0.1.1'
     ]),
     /1000 to 600000/
+  )
+})
+
+test('provided app must be byte-equivalent to the verified archive app', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-app-equivalence-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const reference = path.join(directory, 'reference', 'Markover.app')
+  const provided = path.join(directory, 'provided', 'Markover.app')
+  for (const appPath of [reference, provided]) {
+    await fs.mkdir(path.join(appPath, 'Contents', 'MacOS'), { recursive: true })
+    await fs.writeFile(
+      path.join(appPath, 'Contents', 'MacOS', 'Markover'),
+      'exact executable bytes',
+      { mode: 0o755 }
+    )
+    await fs.symlink(
+      'Versions/Current/Electron Framework',
+      path.join(appPath, 'Contents', 'Framework')
+    )
+  }
+
+  await assertEquivalentAppBundle(reference, provided)
+  await fs.writeFile(
+    path.join(provided, 'Contents', 'MacOS', 'Markover'),
+    'different executable bytes',
+    { mode: 0o755 }
+  )
+  await assert.rejects(
+    assertEquivalentAppBundle(reference, provided),
+    /differs from the verified archive at Markover\.app\/Contents\/MacOS\/Markover/
   )
 })
 
