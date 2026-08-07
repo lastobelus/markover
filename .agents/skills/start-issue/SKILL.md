@@ -11,6 +11,17 @@ only groups repository issues and pull requests. Always use the work-intent
 comment as the change-surface and ownership ledger. Complete the stages in
 order.
 
+## How to respond to initial start-issue prompt
+
+Resolve the live issue number and full GitHub title before the first response.
+Start that response with this shape:
+
+```markdown
+# #52—Open a specific review through a clickable Markover deep link
+
+I’m checking its trackers, existing claim, and inflight overlap before proceeding.
+```
+
 ## 1. Orient and select tracking
 
 Confirm `gh auth status`, then resolve the current checkout's repository. Keep

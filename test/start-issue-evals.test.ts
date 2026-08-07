@@ -79,6 +79,13 @@ test('start-issue corpus covers the nine coordination branches', () => {
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
 })
 
+test('initial response identifies the live issue and title first', () => {
+  assert.match(
+    skillSource,
+    /## How to respond to initial start-issue prompt[\s\S]*```markdown\n# #52—Open a specific review through a clickable Markover deep link/
+  )
+})
+
 test('branch-only guidance is progressively disclosed', () => {
   assert.doesNotMatch(skillSource, /^### Follow-ups to merged pull requests$/m)
   assert.match(
