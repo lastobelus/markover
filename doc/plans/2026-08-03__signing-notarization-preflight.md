@@ -15,7 +15,7 @@ development builds.
 The work is delivered in three slices. Slice 1 merged through PR 45 on
 4 August 2026, and slice 2 merged through PR 55 on 6 August 2026. Slice 3 is
 implemented from merged baseline `7364ffd` on branch
-`t3code/issue-13-slice-3-packaged-smoke`. It adds shared packaged happy-path
+`t3code/issue-13-slice-3-packaged-smoke` in draft PR 68. It adds shared packaged happy-path
 evidence and the clean Intel/Sonoma procedure, then stops after merge before
 any version change, tag, draft, or release operation.
 
