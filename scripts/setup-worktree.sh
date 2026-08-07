@@ -2,7 +2,8 @@
 
 set -eu
 
-checkout=$(git rev-parse --show-toplevel)
+script_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+checkout=$(git -C "$script_directory/.." rev-parse --show-toplevel)
 cd "$checkout"
 
 npm ci
