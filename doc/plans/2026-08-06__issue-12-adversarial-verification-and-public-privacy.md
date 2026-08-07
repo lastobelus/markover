@@ -170,7 +170,7 @@ match, not copies of the scanned logs.
 
 Settings gains a default-on, persisted, per-user Privacy switch:
 
-> **Discover agent thread from local session logs**  
+> **Discover agent thread from local session logs**
 > When no explicit thread ID is provided, search recent local Codex session
 > records for the review's handoff key. Nothing is uploaded.
 
