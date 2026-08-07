@@ -18,6 +18,7 @@ import { applicationMenuTemplate } from './app-menu'
 import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { importLegacyReviews } from './review-migration'
+import { ReviewAutosave } from './review-autosave'
 import { ReviewStore, type ReviewArtifact } from './review-store'
 import {
   createServiceIdentity,
@@ -107,6 +108,7 @@ let localServiceIdentity: ServiceIdentity | null = null
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
 let settingsUnsubscribe: (() => void) | null = null
+let managedAutosave: ReviewAutosave | null = null
 let pendingAutosave: string | null = null
 let autosaveWriter: Promise<void> | null = null
 let snapshotSequence = 0
@@ -568,13 +570,21 @@ function requireReviewStore(): ReviewStore {
   return reviewStore
 }
 
+function requireManagedAutosave(): ReviewAutosave {
+  if (!managedAutosave) throw new Error('Managed autosave is unavailable.')
+  return managedAutosave
+}
+
 async function flushManagedReview(
-  reviewId: string
+  reviewId: string,
+  action: 'handoff' | 'edit'
 ): Promise<() => Promise<void>> {
   const store = requireReviewStore()
   try {
     const tree = await requestRendererSnapshot(reviewId)
-    if (tree) await store.updateTree(reviewId, tree)
+    if (tree && action === 'handoff') {
+      await requireManagedAutosave().saveNow(reviewId, tree)
+    }
   } catch (error) {
     try {
       await sendManagedStatus(await store.load(reviewId))
@@ -643,6 +653,21 @@ if (!hasSingleInstanceLock) {
     )
     settingsStore = store
     const initialSettings = await store.load()
+    if (!reviewMode) {
+      managedAutosave = new ReviewAutosave(requireReviewStore(), {
+        maximumDelayMs: initialSettings.autosaveMaximumDelayMs,
+        onFailure(reviewId, error) {
+          process.stderr.write(
+            `markover autosave ${reviewId}: ${errorMessage(error)}\n`
+          )
+        },
+        onSaved(artifact) {
+          if (activeManagedReviewId === artifact.review.id) {
+            activeManagedReview = artifact
+          }
+        }
+      })
+    }
     nativeTheme.themeSource = initialSettings.appearance
     settingsUnsubscribe = await store.subscribe((settings) => {
       applyMainSettings(settings)
@@ -720,16 +745,13 @@ if (!hasSingleInstanceLock) {
       reviewId: string,
       tree: ReviewTree
     ) => {
-      const autosave = reviewMode
-        ? queueReviewAutosave(tree)
-        : requireReviewStore().updateTree(reviewId, tree).then((artifact) => {
-            if (activeManagedReviewId === reviewId) {
-              activeManagedReview = artifact
-            }
-          })
-      autosave.catch((error: unknown) => {
-        process.stderr.write(`markover autosave: ${errorMessage(error)}\n`)
-      })
+      if (reviewMode) {
+        queueReviewAutosave(tree).catch((error: unknown) => {
+          process.stderr.write(`markover autosave: ${errorMessage(error)}\n`)
+        })
+      } else {
+        requireManagedAutosave().queue(reviewId, tree)
+      }
     })
     ipcMain.on('review:done', (
       _event: IpcMainEvent,

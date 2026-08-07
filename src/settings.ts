@@ -13,7 +13,8 @@
     defaultTreeView: 'all',
     confirmAttachmentRemoval: true,
     logRejectedApiRequests: false,
-    agentInterpretationPolicy: agentGuidance.DEFAULT_INTERPRETATION_POLICY
+    agentInterpretationPolicy: agentGuidance.DEFAULT_INTERPRETATION_POLICY,
+    autosaveMaximumDelayMs: 2000
   })
 
   const OPTIONS: MarkoverSettingsApi['OPTIONS'] = Object.freeze({
@@ -94,6 +95,15 @@
     }
     if (typeof input.agentInterpretationPolicy === 'string') {
       normalized.agentInterpretationPolicy = input.agentInterpretationPolicy
+    }
+    const autosaveMaximumDelayMs = input.autosaveMaximumDelayMs
+    if (
+      typeof autosaveMaximumDelayMs === 'number' &&
+      Number.isInteger(autosaveMaximumDelayMs) &&
+      autosaveMaximumDelayMs >= 100 &&
+      autosaveMaximumDelayMs <= 60_000
+    ) {
+      normalized.autosaveMaximumDelayMs = autosaveMaximumDelayMs
     }
     return normalized
   }
