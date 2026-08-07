@@ -91,15 +91,15 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">PR #68 merged · arm64 release evidence active · Intel evidence deferred to #80</span>
+        <span class="context-status">PR #68 merged · v0.1.3 arm64 evidence published · Intel evidence deferred to #80</span>
       </summary>
       <div class="context-body">
         <p>
           This page describes slice 3 of
           <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>
           as merged in <a href="https://github.com/lastobelus/markover/pull/68">PR #68</a>,
-          snapshot 7 August 2026, on current merged <code>main</code> baseline
-          <code>0461b67</code> containing
+          snapshot 7 August 2026, on the published <code>v0.1.3</code> baseline
+          <code>03e52ac</code> containing
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
           <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>, plus
           <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
@@ -108,7 +108,10 @@
           <a href="https://github.com/lastobelus/markover/actions/runs/31217557046">run 31217557046</a>
           verified both before its private v0.1.2 publication was cancelled. The active
           release contract uses only arm64 evidence. No clean Intel/Sonoma result or
-          public Intel artifact is claimed.
+          public Intel artifact is claimed. Release
+          <a href="https://github.com/lastobelus/markover/releases/tag/v0.1.3">v0.1.3</a>
+          publishes the exact arm64 result from
+          <a href="https://github.com/lastobelus/markover/actions/runs/31221075875">run 31221075875</a>.
         </p>
         <div class="context-grid">
           <div>
@@ -117,11 +120,11 @@
           </div>
           <div>
             <h3>Follow-ups and change horizon</h3>
-            <p>Apple Silicon v0.1.3 release work is active on <code>agent/silicon-only-v0.1.3</code>. The dedicated 2019 Intel Mac later collects Sonoma quarantine, visible override, installation, smoke, and rollback evidence under <a href="https://github.com/lastobelus/markover/issues/80">issue #80</a> at Broad announcement. Developer ID remains blocked on Apple access.</p>
+            <p>Apple Silicon v0.1.3 is published, and clean-machine Silicon validation can proceed in <a href="https://github.com/lastobelus/markover/issues/11">issue #11</a>. The dedicated 2019 Intel Mac later collects Sonoma quarantine, visible override, installation, smoke, and rollback evidence under <a href="https://github.com/lastobelus/markover/issues/80">issue #80</a> at Broad announcement. Developer ID remains blocked on Apple access.</p>
           </div>
           <div>
             <h3>Stable claims and current truth</h3>
-            <p>Stable: exact ZIP input, saved-state restart after the old PID exits, CLI open/get/edit, failed-launch cleanup, versioned sanitized evidence, and explicit exclusions. Physical Intel checks remain strict and reject Rosetta, but do not gate Apple Silicon publication. The v0.1.3 digest, run, and release URL are changeable until published. Re-check issues #13 and #80, the plan, runbook, release workflow, and this card.</p>
+            <p>Stable: exact ZIP input, saved-state restart after the old PID exits, CLI open/get/edit, failed-launch cleanup, versioned sanitized evidence, and explicit exclusions. Physical Intel checks remain strict and reject Rosetta, but do not gate Apple Silicon publication. The v0.1.3 arm64 digest is <code>4219a1f2…b38c3c6</code>; its commit, run, assets, and release URL are immutable. Re-check issues #13, #80, and #11, the plan, runbook, release workflow, published release, and this card.</p>
           </div>
         </div>
       </div>

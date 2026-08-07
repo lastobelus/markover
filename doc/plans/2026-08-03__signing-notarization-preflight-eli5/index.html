@@ -162,7 +162,7 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Merged baseline 0461b67 · Apple Silicon v0.1.3 implementation · Intel deferred to #80 · 7 Aug 2026</span>
+        <span class="context-status">Merged baseline 03e52ac · Apple Silicon v0.1.3 published · Intel deferred to #80 · 7 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
@@ -172,16 +172,19 @@
           from the merged baseline containing
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
           <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>.
-          Current merged <code>main</code> baseline <code>0461b67</code> includes
+          Current merged <code>main</code> baseline <code>03e52ac</code> includes
           <a href="https://github.com/lastobelus/markover/pull/68">PR #68's</a>
-          shared packaged smoke and <a href="https://github.com/lastobelus/markover/pull/78">PR #78's</a>
-          synchronized <code>0.1.2</code> versions. Snapshot 7 August 2026: immutable
+          shared packaged smoke and <a href="https://github.com/lastobelus/markover/pull/81">PR #81's</a>
+          Apple-Silicon-only release contract with synchronized <code>0.1.3</code>
+          versions. Snapshot 7 August 2026: immutable
           <code>v0.1.2</code> produced a verified private dual-architecture draft in
           <a href="https://github.com/lastobelus/markover/actions/runs/31217557046">run 31217557046</a>,
-          but publication was cancelled before the second gate. Branch
-          <code>agent/silicon-only-v0.1.3</code> is implementing an exact four-asset
-          Apple Silicon release contract and the next valid version. No Intel artifact
-          or clean-Intel result is claimed as released.
+          but publication was cancelled before the second gate. Immutable
+          <a href="https://github.com/lastobelus/markover/releases/tag/v0.1.3">v0.1.3</a>
+          is now published from <code>03e52ac</code> by
+          <a href="https://github.com/lastobelus/markover/actions/runs/31221075875">run 31221075875</a>
+          as an exact four-asset Apple Silicon release. No Intel artifact,
+          clean-machine Apple Silicon result, or clean-Intel result is claimed.
         </p>
         <div class="context-grid">
           <div>
@@ -202,8 +205,11 @@
               at the Broad announcement gate. Developer ID activation still needs Apple
               access and a separate reviewed change. App Sandbox remains in
               <a href="https://github.com/lastobelus/markover/issues/44">issue #44</a>.
-              The <code>v0.1.3</code> branch, PR, exact commit, draft digests, and release
-              links are changeable until publication.
+              Clean-machine Apple Silicon validation can now proceed in
+              <a href="https://github.com/lastobelus/markover/issues/11">issue #11</a>.
+              The published <code>v0.1.3</code> commit, digests, workflow, assets, and
+              release URL are immutable; future Developer ID, Intel, and preview-candidate
+              decisions remain changeable.
             </p>
           </div>
           <div>
@@ -212,7 +218,9 @@
               Stable: explicit trust modes, fail-closed exact-asset checks, immutable
               tags, protected draft/publication approvals, exact-ZIP packaged smoke,
               honest “not Apple-verified” language, no silent fallback, and no duplicate
-              auth or durability suite. Re-check
+              auth or durability suite. Current primary digests are
+              <code>4219a1f2…b38c3c6</code> for arm64 and
+              <code>7f7d30e6…2496e97</code> for the CLI. Re-check
               <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>,
               <a href="https://github.com/lastobelus/markover/issues/80">issue #80</a>,
               the plan, release runbook, release workflow, and latest release before

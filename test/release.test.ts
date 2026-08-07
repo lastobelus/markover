@@ -162,9 +162,11 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Merged baseline 0461b67 · Apple Silicon v0\.1\.3 implementation · Intel deferred to #80 · 7 Aug 2026/
+    /Merged baseline 03e52ac · Apple Silicon v0\.1\.3 published · Intel deferred to #80 · 7 Aug 2026/
   )
-  assert.match(pages[0] ?? '', /main<\/code> baseline <code>0461b67<\/code>/)
+  assert.match(pages[0] ?? '', /main<\/code> baseline <code>03e52ac<\/code>/)
+  assert.match(pages[0] ?? '', /releases\/tag\/v0\.1\.3/)
+  assert.match(pages[0] ?? '', /actions\/runs\/31221075875/)
   assert.match(
     pages[0] ?? '',
     /<\/header>\s*<details class="card truth-context">\s*<summary/
@@ -179,11 +181,11 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[2] ?? '',
-    /Safeguards live · v0\.1\.2 unpublished · Apple Silicon v0\.1\.3 in progress · 7 Aug 2026/
+    /Safeguards live · v0\.1\.2 unpublished · Apple Silicon v0\.1\.3 published · 7 Aug 2026/
   )
   assert.match(
     pages[3] ?? '',
-    /PR #68 merged · arm64 release evidence active · Intel evidence deferred to #80/
+    /PR #68 merged · v0\.1\.3 arm64 evidence published · Intel evidence deferred to #80/
   )
 })
 
