@@ -152,6 +152,7 @@ let mainWindow: BrowserWindow | null = null
 let activeManagedReview: ReviewArtifact | null = null
 let activeManagedReviewId: string | null = null
 let localService: LocalService | null = null
+let closingPublishedService: LocalService | null = null
 let localServiceIdentity: ServiceIdentity | null = null
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
@@ -928,14 +929,25 @@ async function startAndPublishService(): Promise<void> {
 async function stopPublishedService(): Promise<void> {
   const service = localService
   if (!service) return
+  closingPublishedService = service
+  await service.close()
+  if (closingPublishedService === service) {
+    closingPublishedService = null
+  }
   if (localService === service) {
     localService = null
     localServiceIdentity = null
   }
-  await service.close()
 }
 
 async function restorePublishedServiceForEditing(): Promise<void> {
+  if (
+    closingPublishedService &&
+    localService === closingPublishedService
+  ) {
+    localService = null
+    localServiceIdentity = null
+  }
   if (!localService) await startAndPublishService()
 }
 

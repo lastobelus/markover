@@ -65,7 +65,11 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   )
   assert.match(
     main,
-    /stopPublishedService[\s\S]*localService = null[\s\S]*await service\.close\(\)/
+    /stopPublishedService[\s\S]*closingPublishedService = service[\s\S]*await service\.close\(\)[\s\S]*localService = null/
+  )
+  assert.match(
+    main,
+    /restorePublishedServiceForEditing[\s\S]*localService === closingPublishedService[\s\S]*localService = null[\s\S]*startAndPublishService\(\)/
   )
 })
 
