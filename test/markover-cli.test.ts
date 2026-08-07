@@ -10,6 +10,7 @@ import {
   executeCommand,
   helpPayload,
   parseCommandArguments,
+  readSessionDiscoverySetting,
   resolveMarkoverApp,
   type ExecuteCommandOptions
 } from '../scripts/markover'
@@ -204,6 +205,23 @@ test('parses explicit review metadata', () => {
   )
 })
 
+test('local session discovery defaults on and fails closed for damaged settings', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-cli-settings-test-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const settingsPath = path.join(directory, 'settings.json')
+
+  assert.equal(await readSessionDiscoverySetting(settingsPath), true)
+  await fs.writeFile(settingsPath, JSON.stringify({
+    discoverAgentThreadFromLocalSessions: false
+  }))
+  assert.equal(await readSessionDiscoverySetting(settingsPath), false)
+  await fs.writeFile(settingsPath, '{not json')
+  assert.equal(await readSessionDiscoverySetting(settingsPath), false)
+  assert.equal(await readSessionDiscoverySetting(directory), false)
+})
+
 test('requires one path and a context summary for open', () => {
   assert.throws(
     () => parseCommandArguments(['open', 'plan.md']),
@@ -230,8 +248,9 @@ test('executes CLI commands against the local service', async (t) => {
   const sourcePath = path.join(directory, 'plan.md')
   await fs.writeFile(sourcePath, '# Plan\r\n\r\nKeep this exact.\r\n', 'utf8')
 
+  const reviewIds = ['mko_aaa11111', 'mko_bbb22222']
   const store = new ReviewStore(reviewsDirectory, {
-    idFactory: () => 'mko_aaa11111'
+    idFactory: () => reviewIds.shift() || 'mko_unexpected'
   })
   const identity = createServiceIdentity()
   const service = await startLocalService({
@@ -249,25 +268,32 @@ test('executes CLI commands against the local service', async (t) => {
     await fs.rm(directory, { recursive: true, force: true })
   })
 
+  const discoveredHandoffKeys: Array<string | null | undefined> = []
+  let discoverySettingReads = 0
   const options: ExecuteCommandOptions = {
     endpointPath,
     ensure: () => Promise.resolve(),
+    readSessionDiscoverySetting() {
+      discoverySettingReads += 1
+      return Promise.resolve(false)
+    },
     discoverMetadata(parsed) {
       assert.equal(parsed.sourcePath, sourcePath)
+      discoveredHandoffKeys.push(parsed.handoffKey)
       return Promise.resolve({
-        git: {
-          branch: parsed.branch ?? null,
-          sources: { branch: 'explicit' }
-        },
-        pullRequest: {
-          number: parsed.pullRequestNumber ?? 0,
-          discovery: 'explicit'
-        },
-        agentThread: {
+        git: parsed.branch ? {
+          branch: parsed.branch,
+          sources: { branch: 'explicit' as const }
+        } : null,
+        pullRequest: parsed.pullRequestNumber ? {
+          number: parsed.pullRequestNumber,
+          discovery: 'explicit' as const
+        } : null,
+        agentThread: parsed.threadId ? {
           provider: 'codex',
-          id: parsed.threadId ?? '',
-          discovery: 'explicit'
-        }
+          id: parsed.threadId,
+          discovery: 'explicit' as const
+        } : null
       })
     }
   }
@@ -277,6 +303,7 @@ test('executes CLI commands against the local service', async (t) => {
       sourcePath,
       contextSummary: 'Review exact source.',
       branch: 'feature/review-inbox',
+      handoffKey: 'mko_handoff_0123456789abcdef',
       pullRequestNumber: 42,
       threadId: 'thread-123'
     }, options),
@@ -314,6 +341,22 @@ test('executes CLI commands against the local service', async (t) => {
     }, options),
     { reviewId: 'mko_aaa11111', status: 'editing' }
   )
+
+  assert.deepEqual(
+    await executeCommand({
+      command: 'open',
+      sourcePath,
+      contextSummary: 'Review without local session discovery.',
+      handoffKey: 'mko_handoff_fedcba9876543210',
+      threadId: null
+    }, options),
+    { reviewId: 'mko_bbb22222', status: 'editing' }
+  )
+  assert.deepEqual(discoveredHandoffKeys, [
+    'mko_handoff_0123456789abcdef',
+    null
+  ])
+  assert.equal(discoverySettingReads, 1)
 })
 
 test('waits for internally started service without external polling', async (t) => {

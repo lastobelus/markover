@@ -180,7 +180,7 @@ export async function startLocalService({
       } else if (authorizationValues.length !== 1) {
         unauthorizedReason = 'malformed'
       } else {
-        const match = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(
+        const match = /^Bearer +([A-Za-z0-9_-]{43})$/i.exec(
           authorizationValues[0] as string
         )
         if (!match) {

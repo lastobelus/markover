@@ -21,6 +21,7 @@ import {
 } from '../src/metadata-discovery'
 import { serviceEndpointPath } from '../src/service-endpoint'
 import '../src/agent-guidance'
+import '../src/settings'
 import '../src/tree'
 
 const { parseMarkdown } = MarkoverTree
@@ -412,6 +413,20 @@ export interface ExecuteCommandOptions {
   discoverMetadata?: (
     input: ReviewMetadataInput
   ) => Promise<ReviewMetadata>
+  readSessionDiscoverySetting?: (settingsPath: string) => Promise<boolean>
+  settingsPath?: string
+}
+
+export async function readSessionDiscoverySetting(
+  settingsPath: string
+): Promise<boolean> {
+  try {
+    const value: unknown = JSON.parse(await fs.readFile(settingsPath, 'utf8'))
+    return MarkoverSettings.normalizeSettings(value)
+      .discoverAgentThreadFromLocalSessions
+  } catch (error) {
+    return errorCode(error) === 'ENOENT'
+  }
 }
 
 export async function executeCommand(
@@ -419,7 +434,9 @@ export async function executeCommand(
   {
     endpointPath = defaultEndpointPath,
     ensure = () => ensureService({ endpointPath }),
-    discoverMetadata = discoverReviewMetadata
+    discoverMetadata = discoverReviewMetadata,
+    readSessionDiscoverySetting: readDiscoverySetting = readSessionDiscoverySetting,
+    settingsPath = path.join(path.dirname(endpointPath), 'settings.json')
   }: ExecuteCommandOptions = {}
 ): Promise<unknown> {
   if (parsed.command === 'help') return helpPayload()
@@ -451,12 +468,16 @@ export async function executeCommand(
       name: path.basename(sourcePath),
       path: sourcePath
     })
+    const handoffKey = parsed.handoffKey && !parsed.threadId &&
+      !await readDiscoverySetting(settingsPath)
+      ? null
+      : parsed.handoffKey ?? null
     const metadata = await discoverMetadata({
       sourcePath,
       branch: parsed.branch ?? null,
       pullRequestNumber: parsed.pullRequestNumber ?? null,
       threadId: parsed.threadId ?? null,
-      handoffKey: parsed.handoffKey ?? null
+      handoffKey
     })
     await prepareService()
     return requestJson(endpointPath, 'POST', '/reviews', {

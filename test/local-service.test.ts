@@ -136,6 +136,24 @@ async function rawRequest(
   })
 }
 
+function assertUnauthorized(
+  response: Awaited<ReturnType<typeof rawRequest>>,
+  label: string
+): void {
+  assert.equal(response.statusCode, 401, label)
+  assert.equal(
+    response.headers['www-authenticate'],
+    'Bearer realm="Markover"',
+    label
+  )
+  assert.deepEqual(response.body, {
+    error: {
+      code: 'UNAUTHORIZED',
+      message: 'Authentication required.'
+    }
+  }, label)
+}
+
 function tree(): ReviewTree {
   return parseMarkdown('# Review\n', 'sha256:test', {
     name: 'review.md',
@@ -194,7 +212,7 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
   )
 })
 
-test('authenticates every non-health request before routing or bodies', async (t) => {
+test('rejects hostile credential forms before routing or bodies', async (t) => {
   const unauthorized: Array<{
     method: string
     pathname: string
@@ -208,35 +226,112 @@ test('authenticates every non-health request before routing or bodies', async (t
   const wrongToken = fixture.identity.token === 'B'.repeat(43)
     ? 'C'.repeat(43)
     : 'B'.repeat(43)
-  const attempts = [
-    await rawRequest(fixture.port, 'GET', '/reviews'),
-    await rawRequest(fixture.port, 'POST', '/reviews?private=secret', {}, '{'),
-    await rawRequest(fixture.port, 'GET', '/missing?private=secret'),
-    await rawRequest(fixture.port, 'GET', '/health?details=1'),
-    await rawRequest(fixture.port, 'GET', '/reviews', {
-      authorization: 'Basic credential'
-    }),
-    await rawRequest(fixture.port, 'GET', '/reviews', {
-      authorization: `Bearer ${wrongToken}`
-    }),
-    await rawRequest(fixture.port, 'GET', '/reviews', {
+  const credentials: Array<{
+    authorization?: string | string[]
+    reason: 'missing' | 'malformed' | 'mismatch'
+  }> = [
+    { reason: 'missing' },
+    { authorization: 'Basic credential', reason: 'malformed' },
+    { authorization: 'Bearer', reason: 'malformed' },
+    { authorization: 'Bearer short', reason: 'malformed' },
+    { authorization: `Bearer ${'A'.repeat(42)}`, reason: 'malformed' },
+    { authorization: `Bearer ${'A'.repeat(44)}`, reason: 'malformed' },
+    { authorization: `Bearer ${'A'.repeat(42)}*`, reason: 'malformed' },
+    { authorization: `Bearer\t${fixture.identity.token}`, reason: 'malformed' },
+    {
+      authorization: `Bearer ${fixture.identity.token} extra`,
+      reason: 'malformed'
+    },
+    { authorization: `Bearer ${wrongToken}`, reason: 'mismatch' },
+    {
       authorization: [
         `Bearer ${fixture.identity.token}`,
         `Bearer ${fixture.identity.token}`
-      ]
-    })
+      ],
+      reason: 'malformed'
+    }
   ]
 
-  for (const [index, attempt] of attempts.entries()) {
-    assert.equal(attempt.statusCode, 401, `attempt ${String(index)}`)
-    assert.equal(attempt.headers['www-authenticate'], 'Bearer realm="Markover"')
-    assert.deepEqual(attempt.body, {
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required.'
-      }
-    })
+  for (const [index, credential] of credentials.entries()) {
+    const response = await rawRequest(
+      fixture.port,
+      'POST',
+      '/reviews?private=secret',
+      credential.authorization
+        ? { authorization: credential.authorization }
+        : {},
+      '{'
+    )
+    assertUnauthorized(response, `credential ${String(index)}`)
   }
+
+  assert.deepEqual(
+    unauthorized.map(({ method, pathname, reason }) => ({
+      method,
+      pathname,
+      reason
+    })),
+    credentials.map(({ reason }) => ({
+      method: 'POST',
+      pathname: '/reviews',
+      reason
+    }))
+  )
+  assert.deepEqual(await fixture.store.list(), [])
+  assert.deepEqual(fixture.changes, [])
+})
+
+test('gates every current non-health route with real HTTP', async (t) => {
+  let beforeActions = 0
+  let imports = 0
+  const fixture = await serviceFixture(t, {
+    beforeAction() {
+      beforeActions += 1
+      return Promise.resolve(undefined)
+    },
+    importReviews() {
+      imports += 1
+      return Promise.resolve([])
+    }
+  })
+  const wrongToken = fixture.identity.token === 'B'.repeat(43)
+    ? 'C'.repeat(43)
+    : 'B'.repeat(43)
+  const routes = [
+    { method: 'GET', path: '/reviews', body: null },
+    { method: 'POST', path: '/reviews/import', body: '{' },
+    { method: 'POST', path: '/reviews', body: '{' },
+    { method: 'GET', path: '/reviews/mko_missing1', body: null },
+    { method: 'POST', path: '/reviews/mko_missing1/handoff', body: null },
+    { method: 'POST', path: '/reviews/mko_missing1/edit', body: null },
+    { method: 'GET', path: '/missing?private=secret', body: null },
+    { method: 'GET', path: '/health?details=1', body: null },
+    { method: 'POST', path: '/health', body: '{' }
+  ]
+
+  for (const route of routes) {
+    assertUnauthorized(
+      await rawRequest(
+        fixture.port,
+        route.method,
+        route.path,
+        {},
+        route.body
+      ),
+      `${route.method} ${route.path} without a credential`
+    )
+    assertUnauthorized(
+      await rawRequest(
+        fixture.port,
+        route.method,
+        route.path,
+        { authorization: `Bearer ${wrongToken}` },
+        route.body
+      ),
+      `${route.method} ${route.path} with an incorrect credential`
+    )
+  }
+
   const health = await rawRequest(fixture.port, 'GET', '/health')
   assert.equal(health.statusCode, 200)
   assert.deepEqual(health.body, {
@@ -244,24 +339,25 @@ test('authenticates every non-health request before routing or bodies', async (t
     version: 2,
     instanceId: fixture.identity.instanceId
   })
-  assert.deepEqual(
-    unauthorized.map(({ method, pathname, reason }) => ({
-      method,
-      pathname,
-      reason
-    })),
-    [
-      { method: 'GET', pathname: '/reviews', reason: 'missing' },
-      { method: 'POST', pathname: '/reviews', reason: 'missing' },
-      { method: 'GET', pathname: '/missing', reason: 'missing' },
-      { method: 'GET', pathname: '/health', reason: 'missing' },
-      { method: 'GET', pathname: '/reviews', reason: 'malformed' },
-      { method: 'GET', pathname: '/reviews', reason: 'mismatch' },
-      { method: 'GET', pathname: '/reviews', reason: 'malformed' }
-    ]
-  )
   assert.deepEqual(await fixture.store.list(), [])
   assert.deepEqual(fixture.changes, [])
+  assert.equal(beforeActions, 0)
+  assert.equal(imports, 0)
+})
+
+test('accepts standards-valid Bearer scheme and spacing variants', async (t) => {
+  const fixture = await serviceFixture(t)
+  for (const authorization of [
+    `Bearer ${fixture.identity.token}`,
+    `bearer ${fixture.identity.token}`,
+    `BEARER    ${fixture.identity.token}`
+  ]) {
+    const response = await rawRequest(fixture.port, 'GET', '/reviews', {
+      authorization
+    })
+    assert.equal(response.statusCode, 200, authorization)
+    assert.deepEqual(response.body, { reviews: [] }, authorization)
+  }
 })
 
 test('categorizes invalid, stale, and rejected service credentials', async (t) => {

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
 
 const { labelFor, sourceLabel, sourceUrl } = require('../src/image-preview') as
@@ -28,4 +30,21 @@ test('labels source images from alt text or their basename', () => {
   assert.equal(sourceLabel('./diagram.png', 'Architecture diagram'), 'Architecture diagram')
   assert.equal(sourceLabel('../assets/diagram.png?raw=1', ''), 'diagram.png')
   assert.equal(sourceLabel('', ''), 'Image')
+})
+
+test('renderer keeps source images inert until explicit preview', () => {
+  const renderer = fs.readFileSync(
+    path.resolve(__dirname, '../../src/renderer.ts'),
+    'utf8'
+  )
+  const imageRule = renderer.match(
+    /inlineMarkdown\.renderer\.rules\.image = [\s\S]*?\n\}/
+  )?.[0] || ''
+
+  assert.match(imageRule, /<button[^>]+data-image-source=/)
+  assert.doesNotMatch(imageRule, /<img\b/)
+  assert.match(
+    renderer,
+    /wireSourceImagePreviews[\s\S]*addEventListener\('click'[\s\S]*openSourceImagePreview/
+  )
 })
