@@ -55,9 +55,14 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   assert.match(beforeQuit, /event\.preventDefault\(\)/)
   assert.match(beforeQuit, /if \(managedShutdownStarted\) return/)
   assert.match(beforeQuit, /finishManagedShutdown\(\)/)
-  assert.match(main, /buttons: \['Retry Quit', 'Quit Anyway'\]/)
+  assert.match(main, /buttons: \['Retry Quit', 'Cancel Quit', 'Quit Anyway'\]/)
+  assert.match(main, /cancelId: 1/)
   assert.match(main, /managedShutdownComplete = true[\s\S]*app\.quit\(\)/)
-  assert.match(main, /showDurabilityShutdownDialog\(error\) === 1[\s\S]*app\.exit\(0\)/)
+  assert.match(main, /response === 2[\s\S]*app\.exit\(0\)/)
+  assert.match(
+    main,
+    /response === 1[\s\S]*managedShutdownStarted = false[\s\S]*return/
+  )
 })
 
 test('autosave storage failures use a dedicated persistent renderer warning', () => {

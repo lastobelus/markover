@@ -960,15 +960,16 @@ function stopSettingsSubscription(): void {
 async function showDurabilityShutdownDialog(error: unknown): Promise<number> {
   const options = {
     type: 'warning' as const,
-    buttons: ['Retry Quit', 'Quit Anyway'],
+    buttons: ['Retry Quit', 'Cancel Quit', 'Quit Anyway'],
     defaultId: 0,
-    cancelId: 0,
+    cancelId: 1,
     noLink: true,
     message: 'Markover could not finish saving review work.',
     detail: [
       errorMessage(error),
       '',
-      'Retry waits for storage again. Quit Anyway uses the latest completed autosave.'
+      'Retry waits for storage again. Cancel Quit returns to editing. ' +
+        'Quit Anyway uses the latest completed autosave.'
     ].join('\n')
   }
   const window = mainWindow
@@ -988,9 +989,14 @@ async function finishManagedShutdown(): Promise<void> {
       return
     } catch (error) {
       process.stderr.write(`markover shutdown: ${errorMessage(error)}\n`)
-      if (await showDurabilityShutdownDialog(error) === 1) {
+      const response = await showDurabilityShutdownDialog(error)
+      if (response === 2) {
         stopSettingsSubscription()
         app.exit(0)
+        return
+      }
+      if (response === 1) {
+        managedShutdownStarted = false
         return
       }
     }
