@@ -234,7 +234,7 @@ There is no protocol-1 fallback or optional-authentication mode.
 
 The initial interview used to establish intent before implementing an issue, pull request, or slice.
 
-Inspired by Matt Pocock's “grilling” skill and currently encapsulated in [`start-issue.md`](.ai/prompts/start-issue.md). Also called issue Q&A, issue/PR interview, or simply interview.
+Inspired by Matt Pocock's “grilling” skill and currently encapsulated in the [`start-issue` skill](.agents/skills/start-issue/SKILL.md). Also called issue Q&A, issue/PR interview, or simply interview.
 
 ## question acknowledgment::
 

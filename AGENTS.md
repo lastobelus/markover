@@ -1,5 +1,10 @@
 # Project instructions
 
+## Agent-facing writing
+
+Before creating or editing a skill, `AGENTS.md`, `CLAUDE.md`, or another
+document agents consume, read `.ai/skills/writing-for-agents/SKILL.md`.
+
 ## Markover quick start for agents
 
 Markover is this repository's local Markdown review inbox. If a user asks you

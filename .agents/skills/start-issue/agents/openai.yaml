@@ -1,0 +1,4 @@
+interface:
+  display_name: "Start Issue"
+  short_description: "Interview and coordinate tracked GitHub work"
+  default_prompt: "Use $start-issue to investigate and coordinate work on an existing GitHub issue or pull request before implementing it."
