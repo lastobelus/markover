@@ -684,6 +684,11 @@ declare global {
   }
 
   interface MarkoverReviewSessionsApi {
+    clampAnnotationPaneWidth: (
+      width: unknown,
+      workspaceWidth: unknown,
+      documentsListWidth: unknown
+    ) => number
     clampDocumentsListWidth: (width: unknown, viewportWidth: unknown) => number
     formatRelativeTime: (timestamp: unknown, now?: unknown) => string
     isTreeEditable: (tree: unknown) => boolean

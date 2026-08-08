@@ -103,6 +103,7 @@ const elements = {
   annotationList: requiredElement('#annotation-list'),
   annotationListView: requiredElement('#annotation-list-view'),
   annotationPane: requiredElement('#annotation-pane'),
+  annotationPaneResizer: requiredElement('#annotation-pane-resizer'),
   annotationReadonly: requiredElement('#annotation-readonly'),
   annotationSneakPeek: requiredElement('#annotation-sneak-peek'),
   annotationState: requiredElement('#annotation-state'),
@@ -134,6 +135,7 @@ const elements = {
   selectedSource: requiredElement('#selected-source'),
   selectedTitle: requiredElement('#selected-title'),
   scrollbarRowCover: requiredElement('#scrollbar-row-cover'),
+  hoverScrollbarRowCover: requiredElement('#hover-scrollbar-row-cover'),
   sourceCancel: requiredElement<HTMLButtonElement>('#source-cancel'),
   sourceContent: requiredElement('#source-content'),
   sourceDiff: requiredElement('#source-diff'),
@@ -204,6 +206,7 @@ let documentsListObserver: MutationObserver | null = null
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let documentsListCollapsed = false
 let documentsListWidth = 248
+let annotationPaneWidth: number | null = null
 let documentsListPathToReviewId = new Map<string, string>()
 let documentsListReviewIdToPath = new Map<string, string>()
 let documentsListSortOrder = new Map<string, number>()
@@ -216,6 +219,7 @@ let brandFallbackUsed = false
 let sourceDiffCleanup: (() => void) | null = null
 let sourceDiffModule: Promise<DiffRenderer> | null = null
 let sourceDiffRenderer: DiffRenderer | null = null
+let paneResizeLayoutFrame: number | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
 let smokeRuntimeClean = true
@@ -536,6 +540,12 @@ function setWorkspaceEmpty(empty: boolean): void {
   elements.emptyWorkspace.hidden = !empty
   elements.workspace.hidden = empty
   elements.documentTabs.hidden = empty || !reviewSessions.list().length
+  if (!empty) {
+    requestAnimationFrame(() => {
+      applyDocumentsListWidth()
+      applyAnnotationPaneWidth()
+    })
+  }
 }
 
 function normalizeAnnotatedSelection(): boolean {
@@ -643,39 +653,51 @@ function updatePinnedSelection(): void {
   updateScrollbarRowCover()
 }
 
-function updateScrollbarRowCover(): void {
-  const hoveredRow = state.hoveredId
-    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
-    : null
-  const selectedRow = elements.tree.querySelector<HTMLElement>(
-    `[data-node-id="${state.selectedId}"]`
-  )
-  const row = hoveredRow || (
-    elements.pinnedSelection.hidden ? selectedRow : null
-  )
-
+function positionScrollbarRowCover(
+  cover: HTMLElement,
+  row: HTMLElement | null,
+  hovered: boolean
+): void {
   if (!row || !row.getClientRects().length) {
-    elements.scrollbarRowCover.hidden = true
+    cover.hidden = true
     return
   }
 
   const rowRect = row.getBoundingClientRect()
   const treeRect = elements.tree.getBoundingClientRect()
   if (rowRect.bottom <= treeRect.top || rowRect.top >= treeRect.bottom) {
-    elements.scrollbarRowCover.hidden = true
+    cover.hidden = true
     return
   }
 
   const paneRect = elements.previewPane.getBoundingClientRect()
-  const isHovered = Boolean(hoveredRow && hoveredRow !== selectedRow)
-  elements.scrollbarRowCover.className = [
+  cover.className = [
     'scrollbar-row-cover',
-    isHovered ? 'is-hovered' : '',
+    hovered ? 'is-hovered' : '',
     row.querySelector('.block-content.code') ? 'is-code' : ''
   ].filter(Boolean).join(' ')
-  elements.scrollbarRowCover.style.top = `${rowRect.top - paneRect.top}px`
-  elements.scrollbarRowCover.style.height = `${rowRect.height}px`
-  elements.scrollbarRowCover.hidden = false
+  cover.style.top = `${rowRect.top - paneRect.top}px`
+  cover.style.height = `${rowRect.height}px`
+  cover.hidden = false
+}
+
+function updateScrollbarRowCover(): void {
+  const selectedRow = elements.tree.querySelector<HTMLElement>(
+    `[data-node-id="${state.selectedId}"]`
+  )
+  const hoveredRow = state.hoveredId
+    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
+    : null
+  positionScrollbarRowCover(
+    elements.scrollbarRowCover,
+    elements.pinnedSelection.hidden ? selectedRow : null,
+    false
+  )
+  positionScrollbarRowCover(
+    elements.hoverScrollbarRowCover,
+    hoveredRow && hoveredRow !== selectedRow ? hoveredRow : null,
+    true
+  )
 }
 
 function renderNode(
@@ -1725,6 +1747,8 @@ function renderDocumentsList(): void {
   elements.documentsListSidebar.hidden = sessions.length === 0
   elements.documentsListOpen.hidden = sessions.length === 0 || !documentsListCollapsed
   elements.workspace.classList.toggle('has-documents-list', sessions.length > 0)
+  applyDocumentsListWidth()
+  applyAnnotationPaneWidth()
   if (!sessions.length || !DocumentsListFileTree) {
     return
   }
@@ -1867,9 +1891,52 @@ function applyDocumentsListWidth(): void {
   )
 }
 
+function applyAnnotationPaneWidth(): void {
+  const currentWidth = annotationPaneWidth ??
+    elements.annotationPane.getBoundingClientRect().width
+  const documentsWidth = elements.documentsListSidebar.getBoundingClientRect().width
+  const workspaceWidth = elements.workspace.clientWidth || window.innerWidth
+  const clampedWidth = MarkoverReviewSessions.clampAnnotationPaneWidth(
+    currentWidth,
+    workspaceWidth,
+    documentsWidth
+  )
+  const maximumWidth = MarkoverReviewSessions.clampAnnotationPaneWidth(
+    Number.POSITIVE_INFINITY,
+    workspaceWidth,
+    documentsWidth
+  )
+  if (annotationPaneWidth !== null) {
+    annotationPaneWidth = clampedWidth
+    elements.workspace.style.setProperty(
+      '--annotation-pane-column-width',
+      `${annotationPaneWidth}px`
+    )
+  }
+  elements.annotationPaneResizer.setAttribute(
+    'aria-valuenow',
+    String(Math.round(clampedWidth))
+  )
+  elements.annotationPaneResizer.setAttribute(
+    'aria-valuemax',
+    String(Math.round(maximumWidth))
+  )
+}
+
+function schedulePaneResizeLayoutUpdate(): void {
+  if (paneResizeLayoutFrame !== null) return
+  paneResizeLayoutFrame = requestAnimationFrame(() => {
+    paneResizeLayoutFrame = null
+    updatePinnedSelection()
+    MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
+  })
+}
+
 function setDocumentsListCollapsed(collapsed: boolean): void {
   documentsListCollapsed = collapsed
   elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
+  applyAnnotationPaneWidth()
+  schedulePaneResizeLayoutUpdate()
   elements.documentsListOpen.hidden = !collapsed || reviewSessions.list().length === 0
   elements.documentsListCollapse.setAttribute(
     'aria-expanded',
@@ -2057,6 +2124,8 @@ function beginDocumentsListResize(event: PointerEvent): void {
   const resize = (moveEvent: PointerEvent): void => {
     documentsListWidth = moveEvent.clientX - workspaceLeft
     applyDocumentsListWidth()
+    applyAnnotationPaneWidth()
+    schedulePaneResizeLayoutUpdate()
   }
   const finish = (): void => {
     elements.documentsListResizer.removeEventListener('pointermove', resize)
@@ -2071,6 +2140,46 @@ function beginDocumentsListResize(event: PointerEvent): void {
   elements.documentsListResizer.addEventListener('pointermove', resize)
   elements.documentsListResizer.addEventListener('pointerup', finish)
   elements.documentsListResizer.addEventListener('pointercancel', finish)
+}
+
+function beginAnnotationPaneResize(event: PointerEvent): void {
+  if (event.button !== 0) return
+  event.preventDefault()
+  const workspaceRight = elements.workspace.getBoundingClientRect().right
+  const pointerId = event.pointerId
+  annotationPaneWidth = elements.annotationPane.getBoundingClientRect().width
+  elements.annotationPaneResizer.setPointerCapture(pointerId)
+  document.body.classList.add('is-resizing-annotation-pane')
+
+  const resize = (moveEvent: PointerEvent): void => {
+    annotationPaneWidth = workspaceRight - moveEvent.clientX
+    applyAnnotationPaneWidth()
+    schedulePaneResizeLayoutUpdate()
+  }
+  const finish = (): void => {
+    elements.annotationPaneResizer.removeEventListener('pointermove', resize)
+    elements.annotationPaneResizer.removeEventListener('pointerup', finish)
+    elements.annotationPaneResizer.removeEventListener('pointercancel', finish)
+    document.body.classList.remove('is-resizing-annotation-pane')
+    if (elements.annotationPaneResizer.hasPointerCapture(pointerId)) {
+      elements.annotationPaneResizer.releasePointerCapture(pointerId)
+    }
+  }
+
+  elements.annotationPaneResizer.addEventListener('pointermove', resize)
+  elements.annotationPaneResizer.addEventListener('pointerup', finish)
+  elements.annotationPaneResizer.addEventListener('pointercancel', finish)
+}
+
+function resizeAnnotationPaneFromKeyboard(event: KeyboardEvent): void {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+  const step = event.shiftKey ? 48 : 16
+  annotationPaneWidth = elements.annotationPane.getBoundingClientRect().width + (
+    event.key === 'ArrowLeft' ? step : -step
+  )
+  applyAnnotationPaneWidth()
+  schedulePaneResizeLayoutUpdate()
 }
 
 function closeTabOverflow(): void {
@@ -2600,6 +2709,14 @@ elements.documentsListResizer.addEventListener(
   'pointerdown',
   beginDocumentsListResize
 )
+elements.annotationPaneResizer.addEventListener(
+  'pointerdown',
+  beginAnnotationPaneResize
+)
+elements.annotationPaneResizer.addEventListener(
+  'keydown',
+  resizeAnnotationPaneFromKeyboard
+)
 
 MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
   hideAnnotationSneakPeek()
@@ -2609,6 +2726,7 @@ window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
   if (!elements.sourceErrorTooltip.hidden) showSourceErrorTooltip()
   applyDocumentsListWidth()
+  applyAnnotationPaneWidth()
   updatePinnedSelection()
   MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
 })
@@ -2660,6 +2778,19 @@ document.addEventListener('keydown', (event) => {
 
   if (event.key === 'Tab') {
     event.preventDefault()
+    const active = document.activeElement
+    if (!event.shiftKey && active === elements.annotationPaneResizer) {
+      focusAnnotationPane()
+      return
+    }
+    if (
+      event.shiftKey &&
+      active !== elements.annotationPaneResizer &&
+      elements.annotationPane.contains(active)
+    ) {
+      elements.annotationPaneResizer.focus()
+      return
+    }
     const documentsVisible = reviewSessions.list().length > 0 && !documentsListCollapsed
     const pane = MarkoverNavigation.nextPane(
       focusedPane(),
@@ -2667,7 +2798,11 @@ document.addEventListener('keydown', (event) => {
       documentsVisible
     )
     elements.annotationPane.classList.remove('focus-within')
-    focusPane(pane)
+    if (pane === 'annotation' && !event.shiftKey) {
+      elements.annotationPaneResizer.focus()
+    } else {
+      focusPane(pane)
+    }
     return
   }
 
@@ -2966,6 +3101,7 @@ async function initialize(): Promise<void> {
 }
 
 applyDocumentsListWidth()
+applyAnnotationPaneWidth()
 void initialize().catch(async (error: unknown) => {
   startupUi.fail()
   const message = error instanceof Error ? error.message : String(error)

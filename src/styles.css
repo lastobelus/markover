@@ -775,11 +775,12 @@ p {
 .workspace {
   --documents-list-column-width: 0px;
   --documents-list-width: 248px;
+  --annotation-pane-column-width: minmax(360px, 0.7fr);
   display: grid;
   grid-template-columns:
     var(--documents-list-column-width)
     minmax(0, 1.3fr)
-    minmax(360px, 0.7fr);
+    var(--annotation-pane-column-width);
   min-height: 0;
   flex: 1;
 }
@@ -795,6 +796,7 @@ p {
 .documents-list-sidebar {
   position: relative;
   display: flex;
+  grid-column: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -1069,6 +1071,7 @@ p {
 .preview-pane {
   position: relative;
   display: flex;
+  grid-column: 2;
   flex-direction: column;
   border-right: 1px solid var(--selection-line);
   background: var(--document-tree-bg);
@@ -1632,12 +1635,50 @@ kbd {
 }
 
 .annotation-pane {
+  position: relative;
   display: flex;
+  grid-column: 3;
   min-width: 0;
   overflow: hidden;
   flex-direction: column;
   padding-bottom: 12px;
   background: var(--selected-panel-bg);
+}
+
+.annotation-pane-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 8;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.annotation-pane-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: transparent;
+  content: "";
+}
+
+.annotation-pane-resizer:hover::after,
+.annotation-pane-resizer:focus-visible::after,
+.is-resizing-annotation-pane .annotation-pane-resizer::after {
+  background: var(--accent-deep);
+}
+
+.annotation-pane-resizer:focus-visible {
+  outline: none;
+}
+
+.is-resizing-annotation-pane {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .annotation-pane.is-read-only {
@@ -2664,9 +2705,10 @@ body.is-control-pressed .attachment-remove:hover {
   }
 
   .workspace {
+    --annotation-pane-column-width: 360px;
     grid-template-columns:
       var(--documents-list-column-width)
       minmax(0, 1fr)
-      360px;
+      var(--annotation-pane-column-width);
   }
 }

@@ -60,6 +60,19 @@
     return Math.min(maximum, Math.max(minimum, Number(width) || minimum))
   }
 
+  function clampAnnotationPaneWidth(
+    width: unknown,
+    workspaceWidth: unknown,
+    documentsListWidth: unknown
+  ): number {
+    const minimum = 360
+    const maximum = Math.max(
+      minimum,
+      Number(workspaceWidth) - Number(documentsListWidth) - 200
+    )
+    return Math.min(maximum, Math.max(minimum, Number(width) || minimum))
+  }
+
   function formatRelativeTime(
     timestamp: unknown,
     now: unknown = Date.now()
@@ -253,6 +266,7 @@
   }
 
   const api = {
+    clampAnnotationPaneWidth,
     clampDocumentsListWidth,
     formatRelativeTime,
     isTreeEditable,
@@ -263,6 +277,7 @@
   } satisfies MarkoverReviewSessionsApi
 
 export {
+  clampAnnotationPaneWidth,
   clampDocumentsListWidth,
   formatRelativeTime,
   isTreeEditable,

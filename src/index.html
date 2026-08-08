@@ -144,6 +144,11 @@
         </div>
         <div id="pinned-selection" class="pinned-selection" hidden></div>
         <div id="scrollbar-row-cover" class="scrollbar-row-cover" hidden></div>
+        <div
+          id="hover-scrollbar-row-cover"
+          class="scrollbar-row-cover is-hovered"
+          hidden
+        ></div>
         <div id="tree" class="tree"></div>
         <div class="keyboard-help">
           <kbd>↑</kbd><kbd>↓</kbd> siblings
@@ -155,6 +160,15 @@
       </section>
 
       <aside id="annotation-pane" class="pane annotation-pane" tabindex="-1">
+        <div
+          id="annotation-pane-resizer"
+          class="annotation-pane-resizer"
+          role="separator"
+          aria-label="Resize annotation pane"
+          aria-orientation="vertical"
+          aria-valuemin="360"
+          tabindex="0"
+        ></div>
         <div class="annotation-view-tabs" role="tablist" aria-label="Annotation pane view">
           <button
             id="annotation-view-selected"
