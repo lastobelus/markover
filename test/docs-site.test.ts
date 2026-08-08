@@ -201,6 +201,7 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
     'locations',
     'discovery',
     'agent-handoff',
+    'durability',
     'network',
     'retention',
     'reinstall',
@@ -220,6 +221,11 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   assert.match(privacy, /outside Markover's control/)
   assert.match(privacy, /Library\/Caches\/Markover/)
   assert.match(privacy, /Application Support\/Markover/)
+  assert.match(privacy, /two-second window by default/)
+  assert.match(privacy, /two-second bound is suspended/)
+  assert.match(privacy, /within five seconds/)
+  assert.match(privacy, /autosaveMaximumDelayMs/)
+  assert.match(privacy, /power loss, operating-system or hardware failure/)
   assert.match(privacy, /may not open every review created by an older version/)
   assert.match(privacy, /github\.com\/lastobelus\/markover\/discussions/)
 })
@@ -229,6 +235,8 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/developer/README.md')), true)
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/index.html')), false)
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/development.md')), false)
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/releasing.md')), false)
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/developer/releasing.md')), true)
   assert.match(readme, /docs\/developer\/README\.md/)
   assert.match(developerIndex, /User pages explain consequences\s+and actions/)
   assert.match(developerIndex, /Developer documentation may link to those pages/)
@@ -236,7 +244,11 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(developerSecurity, /POSIX mode `0700`/)
   assert.match(developerSecurity, /`service\.json` and `service\.token`/)
   assert.match(developerSecurity, /Authorization is checked before URL route handling/)
-  assert.match(developerSecurity, /Issue #39 owns that behavior/)
+  assert.match(developerSecurity, /1,500 milliseconds apart/)
+  assert.match(developerSecurity, /exponential\s+backoff capped at 30 seconds/)
+  assert.match(developerSecurity, /Retry\s+Quit, Cancel Quit, or Quit Anyway/)
+  assert.match(developerSecurity, /test\/durability-crash\.test\.ts/)
+  assert.doesNotMatch(guide, /1,500 milliseconds|persistence budget|exponential backoff/)
 })
 
 test('the early-preview contract is concise and consistent on user entry paths', () => {
@@ -245,7 +257,8 @@ test('the early-preview contract is concise and consistent on user entry paths',
   }
   for (const source of [guide, readme, limitations]) {
     assert.match(source, /macOS 14 Sonoma/)
-    assert.match(source, /Apple Silicon and Intel/)
+    assert.match(source, /Apple Silicon Macs/)
+    assert.match(source, /issue #80|issues\/80/)
     assert.match(source, /Node\.js 22\.13\.0 or newer/)
     assert.match(source, /not Apple-verified/i)
     assert.match(source, /may not open every older review|may not open every review created by an older version/)

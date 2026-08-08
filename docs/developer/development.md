@@ -357,7 +357,7 @@ change; credentials alone must never switch the trust mode or silently fall
 back to ad-hoc signing. `developer-id-readiness` therefore reports an intentional
 nonzero `blocked` state today.
 
-Follow the canonical [release, rollback, and withdrawal runbook](../releasing.md)
+Follow the canonical [release, rollback, and withdrawal runbook](./releasing.md)
 for one-time repository settings, clean-machine approval, verification,
 version-pinned rollback, and future Developer ID activation.
 
@@ -390,7 +390,4 @@ npm --silent run markover -- help
 - `docs/user/` — source for the deployed GitHub Pages site and user guidance
 - `docs/developer/` — contributor setup, architecture, security, testing, and
   maintenance references
-- `docs/releasing.md` — release runbook temporarily retained at its existing
-  path while active PR #68 edits it; it moves into `docs/developer/` after that
-  work lands or rebases
 - `examples/` — sample Markdown documents for parser and UI testing

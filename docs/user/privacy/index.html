@@ -20,6 +20,7 @@
         <a href="../guide/">Getting started</a>
         <p>Reference</p>
         <a href="#overview" aria-current="page">Privacy, storage, and recovery</a>
+        <a href="#durability">Durability and recovery</a>
         <a href="../limitations/">Markdown and limitations</a>
         <a href="https://github.com/lastobelus/markover/discussions">Support</a>
         <p>Contributors</p>
@@ -80,6 +81,15 @@
         <h2>When an agent retrieves a review</h2>
         <p>An authenticated <code>get</code> returns the review source, annotations, attachments metadata, provenance, and agent guidance to the requesting local agent. Markover itself does not upload that handoff.</p>
         <p>After another agent or tool receives the data, its storage, logging, sharing, and network behavior are outside Markover's control. Apply that recipient's privacy policy and trust model as well as Markover's.</p>
+      </section>
+
+      <section id="durability">
+        <h2>Durability and recovery</h2>
+        <p>While Markover is responsive and local storage is healthy, managed review changes are durably saved within a two-second window by default. After an app-process crash or restart, Markover restores reviews still being edited and reviews already inflight with an agent. Attachment bytes are saved before a review can durably refer to them.</p>
+        <p>A persistent autosave warning means a save failed or took too long, so the two-second bound is suspended while Markover retries or waits for storage to recover. If a normal quit cannot finish saving within five seconds, Markover lets you retry the quit, cancel it, or quit anyway. Choosing <strong>Quit Anyway</strong> can discard changes that have not become durable.</p>
+        <div class="callout"><strong>The crash window has limits.</strong> It does not cover power loss, operating-system or hardware failure, or unhealthy or unusually slow storage. Keep backups of important review data even when no warning is visible.</div>
+        <h3>Advanced: change the autosave window</h3>
+        <p>The setting is intentionally not in Markover's Settings window. Quit Markover, open <code>~/Library/Application Support/Markover/settings.json</code>, set <code>autosaveMaximumDelayMs</code> to a whole number from <code>100</code> through <code>60000</code> milliseconds, then restart Markover. Changing it changes the stated maximum-loss window as well as the save timing.</p>
       </section>
 
       <section id="network">

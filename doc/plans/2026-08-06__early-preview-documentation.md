@@ -4,7 +4,7 @@
 
 This is the accepted implementation plan for [issue #9](https://github.com/lastobelus/markover/issues/9), **Publish preview, privacy, storage, deletion, and support documentation**. The issue is in the **Focused preview** milestone and the **Markover Announcement Readiness** project.
 
-The plan records the issue interview completed on August 6, 2026 and the audience-segregation decision added on August 7. Its stable center is the two-audience documentation architecture, public maturity label, compatibility policy, support model, cleanup scope, and two-checkpoint delivery. Exact durability language remains provisional until [issue #39](https://github.com/lastobelus/markover/issues/39) supplies tested crash/restart evidence from its final slice.
+The plan records the issue interview completed on August 6, 2026, the audience-segregation decision added on August 7, and the tested durability evidence merged through [issue #39](https://github.com/lastobelus/markover/issues/39). Its stable center is the two-audience documentation architecture, public maturity label, current Apple Silicon release boundary, support model, cleanup scope, and two-checkpoint delivery.
 
 ## Outcome
 
@@ -34,13 +34,13 @@ The repository `README.md` remains a short product and user entry point with one
 | Topic | Accepted user-facing position |
 | --- | --- |
 | Maturity | **Early macOS preview** is the canonical label. “Focused preview” remains an internal roadmap term. |
-| Platform | macOS 14 Sonoma or newer on Apple Silicon and Intel Macs. |
+| Platform | macOS 14 Sonoma or newer on Apple Silicon Macs. Native Intel releases are deferred to [issue #80](https://github.com/lastobelus/markover/issues/80) for the Broad announcement. |
 | Launcher | Node.js 22.13.0 or newer. |
 | Review format | Early-preview review formats may change without migration guarantees. Stored historical JSON and attachments are preserved, but a newer Markover version may not open every older review. |
 | Privacy | Ordinary review work stays in the current macOS account. There is no telemetry, analytics, cloud sync, or automatic review upload. User-triggered install/update, remote-image preview, and agent handoff have explicit boundaries. |
 | Local API | Markover protects its local API with a per-process secret stored inside the current macOS account boundary. Other processes running as the same user and administrators remain inside that trust boundary. Exact protocol and filesystem mechanics belong in developer documentation. |
 | Support | GitHub Discussions is the general support channel. Reproducible defects use the bug form; suspected vulnerabilities use private reporting. |
-| Durability | Publish only guarantees and limits demonstrated by #39's final test evidence. |
+| Durability | While Markover is responsive and local storage is healthy, managed changes have a tested two-second default app-process-crash window. Power loss, OS or hardware failure, and unhealthy or unusually slow storage are excluded. |
 
 ## Documentation architecture
 
@@ -96,7 +96,7 @@ Expand and retitle `docs/user/privacy/index.html` as the single integrated user 
 - cache-only reinstall, single-review deletion, and complete reset/uninstall procedures;
 - backup guidance and the consequences of each operation;
 - review-format compatibility and rollback cautions where they affect stored data;
-- the tested durability guarantee, failure behavior, and exclusions after #39 supplies evidence.
+- the tested durability guarantee, failure behavior, and exclusions demonstrated by #39.
 
 The page explains that the API uses an account-confined per-process secret, but it does not require users to understand capability bit length, POSIX mode numbers, discovery-record filenames, route ordering, or diagnostic implementation. A labelled link points interested readers and contributors to `docs/developer/local-service-security.md` in the repository.
 
@@ -112,7 +112,7 @@ Shared npm cache cleanup is outside this guide because it is not a Markover-owne
 
 Create `docs/developer/local-service-security.md` as the contributor-facing home for the exact #12 mechanics currently mixed into the public privacy page. It covers the capability and discovery-record formats, file modes, route authorization order, health identity, diagnostics/redaction behavior, recovery invariants, same-user threat-model boundary, storage layout, and the source/tests that enforce those claims.
 
-After #39 lands, this developer reference links to its crash/restart evidence and records the exact persistence and shutdown invariants developers must preserve. The user data page receives only the demonstrated guarantee, actionable failure behavior, and honest exclusions.
+This developer reference links to #39's crash/restart evidence and records the exact persistence and shutdown invariants developers must preserve. The user data page receives only the demonstrated guarantee, actionable failure behavior, and honest exclusions.
 
 ### User Markdown support and preview limitations
 
@@ -134,7 +134,7 @@ Create `docs/developer/README.md` as a concise contributor index. Move `docs/dev
 
 The developer index routes contributors to setup/testing, architecture and security references, release operations, decisions, roadmap, security policy, and agent-facing repository guidance. It links back to the deployed user contract when a contributor needs to verify the promise their change must preserve.
 
-Active PR [#68](https://github.com/lastobelus/markover/pull/68) currently edits `docs/releasing.md`. The path move occurs only after #68 lands, or #68 explicitly rebases onto the audience-root change and adopts `docs/developer/releasing.md`. The two branches do not rename and edit that file independently.
+The release truth from [PR #83](https://github.com/lastobelus/markover/pull/83) is included before `docs/releasing.md` moves to `docs/developer/releasing.md`, so the audience-root change preserves the canonical published-release record.
 
 ### Support and release handoff
 
@@ -158,7 +158,7 @@ Release implementation mechanics remain in `docs/developer/releasing.md` and do 
 
 ### Checkpoint 1 — audience roots and evidence-independent documentation
 
-1. Refresh inflight intents and choose the ordering for active PR #68 before touching `docs/releasing.md`.
+1. Refresh inflight intents and verify the merged release truth before moving `docs/releasing.md`.
 2. Start from current `main`, including the merged #12 privacy page and any intervening documentation work.
 3. Establish `docs/user/` and `docs/developer/`, move existing files atomically, and update repository links and test fixtures without compatibility copies.
 4. Change the Pages artifact root to `build/docs/user` and verify that developer documentation is absent from the deployed artifact while public URLs remain unchanged.
@@ -208,7 +208,7 @@ Automated checks should assert audience boundaries and semantic anchors rather t
 - Pages uploads `build/docs/user`, preserves the existing public URL shape, and excludes developer documentation;
 - repository links no longer target the former mixed-root paths;
 - every public user entry surface uses **Early macOS preview**;
-- README and user guide agree on macOS 14 Sonoma, Apple Silicon and Intel, and Node.js 22.13.0 or newer;
+- README and user guide agree on macOS 14 Sonoma, Apple Silicon, native Intel deferral to #80, and Node.js 22.13.0 or newer;
 - the user setup path links to both detailed user reference pages and GitHub Discussions;
 - the user limitations page distinguishes structurally selectable, whole-block, and extension-degraded Markdown behavior without parser implementation detail;
 - user cleanup guidance distinguishes the cache root from persistent Application Support data and distinguishes reinstall from destructive reset;
@@ -246,12 +246,12 @@ Repository-convention files such as `README.md`, `CONTRIBUTING.md`, `SECURITY.md
 ## Dependencies and overlap controls
 
 - **#12:** merged source of truth for local authorization, privacy boundaries, diagnostics, and remote-image behavior. Preserve its verified claims while separating user consequences from developer mechanics.
-- **#39:** blocks only the final durability language and checkpoint-2 consistency pass. Its tested evidence outranks its planned contract and feeds separate user/developer explanations.
+- **#39 / PR #82:** merged source of truth for the final durability language. Its tested evidence feeds separate user/developer explanations.
 - **#10:** consumes the user-facing release-note checklist and publishes the actual prerelease.
-- **#13 / PR #68:** owns release provenance, packaged smoke, stable-release tooling, and an active edit to `docs/releasing.md`. Its content lands or rebases before #9 performs the path move.
+- **#13 / PR #83:** merged source of truth for release provenance, packaged smoke, stable-release tooling, and the runbook content moved under the developer root.
 - **#17:** consumes the completed user documentation during the announcement and support round.
 
-Before implementation begins, refresh these intents and changed paths. If #39 has entered its documentation slice, agree on one ordering for the user privacy and developer security references rather than editing them concurrently.
+Before each implementation checkpoint, refresh these intents and changed paths. PR #76 retains ownership of deep-link feature copy and rebases those small documentation changes onto the audience roots established here.
 
 ## Acceptance mapping
 
