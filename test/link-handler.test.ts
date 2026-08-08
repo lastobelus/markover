@@ -351,6 +351,52 @@ testMacos('failed replacement restores prior files and LaunchServices owner', as
   ), originalBinding)
 })
 
+testMacos('backup cleanup failure preserves the committed handler', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const stateRoot = path.join(directory, 'state')
+  const handlerRoot = path.join(directory, 'handlers')
+  await fs.mkdir(stateRoot)
+  const instance = canonicalInstance(stateRoot)
+  let ownerPath: string | null = null
+  const options = {
+    handlerRoot,
+    inspectOwner: () => Promise.resolve(ownerPath),
+    probe: () => Promise.resolve(false),
+    register(appPath: string) {
+      ownerPath = appPath
+      return Promise.resolve()
+    },
+    unregister(appPath: string) {
+      if (ownerPath === appPath) ownerPath = null
+      return Promise.resolve()
+    }
+  }
+  await installLinkHandler('install', instance, options)
+  const appPath = linkHandlerAppPath('markover', handlerRoot)
+  let cleanupAttempts = 0
+
+  const repaired = await installLinkHandler('repair', instance, {
+    ...options,
+    removePath(targetPath, removeOptions) {
+      if (targetPath.includes('.previous-')) {
+        cleanupAttempts += 1
+        return Promise.reject(new Error('simulated backup cleanup failure'))
+      }
+      return fs.rm(targetPath, removeOptions)
+    }
+  })
+
+  assert.equal(repaired.action, 'repaired')
+  assert.equal(ownerPath, appPath)
+  assert.equal(cleanupAttempts, 1)
+  assert.equal(await fs.stat(appPath).then((stats) => stats.isDirectory()), true)
+  assert.equal(
+    (await fs.readdir(handlerRoot)).some((name) => name.includes('.previous-')),
+    true
+  )
+})
+
 test('replacement commit retains its backup until temporary cleanup succeeds', async () => {
   const source = await fs.readFile(
     path.join(__dirname, '../../src/link-handler.ts'),
@@ -358,10 +404,23 @@ test('replacement commit retains its backup until temporary cleanup succeeds', a
   )
   const commit = source.slice(
     source.indexOf('async function commitGeneratedAppReplacement'),
-    source.indexOf('async function rollbackGeneratedAppReplacement')
+    source.indexOf('async function cleanupCommittedAppReplacement')
+  )
+  assert.match(commit, /replacement\.temporaryRoot/)
+  assert.doesNotMatch(commit, /replacement\.backupPath/)
+})
+
+test('backup deletion happens only after the replacement transaction commits', async () => {
+  const source = await fs.readFile(
+    path.join(__dirname, '../../src/link-handler.ts'),
+    'utf8'
+  )
+  const install = source.slice(
+    source.indexOf('export async function installLinkHandler'),
+    source.indexOf('export async function removeLinkHandler')
   )
   assert.ok(
-    commit.indexOf('replacement.temporaryRoot') <
-      commit.indexOf('replacement.backupPath')
+    install.indexOf('cleanupCommittedAppReplacement') >
+      install.indexOf('} catch (error)')
   )
 })

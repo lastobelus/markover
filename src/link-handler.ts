@@ -61,6 +61,10 @@ export interface LinkHandlerOptions {
   probe?: (endpointPath: string) => Promise<boolean>
   register?: (appPath: string) => Promise<void>
   restoreOwner?: (appPath: string, scheme: string) => Promise<void>
+  removePath?: (
+    targetPath: string,
+    options: { recursive: true, force: true }
+  ) => Promise<void>
   unregister?: (appPath: string) => Promise<void>
   runCommand?: typeof spawnSync
   sourcePath?: string
@@ -620,11 +624,18 @@ async function beginGeneratedAppReplacement(
 }
 
 async function commitGeneratedAppReplacement(
-  replacement: PendingAppReplacement
+  replacement: PendingAppReplacement,
+  removePath: NonNullable<LinkHandlerOptions['removePath']>
 ): Promise<void> {
-  await fs.rm(replacement.temporaryRoot, { recursive: true, force: true })
+  await removePath(replacement.temporaryRoot, { recursive: true, force: true })
+}
+
+async function cleanupCommittedAppReplacement(
+  replacement: PendingAppReplacement,
+  removePath: NonNullable<LinkHandlerOptions['removePath']>
+): Promise<void> {
   if (replacement.backupPath) {
-    await fs.rm(replacement.backupPath, { recursive: true, force: true })
+    await removePath(replacement.backupPath, { recursive: true, force: true })
   }
 }
 
@@ -681,6 +692,7 @@ export async function installLinkHandler(
     before.expectedPath
   )
   const register = options.register || defaultRegister
+  const removePath = options.removePath || fs.rm
   let current: LinkHandlerStatus
   try {
     await register(before.expectedPath)
@@ -694,7 +706,7 @@ export async function installLinkHandler(
         `LaunchServices did not select ${current.expectedPath} for ${instance.scheme}:.`
       )
     }
-    await commitGeneratedAppReplacement(replacement)
+    await commitGeneratedAppReplacement(replacement, removePath)
   } catch (error) {
     const unregister = options.unregister || defaultUnregister
     const restoreOwner = options.restoreOwner || defaultRestoreOwner
@@ -735,6 +747,9 @@ export async function installLinkHandler(
         : failure
     )
   }
+  // Registration and temporary cleanup are committed at this point. A stale
+  // backup is safer than rolling back a healthy handler after commit.
+  await cleanupCommittedAppReplacement(replacement, removePath).catch(() => {})
   return {
     ...current,
     action: action === 'install'
