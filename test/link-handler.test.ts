@@ -363,6 +363,52 @@ testMacos('failed replacement restores prior files and LaunchServices owner', as
   ), originalBinding)
 })
 
+testMacos('staging reports a failed backup restore and preserves the backup', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const stateRoot = path.join(directory, 'state')
+  const handlerRoot = path.join(directory, 'handlers')
+  await fs.mkdir(stateRoot)
+  const instance = canonicalInstance(stateRoot)
+  let ownerPath: string | null = null
+  const options = {
+    handlerRoot,
+    inspectOwner: () => Promise.resolve(ownerPath),
+    probe: () => Promise.resolve(false),
+    register(appPath: string) {
+      ownerPath = appPath
+      return Promise.resolve()
+    }
+  }
+  await installLinkHandler('install', instance, options)
+  const appPath = linkHandlerAppPath('markover', handlerRoot)
+
+  await assert.rejects(
+    installLinkHandler('repair', instance, {
+      ...options,
+      renamePath(sourcePath, destinationPath) {
+        if (destinationPath === appPath && sourcePath.includes('.previous-')) {
+          return Promise.reject(new Error('simulated backup restore failure'))
+        }
+        if (destinationPath === appPath && sourcePath !== appPath) {
+          return Promise.reject(new Error('simulated staging failure'))
+        }
+        return fs.rename(sourcePath, destinationPath)
+      }
+    }),
+    /simulated staging failure.*Staging recovery also failed: simulated backup restore failure.*Previous handler backup:/
+  )
+
+  assert.equal(await fs.stat(appPath).then(
+    () => true,
+    () => false
+  ), false)
+  assert.equal(
+    (await fs.readdir(handlerRoot)).some((name) => name.includes('.previous-')),
+    true
+  )
+})
+
 testMacos('backup cleanup failure preserves the committed handler', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))

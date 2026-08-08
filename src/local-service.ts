@@ -314,7 +314,9 @@ export async function startLocalService({
         request.method === 'POST' &&
         route.action === 'activate'
       ) {
-        sendJson(response, 200, await onActivate(route.reviewId))
+        sendJson(response, 200, await runMutation(() => (
+          onActivate(route.reviewId)
+        )))
         return
       }
 

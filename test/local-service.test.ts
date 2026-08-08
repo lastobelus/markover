@@ -976,3 +976,45 @@ test('pausing mutations drains active work and rejects new mutations', async (t)
   ))
   assert.equal(edited.status, 'editing')
 })
+
+test('pausing mutations drains activation and rejects a new activation', async (t) => {
+  let releaseActivation!: () => void
+  let activationStarted!: () => void
+  const activationReady = new Promise<void>((resolve) => {
+    activationStarted = resolve
+  })
+  const activationBarrier = new Promise<void>((resolve) => {
+    releaseActivation = resolve
+  })
+  const fixture = await serviceFixture(t, {
+    async onActivate(reviewId) {
+      activationStarted()
+      await activationBarrier
+      return { reviewId, outcome: 'activated' }
+    }
+  })
+
+  const activation = requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/activate'
+  )
+  await activationReady
+  let paused = false
+  const pause = fixture.service.pauseMutations().then(() => { paused = true })
+  await Promise.resolve()
+  assert.equal(paused, false)
+  await assert.rejects(
+    requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/activate'
+    ),
+    (error: unknown) => hasServiceError(error, 'SHUTTING_DOWN', 503)
+  )
+
+  releaseActivation()
+  await activation
+  await pause
+  assert.equal(paused, true)
+})

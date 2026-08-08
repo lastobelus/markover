@@ -60,6 +60,7 @@ export interface LinkHandlerOptions {
   inspectOwner?: (scheme: string) => Promise<string | null>
   probe?: (endpointPath: string) => Promise<boolean>
   register?: (appPath: string) => Promise<void>
+  renamePath?: (sourcePath: string, destinationPath: string) => Promise<void>
   restoreOwner?: (appPath: string, scheme: string) => Promise<void>
   removePath?: (
     targetPath: string,
@@ -602,23 +603,48 @@ interface PendingAppReplacement {
 
 async function beginGeneratedAppReplacement(
   stagedApp: string,
-  destination: string
+  destination: string,
+  renamePath: NonNullable<LinkHandlerOptions['renamePath']>
 ): Promise<PendingAppReplacement> {
   const temporaryRoot = path.dirname(stagedApp)
   const backup = `${destination}.previous-${String(process.pid)}-${randomBytes(6).toString('hex')}`
   const hadDestination = await pathExists(destination)
   try {
-    if (hadDestination) await fs.rename(destination, backup)
-    await fs.rename(stagedApp, destination)
+    if (hadDestination) await renamePath(destination, backup)
+    await renamePath(stagedApp, destination)
     return {
       backupPath: hadDestination ? backup : null,
       temporaryRoot
     }
   } catch (error) {
+    const recoveryFailures: string[] = []
     if (!await pathExists(destination) && await pathExists(backup)) {
-      await fs.rename(backup, destination).catch(() => {})
+      await renamePath(backup, destination).catch((recoveryError: unknown) => {
+        recoveryFailures.push(
+          recoveryError instanceof Error
+            ? recoveryError.message
+            : String(recoveryError)
+        )
+      })
     }
-    await fs.rm(temporaryRoot, { recursive: true, force: true })
+    await fs.rm(temporaryRoot, { recursive: true, force: true }).catch(
+      (recoveryError: unknown) => {
+        recoveryFailures.push(
+          recoveryError instanceof Error
+            ? recoveryError.message
+            : String(recoveryError)
+        )
+      }
+    )
+    if (recoveryFailures.length > 0) {
+      const failure = error instanceof Error ? error.message : String(error)
+      const preservedBackup = await pathExists(backup)
+      throw new LinkHandlerError(
+        'HANDLER_INSTALL_FAILED',
+        `${failure} Staging recovery also failed: ${recoveryFailures.join(' ')}` +
+          (preservedBackup ? ` Previous handler backup: ${backup}.` : '')
+      )
+    }
     throw error
   }
 }
@@ -664,6 +690,7 @@ export async function installLinkHandler(
   assertInstallable(instance)
   const root = options.handlerRoot || linkHandlerRoot()
   const before = await inspectLinkHandler(instance.scheme, instance, options)
+  const renamePath = options.renamePath || fs.rename
   const hasConflictingOwner = before.ownerPath !== null && (
     await comparablePath(before.ownerPath) !==
     await comparablePath(before.expectedPath)
@@ -693,7 +720,8 @@ export async function installLinkHandler(
   const staged = await buildHandlerApp(instance, root, options)
   const replacement = await beginGeneratedAppReplacement(
     staged,
-    before.expectedPath
+    before.expectedPath,
+    renamePath
   )
   const register = options.register || defaultRegister
   const removePath = options.removePath || fs.rm
