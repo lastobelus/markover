@@ -135,6 +135,7 @@ const elements = {
   selectedSource: requiredElement('#selected-source'),
   selectedTitle: requiredElement('#selected-title'),
   scrollbarRowCover: requiredElement('#scrollbar-row-cover'),
+  hoverScrollbarRowCover: requiredElement('#hover-scrollbar-row-cover'),
   sourceCancel: requiredElement<HTMLButtonElement>('#source-cancel'),
   sourceContent: requiredElement('#source-content'),
   sourceDiff: requiredElement('#source-diff'),
@@ -646,39 +647,51 @@ function updatePinnedSelection(): void {
   updateScrollbarRowCover()
 }
 
-function updateScrollbarRowCover(): void {
-  const hoveredRow = state.hoveredId
-    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
-    : null
-  const selectedRow = elements.tree.querySelector<HTMLElement>(
-    `[data-node-id="${state.selectedId}"]`
-  )
-  const row = hoveredRow || (
-    elements.pinnedSelection.hidden ? selectedRow : null
-  )
-
+function positionScrollbarRowCover(
+  cover: HTMLElement,
+  row: HTMLElement | null,
+  hovered: boolean
+): void {
   if (!row || !row.getClientRects().length) {
-    elements.scrollbarRowCover.hidden = true
+    cover.hidden = true
     return
   }
 
   const rowRect = row.getBoundingClientRect()
   const treeRect = elements.tree.getBoundingClientRect()
   if (rowRect.bottom <= treeRect.top || rowRect.top >= treeRect.bottom) {
-    elements.scrollbarRowCover.hidden = true
+    cover.hidden = true
     return
   }
 
   const paneRect = elements.previewPane.getBoundingClientRect()
-  const isHovered = Boolean(hoveredRow && hoveredRow !== selectedRow)
-  elements.scrollbarRowCover.className = [
+  cover.className = [
     'scrollbar-row-cover',
-    isHovered ? 'is-hovered' : '',
+    hovered ? 'is-hovered' : '',
     row.querySelector('.block-content.code') ? 'is-code' : ''
   ].filter(Boolean).join(' ')
-  elements.scrollbarRowCover.style.top = `${rowRect.top - paneRect.top}px`
-  elements.scrollbarRowCover.style.height = `${rowRect.height}px`
-  elements.scrollbarRowCover.hidden = false
+  cover.style.top = `${rowRect.top - paneRect.top}px`
+  cover.style.height = `${rowRect.height}px`
+  cover.hidden = false
+}
+
+function updateScrollbarRowCover(): void {
+  const selectedRow = elements.tree.querySelector<HTMLElement>(
+    `[data-node-id="${state.selectedId}"]`
+  )
+  const hoveredRow = state.hoveredId
+    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
+    : null
+  positionScrollbarRowCover(
+    elements.scrollbarRowCover,
+    elements.pinnedSelection.hidden ? selectedRow : null,
+    false
+  )
+  positionScrollbarRowCover(
+    elements.hoverScrollbarRowCover,
+    hoveredRow && hoveredRow !== selectedRow ? hoveredRow : null,
+    true
+  )
 }
 
 function renderNode(
