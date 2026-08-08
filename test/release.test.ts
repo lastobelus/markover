@@ -118,8 +118,8 @@ test('README exposes the repository-only install-free agent command', () => {
 test('release documentation states the Sonoma and ad-hoc trust boundary', () => {
   const sources = [
     read('README.md'),
-    read('docs/guide/index.html'),
-    read('docs/development.md')
+    read('docs/user/guide/index.html'),
+    read('docs/developer/development.md')
   ]
   for (const source of sources) {
     assert.match(source, /macOS 14 Sonoma/)
@@ -189,12 +189,11 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
 })
 
-test('public release runbook preserves provenance and rollback boundaries', () => {
-  const runbook = read('docs/releasing.md')
+test('developer release runbook preserves provenance and rollback boundaries', () => {
+  const runbook = read('docs/developer/releasing.md')
   const sources = [
-    read('README.md'),
-    read('docs/development.md'),
-    read('docs/guide/index.html')
+    read('docs/developer/development.md'),
+    read('docs/developer/README.md')
   ]
 
   assert.match(runbook, /not\s+Apple-verified/i)
@@ -217,7 +216,7 @@ test('public release runbook preserves provenance and rollback boundaries', () =
 
 test('continuous integration enforces the supported Node versions', () => {
   const workflow = read('.github/workflows/ci.yml')
-  const developmentGuide = read('docs/development.md')
+  const developmentGuide = read('docs/developer/development.md')
   const rootPackage = readJson('package.json') as PackageManifest
   const cliPackage = readJson('packages/cli/package.json') as PackageManifest
 
@@ -267,7 +266,7 @@ test('continuous integration enforces the supported Node versions', () => {
   for (const source of [
     read('README.md'),
     developmentGuide,
-    read('docs/guide/index.html')
+    read('docs/user/guide/index.html')
   ]) {
     assert.match(source, /Node\.js 22\.13\.0 or newer/)
     assert.doesNotMatch(source, /Node\.js 20/)
@@ -335,8 +334,8 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
   }
-  assert.equal(fs.existsSync(path.join(root, 'docs/site.ts')), true)
-  assert.equal(fs.existsSync(path.join(root, 'docs/site.js')), false)
+  assert.equal(fs.existsSync(path.join(root, 'docs/user/site.ts')), true)
+  assert.equal(fs.existsSync(path.join(root, 'docs/user/site.js')), false)
   assert.equal(
     fs.existsSync(path.join(root, 'test/community-surface.test.ts')),
     true

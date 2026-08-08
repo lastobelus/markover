@@ -337,6 +337,7 @@ npm --silent run markover -- help
 - `scripts/` — local launcher, packaging, review, and build scripts
 - `packages/cli/` — dependency-free public bootstrap CLI
 - `test/` — Node test suite
-- `docs/` — GitHub Pages site, user guide, screenshots, and this development
-  reference
+- `docs/user/` — source for the deployed GitHub Pages site and user guidance
+- `docs/developer/` — contributor setup, architecture, security, testing, and
+  maintenance references
 - `examples/` — sample Markdown documents for parser and UI testing

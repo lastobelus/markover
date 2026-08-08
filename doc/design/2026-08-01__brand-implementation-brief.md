@@ -13,7 +13,7 @@ The implementer should use the exact vector sources and palette below. Do not re
 - `design/brand/markover-lockup.svg` — final fixed-spacing horizontal lockup.
 - `design/brand/markover-app-icon.svg` — approved 1024-square app-icon master.
 - `design/brand/markover-app-icon.png` — required 1024-square Electron runtime raster.
-- `favicon.svg` — root project favicon for T3Code; Pages retains its published copy under `docs/assets`.
+- `favicon.svg` — root project favicon for T3Code; Pages retains its published copy under `docs/user/assets`.
 - `design/brand/mockups/index.html` — reference compositions for each surface and UI state.
 
 The three SVGs preserve the paths copied directly from the Affinity source. Keep them as external SVG files rather than duplicating the path data into application components.
