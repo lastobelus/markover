@@ -262,3 +262,60 @@ testMacos('replace is explicit and force removal leaves a different owner unchan
   assert.equal(removed.status, 'conflicting')
   assert.equal(ownerPath, '/Applications/Other.app')
 })
+
+testMacos('failed replacement restores prior files and LaunchServices owner', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const stateRoot = path.join(directory, 'state')
+  const handlerRoot = path.join(directory, 'handlers')
+  await fs.mkdir(stateRoot)
+  const instance = canonicalInstance(stateRoot)
+  const externalOwner = '/Applications/Other.app'
+  let ownerPath: string | null = null
+  let hideReplacementOwner = false
+  const options = {
+    handlerRoot,
+    inspectOwner: () => Promise.resolve(
+      hideReplacementOwner ? null : ownerPath
+    ),
+    probe: () => Promise.resolve(false),
+    register(appPath: string) {
+      ownerPath = appPath
+      return Promise.resolve()
+    },
+    unregister(appPath: string) {
+      if (ownerPath === appPath) ownerPath = null
+      return Promise.resolve()
+    },
+    restoreOwner(appPath: string) {
+      ownerPath = appPath
+      hideReplacementOwner = false
+      return Promise.resolve()
+    }
+  }
+  await installLinkHandler('install', instance, options)
+  const appPath = linkHandlerAppPath('markover', handlerRoot)
+  const originalBinding = await fs.readFile(
+    path.join(appPath, 'Contents/Resources/binding.json'),
+    'utf8'
+  )
+
+  ownerPath = externalOwner
+  await assert.rejects(
+    installLinkHandler('replace', instance, {
+      ...options,
+      register(replacementPath: string) {
+        ownerPath = replacementPath
+        hideReplacementOwner = true
+        return Promise.resolve()
+      }
+    }),
+    /LaunchServices did not select/
+  )
+
+  assert.equal(ownerPath, externalOwner)
+  assert.equal(await fs.readFile(
+    path.join(appPath, 'Contents/Resources/binding.json'),
+    'utf8'
+  ), originalBinding)
+})

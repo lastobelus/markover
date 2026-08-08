@@ -317,8 +317,10 @@ private func claim(binding: Binding) -> Never {
 }
 
 private final class HandlerDelegate: NSObject, NSApplicationDelegate {
-  private var handled = false
   private var binding: Binding?
+  private var inputReceived = false
+  private var pendingValues: [String?] = []
+  private var processing = false
 
   func applicationWillFinishLaunching(_ notification: Notification) {
     NSAppleEventManager.shared().setEventHandler(
@@ -334,7 +336,7 @@ private final class HandlerDelegate: NSObject, NSApplicationDelegate {
       handle(CommandLine.arguments[1])
     } else {
       DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-        guard self?.handled == false else { return }
+        guard self?.inputReceived == false else { return }
         self?.fail(HandlerFailure(
           category: "invalid-link",
           title: "Invalid Markover link",
@@ -352,10 +354,17 @@ private final class HandlerDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func handle(_ value: String?) {
-    guard !handled else { return }
-    handled = true
+    inputReceived = true
+    pendingValues.append(value)
+    processNext()
+  }
+
+  private func processNext() {
+    guard !processing, !pendingValues.isEmpty else { return }
+    processing = true
+    let value = pendingValues.removeFirst()
     do {
-      let loaded = try loadBinding()
+      let loaded = try binding ?? loadBinding()
       binding = loaded
       guard let value else {
         throw HandlerFailure(
@@ -367,27 +376,36 @@ private final class HandlerDelegate: NSObject, NSApplicationDelegate {
       Task { @MainActor in
         do {
           try await forward(value, binding: loaded)
-          NSApp.terminate(nil)
         } catch let failure as HandlerFailure {
           show(failure, binding: loaded)
-          NSApp.terminate(nil)
         } catch {
           show(HandlerFailure(
             category: "activation-failed",
             title: "Markover couldn’t open this review",
             detail: "The handler encountered an internal error. Repair it, then try again."
           ), binding: loaded)
-          NSApp.terminate(nil)
         }
+        self.finishCurrent()
       }
     } catch let failure as HandlerFailure {
-      fail(failure)
+      show(failure, binding: binding)
+      finishCurrent()
     } catch {
-      fail(HandlerFailure(
+      show(HandlerFailure(
         category: "handler-damaged",
         title: "Markover link handler needs repair",
         detail: "Its instance binding could not be loaded."
-      ))
+      ), binding: binding)
+      finishCurrent()
+    }
+  }
+
+  private func finishCurrent() {
+    processing = false
+    if pendingValues.isEmpty {
+      NSApp.terminate(nil)
+    } else {
+      processNext()
     }
   }
 

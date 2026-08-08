@@ -41,3 +41,11 @@ test('native errors are bounded, redacted, instance-specific, and one-button', (
   )
   assert.doesNotMatch(diagnostic, /token|authorization|reviewId|content/i)
 })
+
+test('native handler queues delivered URLs before terminating', () => {
+  assert.match(source, /private var pendingValues: \[String\?\] = \[\]/)
+  assert.match(source, /pendingValues\.append\(value\)/)
+  assert.match(source, /let value = pendingValues\.removeFirst\(\)/)
+  assert.match(source, /if pendingValues\.isEmpty \{\s*NSApp\.terminate/)
+  assert.doesNotMatch(source, /guard !handled else/)
+})

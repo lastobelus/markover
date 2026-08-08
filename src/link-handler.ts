@@ -60,6 +60,7 @@ export interface LinkHandlerOptions {
   inspectOwner?: (scheme: string) => Promise<string | null>
   probe?: (endpointPath: string) => Promise<boolean>
   register?: (appPath: string) => Promise<void>
+  restoreOwner?: (appPath: string, scheme: string) => Promise<void>
   unregister?: (appPath: string) => Promise<void>
   runCommand?: typeof spawnSync
   sourcePath?: string
@@ -450,6 +451,34 @@ function defaultUnregister(appPath: string): Promise<void> {
   return Promise.resolve()
 }
 
+const defaultOwnerRestoreSource = [
+  'import AppKit',
+  'import CoreServices',
+  'import Foundation',
+  'let appURL = URL(fileURLWithPath: CommandLine.arguments[1])',
+  'guard let bundleId = Bundle(url: appURL)?.bundleIdentifier else { exit(2) }',
+  'guard LSRegisterURL(appURL as CFURL, true) == noErr else { exit(3) }',
+  'exit(LSSetDefaultHandlerForURLScheme(',
+  '  CommandLine.arguments[2] as CFString,',
+  '  bundleId as CFString',
+  '))'
+].join('\n')
+
+function defaultRestoreOwner(appPath: string, scheme: string): Promise<void> {
+  const result = spawnSync(
+    '/usr/bin/swift',
+    ['-e', defaultOwnerRestoreSource, appPath, scheme],
+    { encoding: 'utf8' }
+  )
+  if (result.error || result.status !== 0) {
+    throw new LinkHandlerError(
+      'HANDLER_INSTALL_FAILED',
+      commandFailure(result, 'Previous LaunchServices ownership could not be restored.')
+    )
+  }
+  return Promise.resolve()
+}
+
 function bindingMatches(
   left: LinkHandlerBinding,
   right: LinkHandlerBinding
@@ -658,10 +687,43 @@ export async function installLinkHandler(
     }
     await commitGeneratedAppReplacement(replacement)
   } catch (error) {
-    await rollbackGeneratedAppReplacement(replacement, before.expectedPath)
+    const unregister = options.unregister || defaultUnregister
+    const restoreOwner = options.restoreOwner || defaultRestoreOwner
+    const rollbackFailures: string[] = []
+    await unregister(before.expectedPath).catch((rollbackError: unknown) => {
+      rollbackFailures.push(
+        rollbackError instanceof Error
+          ? rollbackError.message
+          : String(rollbackError)
+      )
+    })
+    await rollbackGeneratedAppReplacement(
+      replacement,
+      before.expectedPath
+    ).catch((rollbackError: unknown) => {
+      rollbackFailures.push(
+        rollbackError instanceof Error
+          ? rollbackError.message
+          : String(rollbackError)
+      )
+    })
+    if (before.ownerPath) {
+      await restoreOwner(before.ownerPath, instance.scheme).catch(
+        (rollbackError: unknown) => {
+          rollbackFailures.push(
+            rollbackError instanceof Error
+              ? rollbackError.message
+              : String(rollbackError)
+          )
+        }
+      )
+    }
+    const failure = error instanceof Error ? error.message : String(error)
     throw new LinkHandlerError(
       'HANDLER_INSTALL_FAILED',
-      error instanceof Error ? error.message : String(error)
+      rollbackFailures.length > 0
+        ? `${failure} Rollback also failed: ${rollbackFailures.join(' ')}`
+        : failure
     )
   }
   return {
