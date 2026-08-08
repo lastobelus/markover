@@ -1,15 +1,21 @@
 [
   {
-    "id": "untracked-work-selects-tracker-before-write",
-    "description": "An untracked idea must be routed through one numbered tracker choice before an issue or claim is created.",
+    "id": "untracked-single-session-work-uses-direct-pr",
+    "description": "Fresh work bounded to one pull request and one session selects a tracker, then creates only the tracked pull request.",
     "provenance": {
       "kind": "synthetic",
       "sourceThreadIds": []
     },
     "observations": {
       "workItem": {
-        "state": "untracked-idea",
+        "state": "none",
         "trackerAttachments": []
+      },
+      "deliveryShape": {
+        "authorizedNow": true,
+        "likelyPullRequests": 1,
+        "likelySessions": 1,
+        "roadmapCoordinationRequired": false
       },
       "repositoryTrackers": {
         "openProjects": [
@@ -25,29 +31,42 @@
           }
         ]
       },
-      "interactionState": "tracker-not-selected"
+      "selectedTracker": "announcement-readiness"
     },
     "requiredActions": [
+      "delivery-shape-decided:direct-pr",
       "tracker-choice-presented:open-project",
       "tracker-choice-presented:open-milestone",
       "tracker-choice-presented:new-project",
       "tracker-choice-presented:new-milestone",
       "question-count:one",
-      "write-withheld:before-tracker-selection"
+      "direct-pr-action-announced:tracker",
+      "prewrite-inflight-scan:selected-tracker",
+      "draft-pr-created:only-work-item",
+      "draft-pr-attached:selected-tracker",
+      "draft-pr-claimed:before-further-implementation",
+      "work-item-count-created:one-pr"
     ],
     "forbiddenActions": [
-      "issue-created:before-tracker-selection",
-      "tracker-assumed:existing-project",
-      "implementation-started:before-claim"
+      "delivery-shape-question-asked:clear-single-pr",
+      "issue-created:direct-pr-path",
+      "implementation-continued:before-draft-pr-claim",
+      "work-item-count-created:issue-and-pr"
     ],
     "controls": {
       "positive": [
+        "delivery-shape-decided:direct-pr",
         "tracker-choice-presented:open-project",
         "tracker-choice-presented:open-milestone",
         "tracker-choice-presented:new-project",
         "tracker-choice-presented:new-milestone",
         "question-count:one",
-        "write-withheld:before-tracker-selection"
+        "direct-pr-action-announced:tracker",
+        "prewrite-inflight-scan:selected-tracker",
+        "draft-pr-created:only-work-item",
+        "draft-pr-attached:selected-tracker",
+        "draft-pr-claimed:before-further-implementation",
+        "work-item-count-created:one-pr"
       ],
       "negative": {
         "signals": [
@@ -56,13 +75,97 @@
           "tracker-choice-presented:new-project",
           "tracker-choice-presented:new-milestone",
           "question-count:one",
-          "issue-created:before-tracker-selection"
+          "issue-created:direct-pr-path",
+          "draft-pr-created:only-work-item",
+          "implementation-continued:before-draft-pr-claim",
+          "work-item-count-created:issue-and-pr"
         ],
         "expectedMissing": [
-          "write-withheld:before-tracker-selection"
+          "delivery-shape-decided:direct-pr",
+          "direct-pr-action-announced:tracker",
+          "prewrite-inflight-scan:selected-tracker",
+          "draft-pr-attached:selected-tracker",
+          "draft-pr-claimed:before-further-implementation",
+          "work-item-count-created:one-pr"
         ],
         "expectedForbidden": [
-          "issue-created:before-tracker-selection"
+          "issue-created:direct-pr-path",
+          "implementation-continued:before-draft-pr-claim",
+          "work-item-count-created:issue-and-pr"
+        ]
+      }
+    }
+  },
+  {
+    "id": "untracked-durable-work-uses-issue",
+    "description": "Fresh work that spans roadmap boundaries is recorded as an issue and scheduled without starting implementation.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "none",
+        "trackerAttachments": []
+      },
+      "deliveryShape": {
+        "authorizedNow": false,
+        "likelyPullRequests": "multiple",
+        "likelySessions": "multiple",
+        "roadmapCoordinationRequired": true,
+        "scheduledForLater": true
+      },
+      "selectedTracker": "announcement-readiness"
+    },
+    "requiredActions": [
+      "delivery-shape-decided:issue",
+      "tracker-choice-presented:before-issue-write",
+      "issue-created:after-tracker-selection",
+      "issue-body-recorded:scope-coordination-delivery-shape",
+      "issue-attached:selected-tracker",
+      "project-status-set:todo-for-scheduled-work",
+      "workflow-stopped:scheduled-issue"
+    ],
+    "forbiddenActions": [
+      "direct-pr-bootstrap-used:durable-work",
+      "pull-request-created:scheduled-work",
+      "implementation-started:scheduled-work",
+      "work-intent-created:scheduled-work",
+      "project-status-set:in-progress-for-scheduled-work"
+    ],
+    "controls": {
+      "positive": [
+        "delivery-shape-decided:issue",
+        "tracker-choice-presented:before-issue-write",
+        "issue-created:after-tracker-selection",
+        "issue-body-recorded:scope-coordination-delivery-shape",
+        "issue-attached:selected-tracker",
+        "project-status-set:todo-for-scheduled-work",
+        "workflow-stopped:scheduled-issue"
+      ],
+      "negative": {
+        "signals": [
+          "tracker-choice-presented:before-issue-write",
+          "issue-created:after-tracker-selection",
+          "issue-attached:selected-tracker",
+          "direct-pr-bootstrap-used:durable-work",
+          "pull-request-created:scheduled-work",
+          "implementation-started:scheduled-work",
+          "work-intent-created:scheduled-work",
+          "project-status-set:in-progress-for-scheduled-work"
+        ],
+        "expectedMissing": [
+          "delivery-shape-decided:issue",
+          "issue-body-recorded:scope-coordination-delivery-shape",
+          "project-status-set:todo-for-scheduled-work",
+          "workflow-stopped:scheduled-issue"
+        ],
+        "expectedForbidden": [
+          "direct-pr-bootstrap-used:durable-work",
+          "pull-request-created:scheduled-work",
+          "implementation-started:scheduled-work",
+          "work-intent-created:scheduled-work",
+          "project-status-set:in-progress-for-scheduled-work"
         ]
       }
     }
@@ -349,6 +452,240 @@
         "expectedForbidden": [
           "postclaim-missing-intent-reused:preclaim-evidence",
           "postclaim-scan-completed:ids-and-markers-only"
+        ]
+      }
+    }
+  },
+  {
+    "id": "merged-pr-followup-apply-now-reuses-tracker",
+    "description": "Applying a fix found after merge creates one linked pull request, reuses the source tracking, and does not create an intermediate issue.",
+    "provenance": {
+      "kind": "live-thread",
+      "sourceThreadIds": [
+        "04ce5c52-8191-4917-8d4a-0503e18f1850"
+      ],
+      "observation": "A post-merge cleanup fix for PR #61 selected a tracker, created issue #72, implemented the fix, and opened draft PR #73 even though immediate implementation needed only the new pull request."
+    },
+    "observations": {
+      "sourcePullRequest": {
+        "state": "merged",
+        "trackerAttachments": [
+          {
+            "type": "project",
+            "title": "Announcement Readiness",
+            "state": "open"
+          }
+        ]
+      },
+      "existingOpenOwner": false,
+      "problem": {
+        "confirmed": true,
+        "proposedFixKnown": true
+      },
+      "userChoice": "apply-now"
+    },
+    "requiredActions": [
+      "followup-choice-offered:apply-now",
+      "followup-choice-offered:create-issue",
+      "tracker-set-inherited:source-pull-request",
+      "action-announced:source-pr-and-tracker",
+      "prewrite-inflight-scan:inherited-trackers",
+      "draft-pr-created:follow-up-to-source",
+      "draft-pr-attached:inherited-trackers",
+      "draft-pr-claimed:before-further-implementation",
+      "work-item-count-created:one-pr"
+    ],
+    "forbiddenActions": [
+      "issue-created:apply-now",
+      "tracker-choice-question-asked:usable-source-trackers",
+      "implementation-continued:before-draft-pr-claim",
+      "source-pull-request-reopened",
+      "work-item-count-created:issue-and-pr"
+    ],
+    "controls": {
+      "positive": [
+        "followup-choice-offered:apply-now",
+        "followup-choice-offered:create-issue",
+        "tracker-set-inherited:source-pull-request",
+        "action-announced:source-pr-and-tracker",
+        "prewrite-inflight-scan:inherited-trackers",
+        "draft-pr-created:follow-up-to-source",
+        "draft-pr-attached:inherited-trackers",
+        "draft-pr-claimed:before-further-implementation",
+        "work-item-count-created:one-pr"
+      ],
+      "negative": {
+        "signals": [
+          "followup-choice-offered:apply-now",
+          "followup-choice-offered:create-issue",
+          "tracker-choice-question-asked:usable-source-trackers",
+          "issue-created:apply-now",
+          "draft-pr-created:follow-up-to-source",
+          "implementation-continued:before-draft-pr-claim",
+          "work-item-count-created:issue-and-pr"
+        ],
+        "expectedMissing": [
+          "tracker-set-inherited:source-pull-request",
+          "action-announced:source-pr-and-tracker",
+          "prewrite-inflight-scan:inherited-trackers",
+          "draft-pr-attached:inherited-trackers",
+          "draft-pr-claimed:before-further-implementation",
+          "work-item-count-created:one-pr"
+        ],
+        "expectedForbidden": [
+          "issue-created:apply-now",
+          "tracker-choice-question-asked:usable-source-trackers",
+          "implementation-continued:before-draft-pr-claim",
+          "work-item-count-created:issue-and-pr"
+        ]
+      }
+    }
+  },
+  {
+    "id": "merged-pr-followup-issue-only-chooses-tracker",
+    "description": "Recording a fix found after merge asks where to track it, reminds the user of the source tracking, and stops after creating the linked issue.",
+    "provenance": {
+      "kind": "live-thread",
+      "sourceThreadIds": [
+        "04ce5c52-8191-4917-8d4a-0503e18f1850"
+      ],
+      "observation": "The same post-merge cleanup run showed that tracker selection did not distinguish recording an issue for later from implementing the fix immediately."
+    },
+    "observations": {
+      "sourcePullRequest": {
+        "state": "merged",
+        "trackerAttachments": [
+          {
+            "type": "project",
+            "title": "Announcement Readiness",
+            "state": "open"
+          }
+        ]
+      },
+      "existingOpenOwner": false,
+      "problem": {
+        "confirmed": true,
+        "proposedFixKnown": true
+      },
+      "userChoice": "create-issue",
+      "selectedTracker": "focused-preview"
+    },
+    "requiredActions": [
+      "followup-choice-offered:apply-now",
+      "followup-choice-offered:create-issue",
+      "source-tracker-reminder-presented",
+      "tracker-choice-presented:before-issue-write",
+      "question-count:one",
+      "issue-created:after-tracker-selection",
+      "issue-body-recorded:problem-evidence-proposed-fix",
+      "issue-linked:source-pull-request",
+      "issue-attached:selected-tracker",
+      "workflow-stopped:issue-only"
+    ],
+    "forbiddenActions": [
+      "tracker-inherited-without-choice:issue-only",
+      "implementation-started:issue-only",
+      "pull-request-created:issue-only",
+      "work-intent-created:issue-only",
+      "project-status-set:in-progress-for-issue-only"
+    ],
+    "controls": {
+      "positive": [
+        "followup-choice-offered:apply-now",
+        "followup-choice-offered:create-issue",
+        "source-tracker-reminder-presented",
+        "tracker-choice-presented:before-issue-write",
+        "question-count:one",
+        "issue-created:after-tracker-selection",
+        "issue-body-recorded:problem-evidence-proposed-fix",
+        "issue-linked:source-pull-request",
+        "issue-attached:selected-tracker",
+        "workflow-stopped:issue-only"
+      ],
+      "negative": {
+        "signals": [
+          "followup-choice-offered:apply-now",
+          "followup-choice-offered:create-issue",
+          "source-tracker-reminder-presented",
+          "tracker-choice-presented:before-issue-write",
+          "question-count:one",
+          "issue-created:after-tracker-selection",
+          "issue-linked:source-pull-request",
+          "issue-attached:selected-tracker",
+          "implementation-started:issue-only",
+          "pull-request-created:issue-only",
+          "work-intent-created:issue-only",
+          "project-status-set:in-progress-for-issue-only"
+        ],
+        "expectedMissing": [
+          "issue-body-recorded:problem-evidence-proposed-fix",
+          "workflow-stopped:issue-only"
+        ],
+        "expectedForbidden": [
+          "implementation-started:issue-only",
+          "pull-request-created:issue-only",
+          "work-intent-created:issue-only",
+          "project-status-set:in-progress-for-issue-only"
+        ]
+      }
+    }
+  },
+  {
+    "id": "open-pr-markover-review-uses-development-instance",
+    "description": "A new Markover review for an open pull request stays inside that pull request worktree and retains its instance selector through handoff.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "open-pull-request"
+      },
+      "checkout": {
+        "matchesTargetPullRequest": true
+      },
+      "markoverAction": "open-new-review"
+    },
+    "requiredActions": [
+      "markover-instance-selected:development",
+      "markover-open-targeted:current-pr-worktree",
+      "review-id-retained:with-instance-selector",
+      "markover-get-edit-targeted:same-instance",
+      "pr-instance-state-preserved:routine-handoff"
+    ],
+    "forbiddenActions": [
+      "markover-instance-selected:canonical-for-new-pr-review",
+      "review-id-routed:across-instances",
+      "checkout-mutated:instance-resolution",
+      "pr-instance-cleanup:auto"
+    ],
+    "controls": {
+      "positive": [
+        "markover-instance-selected:development",
+        "markover-open-targeted:current-pr-worktree",
+        "review-id-retained:with-instance-selector",
+        "markover-get-edit-targeted:same-instance",
+        "pr-instance-state-preserved:routine-handoff"
+      ],
+      "negative": {
+        "signals": [
+          "markover-instance-selected:canonical-for-new-pr-review",
+          "review-id-routed:across-instances",
+          "checkout-mutated:instance-resolution",
+          "pr-instance-cleanup:auto"
+        ],
+        "expectedMissing": [
+          "markover-instance-selected:development",
+          "markover-open-targeted:current-pr-worktree",
+          "review-id-retained:with-instance-selector",
+          "markover-get-edit-targeted:same-instance",
+          "pr-instance-state-preserved:routine-handoff"
+        ],
+        "expectedForbidden": [
+          "markover-instance-selected:canonical-for-new-pr-review",
+          "review-id-routed:across-instances",
+          "checkout-mutated:instance-resolution",
+          "pr-instance-cleanup:auto"
         ]
       }
     }

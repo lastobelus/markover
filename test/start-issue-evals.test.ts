@@ -36,6 +36,16 @@ const root = path.resolve(__dirname, '../..')
 const casesPath = path.join(root, 'evals/start-issue/cases.json')
 const casesSource = fs.readFileSync(casesPath, 'utf8')
 const cases = JSON.parse(casesSource) as StartIssueCase[]
+const skillDirectory = path.join(root, '.agents/skills/start-issue')
+const skillSource = fs.readFileSync(path.join(skillDirectory, 'SKILL.md'), 'utf8')
+const agentsSource = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
+
+function readReference(name: string): string {
+  return fs.readFileSync(
+    path.join(skillDirectory, 'references', name),
+    'utf8'
+  )
+}
 
 function evaluate(
   evaluationCase: StartIssueCase,
@@ -55,15 +65,67 @@ function evaluate(
   }
 }
 
-test('start-issue corpus covers the five v1 coordination branches', () => {
+test('start-issue corpus covers the nine coordination branches', () => {
   assert.deepEqual(cases.map(({ id }) => id), [
-    'untracked-work-selects-tracker-before-write',
+    'untracked-single-session-work-uses-direct-pr',
+    'untracked-durable-work-uses-issue',
     'confirmed-new-project-uses-repository-owner',
     'new-milestone-interviews-before-creation',
     'multiple-trackers-retain-all-active-attachments',
-    'post-claim-scan-reconstructs-unmarked-items'
+    'post-claim-scan-reconstructs-unmarked-items',
+    'merged-pr-followup-apply-now-reuses-tracker',
+    'merged-pr-followup-issue-only-chooses-tracker',
+    'open-pr-markover-review-uses-development-instance'
   ])
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
+})
+
+test('initial response identifies the live issue and title first', () => {
+  assert.match(
+    skillSource,
+    /## How to respond to initial start-issue prompt[\s\S]*```markdown\n# #52—Open a specific review through a clickable Markover deep link/
+  )
+})
+
+test('branch-only guidance is progressively disclosed', () => {
+  assert.doesNotMatch(skillSource, /^### Follow-ups to merged pull requests$/m)
+  assert.match(
+    skillSource,
+    /Untracked or post-merge work:[\s\S]*references\/work-item-routing\.md/
+  )
+  assert.match(
+    skillSource,
+    /Tracker selection:[\s\S]*references\/tracker-selection\.md/
+  )
+  assert.match(
+    skillSource,
+    /material decision remains unresolved[\s\S]*references\/interview\.md/
+  )
+  assert.match(
+    skillSource,
+    /target already has one or more trusted marked comments[\s\S]*references\/existing-claim\.md/
+  )
+  assert.match(
+    skillSource,
+    /PR-local Markover:[\s\S]*references\/markover-review\.md/
+  )
+
+  assert.match(readReference('work-item-routing.md'), /## Follow-up after merge/)
+  assert.match(readReference('tracker-selection.md'), /## Discover candidates/)
+  assert.match(readReference('interview.md'), /# Implementation interview/)
+  assert.match(readReference('existing-claim.md'), /# Existing work-intent claim/)
+  const markoverReference = readReference('markover-review.md')
+  assert.match(markoverReference, /--instance dev open PATH/)
+  assert.doesNotMatch(markoverReference, /open '<reviewUrl>'/)
+})
+
+test('root guidance owns the terminal-friendly Markover handoff', () => {
+  assert.match(agentsSource, /^`open '<reviewUrl>'`$/m)
+  assert.match(agentsSource, /normal Markdown link and raw review ID/)
+  assert.match(agentsSource, /T3Code strips a custom-scheme/)
+  for (const fencedBlock of agentsSource.match(/```[\s\S]*?```/g) ?? []) {
+    assert.doesNotMatch(fencedBlock, /open '<reviewUrl>'/)
+  }
 })
 
 test('fixtures contain normalized observations rather than live GitHub output', () => {
@@ -119,6 +181,25 @@ test('post-claim freshness case records both independent live observations', () 
     '2fdb0272-8eb1-4549-a47a-2051b6d37b01'
   ])
   assert.match(evaluationCase.provenance.observation ?? '', /reused pre-claim/)
+})
+
+test('post-merge cases record the issue-and-PR live failure', () => {
+  const evaluationCases = cases.filter(({ id }) =>
+    id.startsWith('merged-pr-followup-')
+  )
+  assert.equal(evaluationCases.length, 2)
+  evaluationCases.forEach((evaluationCase) => {
+    assert.equal(evaluationCase.provenance.kind, 'live-thread')
+    assert.deepEqual(evaluationCase.provenance.sourceThreadIds, [
+      '04ce5c52-8191-4917-8d4a-0503e18f1850'
+    ])
+  })
+  const applyNowCase = evaluationCases[0]
+  assert.ok(applyNowCase)
+  assert.match(
+    applyNowCase.provenance.observation ?? '',
+    /created issue #72.*opened draft PR #73/
+  )
 })
 
 for (const evaluationCase of cases) {

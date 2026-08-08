@@ -1,6 +1,6 @@
 ---
 name: start-issue
-description: Use when starting or taking over a GitHub issue or pull request, or turning an untracked roadmap idea into an issue, before implementation.
+description: Use when starting or taking over a GitHub issue or pull request, starting untracked repository work, or handling a follow-up found after a pull request merged, before implementation.
 ---
 
 # Start Issue
@@ -10,6 +10,17 @@ target's tracker set. A Project can provide a kanban status ledger; a milestone
 only groups repository issues and pull requests. Always use the work-intent
 comment as the change-surface and ownership ledger. Complete the stages in
 order.
+
+## How to respond to initial start-issue prompt
+
+Resolve the live issue number and full GitHub title before the first response.
+Start that response with this shape:
+
+```markdown
+# #52—Open a specific review through a clickable Markover deep link
+
+I’m checking its trackers, existing claim, and inflight overlap before proceeding.
+```
 
 ## 1. Orient and select tracking
 
@@ -26,51 +37,27 @@ gh issue view ITEM_URL --json milestone,projectItems
 gh pr view ITEM_URL --json milestone,projectItems
 ```
 
-Run only the command matching the item type. When the CLI summary omits a
-Project's owner, number, or node ID, use paginated GraphQL to resolve the
-target's `projectItems` connection and each item's `project` identity. Use every
-open Project and milestone already attached to the target unless the user asks
-to change its tracking. Report attached closed Projects as historical and
-exclude them from the tracker set, scans, and status writes. Include one only
-after the user explicitly chooses to reactivate it and live data shows it open.
-Report conflicting active Project statuses before proceeding.
+**Untracked or post-merge work:** when no open issue or pull request owns the
+requested work, including a problem found after a pull request merged, read
+[`references/work-item-routing.md`](references/work-item-routing.md) completely
+before deciding which work item to create.
 
-If the target has no attached tracker, discover live candidates from the
-current repository instead of assuming an owner or number. Use paginated
-GraphQL to read its `projectsV2` connection, including each Project's owner,
-number, node ID, title, URL, and closed state. Read its open milestones through
-the REST API:
+**Tracker selection:** when the target has no active tracker, an attached
+Project's identity is incomplete, or the user selects `New Project` or `New
+Milestone`, read [`references/tracker-selection.md`](references/tracker-selection.md)
+completely before the next tracking write.
 
-```sh
-gh api graphql --paginate \
-  -f owner=REPOSITORY_OWNER -f name=REPOSITORY_NAME \
-  -f query='query($owner: String!, $name: String!, $endCursor: String) {
-    repository(owner: $owner, name: $name) {
-      projectsV2(first: 100, after: $endCursor) {
-        nodes { id number title url closed owner { ... on User { login } ... on Organization { login } } }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }'
-gh api --paginate 'repos/REPOSITORY_OWNER/REPOSITORY_NAME/milestones?state=open&per_page=100'
-```
+**PR-local Markover:** when the target is an open pull request and this run will
+open, get, or edit a Markover review, read
+[`references/markover-review.md`](references/markover-review.md) completely
+before the next Markover command.
 
-Present one numbered choice list containing open repository-linked Projects and
-milestones, followed by `New Project` and `New Milestone`. Include tracker type,
-owner or repository, title, and number in each choice. Ask exactly one question
-so the user can answer with a number. Retain the chosen tracker identity.
-
-For an untracked idea, present the same tracker choices before creating the
-issue. Create the issue in the current repository before claiming the work so
-milestones, comments, and ownership use one uniform path.
-
-If the user selects `New Project` or `New Milestone`, interview about that
-tracker before the work item. Resolve its title, purpose, owner or repository,
-and the minimum useful configuration. For a Project, also resolve its initial
-Status options, create it under the repository owner, and link it to the current
-repository. For a milestone, resolve any useful description or due date. Create
-it only after the user confirms those decisions, then return to the work-item
-workflow.
+Run only the command matching the item type. Use every open Project and
+milestone already attached to the target unless the user asks to change its
+tracking. Report attached closed Projects as historical and exclude them from
+the tracker set, scans, and status writes. Include one only after the user
+explicitly chooses to reactivate it and live data shows it open. Report
+conflicting active Project statuses before proceeding.
 
 For every selected Project, resolve its fields and status options from live
 JSON. Use an existing `Status` field and semantically matching `In Progress`
@@ -146,16 +133,9 @@ that evidence remains ambiguous. Complete the scan only after each missing
 intent has been reconstructed from live evidence or explicitly resolved by the
 user.
 
-If the target already has one or more marked comments, create no new claim.
-Apply the deterministic winner rule in stage 3, show the canonical intent to the
-user, and ask whether this run is a continuation or handoff. Reuse the comment
-only when its `thread` equals this run's owner token and the user approves the
-continuation. For an approved handoff or a legacy null token, preserve the
-intent data. Demote the old marker only after its owner acknowledges
-relinquishment or the user explicitly confirms that run has stopped, then
-create a new marked claim with this run's token in stage 3. A separate
-concurrent effort remains paused until the user chooses a distinct issue or pull
-request; v1 does not represent multiple active intents on one item.
+When the target already has one or more trusted marked comments, read
+[`references/existing-claim.md`](references/existing-claim.md) completely
+before deciding whether this run is a continuation, handoff, or collision.
 
 **Complete when:** every known inflight item in the tracker set has been checked
 and the target has no unresolved intent collision.
@@ -242,46 +222,15 @@ is stable with no unresolved overlap.
 
 ## 4. Interview
 
-Interview relentlessly about unresolved material implementation decisions and
-their dependencies. Ask exactly one question per response and wait for the
-answer. Number tracker choices, decisions, and questions in one sequence.
-
 Use a zero-question path when the opening request already resolves acceptance
 criteria, scope boundaries, dependencies, touch points, validation, and
 meaningful tradeoffs, and explicitly authorizes implementation. Record the
 resolved decisions, synchronize the canonical intent, perform the required
 fresh final inflight scan, and complete this stage without inventing a question.
 
-Look up discoverable facts instead of asking for them. Decisions belong to the
-user. When standards and repository evidence make an answer unusually clear,
-record it as a numbered decision beside the next actual question.
-
-Use this format:
-
-```markdown
-**Decision 4**: **Short decision title**
-
-Confirmed: concise statement of the decision and any important consequence.
-
-**Question 5**: **Short question title**
-
-Relevant discovered facts, dependencies, and tradeoffs.
-
-**My recommendation:** Recommended answer and rationale.
-
-> One clear question, preferably yes/no or a small set of choices?
-```
-
-Update the canonical work intent whenever the interview materially changes its
-summary, touch points, dependencies, branch, or phase. Keep `phase:
-investigating` until the user explicitly confirms shared understanding and
-authorizes implementation.
-
-After every material intent update, repeat the inflight scan from stage 2 with
-fresh stability snapshots and resolve newly visible overlap before asking the
-next question. Perform this scan once more after the final material update and
-before accepting implementation authorization, even if no further question is
-needed.
+When any material decision remains unresolved, read
+[`references/interview.md`](references/interview.md) completely and follow its
+question, synchronization, and rescan rules.
 
 **Complete when:** acceptance criteria, scope boundaries, dependencies,
 touch-points, validation, and meaningful tradeoffs are resolved, and either the

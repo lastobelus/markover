@@ -20,6 +20,11 @@ Every positive control contains all required actions and no forbidden action.
 Every negative control declares the exact missing and forbidden actions its
 trace must produce, preventing an unrelated failure from satisfying the test.
 
+The two fresh-work cases distinguish delivery shape without requiring GitHub
+state: one PR in one session uses that PR as its only work item; work that may
+span PRs or sessions, coordinates roadmap items, or is scheduled for later uses
+an issue.
+
 ## Provenance
 
 Synthetic cases use `provenance.kind: synthetic`. A case derived from a live
@@ -32,6 +37,16 @@ using merged #66 guidance: both refreshed candidate IDs and markers but reused
 pre-claim evidence for unmarked Project items. This repeated observation makes
 the freshness requirement evidence-backed without coupling tests to either
 transcript.
+
+The two merged-PR follow-up cases come from a cleanup run that created both
+issue #72 and draft PR #73 for an immediately implemented fix. They separate
+the intended branches: apply now creates one tracked follow-up pull request;
+record for later chooses a tracker and stops after creating the linked issue.
+
+The PR-local Markover case protects the landed #61 instance boundary: a new
+review for an open pull request explicitly targets that worktree's development
+instance, retains the selector with its review ID, and preserves instance state
+through routine handoff.
 
 ## Running the controls
 
