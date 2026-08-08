@@ -49,6 +49,28 @@ async function respondToReviewSnapshot(
   }
 }
 
+async function respondToReviewActivation(
+  callback: (
+    request: ReviewActivationRequest
+  ) => ReviewActivationOutcome | Promise<ReviewActivationOutcome>,
+  request: ReviewActivationRequest
+): Promise<void> {
+  try {
+    const outcome = await callback(request)
+    ipcRenderer.send('review:activation-response', {
+      requestId: request.requestId,
+      reviewId: request.reviewId,
+      outcome
+    } satisfies ReviewActivationResponse)
+  } catch (error) {
+    ipcRenderer.send('review:activation-response', {
+      requestId: request.requestId,
+      reviewId: request.reviewId,
+      error: errorMessage(error)
+    } satisfies ReviewActivationResponse)
+  }
+}
+
 const bridge = {
   getStartupInfo: () => ipcRenderer.invoke('startup:info'),
   reportStartupPhase: (event) => ipcRenderer.invoke('startup:phase', event),
@@ -122,6 +144,14 @@ const bridge = {
       paused: boolean
     ) => {
       callback(paused)
+    })
+  },
+  onReviewActivationRequested: (callback) => {
+    ipcRenderer.on('review:activation-request', (
+      _event: IpcRendererEvent,
+      request: ReviewActivationRequest
+    ) => {
+      void respondToReviewActivation(callback, request)
     })
   },
   activateReview: (reviewId) => {

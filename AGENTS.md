@@ -22,9 +22,12 @@ recovery guidance:
 npm --silent run markover -- help
 ```
 
-The normal flow is `open` once, retain the returned `reviewId`, and stop. When
-the user later says “Check Markover,” run `get <reviewId>` once and act on the
-returned review JSON. Follow both `review.agentGuidance.fixedContract` and
+The normal flow is `open` once, retain the returned `reviewId`, give the user a
+best-effort Markdown link whose target is the returned `reviewUrl`, include the
+raw review ID and the standalone Terminal command below, and stop. When the
+user later says “Check Markover,” run
+`get <reviewId>` once and act on the returned review JSON. Follow both
+`review.agentGuidance.fixedContract` and
 `review.agentGuidance.interpretationPolicy` before acting. Feedback is
 free-form and can mix revision requests, questions, discussion, and context;
 interpret each part by intent, explicitly acknowledge every question even when
@@ -34,14 +37,15 @@ Keep `--silent`: agent-facing success output is exactly one JSON value on
 stdout, while errors explain the relevant usage and recovery on stderr.
 
 Whenever opening or later referencing a document in Markover for review, keep
-the normal Markdown link and raw review ID, and also include the returned review
-URL as an inline-code Terminal command, alone on its own line:
+the best-effort Markdown link and raw review ID, and also include the returned
+review URL as an inline-code Terminal command, alone on its own line:
 
 `open '<reviewUrl>'`
 
-This standalone command is the fallback when T3Code strips a custom-scheme
-link; keeping it isolated makes it easy to triple-click and paste into the
-attached terminal.
+Custom-scheme links work through macOS and this Terminal command, but agent
+hosts including T3Code and Codex may strip or decline them. The isolated command
+is the reliable handoff: it is easy to triple-click and paste into the attached
+terminal.
 
 ## Markover dogfooding
 
@@ -57,7 +61,9 @@ Markdown artifact:
    unless the user says not to. Pass an explicit `--thread-id` when available;
    otherwise include a unique high-entropy
    `--handoff-key mko_handoff_<16-to-64-alphanumeric-characters>`.
-5. Report the returned review ID and the persisted review path
+5. Report a best-effort Markdown link using the returned `reviewUrl`, the raw
+   review ID, the standalone Terminal command required above, and the persisted
+   review path
    `~/Library/Application Support/Markover/reviews/<review-id>/review.json` on
    macOS. Never keep a dogfooding review alive through a blocking T3 exec
    session.

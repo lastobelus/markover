@@ -84,6 +84,7 @@ async function serviceFixture(
       changes.push({ artifact, action })
       await options.onChange?.(artifact, action)
     },
+    onActivate: options.onActivate,
     onUnauthorized: options.onUnauthorized,
     interpretationPolicy: options.interpretationPolicy
   })
@@ -162,8 +163,13 @@ function tree(): ReviewTree {
 }
 
 test('serves health and a complete open/get/edit workflow', async (t) => {
+  const activations: string[] = []
   const { changes, endpointPath, identity } = await serviceFixture(t, {
-    interpretationPolicy: () => 'Use the policy captured at open.'
+    interpretationPolicy: () => 'Use the policy captured at open.',
+    onActivate(reviewId) {
+      activations.push(reviewId)
+      return Promise.resolve({ reviewId, outcome: 'activated' })
+    }
   })
 
   assert.deepEqual(
@@ -179,6 +185,15 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
     reviewId: 'mko_aaa11111',
     status: 'editing'
   })
+  assert.deepEqual(
+    await requestJson(
+      endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/activate'
+    ),
+    { reviewId: 'mko_aaa11111', outcome: 'activated' }
+  )
+  assert.deepEqual(activations, ['mko_aaa11111'])
 
   const handedOff = expectArtifact(await requestJson(
     endpointPath,
@@ -302,6 +317,7 @@ test('gates every current non-health route with real HTTP', async (t) => {
     { method: 'POST', path: '/reviews/import', body: '{' },
     { method: 'POST', path: '/reviews', body: '{' },
     { method: 'GET', path: '/reviews/mko_missing1', body: null },
+    { method: 'POST', path: '/reviews/mko_missing1/activate', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/handoff', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/edit', body: null },
     { method: 'GET', path: '/missing?private=secret', body: null },
@@ -959,4 +975,46 @@ test('pausing mutations drains active work and rejects new mutations', async (t)
     '/reviews/mko_aaa11111/edit'
   ))
   assert.equal(edited.status, 'editing')
+})
+
+test('pausing mutations drains activation and rejects a new activation', async (t) => {
+  let releaseActivation!: () => void
+  let activationStarted!: () => void
+  const activationReady = new Promise<void>((resolve) => {
+    activationStarted = resolve
+  })
+  const activationBarrier = new Promise<void>((resolve) => {
+    releaseActivation = resolve
+  })
+  const fixture = await serviceFixture(t, {
+    async onActivate(reviewId) {
+      activationStarted()
+      await activationBarrier
+      return { reviewId, outcome: 'activated' }
+    }
+  })
+
+  const activation = requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/activate'
+  )
+  await activationReady
+  let paused = false
+  const pause = fixture.service.pauseMutations().then(() => { paused = true })
+  await Promise.resolve()
+  assert.equal(paused, false)
+  await assert.rejects(
+    requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/activate'
+    ),
+    (error: unknown) => hasServiceError(error, 'SHUTTING_DOWN', 503)
+  )
+
+  releaseActivation()
+  await activation
+  await pause
+  assert.equal(paused, true)
 })

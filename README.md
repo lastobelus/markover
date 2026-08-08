@@ -56,15 +56,22 @@ are deferred to the Broad announcement roadmap in
 Release launchers produced from the hardened preflight verify its checksum,
 bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and
 code seal before moving it into the cache. Later commands reuse that validated
-version. The launcher returns a review ID and exits without waiting for the
-review:
+version. The launcher returns a review ID, status, and OS-openable custom URL,
+then exits without waiting for the review:
 
 ```json
-{"reviewId":"mko_8f3a2c","status":"editing"}
+{"reviewId":"mko_8f3a2c","status":"editing","reviewUrl":"markover://review/mko_8f3a2c"}
 ```
 
-If you are an agent, retain the returned `reviewId` and stop. When the user says “Check
-Markover,” run the same launcher with `get <reviewId>`:
+If you are an agent, retain the returned `reviewId`, present a best-effort
+`[Open in Markover](markover://review/mko_8f3a2c) (mko_8f3a2c)` link, and also
+put the reliable Terminal fallback on its own line:
+
+`open 'markover://review/mko_8f3a2c'`
+
+Custom-scheme Markdown links depend on the host; T3 Code and Codex do not
+currently dispatch them. When the user says
+“Check Markover,” run the same launcher with `get <reviewId>`:
 
 ```sh
 npx --yes \

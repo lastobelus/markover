@@ -24,12 +24,21 @@ import {
   persistReviewSnapshots,
   runDurabilityShutdown
 } from './durability-shutdown'
-import { runtimeInstanceFromEnvironment } from './instance'
+import {
+  CANONICAL_INSTANCE_SCHEME,
+  runtimeInstanceFromEnvironment
+} from './instance'
 import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { importLegacyReviews } from './review-migration'
 import { ReviewAutosave } from './review-autosave'
+import {
+  registerProtocolOnFirstLaunch,
+  SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT
+} from './protocol-registration'
 import { ReviewStore, type ReviewArtifact } from './review-store'
+import { parseReviewUrl, type ReviewUrl } from './review-url'
+import { ReviewUrlDispatcher } from './review-url-dispatcher'
 import {
   createServiceIdentity,
   publishServiceConnection,
@@ -77,6 +86,13 @@ interface PendingSnapshot {
 interface PendingStatus {
   reject: (reason?: unknown) => void
   resolve: () => void
+  timeout: ReturnType<typeof setTimeout>
+}
+
+interface PendingActivation {
+  reject: (reason?: unknown) => void
+  resolve: (outcome: ReviewActivationOutcome) => void
+  reviewId: string
   timeout: ReturnType<typeof setTimeout>
 }
 
@@ -162,6 +178,7 @@ let pendingAutosave: string | null = null
 let autosaveWriter: Promise<void> | null = null
 let snapshotSequence = 0
 let statusSequence = 0
+let activationSequence = 0
 let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
 let startupDiagnostic: StartupDiagnostic | null = null
 let startupBuildIdentity: BuildIdentity | null = null
@@ -169,6 +186,9 @@ let startupInfo: StartupInfo | null = null
 let startupReady = false
 let rendererInitializationHandled = false
 let rendererStartupFailed = false
+let rendererReadyWebContentsId: number | null = null
+let rendererReadyPromise: Promise<void> = Promise.resolve()
+let resolveRendererReady: (() => void) | null = null
 let managedAttachmentSavesBlocked = false
 let managedShutdownComplete = false
 let managedShutdownStarted = false
@@ -177,11 +197,38 @@ const startupWarnings: StartupWarning[] = []
 let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
+const pendingActivations = new Map<string, PendingActivation>()
 const projectRoots = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
+const reviewUrlDispatcher = new ReviewUrlDispatcher<ReviewUrl>(
+  async (parsed) => {
+    await activateManagedReview(parsed.reviewId)
+  },
+  (error) => {
+    process.stderr.write(`markover review link: ${errorMessage(error)}\n`)
+  }
+)
+
+if (process.platform === 'darwin' && app.isPackaged && !reviewMode && !smokeMode) {
+  app.on('open-url', (event, value) => {
+    event.preventDefault()
+    const parsed = parseReviewUrl(value, CANONICAL_INSTANCE_SCHEME)
+    if (!parsed) return
+    reviewUrlDispatcher.receive(parsed)
+  })
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isReviewActivationOutcome(
+  value: unknown
+): value is ReviewActivationOutcome {
+  return value === 'activated' ||
+    value === 'already-active' ||
+    value === 'blocked' ||
+    value === 'missing'
 }
 
 function isRendererSmokeResult(value: unknown): value is RendererSmokeResult {
@@ -627,6 +674,10 @@ function createWindow(
       nodeIntegration: false
     }
   })
+  rendererReadyWebContentsId = null
+  rendererReadyPromise = new Promise<void>((resolve) => {
+    resolveRendererReady = resolve
+  })
 
   void mainWindow.loadFile(path.join(__dirname, 'index.html'), {
     query: {
@@ -808,6 +859,104 @@ function setManagedRendererPause(paused: boolean): void {
   mainWindow.webContents.send('review:shutdown-state', paused)
 }
 
+function focusMainWindow(): void {
+  if (!mainWindow) createWindow()
+  const window = mainWindow
+  if (!window) throw new Error('Markover window could not be created.')
+  if (window.isMinimized()) window.restore()
+  window.show()
+  window.focus()
+}
+
+function markRendererReady(webContentsId: number): void {
+  rendererReadyWebContentsId = webContentsId
+  resolveRendererReady?.()
+  resolveRendererReady = null
+}
+
+async function waitForRendererReady(window: BrowserWindow): Promise<void> {
+  if (rendererReadyWebContentsId === window.webContents.id) return
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(Object.assign(
+        new Error('Markover renderer is not ready for review activation.'),
+        { code: 'ACTIVATION_NOT_READY' }
+      ))
+    }, 5000)
+    void rendererReadyPromise.then(() => {
+      clearTimeout(timeout)
+      resolve()
+    })
+  })
+  if (rendererReadyWebContentsId !== window.webContents.id) {
+    throw Object.assign(
+      new Error('Markover renderer changed before review activation.'),
+      { code: 'ACTIVATION_NOT_READY' }
+    )
+  }
+}
+
+async function requestRendererActivation(
+  reviewId: string,
+  document: MarkoverDocument | null
+): Promise<ReviewActivationOutcome> {
+  if (!mainWindow || mainWindow.isDestroyed() || !startupReady) {
+    return Promise.reject(Object.assign(
+      new Error('Markover renderer is not ready for review activation.'),
+      { code: 'ACTIVATION_NOT_READY' }
+    ))
+  }
+
+  const window = mainWindow
+  await waitForRendererReady(window)
+  activationSequence += 1
+  const requestId = `activation-${String(activationSequence)}`
+  return new Promise<ReviewActivationOutcome>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingActivations.delete(requestId)
+      reject(Object.assign(
+        new Error(`Timed out activating review ${reviewId}.`),
+        { code: 'ACTIVATION_TIMEOUT' }
+      ))
+    }, 5000)
+    pendingActivations.set(requestId, { reject, resolve, reviewId, timeout })
+    window.webContents.send('review:activation-request', {
+      requestId,
+      reviewId,
+      document
+    } satisfies ReviewActivationRequest)
+  })
+}
+
+async function activateManagedReview(
+  reviewId: string
+): Promise<ReviewActivationResult> {
+  const store = requireReviewStore()
+  let artifact: ReviewArtifact | null = null
+  try {
+    artifact = await store.load(reviewId)
+  } catch (error) {
+    if (errorProperty(error, 'code') !== 'NOT_FOUND') throw error
+  }
+
+  focusMainWindow()
+  const outcome = await requestRendererActivation(
+    reviewId,
+    artifact ? managedDocument(artifact) : null
+  )
+  if (artifact && (outcome === 'activated' || outcome === 'already-active')) {
+    activeManagedReview = artifact
+    activeManagedReviewId = reviewId
+  }
+  if (
+    (artifact === null && outcome !== 'missing') ||
+    (artifact !== null && outcome === 'missing')
+  ) {
+    throw new Error(`Renderer returned an invalid activation outcome for ${reviewId}.`)
+  }
+  return { reviewId, outcome }
+}
+
 function requestRendererSnapshot(
   reviewId: string,
   purpose: ReviewSnapshotRequest['purpose']
@@ -897,6 +1046,7 @@ async function startAndPublishService(): Promise<void> {
     store: managedStore,
     interpretationPolicy: () => store.settings.agentInterpretationPolicy,
     beforeAction: flushManagedReview,
+    onActivate: activateManagedReview,
     importReviews: (sourceDirectory) => importLegacyReviews(
       sourceDirectory,
       managedStore.directory
@@ -1146,6 +1296,22 @@ if (!hasSingleInstanceLock) {
     }
     await beginMainStartupPhase('preparing-interface')
     if (!reviewMode) await secureServiceDirectory(applicationDataDirectory)
+    if (
+      process.platform === 'darwin' &&
+      app.isPackaged &&
+      !reviewMode &&
+      !smokeMode
+    ) {
+      await registerProtocolOnFirstLaunch({
+        client: app,
+        recordPath: path.join(
+          applicationDataDirectory,
+          'protocol-registration.json'
+        ),
+        scheme: CANONICAL_INSTANCE_SCHEME,
+        suppressed: process.env[SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT] === '1'
+      })
+    }
     if (process.platform === 'darwin' && !app.isPackaged && !smokeMode) {
       if (!app.dock) {
         throw new Error('The macOS application dock is unavailable.')
@@ -1223,6 +1389,7 @@ if (!hasSingleInstanceLock) {
       ) {
         throw new Error('Invalid startup phase event.')
       }
+      if (startupReady) return
       if (phaseEvent.state === 'begin') {
         activeStartupPhase = phaseEvent.phase
         process.stderr.write(`markover startup: ${phaseEvent.phase}\n`)
@@ -1232,16 +1399,28 @@ if (!hasSingleInstanceLock) {
       }
     })
     ipcMain.handle('startup:renderer-initialized', async (
-      _event: IpcMainInvokeEvent,
+      event: IpcMainInvokeEvent,
       initialization: unknown
     ): Promise<StartupReady> => {
       if (
-        rendererInitializationHandled ||
-        rendererStartupFailed ||
         !isRecord(initialization) ||
         !Array.isArray(initialization.warnings) ||
         !initialization.warnings.every(isStartupWarning)
       ) {
+        throw new Error('Invalid renderer initialization.')
+      }
+      if (
+        !mainWindow ||
+        mainWindow.isDestroyed() ||
+        event.sender.id !== mainWindow.webContents.id
+      ) {
+        throw new Error('Renderer initialization came from an inactive window.')
+      }
+      if (startupReady) {
+        markRendererReady(event.sender.id)
+        return { warnings: [...startupWarnings] }
+      }
+      if (rendererInitializationHandled || rendererStartupFailed) {
         throw new Error('Invalid or duplicate renderer initialization.')
       }
       rendererInitializationHandled = true
@@ -1259,6 +1438,8 @@ if (!hasSingleInstanceLock) {
         await requireStartupDiagnostic().ready()
         requireActiveRendererStartup()
         startupReady = true
+        markRendererReady(event.sender.id)
+        reviewUrlDispatcher.markReady()
         return { warnings: [...startupWarnings] }
       } catch (error) {
         await stopPublishedService()
@@ -1400,6 +1581,20 @@ if (!hasSingleInstanceLock) {
       pendingStatuses.delete(response.requestId)
       if (response.error) pending.reject(new Error(response.error))
       else pending.resolve()
+    })
+    ipcMain.on('review:activation-response', (
+      _event: IpcMainEvent,
+      response: ReviewActivationResponse
+    ) => {
+      const pending = pendingActivations.get(response.requestId)
+      if (!pending || pending.reviewId !== response.reviewId) return
+      clearTimeout(pending.timeout)
+      pendingActivations.delete(response.requestId)
+      if (response.error) pending.reject(new Error(response.error))
+      else if (isReviewActivationOutcome(response.outcome)) {
+        pending.resolve(response.outcome)
+      }
+      else pending.reject(new Error('Renderer omitted the activation outcome.'))
     })
     ipcMain.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
       clipboard.writeText(text)

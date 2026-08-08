@@ -183,7 +183,8 @@ export async function main(commandArguments = process.argv.slice(2)): Promise<vo
     '--prune=false',
     '--app-bundle-id=com.lastobelus.markover',
     '--helper-bundle-id=com.lastobelus.markover.helper',
-    '--app-category-type=public.app-category.developer-tools'
+    '--app-category-type=public.app-category.developer-tools',
+    `--extend-info=${path.join(projectDirectory, 'config/macos/info.plist')}`
   ]
   const result = spawnSync(packagerPath, packagerArguments, {
     cwd: projectDirectory,

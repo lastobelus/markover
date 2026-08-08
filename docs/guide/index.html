@@ -57,8 +57,8 @@
   markover open ./DOCUMENT.md \
   --summary "Review these decisions before implementation."</code></pre>
         <p>On first use, a release launcher produced from the hardened preflight downloads the Apple Silicon app; verifies its SHA-256 checksum, bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and code seal; then atomically caches it. The command opens the document in Markover and exits with one JSON value:</p>
-        <pre><code>{"reviewId":"mko_8f3a2c","status":"editing"}</code></pre>
-        <div class="callout"><strong>Keep the review ID.</strong> It identifies this review when the agent retrieves the handoff.</div>
+        <pre><code>{"reviewId":"mko_8f3a2c","status":"editing","reviewUrl":"markover://review/mko_8f3a2c"}</code></pre>
+        <div class="callout"><strong>Share the URL, command, and ID.</strong> Present <code>reviewUrl</code> as a best-effort link, keep the raw review ID for retrieval, and put <code>open '&lt;reviewUrl&gt;'</code> on its own line as the reliable Terminal handoff. Custom-scheme links work through macOS, but some agent hosts do not dispatch them.</div>
       </section>
 
       <section id="opening">

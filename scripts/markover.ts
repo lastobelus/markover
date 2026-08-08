@@ -27,9 +27,11 @@ import {
   type CleanupDevelopmentInstanceResult
 } from '../src/instance-cleanup'
 import {
+  CANONICAL_INSTANCE_SCHEME,
   resolveInstance,
   type ResolvedInstance
 } from '../src/instance'
+import { reviewUrl } from '../src/review-url'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
@@ -109,7 +111,7 @@ export function helpPayload() {
     workflow: [
       'Create the Markdown file before opening it.',
       'Run open once, then retain the returned reviewId in the agent thread.',
-      'Give the user the review ID and wait for them to say "Check Markover."',
+      'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'If the user wants to add feedback afterward, run edit before asking them to continue.'
@@ -119,7 +121,7 @@ export function helpPayload() {
       {
         name: 'open',
         usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number>] [--thread-id <id>] [--handoff-key <key>]',
-        purpose: 'Open a durable, non-blocking review and print {reviewId,status} as JSON.'
+        purpose: 'Open a durable, non-blocking review and print {reviewId,status,reviewUrl} as JSON.'
       },
       {
         name: 'get',
@@ -642,13 +644,36 @@ export async function executeCommand(
       handoffKey
     })
     await prepareService()
-    return requestJson(endpointPath, 'POST', '/reviews', {
+    const opened = await requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       metadata: {
         contextSummary: parsed.contextSummary,
         ...metadata
       }
     })
+    if (
+      !opened ||
+      typeof opened !== 'object' ||
+      Array.isArray(opened) ||
+      typeof Reflect.get(opened, 'reviewId') !== 'string' ||
+      (Reflect.get(opened, 'status') !== 'editing' &&
+        Reflect.get(opened, 'status') !== 'pending-agent')
+    ) {
+      throw new LocalServiceError(
+        'INCOMPATIBLE_SERVICE',
+        'Markover returned an invalid review creation response.'
+      )
+    }
+    const reviewId = Reflect.get(opened, 'reviewId') as string
+    const status = Reflect.get(opened, 'status') as 'editing' | 'pending-agent'
+    return {
+      reviewId,
+      status,
+      reviewUrl: reviewUrl(
+        instance?.scheme || CANONICAL_INSTANCE_SCHEME,
+        reviewId
+      )
+    }
   }
 
   await prepareService()

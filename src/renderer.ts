@@ -1784,7 +1784,7 @@ function renderDocumentsList(): void {
         const reviewId = selectedPath
           ? documentsListPathToReviewId.get(selectedPath)
           : null
-        if (reviewId && reviewId !== state.reviewId) activateReview(reviewId)
+        if (reviewId && reviewId !== state.reviewId) void activateReview(reviewId)
       },
       paths: projection.paths,
       renderRowDecoration({ row }) {
@@ -2216,7 +2216,7 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
   button.append(status)
 
   button.addEventListener('click', () => {
-    activateReview(session.reviewId)
+    void activateReview(session.reviewId)
   })
   button.addEventListener('keydown', (event) => {
     const offset = event.key === 'ArrowLeft'
@@ -2228,11 +2228,12 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
     event.preventDefault()
     const adjacent = reviewSessions.adjacent(session.reviewId, offset)
     if (!adjacent) return
-    activateReview(adjacent.reviewId)
-    requestAnimationFrame(() => {
-      elements.documentTabs
-        .querySelector<HTMLElement>(`[data-review-id="${adjacent.reviewId}"]`)
-        ?.focus()
+    void activateReview(adjacent.reviewId).then(() => {
+      requestAnimationFrame(() => {
+        elements.documentTabs
+          .querySelector<HTMLElement>(`[data-review-id="${adjacent.reviewId}"]`)
+          ?.focus()
+      })
     })
   })
   button.dataset.reviewId = session.reviewId
@@ -2282,7 +2283,7 @@ function renderDocumentTabs(): void {
       context.textContent = `${session.projectName} · ${reviewStatusLabel(session.tree.review.status)}`
       item.append(context)
       item.addEventListener('click', () => {
-        activateReview(session.reviewId)
+        void activateReview(session.reviewId)
       })
       menu.append(item)
     }
@@ -2293,18 +2294,18 @@ function renderDocumentTabs(): void {
   renderDocumentsList()
 }
 
-function activateReview(reviewId: string): void {
+async function activateReview(
+  reviewId: string
+): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
-  if (reviewId === state.reviewId) return
+  if (reviewId === state.reviewId) return 'already-active'
   state.finishAttachmentLabelEdit?.(true)
   const currentReviewId = state.reviewId
   if (currentReviewId && reviewMutations.has(currentReviewId)) {
-    void reviewMutations.wait(currentReviewId).then(() => {
-      activateReview(reviewId)
-    })
-    return
+    await reviewMutations.wait(currentReviewId)
+    if (reviewId === state.reviewId) return 'already-active'
   }
-  if (!finishActiveSourceEdit()) return
+  if (!finishActiveSourceEdit()) return 'blocked'
 
   captureActiveSession()
   const session = reviewSessions.activate(reviewId)
@@ -2339,6 +2340,7 @@ function activateReview(reviewId: string): void {
   if (selected) renderAnnotation(selected)
   renderDocumentTabs()
   renderReviewContext()
+  return 'activated'
 }
 
 function addManagedReview(
@@ -2357,7 +2359,7 @@ function addManagedReview(
     session.annotatedOnly = normalized.enabled
     session.selectedId = normalized.selectedId
   }
-  if (activate) activateReview(session.reviewId)
+  if (activate) void activateReview(session.reviewId)
   else renderDocumentTabs()
   return session
 }
@@ -2766,7 +2768,7 @@ document.addEventListener('keydown', (event) => {
       state.reviewId,
       event.shiftKey ? -1 : 1
     )
-    if (adjacent) activateReview(adjacent.reviewId)
+    if (adjacent) void activateReview(adjacent.reviewId)
     return
   }
 
@@ -2965,6 +2967,17 @@ async function initialize(): Promise<void> {
     await loadDocument(reviewDocument)
     elements.previewPane.focus()
   })
+  bridge.onReviewActivationRequested(async ({ reviewId, document }) => {
+    if (!document) {
+      showToast(`Review ${reviewId} was not found in this Markover instance`)
+      return 'missing'
+    }
+    configureManagedMode()
+    if (!reviewSessions.get(reviewId)) {
+      addManagedReview(managedReviewDocument(document), false)
+    }
+    return activateReview(reviewId)
+  })
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)
     if (!session) {
@@ -3076,7 +3089,7 @@ async function initialize(): Promise<void> {
         addManagedReview(managedReviewDocument(document), false)
       }
       const latestReview = reviews.at(-1)
-      if (latestReview?.reviewId) activateReview(latestReview.reviewId)
+      if (latestReview?.reviewId) await activateReview(latestReview.reviewId)
     } else {
       setWorkspaceEmpty(true)
     }

@@ -84,7 +84,10 @@ test('the app composes external brand assets and exposes a true empty state', ()
   assert.match(html, /<main id="empty-workspace" class="empty-workspace">/)
   assert.match(html, /<main id="workspace" class="workspace" hidden>/)
   assert.match(renderer, /function setWorkspaceEmpty\(empty: boolean\): void/)
-  assert.match(renderer, /function activateReview\(reviewId: string\): void \{\s*setWorkspaceEmpty\(false\)/)
+  assert.match(
+    renderer,
+    /async function activateReview\([\s\S]*reviewId: string[\s\S]*Promise<ReviewActivationOutcome> \{\s*setWorkspaceEmpty\(false\)/
+  )
   assert.match(renderer, /setWorkspaceEmpty\(true\)/)
   assert.doesNotMatch(renderer, /SAMPLE_MARKDOWN/)
 })
