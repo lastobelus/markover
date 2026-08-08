@@ -8,20 +8,24 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  validateAsarIntegrity,
   validateArchiveEntries,
   validateReviewUrlTypes,
-  verifyMacosArtifact,
+  verifyMacosArtifact as verifyRealMacosArtifact,
   type CommandResult,
-  type CommandRunner
+  type CommandRunner,
+  type VerifyMacosArtifactOptions
 } from '../scripts/macos-artifact-preflight'
 import {
   appBundleId,
   helperBundleId,
+  macosFusePolicy,
   signedAppComponents
 } from '../scripts/macos-release-contract'
 
 interface FakeRunnerOptions {
   architecture?: string
+  capabilityKeys?: string[]
   embeddedArchitecture?: string
   entitlementDrift?: boolean
   falseAllowJit?: boolean
@@ -55,6 +59,20 @@ async function createFixture(
 
 function success(stdout = '', stderr = ''): CommandResult {
   return { status: 0, stdout, stderr }
+}
+
+function verifyMacosArtifact(
+  options: VerifyMacosArtifactOptions
+): ReturnType<typeof verifyRealMacosArtifact> {
+  return verifyRealMacosArtifact({
+    ...options,
+    readAsarHeaderHash: options.readAsarHeaderHash ?? (
+      () => Promise.resolve('a'.repeat(64))
+    ),
+    readFusePolicy: options.readFusePolicy ?? (
+      () => Promise.resolve(macosFusePolicy)
+    )
+  })
 }
 
 function componentName(plistPath: string): string {
@@ -121,6 +139,7 @@ function fakeRunner(
 ): CommandRunner {
   const {
     architecture = 'arm64',
+    capabilityKeys = [],
     embeddedArchitecture = architecture,
     entitlementDrift = false,
     failCommand,
@@ -146,7 +165,18 @@ function fakeRunner(
     }
     if (command === '/usr/bin/plutil') {
       if (args.includes('-convert')) {
-        const entries = [...(input ?? '').matchAll(
+        if (input === undefined) {
+          return success(JSON.stringify({
+            ...Object.fromEntries(capabilityKeys.map((key) => [key, true])),
+            ElectronAsarIntegrity: {
+              'Resources/app.asar': {
+                algorithm: 'SHA256',
+                hash: 'a'.repeat(64)
+              }
+            }
+          }))
+        }
+        const entries = [...input.matchAll(
           /<key>([^<]+)<\/key>\s*<(true|false)\s*\/>/g
         )].map((match) => [match[1], match[2] === 'true'])
         return success(JSON.stringify(Object.fromEntries(entries)))
@@ -302,6 +332,71 @@ test('requires exactly the canonical packaged review URL scheme', () => {
       }])
     },
     /exactly the canonical/
+  )
+})
+
+test('requires exact ASAR integrity metadata', () => {
+  assert.equal(validateAsarIntegrity({
+    'Resources/app.asar': {
+      algorithm: 'SHA256',
+      hash: 'a'.repeat(64)
+    }
+  }), 'a'.repeat(64))
+  assert.throws(
+    () => validateAsarIntegrity({}),
+    /protect exactly Resources\/app\.asar/
+  )
+  assert.throws(
+    () => validateAsarIntegrity({
+      'Resources/app.asar': {
+        algorithm: 'SHA1',
+        hash: 'a'.repeat(40)
+      }
+    }),
+    /metadata is invalid/
+  )
+})
+
+test('rejects packaged capability, ASAR, and fuse drift', async (t) => {
+  const fixture = await createFixture()
+  t.after(() => fs.rm(fixture.directory, { recursive: true, force: true }))
+  const base = {
+    architecture: 'arm64' as const,
+    archivePath: fixture.archivePath,
+    checksumPath: fixture.checksumPath,
+    discoverSignedPaths: fakeSignedPaths,
+    platform: 'darwin' as const,
+    temporaryDirectory: fixture.directory,
+    trustMode: 'ad-hoc' as const,
+    version: '1.2.3'
+  }
+  await assert.rejects(
+    verifyMacosArtifact({
+      ...base,
+      commandRunner: fakeRunner({
+        capabilityKeys: ['NSCameraUsageDescription']
+      })
+    }),
+    /disallowed capabilities: NSCameraUsageDescription/
+  )
+  await assert.rejects(
+    verifyMacosArtifact({
+      ...base,
+      commandRunner: fakeRunner(),
+      readAsarHeaderHash: () => Promise.resolve('b'.repeat(64))
+    }),
+    /ASAR integrity hash does not match/
+  )
+  await assert.rejects(
+    verifyMacosArtifact({
+      ...base,
+      commandRunner: fakeRunner(),
+      readFusePolicy: () => Promise.resolve({
+        ...macosFusePolicy,
+        RunAsNode: true
+      })
+    }),
+    /RunAsNode expected false, found true/
   )
 })
 
