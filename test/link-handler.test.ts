@@ -283,6 +283,16 @@ testMacos('replace is explicit and force removal leaves a different owner unchan
     return Promise.resolve()
   }
   await installLinkHandler('install', instance, { ...base, register })
+  const otherStateRoot = path.join(directory, 'other-state')
+  await fs.mkdir(otherStateRoot)
+  await assert.rejects(
+    installLinkHandler('repair', canonicalInstance(otherStateRoot), {
+      ...base,
+      register
+    }),
+    /use replace only after confirming that owner/
+  )
+
   ownerPath = '/Applications/Other.app'
   await assert.rejects(
     installLinkHandler('repair', instance, { ...base, register }),

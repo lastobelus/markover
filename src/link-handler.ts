@@ -710,7 +710,10 @@ export async function installLinkHandler(
     }
     return { ...current, action: 'unchanged' }
   }
-  if (action !== 'replace' && hasConflictingOwner) {
+  if (
+    action !== 'replace' &&
+    (before.status === 'conflicting' || hasConflictingOwner)
+  ) {
     throw new LinkHandlerError(
       'HANDLER_CONFLICT',
       `${instance.scheme}: is owned by ${before.ownerPath || before.expectedPath}; use replace only after confirming that owner.`
