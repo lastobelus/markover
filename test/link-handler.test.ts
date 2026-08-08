@@ -16,6 +16,8 @@ import {
   removeLinkHandler
 } from '../src/link-handler'
 
+const testMacos = process.platform === 'darwin' ? test : test.skip
+
 function canonicalInstance(stateRoot: string): ResolvedInstance {
   return {
     version: 1,
@@ -62,7 +64,7 @@ test('bindings and bundle identities are exact for canonical and PR schemes', ()
   assert.throws(() => linkHandlerDisplayName('markover-dev'), /Expected markover/)
 })
 
-test('generates, claims, inspects, and removes one recoverable exact handler', async (t) => {
+testMacos('generates, claims, inspects, and removes one recoverable exact handler', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   const stateRoot = path.join(directory, 'state')
@@ -134,7 +136,7 @@ test('generates, claims, inspects, and removes one recoverable exact handler', a
   await assert.rejects(fs.access(appPath))
 })
 
-test('a removed PR worktree leaves a stale handler removable by scheme', async (t) => {
+testMacos('a removed PR worktree leaves a stale handler removable by scheme', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   const checkout = path.join(directory, 'checkout')
@@ -185,7 +187,7 @@ test('a removed PR worktree leaves a stale handler removable by scheme', async (
   )
 })
 
-test('install refuses a conflicting owner and closed PR identity', async (t) => {
+testMacos('install refuses a conflicting owner and closed PR identity', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   const stateRoot = path.join(directory, 'state')
@@ -220,7 +222,7 @@ test('install refuses a conflicting owner and closed PR identity', async (t) => 
   )
 })
 
-test('replace is explicit and force removal leaves a different owner unchanged', async (t) => {
+testMacos('replace is explicit and force removal leaves a different owner unchanged', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   const stateRoot = path.join(directory, 'state')

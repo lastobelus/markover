@@ -8,7 +8,9 @@ const root = path.resolve(__dirname, '../..')
 const sourcePath = path.join(root, 'native/MarkoverLinkHandler.swift')
 const source = fs.readFileSync(sourcePath, 'utf8')
 
-test('native handler typechecks and remains forwarding-only', () => {
+const testMacos = process.platform === 'darwin' ? test : test.skip
+
+testMacos('native handler typechecks and remains forwarding-only', () => {
   const result = spawnSync('/usr/bin/swiftc', [
     '-typecheck',
     '-framework', 'AppKit',

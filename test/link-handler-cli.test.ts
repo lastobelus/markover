@@ -8,6 +8,8 @@ import {
 } from '../scripts/link-handler'
 import type { ResolvedInstance } from '../src/instance'
 
+const testMacos = process.platform === 'darwin' ? test : test.skip
+
 test('parses targeted lifecycle and stale-removal commands', () => {
   assert.deepEqual(parseLinkHandlerArguments([]), { command: 'help' })
   assert.deepEqual(
@@ -55,7 +57,7 @@ test('help is service-free and target resolution is deferred to lifecycle work',
   assert.equal(resolves, 1)
 })
 
-test('explicit-scheme status does not resolve a worktree instance', async () => {
+testMacos('explicit-scheme status does not resolve a worktree instance', async () => {
   const parsed = parseLinkHandlerArguments(['status', 'markover-999999'])
   let resolved = false
   const result = await executeLinkHandlerCommand(parsed, {
