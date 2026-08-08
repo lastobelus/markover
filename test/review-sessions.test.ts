@@ -4,6 +4,7 @@ import test from 'node:test'
 import type { ReviewArtifact } from '../src/review-store'
 
 const {
+  clampAnnotationPaneWidth,
   clampDocumentsListWidth,
   formatRelativeTime,
   isTreeEditable,
@@ -191,6 +192,13 @@ test('documents list width leaves room for the two review panes', () => {
   assert.equal(clampDocumentsListWidth(280, 1180), 280)
   assert.equal(clampDocumentsListWidth(800, 1180), 440)
   assert.equal(clampDocumentsListWidth(400, 760), 200)
+})
+
+test('annotation pane width leaves room for the document tree', () => {
+  assert.equal(clampAnnotationPaneWidth(200, 1180, 248), 360)
+  assert.equal(clampAnnotationPaneWidth(480, 1180, 248), 480)
+  assert.equal(clampAnnotationPaneWidth(900, 1180, 248), 732)
+  assert.equal(clampAnnotationPaneWidth(420, 760, 200), 360)
 })
 
 test('reviews group by repository basename in project recency order', () => {

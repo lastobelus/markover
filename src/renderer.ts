@@ -103,6 +103,7 @@ const elements = {
   annotationList: requiredElement('#annotation-list'),
   annotationListView: requiredElement('#annotation-list-view'),
   annotationPane: requiredElement('#annotation-pane'),
+  annotationPaneResizer: requiredElement('#annotation-pane-resizer'),
   annotationReadonly: requiredElement('#annotation-readonly'),
   annotationSneakPeek: requiredElement('#annotation-sneak-peek'),
   annotationState: requiredElement('#annotation-state'),
@@ -204,6 +205,7 @@ let documentsListObserver: MutationObserver | null = null
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let documentsListCollapsed = false
 let documentsListWidth = 248
+let annotationPaneWidth: number | null = null
 let documentsListPathToReviewId = new Map<string, string>()
 let documentsListReviewIdToPath = new Map<string, string>()
 let documentsListSortOrder = new Map<string, number>()
@@ -1867,9 +1869,32 @@ function applyDocumentsListWidth(): void {
   )
 }
 
+function applyAnnotationPaneWidth(): void {
+  const currentWidth = annotationPaneWidth ??
+    elements.annotationPane.getBoundingClientRect().width
+  const documentsWidth = elements.documentsListSidebar.getBoundingClientRect().width
+  const clampedWidth = MarkoverReviewSessions.clampAnnotationPaneWidth(
+    currentWidth,
+    elements.workspace.clientWidth || window.innerWidth,
+    documentsWidth
+  )
+  if (annotationPaneWidth !== null) {
+    annotationPaneWidth = clampedWidth
+    elements.workspace.style.setProperty(
+      '--annotation-pane-column-width',
+      `${annotationPaneWidth}px`
+    )
+  }
+  elements.annotationPaneResizer.setAttribute(
+    'aria-valuenow',
+    String(Math.round(clampedWidth))
+  )
+}
+
 function setDocumentsListCollapsed(collapsed: boolean): void {
   documentsListCollapsed = collapsed
   elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
+  applyAnnotationPaneWidth()
   elements.documentsListOpen.hidden = !collapsed || reviewSessions.list().length === 0
   elements.documentsListCollapse.setAttribute(
     'aria-expanded',
@@ -2057,6 +2082,7 @@ function beginDocumentsListResize(event: PointerEvent): void {
   const resize = (moveEvent: PointerEvent): void => {
     documentsListWidth = moveEvent.clientX - workspaceLeft
     applyDocumentsListWidth()
+    applyAnnotationPaneWidth()
   }
   const finish = (): void => {
     elements.documentsListResizer.removeEventListener('pointermove', resize)
@@ -2071,6 +2097,34 @@ function beginDocumentsListResize(event: PointerEvent): void {
   elements.documentsListResizer.addEventListener('pointermove', resize)
   elements.documentsListResizer.addEventListener('pointerup', finish)
   elements.documentsListResizer.addEventListener('pointercancel', finish)
+}
+
+function beginAnnotationPaneResize(event: PointerEvent): void {
+  if (event.button !== 0) return
+  event.preventDefault()
+  const workspaceRight = elements.workspace.getBoundingClientRect().right
+  const pointerId = event.pointerId
+  annotationPaneWidth = elements.annotationPane.getBoundingClientRect().width
+  elements.annotationPaneResizer.setPointerCapture(pointerId)
+  document.body.classList.add('is-resizing-annotation-pane')
+
+  const resize = (moveEvent: PointerEvent): void => {
+    annotationPaneWidth = workspaceRight - moveEvent.clientX
+    applyAnnotationPaneWidth()
+  }
+  const finish = (): void => {
+    elements.annotationPaneResizer.removeEventListener('pointermove', resize)
+    elements.annotationPaneResizer.removeEventListener('pointerup', finish)
+    elements.annotationPaneResizer.removeEventListener('pointercancel', finish)
+    document.body.classList.remove('is-resizing-annotation-pane')
+    if (elements.annotationPaneResizer.hasPointerCapture(pointerId)) {
+      elements.annotationPaneResizer.releasePointerCapture(pointerId)
+    }
+  }
+
+  elements.annotationPaneResizer.addEventListener('pointermove', resize)
+  elements.annotationPaneResizer.addEventListener('pointerup', finish)
+  elements.annotationPaneResizer.addEventListener('pointercancel', finish)
 }
 
 function closeTabOverflow(): void {
@@ -2600,6 +2654,10 @@ elements.documentsListResizer.addEventListener(
   'pointerdown',
   beginDocumentsListResize
 )
+elements.annotationPaneResizer.addEventListener(
+  'pointerdown',
+  beginAnnotationPaneResize
+)
 
 MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
   hideAnnotationSneakPeek()
@@ -2609,6 +2667,7 @@ window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
   if (!elements.sourceErrorTooltip.hidden) showSourceErrorTooltip()
   applyDocumentsListWidth()
+  applyAnnotationPaneWidth()
   updatePinnedSelection()
   MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
 })
@@ -2966,6 +3025,7 @@ async function initialize(): Promise<void> {
 }
 
 applyDocumentsListWidth()
+applyAnnotationPaneWidth()
 void initialize().catch(async (error: unknown) => {
   startupUi.fail()
   const message = error instanceof Error ? error.message : String(error)
