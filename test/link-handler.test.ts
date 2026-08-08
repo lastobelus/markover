@@ -136,6 +136,37 @@ testMacos('generates, claims, inspects, and removes one recoverable exact handle
   await assert.rejects(fs.access(appPath))
 })
 
+testMacos('idempotent install proves LaunchServices selected the handler', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const stateRoot = path.join(directory, 'state')
+  const handlerRoot = path.join(directory, 'handlers')
+  await fs.mkdir(stateRoot)
+  const instance = canonicalInstance(stateRoot)
+  let ownerPath: string | null = null
+  const base = {
+    handlerRoot,
+    inspectOwner: () => Promise.resolve(ownerPath),
+    probe: () => Promise.resolve(false)
+  }
+  await installLinkHandler('install', instance, {
+    ...base,
+    register(appPath: string) {
+      ownerPath = appPath
+      return Promise.resolve()
+    }
+  })
+  ownerPath = null
+
+  await assert.rejects(
+    installLinkHandler('install', instance, {
+      ...base,
+      register: () => Promise.resolve()
+    }),
+    /LaunchServices did not select/
+  )
+})
+
 testMacos('a removed PR worktree leaves a stale handler removable by scheme', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-handler-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
@@ -318,4 +349,19 @@ testMacos('failed replacement restores prior files and LaunchServices owner', as
     path.join(appPath, 'Contents/Resources/binding.json'),
     'utf8'
   ), originalBinding)
+})
+
+test('replacement commit retains its backup until temporary cleanup succeeds', async () => {
+  const source = await fs.readFile(
+    path.join(__dirname, '../../src/link-handler.ts'),
+    'utf8'
+  )
+  const commit = source.slice(
+    source.indexOf('async function commitGeneratedAppReplacement'),
+    source.indexOf('async function rollbackGeneratedAppReplacement')
+  )
+  assert.ok(
+    commit.indexOf('replacement.temporaryRoot') <
+      commit.indexOf('replacement.backupPath')
+  )
 })

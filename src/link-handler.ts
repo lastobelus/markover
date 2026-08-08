@@ -622,10 +622,10 @@ async function beginGeneratedAppReplacement(
 async function commitGeneratedAppReplacement(
   replacement: PendingAppReplacement
 ): Promise<void> {
+  await fs.rm(replacement.temporaryRoot, { recursive: true, force: true })
   if (replacement.backupPath) {
     await fs.rm(replacement.backupPath, { recursive: true, force: true })
   }
-  await fs.rm(replacement.temporaryRoot, { recursive: true, force: true })
 }
 
 async function rollbackGeneratedAppReplacement(
@@ -657,6 +657,15 @@ export async function installLinkHandler(
     const register = options.register || defaultRegister
     await register(before.expectedPath)
     const current = await inspectLinkHandler(instance.scheme, instance, options)
+    if (current.ownerPath === null || (
+      await comparablePath(current.ownerPath) !==
+      await comparablePath(current.expectedPath)
+    )) {
+      throw new LinkHandlerError(
+        'HANDLER_INSTALL_FAILED',
+        `LaunchServices did not select ${current.expectedPath} for ${instance.scheme}:.`
+      )
+    }
     return { ...current, action: 'unchanged' }
   }
   if (action !== 'replace' && before.status === 'conflicting') {
