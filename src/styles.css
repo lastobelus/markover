@@ -796,6 +796,7 @@ p {
 .documents-list-sidebar {
   position: relative;
   display: flex;
+  grid-column: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -1070,6 +1071,7 @@ p {
 .preview-pane {
   position: relative;
   display: flex;
+  grid-column: 2;
   flex-direction: column;
   border-right: 1px solid var(--selection-line);
   background: var(--document-tree-bg);
@@ -1635,6 +1637,7 @@ kbd {
 .annotation-pane {
   position: relative;
   display: flex;
+  grid-column: 3;
   min-width: 0;
   overflow: hidden;
   flex-direction: column;
