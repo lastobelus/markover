@@ -218,6 +218,7 @@ let brandFallbackUsed = false
 let sourceDiffCleanup: (() => void) | null = null
 let sourceDiffModule: Promise<DiffRenderer> | null = null
 let sourceDiffRenderer: DiffRenderer | null = null
+let paneResizeLayoutFrame: number | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
 let smokeRuntimeClean = true
@@ -1891,10 +1892,20 @@ function applyAnnotationPaneWidth(): void {
   )
 }
 
+function schedulePaneResizeLayoutUpdate(): void {
+  if (paneResizeLayoutFrame !== null) return
+  paneResizeLayoutFrame = requestAnimationFrame(() => {
+    paneResizeLayoutFrame = null
+    updatePinnedSelection()
+    MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
+  })
+}
+
 function setDocumentsListCollapsed(collapsed: boolean): void {
   documentsListCollapsed = collapsed
   elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
   applyAnnotationPaneWidth()
+  schedulePaneResizeLayoutUpdate()
   elements.documentsListOpen.hidden = !collapsed || reviewSessions.list().length === 0
   elements.documentsListCollapse.setAttribute(
     'aria-expanded',
@@ -2083,6 +2094,7 @@ function beginDocumentsListResize(event: PointerEvent): void {
     documentsListWidth = moveEvent.clientX - workspaceLeft
     applyDocumentsListWidth()
     applyAnnotationPaneWidth()
+    schedulePaneResizeLayoutUpdate()
   }
   const finish = (): void => {
     elements.documentsListResizer.removeEventListener('pointermove', resize)
@@ -2111,6 +2123,7 @@ function beginAnnotationPaneResize(event: PointerEvent): void {
   const resize = (moveEvent: PointerEvent): void => {
     annotationPaneWidth = workspaceRight - moveEvent.clientX
     applyAnnotationPaneWidth()
+    schedulePaneResizeLayoutUpdate()
   }
   const finish = (): void => {
     elements.annotationPaneResizer.removeEventListener('pointermove', resize)
