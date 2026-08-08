@@ -13,9 +13,7 @@ maintenance responsibilities that keep those promises true.
 
 - [Development setup, checks, packaging, and repository map](./development.md)
 - [Local service security and storage mechanics](./local-service-security.md)
-- [Release, rollback, and withdrawal runbook](../releasing.md) — temporarily at
-  its existing path while active PR #68 edits it; it will move into this
-  directory after that work lands or rebases
+- [Release, rollback, and withdrawal runbook](./releasing.md)
 - [Architecture and product decisions](../../DECISIONS.md)
 - [Roadmap](../../ROADMAP.md)
 - [Contributing](../../CONTRIBUTING.md)

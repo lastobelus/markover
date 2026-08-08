@@ -279,11 +279,11 @@
     <details class="truth-context card">
       <summary>
         <span class="context-label">Where This Is True</span>
-        <span class="context-state">Accepted revised plan · durability evidence pending</span>
+        <span class="context-state">Accepted plan · tested durability evidence merged</span>
       </summary>
       <div class="context-body">
-        <p>This page explains the accepted revised plan for <a href="https://github.com/lastobelus/markover/issues/9">issue #9</a> in the Focused preview milestone. The audience roots, public information architecture, and non-durability decisions are settled.</p>
-        <p><strong>Stable center:</strong> <code>docs/user/</code> is the deployed public site; <code>docs/developer/</code> is the repository's contributor reference. Repetition is allowed when it keeps either audience's path clear. <strong>Known movement:</strong> exact crash/restart claims wait for <a href="https://github.com/lastobelus/markover/issues/39">issue #39</a> to demonstrate them in tests. Re-check the issue and canonical plan before implementing.</p>
+        <p>This page explains the accepted plan for <a href="https://github.com/lastobelus/markover/issues/9">issue #9</a> in the Focused preview milestone. The audience roots, public information architecture, and tested durability boundary are settled.</p>
+        <p><strong>Stable center:</strong> <code>docs/user/</code> is the deployed public site; <code>docs/developer/</code> is the repository's contributor reference. Repetition is allowed when it keeps either audience's path clear. <a href="https://github.com/lastobelus/markover/issues/39">Issue #39</a> is closed, and its merged crash/restart evidence now supplies the user promise and developer invariants.</p>
       </div>
     </details>
 
@@ -400,7 +400,7 @@
       <h2 class="section-title">What lands at each checkpoint</h2>
       <div class="checkpoints">
         <article class="checkpoint ready card">
-          <span class="tag">Can proceed</span>
+          <span class="tag">Complete</span>
           <h3>Checkpoint 1</h3>
           <ul>
             <li>Create <code>docs/user/</code> and <code>docs/developer/</code></li>
@@ -411,8 +411,8 @@
             <li>Root, link and audience-boundary tests</li>
           </ul>
         </article>
-        <article class="checkpoint waiting card">
-          <span class="tag">Wait for #39</span>
+        <article class="checkpoint ready card">
+          <span class="tag">Evidence merged</span>
           <h3>Checkpoint 2</h3>
           <ul>
             <li>Measured maximum-loss guarantee and its conditions</li>
@@ -438,7 +438,7 @@
         <li><a href="https://github.com/lastobelus/markover/issues/10">Issue #10 — focused-preview prerelease</a></li>
         <li><a href="#" data-repo-path="doc/plans/2026-08-06__early-preview-documentation.md">Canonical Markdown plan</a></li>
         <li><a href="#" data-repo-path="README.md">README setup path</a></li>
-        <li><a href="#" data-repo-path="docs/guide/index.html">Current mixed-root guide</a>, <a href="#" data-repo-path="docs/privacy/index.html">current privacy page</a>, and <a href="#" data-repo-path="docs/development.md">current developer guide</a></li>
+        <li><a href="#" data-repo-path="docs/user/guide/index.html">User guide</a>, <a href="#" data-repo-path="docs/user/privacy/index.html">privacy page</a>, and <a href="#" data-repo-path="docs/developer/development.md">developer guide</a></li>
         <li><a href="#" data-repo-path="DECISIONS.md">Current Markdown behavior decisions</a></li>
       </ul>
     </section>

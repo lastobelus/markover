@@ -30,8 +30,9 @@ tree and returning block-level feedback to an agent.
 - Markdown feedback and labeled screenshot attachments on individual blocks.
 - A durable multi-document inbox grouped by project, with an all-annotations
   browser.
-- A documented two-second default process-crash autosave window with automatic
-  restart recovery; see [Durability and recovery](https://lastobelus.github.io/markover/guide/#durability)
+- A documented two-second default process-crash autosave window while the app
+  is responsive and local storage is healthy, with automatic restart recovery;
+  see [Durability and recovery](https://lastobelus.github.io/markover/guide/#durability)
   for the guarantee and its limits.
 - Exact source-edit proposals shown as word-level diffs without changing the
   original review target.
@@ -40,7 +41,8 @@ tree and returning block-level feedback to an agent.
 
 ## Before you try the early preview
 
-- Markover supports macOS 14 Sonoma or newer on Apple Silicon and Intel Macs.
+- Markover supports macOS 14 Sonoma or newer on Apple Silicon Macs. Native
+  Intel releases are deferred to [issue #80](https://github.com/lastobelus/markover/issues/80).
 - The launcher requires Node.js 22.13.0 or newer.
 - Downloads are hardened and ad-hoc signed, but **not Apple-verified** or
   notarized. macOS is expected to block the first launch.

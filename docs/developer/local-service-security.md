@@ -132,11 +132,52 @@ An authenticated `get` returns review content to the requesting local agent.
 Markover does not upload that handoff, but the receiving tool's storage,
 logging, sharing, and network behavior is outside Markover's boundary.
 
-## Durability evidence gate
+## Durability and recovery invariants
 
-This checkpoint intentionally records no crash/restart maximum-loss guarantee.
-Issue #39 owns that behavior and is still producing tested evidence. Once its
-final evidence lands, this reference must record the exact persistence,
-attachment-ordering, handoff/reopen, warning/retry, and shutdown invariants,
-with links to the enforcing tests. The user page should receive only the
-demonstrated guarantee, actionable failure behavior, and honest exclusions.
+Managed reviews use a per-review `ReviewAutosaveCoordinator`. Its default
+`autosaveMaximumDelayMs` is 2,000 milliseconds. Sustained-edit writes begin at
+most 1,500 milliseconds apart, leaving a 500-millisecond persistence budget;
+shorter configured windows reserve half their duration. The persisted setting
+accepts whole numbers from 100 through 60,000 and is read once at startup.
+
+Each review has an independent leading-and-trailing throttle. The first change
+after an idle window writes promptly. Later changes replace the pending
+snapshot, so sustained input does not create an unbounded queue and the newest
+eligible snapshot becomes the trailing write. `saveNow` supersedes scheduled
+state and resolves only after its exact supplied snapshot is durable.
+
+A failed write retains the newest snapshot and retries with exponential
+backoff capped at 30 seconds. A failed write or one that exceeds its reserved
+persistence budget raises the persistent durability warning and suspends the
+maximum-loss claim until current state becomes durable.
+
+Authenticated handoff and reopen transitions pass through an exact persistence
+barrier before the service acknowledges success. Attachment bytes become
+durable before saved review JSON can refer to them. Graceful shutdown blocks
+new service and attachment mutations, captures every loaded editable review,
+drains attachment mutations and autosaves, closes the local service, and then
+quits. After five seconds without a successful barrier, the UI offers Retry
+Quit, Cancel Quit, or Quit Anyway.
+
+The demonstrated default guarantee is therefore limited to an app-process
+crash while Markover remains responsive and local storage remains healthy.
+Power loss, operating-system or hardware failure, and unhealthy or unusually
+slow storage are excluded.
+
+Primary implementation and evidence:
+
+- [`src/review-autosave.ts`](../../src/review-autosave.ts) implements
+  coalescing, exact barriers, persistence budgets, retry, and recovery state.
+- [`src/main.ts`](../../src/main.ts),
+  [`src/durability-shutdown.ts`](../../src/durability-shutdown.ts), and
+  [`src/local-service.ts`](../../src/local-service.ts) enforce attachment,
+  handoff/reopen, and shutdown ordering.
+- [`test/review-autosave.test.ts`](../../test/review-autosave.test.ts) proves
+  the default bound, slow-write suspension, latest-state retention, exact
+  barriers, independent reviews, and the 30-second retry cap.
+- [`test/durability-integration.test.ts`](../../test/durability-integration.test.ts)
+  protects the cross-process ordering and quit barrier.
+- [`test/durability-crash.test.ts`](../../test/durability-crash.test.ts) and its
+  [killed-child fixture](../../test/fixtures/durability-crash-child.ts) restore
+  rapid edits, editing and pending-agent states, multiple reviews, and an
+  attachment after termination without cleanup.

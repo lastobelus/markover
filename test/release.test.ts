@@ -190,7 +190,7 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
 })
 
 test('developer release runbook preserves provenance and rollback boundaries', () => {
-  const runbook = read('docs/releasing.md')
+  const runbook = read('docs/developer/releasing.md')
   const sources = [
     read('docs/developer/development.md'),
     read('docs/developer/README.md')
