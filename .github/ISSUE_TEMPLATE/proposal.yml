@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Early ideas belong in GitHub Discussions. Use this form once the desired outcome and scope are concrete enough to track as work.
+        Early ideas belong in GitHub Discussions. Use this form once the desired outcome and scope are concrete enough to track as work. Before filing, check the [Deferred Contributions catalog](https://github.com/users/lastobelus/projects/4) for an existing contribution-ready issue.
   - type: input
     id: discussion
     attributes:
@@ -63,7 +63,7 @@ body:
     attributes:
       label: Confirmations
       options:
-        - label: I searched existing Issues and Discussions for overlapping work.
+        - label: I searched existing Issues, Discussions, and the [Deferred Contributions catalog](https://github.com/users/lastobelus/projects/4) for overlapping work.
           required: true
         - label: I discussed this direction before filing a scoped proposal.
           required: true

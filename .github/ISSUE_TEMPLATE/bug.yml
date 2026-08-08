@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Markover. For usage questions, use GitHub Discussions. Report suspected vulnerabilities through private vulnerability reporting, not this form.
+        Thanks for helping improve Markover. Before filing, search existing Issues, Discussions, and the [Deferred Contributions catalog](https://github.com/users/lastobelus/projects/4) for overlapping work. For usage questions, use GitHub Discussions. Report suspected vulnerabilities through private vulnerability reporting, not this form.
   - type: textarea
     id: summary
     attributes:
@@ -93,7 +93,7 @@ body:
     attributes:
       label: Confirmations
       options:
-        - label: I searched existing Issues and Discussions and did not find the same report.
+        - label: I searched existing Issues, Discussions, and the [Deferred Contributions catalog](https://github.com/users/lastobelus/projects/4) and did not find the same report.
           required: true
         - label: This report is not a security vulnerability. I will use [private vulnerability reporting](https://github.com/lastobelus/markover/security/advisories/new) for suspected vulnerabilities.
           required: true

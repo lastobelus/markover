@@ -5,6 +5,7 @@ import test from 'node:test'
 import { parse } from 'yaml'
 
 const root = path.resolve(__dirname, '../..')
+const deferredContributionsUrl = 'https://github.com/users/lastobelus/projects/4'
 const read = (relativePath: string): string => fs.readFileSync(
   path.join(root, relativePath),
   'utf8'
@@ -71,6 +72,8 @@ test('issue forms route bugs and scoped proposals with required context', () => 
   ).map(record)
   assert.equal(bugConfirmations.length, 3)
   assert.equal(bugConfirmations.every((option) => option.required === true), true)
+  assert.match(text(bugConfirmations[0]?.label), /Deferred Contributions catalog/)
+  assert.ok(text(bugConfirmations[0]?.label).includes(deferredContributionsUrl))
   assert.match(text(bugConfirmations[1]?.label), /private vulnerability reporting/)
   assert.match(text(bugConfirmations[2]?.label), /sensitive data/)
 
@@ -87,12 +90,19 @@ test('issue forms route bugs and scoped proposals with required context', () => 
   ]) {
     assert.equal(required(proposal, id), true, `${id} should be required`)
   }
+  const proposalConfirmations = list(
+    record(field(proposal, 'confirmations').attributes).options
+  ).map(record)
+  assert.ok(
+    text(proposalConfirmations[0]?.label).includes(deferredContributionsUrl)
+  )
 })
 
 test('issue chooser disables blank reports and exposes every private or community route', () => {
   const config = form('.github/ISSUE_TEMPLATE/config.yml')
   assert.equal(config.blank_issues_enabled, false)
   const urls = list(config.contact_links).map((link) => text(record(link).url))
+  assert.ok(urls.includes(deferredContributionsUrl))
   assert.ok(urls.includes('https://github.com/lastobelus/markover/discussions/categories/q-a'))
   assert.ok(urls.includes('https://github.com/lastobelus/markover/discussions/categories/ideas'))
   assert.ok(urls.includes('https://github.com/lastobelus/markover/security/advisories/new'))
@@ -107,6 +117,10 @@ test('discussion forms match the category slugs and collect useful context', () 
   assert.equal(required(ideas, 'problem'), true)
   assert.equal(required(ideas, 'outcome'), true)
   assert.equal(required(questions, 'question'), true)
+  assert.ok(
+    read('.github/DISCUSSION_TEMPLATE/ideas.yml')
+      .includes(deferredContributionsUrl)
+  )
   assert.ok(list(ideas.body).some((entry) => record(entry).type !== 'markdown'))
   assert.ok(list(questions.body).some((entry) => record(entry).type !== 'markdown'))
 })
@@ -133,6 +147,10 @@ test('community policies preserve the agreed public boundaries', () => {
   assert.match(contributing, /exactly one JSON value to stdout/)
   assert.match(contributing, /MIT License/)
   assert.match(contributing, /AI-assistance disclosure is not required/)
+  assert.ok(contributing.includes(deferredContributionsUrl))
+  assert.match(contributing, /`deferred` label/)
+  assert.match(contributing, /`pr-welcome` label/)
+  assert.match(contributing, /not a scheduling or support commitment/)
 
   assert.match(security, /Only the latest published release/)
   assert.match(security, /14 calendar days/)
