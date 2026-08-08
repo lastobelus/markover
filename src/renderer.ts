@@ -540,6 +540,12 @@ function setWorkspaceEmpty(empty: boolean): void {
   elements.emptyWorkspace.hidden = !empty
   elements.workspace.hidden = empty
   elements.documentTabs.hidden = empty || !reviewSessions.list().length
+  if (!empty) {
+    requestAnimationFrame(() => {
+      applyDocumentsListWidth()
+      applyAnnotationPaneWidth()
+    })
+  }
 }
 
 function normalizeAnnotatedSelection(): boolean {
@@ -1741,6 +1747,8 @@ function renderDocumentsList(): void {
   elements.documentsListSidebar.hidden = sessions.length === 0
   elements.documentsListOpen.hidden = sessions.length === 0 || !documentsListCollapsed
   elements.workspace.classList.toggle('has-documents-list', sessions.length > 0)
+  applyDocumentsListWidth()
+  applyAnnotationPaneWidth()
   if (!sessions.length || !DocumentsListFileTree) {
     return
   }
@@ -2770,6 +2778,19 @@ document.addEventListener('keydown', (event) => {
 
   if (event.key === 'Tab') {
     event.preventDefault()
+    const active = document.activeElement
+    if (!event.shiftKey && active === elements.annotationPaneResizer) {
+      focusAnnotationPane()
+      return
+    }
+    if (
+      event.shiftKey &&
+      active !== elements.annotationPaneResizer &&
+      elements.annotationPane.contains(active)
+    ) {
+      elements.annotationPaneResizer.focus()
+      return
+    }
     const documentsVisible = reviewSessions.list().length > 0 && !documentsListCollapsed
     const pane = MarkoverNavigation.nextPane(
       focusedPane(),
@@ -2777,7 +2798,11 @@ document.addEventListener('keydown', (event) => {
       documentsVisible
     )
     elements.annotationPane.classList.remove('focus-within')
-    focusPane(pane)
+    if (pane === 'annotation' && !event.shiftKey) {
+      elements.annotationPaneResizer.focus()
+    } else {
+      focusPane(pane)
+    }
     return
   }
 
