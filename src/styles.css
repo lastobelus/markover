@@ -1667,8 +1667,13 @@ kbd {
 }
 
 .annotation-pane-resizer:hover::after,
+.annotation-pane-resizer:focus-visible::after,
 .is-resizing-annotation-pane .annotation-pane-resizer::after {
   background: var(--accent-deep);
+}
+
+.annotation-pane-resizer:focus-visible {
+  outline: none;
 }
 
 .is-resizing-annotation-pane {

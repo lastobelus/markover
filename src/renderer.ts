@@ -1887,9 +1887,15 @@ function applyAnnotationPaneWidth(): void {
   const currentWidth = annotationPaneWidth ??
     elements.annotationPane.getBoundingClientRect().width
   const documentsWidth = elements.documentsListSidebar.getBoundingClientRect().width
+  const workspaceWidth = elements.workspace.clientWidth || window.innerWidth
   const clampedWidth = MarkoverReviewSessions.clampAnnotationPaneWidth(
     currentWidth,
-    elements.workspace.clientWidth || window.innerWidth,
+    workspaceWidth,
+    documentsWidth
+  )
+  const maximumWidth = MarkoverReviewSessions.clampAnnotationPaneWidth(
+    Number.POSITIVE_INFINITY,
+    workspaceWidth,
     documentsWidth
   )
   if (annotationPaneWidth !== null) {
@@ -1902,6 +1908,10 @@ function applyAnnotationPaneWidth(): void {
   elements.annotationPaneResizer.setAttribute(
     'aria-valuenow',
     String(Math.round(clampedWidth))
+  )
+  elements.annotationPaneResizer.setAttribute(
+    'aria-valuemax',
+    String(Math.round(maximumWidth))
   )
 }
 
@@ -2151,6 +2161,17 @@ function beginAnnotationPaneResize(event: PointerEvent): void {
   elements.annotationPaneResizer.addEventListener('pointermove', resize)
   elements.annotationPaneResizer.addEventListener('pointerup', finish)
   elements.annotationPaneResizer.addEventListener('pointercancel', finish)
+}
+
+function resizeAnnotationPaneFromKeyboard(event: KeyboardEvent): void {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+  const step = event.shiftKey ? 48 : 16
+  annotationPaneWidth = elements.annotationPane.getBoundingClientRect().width + (
+    event.key === 'ArrowLeft' ? step : -step
+  )
+  applyAnnotationPaneWidth()
+  schedulePaneResizeLayoutUpdate()
 }
 
 function closeTabOverflow(): void {
@@ -2683,6 +2704,10 @@ elements.documentsListResizer.addEventListener(
 elements.annotationPaneResizer.addEventListener(
   'pointerdown',
   beginAnnotationPaneResize
+)
+elements.annotationPaneResizer.addEventListener(
+  'keydown',
+  resizeAnnotationPaneFromKeyboard
 )
 
 MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
