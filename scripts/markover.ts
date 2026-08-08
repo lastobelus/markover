@@ -111,7 +111,7 @@ export function helpPayload() {
     workflow: [
       'Create the Markdown file before opening it.',
       'Run open once, then retain the returned reviewId in the agent thread.',
-      'Give the user a normal Markdown link using reviewUrl, include the raw reviewId, and wait for them to say "Check Markover."',
+      'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'If the user wants to add feedback afterward, run edit before asking them to continue.'

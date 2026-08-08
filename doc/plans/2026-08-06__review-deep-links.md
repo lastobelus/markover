@@ -1,11 +1,13 @@
-# Issue 52: Clickable Review Deep Links
+# Issue 52: Review Deep Links
 
 ## Outcome
 
 `markover open` returns a stable review URL alongside the review ID and status.
-Agents present that URL as a normal Markdown link. Clicking it activates the
-addressed Markover instance, focuses its existing window, and selects the
-requested managed review without changing review content or status.
+macOS and Terminal `open` route that custom URL to the addressed Markover
+instance, focus its existing window, and select the requested managed review
+without changing review content or status. Agents present a best-effort
+Markdown link plus a standalone `open '<reviewUrl>'` command; the command is the
+reliable handoff because T3 Code and Codex do not currently dispatch the link.
 
 Canonical links use:
 
@@ -21,6 +23,11 @@ markover-<PR>://review/<review-id>
 
 For example, PR 42 uses `markover-42://review/mko_8f3a2c` and agents label the
 link “Open in Markover PR #42.”
+
+Ordinary HTTPS universal links are deferred to issue #87. They require a
+controlled public domain, Apple's Associated Domains entitlement, and an
+Apple-authorized signing identity. Markover remains hardened ad-hoc signed,
+and joining the Apple Developer Program is not currently planned.
 
 ## Product contract
 
@@ -51,6 +58,9 @@ link “Open in Markover PR #42.”
   the renderer is ready, the last valid queued link wins.
 - There is no compatibility reader, fallback URL grammar, old activation path,
   dual output format, or historical-review migration.
+- Markdown clickability is host-dependent. The custom URL is an OS integration
+  contract, while the standalone Terminal command is the dependable agent
+  handoff until #87 becomes actionable.
 
 ## Instance model and ownership
 
@@ -97,10 +107,13 @@ There is no second PR-to-worktree registry in #52.
 3. The service continues returning its validated `{reviewId,status}` payload.
 4. The CLI constructs `reviewUrl` from the resolved scheme and validated
    response ID, then writes exactly one JSON value to stdout.
-5. The agent emits the link and raw review ID, for example:
+5. The agent emits the best-effort link, raw review ID, and standalone Terminal
+   command, for example:
 
    ```markdown
    Review ready: [Open in Markover](markover://review/mko_8f3a2c) (`mko_8f3a2c`)
+
+   `open 'markover://review/mko_8f3a2c'`
    ```
 
 `get` remains an exact review-artifact handoff and `edit` remains a status
@@ -281,7 +294,8 @@ This slice does not wait for all of #61.
 5. Add packaged `CFBundleURLTypes`, early `open-url` capture, startup last-valid
    queuing, explicit first-launch registration, and QA suppression.
 6. Update package preflight checks, CLI help, `AGENTS.md`, focused-preview docs,
-   and agent examples so clickable links are the standard handoff.
+   and agent examples so the best-effort link and reliable Terminal command are
+   the standard handoff.
 7. Add focused unit/integration tests and manually validate a packaged canonical
    link while stopped and running.
 
@@ -335,20 +349,20 @@ Manual validation must include:
 
 | Surface | Required evidence |
 | --- | --- |
-| T3 Code | A real Markdown link click opens the addressed instance and review |
-| Codex | A real Markdown link click opens the addressed instance and review |
-| Terminal.app | Test Command-click; document `open '<url>'` fallback if the terminal does not linkify the scheme |
-| iTerm2, when installed | Same Command-click and fallback validation |
+| T3 Code | Known host limitation: it strips the custom-scheme href; PR #74's standalone Terminal command is present |
+| Codex | Known host limitation: it does not dispatch the custom-scheme link; PR #74's standalone Terminal command is present |
+| Terminal.app | Pasting `open '<url>'` dispatches through macOS; Command-click remains best effort |
+| iTerm2, when installed | Same pasted command; Command-click remains best effort |
 | Packaged clean machine | Canonical stopped/running, active/different/missing review, first registration, and normal cold launch |
 | Maintainer machine | Canonical development bridge keeps ownership during suppressed package QA |
 | Two live instances | Canonical link reaches only canonical; `markover-N:` reaches only PR N |
 | Missing target | Canonical stopped while PR runs, and PR stopped while canonical runs, both show the exact unavailable modal with no fallback |
 | Rapid/startup links | Warm arrival order and packaged-startup last-valid behavior |
 
-Successful end-to-end clicking from both T3 Code and Codex is a hard closure
-criterion. Terminal.app and iTerm2 are best-effort linkification surfaces with
-the explicit `open '<url>'` fallback; OSC 8 and terminal-specific stdout formats
-are out of scope.
+Successful end-to-end dispatch through macOS and the pasted Terminal command is
+the closure criterion. T3 Code and Codex custom-scheme clicks are documented
+host limitations. General agent-host clickability belongs to deferred issue
+#87; OSC 8 and terminal-specific stdout formats remain out of scope.
 
 ## Dependencies and roadmap position
 
@@ -356,7 +370,9 @@ are out of scope.
 - PR #61 is the gate for Slice 2's PR-scoped handler integration.
 - #12 remains independent; #52 adds one authenticated operation without
   weakening or duplicating its authorization boundary.
-- #7, #13, and #39 remain independent inflight work.
+- #7, #13, and #39 remain independent inflight work. Future HTTPS universal
+  links in #87 depend on #13 and a currently unplanned Apple Developer Program
+  subscription; they do not block #52.
 - #52 lands before #10 and #11 produce and validate the focused-preview
   prerelease, and its public example is complete before #16 closes.
 - #59 owns future “Copy review link” context-menu UI on document tabs and
@@ -391,8 +407,9 @@ After this plan is approved in Markover:
 5. Run focused tests, `npm run check`, the full test suite, package preflight,
    and the manual host/instance matrix.
 6. Preserve each completed, accepted slice in a natural checkpoint commit.
-7. Close #52 only after the T3 Code and Codex clicks work end-to-end and the
-   packaged and development ownership flows are both verified.
+7. Close #52 after macOS and Terminal dispatch plus packaged and development
+   ownership flows are verified; record T3 Code and Codex as host limitations
+   deferred to #87.
 
 No implementation, application restart, branch movement, or release action is
 authorized by this planning document.

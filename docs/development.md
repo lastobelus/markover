@@ -58,8 +58,10 @@ npm --silent run markover -- --instance dev open plan.md --summary "Review this 
 
 `open` returns `reviewUrl` with the instance it actually targeted: canonical
 commands emit `markover:` and PR commands emit `markover-N:`. Present that URL
-as a normal Markdown link and retain the accompanying raw review ID for `get`
-and `edit`.
+as a best-effort Markdown link, retain the accompanying raw review ID for `get`
+and `edit`, and put `open '<reviewUrl>'` alone on its own line as the reliable
+Terminal handoff. T3 Code and Codex do not currently dispatch these
+custom-scheme Markdown links.
 
 CLI cold starts may build the already-configured target checkout, but never
 fetch, pull, switch branches, or install dependencies. Development URL bridges
@@ -101,7 +103,7 @@ authenticated local service. It never builds, launches, searches worktrees,
 or contacts GitHub. If the instance is stopped, its one-button native modal
 tells the developer to return to the owning thread, start or fix the build, and
 open the link again. Terminal.app and iTerm2 may not linkify the custom scheme;
-the reliable fallback is `open '<reviewUrl>'`.
+pasting `open '<reviewUrl>'` is verified to dispatch it through macOS.
 
 Remove a handler by exact scheme, including after its worktree has disappeared:
 
