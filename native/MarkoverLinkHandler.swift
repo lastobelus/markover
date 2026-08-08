@@ -137,18 +137,19 @@ private func request(
   _ url: URL,
   method: String,
   instanceName: String,
-  token: String? = nil
+  token: String? = nil,
+  timeoutInterval: TimeInterval = 5
 ) async throws -> (Data, HTTPURLResponse) {
   var request = URLRequest(url: url)
   request.httpMethod = method
-  request.timeoutInterval = 5
+  request.timeoutInterval = timeoutInterval
   request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
   if let token {
     request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
   }
   let configuration = URLSessionConfiguration.ephemeral
-  configuration.timeoutIntervalForRequest = 5
-  configuration.timeoutIntervalForResource = 7
+  configuration.timeoutIntervalForRequest = timeoutInterval
+  configuration.timeoutIntervalForResource = timeoutInterval + 2
   let session = URLSession(configuration: configuration)
   do {
     let (data, response) = try await session.data(for: request)
@@ -236,7 +237,8 @@ private func forward(_ value: String, binding: Binding) async throws {
     activationUrl,
     method: "POST",
     instanceName: binding.instanceName,
-    token: credential.token
+    token: credential.token,
+    timeoutInterval: 12
   )
   if response.statusCode == 401 {
     throw HandlerFailure(

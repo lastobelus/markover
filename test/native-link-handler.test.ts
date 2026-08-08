@@ -29,6 +29,10 @@ test('native forwarding proves identity before sending the capability', () => {
   assert.match(source, /health\.instanceId == endpoint\.instanceId/)
   assert.match(source, /forHTTPHeaderField: "Authorization"/)
   assert.match(source, /credential\.instanceId == endpoint\.instanceId/)
+  assert.match(
+    source,
+    /activationUrl,[\s\S]*token: credential\.token,[\s\S]*timeoutInterval: 12/
+  )
 })
 
 test('native errors are bounded, redacted, instance-specific, and one-button', () => {
