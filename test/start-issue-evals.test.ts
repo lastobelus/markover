@@ -65,7 +65,7 @@ function evaluate(
   }
 }
 
-test('start-issue corpus covers the nine coordination branches', () => {
+test('start-issue corpus covers the ten coordination branches', () => {
   assert.deepEqual(cases.map(({ id }) => id), [
     'untracked-single-session-work-uses-direct-pr',
     'untracked-durable-work-uses-issue',
@@ -75,7 +75,8 @@ test('start-issue corpus covers the nine coordination branches', () => {
     'post-claim-scan-reconstructs-unmarked-items',
     'merged-pr-followup-apply-now-reuses-tracker',
     'merged-pr-followup-issue-only-chooses-tracker',
-    'open-pr-markover-review-uses-development-instance'
+    'open-pr-markover-review-uses-development-instance',
+    'numbered-slices-use-slice-pr-language'
   ])
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
 })
@@ -84,6 +85,17 @@ test('initial response identifies the live issue and title first', () => {
   assert.match(
     skillSource,
     /## How to respond to initial start-issue prompt[\s\S]*```markdown\n# #52—Open a specific review through a clickable Markover deep link/
+  )
+})
+
+test('future pull requests use slice ordinals instead of GitHub numbers', () => {
+  assert.match(
+    skillSource,
+    /## 4\. Interview[\s\S]*`slice-3 PR`, `third PR`, or `PR for\n+slice 3`/
+  )
+  assert.match(
+    skillSource,
+    /Reserve `PR #N` for an existing GitHub pull request numbered `N`/
   )
 })
 

@@ -689,5 +689,53 @@
         ]
       }
     }
+  },
+  {
+    "id": "numbered-slices-use-slice-pr-language",
+    "description": "A multi-slice plan distinguishes a future pull request's slice ordinal from a real GitHub pull request number.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "existing-issue"
+      },
+      "deliveryShape": {
+        "plannedSlices": 3,
+        "pullRequestForSliceThree": {
+          "state": "not-created",
+          "githubNumber": null
+        }
+      }
+    },
+    "requiredActions": [
+      "future-pr-labeled:slice-3-pr",
+      "github-pr-number-reserved:existing-pull-request"
+    ],
+    "forbiddenActions": [
+      "future-pr-labeled:pr-3",
+      "slice-ordinal-presented:as-github-pr-number"
+    ],
+    "controls": {
+      "positive": [
+        "future-pr-labeled:slice-3-pr",
+        "github-pr-number-reserved:existing-pull-request"
+      ],
+      "negative": {
+        "signals": [
+          "future-pr-labeled:pr-3",
+          "slice-ordinal-presented:as-github-pr-number"
+        ],
+        "expectedMissing": [
+          "future-pr-labeled:slice-3-pr",
+          "github-pr-number-reserved:existing-pull-request"
+        ],
+        "expectedForbidden": [
+          "future-pr-labeled:pr-3",
+          "slice-ordinal-presented:as-github-pr-number"
+        ]
+      }
+    }
   }
 ]
