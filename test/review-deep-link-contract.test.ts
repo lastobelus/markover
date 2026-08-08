@@ -23,7 +23,18 @@ test('main captures packaged links early and routes them through acknowledged ac
   assert.match(main, /review:activation-request/)
   assert.match(main, /ACTIVATION_TIMEOUT/)
   assert.match(main, /review:activation-response/)
-  assert.match(main, /startupReady = true\s*reviewUrlDispatcher\.markReady\(\)/)
+  assert.match(
+    main,
+    /await waitForRendererReady\(window\)/
+  )
+  assert.match(
+    main,
+    /if \(startupReady\) \{\s*markRendererReady\(event\.sender\.id\)/
+  )
+  assert.match(
+    main,
+    /startupReady = true\s*markRendererReady\(event\.sender\.id\)\s*reviewUrlDispatcher\.markReady\(\)/
+  )
 })
 
 test('preload and renderer acknowledge activation without replacing an existing session', () => {

@@ -233,6 +233,18 @@ testMacos('install refuses a conflicting owner and closed PR identity', async (t
     /use replace only after confirming that owner/
   )
 
+  const handlerRoot = path.join(directory, 'damaged-handlers')
+  const damagedApp = linkHandlerAppPath('markover', handlerRoot)
+  await fs.mkdir(damagedApp, { recursive: true })
+  await assert.rejects(
+    installLinkHandler('repair', instance, {
+      handlerRoot,
+      inspectOwner: () => Promise.resolve('/Applications/Other.app'),
+      probe: () => Promise.resolve(false)
+    }),
+    /use replace only after confirming that owner/
+  )
+
   const closed = {
     ...instance,
     identity: {

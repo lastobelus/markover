@@ -664,6 +664,10 @@ export async function installLinkHandler(
   assertInstallable(instance)
   const root = options.handlerRoot || linkHandlerRoot()
   const before = await inspectLinkHandler(instance.scheme, instance, options)
+  const hasConflictingOwner = before.ownerPath !== null && (
+    await comparablePath(before.ownerPath) !==
+    await comparablePath(before.expectedPath)
+  )
   if (action === 'install' && (before.status === 'healthy' || before.status === 'exact')) {
     const register = options.register || defaultRegister
     await register(before.expectedPath)
@@ -679,7 +683,7 @@ export async function installLinkHandler(
     }
     return { ...current, action: 'unchanged' }
   }
-  if (action !== 'replace' && before.status === 'conflicting') {
+  if (action !== 'replace' && hasConflictingOwner) {
     throw new LinkHandlerError(
       'HANDLER_CONFLICT',
       `${instance.scheme}: is owned by ${before.ownerPath || before.expectedPath}; use replace only after confirming that owner.`

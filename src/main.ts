@@ -186,6 +186,9 @@ let startupInfo: StartupInfo | null = null
 let startupReady = false
 let rendererInitializationHandled = false
 let rendererStartupFailed = false
+let rendererReadyWebContentsId: number | null = null
+let rendererReadyPromise: Promise<void> = Promise.resolve()
+let resolveRendererReady: (() => void) | null = null
 let managedAttachmentSavesBlocked = false
 let managedShutdownComplete = false
 let managedShutdownStarted = false
@@ -671,6 +674,10 @@ function createWindow(
       nodeIntegration: false
     }
   })
+  rendererReadyWebContentsId = null
+  rendererReadyPromise = new Promise<void>((resolve) => {
+    resolveRendererReady = resolve
+  })
 
   void mainWindow.loadFile(path.join(__dirname, 'index.html'), {
     query: {
@@ -861,7 +868,35 @@ function focusMainWindow(): void {
   window.focus()
 }
 
-function requestRendererActivation(
+function markRendererReady(webContentsId: number): void {
+  rendererReadyWebContentsId = webContentsId
+  resolveRendererReady?.()
+  resolveRendererReady = null
+}
+
+async function waitForRendererReady(window: BrowserWindow): Promise<void> {
+  if (rendererReadyWebContentsId === window.webContents.id) return
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(Object.assign(
+        new Error('Markover renderer is not ready for review activation.'),
+        { code: 'ACTIVATION_NOT_READY' }
+      ))
+    }, 5000)
+    void rendererReadyPromise.then(() => {
+      clearTimeout(timeout)
+      resolve()
+    })
+  })
+  if (rendererReadyWebContentsId !== window.webContents.id) {
+    throw Object.assign(
+      new Error('Markover renderer changed before review activation.'),
+      { code: 'ACTIVATION_NOT_READY' }
+    )
+  }
+}
+
+async function requestRendererActivation(
   reviewId: string,
   document: MarkoverDocument | null
 ): Promise<ReviewActivationOutcome> {
@@ -872,9 +907,10 @@ function requestRendererActivation(
     ))
   }
 
+  const window = mainWindow
+  await waitForRendererReady(window)
   activationSequence += 1
   const requestId = `activation-${String(activationSequence)}`
-  const window = mainWindow
   return new Promise<ReviewActivationOutcome>((resolve, reject) => {
     const timeout = setTimeout(() => {
       pendingActivations.delete(requestId)
@@ -1353,6 +1389,7 @@ if (!hasSingleInstanceLock) {
       ) {
         throw new Error('Invalid startup phase event.')
       }
+      if (startupReady) return
       if (phaseEvent.state === 'begin') {
         activeStartupPhase = phaseEvent.phase
         process.stderr.write(`markover startup: ${phaseEvent.phase}\n`)
@@ -1362,16 +1399,28 @@ if (!hasSingleInstanceLock) {
       }
     })
     ipcMain.handle('startup:renderer-initialized', async (
-      _event: IpcMainInvokeEvent,
+      event: IpcMainInvokeEvent,
       initialization: unknown
     ): Promise<StartupReady> => {
       if (
-        rendererInitializationHandled ||
-        rendererStartupFailed ||
         !isRecord(initialization) ||
         !Array.isArray(initialization.warnings) ||
         !initialization.warnings.every(isStartupWarning)
       ) {
+        throw new Error('Invalid renderer initialization.')
+      }
+      if (
+        !mainWindow ||
+        mainWindow.isDestroyed() ||
+        event.sender.id !== mainWindow.webContents.id
+      ) {
+        throw new Error('Renderer initialization came from an inactive window.')
+      }
+      if (startupReady) {
+        markRendererReady(event.sender.id)
+        return { warnings: [...startupWarnings] }
+      }
+      if (rendererInitializationHandled || rendererStartupFailed) {
         throw new Error('Invalid or duplicate renderer initialization.')
       }
       rendererInitializationHandled = true
@@ -1389,6 +1438,7 @@ if (!hasSingleInstanceLock) {
         await requireStartupDiagnostic().ready()
         requireActiveRendererStartup()
         startupReady = true
+        markRendererReady(event.sender.id)
         reviewUrlDispatcher.markReady()
         return { warnings: [...startupWarnings] }
       } catch (error) {
