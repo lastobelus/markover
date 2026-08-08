@@ -9,6 +9,8 @@ an issue or pull request does not guarantee that a change will be accepted.
 ## Choose the right starting point
 
 - Report a reproducible defect with the bug-report issue form.
+- Browse [Deferred Contributions](https://github.com/users/lastobelus/projects/4)
+  for concrete, contribution-ready work that is deliberately unscheduled.
 - Ask usage questions and share early ideas in
   [GitHub Discussions](https://github.com/lastobelus/markover/discussions).
 - Turn an idea into a scoped proposal issue only after discussing it.
@@ -19,6 +21,14 @@ an issue or pull request does not guarantee that a change will be accepted.
 Search existing Issues and Discussions before starting a new thread. For
 nontrivial implementation work, comment with your intended approach and wait
 for maintainer confirmation so effort is not duplicated.
+
+The `deferred` label means valid work is intentionally unscheduled, with no
+roadmap sequence, target release, or maintainer delivery commitment. The
+`pr-welcome` label means a focused contribution is welcome after discussing the
+approach. Only issues carrying both labels appear in the Deferred Contributions
+catalog. Inclusion is not a scheduling or support commitment. When maintainers
+schedule an item, they remove `deferred` and move it to the real roadmap; closed,
+declined, and completed work no longer appears in the available catalog.
 
 Prior agreement is required for new features, user-facing behavior changes,
 architecture changes, protocol or persisted-data changes, and substantial UI

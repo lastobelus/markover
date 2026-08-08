@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Browse contribution-ready work
+    url: https://github.com/users/lastobelus/projects/4
+    about: Find focused, deliberately unscheduled issues where a contribution is welcome.
   - name: Ask a question
     url: https://github.com/lastobelus/markover/discussions/categories/q-a
     about: Get help with setup, workflow, or expected behavior.
