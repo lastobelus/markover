@@ -6,7 +6,11 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { verifyAppLayout } from './app-layout'
+import { applyMacosFusePolicy, readMacosFusePolicy } from './macos-fuses'
+import { runPackagedHardeningProbes } from './macos-hardening-probes'
 import {
+  assertNoDisallowedInfoPlistCapabilities,
+  disallowedInfoPlistCapabilityKeys,
   entitlementsForSignedFile,
   minimumMacosVersion,
   parseMacosTrustMode
@@ -115,6 +119,47 @@ export function setMinimumSystemVersion(appPath: string): void {
   }
 }
 
+function readInfoPlist(appPath: string): Record<string, unknown> {
+  const infoPlist = path.join(appPath, 'Contents', 'Info.plist')
+  const result = spawnSync(
+    '/usr/bin/plutil',
+    ['-convert', 'json', '-o', '-', infoPlist],
+    { encoding: 'utf8' }
+  )
+  if (result.status !== 0) {
+    throw new Error(
+      result.stderr.trim() || `plutil exited ${String(result.status)}`
+    )
+  }
+  let value: unknown
+  try {
+    value = JSON.parse(result.stdout) as unknown
+  } catch {
+    throw new Error('Markover.app Info.plist is not valid JSON.')
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Markover.app Info.plist must be a dictionary.')
+  }
+  return value as Record<string, unknown>
+}
+
+export function sanitizePackagedCapabilities(appPath: string): void {
+  const infoPlist = path.join(appPath, 'Contents', 'Info.plist')
+  for (const key of disallowedInfoPlistCapabilityKeys(readInfoPlist(appPath))) {
+    const result = spawnSync(
+      '/usr/bin/plutil',
+      ['-remove', key, infoPlist],
+      { encoding: 'utf8' }
+    )
+    if (result.status !== 0) {
+      throw new Error(
+        result.stderr.trim() || `plutil exited ${String(result.status)}`
+      )
+    }
+  }
+  assertNoDisallowedInfoPlistCapabilities(readInfoPlist(appPath))
+}
+
 export async function verifyPackagedAppLayout(appPath: string): Promise<void> {
   const archivePath = path.join(appPath, 'Contents/Resources/app.asar')
   const extractedDirectory = fs.mkdtempSync(
@@ -205,9 +250,15 @@ export async function main(commandArguments = process.argv.slice(2)): Promise<vo
   await verifyPackagedAppLayout(appPath)
   copyThirdPartyNotices(appPath, thirdPartyNotices)
   setMinimumSystemVersion(appPath)
+  sanitizePackagedCapabilities(appPath)
+  await applyMacosFusePolicy(appPath)
   const { sign } = await import('@electron/osx-sign')
   await sign(adHocSigningOptions(appPath))
+  await readMacosFusePolicy(appPath)
   const smokeOutput = runPackagedSmoke(appPath)
+  await runPackagedHardeningProbes(appPath, async (copiedAppPath) => {
+    await sign(adHocSigningOptions(copiedAppPath))
+  })
   process.stdout.write(result.stdout)
   process.stdout.write(smokeOutput)
   process.stdout.write(

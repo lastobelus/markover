@@ -4,6 +4,65 @@ export const appBundleId = 'com.lastobelus.markover'
 export const helperBundleId = `${appBundleId}.helper`
 export const minimumMacosVersion = '14.0'
 
+export const macosFusePolicy = {
+  RunAsNode: false,
+  EnableCookieEncryption: true,
+  EnableNodeOptionsEnvironmentVariable: false,
+  EnableNodeCliInspectArguments: false,
+  EnableEmbeddedAsarIntegrityValidation: true,
+  OnlyLoadAppFromAsar: true,
+  LoadBrowserProcessSpecificV8Snapshot: false,
+  // Markover still loads its renderer and local attachment previews over
+  // file URLs. Issue #95 owns replacing this narrow exception.
+  GrantFileProtocolExtraPrivileges: true,
+  WasmTrapHandlers: true
+} as const
+
+export type MacosFuseName = keyof typeof macosFusePolicy
+export type MacosFusePolicy = Readonly<Record<MacosFuseName, boolean>>
+
+export function disallowedInfoPlistCapabilityKeys(
+  value: unknown
+): string[] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Markover.app Info.plist must be a dictionary.')
+  }
+  return Object.keys(value).filter((key) => (
+    key === 'NSAppTransportSecurity' ||
+    /^NS.+UsageDescription$/.test(key)
+  )).sort()
+}
+
+export function assertNoDisallowedInfoPlistCapabilities(
+  value: unknown
+): void {
+  const keys = disallowedInfoPlistCapabilityKeys(value)
+  if (keys.length !== 0) {
+    throw new Error(
+      `Markover.app declares disallowed capabilities: ${keys.join(', ')}.`
+    )
+  }
+}
+
+export function assertMacosFusePolicy(
+  actual: Readonly<Record<string, boolean>>
+): void {
+  for (const [name, expected] of Object.entries(macosFusePolicy)) {
+    if (actual[name] !== expected) {
+      throw new Error(
+        `Electron fuse ${name} expected ${String(expected)}, ` +
+        `found ${String(actual[name])}.`
+      )
+    }
+  }
+  const unexpected = Object.keys(actual)
+    .filter((name) => !(name in macosFusePolicy))
+    .sort()
+  if (unexpected.length !== 0) {
+    throw new Error(`Electron exposes unconfigured fuses: ${unexpected.join(', ')}.`)
+  }
+}
+
 export type MacosArchitecture = 'arm64' | 'x64'
 export type MacosTrustMode = 'ad-hoc'
 

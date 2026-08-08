@@ -4,14 +4,18 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { readMacosFusePolicy } from './macos-fuses'
 import {
   appBundleId,
+  assertMacosFusePolicy,
+  assertNoDisallowedInfoPlistCapabilities,
   expectedEntitlementsForSignedFile,
   expectedArchiveName,
   machOArchitecture,
   minimumMacosVersion,
   signedAppComponents,
   type MacosArchitecture,
+  type MacosFusePolicy,
   type MacosTrustMode
 } from './macos-release-contract'
 
@@ -33,6 +37,8 @@ export interface VerifyMacosArtifactOptions {
   checksumPath: string
   commandRunner?: CommandRunner
   discoverSignedPaths?: (appPath: string) => Promise<string[]>
+  readAsarHeaderHash?: (archivePath: string) => Promise<string>
+  readFusePolicy?: (appPath: string) => Promise<MacosFusePolicy>
   platform?: NodeJS.Platform
   temporaryDirectory?: string
   trustMode: string
@@ -109,6 +115,62 @@ function plistJsonValue(
   } catch {
     throw new Error(`Markover.app ${key} metadata is invalid.`)
   }
+}
+
+function plistDictionary(
+  runner: CommandRunner,
+  plistPath: string
+): Record<string, unknown> {
+  const output = requireCommand(
+    runner,
+    '/usr/bin/plutil',
+    ['-convert', 'json', '-o', '-', plistPath]
+  ).stdout
+  let value: unknown
+  try {
+    value = JSON.parse(output) as unknown
+  } catch {
+    throw new Error('Markover.app Info.plist is invalid.')
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Markover.app Info.plist must be a dictionary.')
+  }
+  return value as Record<string, unknown>
+}
+
+export function validateAsarIntegrity(value: unknown): string {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Markover.app ASAR integrity metadata is missing.')
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length !== 1 || entries[0]?.[0] !== 'Resources/app.asar') {
+    throw new Error('Markover.app must protect exactly Resources/app.asar.')
+  }
+  const metadata = entries[0][1]
+  if (
+    metadata === null ||
+    typeof metadata !== 'object' ||
+    Array.isArray(metadata)
+  ) {
+    throw new Error('Markover.app ASAR integrity metadata is invalid.')
+  }
+  const record = metadata as Record<string, unknown>
+  if (
+    Object.keys(record).sort().join(',') !== 'algorithm,hash' ||
+    record.algorithm !== 'SHA256' ||
+    typeof record.hash !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(record.hash)
+  ) {
+    throw new Error('Markover.app ASAR integrity metadata is invalid.')
+  }
+  return record.hash
+}
+
+async function asarHeaderHash(archivePath: string): Promise<string> {
+  const { getRawHeader } = await import('@electron/asar')
+  return crypto.createHash('sha256')
+    .update(getRawHeader(archivePath).headerString)
+    .digest('hex')
 }
 
 export function validateReviewUrlTypes(value: unknown): void {
@@ -334,6 +396,8 @@ export async function verifyMacosArtifact({
   checksumPath,
   commandRunner = runCommand,
   discoverSignedPaths: discoverPaths = discoverSignedPaths,
+  readAsarHeaderHash: readHeaderHash = asarHeaderHash,
+  readFusePolicy: readFuses = readMacosFusePolicy,
   platform = process.platform,
   temporaryDirectory = os.tmpdir(),
   trustMode,
@@ -390,6 +454,21 @@ export async function verifyMacosArtifact({
     validateReviewUrlTypes(
       plistJsonValue(commandRunner, appInfo, 'CFBundleURLTypes')
     )
+    const info = plistDictionary(commandRunner, appInfo)
+    assertNoDisallowedInfoPlistCapabilities(info)
+    const expectedAsarHash = validateAsarIntegrity(
+      info.ElectronAsarIntegrity
+    )
+    const actualAsarHash = await readHeaderHash(path.join(
+      appPath,
+      'Contents',
+      'Resources',
+      'app.asar'
+    ))
+    if (actualAsarHash !== expectedAsarHash) {
+      throw new Error('Markover.app ASAR integrity hash does not match app.asar.')
+    }
+    assertMacosFusePolicy(await readFuses(appPath))
     requireCommand(
       commandRunner,
       '/usr/bin/codesign',
