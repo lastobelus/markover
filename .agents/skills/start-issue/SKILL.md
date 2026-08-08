@@ -222,6 +222,10 @@ is stable with no unresolved overlap.
 
 ## 4. Interview
 
+When planned slices imply future pull requests, name each uncreated pull
+request by its relationship to the slice: `slice-3 PR`, `third PR`, or `PR for
+slice 3`. Reserve `PR #N` for an existing GitHub pull request numbered `N`.
+
 Use a zero-question path when the opening request already resolves acceptance
 criteria, scope boundaries, dependencies, touch points, validation, and
 meaningful tradeoffs, and explicitly authorizes implementation. Record the

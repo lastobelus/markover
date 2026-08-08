@@ -24,10 +24,6 @@ Relevant discovered facts, dependencies, and tradeoffs.
 > One clear question, preferably yes/no or a small set of choices?
 ```
 
-When planned slices imply future pull requests, name each uncreated pull
-request by its relationship to the slice: `slice-3 PR`, `third PR`, or `PR for
-slice 3`. Reserve `PR #N` for an existing GitHub pull request numbered `N`.
-
 Update the canonical work intent whenever the interview materially changes its
 summary, touch points, dependencies, branch, or phase. Keep `phase:
 investigating` until the user explicitly confirms shared understanding and

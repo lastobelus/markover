@@ -89,10 +89,12 @@ test('initial response identifies the live issue and title first', () => {
 })
 
 test('future pull requests use slice ordinals instead of GitHub numbers', () => {
-  const interviewReference = readReference('interview.md')
-  assert.match(interviewReference, /`slice-3 PR`, `third PR`, or `PR for\n+slice 3`/)
   assert.match(
-    interviewReference,
+    skillSource,
+    /## 4\. Interview[\s\S]*`slice-3 PR`, `third PR`, or `PR for\n+slice 3`/
+  )
+  assert.match(
+    skillSource,
     /Reserve `PR #N` for an existing GitHub pull request numbered `N`/
   )
 })
