@@ -1,10 +1,10 @@
 # Bounded autosave durability
 
-Status: accepted for implementation on issue [#39](https://github.com/lastobelus/markover/issues/39). This plan describes a three-PR stack in the Focused preview launch gate. The first PR is `agent/autosave-bounded-core`; later branches add application shutdown barriers and crash evidence.
+Status: accepted and in final-slice implementation on issue [#39](https://github.com/lastobelus/markover/issues/39). PR [#58](https://github.com/lastobelus/markover/pull/58) delivered the bounded autosave core and PR [#75](https://github.com/lastobelus/markover/pull/75) delivered application shutdown barriers. The remaining `agent/autosave-crash-evidence` branch adds crash evidence and publishes the tested claims.
 
 ## Outcome
 
-With default configuration, a responsive Markover process and healthy local storage never leave more than two seconds of accepted review work outside the durable managed-review snapshot. Sustained typing cannot build an unbounded persistence queue. Handoff and graceful shutdown use explicit barriers rather than waiting for the ordinary autosave cadence.
+With default configuration, a responsive Markover process and healthy local storage never leave more than two seconds of accepted review work outside the durable managed-review snapshot. Sustained-edit writes start at most 1.5 seconds apart, reserving 500 milliseconds for the flushed replacement to finish; exceeding that persistence budget suspends the guarantee and raises the same persistent warning as a failed write. Sustained typing cannot build an unbounded persistence queue. Handoff and graceful shutdown use explicit barriers rather than waiting for the ordinary autosave cadence.
 
 The guarantee covers Markover process crashes and normal restarts. It does not claim durability through disk failure, operating-system failure, hardware failure, or power loss. Markover reports when storage errors suspend the guarantee.
 
@@ -12,9 +12,10 @@ The guarantee covers Markover process crashes and normal restarts. It does not c
 
 - `autosaveMaximumDelayMs` defaults to `2000` and accepts whole numbers from `100` through `60000` in the persisted settings file.
 - The override is intentionally absent from the Settings UI, takes effect after restart, and changes the user's maximum-loss window.
+- The coordinator reserves up to 500 milliseconds, or half of a shorter configured window, for persistence and warns if a write exceeds that budget.
 - Each managed review has an independent leading-and-trailing throttle. The first change after an idle window writes promptly; later changes replace the pending snapshot and cannot postpone the trailing write beyond the configured window.
 - At most one managed-review snapshot write per review is in flight. A slow review cannot delay another review.
-- A failed write retains the newest snapshot, retries with exponential backoff capped at 30 seconds, and keeps the storage failure observable until a current snapshot succeeds.
+- A failed write retains the newest snapshot, retries with exponential backoff capped at 30 seconds, and keeps the storage failure observable until a current snapshot succeeds. A write that exceeds its reserved persistence budget suspends the guarantee and raises the same warning until current state becomes durable.
 - Attachment bytes become durable before their marker or metadata can become durable. Interrupted work may leave an orphan file but never a persisted reference to missing bytes.
 - Handoff and reopen transitions persist their exact snapshot and status before acknowledging success. The transient `handoff-in-progress` renderer state is never stored.
 - Graceful shutdown stops new service mutations, snapshots every loaded editable review, waits for attachment mutations and persistence, closes the service, and then quits.
@@ -78,9 +79,12 @@ Sync this stack with the completed issue #43 renderer architecture before implem
 
 Add deterministic bound proofs plus a compact real child-process test that terminates without cleanup and restores from disk. Cover rapid edits, editing and pending-agent states, attachment ordering, and multiple reviews. Keep the child scenario short enough that total CI growth stays under two seconds per lane.
 
-Perform packaged-app restart validation locally on the current Mac. Issue #11
-later owns clean-machine Apple Silicon release evidence; issue #80 owns deferred
-physical Intel/Sonoma release evidence at Broad announcement.
+Use the existing packaged happy-path smoke to validate graceful packaged-app
+restart and restoration locally on the current Mac. Keep its explicit
+bounded-loss exclusion: the compact killed-child test owns process-crash
+evidence. Issue #11 later owns clean-machine Apple Silicon release evidence;
+issue #80 owns deferred physical Intel/Sonoma release evidence at Broad
+announcement.
 
 Publish the guarantee in a Durability and recovery section of the user guide. Document the advanced override in `docs/development.md`, and add only a concise claim and guide link to the README. Issue #9 later incorporates this source of truth into broader privacy, retention, deletion, and support guidance.
 
@@ -92,7 +96,8 @@ Publish the guarantee in a Durability and recovery section of the user guide. Do
 - No Settings UI control for the advanced delay.
 - No requirement to drain or retrieve inflight reviews before restart.
 - No renderer dependency or issue #43 implementation.
-- No packaged-app build in ordinary pull-request CI.
+- No additional packaged-app build lane; use the existing packaged-smoke jobs
+  for graceful restart evidence and the Node child process for crash evidence.
 
 ## Delivery and dependencies
 

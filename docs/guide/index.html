@@ -21,6 +21,7 @@
         <a href="#run">Launch Markover</a>
         <a href="#opening">Opening on macOS</a>
         <a href="#review">Review a document</a>
+        <a href="#durability">Durability and recovery</a>
         <a href="#handoff">Return the handoff</a>
         <a href="#interpretation">Guide agent interpretation</a>
         <a href="#keyboard">Keyboard controls</a>
@@ -79,6 +80,13 @@
         <p>Select a block in the document tree and write Markdown feedback in the annotation pane. Paste screenshots directly into the feedback field; attachments can be labeled and referenced as <code>[!img-N]</code>.</p>
         <p>The documents list keeps multiple reviews grouped by project. Use <strong>All annotations</strong> to read the active document's feedback as a single rendered list, or <strong>Annotated</strong> to filter the document tree to commented blocks.</p>
         <p>Editing a source block creates a proposal. Markover preserves the original source and shows the proposed change as a word-level diff.</p>
+      </section>
+
+      <section id="durability">
+        <h2>Durability and recovery</h2>
+        <p>While the Markover process is responsive and local storage is healthy, managed review changes are durably saved within a two-second window by default. Markover starts sustained-edit writes at most 1.5 seconds apart, reserving the remaining 500 milliseconds for the flushed replacement file to become durable. A normal quit first captures the latest editable reviews, finishes attachment writes and autosaves, and closes the local service. Exact agent handoffs and reopened reviews are committed before Markover acknowledges them.</p>
+        <p>After an app crash or restart, Markover restores both reviews still being edited and reviews already inflight with an agent. You do not need to retrieve or drain agent reviews before restarting. Attachment bytes are flushed before saved review JSON can refer to them; a crash can leave harmless unreferenced attachment bytes, but not a durable broken reference.</p>
+        <div class="callout"><strong>What the two-second window does not cover.</strong> The guarantee applies to an app-process crash while each write finishes within its reserved persistence budget. Power loss, operating-system or hardware failure, and unhealthy or unusually slow storage are outside it. A persistent autosave warning means a write failed or exceeded that budget, so Markover is retrying or waiting and the normal bound is suspended until storage recovers.</div>
       </section>
 
       <section id="handoff">

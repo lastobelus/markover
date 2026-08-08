@@ -145,3 +145,23 @@ test('the existing live Electron smoke exits through the durability barrier', ()
   assert.match(smokeResult, /else app\.exit\(1\)/)
   assert.doesNotMatch(beforeQuit, /smokeMode/)
 })
+
+test('public guidance states the tested durability contract and its limits', () => {
+  const development = read('docs/development.md')
+  const guide = read('docs/guide/index.html')
+  const readme = read('README.md')
+
+  assert.match(
+    guide,
+    /id="durability"[\s\S]*two-second window by default[\s\S]*1\.5 seconds apart[\s\S]*500 milliseconds[\s\S]*reviews already inflight with an agent/
+  )
+  assert.match(
+    guide,
+    /Power loss, operating-system or hardware failure, and unhealthy or unusually slow storage are outside it/
+  )
+  assert.match(
+    development,
+    /autosaveMaximumDelayMs[\s\S]*integer from `100` through `60000`\s+milliseconds[\s\S]*restart\s+it afterward/
+  )
+  assert.match(readme, /guide\/#durability/)
+})
