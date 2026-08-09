@@ -1025,6 +1025,7 @@ function openImagePreview(attachment: ReviewAttachment): void {
   elements.imagePreviewContent.alt = label
   elements.imagePreviewLabel.textContent = label
   elements.imagePreview.hidden = false
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 function attachmentPreviewUrl(attachment: ReviewAttachment): string | null {
@@ -1042,6 +1043,7 @@ function closeImagePreview(): void {
   elements.imagePreview.hidden = true
   elements.imagePreviewContent.removeAttribute('src')
   elements.imagePreviewLabel.textContent = ''
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 function removeAttachmentFromNode(
@@ -1548,6 +1550,8 @@ function scheduleIncomingReviewNoticeDismissal(): void {
     elements.incomingReviewDialog.open ||
     elements.settingsDialog.open ||
     elements.fixedContractDialog.open ||
+    !elements.imagePreview.hidden ||
+    !elements.reviewContextDrawer.hidden ||
     document.activeElement === elements.incomingReviewNoticeOpen
   ) {
     return
@@ -1627,7 +1631,9 @@ async function activateIncomingReview(
   const outcome = await activateReview(reviewId)
   if (outcome === 'blocked') {
     const session = reviewSessions.get(reviewId)
-    if (session) showIncomingReviewNotice(session, activationSequence)
+    if (session && activationSequence === incomingReviewSequence) {
+      showIncomingReviewNotice(session, activationSequence)
+    }
     return
   }
   if (
@@ -1808,6 +1814,7 @@ function openReviewContext(): void {
   elements.reviewContextDrawer.hidden = false
   elements.reviewContextButton.setAttribute('aria-expanded', 'true')
   elements.reviewContextClose.focus()
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 function closeReviewContext(restoreFocus = true): void {
@@ -1823,6 +1830,7 @@ function closeReviewContext(restoreFocus = true): void {
   ) {
     elements.reviewContextButton.focus()
   }
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 function treePathSegment(value: string): string {

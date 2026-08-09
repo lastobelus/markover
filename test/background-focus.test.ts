@@ -98,7 +98,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /!windowFocusState\.focused \|\|[\s\S]*elements\.incomingReviewNotice\.hidden \|\|[\s\S]*elements\.incomingReviewDialog\.open \|\|[\s\S]*elements\.settingsDialog\.open \|\|[\s\S]*elements\.fixedContractDialog\.open/
+    /!windowFocusState\.focused \|\|[\s\S]*elements\.incomingReviewNotice\.hidden \|\|[\s\S]*elements\.incomingReviewDialog\.open \|\|[\s\S]*elements\.settingsDialog\.open \|\|[\s\S]*elements\.fixedContractDialog\.open \|\|[\s\S]*!elements\.imagePreview\.hidden \|\|[\s\S]*!elements\.reviewContextDrawer\.hidden/
   )
   assert.match(
     renderer,
@@ -118,7 +118,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /if \(outcome === 'blocked'\)[\s\S]*return\s*\}[\s\S]*hideIncomingReviewNotice\(\)/
+    /if \(outcome === 'blocked'\)[\s\S]*activationSequence === incomingReviewSequence[\s\S]*showIncomingReviewNotice\(session, activationSequence\)[\s\S]*return\s*\}[\s\S]*hideIncomingReviewNotice\(\)/
   )
   assert.match(
     renderer,
@@ -135,6 +135,14 @@ test('warning and notice UI keep the current review safe and target the latest a
   assert.match(
     renderer,
     /incomingReviewNoticeOpen\.addEventListener\([\s\S]*'focus',[\s\S]*scheduleIncomingReviewNoticeDismissal[\s\S]*'blur',[\s\S]*scheduleIncomingReviewNoticeDismissal/
+  )
+  assert.match(
+    renderer,
+    /function openImagePreview[\s\S]*imagePreview\.hidden = false[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeImagePreview[\s\S]*imagePreview\.hidden = true[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
+  assert.match(
+    renderer,
+    /function openReviewContext[\s\S]*reviewContextDrawer\.hidden = false[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeReviewContext[\s\S]*reviewContextDrawer\.hidden = true[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
   )
   assert.match(
     renderer,
