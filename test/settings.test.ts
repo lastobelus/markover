@@ -42,6 +42,7 @@ test('settings defaults cover the persisted preferences', () => {
     'defaultTreeView',
     'confirmAttachmentRemoval',
     'incomingReviewActivationPolicy',
+    'reviewLinkActivationPolicy',
     'incomingReviewIdleMinutes',
     'discoverAgentThreadFromLocalSessions',
     'logRejectedApiRequests',
@@ -62,6 +63,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
     incomingReviewActivationPolicy: 'when-idle',
+    reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
@@ -79,6 +81,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
     incomingReviewActivationPolicy: 'when-idle',
+    reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
@@ -168,6 +171,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <select name="defaultTreeView"><option value="all">All</option><option value="annotated">Annotated</option></select>
       <input name="confirmAttachmentRemoval" type="checkbox">
       <select name="incomingReviewActivationPolicy"><option value="never">Never</option><option value="when-idle">When idle</option></select>
+      <select name="reviewLinkActivationPolicy"><option value="always">Always</option><option value="when-idle">When idle</option></select>
       <input name="incomingReviewIdleMinutes" type="number">
       <input name="discoverAgentThreadFromLocalSessions" type="checkbox">
       <input name="logRejectedApiRequests" type="checkbox">
@@ -228,6 +232,13 @@ test('renderer settings apply immediately and reset through the same path', () =
   assert.equal(idleControl.value, '12')
   assert.equal(idleControl.disabled, false)
 
+  applySettingsToView({
+    ...DEFAULT_SETTINGS,
+    reviewLinkActivationPolicy: 'when-idle',
+    resolvedAppearance: 'light'
+  }, view)
+  assert.equal(idleControl.disabled, false)
+
   applySettingsToView({ ...DEFAULT_SETTINGS, resolvedAppearance: 'light' }, view)
   assert.equal(view.root.dataset.palette, 'ember')
   assert.equal(view.keyboardHelp.hidden, false)
@@ -266,6 +277,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
     showKeyboardHelp: false,
     discoverAgentThreadFromLocalSessions: false,
     incomingReviewActivationPolicy: 'when-idle',
+    reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 18,
     agentInterpretationPolicy: 'Use this policy.',
     autosaveMaximumDelayMs: 3500
@@ -277,6 +289,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   assert.equal(restored.settings.showKeyboardHelp, false)
   assert.equal(restored.settings.discoverAgentThreadFromLocalSessions, false)
   assert.equal(restored.settings.incomingReviewActivationPolicy, 'when-idle')
+  assert.equal(restored.settings.reviewLinkActivationPolicy, 'warn')
   assert.equal(restored.settings.incomingReviewIdleMinutes, 18)
   assert.equal(restored.settings.agentInterpretationPolicy, 'Use this policy.')
   assert.equal(restored.settings.autosaveMaximumDelayMs, 3500)

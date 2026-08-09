@@ -20,6 +20,7 @@ import * as agentGuidance from './agent-guidance'
     defaultTreeView: 'all',
     confirmAttachmentRemoval: true,
     incomingReviewActivationPolicy: 'never',
+    reviewLinkActivationPolicy: 'always',
     incomingReviewIdleMinutes: 5,
     discoverAgentThreadFromLocalSessions: true,
     logRejectedApiRequests: false,
@@ -34,7 +35,8 @@ import * as agentGuidance from './agent-guidance'
     annotationTextSize: ['small', 'medium', 'large'],
     zoomPercent: ZOOM_LEVELS,
     defaultTreeView: ['all', 'annotated'],
-    incomingReviewActivationPolicy: ['never', 'always', 'warn', 'when-idle']
+    incomingReviewActivationPolicy: ['never', 'always', 'warn', 'when-idle'],
+    reviewLinkActivationPolicy: ['never', 'always', 'warn', 'when-idle']
   })
 
   const WINDOW_BACKGROUNDS: Readonly<{
@@ -194,7 +196,9 @@ import * as agentGuidance from './agent-guidance'
       'incomingReviewIdleMinutes'
     )
     if (idleMinutes && 'disabled' in idleMinutes) {
-      idleMinutes.disabled = normalized.incomingReviewActivationPolicy !== 'when-idle'
+      idleMinutes.disabled =
+        normalized.incomingReviewActivationPolicy !== 'when-idle' &&
+        normalized.reviewLinkActivationPolicy !== 'when-idle'
     }
     return { appearance, preferences: normalized }
   }

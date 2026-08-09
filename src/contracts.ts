@@ -83,6 +83,7 @@ declare global {
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
     incomingReviewActivationPolicy: IncomingReviewActivationPolicy
+    reviewLinkActivationPolicy: IncomingReviewActivationPolicy
     incomingReviewIdleMinutes: number
     discoverAgentThreadFromLocalSessions: boolean
     logRejectedApiRequests: boolean
@@ -123,6 +124,7 @@ declare global {
       zoomPercent: readonly ZoomPercent[]
       defaultTreeView: readonly DefaultTreeView[]
       incomingReviewActivationPolicy: readonly IncomingReviewActivationPolicy[]
+      reviewLinkActivationPolicy: readonly IncomingReviewActivationPolicy[]
     }>
     normalizeSettings: (value?: unknown) => MarkoverSettings
     updateSettings: (current: unknown, patch: unknown) => MarkoverSettings

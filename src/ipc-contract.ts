@@ -40,6 +40,7 @@ const SETTINGS_KEYS = [
   'defaultTreeView',
   'confirmAttachmentRemoval',
   'incomingReviewActivationPolicy',
+  'reviewLinkActivationPolicy',
   'incomingReviewIdleMinutes',
   'discoverAgentThreadFromLocalSessions',
   'logRejectedApiRequests',
@@ -498,6 +499,7 @@ function settingsValueValid(key: string, value: unknown): boolean {
         value === 150
     case 'defaultTreeView': return value === 'all' || value === 'annotated'
     case 'incomingReviewActivationPolicy':
+    case 'reviewLinkActivationPolicy':
       return value === 'never' ||
         value === 'always' ||
         value === 'warn' ||
