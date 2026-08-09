@@ -1625,6 +1625,7 @@ async function activateIncomingReview(
   focusPreview: boolean,
   activationSequence: number
 ): Promise<void> {
+  if (!reviewSessions.get(reviewId)) return
   const noticeVersion = incomingReviewNoticeVersion
   const noticeSequence = incomingReviewNoticeSequence
   const warningVersion = incomingReviewWarningVersion
@@ -2713,6 +2714,8 @@ async function activateReview(
 }
 
 async function handleReviewTrashed(reviewId: string): Promise<void> {
+  if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
+  if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
   const wasActive = state.reviewId === reviewId
   const removed = reviewSessions.remove(reviewId)
   if (!removed) return
