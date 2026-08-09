@@ -142,6 +142,15 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
       error: 'Snapshot failed.'
     }])
     assertMainEventArguments('review:shutdown-state', [true])
+    assertRendererInvokeArguments('window:focus-state:get', [])
+    assertRendererInvokeResult('window:focus-state:get', {
+      focused: false,
+      blurredAt: 1
+    })
+    assertMainEventArguments('window:focus-state', [{
+      focused: true,
+      blurredAt: null
+    }])
     assertRendererInvokeArguments('review:context-menu:open', [{
       reviewId: 'mko_abcdef'
     }])
@@ -225,6 +234,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'startup:phase',
     'startup:quit',
     'startup:renderer-initialized',
-    'startup:reveal-diagnostic'
+    'startup:reveal-diagnostic',
+    'window:focus-state:get'
   ])
 })

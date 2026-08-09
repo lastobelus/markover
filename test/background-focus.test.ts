@@ -15,9 +15,159 @@ test('agent review events update the renderer without showing or focusing it', (
     /function sendManagedReview\(artifact: ReviewArtifact\): void \{[\s\S]*?\n\}/
   )?.[0] || ''
 
-  assert.match(managedReview, /sendMainEvent\([\s\S]*'review:opened'/)
+  assert.match(
+    managedReview,
+    /pendingManagedReviewNotifications\.set\(artifact\.review\.id, artifact\)/
+  )
   assert.match(managedReview, /createWindow\(\{ show: false \}\)/)
+  assert.match(managedReview, /flushPendingManagedReviewNotifications\(\)/)
   assert.doesNotMatch(managedReview, /\.show\(\)|\.focus\(\)|\.restore\(\)/)
+  assert.doesNotMatch(managedReview, /activeManagedReview(Id)? = artifact/)
+
+  assert.match(
+    main,
+    /function flushPendingManagedReviewNotifications[\s\S]*rendererReadyWebContentsId !== window\.webContents\.id[\s\S]*sendMainEvent\([\s\S]*'review:opened'[\s\S]*pendingManagedReviewNotifications\.delete\(reviewId\)/
+  )
+  assert.match(
+    main,
+    /function markRendererReady[\s\S]*flushPendingManagedReviewNotifications\(\)/
+  )
+})
+
+test('persisted review creation does not wait for renderer notification', () => {
+  const main = read('src/main.ts')
+  const onChange = main.match(
+    /async onChange\(artifact, action\) \{[\s\S]*?\n {4}\},/
+  )?.[0] || ''
+
+  assert.match(
+    onChange,
+    /if \(action === 'created'\) \{[\s\S]*sendManagedReview\(artifact\)[\s\S]*return/
+  )
+  assert.doesNotMatch(onChange, /await sendManagedReview\(artifact\)/)
+  assert.match(onChange, /await sendManagedStatus\(artifact\)/)
+})
+
+test('native window focus state reaches the renderer without activating Markover', () => {
+  const main = read('src/main.ts')
+  const preload = read('src/preload.ts')
+  const renderer = read('src/renderer.ts')
+
+  assert.match(main, /window\.on\('focus',[\s\S]*mainWindowBlurredAt = null/)
+  assert.match(main, /window\.on\('blur',[\s\S]*mainWindowBlurredAt = Date\.now\(\)/)
+  assert.match(main, /privilegedIpc\.handle\('window:focus-state:get', currentWindowFocusState\)/)
+  assert.match(preload, /getWindowFocusState:.*window:focus-state:get/)
+  assert.match(preload, /onWindowFocusChanged:[\s\S]*window:focus-state/)
+  assert.match(
+    renderer,
+    /onWindowFocusChanged[\s\S]*windowFocusStateVersion \+= 1[\s\S]*const initialFocusStateVersion = windowFocusStateVersion[\s\S]*await bridge\.getWindowFocusState\(\)[\s\S]*windowFocusStateVersion === initialFocusStateVersion[\s\S]*windowFocusState = initialFocusState/
+  )
+})
+
+test('incoming reviews are listed before the activation policy runs', () => {
+  const renderer = read('src/renderer.ts')
+  const handler = renderer.match(
+    /async function handleIncomingReview\([\s\S]*?\n\}/
+  )?.[0] || ''
+
+  assert.match(handler, /addManagedReview\(managedReviewDocument\(reviewDocument\), false\)/)
+  assert.match(
+    handler,
+    /if \(session\.reviewId === state\.reviewId\) \{[\s\S]*hideIncomingReviewNotice\(\)[\s\S]*clearIncomingReviewWarning\(\)[\s\S]*return/
+  )
+  assert.match(handler, /incomingReviewAction\(\{/)
+  assert.match(handler, /if \(action === 'warn'\)[\s\S]*showIncomingReviewWarning/)
+  assert.match(handler, /if \(action === 'notify'\)[\s\S]*showIncomingReviewNotice/)
+  assert.match(
+    handler,
+    /activateIncomingReview\([\s\S]*session\.reviewId,[\s\S]*windowFocusState\.focused,[\s\S]*sequence/
+  )
+})
+
+test('warning and notice UI keep the current review safe and target the latest arrival', () => {
+  const renderer = read('src/renderer.ts')
+  const html = read('src/index.html')
+
+  assert.match(html, /id="incoming-review-dialog-keep"[\s\S]*>Keep Current</)
+  assert.match(html, /id="incoming-review-dialog-open"[\s\S]*>Open New Review</)
+  assert.match(html, /id="incoming-review-notice-open"[^>]*>Open</)
+  assert.match(
+    renderer,
+    /incomingReviewNoticePrompts = appendIncomingReview\([\s\S]*incomingReviewNoticeCount = incomingReviewNoticePrompts\.length[\s\S]*incomingReviewNoticeId = session\.reviewId/
+  )
+  assert.match(
+    renderer,
+    /incomingReviewWarningPrompts = appendIncomingReview\([\s\S]*incomingReviewWarningCount = incomingReviewWarningPrompts\.length[\s\S]*incomingReviewWarningId = session\.reviewId/
+  )
+  assert.match(renderer, /incomingReviewDialogKeep\.focus\(\)/)
+  assert.match(
+    renderer,
+    /const reviewId = incomingReviewWarningId[\s\S]*const sequence = incomingReviewWarningSequence[\s\S]*activateIncomingReview\(reviewId, true, sequence\)/
+  )
+  assert.match(
+    renderer,
+    /const reviewId = incomingReviewNoticeId[\s\S]*const sequence = incomingReviewNoticeSequence[\s\S]*activateIncomingReview\(reviewId, true, sequence\)/
+  )
+  assert.match(
+    renderer,
+    /!windowFocusState\.focused \|\|[\s\S]*elements\.incomingReviewNotice\.hidden \|\|[\s\S]*elements\.incomingReviewDialog\.open \|\|[\s\S]*elements\.settingsDialog\.open \|\|[\s\S]*elements\.fixedContractDialog\.open \|\|[\s\S]*!elements\.imagePreview\.hidden \|\|[\s\S]*!elements\.reviewContextDrawer\.hidden/
+  )
+  assert.match(
+    renderer,
+    /incomingReviewDialog\.addEventListener\('close',[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
+  assert.match(
+    renderer,
+    /function showIncomingReviewWarning[\s\S]*showModal\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
+  assert.match(
+    renderer,
+    /function openSettings[\s\S]*showModal\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
+  assert.match(
+    renderer,
+    /settingsDialog\.addEventListener\('close',[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
+  assert.match(
+    renderer,
+    /if \(outcome === 'blocked'\)[\s\S]*activationSequence === incomingReviewSequence[\s\S]*showIncomingReviewNotice\(session, activationSequence\)[\s\S]*return\s*\}[\s\S]*if \(outcome === 'missing'\) return[\s\S]*dismissIncomingPromptsThrough\(activationSequence\)/
+  )
+  assert.match(
+    renderer,
+    /function dismissIncomingPromptsThrough[\s\S]*retainIncomingReviewsAfter\([\s\S]*incomingReviewNoticePrompts,[\s\S]*sequence[\s\S]*replaceIncomingReviewNoticePrompts\(noticePrompts\)[\s\S]*retainIncomingReviewsAfter\([\s\S]*incomingReviewWarningPrompts,[\s\S]*sequence[\s\S]*replaceIncomingReviewWarningPrompts\(warningPrompts\)/
+  )
+  assert.match(
+    renderer,
+    /noticeVisible && active === elements\.incomingReviewNoticeOpen[\s\S]*noticeVisible &&[\s\S]*elements\.incomingReviewNoticeOpen\.focus\(\)/
+  )
+  assert.match(
+    renderer,
+    /incomingReviewNoticeOpen\.addEventListener\([\s\S]*'focus',[\s\S]*scheduleIncomingReviewNoticeDismissal[\s\S]*'blur',[\s\S]*scheduleIncomingReviewNoticeDismissal/
+  )
+  assert.match(
+    renderer,
+    /async function activateReview[\s\S]*if \(!reviewSessions\.get\(reviewId\)\) return 'missing'[\s\S]*await reviewMutations\.wait\(currentReviewId\)[\s\S]*if \(!reviewSessions\.get\(reviewId\)\) return 'missing'[\s\S]*reviewSessions\.activate\(reviewId\)/
+  )
+  assert.match(
+    renderer,
+    /function removeIncomingPrompts[\s\S]*removeIncomingReview\(incomingReviewNoticePrompts, reviewId\)[\s\S]*replaceIncomingReviewNoticePrompts\(noticePrompts\)[\s\S]*removeIncomingReview\(incomingReviewWarningPrompts, reviewId\)[\s\S]*replaceIncomingReviewWarningPrompts\(warningPrompts\)[\s\S]*async function handleReviewTrashed[\s\S]*removeIncomingPrompts\(reviewId\)[\s\S]*reviewSessions\.remove\(reviewId\)/
+  )
+  assert.match(
+    renderer,
+    /async function activateReview[\s\S]*if \(reviewId === state\.reviewId\) \{[\s\S]*removeIncomingPrompts\(reviewId\)[\s\S]*return 'already-active'[\s\S]*renderReviewContext\(\)[\s\S]*removeIncomingPrompts\(reviewId\)[\s\S]*return 'activated'/
+  )
+  assert.match(
+    renderer,
+    /function openImagePreview[\s\S]*imagePreview\.hidden = false[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeImagePreview[\s\S]*imagePreview\.hidden = true[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
+  assert.match(
+    renderer,
+    /function openReviewContext[\s\S]*reviewContextDrawer\.hidden = false[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeReviewContext[\s\S]*reviewContextDrawer\.hidden = true[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
+  assert.match(
+    renderer,
+    /if \(elements\.settingsDialog\.open \|\| elements\.incomingReviewDialog\.open\) return/
+  )
 })
 
 test('preload exposes one exact typed capability object', () => {

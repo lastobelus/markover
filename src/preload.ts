@@ -214,6 +214,12 @@ const bridge = {
   updateSettings: (patch) => (
     invoke('settings:update', patch)
   ),
+  getWindowFocusState: () => invoke('window:focus-state:get'),
+  onWindowFocusChanged: (callback) => {
+    listen('window:focus-state', (state: MarkoverWindowFocusState) => {
+      callback(state)
+    })
+  },
   onSettingsOpen: (callback) => {
     listen('settings:open', () => {
       callback()

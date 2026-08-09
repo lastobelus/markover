@@ -91,6 +91,10 @@ test('renderer commits source edits before navigation and tree handoff', () => {
   )
   assert.match(
     renderer,
+    /function activateReview[\s\S]*finishActiveSourceEdit\(\)[\s\S]*configureManagedMode\(\)[\s\S]*captureActiveSession\(\)/
+  )
+  assert.match(
+    renderer,
     /function finishActiveSourceEdit[\s\S]*state\.selectedId === node\.id[\s\S]*renderAnnotation\(node\)/
   )
   assert.match(
