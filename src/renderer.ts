@@ -1540,7 +1540,9 @@ function scheduleIncomingReviewNoticeDismissal(): void {
   if (
     !windowFocusState.focused ||
     elements.incomingReviewNotice.hidden ||
-    elements.incomingReviewDialog.open
+    elements.incomingReviewDialog.open ||
+    elements.settingsDialog.open ||
+    elements.fixedContractDialog.open
   ) {
     return
   }
@@ -1595,6 +1597,7 @@ function showIncomingReviewWarning(session: ReviewSession): void {
     elements.incomingReviewDialog.showModal()
     elements.incomingReviewDialogKeep.focus()
   }
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 async function activateIncomingReview(
@@ -2288,6 +2291,7 @@ function restoreSettingsForm(): void {
 function openSettings(): void {
   restoreSettingsForm()
   if (!elements.settingsDialog.open) elements.settingsDialog.showModal()
+  scheduleIncomingReviewNoticeDismissal()
   const palette = elements.settingsForm.elements.namedItem('palette')
   if (palette instanceof HTMLElement) palette.focus()
 }
@@ -2305,16 +2309,21 @@ for (const statement of MarkoverAgentGuidance.FIXED_CONTRACT_STATEMENTS) {
 elements.settingsClose.addEventListener('click', () => {
   elements.settingsDialog.close()
 })
+elements.settingsDialog.addEventListener('close', () => {
+  scheduleIncomingReviewNoticeDismissal()
+})
 elements.fixedContractOpen.addEventListener('click', () => {
   if (!elements.fixedContractDialog.open) {
     elements.fixedContractDialog.showModal()
   }
+  scheduleIncomingReviewNoticeDismissal()
   elements.fixedContractClose.focus()
 })
 elements.fixedContractClose.addEventListener('click', closeFixedContract)
 elements.fixedContractDone.addEventListener('click', closeFixedContract)
 elements.fixedContractDialog.addEventListener('close', () => {
   if (elements.settingsDialog.open) elements.fixedContractOpen.focus()
+  scheduleIncomingReviewNoticeDismissal()
 })
 elements.settingsReset.addEventListener('click', () => {
   void bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS).then(applySettings)
