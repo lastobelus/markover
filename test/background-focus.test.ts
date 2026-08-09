@@ -58,6 +58,14 @@ test('warning and notice UI keep the current review safe and target the latest a
   assert.match(renderer, /const reviewId = incomingReviewWarningId[\s\S]*activateIncomingReview\(reviewId, true\)/)
   assert.match(renderer, /const reviewId = incomingReviewNoticeId[\s\S]*activateIncomingReview\(reviewId, true\)/)
   assert.match(renderer, /if \(!windowFocusState\.focused \|\| elements\.incomingReviewNotice\.hidden\) return/)
+  assert.match(
+    renderer,
+    /if \(outcome === 'blocked'\)[\s\S]*return\s*\}[\s\S]*hideIncomingReviewNotice\(\)/
+  )
+  assert.match(
+    renderer,
+    /if \(elements\.settingsDialog\.open \|\| elements\.incomingReviewDialog\.open\) return/
+  )
 })
 
 test('preload exposes one exact typed capability object', () => {

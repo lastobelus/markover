@@ -1595,7 +1595,7 @@ async function activateIncomingReview(
     if (session) showIncomingReviewNotice(session)
     return
   }
-  if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
+  hideIncomingReviewNotice()
   if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
   if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
 }
@@ -2563,7 +2563,6 @@ async function activateReview(
   reviewId: string
 ): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
-  configureManagedMode()
   if (reviewId === state.reviewId) return 'already-active'
   state.finishAttachmentLabelEdit?.(true)
   const currentReviewId = state.reviewId
@@ -2572,6 +2571,7 @@ async function activateReview(
     if (reviewId === state.reviewId) return 'already-active'
   }
   if (!finishActiveSourceEdit()) return 'blocked'
+  configureManagedMode()
 
   captureActiveSession()
   const session = reviewSessions.activate(reviewId)
@@ -3038,7 +3038,7 @@ document.addEventListener('keydown', (event) => {
     document.body.classList.add('is-control-pressed')
   }
 
-  if (elements.settingsDialog.open) return
+  if (elements.settingsDialog.open || elements.incomingReviewDialog.open) return
 
   if (event.key === 'Escape' && !elements.imagePreview.hidden) {
     closeImagePreview()
