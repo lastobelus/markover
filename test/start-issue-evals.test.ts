@@ -65,8 +65,9 @@ function evaluate(
   }
 }
 
-test('start-issue corpus covers the eleven coordination branches', () => {
+test('start-issue corpus covers the twelve coordination branches', () => {
   assert.deepEqual(cases.map(({ id }) => id), [
+    'initial-issue-heading-precedes-interview',
     'untracked-single-session-work-uses-direct-pr',
     'untracked-durable-work-uses-issue',
     'confirmed-new-project-uses-repository-owner',
@@ -85,7 +86,24 @@ test('start-issue corpus covers the eleven coordination branches', () => {
 test('initial response identifies the live issue and title first', () => {
   assert.match(
     skillSource,
-    /## How to respond to initial start-issue prompt[\s\S]*```markdown\n# #52—Open a specific review through a clickable Markover deep link/
+    /## How to respond to initial start-issue prompt[\s\S]*```markdown\n# #52: Open a specific review through a clickable Markover deep link\n\[#52 on github\]\(https:\/\/github\.com\/lastobelus\/markover\/issues\/52\)/
+  )
+  assert.match(
+    skillSource,
+    /both identity lines as an emission gate:[\s\S]*before continuing[\s\S]*inflight scanning, or an interview/
+  )
+  assert.match(
+    skillSource,
+    /When no numbered work item exists yet,[\s\S]*Immediately after creation,[\s\S]*emit its identity block/
+  )
+  assert.match(
+    skillSource,
+    /Pre-creation[\s\S]*tracker or delivery-shape questions are exempt from the identity gate/
+  )
+  assert.doesNotMatch(skillSource, /^# #52—/m)
+  assert.match(
+    readReference('interview.md'),
+    /first interview response for a numbered item[\s\S]*emit[\s\S]*before the Decision or Question block/
   )
 })
 

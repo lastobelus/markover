@@ -8,6 +8,11 @@ Look up discoverable facts instead of asking for them. Decisions belong to the
 user. When standards and repository evidence make an answer unusually clear,
 record it as a numbered decision beside the next actual question.
 
+Before the first interview response for a numbered item, verify that both issue
+identity lines required by `SKILL.md` have already been emitted. If not, emit
+them before the Decision or Question block. This does not apply to routing
+questions required before an untracked work item is created.
+
 Use this format:
 
 ```markdown
