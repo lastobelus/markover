@@ -36,7 +36,8 @@
     "check": "npm run lint && npm run typecheck && npm run notices:check",
     "ci:local": "npm run build --silent && npm run lint && npm run typecheck && npm run notices:check:built && npm run test:built && npm run smoke:built -- --timeout=10"
   },
-  "author": "lastobelus",
+  "author": "Michael Johnston (lastobelus)",
+  "copyright": "Copyright © 2026 Michael Johnston (lastobelus)",
   "license": "MIT",
   "engines": {
     "node": ">=22.13.0"

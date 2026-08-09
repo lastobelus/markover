@@ -18,6 +18,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { aboutPanelOptions } from './about-panel'
 import { applicationMenuTemplate } from './app-menu'
 import { AsyncMutationTracker } from './async-mutation-tracker'
 import { loadDevelopmentConfig } from './development-config'
@@ -308,6 +309,18 @@ async function loadBuildIdentity(): Promise<BuildIdentity> {
     dirty: value.dirty,
     rendererSha256: value.rendererSha256
   }
+}
+
+async function configureAboutPanel(build: BuildIdentity): Promise<void> {
+  const packageManifest: unknown = JSON.parse(await fs.readFile(
+    path.join(projectDirectory, 'package.json'),
+    'utf8'
+  ))
+  app.setAboutPanelOptions(aboutPanelOptions(
+    addressedInstance.branding.appName,
+    build,
+    packageManifest
+  ))
 }
 
 function provisionalBuildIdentity(): BuildIdentity {
@@ -1344,6 +1357,7 @@ if (!hasSingleInstanceLock) {
     const build = await loadBuildIdentity()
     startupBuildIdentity = build
     await startupDiagnostic.setBuildIdentity(build)
+    await configureAboutPanel(build)
     const controls = developmentStartupControls(
       process.argv,
       app.isPackaged,
