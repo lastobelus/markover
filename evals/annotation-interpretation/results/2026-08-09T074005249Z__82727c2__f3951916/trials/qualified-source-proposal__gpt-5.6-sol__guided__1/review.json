@@ -1,0 +1,13 @@
+{
+  "source": "Retries: 3",
+  "annotations": [
+    {
+      "block": "Retries: 3",
+      "feedback": "Would five retries overload the upstream service?",
+      "sourceEdit": {
+        "original": "Retries: 3",
+        "current": "Retries: 5"
+      }
+    }
+  ]
+}

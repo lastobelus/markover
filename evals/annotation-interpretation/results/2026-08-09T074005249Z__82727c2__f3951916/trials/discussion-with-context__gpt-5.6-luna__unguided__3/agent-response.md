@@ -1,0 +1,1 @@
+Thanks for flagging this. I’ve kept the 200ms figure but clarified that it is a legacy target from last year’s mobile client and should be validated for current clients before being treated as a hard constraint.

@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly considers and applies the exact proposal: “Updated the retry count to five,” and the final document contains “Retries: 5.”"
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response directly addresses the overload question, explaining that the risk depends on retry backoff and request concurrency, which are unspecified."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The question was not handled silently; the response explicitly discusses the possibility of upstream overload after noting the edit."
+    }
+  ],
+  "summary": "The exact five-retry proposal was explicitly considered and applied, and the upstream-overload question was directly acknowledged. No forbidden silent conversion occurred."
+}

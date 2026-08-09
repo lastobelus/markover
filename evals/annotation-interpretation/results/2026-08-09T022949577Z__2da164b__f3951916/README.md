@@ -1,5 +1,10 @@
 # Annotation interpretation evaluation
 
+> **Superseded evidence.** This bundle is preserved for historical analysis,
+> but its control prompts supplied the expected observed signals. Use the
+> [artifact-based canonical run](../2026-08-09T074005249Z__82727c2__f3951916/README.md)
+> for reliability claims.
+
 **Result: PASS**
 
 Run ID: `2026-08-09T022949577Z__2da164b__f3951916`

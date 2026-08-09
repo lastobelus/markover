@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "mixed-revision-question__gpt-5.6-luna__guided__1",
+    "caseId": "mixed-revision-question",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "Renamed the section to “Persistence.”\n\nThe document doesn’t currently explain why Redis was chosen over SQLite, so I left that decision unchanged. Please confirm the intended rationale before adding one.",
+  "finalDocument": "## Persistence\n\nUse Redis for shared state.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from “## Storage” to “## Persistence”."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The agent explicitly addresses the question by stating that the document does not explain why Redis was chosen over SQLite and requests confirmation of the rationale."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The agent explicitly acknowledges the Redis-versus-SQLite question and leaves the decision unchanged rather than silently converting it into an edit."
+      }
+    ],
+    "summary": "The requested heading revision was applied, and the Redis-versus-SQLite design question was explicitly acknowledged without being silently converted into a document edit."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46419,
+      "cached_input_tokens": 20992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 671,
+      "reasoning_output_tokens": 138
+    },
+    "judge": {
+      "input_tokens": 10519,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 206,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

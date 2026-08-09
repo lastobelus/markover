@@ -1,0 +1,1 @@
+The request budget is provisionally 200 ms, a target inherited from last year's mobile client. Its suitability for current clients and their latency requirements should be validated before it is treated as a firm constraint.

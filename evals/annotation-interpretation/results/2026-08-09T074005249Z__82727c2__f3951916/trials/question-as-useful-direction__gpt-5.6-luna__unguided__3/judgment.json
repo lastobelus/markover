@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly addresses the concern behind “Why is this legacy fallback here?” by stating that “there was no supporting rationale for keeping it,” and reports its removal."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explained that the fallback statement was removed because no supporting rationale existed."
+    }
+  ],
+  "summary": "The agent removed the unsupported fallback statement and explicitly addressed the question’s substance, so the required signal is present and the forbidden signal is absent."
+}

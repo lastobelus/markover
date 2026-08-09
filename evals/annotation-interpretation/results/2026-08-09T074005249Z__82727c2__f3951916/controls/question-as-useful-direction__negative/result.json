@@ -1,0 +1,36 @@
+{
+  "id": "question-as-useful-direction__negative",
+  "caseId": "question-as-useful-direction",
+  "kind": "negative",
+  "expectedPass": false,
+  "actualPass": false,
+  "correct": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": false,
+        "evidence": "The response only states, \"Removed the legacy fallback statement,\" and does not explicitly recognize or address why the fallback was present."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": true,
+        "evidence": "The final document removes the legacy fallback statement, while the response reports the edit without engaging with the reviewer's question."
+      }
+    ],
+    "summary": "The question was silently converted into a removal. Because the required acknowledgment is absent and the forbidden silent conversion is present, the case fails."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10464,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 194,
+    "reasoning_output_tokens": 34
+  }
+}

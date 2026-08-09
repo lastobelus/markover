@@ -1,0 +1,1 @@
+Updated the retry count to five. Whether this could overload the upstream service depends on the retry backoff and request concurrency, which aren’t specified here.

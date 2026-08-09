@@ -1,0 +1,1 @@
+Agreed—the 200ms budget shouldn’t be presented as an unquestioned current requirement. I’ve clarified that it came from last year’s mobile client and marked the latency tradeoff for re-evaluation.

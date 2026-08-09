@@ -1,0 +1,1 @@
+Good catch. The legacy fallback wasn’t justified here, so I removed the statement.

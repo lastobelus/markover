@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the question with “Good question” and addresses it by explaining that the legacy fallback statement lacked justification."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly recognized the question and explained why the statement was removed."
+    }
+  ],
+  "summary": "The response explicitly acknowledged and addressed the reviewer’s question, and the final document reflects the stated removal. All required signals are observed and no forbidden signals are observed."
+}

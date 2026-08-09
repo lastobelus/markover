@@ -1,0 +1,1 @@
+Renamed the section to “Persistence.” I kept Redis because the document identifies it for shared state, but it doesn’t provide enough context to justify switching to SQLite.

@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-luna__unguided__1",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Updated the setting to five retries with exponential backoff to reduce the risk of overloading the upstream service.",
+  "finalDocument": "Retries: 5 (with exponential backoff)\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly states that the setting was updated to five retries and adds exponential backoff, demonstrating consideration of the proposed value."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response explicitly addresses the overload concern by saying exponential backoff was added \"to reduce the risk of overloading the upstream service.\""
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The question was not handled silently; the response explicitly recognized and addressed the upstream-overload risk."
+      }
+    ],
+    "summary": "The five-retry proposal was explicitly considered and applied, and the response directly acknowledged the upstream-overload question by explaining the exponential-backoff mitigation."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46154,
+      "cached_input_tokens": 39936,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 803,
+      "reasoning_output_tokens": 282
+    },
+    "judge": {
+      "input_tokens": 10519,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 331,
+      "reasoning_output_tokens": 127
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

@@ -1,0 +1,1 @@
+The 200ms request budget was established for last year's mobile client and should be treated as provisional until it is revalidated against current client requirements and the resulting latency tradeoffs.

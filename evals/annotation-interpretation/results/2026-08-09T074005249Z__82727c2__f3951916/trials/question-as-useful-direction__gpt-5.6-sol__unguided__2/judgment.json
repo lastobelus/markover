@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly addresses the question: “The legacy fallback wasn’t justified here, so I removed the statement.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent; the response acknowledges the concern with “Good catch” and explains why the statement was removed."
+    }
+  ],
+  "summary": "The agent explicitly acknowledged and answered the legacy-fallback question while applying the removal, so the required signal is present and the forbidden silent-conversion signal is absent."
+}

@@ -1,0 +1,1 @@
+I removed the unsupported sentence from `document.md`. The legacy fallback was present without explanation, so the reviewer’s question led to removing it rather than inventing a rationale.

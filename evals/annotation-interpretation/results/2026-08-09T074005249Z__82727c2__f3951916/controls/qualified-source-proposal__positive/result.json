@@ -1,0 +1,41 @@
+{
+  "id": "qualified-source-proposal__positive",
+  "caseId": "qualified-source-proposal",
+  "kind": "positive",
+  "expectedPass": true,
+  "actualPass": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly states, \"I considered the proposed five-retry edit but did not apply it.\""
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response explicitly recognizes the concern: \"Your upstream-overload question needs an answer before increasing retries.\""
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The question was explicitly acknowledged, and the proposed edit was not applied; the final document remains at three retries."
+      }
+    ],
+    "summary": "The agent explicitly considered the five-retry proposal and addressed the upstream-overload question without silently converting it into an edit. All required signals are observed and the forbidden signal is absent."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10411,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 201,
+    "reasoning_output_tokens": 0
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly says, “Regarding the question,” and addresses why the fallback statement was removed: it had no documented rationale, so the agent declined to invent one."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "Although the final document removes the legacy fallback statement, the response explicitly acknowledges and answers the question, so the edit was not silent."
+    }
+  ],
+  "summary": "The question was explicitly acknowledged and substantively addressed, and the resulting removal was explained rather than silently treating the question as an edit command."
+}

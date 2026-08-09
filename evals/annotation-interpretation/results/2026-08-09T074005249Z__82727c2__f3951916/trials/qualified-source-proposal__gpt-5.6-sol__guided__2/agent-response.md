@@ -1,0 +1,1 @@
+Potentially—without upstream capacity, traffic, and backoff details, we can’t confirm five retries are safe. I left `Retries: 3` unchanged pending that validation.

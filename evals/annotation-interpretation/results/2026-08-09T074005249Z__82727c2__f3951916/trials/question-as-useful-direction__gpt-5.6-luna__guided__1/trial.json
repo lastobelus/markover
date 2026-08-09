@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__guided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "Removed the unsupported legacy fallback statement from `document.md`.\n\nRegarding the question: it had no documented rationale, so I removed it rather than invent an explanation.",
+  "finalDocument": "",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly says, “Regarding the question,” and addresses why the fallback statement was removed: it had no documented rationale, so the agent declined to invent one."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "Although the final document removes the legacy fallback statement, the response explicitly acknowledges and answers the question, so the edit was not silent."
+      }
+    ],
+    "summary": "The question was explicitly acknowledged and substantively addressed, and the resulting removal was explained rather than silently treating the question as an edit command."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46139,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 692,
+      "reasoning_output_tokens": 179
+    },
+    "judge": {
+      "input_tokens": 10489,
+      "cached_input_tokens": 1792,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 169,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

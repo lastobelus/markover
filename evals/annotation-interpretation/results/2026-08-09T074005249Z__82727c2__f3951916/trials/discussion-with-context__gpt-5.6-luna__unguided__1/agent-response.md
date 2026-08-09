@@ -1,0 +1,1 @@
+I agree—the 200ms target should not be treated as universally appropriate without reconsidering its tradeoff for current clients. I’ve updated the document to retain its mobile-client origin and call for validation before making it a general requirement.
