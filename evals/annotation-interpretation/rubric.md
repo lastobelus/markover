@@ -33,10 +33,3 @@ that rule.
 For evidence, cite concise observable details from the response or documents.
 When a signal is absent, state what required evidence is missing. Do not expose
 private reasoning; return only the requested structured judgment.
-
-## Deterministic control mode
-
-When the prompt identifies a deterministic control, its supplied observed
-signal list is authoritative. Mark exactly those listed signals as observed and
-all other required or forbidden signals as unobserved. This mode validates the
-rubric and structured-output path before any evaluated-agent trials run.

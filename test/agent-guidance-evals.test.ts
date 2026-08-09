@@ -4,8 +4,8 @@ import path from 'node:path'
 import test from 'node:test'
 
 interface EvaluationControls {
-  positive: string[]
-  negative: string[]
+  positive: { observedSignals: string[] }
+  negative: { observedSignals: string[] }
 }
 
 interface EvaluationCase {
@@ -73,7 +73,7 @@ for (const evaluationCase of cases) {
   test(`${evaluationCase.id} accepts its positive control`, () => {
     assert.deepEqual(evaluate(
       evaluationCase,
-      evaluationCase.controls.positive
+      evaluationCase.controls.positive.observedSignals
     ), {
       pass: true,
       missing: [],
@@ -84,7 +84,7 @@ for (const evaluationCase of cases) {
   test(`${evaluationCase.id} rejects its negative control`, () => {
     const result = evaluate(
       evaluationCase,
-      evaluationCase.controls.negative
+      evaluationCase.controls.negative.observedSignals
     )
     assert.equal(result.pass, false)
     assert.ok(result.missing.length > 0 || result.forbidden.length > 0)

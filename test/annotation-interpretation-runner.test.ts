@@ -12,6 +12,7 @@ import {
   buildMatrix,
   executeWithInfrastructureRetries,
   parseCodexJsonl,
+  reserveRunRoot,
   resetTrialWorkspace,
   sanitizeEvidenceDirectory,
   sanitizeEvidenceText,
@@ -159,18 +160,22 @@ test('invalid final documents are visible to the judge and fail the trial', () =
   assert.equal(trialPass('invalid', judgment), false)
 })
 
-test('deterministic controls are explicit and authoritative to the judge', () => {
-  const evaluationCase = cases[0]
+test('judge controls require semantic inference from fixed artifacts', () => {
+  const evaluationCase = cases[2]
   assert.ok(evaluationCase)
+  const control = evaluationCase.controls.positive
   const prompt = buildJudgePrompt({
     evaluationCase,
     rubric: read('rubric.md'),
-    controlSignals: evaluationCase.controls.negative,
-    controlKind: 'negative'
+    agentResponse: control.agentResponse,
+    finalDocument: control.finalDocument,
+    finalDocumentStatus: 'regular'
   })
-  assert.match(prompt, /Deterministic control/)
-  assert.match(prompt, /authoritative observed signal list/)
-  assert.match(prompt, /question-silently-converted-to-edit/)
+  assert.match(prompt, /budget is 200ms/)
+  assert.match(prompt, /latency concern is valid/)
+  assert.doesNotMatch(prompt, /authoritative observed signal list/)
+  assert.doesNotMatch(prompt, /Control kind|positive control|negative control/)
+  assert.doesNotMatch(prompt, /context-used:mobile-client-budget/)
 })
 
 test('Codex JSONL parsing captures final response, usage, and completion', () => {
@@ -332,6 +337,20 @@ test('infrastructure retries restore the pristine trial workspace', async (t) =>
 
   assert.equal(output.value, 'Handled.')
   assert.equal(output.attempts.length, 2)
+})
+
+test('an existing run workspace is rejected without reusing stale artifacts', async (t) => {
+  const directory = await fsPromises.mkdtemp(
+    path.join(os.tmpdir(), 'markover-eval-run-root-')
+  )
+  t.after(async () => fsPromises.rm(directory, { recursive: true, force: true }))
+  const runRoot = path.join(directory, 'fixed-run-id')
+  await reserveRunRoot(runRoot)
+  const staleArtifact = path.join(runRoot, 'attempt-3.json')
+  await fsPromises.writeFile(staleArtifact, 'stale')
+
+  await assert.rejects(reserveRunRoot(runRoot), /Run workspace already exists/)
+  assert.equal(await fsPromises.readFile(staleArtifact, 'utf8'), 'stale')
 })
 
 test('rubric, schema, and package scripts preserve the agreed gates', () => {

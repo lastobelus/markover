@@ -66,12 +66,15 @@ access. Each evaluated-agent trial runs ephemerally in a fresh Git repository
 with workspace-write access limited to its fixture. The judge runs ephemerally
 and read-only with shell, web search, apps, agents, and image tools disabled.
 
-The first gate runs eight deterministic judge controls. Any valid control
-misclassification stops the run before evaluated agents execute. Infrastructure
-failures are recorded and retried at most twice; valid semantic failures are
-never retried. Before each infrastructure retry, the runner recreates the
-fixture workspace from its original document and review so attempts cannot
-accumulate edits or extra files. Trials then execute sequentially across:
+The first gate runs eight fixed artifact-based judge controls. The judge sees
+only each review, original document, final document, response, rubric, and
+signal definitions; it is not given the expected signal decisions or outcome.
+Any valid control misclassification stops the run before evaluated agents
+execute. Infrastructure failures are recorded and retried at most twice; valid
+semantic failures are never retried. Before each infrastructure retry, the
+runner recreates the fixture workspace from its original document and review so
+attempts cannot accumulate edits or extra files. Trials then execute
+sequentially across:
 
 - four cases;
 - `gpt-5.6-sol` and `gpt-5.6-luna` at medium reasoning;
@@ -92,11 +95,16 @@ Execution state is written beneath ignored
 `results/<run-id>/`, whether its reliability gate passes or fails, so failures
 remain auditable rather than being cherry-picked away.
 
-The committed bundle contains the exact inputs and hashes, requested model and
-reasoning settings, bundled model metadata, Codex CLI version, Git provenance,
-prompts, sanitized JSONL event streams, stderr, timing, token usage, responses,
-documents, judgments, errors, a machine-readable manifest, and a Markdown
-report. Unsanitized streams stay only under ignored `tmp/`. The runner never
-collects credentials, environment variables, or unrelated machine state, and
-replaces local absolute paths in every model-derived artifact with stable
-placeholders before atomically publishing the evidence directory.
+Every run ID reserves a new ignored workspace. An existing run workspace is
+rejected rather than resumed or reused, preventing stale attempts from entering
+a later evidence bundle.
+
+The committed bundle contains the exact inputs and hashes—including a snapshot
+and hash of the evaluated runner—requested model and reasoning settings,
+bundled model metadata, Codex CLI version, Git provenance, prompts, sanitized
+JSONL event streams, stderr, timing, token usage, responses, documents,
+judgments, errors, a machine-readable manifest, and a Markdown report.
+Unsanitized streams stay only under ignored `tmp/`. The runner never collects
+credentials, environment variables, or unrelated machine state, and replaces
+local absolute paths in every model-derived artifact with stable placeholders
+before atomically publishing the evidence directory.

@@ -35,9 +35,15 @@ export interface EvaluationCase {
   requiredSignals: string[]
   forbiddenSignals: string[]
   controls: {
-    positive: string[]
-    negative: string[]
+    positive: ControlArtifact
+    negative: ControlArtifact
   }
+}
+
+export interface ControlArtifact {
+  finalDocument: string
+  agentResponse: string
+  observedSignals: string[]
 }
 
 export interface EvaluationConfig {
@@ -123,6 +129,8 @@ interface EvaluationDefinition {
     config: string
     rubric: string
     judgeSchema: string
+    runner: string
+    agentGuidance: string
   }
   hashes: Record<string, string>
 }
@@ -197,6 +205,10 @@ const evaluationDirectory = path.join(
   projectRoot,
   'evals/annotation-interpretation'
 )
+const runnerSourcePath = path.join(
+  projectRoot,
+  'scripts/annotation-interpretation-eval.ts'
+)
 
 const commonConfigOverrides = Object.freeze([
   'approval_policy="never"',
@@ -244,6 +256,24 @@ function assertUnique(values: readonly string[], label: string): void {
   }
 }
 
+function parseControlArtifact(value: unknown, label: string): ControlArtifact {
+  if (
+    !isObject(value) ||
+    typeof value.finalDocument !== 'string' ||
+    typeof value.agentResponse !== 'string' ||
+    !isStringArray(value.observedSignals)
+  ) {
+    throw new Error(
+      `${label} must contain finalDocument, agentResponse, and observedSignals`
+    )
+  }
+  return {
+    finalDocument: value.finalDocument,
+    agentResponse: value.agentResponse,
+    observedSignals: value.observedSignals
+  }
+}
+
 function parseCases(source: string): EvaluationCase[] {
   const rawCases = parseJsonArray(source, 'cases.json')
   return rawCases.map((rawCase, index) => {
@@ -259,8 +289,8 @@ function parseCases(source: string): EvaluationCase[] {
       !isStringArray(rawCase.requiredSignals) ||
       !isStringArray(rawCase.forbiddenSignals) ||
       !isObject(controls) ||
-      !isStringArray(controls.positive) ||
-      !isStringArray(controls.negative)
+      !isObject(controls.positive) ||
+      !isObject(controls.negative)
     ) {
       throw new Error(`Case ${index + 1} has an invalid shape`)
     }
@@ -303,8 +333,14 @@ function parseCases(source: string): EvaluationCase[] {
       requiredSignals: rawCase.requiredSignals,
       forbiddenSignals: rawCase.forbiddenSignals,
       controls: {
-        positive: controls.positive,
-        negative: controls.negative
+        positive: parseControlArtifact(
+          controls.positive,
+          `${caseId} positive control`
+        ),
+        negative: parseControlArtifact(
+          controls.negative,
+          `${caseId} negative control`
+        )
       }
     }
   })
@@ -440,6 +476,23 @@ function validateDefinition(definition: EvaluationDefinition): void {
     ) {
       throw new Error(`${evaluationCase.id} must define required and forbidden signals`)
     }
+    for (const kind of ['positive', 'negative'] as const) {
+      const control = evaluationCase.controls[kind]
+      assertUnique(
+        control.observedSignals,
+        `${evaluationCase.id} ${kind} control observed signals`
+      )
+      const expectedPass = evaluationCase.requiredSignals.every((signal) =>
+        control.observedSignals.includes(signal)
+      ) && evaluationCase.forbiddenSignals.every((signal) =>
+        !control.observedSignals.includes(signal)
+      )
+      if (expectedPass !== (kind === 'positive')) {
+        throw new Error(
+          `${evaluationCase.id} ${kind} control has inconsistent expected signals`
+        )
+      }
+    }
   }
   if (rubric.trim().length === 0) throw new Error('rubric.md must not be empty')
   if (
@@ -456,17 +509,30 @@ function validateDefinition(definition: EvaluationDefinition): void {
 }
 
 async function loadDefinition(): Promise<EvaluationDefinition> {
-  const [casesSource, configSource, rubricSource, schemaSource] = await Promise.all([
+  const [
+    casesSource,
+    configSource,
+    rubricSource,
+    schemaSource,
+    runnerSource
+  ] = await Promise.all([
     readSource('cases.json'),
     readSource('config.json'),
     readSource('rubric.md'),
-    readSource('judge-output.schema.json')
+    readSource('judge-output.schema.json'),
+    fs.readFile(runnerSourcePath, 'utf8')
   ])
+  const agentGuidanceSource = `${JSON.stringify({
+    fixedContract: FIXED_CONTRACT,
+    interpretationPolicy: DEFAULT_INTERPRETATION_POLICY
+  }, null, 2)}\n`
   const sources = {
     cases: casesSource,
     config: configSource,
     rubric: rubricSource,
-    judgeSchema: schemaSource
+    judgeSchema: schemaSource,
+    runner: runnerSource,
+    agentGuidance: agentGuidanceSource
   }
   const definition: EvaluationDefinition = {
     cases: parseCases(casesSource),
@@ -541,8 +607,6 @@ interface JudgePromptInput {
   agentResponse?: string
   finalDocument?: string | null
   finalDocumentStatus?: FinalDocumentStatus
-  controlSignals?: string[]
-  controlKind?: 'positive' | 'negative'
 }
 
 export function buildJudgePrompt(input: JudgePromptInput): string {
@@ -550,17 +614,7 @@ export function buildJudgePrompt(input: JudgePromptInput): string {
   const finalDocument = input.finalDocument === undefined
     ? evaluationCase.review.source
     : input.finalDocument ?? `<document.md ${input.finalDocumentStatus ?? 'invalid'}>`
-  const finalDocumentStatus = input.finalDocumentStatus ??
-    (input.controlSignals === undefined ? 'regular' : 'deterministic-control')
-  const controlSection = input.controlSignals === undefined
-    ? []
-    : [
-        '## Deterministic control',
-        `Control kind: ${input.controlKind ?? 'unknown'}`,
-        'The following observed signal list is authoritative:',
-        JSON.stringify(input.controlSignals, null, 2),
-        ''
-      ]
+  const finalDocumentStatus = input.finalDocumentStatus ?? 'regular'
   return [
     'Evaluate this annotation-interpretation outcome using the supplied rubric.',
     'Return only the structured JSON required by the output schema.',
@@ -577,7 +631,6 @@ export function buildJudgePrompt(input: JudgePromptInput): string {
     'Forbidden signals:',
     JSON.stringify(evaluationCase.forbiddenSignals, null, 2),
     '',
-    ...controlSection,
     '## Review',
     JSON.stringify(evaluationCase.review, null, 2),
     '',
@@ -589,7 +642,7 @@ export function buildJudgePrompt(input: JudgePromptInput): string {
     finalDocument,
     '',
     '## Agent response',
-    input.agentResponse ?? 'Deterministic control: use the authoritative observed signal list.',
+    input.agentResponse ?? '',
     ''
   ].join('\n')
 }
@@ -1149,6 +1202,7 @@ async function runControls(
     for (const kind of ['positive', 'negative'] as const) {
       const id = `${evaluationCase.id}__${kind}`
       const expectedPass = kind === 'positive'
+      const control = evaluationCase.controls[kind]
       const output = await runJudge({
         codexPath,
         definition,
@@ -1157,8 +1211,9 @@ async function runControls(
         prompt: buildJudgePrompt({
           evaluationCase,
           rubric: definition.rubric,
-          controlSignals: evaluationCase.controls[kind],
-          controlKind: kind
+          agentResponse: control.agentResponse,
+          finalDocument: control.finalDocument,
+          finalDocumentStatus: 'regular'
         }),
         evidenceDirectory: path.join(directories.evidence, 'controls', id, 'judge'),
         rawDirectory: path.join(directories.raw, 'controls', id, 'judge')
@@ -1541,11 +1596,27 @@ async function writeInputs(
       path.join(inputDirectory, 'judge-output.schema.json'),
       definition.sources.judgeSchema
     ),
-    writeJson(path.join(inputDirectory, 'agent-guidance.json'), {
-      fixedContract: FIXED_CONTRACT,
-      interpretationPolicy: DEFAULT_INTERPRETATION_POLICY
-    })
+    writeText(path.join(inputDirectory, 'runner.ts'), definition.sources.runner),
+    writeText(
+      path.join(inputDirectory, 'agent-guidance.json'),
+      definition.sources.agentGuidance
+    )
   ])
+}
+
+export async function reserveRunRoot(runRoot: string): Promise<void> {
+  await fs.mkdir(path.dirname(runRoot), { recursive: true })
+  try {
+    await fs.mkdir(runRoot)
+  } catch (error) {
+    const code = isObject(error) && typeof error.code === 'string'
+      ? error.code
+      : null
+    if (code === 'EEXIST') {
+      throw new Error(`Run workspace already exists: ${runRoot}`, { cause: error })
+    }
+    throw error
+  }
 }
 
 export async function sanitizeEvidenceDirectory(
@@ -1633,6 +1704,7 @@ async function runEvaluation(options: RunOptions): Promise<RunResult> {
   )
   validateRunId(runId)
   const directories = runtimeDirectories(runId)
+  await reserveRunRoot(directories.runRoot)
   await Promise.all([
     fs.mkdir(directories.evidence, { recursive: true }),
     fs.mkdir(directories.raw, { recursive: true }),
