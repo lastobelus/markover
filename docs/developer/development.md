@@ -382,7 +382,8 @@ version-pinned rollback, and future Developer ID activation.
 - Every new review snapshots `review.agentGuidance.fixedContract` and
   `review.agentGuidance.interpretationPolicy`; `get` returns both unchanged.
 - Agent-facing instructions must preserve the contract's distinction among
-  revisions, questions, discussion, context, and source-edit proposals.
+  revisions, questions, discussion, context, and source-edit proposals,
+  including substantive engagement with discussion and concerns.
 
 Run the service-free protocol help with:
 
