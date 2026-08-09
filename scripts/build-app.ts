@@ -83,6 +83,20 @@ async function main(): Promise<void> {
   await build({
     absWorkingDir: projectDirectory,
     bundle: true,
+    entryPoints: ['src/preload.ts'],
+    external: ['electron'],
+    format: 'cjs',
+    logLevel: 'warning',
+    outfile: path.join(appSourceDirectory, 'preload.js'),
+    platform: 'node',
+    sourcemap: 'external',
+    sourcesContent: true,
+    target: 'node22'
+  })
+
+  await build({
+    absWorkingDir: projectDirectory,
+    bundle: true,
     entryPoints: ['src/startup.ts'],
     format: 'iife',
     logLevel: 'warning',
@@ -127,6 +141,7 @@ async function main(): Promise<void> {
     description: manifestString(manifest, 'description'),
     main: 'src/main.js',
     author: manifestString(manifest, 'author'),
+    copyright: manifestString(manifest, 'copyright'),
     license: manifestString(manifest, 'license')
   }
   await fs.writeFile(

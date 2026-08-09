@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'"
+      content="default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-src 'none'; img-src 'self' data: blob: file:; media-src 'none'; object-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; worker-src 'none'"
     >
     <title>Markover</title>
     <script src="startup.js"></script>
@@ -273,6 +273,18 @@
     </main>
 
     <div id="toast" class="toast" aria-hidden="true"></div>
+    <div
+      id="incoming-review-notice"
+      class="incoming-review-notice"
+      hidden
+    >
+      <span
+        id="incoming-review-notice-message"
+        role="status"
+        aria-live="polite"
+      ></span>
+      <button id="incoming-review-notice-open" type="button">Open</button>
+    </div>
     <div id="image-preview" class="image-preview" hidden>
       <button id="image-preview-close" class="image-preview-close" type="button">×</button>
       <div class="image-preview-frame">
@@ -369,6 +381,27 @@
             <span><strong>Confirm screenshot removal</strong><small>Ask before removing an attached screenshot and its marker.</small></span>
             <input name="confirmAttachmentRemoval" type="checkbox" role="switch">
           </label>
+          <h3 class="settings-section-title">Incoming reviews</h3>
+          <label class="settings-field">
+            <span><strong>When an agent adds a review</strong><small>Choose whether the new review replaces the one you are reading or editing.</small></span>
+            <select name="incomingReviewActivationPolicy">
+              <option value="never">Never switch</option>
+              <option value="always">Always switch</option>
+              <option value="warn">Ask before switching</option>
+              <option value="when-idle">Switch when idle</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span><strong>Switch after being idle</strong><small>Markover is idle after it has not been the active app for this many minutes.</small></span>
+            <input
+              name="incomingReviewIdleMinutes"
+              type="number"
+              min="1"
+              max="60"
+              step="1"
+              inputmode="numeric"
+            >
+          </label>
           <h3 class="settings-section-title">Agent handoff</h3>
           <div class="settings-field settings-policy-field">
             <div class="settings-policy-copy">
@@ -395,6 +428,35 @@
           <button class="button button-primary" type="submit">Done</button>
         </footer>
       </form>
+    </dialog>
+
+    <dialog
+      id="incoming-review-dialog"
+      class="settings-dialog incoming-review-dialog"
+      aria-labelledby="incoming-review-dialog-title"
+      aria-describedby="incoming-review-dialog-message"
+    >
+      <div class="incoming-review-dialog-layout">
+        <header class="settings-header">
+          <div>
+            <span class="eyebrow">Incoming review</span>
+            <h2 id="incoming-review-dialog-title">Open the new review?</h2>
+          </div>
+        </header>
+        <p id="incoming-review-dialog-message"></p>
+        <footer class="settings-footer">
+          <button
+            id="incoming-review-dialog-open"
+            class="button button-secondary"
+            type="button"
+          >Open New Review</button>
+          <button
+            id="incoming-review-dialog-keep"
+            class="button button-primary"
+            type="button"
+          >Keep Current</button>
+        </footer>
+      </div>
     </dialog>
 
     <dialog id="fixed-contract-dialog" class="settings-dialog fixed-contract-dialog">

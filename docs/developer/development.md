@@ -238,6 +238,12 @@ workflows from contributors** to **Require approval for all external
 contributors**. This keeps the pull requests open while preventing their
 workflows from consuming runner minutes until a maintainer approves them.
 
+Routine pull requests and `main` pushes do not build native macOS packages or
+run the packaged happy-path smoke. That evidence belongs to the `v*`
+tag-triggered release-candidate workflow, where it qualifies the exact final
+Apple Silicon ZIP. Native Intel release qualification remains deferred to issue
+#80.
+
 The same kill switch can be enabled with GitHub CLI:
 
 ```sh
@@ -387,6 +393,7 @@ npm --silent run markover -- help
 - `scripts/` — local launcher, packaging, review, and build scripts
 - `packages/cli/` — dependency-free public bootstrap CLI
 - `test/` — Node test suite
-- `docs/` — GitHub Pages site, user guide, screenshots, and this development
-  reference
+- `docs/user/` — source for the deployed GitHub Pages site and user guidance
+- `docs/developer/` — contributor setup, architecture, security, testing, and
+  maintenance references
 - `examples/` — sample Markdown documents for parser and UI testing

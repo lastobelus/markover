@@ -1,11 +1,57 @@
 import {
   contextBridge,
-  ipcRenderer,
-  type IpcRendererEvent
+  ipcRenderer
 } from 'electron'
+
+import {
+  assertMainEventArguments,
+  assertRendererInvokeArguments,
+  assertRendererInvokeResult,
+  assertRendererSendArguments,
+  type MainEventArguments,
+  type MainEventChannel,
+  type RendererInvokeArguments,
+  type RendererInvokeChannel,
+  type RendererInvokeResults,
+  type RendererSendArguments,
+  type RendererSendChannel
+} from './ipc-contract'
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+async function invoke<C extends RendererInvokeChannel>(
+  channel: C,
+  ...args: RendererInvokeArguments[C]
+): Promise<RendererInvokeResults[C]> {
+  assertRendererInvokeArguments(channel, args)
+  const result: unknown = await ipcRenderer.invoke(channel, ...args)
+  assertRendererInvokeResult(channel, result)
+  return result as RendererInvokeResults[C]
+}
+
+function send<C extends RendererSendChannel>(
+  channel: C,
+  ...args: RendererSendArguments[C]
+): void {
+  assertRendererSendArguments(channel, args)
+  ipcRenderer.send(channel, ...args)
+}
+
+function listen<C extends MainEventChannel>(
+  channel: C,
+  callback: (...args: MainEventArguments[C]) => void
+): void {
+  ipcRenderer.on(channel, (_event, ...args) => {
+    try {
+      assertMainEventArguments(channel, args)
+    } catch {
+      console.error(`Markover rejected an invalid main-process event on ${channel}.`)
+      return
+    }
+    callback(...args as unknown as MainEventArguments[C])
+  })
 }
 
 async function respondToReviewStatus(
@@ -14,11 +60,11 @@ async function respondToReviewStatus(
 ): Promise<void> {
   try {
     await callback(status)
-    ipcRenderer.send('review:status-response', {
+    send('review:status-response', {
       requestId: status.requestId
     } satisfies ReviewStatusResponse)
   } catch (error) {
-    ipcRenderer.send('review:status-response', {
+    send('review:status-response', {
       requestId: status.requestId,
       error: errorMessage(error)
     } satisfies ReviewStatusResponse)
@@ -33,14 +79,14 @@ async function respondToReviewSnapshot(
 ): Promise<void> {
   try {
     const tree = await callback(request)
-    ipcRenderer.send('review:snapshot-response', {
+    send('review:snapshot-response', {
       requestId: request.requestId,
       reviewId: request.reviewId,
       purpose: request.purpose,
       tree
     } satisfies ReviewSnapshotResponse)
   } catch (error) {
-    ipcRenderer.send('review:snapshot-response', {
+    send('review:snapshot-response', {
       requestId: request.requestId,
       reviewId: request.reviewId,
       purpose: request.purpose,
@@ -57,13 +103,13 @@ async function respondToReviewActivation(
 ): Promise<void> {
   try {
     const outcome = await callback(request)
-    ipcRenderer.send('review:activation-response', {
+    send('review:activation-response', {
       requestId: request.requestId,
       reviewId: request.reviewId,
       outcome
     } satisfies ReviewActivationResponse)
   } catch (error) {
-    ipcRenderer.send('review:activation-response', {
+    send('review:activation-response', {
       requestId: request.requestId,
       reviewId: request.reviewId,
       error: errorMessage(error)
@@ -72,111 +118,117 @@ async function respondToReviewActivation(
 }
 
 const bridge = {
-  getStartupInfo: () => ipcRenderer.invoke('startup:info'),
-  reportStartupPhase: (event) => ipcRenderer.invoke('startup:phase', event),
+  getStartupInfo: () => invoke('startup:info'),
+  reportStartupPhase: (event) => invoke('startup:phase', event),
   reportRendererInitialized: (initialization) => (
-    ipcRenderer.invoke('startup:renderer-initialized', initialization)
+    invoke('startup:renderer-initialized', initialization)
   ),
   reportStartupFailure: (failure) => (
-    ipcRenderer.invoke('startup:failure', failure)
+    invoke('startup:failure', failure)
   ),
-  copyStartupDiagnostic: () => ipcRenderer.invoke('startup:copy-diagnostic'),
-  revealStartupDiagnostic: () => ipcRenderer.invoke('startup:reveal-diagnostic'),
+  copyStartupDiagnostic: () => invoke('startup:copy-diagnostic'),
+  revealStartupDiagnostic: () => invoke('startup:reveal-diagnostic'),
   quitStartup: () => {
-    ipcRenderer.send('startup:quit')
+    send('startup:quit')
   },
-  reportSmokeResult: (result) => ipcRenderer.invoke('smoke:result', result),
-  getBrandAssets: () => ipcRenderer.invoke('brand:assets'),
-  openMarkdown: () => ipcRenderer.invoke('document:open'),
+  reportSmokeResult: (result) => invoke('smoke:result', result),
+  getBrandAssets: () => invoke('brand:assets'),
+  openMarkdown: () => invoke('document:open'),
   onOpenMarkdownRequested: (callback) => {
-    ipcRenderer.on('document:open-request', () => {
+    listen('document:open-request', () => {
       callback()
     })
   },
-  checksum: (source) => ipcRenderer.invoke('document:checksum', source),
+  checksum: (source) => invoke('document:checksum', source),
   copyText: (text) => {
-    ipcRenderer.send('clipboard:write', text)
+    send('clipboard:write', text)
   },
-  readClipboardImage: () => ipcRenderer.invoke('clipboard:read-image'),
-  saveAttachment: (attachment, reviewId) => (
-    ipcRenderer.invoke('attachment:save', attachment, reviewId)
+  readClipboardImage: () => (
+    invoke('clipboard:read-image')
   ),
-  getInitialReview: () => ipcRenderer.invoke('review:initial-document'),
-  getReviews: () => ipcRenderer.invoke('review:list'),
+  saveAttachment: (attachment, reviewId) => (
+    invoke('attachment:save', attachment, reviewId)
+  ),
+  removeAttachment: (request) => invoke('attachment:remove', request),
+  getInitialReview: () => (
+    invoke('review:initial-document')
+  ),
+  getReviews: () => invoke('review:list'),
+  openReviewContextMenu: (request) => (
+    invoke('review:context-menu:open', request)
+  ),
   onReviewOpened: (callback) => {
-    ipcRenderer.on(
+    listen(
       'review:opened',
-      (_event: IpcRendererEvent, document: MarkoverDocument) => {
+      (document: MarkoverDocument) => {
         void callback(document)
       }
     )
   },
+  onReviewTrashed: (callback) => {
+    listen('review:trashed', (event) => {
+      callback(event)
+    })
+  },
   onReviewStatus: (callback) => {
-    ipcRenderer.on('review:status', (
-      _event: IpcRendererEvent,
-      status: ReviewStatusRequest
-    ) => {
+    listen('review:status', (status: ReviewStatusRequest) => {
       void respondToReviewStatus(callback, status)
     })
   },
   onReviewSnapshotRequested: (callback) => {
-    ipcRenderer.on('review:snapshot-request', (
-      _event: IpcRendererEvent,
-      request: ReviewSnapshotRequest
-    ) => {
+    listen('review:snapshot-request', (request: ReviewSnapshotRequest) => {
       void respondToReviewSnapshot(callback, request)
     })
   },
   onReviewAutosaveStatus: (callback) => {
-    ipcRenderer.on('review:autosave-status', (
-      _event: IpcRendererEvent,
-      status: ReviewAutosaveStatus
-    ) => {
+    listen('review:autosave-status', (status: ReviewAutosaveStatus) => {
       callback(status)
     })
   },
   getReviewAutosaveStatus: () => (
-    ipcRenderer.invoke('review:autosave-status:get')
+    invoke('review:autosave-status:get')
   ),
   onReviewShutdownState: (callback) => {
-    ipcRenderer.on('review:shutdown-state', (
-      _event: IpcRendererEvent,
-      paused: boolean
-    ) => {
+    listen('review:shutdown-state', (paused: boolean) => {
       callback(paused)
     })
   },
   onReviewActivationRequested: (callback) => {
-    ipcRenderer.on('review:activation-request', (
-      _event: IpcRendererEvent,
-      request: ReviewActivationRequest
-    ) => {
+    listen('review:activation-request', (request: ReviewActivationRequest) => {
       void respondToReviewActivation(callback, request)
     })
   },
   activateReview: (reviewId) => {
-    ipcRenderer.send('review:activate', reviewId)
+    send('review:activate', reviewId)
   },
   autosaveReview: (reviewId, tree) => {
-    ipcRenderer.send('review:autosave', reviewId, tree)
+    send('review:autosave', reviewId, tree)
   },
   finishReview: (tree) => {
-    ipcRenderer.send('review:done', tree)
+    send('review:done', tree)
   },
   cancelReview: () => {
-    ipcRenderer.send('review:cancel')
+    send('review:cancel')
   },
-  getSettings: () => ipcRenderer.invoke('settings:get'),
-  updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
+  getSettings: () => invoke('settings:get'),
+  updateSettings: (patch) => (
+    invoke('settings:update', patch)
+  ),
+  getWindowFocusState: () => invoke('window:focus-state:get'),
+  onWindowFocusChanged: (callback) => {
+    listen('window:focus-state', (state: MarkoverWindowFocusState) => {
+      callback(state)
+    })
+  },
   onSettingsOpen: (callback) => {
-    ipcRenderer.on('settings:open', () => {
+    listen('settings:open', () => {
       callback()
     })
   },
   onSettingsChanged: (callback) => {
-    ipcRenderer.on(
+    listen(
       'settings:changed',
-      (_event: IpcRendererEvent, settings: MarkoverSettingsEnvelope) => {
+      (settings: MarkoverSettingsEnvelope) => {
         callback(settings)
       }
     )

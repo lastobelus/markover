@@ -52,6 +52,11 @@ declare global {
   type TreeDensity = 'comfortable' | 'compact'
   type AnnotationTextSize = 'small' | 'medium' | 'large'
   type DefaultTreeView = 'all' | 'annotated'
+  type IncomingReviewActivationPolicy =
+    | 'never'
+    | 'always'
+    | 'warn'
+    | 'when-idle'
   type DarkColorization = 'high' | 'mid' | 'low'
 
   interface AgentGuidance {
@@ -75,6 +80,8 @@ declare global {
     openDocumentsSidebar: boolean
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
+    incomingReviewActivationPolicy: IncomingReviewActivationPolicy
+    incomingReviewIdleMinutes: number
     discoverAgentThreadFromLocalSessions: boolean
     logRejectedApiRequests: boolean
     agentInterpretationPolicy: string
@@ -111,6 +118,7 @@ declare global {
       treeDensity: readonly TreeDensity[]
       annotationTextSize: readonly AnnotationTextSize[]
       defaultTreeView: readonly DefaultTreeView[]
+      incomingReviewActivationPolicy: readonly IncomingReviewActivationPolicy[]
     }>
     normalizeSettings: (value?: unknown) => MarkoverSettings
     updateSettings: (current: unknown, patch: unknown) => MarkoverSettings
@@ -484,6 +492,11 @@ declare global {
     error?: string
   }
 
+  interface MarkoverWindowFocusState {
+    focused: boolean
+    blurredAt: number | null
+  }
+
   interface MarkoverBridge {
     getStartupInfo: () => Promise<StartupInfo>
     reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
@@ -507,11 +520,22 @@ declare global {
       attachment: MarkoverClipboardImage,
       reviewId?: string | null
     ) => Promise<ReviewAttachment>
+    removeAttachment: (request: {
+      reviewId: string
+      attachmentId: string
+      tree: ReviewTree
+    }) => Promise<{
+      reviewId: string
+      attachmentId: string
+      outcome: 'cancelled' | 'trashed'
+    }>
     getInitialReview: () => Promise<MarkoverDocument | null>
     getReviews: () => Promise<MarkoverDocument[]>
+    openReviewContextMenu: (request: { reviewId: string }) => Promise<void>
     onReviewOpened: (
       callback: (document: MarkoverDocument) => void | Promise<void>
     ) => void
+    onReviewTrashed: (callback: (event: { reviewId: string }) => void) => void
     onReviewStatus: (
       callback: (status: ReviewStatusRequest) => void | Promise<void>
     ) => void
@@ -536,6 +560,10 @@ declare global {
     cancelReview: () => void
     getSettings: () => Promise<MarkoverSettingsEnvelope>
     updateSettings: (patch: unknown) => Promise<MarkoverSettingsEnvelope>
+    getWindowFocusState: () => Promise<MarkoverWindowFocusState>
+    onWindowFocusChanged: (
+      callback: (state: MarkoverWindowFocusState) => void
+    ) => void
     onSettingsOpen: (callback: () => void) => void
     onSettingsChanged: (
       callback: (settings: MarkoverSettingsEnvelope) => void
@@ -600,6 +628,7 @@ declare global {
   interface ReviewMutationTrackerContract {
     track<T>(reviewId: string, operation: T | PromiseLike<T>): Promise<T>
     has(reviewId: string): boolean
+    waitCurrent(reviewId: string): Promise<void>
     wait(reviewId: string): Promise<void>
   }
 
@@ -608,6 +637,7 @@ declare global {
     activate(reviewId: string): ReviewSession
     active(): ReviewSession | null
     get(reviewId: string): ReviewSession | null
+    remove(reviewId: string): ReviewSession | null
     snapshot(reviewId: string): ReviewSessionTree | null
     updateStatus(
       reviewId: string,

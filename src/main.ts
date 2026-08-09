@@ -9,7 +9,8 @@ import {
   nativeTheme,
   shell,
   type IpcMainEvent,
-  type IpcMainInvokeEvent
+  type IpcMainInvokeEvent,
+  type WebContents
 } from 'electron'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdirSync, rmSync } from 'node:fs'
@@ -17,6 +18,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { aboutPanelOptions } from './about-panel'
 import { applicationMenuTemplate } from './app-menu'
 import { AsyncMutationTracker } from './async-mutation-tracker'
 import { loadDevelopmentConfig } from './development-config'
@@ -28,6 +30,17 @@ import {
   CANONICAL_INSTANCE_SCHEME,
   runtimeInstanceFromEnvironment
 } from './instance'
+import {
+  assertMainEventArguments,
+  type AttachmentRemoveRequest,
+  type AttachmentRemoveResult,
+  type MainEventChannel,
+  type ReviewContextMenuRequest
+} from './ipc-contract'
+import {
+  PrivilegedIpc,
+  type RendererIpcEntry
+} from './ipc-security'
 import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { importLegacyReviews } from './review-migration'
@@ -36,9 +49,19 @@ import {
   registerProtocolOnFirstLaunch,
   SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT
 } from './protocol-registration'
-import { ReviewStore, type ReviewArtifact } from './review-store'
+import {
+  reviewDeletionPolicy,
+  ReviewStore,
+  type ReviewArtifact,
+  type ReviewDeletionPolicy,
+  type UnusedAttachmentScan
+} from './review-store'
 import { parseReviewUrl, type ReviewUrl } from './review-url'
 import { ReviewUrlDispatcher } from './review-url-dispatcher'
+import {
+  hardenedRendererWebPreferences,
+  installRendererSecurityBoundaries
+} from './renderer-security'
 import {
   createServiceIdentity,
   publishServiceConnection,
@@ -165,6 +188,7 @@ let reviewConfigPromise: Promise<ReviewConfig> | null = null
 let attachmentDirectoryPromise: Promise<string> | null = null
 let attachmentSequence = 0
 let mainWindow: BrowserWindow | null = null
+let mainWindowBlurredAt: number | null = Date.now()
 let activeManagedReview: ReviewArtifact | null = null
 let activeManagedReviewId: string | null = null
 let localService: LocalService | null = null
@@ -189,6 +213,7 @@ let rendererStartupFailed = false
 let rendererReadyWebContentsId: number | null = null
 let rendererReadyPromise: Promise<void> = Promise.resolve()
 let resolveRendererReady: (() => void) | null = null
+let rendererIpcEntry: RendererIpcEntry | null = null
 let managedAttachmentSavesBlocked = false
 let managedShutdownComplete = false
 let managedShutdownStarted = false
@@ -198,6 +223,7 @@ let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const pendingActivations = new Map<string, PendingActivation>()
+const pendingManagedReviewNotifications = new Map<string, ReviewArtifact>()
 const projectRoots = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
 const reviewUrlDispatcher = new ReviewUrlDispatcher<ReviewUrl>(
@@ -208,6 +234,17 @@ const reviewUrlDispatcher = new ReviewUrlDispatcher<ReviewUrl>(
     process.stderr.write(`markover review link: ${errorMessage(error)}\n`)
   }
 )
+const privilegedIpc = new PrivilegedIpc(ipcMain, {
+  activeWebContents: () => (
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow.webContents
+      : null
+  ),
+  diagnose(channel, reason) {
+    process.stderr.write(`markover ipc: rejected ${channel} (${reason})\n`)
+  },
+  expectedEntry: () => rendererIpcEntry
+})
 
 if (process.platform === 'darwin' && app.isPackaged && !reviewMode && !smokeMode) {
   app.on('open-url', (event, value) => {
@@ -236,12 +273,28 @@ function isRendererSmokeResult(value: unknown): value is RendererSmokeResult {
     !isRecord(value) ||
     value.format !== 'markover-renderer-smoke' ||
     value.version !== 1 ||
+    !Array.isArray(value.diagnostics) ||
+    !value.diagnostics.every((item) => typeof item === 'string') ||
     !isRecord(value.checks)
   ) return false
   const checks = value.checks
   const keys = Object.keys(checks).sort()
   return (
-    keys.join(',') === 'cleanRuntime,documentsList,markdown,sourceDiff,yaml' &&
+    keys.join(',') === [
+      'blobImage',
+      'cleanRuntime',
+      'dataImage',
+      'documentsList',
+      'fileImage',
+      'markdown',
+      'navigationDenied',
+      'permissionDenied',
+      'sandboxedRenderer',
+      'sourceDiff',
+      'webviewDenied',
+      'windowOpenDenied',
+      'yaml'
+    ].join(',') &&
     keys.every((key) => typeof checks[key] === 'boolean')
   )
 }
@@ -267,6 +320,18 @@ async function loadBuildIdentity(): Promise<BuildIdentity> {
     dirty: value.dirty,
     rendererSha256: value.rendererSha256
   }
+}
+
+async function configureAboutPanel(build: BuildIdentity): Promise<void> {
+  const packageManifest: unknown = JSON.parse(await fs.readFile(
+    path.join(projectDirectory, 'package.json'),
+    'utf8'
+  ))
+  app.setAboutPanelOptions(aboutPanelOptions(
+    addressedInstance.branding.appName,
+    build,
+    packageManifest
+  ))
 }
 
 function provisionalBuildIdentity(): BuildIdentity {
@@ -383,19 +448,29 @@ function applyMainSettings(
   mainWindow?.setBackgroundColor(
     windowBackground(settings, envelope.resolvedAppearance)
   )
-  if (broadcast) mainWindow?.webContents.send('settings:changed', envelope)
+  if (broadcast && mainWindow) {
+    sendMainEvent(mainWindow.webContents, 'settings:changed', envelope)
+  }
   return envelope
 }
 
+function sendMainEvent(
+  webContents: WebContents,
+  channel: MainEventChannel,
+  ...args: unknown[]
+): void {
+  assertMainEventArguments(channel, args)
+  webContents.send(channel, ...args)
+}
+
 function sendRendererEvent(
-  channel: 'document:open-request' | 'settings:open',
-  value?: unknown
+  channel: 'document:open-request' | 'settings:open'
 ): void {
   if (!mainWindow || mainWindow.isDestroyed()) createWindow()
   if (!mainWindow) throw new Error('Markover window could not be created.')
   const window = mainWindow
   const send = () => {
-    window.webContents.send(channel, value)
+    sendMainEvent(window.webContents, channel)
   }
   if (window.webContents.isLoadingMainFrame()) {
     window.webContents.once('did-finish-load', send)
@@ -410,15 +485,259 @@ function sendRendererEvent(
 function installApplicationMenu(): void {
   const template = applicationMenuTemplate({
     appName: addressedInstance.branding.appName,
+    canCleanUpAttachments: !reviewMode,
+    canTrashReview: !reviewMode && activeManagedReviewId !== null,
     reviewMode,
+    onCleanUpAttachments: () => {
+      void cleanUpUnusedAttachments().catch(showReviewOperationError)
+    },
     onOpen: () => {
       sendRendererEvent('document:open-request')
     },
     onSettings: () => {
       sendRendererEvent('settings:open')
+    },
+    onTrashReview: () => {
+      if (activeManagedReviewId) {
+        void moveReviewToTrash(activeManagedReviewId).catch(
+          showReviewOperationError
+        )
+      }
     }
   })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+function formatByteCount(bytes: number): string {
+  if (bytes < 1024) return `${String(bytes)} B`
+  const units = ['KB', 'MB', 'GB']
+  let value = bytes / 1024
+  let unit = units[0]
+  for (let index = 1; index < units.length && value >= 1024; index += 1) {
+    value /= 1024
+    unit = units[index]
+  }
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${unit}`
+}
+
+function resumeManagedMutationsUnlessShuttingDown(): void {
+  if (!managedShutdownStarted) resumeManagedMutations()
+}
+
+async function showReviewOperationError(error: unknown): Promise<void> {
+  process.stderr.write(`markover review cleanup: ${errorMessage(error)}\n`)
+  const options = {
+    type: 'error' as const,
+    buttons: ['OK'],
+    defaultId: 0,
+    noLink: true,
+    message: 'Markover could not complete that review operation.',
+    detail: errorMessage(error)
+  }
+  const window = mainWindow
+  if (window && !window.isDestroyed()) await dialog.showMessageBox(window, options)
+  else await dialog.showMessageBox(options)
+}
+
+async function withManagedMutationsPaused(
+  operation: () => Promise<void>,
+  reviewId: string | null = null,
+  confirmBeforeSaving: (() => Promise<boolean>) | null = null
+): Promise<void> {
+  if (reviewMode || managedShutdownStarted) {
+    throw new Error('Managed review changes are unavailable right now.')
+  }
+  setManagedRendererPause(true)
+  try {
+    await localService?.pauseMutations()
+    if (confirmBeforeSaving && !await confirmBeforeSaving()) return
+    if (reviewId) {
+      const artifact = await requireReviewStore().load(reviewId)
+      if (artifact.review.status === 'editing') {
+        const tree = await requestRendererSnapshot(reviewId, 'shutdown')
+        if (tree) await requireManagedAutosave().saveNow(reviewId, tree)
+      }
+    } else {
+      await captureEditableManagedReviews()
+    }
+    managedAttachmentSavesBlocked = true
+    await managedAttachmentMutations.wait()
+    await requireManagedAutosave().flushAll()
+    await operation()
+  } finally {
+    resumeManagedMutationsUnlessShuttingDown()
+  }
+}
+
+async function confirmReviewTrash(
+  reviewId: string
+): Promise<ReviewDeletionPolicy | null> {
+  const artifact = await requireReviewStore().load(reviewId)
+  const policy = reviewDeletionPolicy(artifact.review.status)
+  const pendingAgent = policy === 'pending-agent'
+  const options = {
+    type: 'warning' as const,
+    buttons: ['Move to Trash', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    message: [
+      pendingAgent
+        ? 'Move this review to Trash while it is with the agent?'
+        : 'Move this review to Trash?',
+      '',
+      'Your original Markdown document will not be changed or deleted.'
+    ].join('\n'),
+    detail: [
+      pendingAgent
+        ? 'The agent may still be using this review. Its next read or update will fail.'
+        : 'This removes the review from Markover.',
+      '',
+      `The entire ${reviewId} review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.`
+    ].join('\n')
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showMessageBox(window, options)
+    : await dialog.showMessageBox(options)
+  return result.response === 0 ? policy : null
+}
+
+async function moveReviewToTrash(reviewId: string): Promise<void> {
+  const confirmedPolicy = await confirmReviewTrash(reviewId)
+  if (!confirmedPolicy) return
+  await withManagedMutationsPaused(async () => {
+    await requireReviewStore().trashReview(
+      reviewId,
+      (target) => shell.trashItem(target)
+    )
+    if (activeManagedReviewId === reviewId) {
+      activeManagedReviewId = null
+      activeManagedReview = null
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      sendMainEvent(mainWindow.webContents, 'review:trashed', { reviewId })
+    }
+    installApplicationMenu()
+  }, reviewId, async () => {
+    const artifact = await requireReviewStore().load(reviewId)
+    const currentPolicy = reviewDeletionPolicy(artifact.review.status)
+    if (currentPolicy === confirmedPolicy) return true
+    return await confirmReviewTrash(reviewId) !== null
+  })
+}
+
+async function confirmUnusedAttachmentCleanup(
+  scan: UnusedAttachmentScan
+): Promise<boolean> {
+  const skipped = new Set(scan.warnings.map((warning) => warning.reviewId)).size
+  if (!scan.candidates.length) {
+    const detail = skipped
+      ? `No unused attachments were found. ${String(skipped)} review(s) could not be inspected and were left untouched.`
+      : 'No unused attachments were found.'
+    const options = {
+      type: 'info' as const,
+      buttons: ['OK'],
+      message: 'Review attachments are already clean.',
+      detail
+    }
+    const window = mainWindow
+    if (window && !window.isDestroyed()) await dialog.showMessageBox(window, options)
+    else await dialog.showMessageBox(options)
+    return false
+  }
+  const detail = [
+    `${String(scan.candidates.length)} unreferenced attachment file(s), ${formatByteCount(scan.totalBytes)}, will move to the macOS Trash.`,
+    skipped
+      ? `${String(skipped)} invalid or unreadable review(s) could not be inspected and will be left untouched.`
+      : null
+  ].filter((line): line is string => line !== null).join('\n\n')
+  const options = {
+    type: 'warning' as const,
+    buttons: ['Move Attachments to Trash', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    message: 'Clean up unused review attachments?',
+    detail
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showMessageBox(window, options)
+    : await dialog.showMessageBox(options)
+  return result.response === 0
+}
+
+async function cleanUpUnusedAttachments(): Promise<void> {
+  await withManagedMutationsPaused(async () => {
+    const scan = await requireReviewStore().scanUnusedAttachments()
+    if (!await confirmUnusedAttachmentCleanup(scan)) return
+    await requireReviewStore().trashUnusedAttachments(
+      scan,
+      (target) => shell.trashItem(target)
+    )
+  })
+}
+
+async function removeManagedAttachment(
+  request: AttachmentRemoveRequest
+): Promise<AttachmentRemoveResult> {
+  if (managedAttachmentSavesBlocked) {
+    throw new Error('Markover is finishing review saves before another change.')
+  }
+  const confirmRemoval = settingsStore?.settings.confirmAttachmentRemoval ??
+    DEFAULT_SETTINGS.confirmAttachmentRemoval
+  if (confirmRemoval) {
+    const options = {
+      type: 'warning' as const,
+      buttons: ['Remove Attachment', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+      message: `Remove ${request.attachmentId} from this review?`,
+      detail: 'The updated review will be saved first, then the attachment file will move to the macOS Trash.'
+    }
+    const window = mainWindow
+    const result = window && !window.isDestroyed()
+      ? await dialog.showMessageBox(window, options)
+      : await dialog.showMessageBox(options)
+    if (result.response !== 0) {
+      return {
+        reviewId: request.reviewId,
+        attachmentId: request.attachmentId,
+        outcome: 'cancelled'
+      }
+    }
+  }
+
+  await requireManagedAutosave().flush(request.reviewId)
+  const artifact = await requireReviewStore().removeAttachment(
+    request.reviewId,
+    request.attachmentId,
+    request.tree,
+    (target) => shell.trashItem(target)
+  )
+  if (activeManagedReviewId === request.reviewId) activeManagedReview = artifact
+  return {
+    reviewId: request.reviewId,
+    attachmentId: request.attachmentId,
+    outcome: 'trashed'
+  }
+}
+
+async function openReviewContextMenu(
+  event: IpcMainInvokeEvent,
+  reviewId: string
+): Promise<void> {
+  await requireReviewStore().load(reviewId)
+  const menu = Menu.buildFromTemplate([{
+    label: 'Move Review to Trash…',
+    click: () => {
+      void moveReviewToTrash(reviewId).catch(showReviewOperationError)
+    }
+  }])
+  const window = BrowserWindow.fromWebContents(event.sender)
+  menu.popup(window ? { window } : undefined)
 }
 
 function checksum(source: string): string {
@@ -654,7 +973,7 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
-  mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1180,
     height: 760,
     minWidth: 760,
@@ -670,29 +989,50 @@ function createWindow(
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+      ...hardenedRendererWebPreferences
     }
   })
+  mainWindow = window
+  mainWindowBlurredAt = window.isFocused()
+    ? null
+    : mainWindowBlurredAt ?? Date.now()
   rendererReadyWebContentsId = null
   rendererReadyPromise = new Promise<void>((resolve) => {
     resolveRendererReady = resolve
   })
 
-  void mainWindow.loadFile(path.join(__dirname, 'index.html'), {
-    query: {
-      palette: startupSettings.palette,
-      appearance: startupSettings.resolvedAppearance,
-      colorization: darkColorization(startupSettings.palette),
-      instanceBadge: addressedInstance.branding.headerBadge || ''
-    }
-  })
-  mainWindow.webContents.on('did-finish-load', () => {
+  const entryPath = path.join(__dirname, 'index.html')
+  const query = {
+    palette: startupSettings.palette,
+    appearance: startupSettings.resolvedAppearance,
+    colorization: darkColorization(startupSettings.palette),
+    instanceBadge: addressedInstance.branding.headerBadge || ''
+  }
+  rendererIpcEntry = { filePath: entryPath, query }
+  installRendererSecurityBoundaries(window.webContents)
+  void window.loadFile(entryPath, { query })
+  window.webContents.on('did-finish-load', () => {
     mainWindow?.setTitle(reviewMode
       ? `${addressedInstance.branding.appName} Review`
       : `${addressedInstance.branding.appName} Inbox`)
   })
-  mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
+  const publishWindowFocusState = (): void => {
+    if (mainWindow !== window || window.isDestroyed()) return
+    sendMainEvent(
+      window.webContents,
+      'window:focus-state',
+      currentWindowFocusState()
+    )
+  }
+  window.on('focus', () => {
+    mainWindowBlurredAt = null
+    publishWindowFocusState()
+  })
+  window.on('blur', () => {
+    mainWindowBlurredAt = Date.now()
+    publishWindowFocusState()
+  })
+  window.webContents.on('preload-error', (_event, preloadPath, error) => {
     markRendererStartupFailed()
     void (async () => {
       await failStartupBestEffort(
@@ -702,7 +1042,7 @@ function createWindow(
       await showStartupFailureDialog()
     })()
   })
-  mainWindow.webContents.on('did-fail-load', (
+  window.webContents.on('did-fail-load', (
     _event,
     errorCode,
     errorDescription,
@@ -719,7 +1059,7 @@ function createWindow(
       await showStartupFailureDialog()
     })()
   })
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+  window.webContents.on('render-process-gone', (_event, details) => {
     const failedDuringStartup = !startupReady
     markRendererStartupFailed()
     void (async () => {
@@ -731,7 +1071,7 @@ function createWindow(
       if (failedDuringStartup) await showStartupFailureDialog()
     })()
   })
-  mainWindow.on('unresponsive', () => {
+  window.on('unresponsive', () => {
     if (startupReady) return
     markRendererStartupFailed()
     void (async () => {
@@ -742,12 +1082,16 @@ function createWindow(
       await showStartupFailureDialog()
     })()
   })
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindowBlurredAt = Date.now()
+      mainWindow = null
+      rendererIpcEntry = null
+    }
   })
 
   if (reviewMode) {
-    mainWindow.on('close', (event) => {
+    window.on('close', (event) => {
       if (reviewFinished) return
       event.preventDefault()
       reviewFinished = true
@@ -756,7 +1100,15 @@ function createWindow(
       })
     })
   }
-  return mainWindow
+  return window
+}
+
+function currentWindowFocusState(): MarkoverWindowFocusState {
+  const focused = mainWindow?.isFocused() === true
+  return {
+    focused,
+    blurredAt: focused ? null : mainWindowBlurredAt
+  }
 }
 
 function repositoryRoot(artifact: ReviewArtifact): string | null {
@@ -801,20 +1153,38 @@ async function managedDocuments(
   }))
 }
 
+function flushPendingManagedReviewNotifications(): void {
+  const window = mainWindow
+  if (
+    !window ||
+    window.isDestroyed() ||
+    rendererReadyWebContentsId !== window.webContents.id
+  ) {
+    return
+  }
+  for (const [reviewId, artifact] of pendingManagedReviewNotifications) {
+    try {
+      sendMainEvent(
+        window.webContents,
+        'review:opened',
+        managedDocument(artifact)
+      )
+      pendingManagedReviewNotifications.delete(reviewId)
+    } catch (error) {
+      process.stderr.write(
+        `markover review notification ${reviewId}: ${errorMessage(error)}\n`
+      )
+      return
+    }
+  }
+}
+
 function sendManagedReview(artifact: ReviewArtifact): void {
-  activeManagedReview = artifact
-  activeManagedReviewId = artifact.review.id
+  pendingManagedReviewNotifications.set(artifact.review.id, artifact)
+  installApplicationMenu()
   if (!mainWindow) createWindow({ show: false })
   if (!mainWindow) throw new Error('Markover window could not be created.')
-  const window = mainWindow
-  const send = () => {
-    window.webContents.send('review:opened', managedDocument(artifact))
-  }
-  if (window.webContents.isLoadingMainFrame()) {
-    window.webContents.once('did-finish-load', send)
-  } else {
-    send()
-  }
+  flushPendingManagedReviewNotifications()
 }
 
 function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
@@ -832,7 +1202,7 @@ function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
       reject(new Error(`Timed out updating review ${artifact.review.id}.`))
     }, 5000)
     pendingStatuses.set(requestId, { reject, resolve, timeout })
-    window.webContents.send('review:status', {
+    sendMainEvent(window.webContents, 'review:status', {
       requestId,
       reviewId: artifact.review.id,
       status: artifact.review.status
@@ -842,7 +1212,8 @@ function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
 
 function sendManagedAutosaveStatus(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
-  mainWindow.webContents.send(
+  sendMainEvent(
+    mainWindow.webContents,
     'review:autosave-status',
     currentManagedAutosaveStatus()
   )
@@ -856,7 +1227,7 @@ function currentManagedAutosaveStatus(): ReviewAutosaveStatus {
 
 function setManagedRendererPause(paused: boolean): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
-  mainWindow.webContents.send('review:shutdown-state', paused)
+  sendMainEvent(mainWindow.webContents, 'review:shutdown-state', paused)
 }
 
 function focusMainWindow(): void {
@@ -872,6 +1243,7 @@ function markRendererReady(webContentsId: number): void {
   rendererReadyWebContentsId = webContentsId
   resolveRendererReady?.()
   resolveRendererReady = null
+  flushPendingManagedReviewNotifications()
 }
 
 async function waitForRendererReady(window: BrowserWindow): Promise<void> {
@@ -920,7 +1292,7 @@ async function requestRendererActivation(
       ))
     }, 5000)
     pendingActivations.set(requestId, { reject, resolve, reviewId, timeout })
-    window.webContents.send('review:activation-request', {
+    sendMainEvent(window.webContents, 'review:activation-request', {
       requestId,
       reviewId,
       document
@@ -947,6 +1319,7 @@ async function activateManagedReview(
   if (artifact && (outcome === 'activated' || outcome === 'already-active')) {
     activeManagedReview = artifact
     activeManagedReviewId = reviewId
+    installApplicationMenu()
   }
   if (
     (artifact === null && outcome !== 'missing') ||
@@ -983,7 +1356,7 @@ function requestRendererSnapshot(
       reviewId,
       timeout
     })
-    window.webContents.send('review:snapshot-request', {
+    sendMainEvent(window.webContents, 'review:snapshot-request', {
       requestId,
       reviewId,
       purpose
@@ -1052,8 +1425,17 @@ async function startAndPublishService(): Promise<void> {
       managedStore.directory
     ),
     async onChange(artifact, action) {
-      if (action === 'created') sendManagedReview(artifact)
-      else await sendManagedStatus(artifact)
+      if (action === 'created') {
+        try {
+          sendManagedReview(artifact)
+        } catch (error) {
+          process.stderr.write(
+            `markover review notification ${artifact.review.id}: ${errorMessage(error)}\n`
+          )
+        }
+        return
+      }
+      await sendManagedStatus(artifact)
     },
     onUnauthorized(event) {
       if (!store.settings.logRejectedApiRequests) return
@@ -1283,6 +1665,7 @@ if (!hasSingleInstanceLock) {
     const build = await loadBuildIdentity()
     startupBuildIdentity = build
     await startupDiagnostic.setBuildIdentity(build)
+    await configureAboutPanel(build)
     const controls = developmentStartupControls(
       process.argv,
       app.isPackaged,
@@ -1372,13 +1755,15 @@ if (!hasSingleInstanceLock) {
 
     if (smokeMode) {
       await requireReviewStore().create({
-        tree: smokeReviewTree(),
+        tree: smokeReviewTree(
+          path.join(projectDirectory, 'design/brand/markover-mark.svg')
+        ),
         contextSummary: 'Fixed renderer smoke fixture.'
       })
     }
 
-    ipcMain.handle('startup:info', () => startupInfo)
-    ipcMain.handle('startup:phase', async (
+    privilegedIpc.handle('startup:info', () => startupInfo)
+    privilegedIpc.handle('startup:phase', async (
       _event: IpcMainInvokeEvent,
       phaseEvent: unknown
     ) => {
@@ -1398,7 +1783,7 @@ if (!hasSingleInstanceLock) {
         await requireStartupDiagnostic().complete(phaseEvent.phase)
       }
     })
-    ipcMain.handle('startup:renderer-initialized', async (
+    privilegedIpc.handle('startup:renderer-initialized', async (
       event: IpcMainInvokeEvent,
       initialization: unknown
     ): Promise<StartupReady> => {
@@ -1449,7 +1834,7 @@ if (!hasSingleInstanceLock) {
         throw error
       }
     })
-    ipcMain.handle('startup:failure', async (
+    privilegedIpc.handle('startup:failure', async (
       _event: IpcMainInvokeEvent,
       failure: unknown
     ) => {
@@ -1474,14 +1859,14 @@ if (!hasSingleInstanceLock) {
         diagnosticAvailable: requireStartupDiagnostic().available
       }
     })
-    ipcMain.handle('startup:copy-diagnostic', copyStartupDiagnostic)
-    ipcMain.handle('startup:reveal-diagnostic', () => {
+    privilegedIpc.handle('startup:copy-diagnostic', copyStartupDiagnostic)
+    privilegedIpc.handle('startup:reveal-diagnostic', () => {
       shell.showItemInFolder(startupDiagnosticPath)
     })
-    ipcMain.on('startup:quit', () => {
+    privilegedIpc.on('startup:quit', () => {
       app.quit()
     })
-    ipcMain.handle('smoke:result', (
+    privilegedIpc.handle('smoke:result', (
       _event: IpcMainInvokeEvent,
       result: unknown
     ) => {
@@ -1494,6 +1879,7 @@ if (!hasSingleInstanceLock) {
         version: 1,
         ok: checksPassed,
         build: startupBuildIdentity,
+        diagnostics: result.diagnostics,
         checks: result.checks,
         phases: requireStartupDiagnostic().snapshot().phases
       }
@@ -1502,13 +1888,13 @@ if (!hasSingleInstanceLock) {
         else app.exit(1)
       })
     })
-    ipcMain.handle('document:open', openMarkdown)
-    ipcMain.handle('brand:assets', loadBrandAssets)
-    ipcMain.handle('document:checksum', (
+    privilegedIpc.handle('document:open', openMarkdown)
+    privilegedIpc.handle('brand:assets', loadBrandAssets)
+    privilegedIpc.handle('document:checksum', (
       _event: IpcMainInvokeEvent,
       source: string
     ) => checksum(source))
-    ipcMain.handle('attachment:save', (
+    privilegedIpc.handle('attachment:save', (
       event: IpcMainInvokeEvent,
       attachment: MarkoverClipboardImage,
       reviewId: string | null = null
@@ -1522,25 +1908,30 @@ if (!hasSingleInstanceLock) {
           ))
         : saveAttachment(event, attachment, reviewId)
     })
-    ipcMain.handle('clipboard:read-image', readClipboardImage)
-    ipcMain.handle(
+    privilegedIpc.handle('attachment:remove', (
+      _event: IpcMainInvokeEvent,
+      request: AttachmentRemoveRequest
+    ) => managedAttachmentMutations.track(() => removeManagedAttachment(request)))
+    privilegedIpc.handle('clipboard:read-image', readClipboardImage)
+    privilegedIpc.handle(
       'review:autosave-status:get',
       currentManagedAutosaveStatus
     )
-    ipcMain.handle('settings:get', () => settingsEnvelope(store.settings))
-    ipcMain.handle('settings:update', async (
+    privilegedIpc.handle('settings:get', () => settingsEnvelope(store.settings))
+    privilegedIpc.handle('settings:update', async (
       _event: IpcMainInvokeEvent,
       patch: unknown
     ) => {
       const settings = await store.update(patch)
       return applyMainSettings(settings)
     })
-    ipcMain.handle('review:initial-document', () => (
+    privilegedIpc.handle('window:focus-state:get', currentWindowFocusState)
+    privilegedIpc.handle('review:initial-document', () => (
       reviewMode
         ? reviewDocumentPromise
         : activeManagedReview && managedDocument(activeManagedReview)
     ))
-    ipcMain.handle('review:list', async () => {
+    privilegedIpc.handle('review:list', async () => {
       if (reviewMode) return []
       try {
         const result = await requireReviewStore().listWithWarnings()
@@ -1556,7 +1947,11 @@ if (!hasSingleInstanceLock) {
         throw error
       }
     })
-    ipcMain.on('review:snapshot-response', (
+    privilegedIpc.handle('review:context-menu:open', (
+      event: IpcMainInvokeEvent,
+      request: ReviewContextMenuRequest
+    ) => openReviewContextMenu(event, request.reviewId))
+    privilegedIpc.on('review:snapshot-response', (
       _event: IpcMainEvent,
       response: ReviewSnapshotResponse
     ) => {
@@ -1571,7 +1966,7 @@ if (!hasSingleInstanceLock) {
       if (response.error) pending.reject(new Error(response.error))
       else pending.resolve(response.tree ?? null)
     })
-    ipcMain.on('review:status-response', (
+    privilegedIpc.on('review:status-response', (
       _event: IpcMainEvent,
       response: ReviewStatusResponse
     ) => {
@@ -1582,7 +1977,7 @@ if (!hasSingleInstanceLock) {
       if (response.error) pending.reject(new Error(response.error))
       else pending.resolve()
     })
-    ipcMain.on('review:activation-response', (
+    privilegedIpc.on('review:activation-response', (
       _event: IpcMainEvent,
       response: ReviewActivationResponse
     ) => {
@@ -1596,10 +1991,10 @@ if (!hasSingleInstanceLock) {
       }
       else pending.reject(new Error('Renderer omitted the activation outcome.'))
     })
-    ipcMain.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
+    privilegedIpc.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
       clipboard.writeText(text)
     })
-    ipcMain.on('review:activate', (
+    privilegedIpc.on('review:activate', (
       _event: IpcMainEvent,
       reviewId: string
     ) => {
@@ -1609,31 +2004,32 @@ if (!hasSingleInstanceLock) {
       managedStore.load(reviewId).then((artifact) => {
         if (activeManagedReviewId === reviewId) {
           activeManagedReview = artifact
+          installApplicationMenu()
         }
       }).catch((error: unknown) => {
         process.stderr.write(`markover activate: ${errorMessage(error)}\n`)
       })
     })
-    ipcMain.on('review:autosave', (
+    privilegedIpc.on('review:autosave', (
       _event: IpcMainEvent,
-      reviewId: string,
+      reviewId: string | null,
       tree: ReviewTree
     ) => {
       if (reviewMode) {
         queueReviewAutosave(tree).catch((error: unknown) => {
           process.stderr.write(`markover autosave: ${errorMessage(error)}\n`)
         })
-      } else {
+      } else if (reviewId) {
         requireManagedAutosave().queue(reviewId, tree)
       }
     })
-    ipcMain.on('review:done', (
+    privilegedIpc.on('review:done', (
       _event: IpcMainEvent,
       tree: ReviewTree
     ) => {
       void finishReview(tree)
     })
-    ipcMain.on('review:cancel', () => {
+    privilegedIpc.on('review:cancel', () => {
       if (!reviewMode || reviewFinished) return
       reviewFinished = true
       app.exit(2)
@@ -1646,7 +2042,9 @@ if (!hasSingleInstanceLock) {
       mainWindow?.setBackgroundColor(
         windowBackground(store.settings, envelope.resolvedAppearance)
       )
-      mainWindow?.webContents.send('settings:changed', envelope)
+      if (mainWindow) {
+        sendMainEvent(mainWindow.webContents, 'settings:changed', envelope)
+      }
     })
 
     app.on('activate', () => {

@@ -29,7 +29,7 @@
     ]
   },
   "include": [
-    "docs/site.ts",
+    "docs/user/site.ts",
     "packages/cli/src",
     "scripts",
     "src",

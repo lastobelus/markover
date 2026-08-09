@@ -5,14 +5,22 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  mutateAsarHeader,
+  successfulSmoke
+} from '../scripts/macos-hardening-probes'
+import {
   adHocSigningOptions,
   copyThirdPartyNotices,
   loadThirdPartyNotices,
   runPackagedSmoke
 } from '../scripts/package-macos'
 import {
+  assertMacosFusePolicy,
+  assertNoDisallowedInfoPlistCapabilities,
+  disallowedInfoPlistCapabilityKeys,
   entitlementsForSignedFile,
   helperBundleId,
+  macosFusePolicy,
   minimumMacosVersion,
   parseMacosTrustMode,
   signedAppComponents
@@ -25,7 +33,10 @@ const read = (relativePath: string): string => fs.readFileSync(
 )
 
 interface PackageManifest {
+  author: string
+  copyright: string
   devDependencies: Record<string, string>
+  license: string
   productName: string
   scripts: Record<string, string>
 }
@@ -40,9 +51,16 @@ test('macOS packaging produces a branded application bundle', () => {
   )
 
   assert.equal(packageJson.productName, 'Markover')
+  assert.equal(packageJson.author, 'Michael Johnston (lastobelus)')
+  assert.equal(
+    packageJson.copyright,
+    'Copyright © 2026 Michael Johnston (lastobelus)'
+  )
+  assert.equal(packageJson.license, 'MIT')
   assert.match(packageJson.scripts['package:mac'] ?? '', /^install-electron --no &&/)
   assert.equal(typeof packageJson.devDependencies['@electron/packager'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/asar'], 'string')
+  assert.equal(typeof packageJson.devDependencies['@electron/fuses'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/osx-sign'], 'string')
   const packageCommand = packageJson.scripts['package:mac']
   assert.ok(packageCommand)
@@ -79,11 +97,27 @@ test('macOS packaging produces a branded application bundle', () => {
   )
   assert.ok(
     packaging.indexOf('setMinimumSystemVersion(appPath)') <
+      packaging.indexOf('sanitizePackagedCapabilities(appPath)')
+  )
+  assert.ok(
+    packaging.indexOf('sanitizePackagedCapabilities(appPath)') <
+      packaging.indexOf('await applyMacosFusePolicy(appPath)')
+  )
+  assert.ok(
+    packaging.indexOf('await applyMacosFusePolicy(appPath)') <
       packaging.indexOf('await sign(adHocSigningOptions(appPath))')
   )
   assert.ok(
     packaging.indexOf('await sign(adHocSigningOptions(appPath))') <
+      packaging.indexOf('await readMacosFusePolicy(appPath)')
+  )
+  assert.ok(
+    packaging.indexOf('await readMacosFusePolicy(appPath)') <
       packaging.indexOf('runPackagedSmoke(appPath)')
+  )
+  assert.ok(
+    packaging.indexOf('runPackagedSmoke(appPath)') <
+      packaging.indexOf('await runPackagedHardeningProbes(appPath')
   )
   assert.match(packaging, /hardened ad-hoc-signed build/)
   assert.match(packaging, /not Apple-verified or notarized/)
@@ -92,6 +126,82 @@ test('macOS packaging produces a branded application bundle', () => {
     /new ReviewStore\([\s\S]*smokeStateDirectory[\s\S]*: path\.join\(addressedInstance\.stateRoot, 'reviews'\)/
   )
   assert.match(main, /process\.platform === 'darwin' && !app\.isPackaged && !smokeMode/)
+  assert.ok(
+    main.indexOf('app.setAboutPanelOptions') <
+      main.indexOf('installApplicationMenu()')
+  )
+})
+
+test('packaged hardening probes recognize smoke and tamper ASAR headers', async (t) => {
+  assert.equal(successfulSmoke(JSON.stringify({
+    format: 'markover-smoke',
+    version: 1,
+    ok: true
+  })), true)
+  assert.equal(successfulSmoke('{"ok":true}'), false)
+
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'markover-asar-probe-'))
+  t.after(() => {
+    fs.rmSync(directory, { recursive: true, force: true })
+  })
+  const header = JSON.stringify({
+    files: {
+      'main.js': {
+        integrity: {
+          algorithm: 'SHA256',
+          hash: 'a'.repeat(64)
+        }
+      }
+    }
+  })
+  const archivePath = path.join(directory, 'app.asar')
+  fs.writeFileSync(archivePath, Buffer.concat([
+    Buffer.from('prefix'),
+    Buffer.from(header),
+    Buffer.from('payload')
+  ]))
+  await mutateAsarHeader(archivePath, header)
+  const tampered = fs.readFileSync(archivePath, 'utf8')
+  assert.match(tampered, /"hash":"b[a-f0-9]{63}"/)
+  assert.equal(tampered.length, 'prefix'.length + header.length + 'payload'.length)
+})
+
+test('macOS packaging declares an exhaustive fuse and capability policy', () => {
+  assert.deepEqual(macosFusePolicy, {
+    RunAsNode: false,
+    EnableCookieEncryption: true,
+    EnableNodeOptionsEnvironmentVariable: false,
+    EnableNodeCliInspectArguments: false,
+    EnableEmbeddedAsarIntegrityValidation: true,
+    OnlyLoadAppFromAsar: true,
+    LoadBrowserProcessSpecificV8Snapshot: false,
+    GrantFileProtocolExtraPrivileges: true,
+    WasmTrapHandlers: true
+  })
+  assert.doesNotThrow(() => {
+    assertMacosFusePolicy(macosFusePolicy)
+  })
+  assert.throws(
+    () => {
+      assertMacosFusePolicy({ ...macosFusePolicy, RunAsNode: true })
+    },
+    /RunAsNode expected false, found true/
+  )
+  assert.deepEqual(disallowedInfoPlistCapabilityKeys({
+    CFBundleIdentifier: 'com.lastobelus.markover',
+    NSAppTransportSecurity: { NSAllowsArbitraryLoads: true },
+    NSCameraUsageDescription: 'camera',
+    NSMicrophoneUsageDescription: 'microphone'
+  }), [
+    'NSAppTransportSecurity',
+    'NSCameraUsageDescription',
+    'NSMicrophoneUsageDescription'
+  ])
+  assert.doesNotThrow(() => {
+    assertNoDisallowedInfoPlistCapabilities({
+      CFBundleIdentifier: 'com.lastobelus.markover'
+    })
+  })
 })
 
 test('packaged smoke uses the signed application executable and release timeout', () => {

@@ -103,6 +103,7 @@ test('release workflow publishes Apple Silicon and the tiny CLI', () => {
 
 test('README exposes the repository-only install-free agent command', () => {
   const readme = read('README.md')
+  const agentGuide = read('docs/user/agents/index.html')
   const entry = read('packages/cli/src/index.ts')
 
   for (const source of [readme, entry]) {
@@ -111,26 +112,28 @@ test('README exposes the repository-only install-free agent command', () => {
       /https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz/
     )
   }
+  assert.match(readme, /For agents: open a review without installing/)
   assert.match(readme, /retain the returned `reviewId`/)
-  assert.match(
-    readme,
-    /“Check\s+Markover,” run the same launcher with `get <reviewId>`/
-  )
+  assert.match(readme, /markover\/agents\//)
+  assert.match(readme, /open 'markover:\/\/review\/mko_8f3a2c'/)
+  assert.match(agentGuide, /Retain the review ID/)
+  assert.match(agentGuide, /reviewer says “Check Markover”/)
+  assert.match(agentGuide, /markover get mko_8f3a2c/)
 })
 
 test('release documentation states the Sonoma and ad-hoc trust boundary', () => {
   const sources = [
     read('README.md'),
-    read('docs/guide/index.html'),
-    read('docs/development.md')
+    read('docs/user/guide/index.html'),
+    read('docs/developer/development.md')
   ]
   for (const source of sources) {
     assert.match(source, /macOS 14 Sonoma/)
     assert.match(source, /not Apple-verified/i)
-    assert.match(source, /Apple Developer Program/)
     assert.doesNotMatch(source, /Apple Silicon (?:and|or) Intel/)
     assert.doesNotMatch(source, /xattr\s+-[a-zA-Z]*r/)
   }
+  assert.match(sources[2] ?? '', /Apple Developer Program/)
   assert.match(sources[0] ?? '', /issue #80/)
   assert.match(sources[1] ?? '', /issues\/80/)
   assert.match(sources[0] ?? '', /## Opening Markover on macOS/)
@@ -165,9 +168,10 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Merged baseline 03e52ac · Apple Silicon v0\.1\.3 published · Intel deferred to #80 · 7 Aug 2026/
+    /Merged baseline 32cf785 · PR #108 merged · Apple Silicon release smoke only · 8 Aug 2026/
   )
-  assert.match(pages[0] ?? '', /main<\/code> baseline <code>03e52ac<\/code>/)
+  assert.match(pages[0] ?? '', /main<\/code> baseline <code>32cf785<\/code>/)
+  assert.match(pages[0] ?? '', /not every pull\s+request or/)
   assert.match(pages[0] ?? '', /releases\/tag\/v0\.1\.3/)
   assert.match(pages[0] ?? '', /actions\/runs\/31221075875/)
   assert.match(
@@ -188,16 +192,16 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[3] ?? '',
-    /PR #68 merged · v0\.1\.3 arm64 evidence published · Intel evidence deferred to #80/
+    /PR #68 runner merged · PR #108 scheduling fix merged · tagged arm64 release candidates only · Intel deferred to #80/
   )
+  assert.match(pages[3] ?? '', /routine pull requests keep non-packaging CI/)
 })
 
-test('public release runbook preserves provenance and rollback boundaries', () => {
-  const runbook = read('docs/releasing.md')
+test('developer release runbook preserves provenance and rollback boundaries', () => {
+  const runbook = read('docs/developer/releasing.md')
   const sources = [
-    read('README.md'),
-    read('docs/development.md'),
-    read('docs/guide/index.html')
+    read('docs/developer/development.md'),
+    read('docs/developer/README.md')
   ]
 
   assert.match(runbook, /not\s+Apple-verified/i)
@@ -220,7 +224,7 @@ test('public release runbook preserves provenance and rollback boundaries', () =
 
 test('continuous integration enforces the supported Node versions', () => {
   const workflow = read('.github/workflows/ci.yml')
-  const developmentGuide = read('docs/development.md')
+  const developmentGuide = read('docs/developer/development.md')
   const rootPackage = readJson('package.json') as PackageManifest
   const cliPackage = readJson('packages/cli/package.json') as PackageManifest
 
@@ -270,25 +274,25 @@ test('continuous integration enforces the supported Node versions', () => {
   for (const source of [
     read('README.md'),
     developmentGuide,
-    read('docs/guide/index.html')
+    read('docs/user/guide/index.html')
   ]) {
     assert.match(source, /Node\.js 22\.13\.0 or newer/)
     assert.doesNotMatch(source, /Node\.js 20/)
   }
 })
 
-test('continuous integration validates both native packaged happy paths', () => {
-  const workflow = read('.github/workflows/ci.yml')
+test('packaged smoke runs only for a tagged release candidate', () => {
+  const continuousIntegration = read('.github/workflows/ci.yml')
+  const release = read('.github/workflows/release.yml')
 
-  assert.match(workflow, /name: Packaged smoke \(\$\{\{ matrix\.runner \}\}\)/)
-  assert.match(workflow, /- macos-15\n\s+- macos-15-intel/)
-  assert.match(workflow, /npm run package:mac/)
-  assert.match(workflow, /Verify exact native artifact/)
-  assert.match(workflow, /npm run release:preflight -- verify-macos/)
-  assert.match(workflow, /npm run smoke:packaged --/)
-  assert.match(workflow, /--evidence-kind=ci/)
-  assert.match(workflow, /--evidence=smoke-evidence\/packaged-smoke-/)
-  assert.match(workflow, /packaged-smoke-\$\{\{ matrix\.runner \}\}/)
+  assert.doesNotMatch(continuousIntegration, /runs-on: macos-/)
+  assert.doesNotMatch(continuousIntegration, /npm run package:mac/)
+  assert.doesNotMatch(continuousIntegration, /npm run smoke:packaged/)
+  assert.match(release, /push:\n\s+tags:\n\s+- 'v\*'/)
+  assert.match(release, /runs-on: macos-15/)
+  assert.doesNotMatch(release, /macos-15-intel/)
+  assert.match(release, /npm run package:mac/)
+  assert.match(release, /npm run smoke:packaged --/)
 })
 
 test('TypeScript build is strict, generated, and runtime-loader free', () => {
@@ -338,8 +342,8 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.js`)), false)
   }
-  assert.equal(fs.existsSync(path.join(root, 'docs/site.ts')), true)
-  assert.equal(fs.existsSync(path.join(root, 'docs/site.js')), false)
+  assert.equal(fs.existsSync(path.join(root, 'docs/user/site.ts')), true)
+  assert.equal(fs.existsSync(path.join(root, 'docs/user/site.js')), false)
   assert.equal(
     fs.existsSync(path.join(root, 'test/community-surface.test.ts')),
     true

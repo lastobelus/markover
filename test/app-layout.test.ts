@@ -8,6 +8,7 @@ import {
   expectedStageEntries,
   verifyAppLayout
 } from '../scripts/app-layout'
+import { rendererContentSecurityPolicy } from '../src/renderer-security'
 
 async function fixture(t: TestContext): Promise<string> {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-app-'))
@@ -19,7 +20,13 @@ async function fixture(t: TestContext): Promise<string> {
   }
   await fs.writeFile(
     path.join(directory, 'package.json'),
-    JSON.stringify({ main: 'src/main.js' })
+    JSON.stringify({
+      main: 'src/main.js',
+      version: '1.0.0',
+      author: 'Michael Johnston (lastobelus)',
+      copyright: 'Copyright © 2026 Michael Johnston (lastobelus)',
+      license: 'MIT'
+    })
   )
   await fs.writeFile(
     path.join(directory, 'build-identity.json'),
@@ -33,7 +40,7 @@ async function fixture(t: TestContext): Promise<string> {
   await fs.writeFile(
     path.join(directory, 'src/index.html'),
     [
-      '<meta http-equiv="Content-Security-Policy">',
+      `<meta http-equiv="Content-Security-Policy" content="${rendererContentSecurityPolicy}">`,
       '<script src="startup.js"></script>',
       '<script type="module" src="renderer.js"></script>'
     ].join('\n')
@@ -61,6 +68,20 @@ test('application layout reports missing required files', async (t) => {
   )
 })
 
+test('application layout rejects Content Security Policy drift', async (t) => {
+  const directory = await fixture(t)
+  const htmlPath = path.join(directory, 'src/index.html')
+  const html = await fs.readFile(htmlPath, 'utf8')
+  await fs.writeFile(
+    htmlPath,
+    html.replace(rendererContentSecurityPolicy, "default-src 'self'")
+  )
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /unexpected Content Security Policy/
+  )
+})
+
 test('application layout rejects symlinks', async (t) => {
   const directory = await fixture(t)
   await fs.rm(path.join(directory, 'src/styles.css'))
@@ -74,6 +95,34 @@ test('application layout rejects symlinks', async (t) => {
 test('application layout binds build identity to renderer bytes', async (t) => {
   const directory = await fixture(t)
   await fs.appendFile(path.join(directory, 'src/renderer.js'), '\n// changed\n')
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /build identity is invalid/
+  )
+})
+
+test('application layout binds About metadata to the staged package', async (t) => {
+  const directory = await fixture(t)
+  const manifestPath = path.join(directory, 'package.json')
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as object
+  await fs.writeFile(
+    manifestPath,
+    JSON.stringify({ ...manifest, copyright: 'stale' })
+  )
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /invalid application metadata/
+  )
+})
+
+test('application layout binds About version to build identity', async (t) => {
+  const directory = await fixture(t)
+  const identityPath = path.join(directory, 'build-identity.json')
+  const identity = JSON.parse(await fs.readFile(identityPath, 'utf8')) as object
+  await fs.writeFile(
+    identityPath,
+    JSON.stringify({ ...identity, version: '2.0.0' })
+  )
   await assert.rejects(
     verifyAppLayout(directory),
     /build identity is invalid/

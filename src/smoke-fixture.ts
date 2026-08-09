@@ -1,4 +1,6 @@
-export function smokeReviewTree(): ReviewTree {
+import { createHash } from 'node:crypto'
+
+export function smokeReviewTree(imagePath: string): ReviewTree {
   const source = [
     '---',
     'title: Smoke',
@@ -15,7 +17,7 @@ export function smokeReviewTree(): ReviewTree {
       name: 'smoke.md',
       path: '/markover-smoke/smoke.md',
       content: source,
-      checksum: 'sha256:markover-smoke-fixture'
+      checksum: `sha256:${createHash('sha256').update(source).digest('hex')}`
     },
     unsupported: [],
     root: {
@@ -62,6 +64,13 @@ export function smokeReviewTree(): ReviewTree {
           feedback: '',
           collapsed: false,
           children: [],
+          attachments: [{
+            id: 'img-1',
+            type: 'image',
+            label: 'Packaged local image',
+            path: imagePath,
+            mimeType: 'image/svg+xml'
+          }],
           sourceEdit: {
             original: '# Renderer smoke',
             current: '# Renderer smoke verified'

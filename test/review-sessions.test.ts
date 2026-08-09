@@ -380,3 +380,38 @@ test('mutation tracking is isolated by review', async () => {
   assert.ok(finishOther)
   finishOther()
 })
+
+test('waiting for current mutations excludes the operation that follows', async () => {
+  const tracker = new ReviewMutationTracker()
+  let finishFirst: (() => void) | undefined
+  const first = new Promise<void>((resolve) => {
+    finishFirst = resolve
+  })
+  tracker.track('mko_review1', first)
+  const current = tracker.waitCurrent('mko_review1')
+  let finishFollowing: (() => void) | undefined
+  tracker.track('mko_review1', new Promise<void>((resolve) => {
+    finishFollowing = resolve
+  }))
+
+  assert.ok(finishFirst)
+  finishFirst()
+  await current
+  assert.equal(tracker.has('mko_review1'), true)
+  assert.ok(finishFollowing)
+  finishFollowing()
+  await tracker.wait('mko_review1')
+})
+
+test('removing a review preserves other sessions and clears active ownership', () => {
+  const sessions = new ReviewSessions()
+  const first = sessions.add(reviewDocument('mko_first11', 'first.md'))
+  const second = sessions.add(reviewDocument('mko_second2', 'second.md'))
+  sessions.activate(first.reviewId)
+
+  assert.equal(sessions.remove(first.reviewId), first)
+  assert.equal(sessions.active(), null)
+  assert.equal(sessions.get(first.reviewId), null)
+  assert.deepEqual(sessions.list(), [second])
+  assert.equal(sessions.remove(first.reviewId), null)
+})

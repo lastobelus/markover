@@ -9,18 +9,20 @@
   ·
   <a href="https://lastobelus.github.io/markover/privacy/">Privacy and local data</a>
   ·
-  <a href="./docs/development.md">Development</a>
+  <a href="https://lastobelus.github.io/markover/limitations/">Limitations</a>
+  ·
+  <a href="https://lastobelus.github.io/markover/agents/">For agents</a>
 </p>
 
-Markover is a macOS app for reviewing Markdown as a document tree and returning
-block-level feedback to an agent.
+Markover is an **Early macOS preview** for reviewing Markdown as a document
+tree and returning block-level feedback to an agent.
 
 <p align="center">
-  <img src="./docs/assets/markover-review-editor@2x.png" width="920" alt="Markover showing a document inbox, structured Markdown, and an annotation with labeled screenshots.">
+  <img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover showing a document inbox, structured Markdown, and an annotation with labeled screenshots.">
 </p>
 
 <p align="center">
-  <img src="./docs/assets/markover-annotation-browser@2x.png" width="920" alt="Markover showing every rendered annotation in the active document.">
+  <img src="./docs/user/assets/markover-annotation-browser@2x.png" width="920" alt="Markover showing every rendered annotation in the active document.">
 </p>
 
 ## Features
@@ -28,20 +30,36 @@ block-level feedback to an agent.
 - Navigable, collapsible blocks for YAML frontmatter, headings, paragraphs,
   lists, tasks, code, tables, block quotes, and thematic breaks.
 - Markdown feedback and labeled screenshot attachments on individual blocks.
-- A durable multi-document inbox grouped by project, with an all-annotations
-  browser.
-- A documented two-second default process-crash autosave window with automatic
-  restart recovery; see [Durability and recovery](https://lastobelus.github.io/markover/guide/#durability)
-  for the guarantee and its limits.
+- A document browser with inbox and project views.
+- Autosave and automatic restart recovery.
 - Exact source-edit proposals shown as word-level diffs without changing the
   original review target.
 - One-shot agent handoff containing the exact source, checksum, document tree,
   annotations, attachments, and review context.
 
-## Try without installing
+## Before you try the early preview
 
-Markover supports macOS 14 Sonoma or newer on Apple Silicon Macs and
-requires Node.js 22.13.0 or newer for the launcher. Open a document with:
+- Markover supports macOS 14 Sonoma or newer on Apple Silicon Macs. Native
+  Intel releases are deferred to [issue #80](https://github.com/lastobelus/markover/issues/80).
+- The launcher requires Node.js 22.13.0 or newer.
+- Downloads are hardened and ad-hoc signed, but **not Apple-verified** or
+  notarized. macOS is expected to block the first launch.
+- Ordinary review work stays in your macOS account. Markover has no telemetry,
+  analytics, cloud sync, or automatic review upload.
+- Early-preview review formats may change without migration guarantees.
+  Historical review JSON and attachments are preserved, but a newer Markover
+  version may not open every older review. Back up important review data before
+  changing versions.
+
+Read [Privacy, storage, and recovery](https://lastobelus.github.io/markover/privacy/)
+for local-data and cleanup consequences, and [Markdown support and preview
+limitations](https://lastobelus.github.io/markover/limitations/) before relying
+on extension-specific rendering. Ask usage questions in [GitHub
+Discussions](https://github.com/lastobelus/markover/discussions).
+
+## For agents: open a review without installing
+
+Open a document with:
 
 ```sh
 npx --yes \
@@ -70,24 +88,9 @@ put the reliable Terminal fallback on its own line:
 `open 'markover://review/mko_8f3a2c'`
 
 Custom-scheme Markdown links depend on the host; T3 Code and Codex do not
-currently dispatch them. When the user says
-“Check Markover,” run the same launcher with `get <reviewId>`:
-
-```sh
-npx --yes \
-  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
-  markover get mko_8f3a2c
-```
-
-The returned JSON includes a fixed interpretation contract and the review's
-snapshotted interpretation policy under `review.agentGuidance`. Together they
-tell the agent to distinguish revision requests, questions, discussion,
-context, and source-edit proposals instead of treating every annotation as an
-edit request. Markover carries this guidance; it does not classify annotations
-or apply changes itself.
-
-If the reviewer needs to change their feedback after handoff, use `edit` with
-the same review ID.
+currently dispatch them. Then stop. See the dedicated [agent
+workflow](https://lastobelus.github.io/markover/agents/) for retrieval,
+reopening, and interpretation guidance.
 
 ## Opening Markover on macOS
 
@@ -103,22 +106,20 @@ message about Markover under **Security**, choose **Open Anyway**, and confirm
 override only to a Markover archive whose SHA-256 checksum you obtained from
 the same GitHub Release. Do not recursively remove quarantine attributes.
 
-Published `v0.1.1` predates the hardened preflight and remains an untouched
-historical release. Consult each release's notes for its exact trust status.
-Apple verification remains gated on Apple Developer Program access.
-
-Post-policy releases publish SHA-256 sidecars, GitHub build-provenance
-attestations, the exact source and workflow, resolved build context, and a
-version-pinned known-good rollback command. Published bytes are never replaced
-under an existing tag. See the [release and rollback runbook](./docs/releasing.md)
-for verification, backup, withdrawal, and future Developer ID activation.
+See [GitHub Releases](https://github.com/lastobelus/markover/releases) for each
+release's checksums, provenance, trust status, and rollback information.
 
 See the [user guide](https://lastobelus.github.io/markover/guide/)
 for the complete review workflow and keyboard controls, read
-[Privacy and local data](https://lastobelus.github.io/markover/privacy/)
-for Markover's storage, network, and macOS-account boundary, or see
-[development.md](./docs/development.md) for checkout, testing, packaging, and
-release notes.
+[Privacy, storage, and recovery](https://lastobelus.github.io/markover/privacy/)
+for Markover's storage, network, and macOS-account boundary.
+
+## Contributing
+
+Contributor and implementation documentation is kept separately from the user
+guide. Start with the [developer documentation](./docs/developer/README.md) for
+checkout setup, architecture, security mechanics, tests, packaging, and release
+operations.
 
 ## Community
 
@@ -127,4 +128,4 @@ release notes.
 - [Security policy](./SECURITY.md)
 - [Code of conduct](./CODE_OF_CONDUCT.md)
 - [Discussions](https://github.com/lastobelus/markover/discussions) for early
-  ideas and questions
+  ideas, usage questions, and general support

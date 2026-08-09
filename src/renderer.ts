@@ -6,11 +6,18 @@ import type {
   StartupPhase,
   StartupWarning
 } from './startup-contract'
+import type { IncomingReviewPrompt } from './incoming-review-policy'
 import { userFacingStartupWarnings } from './startup-contract'
 import * as MarkoverAgentGuidance from './agent-guidance'
 import * as MarkoverAnnotationBlock from './annotation-block'
 import * as MarkoverAnnotations from './annotations'
 import { autosaveFailureMessage } from './durability-status'
+import {
+  appendIncomingReview,
+  incomingReviewAction,
+  removeIncomingReview,
+  retainIncomingReviewsAfter
+} from './incoming-review-policy'
 import * as MarkoverImagePreview from './image-preview'
 import * as MarkoverNavigation from './navigation'
 import * as MarkoverReviewSessions from './review-sessions'
@@ -124,6 +131,13 @@ const elements = {
   imagePreviewClose: requiredElement<HTMLButtonElement>('#image-preview-close'),
   imagePreviewContent: requiredElement<HTMLImageElement>('#image-preview-content'),
   imagePreviewLabel: requiredElement('#image-preview-label'),
+  incomingReviewDialog: requiredElement<HTMLDialogElement>('#incoming-review-dialog'),
+  incomingReviewDialogKeep: requiredElement<HTMLButtonElement>('#incoming-review-dialog-keep'),
+  incomingReviewDialogMessage: requiredElement('#incoming-review-dialog-message'),
+  incomingReviewDialogOpen: requiredElement<HTMLButtonElement>('#incoming-review-dialog-open'),
+  incomingReviewNotice: requiredElement('#incoming-review-notice'),
+  incomingReviewNoticeMessage: requiredElement('#incoming-review-notice-message'),
+  incomingReviewNoticeOpen: requiredElement<HTMLButtonElement>('#incoming-review-notice-open'),
   keyboardHelp: requiredElement('.keyboard-help'),
   name: requiredElement('#document-name'),
   openButton: requiredElement<HTMLButtonElement>('#open-button'),
@@ -222,21 +236,46 @@ let sourceDiffRenderer: DiffRenderer | null = null
 let paneResizeLayoutFrame: number | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
+let windowFocusState: MarkoverWindowFocusState = {
+  focused: false,
+  blurredAt: Date.now()
+}
+let windowFocusStateVersion = 0
+let incomingReviewQueue: Promise<void> = Promise.resolve()
+let incomingReviewSequence = 0
+let incomingReviewNoticeCount = 0
+let incomingReviewNoticeId: string | null = null
+let incomingReviewNoticePrompts: IncomingReviewPrompt[] = []
+let incomingReviewNoticeSequence: number | null = null
+let incomingReviewNoticeTimer: ReturnType<typeof setTimeout> | null = null
+let incomingReviewWarningCount = 0
+let incomingReviewWarningId: string | null = null
+let incomingReviewWarningPrompts: IncomingReviewPrompt[] = []
+let incomingReviewWarningSequence: number | null = null
 let smokeRuntimeClean = true
+const smokeRuntimeDiagnostics: string[] = []
 const consoleError = console.error.bind(console)
 console.error = (...values: unknown[]) => {
   smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(
+    `console.error: ${values.map((value) => String(value)).join(' ')}`
+  )
   consoleError(...values)
 }
-for (const eventName of [
-  'error',
-  'securitypolicyviolation',
-  'unhandledrejection'
-] as const) {
-  window.addEventListener(eventName, () => {
-    smokeRuntimeClean = false
-  }, true)
-}
+window.addEventListener('error', (event) => {
+  smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(`error: ${event.message}`)
+}, true)
+window.addEventListener('securitypolicyviolation', (event) => {
+  smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(
+    `csp: ${event.violatedDirective} blocked ${event.blockedURI}`
+  )
+}, true)
+window.addEventListener('unhandledrejection', (event) => {
+  smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(`unhandledrejection: ${String(event.reason)}`)
+}, true)
 
 const documentsListReady = import('@pierre/trees')
   .then(({ FileTree }) => {
@@ -262,13 +301,17 @@ const BRIDGE_METHODS = [
   'getReviews',
   'getSettings',
   'getStartupInfo',
+  'getWindowFocusState',
   'onOpenMarkdownRequested',
   'onReviewOpened',
+  'onReviewTrashed',
   'onReviewSnapshotRequested',
   'onReviewStatus',
   'onSettingsChanged',
   'onSettingsOpen',
+  'onWindowFocusChanged',
   'openMarkdown',
+  'openReviewContextMenu',
   'readClipboardImage',
   'reportRendererInitialized',
   'reportSmokeResult',
@@ -276,6 +319,7 @@ const BRIDGE_METHODS = [
   'reportStartupPhase',
   'revealStartupDiagnostic',
   'saveAttachment',
+  'removeAttachment',
   'quitStartup',
   'updateSettings'
 ] as const satisfies ReadonlyArray<keyof MarkoverBridge>
@@ -984,6 +1028,7 @@ function openImagePreview(attachment: ReviewAttachment): void {
   elements.imagePreviewContent.alt = label
   elements.imagePreviewLabel.textContent = label
   elements.imagePreview.hidden = false
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 function attachmentPreviewUrl(attachment: ReviewAttachment): string | null {
@@ -1001,19 +1046,30 @@ function closeImagePreview(): void {
   elements.imagePreview.hidden = true
   elements.imagePreviewContent.removeAttribute('src')
   elements.imagePreviewLabel.textContent = ''
+  scheduleIncomingReviewNoticeDismissal()
 }
 
-function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void {
-  if (!isCurrentReviewEditable()) return
+function removeAttachmentFromNode(
+  node: ReviewNode,
+  attachment: ReviewAttachment
+): void {
   node.attachments = (node.attachments || []).filter(
     (item) => item.id !== attachment.id
   )
-  const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
-  if (previewUrl) URL.revokeObjectURL(previewUrl)
-  state.attachmentPreviewUrls.delete(attachment.id)
   node.feedback = node.feedback
     .split(`[!${attachmentReference(attachment)}]`)
     .join('')
+}
+
+function renderRemovedAttachment(
+  node: ReviewNode,
+  attachment: ReviewAttachment,
+  autosave: boolean
+): void {
+  const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
+  if (previewUrl) URL.revokeObjectURL(previewUrl)
+  state.attachmentPreviewUrls.delete(attachment.id)
+  closeImagePreview()
   elements.annotationInput.value = node.feedback
   elements.annotationState.textContent = hasAnnotation(node)
     ? 'Annotated'
@@ -1026,7 +1082,51 @@ function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void 
     if (selected) renderAnnotation(selected)
   }
   updateAnnotationCount()
-  autosaveReview()
+  if (autosave) autosaveReview()
+}
+
+function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void {
+  if (!isCurrentReviewEditable()) return
+  removeAttachmentFromNode(node, attachment)
+  renderRemovedAttachment(node, attachment, true)
+}
+
+async function removeManagedAttachment(
+  node: ReviewNode,
+  attachment: ReviewAttachment,
+  reviewId: string
+): Promise<void> {
+  elements.workspace.inert = true
+  try {
+    await reviewMutations.waitCurrent(reviewId)
+    const session = reviewSessions.get(reviewId)
+    if (!session || state.reviewId !== reviewId) return
+    const candidate = structuredClone(session.tree)
+    const candidateNode = MarkoverTree.findNode(candidate.root, node.id)
+    if (!candidateNode) {
+      throw new Error(`Cannot find attachment block ${node.id}.`)
+    }
+    removeAttachmentFromNode(candidateNode, attachment)
+    const result = await bridge.removeAttachment({
+      reviewId,
+      attachmentId: attachment.id,
+      tree: candidate
+    })
+    if (result.outcome !== 'trashed') return
+    session.tree = candidate
+    const previewUrl = session.attachmentPreviewUrls.get(attachment.id)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    session.attachmentPreviewUrls.delete(attachment.id)
+    if (state.reviewId === reviewId) {
+      state.tree = candidate
+      state.attachmentPreviewUrls = session.attachmentPreviewUrls
+      renderRemovedAttachment(candidateNode, attachment, false)
+    }
+  } finally {
+    if (!document.documentElement.classList.contains('is-shutting-down')) {
+      elements.workspace.inert = false
+    }
+  }
 }
 
 function renderAttachmentList(node: ReviewNode): void {
@@ -1095,6 +1195,15 @@ function renderAttachmentList(node: ReviewNode): void {
       removeButton.title = `Remove ${attachment.id}`
       removeButton.addEventListener('click', (event) => {
         if (event.ctrlKey) return
+        if (state.reviewId) {
+          void reviewMutations.track(
+            state.reviewId,
+            removeManagedAttachment(node, attachment, state.reviewId)
+          ).catch((error: unknown) => {
+            showToast(error instanceof Error ? error.message : String(error))
+          })
+          return
+        }
         if (
           !MarkoverSettings.confirmScreenshotRemoval(
             preferences,
@@ -1425,6 +1534,215 @@ function showToast(message: string): void {
   }, 1500)
 }
 
+function hideIncomingReviewNotice(): void {
+  if (incomingReviewNoticeTimer) clearTimeout(incomingReviewNoticeTimer)
+  incomingReviewNoticeTimer = null
+  incomingReviewNoticeCount = 0
+  incomingReviewNoticeId = null
+  incomingReviewNoticePrompts = []
+  incomingReviewNoticeSequence = null
+  elements.incomingReviewNotice.hidden = true
+}
+
+function scheduleIncomingReviewNoticeDismissal(): void {
+  if (incomingReviewNoticeTimer) clearTimeout(incomingReviewNoticeTimer)
+  incomingReviewNoticeTimer = null
+  if (
+    !windowFocusState.focused ||
+    elements.incomingReviewNotice.hidden ||
+    elements.incomingReviewDialog.open ||
+    elements.settingsDialog.open ||
+    elements.fixedContractDialog.open ||
+    !elements.imagePreview.hidden ||
+    !elements.reviewContextDrawer.hidden ||
+    document.activeElement === elements.incomingReviewNoticeOpen
+  ) {
+    return
+  }
+  incomingReviewNoticeTimer = setTimeout(hideIncomingReviewNotice, 6000)
+}
+
+function renderIncomingReviewNotice(session: ReviewSession): void {
+  elements.incomingReviewNoticeMessage.textContent = incomingReviewNoticeCount === 1
+    ? `New review added: ${session.documentName}`
+    : `${String(incomingReviewNoticeCount)} new reviews added. Latest: ${session.documentName}`
+  elements.incomingReviewNotice.hidden = false
+  scheduleIncomingReviewNoticeDismissal()
+}
+
+function showIncomingReviewNotice(
+  session: ReviewSession,
+  sequence: number
+): void {
+  incomingReviewNoticePrompts = appendIncomingReview(
+    incomingReviewNoticePrompts,
+    session.reviewId,
+    sequence
+  )
+  incomingReviewNoticeCount = incomingReviewNoticePrompts.length
+  incomingReviewNoticeId = session.reviewId
+  incomingReviewNoticeSequence = sequence
+  renderIncomingReviewNotice(session)
+}
+
+function clearIncomingReviewWarning(): void {
+  incomingReviewWarningCount = 0
+  incomingReviewWarningId = null
+  incomingReviewWarningPrompts = []
+  incomingReviewWarningSequence = null
+  if (elements.incomingReviewDialog.open) elements.incomingReviewDialog.close()
+}
+
+function renderIncomingReviewWarning(session: ReviewSession): void {
+  elements.incomingReviewDialogMessage.textContent =
+    incomingReviewWarningCount === 1
+      ? `“${session.documentName}” was added. Open it instead of the current review?`
+      : `${String(incomingReviewWarningCount)} new reviews were added. Open the most recent, “${session.documentName}”?`
+  if (!elements.incomingReviewDialog.open) {
+    elements.incomingReviewDialog.showModal()
+    elements.incomingReviewDialogKeep.focus()
+  }
+  scheduleIncomingReviewNoticeDismissal()
+}
+
+function showIncomingReviewWarning(
+  session: ReviewSession,
+  sequence: number
+): void {
+  incomingReviewWarningPrompts = appendIncomingReview(
+    incomingReviewWarningPrompts,
+    session.reviewId,
+    sequence
+  )
+  incomingReviewWarningCount = incomingReviewWarningPrompts.length
+  incomingReviewWarningId = session.reviewId
+  incomingReviewWarningSequence = sequence
+  renderIncomingReviewWarning(session)
+}
+
+function replaceIncomingReviewNoticePrompts(
+  prompts: IncomingReviewPrompt[]
+): void {
+  const available = prompts.filter((prompt) => reviewSessions.get(prompt.reviewId))
+  const latest = available.at(-1)
+  const session = latest ? reviewSessions.get(latest.reviewId) : null
+  if (!latest || !session) {
+    hideIncomingReviewNotice()
+    return
+  }
+  incomingReviewNoticePrompts = available
+  incomingReviewNoticeCount = available.length
+  incomingReviewNoticeId = latest.reviewId
+  incomingReviewNoticeSequence = latest.sequence
+  renderIncomingReviewNotice(session)
+}
+
+function replaceIncomingReviewWarningPrompts(
+  prompts: IncomingReviewPrompt[]
+): void {
+  const available = prompts.filter((prompt) => reviewSessions.get(prompt.reviewId))
+  const latest = available.at(-1)
+  const session = latest ? reviewSessions.get(latest.reviewId) : null
+  if (!latest || !session) {
+    clearIncomingReviewWarning()
+    return
+  }
+  incomingReviewWarningPrompts = available
+  incomingReviewWarningCount = available.length
+  incomingReviewWarningId = latest.reviewId
+  incomingReviewWarningSequence = latest.sequence
+  renderIncomingReviewWarning(session)
+}
+
+function removeIncomingPrompts(reviewId: string): void {
+  const noticePrompts = removeIncomingReview(incomingReviewNoticePrompts, reviewId)
+  if (noticePrompts.length !== incomingReviewNoticePrompts.length) {
+    replaceIncomingReviewNoticePrompts(noticePrompts)
+  }
+  const warningPrompts = removeIncomingReview(incomingReviewWarningPrompts, reviewId)
+  if (warningPrompts.length !== incomingReviewWarningPrompts.length) {
+    replaceIncomingReviewWarningPrompts(warningPrompts)
+  }
+}
+
+function dismissIncomingPromptsThrough(sequence: number): void {
+  const noticePrompts = retainIncomingReviewsAfter(
+    incomingReviewNoticePrompts,
+    sequence
+  )
+  if (noticePrompts.length !== incomingReviewNoticePrompts.length) {
+    replaceIncomingReviewNoticePrompts(noticePrompts)
+  }
+  const warningPrompts = retainIncomingReviewsAfter(
+    incomingReviewWarningPrompts,
+    sequence
+  )
+  if (warningPrompts.length !== incomingReviewWarningPrompts.length) {
+    replaceIncomingReviewWarningPrompts(warningPrompts)
+  }
+}
+
+async function activateIncomingReview(
+  reviewId: string,
+  focusPreview: boolean,
+  activationSequence: number
+): Promise<void> {
+  const outcome = await activateReview(reviewId)
+  if (outcome === 'blocked') {
+    const session = reviewSessions.get(reviewId)
+    if (session && activationSequence === incomingReviewSequence) {
+      showIncomingReviewNotice(session, activationSequence)
+    }
+    return
+  }
+  if (outcome === 'missing') return
+  dismissIncomingPromptsThrough(activationSequence)
+  if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
+}
+
+async function handleIncomingReview(
+  reviewDocument: MarkoverDocument
+): Promise<void> {
+  const sequence = ++incomingReviewSequence
+  const session = addManagedReview(managedReviewDocument(reviewDocument), false)
+  if (session.reviewId === state.reviewId) {
+    hideIncomingReviewNotice()
+    clearIncomingReviewWarning()
+    return
+  }
+  const action = incomingReviewAction({
+    focusState: windowFocusState,
+    hasActiveDocument: state.tree !== null,
+    idleMinutes: preferences.incomingReviewIdleMinutes,
+    now: Date.now(),
+    policy: preferences.incomingReviewActivationPolicy
+  })
+  if (action === 'warn') {
+    showIncomingReviewWarning(session, sequence)
+    return
+  }
+  if (action === 'notify') {
+    showIncomingReviewNotice(session, sequence)
+    return
+  }
+  await activateIncomingReview(
+    session.reviewId,
+    windowFocusState.focused,
+    sequence
+  )
+}
+
+function queueIncomingReview(reviewDocument: MarkoverDocument): Promise<void> {
+  incomingReviewQueue = incomingReviewQueue.then(
+    () => handleIncomingReview(reviewDocument),
+    () => handleIncomingReview(reviewDocument)
+  ).catch((error: unknown) => {
+    console.error('Failed to add incoming review', error)
+    showToast('Could not add the incoming review')
+  })
+  return incomingReviewQueue
+}
+
 function autosaveReview(): void {
   autosaveTree(state.reviewId, state.tree)
 }
@@ -1545,6 +1863,7 @@ function openReviewContext(): void {
   elements.reviewContextDrawer.hidden = false
   elements.reviewContextButton.setAttribute('aria-expanded', 'true')
   elements.reviewContextClose.focus()
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 function closeReviewContext(restoreFocus = true): void {
@@ -1560,6 +1879,7 @@ function closeReviewContext(restoreFocus = true): void {
   ) {
     elements.reviewContextButton.focus()
   }
+  scheduleIncomingReviewNoticeDismissal()
 }
 
 function treePathSegment(value: string): string {
@@ -1686,6 +2006,19 @@ function applyDocumentsListRowMetadata(): void {
     if (content) {
       content.dataset.documentsListLabel = row.getAttribute('aria-label') || ''
     }
+    if (itemPath && !row.dataset.markoverContextMenu) {
+      row.dataset.markoverContextMenu = 'true'
+      row.addEventListener('contextmenu', (event) => {
+        const reviewId = documentsListPathToReviewId.get(itemPath)
+        if (!reviewId) return
+        event.preventDefault()
+        void bridge.openReviewContextMenu({ reviewId }).catch(
+          (error: unknown) => {
+            showToast(error instanceof Error ? error.message : String(error))
+          }
+        )
+      })
+    }
   }
 }
 
@@ -1750,6 +2083,12 @@ function renderDocumentsList(): void {
   applyDocumentsListWidth()
   applyAnnotationPaneWidth()
   if (!sessions.length || !DocumentsListFileTree) {
+    if (!sessions.length) {
+      documentsListPathToReviewId.clear()
+      documentsListReviewIdToPath.clear()
+      documentsListProjectPaths = []
+      documentsListModel?.resetPaths([], { initialExpandedPaths: [] })
+    }
     return
   }
 
@@ -2016,7 +2355,7 @@ function applySettings(
   }
 }
 
-function openSettings(): void {
+function restoreSettingsForm(): void {
   MarkoverSettings.applySettingsToView(
     { ...preferences, resolvedAppearance },
     {
@@ -2025,7 +2364,12 @@ function openSettings(): void {
       form: elements.settingsForm
     }
   )
+}
+
+function openSettings(): void {
+  restoreSettingsForm()
   if (!elements.settingsDialog.open) elements.settingsDialog.showModal()
+  scheduleIncomingReviewNoticeDismissal()
   const palette = elements.settingsForm.elements.namedItem('palette')
   if (palette instanceof HTMLElement) palette.focus()
 }
@@ -2043,16 +2387,21 @@ for (const statement of MarkoverAgentGuidance.FIXED_CONTRACT_STATEMENTS) {
 elements.settingsClose.addEventListener('click', () => {
   elements.settingsDialog.close()
 })
+elements.settingsDialog.addEventListener('close', () => {
+  scheduleIncomingReviewNoticeDismissal()
+})
 elements.fixedContractOpen.addEventListener('click', () => {
   if (!elements.fixedContractDialog.open) {
     elements.fixedContractDialog.showModal()
   }
+  scheduleIncomingReviewNoticeDismissal()
   elements.fixedContractClose.focus()
 })
 elements.fixedContractClose.addEventListener('click', closeFixedContract)
 elements.fixedContractDone.addEventListener('click', closeFixedContract)
 elements.fixedContractDialog.addEventListener('close', () => {
   if (elements.settingsDialog.open) elements.fixedContractOpen.focus()
+  scheduleIncomingReviewNoticeDismissal()
 })
 elements.settingsReset.addEventListener('click', () => {
   void bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS).then(applySettings)
@@ -2066,11 +2415,61 @@ elements.settingsForm.addEventListener('change', (event) => {
   )) {
     return
   }
+  if (
+    control instanceof HTMLInputElement &&
+    control.type === 'number' &&
+    (!Number.isFinite(control.valueAsNumber) || !control.checkValidity())
+  ) {
+    restoreSettingsForm()
+    return
+  }
   const value = control instanceof HTMLInputElement && control.type === 'checkbox'
     ? control.checked
-    : control.value
-  void bridge.updateSettings({ [control.name]: value }).then(applySettings)
+    : control instanceof HTMLInputElement && control.type === 'number'
+      ? control.valueAsNumber
+      : control.value
+  void bridge.updateSettings({ [control.name]: value })
+    .then(applySettings)
+    .catch(() => {
+      restoreSettingsForm()
+      showToast('Could not save setting')
+    })
 })
+
+elements.incomingReviewDialogKeep.addEventListener('click', () => {
+  clearIncomingReviewWarning()
+})
+elements.incomingReviewDialogOpen.addEventListener('click', () => {
+  const reviewId = incomingReviewWarningId
+  const sequence = incomingReviewWarningSequence
+  clearIncomingReviewWarning()
+  if (reviewId && sequence !== null) {
+    void activateIncomingReview(reviewId, true, sequence)
+  }
+})
+elements.incomingReviewDialog.addEventListener('close', () => {
+  incomingReviewWarningCount = 0
+  incomingReviewWarningId = null
+  incomingReviewWarningPrompts = []
+  incomingReviewWarningSequence = null
+  scheduleIncomingReviewNoticeDismissal()
+})
+elements.incomingReviewNoticeOpen.addEventListener('click', () => {
+  const reviewId = incomingReviewNoticeId
+  const sequence = incomingReviewNoticeSequence
+  hideIncomingReviewNotice()
+  if (reviewId && sequence !== null) {
+    void activateIncomingReview(reviewId, true, sequence)
+  }
+})
+elements.incomingReviewNoticeOpen.addEventListener(
+  'focus',
+  scheduleIncomingReviewNoticeDismissal
+)
+elements.incomingReviewNoticeOpen.addEventListener(
+  'blur',
+  scheduleIncomingReviewNoticeDismissal
+)
 
 function focusedPane(): WorkspacePane {
   const active = document.activeElement
@@ -2218,6 +2617,15 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
   button.addEventListener('click', () => {
     void activateReview(session.reviewId)
   })
+  button.addEventListener('contextmenu', (event) => {
+    event.preventDefault()
+    closeTabOverflow()
+    void bridge.openReviewContextMenu({ reviewId: session.reviewId }).catch(
+      (error: unknown) => {
+        showToast(error instanceof Error ? error.message : String(error))
+      }
+    )
+  })
   button.addEventListener('keydown', (event) => {
     const offset = event.key === 'ArrowLeft'
       ? -1
@@ -2285,6 +2693,15 @@ function renderDocumentTabs(): void {
       item.addEventListener('click', () => {
         void activateReview(session.reviewId)
       })
+      item.addEventListener('contextmenu', (event) => {
+        event.preventDefault()
+        closeTabOverflow()
+        void bridge.openReviewContextMenu({ reviewId: session.reviewId }).catch(
+          (error: unknown) => {
+            showToast(error instanceof Error ? error.message : String(error))
+          }
+        )
+      })
       menu.append(item)
     }
     overflow.append(menu)
@@ -2298,14 +2715,23 @@ async function activateReview(
   reviewId: string
 ): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
-  if (reviewId === state.reviewId) return 'already-active'
+  if (!reviewSessions.get(reviewId)) return 'missing'
+  if (reviewId === state.reviewId) {
+    removeIncomingPrompts(reviewId)
+    return 'already-active'
+  }
   state.finishAttachmentLabelEdit?.(true)
   const currentReviewId = state.reviewId
   if (currentReviewId && reviewMutations.has(currentReviewId)) {
     await reviewMutations.wait(currentReviewId)
-    if (reviewId === state.reviewId) return 'already-active'
+    if (!reviewSessions.get(reviewId)) return 'missing'
+    if (reviewId === state.reviewId) {
+      removeIncomingPrompts(reviewId)
+      return 'already-active'
+    }
   }
   if (!finishActiveSourceEdit()) return 'blocked'
+  configureManagedMode()
 
   captureActiveSession()
   const session = reviewSessions.activate(reviewId)
@@ -2340,7 +2766,38 @@ async function activateReview(
   if (selected) renderAnnotation(selected)
   renderDocumentTabs()
   renderReviewContext()
+  removeIncomingPrompts(reviewId)
   return 'activated'
+}
+
+async function handleReviewTrashed(reviewId: string): Promise<void> {
+  removeIncomingPrompts(reviewId)
+  const wasActive = state.reviewId === reviewId
+  const removed = reviewSessions.remove(reviewId)
+  if (!removed) return
+  for (const url of removed.attachmentPreviewUrls.values()) {
+    URL.revokeObjectURL(url)
+  }
+  removed.attachmentPreviewUrls.clear()
+
+  if (!wasActive) {
+    renderDocumentTabs()
+    return
+  }
+  state.reviewId = null
+  state.tree = null
+  state.attachmentPreviewUrls = new Map()
+  state.sourceDrafts = new Map()
+  state.sourceEditingId = null
+  state.finishAttachmentLabelEdit = null
+  closeImagePreview()
+  const next = reviewSessions.recent(1)[0]
+  if (next) {
+    await activateReview(next.reviewId)
+  } else {
+    renderDocumentTabs()
+    setWorkspaceEmpty(true)
+  }
 }
 
 function addManagedReview(
@@ -2743,7 +3200,7 @@ document.addEventListener('keydown', (event) => {
     document.body.classList.add('is-control-pressed')
   }
 
-  if (elements.settingsDialog.open) return
+  if (elements.settingsDialog.open || elements.incomingReviewDialog.open) return
 
   if (event.key === 'Escape' && !elements.imagePreview.hidden) {
     closeImagePreview()
@@ -2794,8 +3251,23 @@ document.addEventListener('keydown', (event) => {
       return
     }
     const documentsVisible = reviewSessions.list().length > 0 && !documentsListCollapsed
+    const firstPane: WorkspacePane = documentsVisible ? 'documents' : 'preview'
+    const noticeVisible = !elements.incomingReviewNotice.hidden
+    if (noticeVisible && active === elements.incomingReviewNoticeOpen) {
+      focusPane(event.shiftKey ? 'annotation' : firstPane)
+      return
+    }
+    const currentPane = focusedPane()
+    if (
+      noticeVisible &&
+      ((!event.shiftKey && currentPane === 'annotation') ||
+        (event.shiftKey && currentPane === firstPane))
+    ) {
+      elements.incomingReviewNoticeOpen.focus()
+      return
+    }
     const pane = MarkoverNavigation.nextPane(
-      focusedPane(),
+      currentPane,
       event.shiftKey ? -1 : 1,
       documentsVisible
     )
@@ -2908,11 +3380,20 @@ function nextFrame(): Promise<void> {
 async function rendererSmokeResult(): Promise<{
   format: 'markover-renderer-smoke'
   version: 1
+  diagnostics: string[]
   checks: {
+    blobImage: boolean
     cleanRuntime: boolean
+    dataImage: boolean
     documentsList: boolean
+    fileImage: boolean
     markdown: boolean
+    navigationDenied: boolean
+    permissionDenied: boolean
+    sandboxedRenderer: boolean
     sourceDiff: boolean
+    webviewDenied: boolean
+    windowOpenDenied: boolean
     yaml: boolean
   }
 }> {
@@ -2934,14 +3415,65 @@ async function rendererSmokeResult(): Promise<{
       elements.sourceDiffStats.textContent.includes('+1') &&
       elements.sourceDiffStats.textContent.includes('−1')
   }
+  const fileImage = elements.attachmentList.querySelector<HTMLImageElement>(
+    'img[alt="Packaged local image"]'
+  )
+  if (fileImage && !fileImage.complete) {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        fileImage.addEventListener('load', () => { resolve() }, { once: true })
+        fileImage.addEventListener('error', () => { resolve() }, { once: true })
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, 1000))
+    ])
+  }
+  const blobUrl = URL.createObjectURL(new Blob([
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>'
+  ], { type: 'image/svg+xml' }))
+  const blobImage = new Image()
+  const blobImageLoaded = await new Promise<boolean>((resolve) => {
+    blobImage.addEventListener('load', () => { resolve(true) }, { once: true })
+    blobImage.addEventListener('error', () => { resolve(false) }, { once: true })
+    blobImage.src = blobUrl
+  })
+  URL.revokeObjectURL(blobUrl)
+  const popup = window.open('https://example.invalid/markover-smoke')
+  const windowOpenDenied = popup === null
+  popup?.close()
+  const webview = document.createElement('webview')
+  document.body.append(webview)
+  await nextFrame()
+  const webviewDenied = !Reflect.has(webview, 'getWebContentsId')
+  webview.remove()
+  const permissionState = await navigator.permissions.query({
+    name: 'geolocation'
+  })
+  const notificationPermission = await Notification.requestPermission()
+  const originalUrl = window.location.href
+  window.location.assign('https://example.invalid/markover-smoke-navigation')
+  await new Promise<void>((resolve) => setTimeout(resolve, 50))
   return {
     format: 'markover-renderer-smoke',
     version: 1,
+    diagnostics: [...smokeRuntimeDiagnostics],
     checks: {
+      blobImage: blobImageLoaded,
       cleanRuntime: smokeRuntimeClean,
+      dataImage: elements.brandMark.src.startsWith('data:image/svg+xml') &&
+        elements.brandMark.complete && elements.brandMark.naturalWidth > 0,
       documentsList,
+      fileImage: Boolean(
+        fileImage?.complete && fileImage.naturalWidth > 0
+      ),
       markdown: treeText.includes('Bundled Markdown renders here.'),
+      navigationDenied: window.location.href === originalUrl,
+      permissionDenied: permissionState.state === 'denied' &&
+        notificationPermission === 'denied',
+      sandboxedRenderer: !Reflect.has(globalThis, 'process') &&
+        !Reflect.has(globalThis, 'require'),
       sourceDiff,
+      webviewDenied,
+      windowOpenDenied,
       yaml: Boolean(elements.tree.querySelector('[data-node-id="smoke-yaml-title"]'))
     }
   }
@@ -2950,6 +3482,16 @@ async function rendererSmokeResult(): Promise<{
 async function initialize(): Promise<void> {
   const startupInfo = await bridge.getStartupInfo()
   startupUi.development(startupInfo.development)
+  bridge.onWindowFocusChanged((focusState) => {
+    windowFocusStateVersion += 1
+    windowFocusState = focusState
+    scheduleIncomingReviewNoticeDismissal()
+  })
+  const initialFocusStateVersion = windowFocusStateVersion
+  const initialFocusState = await bridge.getWindowFocusState()
+  if (windowFocusStateVersion === initialFocusStateVersion) {
+    windowFocusState = initialFocusState
+  }
   bridge.onOpenMarkdownRequested(() => {
     void openMarkdownDocument()
   })
@@ -2962,17 +3504,19 @@ async function initialize(): Promise<void> {
   }, false)
   await rendererStartupPhase(startupInfo, 'loading-brand', themeBrandAssets)
 
-  bridge.onReviewOpened(async (reviewDocument) => {
-    configureManagedMode()
-    await loadDocument(reviewDocument)
-    elements.previewPane.focus()
+  bridge.onReviewOpened((reviewDocument) => {
+    return queueIncomingReview(reviewDocument)
+  })
+  bridge.onReviewTrashed(({ reviewId }) => {
+    void handleReviewTrashed(reviewId).catch((error: unknown) => {
+      showToast(error instanceof Error ? error.message : String(error))
+    })
   })
   bridge.onReviewActivationRequested(async ({ reviewId, document }) => {
     if (!document) {
       showToast(`Review ${reviewId} was not found in this Markover instance`)
       return 'missing'
     }
-    configureManagedMode()
     if (!reviewSessions.get(reviewId)) {
       addManagedReview(managedReviewDocument(document), false)
     }

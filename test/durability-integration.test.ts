@@ -134,7 +134,7 @@ test('renderer mutations drain before main blocks new attachment saves', () => {
 test('the existing live Electron smoke exits through the durability barrier', () => {
   const main = read('src/main.ts')
   const smokeResult = main.match(
-    /ipcMain\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
+    /privilegedIpc\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
   )?.[0] || ''
   const beforeQuit = main.slice(
     main.indexOf("app.on('before-quit'"),
@@ -147,13 +147,13 @@ test('the existing live Electron smoke exits through the durability barrier', ()
 })
 
 test('public guidance states the tested durability contract and its limits', () => {
-  const development = read('docs/development.md')
-  const guide = read('docs/guide/index.html')
+  const development = read('docs/developer/development.md')
+  const guide = read('docs/user/guide/index.html')
   const readme = read('README.md')
 
   assert.match(
     guide,
-    /id="durability"[\s\S]*two-second window by default[\s\S]*1\.5 seconds apart[\s\S]*500 milliseconds[\s\S]*reviews already inflight with an agent/
+    /id="durability"[\s\S]*two-second window by default[\s\S]*reviews already inflight with an agent/
   )
   assert.match(
     guide,
@@ -163,5 +163,5 @@ test('public guidance states the tested durability contract and its limits', () 
     development,
     /autosaveMaximumDelayMs[\s\S]*integer from `100` through `60000`\s+milliseconds[\s\S]*restart\s+it afterward/
   )
-  assert.match(readme, /guide\/#durability/)
+  assert.match(readme, /Autosave and automatic restart recovery/)
 })

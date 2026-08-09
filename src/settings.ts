@@ -9,6 +9,8 @@ import * as agentGuidance from './agent-guidance'
     openDocumentsSidebar: true,
     defaultTreeView: 'all',
     confirmAttachmentRemoval: true,
+    incomingReviewActivationPolicy: 'never',
+    incomingReviewIdleMinutes: 5,
     discoverAgentThreadFromLocalSessions: true,
     logRejectedApiRequests: false,
     agentInterpretationPolicy: agentGuidance.DEFAULT_INTERPRETATION_POLICY,
@@ -20,7 +22,8 @@ import * as agentGuidance from './agent-guidance'
     appearance: ['system', 'light', 'dark'],
     treeDensity: ['comfortable', 'compact'],
     annotationTextSize: ['small', 'medium', 'large'],
-    defaultTreeView: ['all', 'annotated']
+    defaultTreeView: ['all', 'annotated'],
+    incomingReviewActivationPolicy: ['never', 'always', 'warn', 'when-idle']
   })
 
   const WINDOW_BACKGROUNDS: Readonly<{
@@ -95,6 +98,15 @@ import * as agentGuidance from './agent-guidance'
     if (typeof input.agentInterpretationPolicy === 'string') {
       normalized.agentInterpretationPolicy = input.agentInterpretationPolicy
     }
+    const incomingReviewIdleMinutes = input.incomingReviewIdleMinutes
+    if (
+      typeof incomingReviewIdleMinutes === 'number' &&
+      Number.isInteger(incomingReviewIdleMinutes) &&
+      incomingReviewIdleMinutes >= 1 &&
+      incomingReviewIdleMinutes <= 60
+    ) {
+      normalized.incomingReviewIdleMinutes = incomingReviewIdleMinutes
+    }
     const autosaveMaximumDelayMs = input.autosaveMaximumDelayMs
     if (
       typeof autosaveMaximumDelayMs === 'number' &&
@@ -151,8 +163,14 @@ import * as agentGuidance from './agent-guidance'
       if ('checked' in control && control.type === 'checkbox') {
         control.checked = value as boolean
       } else {
-        control.value = value as string
+        control.value = String(value)
       }
+    }
+    const idleMinutes = view.form.elements.namedItem(
+      'incomingReviewIdleMinutes'
+    )
+    if (idleMinutes && 'disabled' in idleMinutes) {
+      idleMinutes.disabled = normalized.incomingReviewActivationPolicy !== 'when-idle'
     }
     return { appearance, preferences: normalized }
   }

@@ -2,24 +2,29 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { rendererContentSecurityPolicy } from '../src/renderer-security'
+
 export const runtimeModuleNames = [
+  'about-panel',
   'agent-guidance',
   'app-menu',
   'async-mutation-tracker',
   'development-config',
   'durability-shutdown',
+  'ipc-contract',
+  'ipc-security',
   'instance',
   'local-client',
   'local-service',
   'main',
   'metadata-discovery',
-  'preload',
   'protocol-registration',
   'review-autosave',
   'review-migration',
   'review-store',
   'review-url',
   'review-url-dispatcher',
+  'renderer-security',
   'service-endpoint',
   'settings',
   'settings-store',
@@ -43,6 +48,8 @@ export const expectedStageEntries = [
     `src/${name}.js.map`
   ]),
   'src/index.html',
+  'src/preload.js',
+  'src/preload.js.map',
   'src/renderer.js',
   'src/renderer.js.map',
   'src/startup.js',
@@ -118,9 +125,13 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
   if (
     manifest === null ||
     typeof manifest !== 'object' ||
-    Reflect.get(manifest, 'main') !== 'src/main.js'
+    Reflect.get(manifest, 'main') !== 'src/main.js' ||
+    Reflect.get(manifest, 'author') !== 'Michael Johnston (lastobelus)' ||
+    Reflect.get(manifest, 'copyright') !==
+      'Copyright © 2026 Michael Johnston (lastobelus)' ||
+    Reflect.get(manifest, 'license') !== 'MIT'
   ) {
-    throw new Error('Staged package.json must use src/main.js as its entry point.')
+    throw new Error('Staged package.json contains invalid application metadata.')
   }
 
   const rendererBuffer = await fs.readFile(
@@ -143,7 +154,8 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
       typeof Reflect.get(buildIdentity, 'commit') !== 'string'
     ) ||
     typeof Reflect.get(buildIdentity, 'dirty') !== 'boolean' ||
-    Reflect.get(buildIdentity, 'rendererSha256') !== rendererSha256
+    Reflect.get(buildIdentity, 'rendererSha256') !== rendererSha256 ||
+    Reflect.get(buildIdentity, 'version') !== Reflect.get(manifest, 'version')
   ) {
     throw new Error('Staged build identity is invalid.')
   }
@@ -162,6 +174,13 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
     if (html.includes(forbidden)) {
       throw new Error(`Staged HTML contains a forbidden runtime reference: ${forbidden}`)
     }
+  }
+  const policyTag = html.match(
+    /<meta\b(?=[^>]*http-equiv="Content-Security-Policy")[^>]*>/i
+  )?.[0]
+  const policy = policyTag?.match(/\bcontent="([^"]+)"/i)?.[1]
+  if (policy !== rendererContentSecurityPolicy) {
+    throw new Error('Staged HTML has an unexpected Content Security Policy.')
   }
 
   const renderer = rendererBuffer.toString('utf8')

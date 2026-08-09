@@ -38,6 +38,8 @@ test('settings defaults cover the persisted preferences', () => {
     'openDocumentsSidebar',
     'defaultTreeView',
     'confirmAttachmentRemoval',
+    'incomingReviewActivationPolicy',
+    'incomingReviewIdleMinutes',
     'discoverAgentThreadFromLocalSessions',
     'logRejectedApiRequests',
     'agentInterpretationPolicy',
@@ -55,6 +57,8 @@ test('settings normalization accepts known choices and rejects unknown values', 
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
+    incomingReviewActivationPolicy: 'when-idle',
+    incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
     agentInterpretationPolicy: 'Follow the checklist.',
@@ -69,6 +73,8 @@ test('settings normalization accepts known choices and rejects unknown values', 
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
+    incomingReviewActivationPolicy: 'when-idle',
+    incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
     agentInterpretationPolicy: 'Follow the checklist.',
@@ -93,6 +99,23 @@ test('autosave maximum delay accepts only integer values in the safe range', () 
     assert.equal(
       normalizeSettings({ autosaveMaximumDelayMs: value }).autosaveMaximumDelayMs,
       2000
+    )
+  }
+})
+
+test('incoming review idle time accepts whole minutes from one through sixty', () => {
+  assert.equal(
+    normalizeSettings({ incomingReviewIdleMinutes: 1 }).incomingReviewIdleMinutes,
+    1
+  )
+  assert.equal(
+    normalizeSettings({ incomingReviewIdleMinutes: 60 }).incomingReviewIdleMinutes,
+    60
+  )
+  for (const value of [0, 61, 5.5, '5', null]) {
+    assert.equal(
+      normalizeSettings({ incomingReviewIdleMinutes: value }).incomingReviewIdleMinutes,
+      5
     )
   }
 })
@@ -125,6 +148,8 @@ test('renderer settings apply immediately and reset through the same path', () =
       <input name="openDocumentsSidebar" type="checkbox">
       <select name="defaultTreeView"><option value="all">All</option><option value="annotated">Annotated</option></select>
       <input name="confirmAttachmentRemoval" type="checkbox">
+      <select name="incomingReviewActivationPolicy"><option value="never">Never</option><option value="when-idle">When idle</option></select>
+      <input name="incomingReviewIdleMinutes" type="number">
       <input name="discoverAgentThreadFromLocalSessions" type="checkbox">
       <input name="logRejectedApiRequests" type="checkbox">
       <textarea name="agentInterpretationPolicy"></textarea>
@@ -167,6 +192,21 @@ test('renderer settings apply immediately and reset through the same path', () =
     | null
   assert.ok(policyControl)
   assert.equal(policyControl.value, DEFAULT_SETTINGS.agentInterpretationPolicy)
+  const idleControl = view.form.elements.namedItem('incomingReviewIdleMinutes') as
+    | HTMLInputElement
+    | null
+  assert.ok(idleControl)
+  assert.equal(idleControl.value, '5')
+  assert.equal(idleControl.disabled, true)
+
+  applySettingsToView({
+    ...DEFAULT_SETTINGS,
+    incomingReviewActivationPolicy: 'when-idle',
+    incomingReviewIdleMinutes: 12,
+    resolvedAppearance: 'light'
+  }, view)
+  assert.equal(idleControl.value, '12')
+  assert.equal(idleControl.disabled, false)
 
   applySettingsToView({ ...DEFAULT_SETTINGS, resolvedAppearance: 'light' }, view)
   assert.equal(view.root.dataset.palette, 'ember')
@@ -204,6 +244,8 @@ test('settings store persists normalized settings and recovers malformed JSON', 
     palette: 'ocean',
     showKeyboardHelp: false,
     discoverAgentThreadFromLocalSessions: false,
+    incomingReviewActivationPolicy: 'when-idle',
+    incomingReviewIdleMinutes: 18,
     agentInterpretationPolicy: 'Use this policy.',
     autosaveMaximumDelayMs: 3500
   })
@@ -212,6 +254,8 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   assert.equal((await restored.load()).palette, 'ocean')
   assert.equal(restored.settings.showKeyboardHelp, false)
   assert.equal(restored.settings.discoverAgentThreadFromLocalSessions, false)
+  assert.equal(restored.settings.incomingReviewActivationPolicy, 'when-idle')
+  assert.equal(restored.settings.incomingReviewIdleMinutes, 18)
   assert.equal(restored.settings.agentInterpretationPolicy, 'Use this policy.')
   assert.equal(restored.settings.autosaveMaximumDelayMs, 3500)
 
@@ -364,6 +408,14 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(html, /<dialog id="fixed-contract-dialog"/)
   assert.match(renderer, /MarkoverAgentGuidance\.FIXED_CONTRACT_STATEMENTS/)
   assert.match(renderer, /elements\.fixedContractDialog\.showModal\(\)/)
+  assert.match(
+    renderer,
+    /control\.type === 'number'[\s\S]*!Number\.isFinite\(control\.valueAsNumber\)[\s\S]*!control\.checkValidity\(\)[\s\S]*restoreSettingsForm\(\)[\s\S]*return/
+  )
+  assert.match(
+    renderer,
+    /bridge\.updateSettings\([\s\S]*\.catch\(\(\) => \{[\s\S]*restoreSettingsForm\(\)/
+  )
   const dialogSettings = Object.keys(DEFAULT_SETTINGS).filter(
     (key) => key !== 'autosaveMaximumDelayMs'
   )

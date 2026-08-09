@@ -2,17 +2,25 @@ import type { MenuItemConstructorOptions } from 'electron'
 
 interface ApplicationMenuOptions {
   appName?: string
+  canCleanUpAttachments?: boolean
+  canTrashReview?: boolean
   isMac?: boolean
+  onCleanUpAttachments?: () => void
   onOpen?: () => void
   onSettings?: () => void
+  onTrashReview?: () => void
   reviewMode?: boolean
 }
 
 export function applicationMenuTemplate({
   appName = 'Markover',
+  canCleanUpAttachments = false,
+  canTrashReview = false,
   isMac = process.platform === 'darwin',
+  onCleanUpAttachments,
   onOpen,
   onSettings,
+  onTrashReview,
   reviewMode = false
 }: ApplicationMenuOptions = {}): MenuItemConstructorOptions[] {
   const template: MenuItemConstructorOptions[] = []
@@ -62,6 +70,24 @@ export function applicationMenuTemplate({
       { role: 'copy' },
       { role: 'paste' },
       { role: 'selectAll' }
+    ]
+  })
+  template.push({
+    label: 'Review',
+    submenu: [
+      {
+        id: 'review.move-to-trash',
+        label: 'Move Review to Trash…',
+        enabled: canTrashReview,
+        ...(onTrashReview ? { click: onTrashReview } : {})
+      },
+      { type: 'separator' },
+      {
+        id: 'review.clean-up-unused-attachments',
+        label: 'Clean Up Unused Attachments…',
+        enabled: canCleanUpAttachments,
+        ...(onCleanUpAttachments ? { click: onCleanUpAttachments } : {})
+      }
     ]
   })
   template.push({

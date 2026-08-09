@@ -162,7 +162,7 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">Merged baseline 03e52ac · Apple Silicon v0.1.3 published · Intel deferred to #80 · 7 Aug 2026</span>
+        <span class="context-status">Merged baseline 32cf785 · PR #108 merged · Apple Silicon release smoke only · 8 Aug 2026</span>
       </summary>
       <div class="context-body">
         <p>
@@ -172,11 +172,16 @@
           from the merged baseline containing
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
           <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>.
-          Current merged <code>main</code> baseline <code>03e52ac</code> includes
+          Current merged <code>main</code> baseline <code>32cf785</code> includes
           <a href="https://github.com/lastobelus/markover/pull/68">PR #68's</a>
           shared packaged smoke and <a href="https://github.com/lastobelus/markover/pull/81">PR #81's</a>
           Apple-Silicon-only release contract with synchronized <code>0.1.3</code>
-          versions. Snapshot 7 August 2026: immutable
+          versions. Snapshot 8 August 2026:
+          <a href="https://github.com/lastobelus/markover/pull/108">PR #108</a>
+          corrected PR #68's scheduling regression, so native packaging and the shared
+          happy path run only for a <code>v*</code> release candidate, not every pull
+          request or <code>main</code> push. The correction is merged.
+          Immutable
           <code>v0.1.2</code> produced a verified private dual-architecture draft in
           <a href="https://github.com/lastobelus/markover/actions/runs/31217557046">run 31217557046</a>,
           but publication was cancelled before the second gate. Immutable
@@ -193,8 +198,10 @@
               This is credential-free preflight plus the first guarded Apple Silicon
               release. Slice 1 owns hardened packaging; slice 2 owns provenance and
               guarded publication; slice 3 owns the reusable exact-ZIP happy path. The
-              public set is arm64 plus the portable CLI. Issue #12 keeps adversarial
-              authorization, and issue #39 keeps bounded-loss and durability behavior.
+              public set is arm64 plus the portable CLI. Routine CI keeps its Linux
+              checks and bundled Electron smoke but does not build native packages.
+              Issue #12 keeps adversarial authorization, and issue #39 keeps
+              bounded-loss and durability behavior.
             </p>
           </div>
           <div>
@@ -209,7 +216,9 @@
               <a href="https://github.com/lastobelus/markover/issues/11">issue #11</a>.
               The published <code>v0.1.3</code> commit, digests, workflow, assets, and
               release URL are immutable; future Developer ID, Intel, and preview-candidate
-              decisions remain changeable.
+              decisions remain changeable. A parallel CI-cost change may reduce the
+              ordinary Node verification matrix; it does not change the release-candidate
+              packaged-smoke boundary.
             </p>
           </div>
           <div>
@@ -217,8 +226,9 @@
             <p>
               Stable: explicit trust modes, fail-closed exact-asset checks, immutable
               tags, protected draft/publication approvals, exact-ZIP packaged smoke,
-              honest “not Apple-verified” language, no silent fallback, and no duplicate
-              auth or durability suite. Current primary digests are
+              packaged qualification only on the tag-triggered release path, honest
+              “not Apple-verified” language, no silent fallback, and no duplicate auth
+              or durability suite. Current primary digests are
               <code>4219a1f2…b38c3c6</code> for arm64 and
               <code>7f7d30e6…2496e97</code> for the CLI. Re-check
               <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>,
