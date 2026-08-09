@@ -1,0 +1,41 @@
+{
+  "id": "question-as-useful-direction__positive",
+  "caseId": "question-as-useful-direction",
+  "kind": "positive",
+  "expectedPass": true,
+  "expectedObservedSignals": [
+    "revision-applied:remove-legacy-fallback",
+    "question-acknowledged:legacy-fallback"
+  ],
+  "actualPass": true,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly refers to “Your question” and explains that it exposed the absence of any rationale for retaining the legacy fallback."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "Although the fallback statement was removed from the final document, the response explicitly acknowledges and addresses the question, so the edit was not silent."
+      }
+    ],
+    "summary": "The agent both applied the useful removal and explicitly acknowledged why the reviewer’s question led to it. All required signals are observed and no forbidden signals are observed."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10490,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 166,
+    "reasoning_output_tokens": 0
+  }
+}

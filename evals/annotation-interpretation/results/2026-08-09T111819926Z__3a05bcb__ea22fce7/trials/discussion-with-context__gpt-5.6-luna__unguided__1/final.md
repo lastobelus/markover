@@ -1,0 +1,1 @@
+The request budget is currently set at 200 ms, based on last year's mobile client. Revalidate this target against the performance requirements and usage patterns of the current clients before treating it as a firm constraint.

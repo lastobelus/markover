@@ -1,0 +1,1 @@
+Agreed—the 200ms target shouldn’t carry forward unquestioned. I revised the document to identify it as originating from last year’s mobile client and to require reassessment before treating it as the current latency target.

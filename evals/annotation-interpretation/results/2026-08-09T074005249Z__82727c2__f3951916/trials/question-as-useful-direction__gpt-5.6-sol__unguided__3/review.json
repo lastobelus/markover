@@ -1,0 +1,9 @@
+{
+  "source": "The legacy fallback remains enabled for all clients.",
+  "annotations": [
+    {
+      "block": "The legacy fallback remains enabled for all clients.",
+      "feedback": "Why is this legacy fallback here?"
+    }
+  ]
+}

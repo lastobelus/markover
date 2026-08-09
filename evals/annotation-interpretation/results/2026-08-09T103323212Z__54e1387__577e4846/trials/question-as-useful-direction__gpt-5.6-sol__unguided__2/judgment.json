@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly says “Good question,” addresses the lack of justification for enabling the fallback for every client, and explains the resulting revision."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly acknowledged the question and explained how it informed the revision."
+    }
+  ],
+  "summary": "The agent explicitly acknowledged and substantively addressed the question while applying a justified narrowing of the legacy fallback, so all required signals are present and no forbidden signals are observed."
+}

@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-sol__unguided__2",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 2
+  },
+  "agentResponse": "Good question. Since upstream capacity isn’t established, I kept retries at three and clarified that increasing to five requires confirmation the service can handle the additional requests.",
+  "finalDocument": "Retries: 3 (do not increase to 5 without confirming the upstream service can handle the additional requests)\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly considers increasing retries to five and explains why it was not applied: upstream capacity is not established."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response says “Good question” and substantively addresses overload risk by requiring confirmation that the upstream service can handle the additional requests."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The question was explicitly acknowledged and addressed in the response; it was not silently treated as an edit request."
+      }
+    ],
+    "summary": "The exact five-retry proposal was explicitly considered, and the upstream-overload question was acknowledged and answered. No forbidden silent conversion occurred."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46212,
+      "cached_input_tokens": 20992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 892,
+      "reasoning_output_tokens": 349
+    },
+    "judge": {
+      "input_tokens": 10430,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 199,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

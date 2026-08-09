@@ -1,0 +1,1 @@
+I don’t have enough context to determine why the legacy fallback exists without speculating. I revised the document to make that gap explicit and note that its purpose and removal criteria should be documented before changing the behavior.

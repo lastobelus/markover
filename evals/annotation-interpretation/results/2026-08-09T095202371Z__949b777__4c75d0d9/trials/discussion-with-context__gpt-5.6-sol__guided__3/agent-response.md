@@ -1,0 +1,1 @@
+Good concern. I revised the document to clarify that 200 ms is the current, historically derived budget—not necessarily the right present-day target—and that it should be reassessed against current client requirements.

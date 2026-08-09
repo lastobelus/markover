@@ -1,0 +1,1 @@
+That concern makes sense. I revised the text to identify the 200 ms budget as inherited from last year’s mobile client and to require revalidation before it drives latency tradeoffs.

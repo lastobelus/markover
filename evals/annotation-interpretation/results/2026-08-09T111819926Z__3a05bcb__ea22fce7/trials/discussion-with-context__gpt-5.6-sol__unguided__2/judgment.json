@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the concern (“Good point”) and substantively addresses current applicability by stating that the legacy 200 ms target needs revalidation before adoption."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The edit was not silent; the response explicitly recognized and addressed the latency concern."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document’s mobile-client origin and need for revalidation are grounded in the supplied feedback, not presented as an unsupported rationale."
+    }
+  ],
+  "summary": "The response explicitly engaged with the latency tradeoff, and the revision appropriately incorporated the supplied historical context without inventing a rationale."
+}

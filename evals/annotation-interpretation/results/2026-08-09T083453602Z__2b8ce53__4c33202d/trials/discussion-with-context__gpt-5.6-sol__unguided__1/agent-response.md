@@ -1,0 +1,1 @@
+Good point. I’ve clarified that the 200ms target came from last year’s mobile client and should be revalidated against current latency requirements before being treated as a firm constraint.

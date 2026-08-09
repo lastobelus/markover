@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly addresses the question by stating that the document “doesn’t establish why the legacy fallback is still present” and explains the chosen revision."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent; the response expressly acknowledges the missing rationale and explains why it revised the sentence without inventing an explanation."
+    }
+  ],
+  "summary": "The response explicitly acknowledged and addressed the question about the legacy fallback, so the required signal is present and the forbidden silent-conversion signal is absent."
+}

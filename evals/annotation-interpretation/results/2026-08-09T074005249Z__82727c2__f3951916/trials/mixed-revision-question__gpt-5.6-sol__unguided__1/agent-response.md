@@ -1,0 +1,1 @@
+Renamed the section to “Persistence” and clarified the design choice: Redis provides a network-accessible shared store, while SQLite is embedded and file-backed, requiring coordinated file access.

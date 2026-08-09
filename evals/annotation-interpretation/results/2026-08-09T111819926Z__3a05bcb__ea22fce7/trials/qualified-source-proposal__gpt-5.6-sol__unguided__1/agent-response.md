@@ -1,0 +1,1 @@
+Good question. Five retries could add excessive load, but we don’t have enough capacity or rate-limit data to know. I kept the limit at three and clarified that it should increase only after validating those constraints.

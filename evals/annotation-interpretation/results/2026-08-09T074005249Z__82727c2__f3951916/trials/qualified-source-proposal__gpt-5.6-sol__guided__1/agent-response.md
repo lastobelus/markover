@@ -1,0 +1,1 @@
+I left `Retries: 3` unchanged. Whether five retries would overload the upstream service depends on request volume, retry backoff, and upstream capacity—none of which are documented here. I’d need that context before accepting the proposed increase.

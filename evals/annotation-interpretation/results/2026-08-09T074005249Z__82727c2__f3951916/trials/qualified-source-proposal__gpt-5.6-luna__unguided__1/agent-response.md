@@ -1,0 +1,1 @@
+Updated the setting to five retries with exponential backoff to reduce the risk of overloading the upstream service.

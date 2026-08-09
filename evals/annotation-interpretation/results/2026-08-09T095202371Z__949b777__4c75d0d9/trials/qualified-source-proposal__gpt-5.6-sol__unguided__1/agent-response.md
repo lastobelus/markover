@@ -1,0 +1,1 @@
+Good point. Five retries could add avoidable upstream load. I’ve retained three retries and clarified that any increase requires upstream-capacity validation.

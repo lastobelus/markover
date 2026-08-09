@@ -1,0 +1,1 @@
+Kept the retry count at 3 rather than increasing it to 5, since additional retries could add unnecessary load to the upstream service. I added that rationale to the document.

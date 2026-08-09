@@ -1,0 +1,54 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__guided__2",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 2
+  },
+  "agentResponse": "Good question. The document provides no justification for retaining the legacy fallback, so I removed the statement.",
+  "finalDocument": "",
+  "finalDocumentStatus": "regular",
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly acknowledges the question with “Good question” and addresses it by noting that the document provides no justification for retaining the legacy fallback."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent: the response explicitly explains that the unsupported legacy-fallback statement was removed."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged and addressed the question, and the final document reflects the removal. All required signals are observed and no forbidden signals are observed."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45829,
+      "cached_input_tokens": 39936,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 567,
+      "reasoning_output_tokens": 74
+    },
+    "judge": {
+      "input_tokens": 10536,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 160,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

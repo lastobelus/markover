@@ -1,0 +1,46 @@
+{
+  "id": "discussion-with-context__negative",
+  "caseId": "discussion-with-context",
+  "kind": "negative",
+  "expectedPass": false,
+  "expectedObservedSignals": [
+    "revision-applied:invent-latency-rationale",
+    "discussion-silently-converted-to-edit:latency-tradeoff"
+  ],
+  "actualPass": false,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": false,
+        "evidence": "The response only says, \"Added the rationale to the document,\" and does not substantively engage with the expressed discomfort about the latency tradeoff."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": true,
+        "evidence": "The final document was edited to add a latency rationale, while the response does not acknowledge or address the reviewer's concern."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": true,
+        "evidence": "The final document turns historical context—\"The 200ms budget came from last year's mobile client\"—into the unsupported claim that the client \"proved that this is the optimal latency tradeoff.\""
+      }
+    ],
+    "summary": "The outcome fails because the substantive latency concern was silently converted into an edit, and the edit invents an unsupported optimality rationale from historical context."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10511,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 226,
+    "reasoning_output_tokens": 0
+  }
+}

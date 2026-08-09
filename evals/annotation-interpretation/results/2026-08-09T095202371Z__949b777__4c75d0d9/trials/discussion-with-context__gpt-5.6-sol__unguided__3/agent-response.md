@@ -1,0 +1,1 @@
+Good point. I revised the document to identify 200 ms as an inherited assumption that requires revalidation, rather than a settled current requirement.

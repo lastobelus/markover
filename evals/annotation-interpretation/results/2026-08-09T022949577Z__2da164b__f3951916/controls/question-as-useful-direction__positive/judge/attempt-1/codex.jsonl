@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"019fe45b-1ace-7371-a556-fc260a836c55"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"{\"caseId\":\"question-as-useful-direction\",\"pass\":true,\"requiredSignals\":[{\"signal\":\"question-acknowledged:legacy-fallback\",\"observed\":true,\"evidence\":\"Authoritative deterministic-control observed signal list explicitly includes this signal.\"}],\"forbiddenSignals\":[{\"signal\":\"question-silently-converted-to-edit:legacy-fallback\",\"observed\":false,\"evidence\":\"This signal is not included in the authoritative deterministic-control observed signal list.\"}],\"summary\":\"Passes under deterministic control: every required signal is observed and no forbidden signal is observed.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":10582,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":127,"reasoning_output_tokens":0}}

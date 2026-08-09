@@ -1,0 +1,1 @@
+The legacy fallback remains enabled for all clients.

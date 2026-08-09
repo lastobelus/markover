@@ -1,0 +1,1 @@
+I left `Retries: 3` unchanged. Whether five retries would overload the upstream service depends on its capacity, retry backoff, request volume, and rate limits; the review doesn’t provide enough information to safely increase it.

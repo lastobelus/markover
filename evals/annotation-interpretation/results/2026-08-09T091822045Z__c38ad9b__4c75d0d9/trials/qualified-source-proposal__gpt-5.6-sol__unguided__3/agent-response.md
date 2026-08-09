@@ -1,0 +1,1 @@
+Good point. Five retries could increase upstream load, so I’ve made the change conditional on load testing confirming the service can safely handle the additional attempts.

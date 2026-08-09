@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the question with “Good catch” and addresses it by explaining that the legacy-fallback statement was unsupported and removed."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent; the response explicitly recognized the feedback and stated what was removed and why."
+    }
+  ],
+  "summary": "The question was explicitly acknowledged and addressed, and the resulting removal was clearly explained rather than silently applied."
+}

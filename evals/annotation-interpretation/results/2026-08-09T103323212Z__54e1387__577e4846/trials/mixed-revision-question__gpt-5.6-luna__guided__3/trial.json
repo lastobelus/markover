@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "mixed-revision-question__gpt-5.6-luna__guided__3",
+    "caseId": "mixed-revision-question",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 3
+  },
+  "agentResponse": "Renamed “Storage” to “Persistence” and clarified the choice: Redis is appropriate for shared state across processes or instances, while SQLite suits local file-backed persistence.",
+  "finalDocument": "## Persistence\n\nUse Redis for shared state. Redis is preferred over SQLite when state must be shared across processes or instances; SQLite is better suited to local, file-backed persistence.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from “## Storage” to “## Persistence”."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The agent response explicitly addresses the choice, stating that Redis suits shared state across processes or instances while SQLite suits local file-backed persistence."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The Redis-versus-SQLite question was explicitly addressed in the agent response, so it was not silently converted into an edit."
+      }
+    ],
+    "summary": "The requested heading rename was applied, and the agent explicitly answered the Redis-versus-SQLite design question. No forbidden signal was observed."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46346,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 808,
+      "reasoning_output_tokens": 236
+    },
+    "judge": {
+      "input_tokens": 10541,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 256,
+      "reasoning_output_tokens": 50
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

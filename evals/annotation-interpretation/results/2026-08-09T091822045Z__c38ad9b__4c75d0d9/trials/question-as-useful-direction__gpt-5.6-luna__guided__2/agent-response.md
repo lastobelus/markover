@@ -1,0 +1,1 @@
+I revised the document to note that the rationale for retaining the legacy fallback is not documented. The review asks, “Why is this legacy fallback here?”—the current document does not provide enough information to answer that question.

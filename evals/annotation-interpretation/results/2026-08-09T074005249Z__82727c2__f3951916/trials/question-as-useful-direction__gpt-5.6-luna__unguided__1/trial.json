@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__unguided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Removed the unsupported legacy fallback statement from `document.md`. Thanks for flagging it.",
+  "finalDocument": "",
+  "finalDocumentStatus": "regular",
+  "pass": false,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": false,
+        "evidence": "The response reports removing the statement and thanks the reviewer, but does not explicitly acknowledge or answer the question about why the legacy fallback was present."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": true,
+        "evidence": "The final document removes the legacy fallback statement, while the response describes only that edit without explicitly engaging with the annotation as a question."
+      }
+    ],
+    "summary": "The question led to the requested removal, but the agent silently treated it as an edit request rather than explicitly acknowledging and addressing it."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46485,
+      "cached_input_tokens": 29952,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 819,
+      "reasoning_output_tokens": 172
+    },
+    "judge": {
+      "input_tokens": 10475,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 248,
+      "reasoning_output_tokens": 83
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

@@ -1,0 +1,1 @@
+I removed the unexplained sentence about the legacy fallback. There wasn’t enough context to justify keeping it or to explain its purpose.

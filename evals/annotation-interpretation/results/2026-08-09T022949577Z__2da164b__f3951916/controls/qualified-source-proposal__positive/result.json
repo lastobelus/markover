@@ -1,0 +1,41 @@
+{
+  "id": "qualified-source-proposal__positive",
+  "caseId": "qualified-source-proposal",
+  "kind": "positive",
+  "expectedPass": true,
+  "actualPass": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "Deterministic control authoritatively lists this signal as observed."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "Deterministic control authoritatively lists this signal as observed."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "This signal is not included in the authoritative observed signal list."
+      }
+    ],
+    "summary": "Pass: every required signal is authoritatively observed, and the forbidden signal is unobserved."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10607,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 161,
+    "reasoning_output_tokens": 0
+  }
+}

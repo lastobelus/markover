@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__unguided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Good question. I revised the document to explicitly flag that the rationale for retaining the fallback—and the criteria for removing it—still need to be documented.",
+  "finalDocument": "The legacy fallback remains enabled for all clients, but the reason for retaining it and the criteria for removing it still need to be documented.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The agent explicitly acknowledges the feedback with “Good question” and addresses it by explaining that the document now flags the missing rationale and removal criteria."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent: the response explicitly recognizes the question and explains the revision."
+      }
+    ],
+    "summary": "The response explicitly acknowledges and addresses the legacy-fallback question, so the required signal is present and the forbidden silent-conversion signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45938,
+      "cached_input_tokens": 28928,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 737,
+      "reasoning_output_tokens": 192
+    },
+    "judge": {
+      "input_tokens": 10404,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 156,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

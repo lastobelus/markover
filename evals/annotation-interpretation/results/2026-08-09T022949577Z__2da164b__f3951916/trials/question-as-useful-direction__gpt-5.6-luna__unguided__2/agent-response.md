@@ -1,0 +1,1 @@
+Removed the unsupported legacy fallback statement. There’s no longer a fallback to explain or keep enabled.

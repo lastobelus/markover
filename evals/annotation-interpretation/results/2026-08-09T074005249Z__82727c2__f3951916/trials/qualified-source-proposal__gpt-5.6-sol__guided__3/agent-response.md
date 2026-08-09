@@ -1,0 +1,1 @@
+Five retries could increase upstream load, depending on request volume and backoff behavior. I left `Retries: 3` unchanged because the review presents five as a proposal contingent on that concern. We’d need upstream capacity and retry/backoff details before safely increasing it.

@@ -1,0 +1,1 @@
+That’s a valid concern. I revised the document to explain that the 200ms budget came from last year’s mobile client and must be revalidated against current latency requirements before adoption.

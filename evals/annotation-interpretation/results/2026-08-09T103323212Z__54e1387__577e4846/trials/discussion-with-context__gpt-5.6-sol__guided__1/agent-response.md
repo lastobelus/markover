@@ -1,0 +1,1 @@
+Agreed—the 200ms budget shouldn’t be treated as a settled requirement if it came from last year’s mobile client. I revised the document to state its origin and require revalidation against current client needs before finalizing the latency tradeoff.

@@ -1,0 +1,1 @@
+Renamed “Storage” to “Persistence” and clarified the choice: Redis is appropriate for shared state across processes or instances, while SQLite suits local file-backed persistence.

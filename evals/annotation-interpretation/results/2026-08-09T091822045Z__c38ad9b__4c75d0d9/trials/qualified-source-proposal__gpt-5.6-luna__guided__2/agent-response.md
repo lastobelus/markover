@@ -1,0 +1,1 @@
+I reviewed the question and proposed change. I left `document.md` at `Retries: 3`: increasing it to five could add unnecessary load to the upstream service, and the review provides no evidence that five retries are safe or needed.

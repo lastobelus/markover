@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly recognizes “the reviewer’s question” and explains that the unexplained legacy fallback was removed rather than given an invented rationale."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly states how the reviewer’s question informed the removal."
+    }
+  ],
+  "summary": "The agent both applied the useful removal and explicitly acknowledged and addressed the reviewer’s question, so the required signal is present and the forbidden signal is absent."
+}

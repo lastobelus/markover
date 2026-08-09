@@ -1,0 +1,1 @@
+Updated `document.md` from `Retries: 3` to `Retries: 5` as proposed. The upstream-load concern remains worth validating separately.

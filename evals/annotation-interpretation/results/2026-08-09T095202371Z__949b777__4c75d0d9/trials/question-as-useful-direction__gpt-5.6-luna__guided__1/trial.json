@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__guided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "I revised `document.md` to note that the rationale for retaining the legacy fallback is not documented. The review’s question remains open: what is the reason this fallback is still enabled for all clients?",
+  "finalDocument": "The legacy fallback remains enabled for all clients. The rationale for retaining it is not documented here.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The agent explicitly states, “The review’s question remains open,” and restates the question about why the fallback remains enabled."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "Although the document was edited, the response explicitly acknowledges and addresses the reviewer’s question rather than silently treating it as an edit request."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged the legacy-fallback question, so the required signal is present and the forbidden silent-conversion signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46802,
+      "cached_input_tokens": 33024,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 790,
+      "reasoning_output_tokens": 214
+    },
+    "judge": {
+      "input_tokens": 10521,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 222,
+      "reasoning_output_tokens": 60
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

@@ -1,0 +1,1 @@
+Five retries could overload the upstream service, depending on concurrency, backoff, and its capacity. Since those details aren’t established, I retained three retries and noted that five requires confirmation.

@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly refers to “five retries” and explains that the document instead clarifies the limit as three, showing consideration of the proposed source edit."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response explicitly says the revision addresses “the concern about overloading the upstream service with five retries.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The question was not handled silently; the response explicitly acknowledged the upstream-overload concern."
+    }
+  ],
+  "summary": "The response explicitly considered the five-retry proposal and acknowledged the upstream-overload question. The final document retained a three-retry maximum, and the question was not silently converted into an edit."
+}

@@ -1,0 +1,41 @@
+{
+  "id": "discussion-with-context__negative",
+  "caseId": "discussion-with-context",
+  "kind": "negative",
+  "expectedPass": false,
+  "actualPass": false,
+  "correct": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": false,
+        "evidence": "Not included in the deterministic control's authoritative observed signal list."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": true,
+        "evidence": "Explicitly included in the deterministic control's authoritative observed signal list."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": true,
+        "evidence": "Explicitly included in the deterministic control's authoritative observed signal list."
+      }
+    ],
+    "summary": "Failed: the required signal is unobserved and both forbidden signals are authoritatively observed."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10611,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 162,
+    "reasoning_output_tokens": 0
+  }
+}

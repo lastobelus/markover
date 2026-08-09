@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the concern (“Good point”) and addresses it by explaining that the outdated mobile-client basis means the 200 ms budget needs reassessment before being treated as current."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the response explicitly recognized it and explained the resulting revision."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document's statement that the budget was established for last year's mobile client is grounded in the supplied feedback that it “came from last year's mobile client”; no unsupported rationale was added."
+    }
+  ],
+  "summary": "The response substantively engages with the latency concern, and the revision appropriately uses the supplied historical context without inventing a rationale."
+}

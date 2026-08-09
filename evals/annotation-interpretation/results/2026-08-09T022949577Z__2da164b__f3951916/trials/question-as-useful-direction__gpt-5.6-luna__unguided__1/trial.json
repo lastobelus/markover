@@ -1,0 +1,54 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__unguided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Removed the legacy fallback statement from `document.md`; it had no supporting explanation for remaining.",
+  "finalDocument": "",
+  "finalDocumentStatus": "regular",
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly addresses the question by stating the fallback statement was removed because “it had no supporting explanation for remaining.”"
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent; the response explicitly explained the removal and addressed the lack of justification for the fallback."
+      }
+    ],
+    "summary": "The final document removes the legacy fallback statement, and the response explicitly addresses why it should not remain. The required signal is observed and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 57865,
+      "cached_input_tokens": 50944,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 774,
+      "reasoning_output_tokens": 121
+    },
+    "judge": {
+      "input_tokens": 10534,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 311,
+      "reasoning_output_tokens": 149
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

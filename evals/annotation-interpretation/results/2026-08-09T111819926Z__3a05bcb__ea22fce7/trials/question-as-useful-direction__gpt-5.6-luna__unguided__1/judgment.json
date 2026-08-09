@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The agent explicitly addresses the question by stating that the fallback’s rationale is missing, requesting documentation of its purpose and removal criteria, and noting that it avoided assuming why the fallback remains enabled."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The response does not silently treat the question as an edit request; it explicitly explains how the question was handled and identifies the unresolved rationale."
+    }
+  ],
+  "summary": "The response explicitly acknowledges and addresses the question about the legacy fallback, so the required signal is present and the forbidden silent-conversion signal is absent."
+}

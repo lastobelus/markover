@@ -1,0 +1,1 @@
+Good question. The document didn’t justify enabling the fallback for every client. I revised it to require identifying which clients still need it, why, and the criteria for removing it.

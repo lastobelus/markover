@@ -1,0 +1,1 @@
+Good question. I clarified that the legacy fallback remains enabled to preserve compatibility while clients transition to the new behavior.

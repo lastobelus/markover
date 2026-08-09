@@ -1,0 +1,1 @@
+I revised `document.md` to retain the 200ms target’s mobile-client history while clarifying that its latency tradeoff should be revalidated before becoming a firm requirement. The review raises a concern, not a question, so there are no unanswered questions.

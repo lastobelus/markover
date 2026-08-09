@@ -1,0 +1,1 @@
+I revised `document.md` to treat the 200ms budget as provisional and require validation against current client latency requirements, addressing the concern that it may be inherited from an older context.

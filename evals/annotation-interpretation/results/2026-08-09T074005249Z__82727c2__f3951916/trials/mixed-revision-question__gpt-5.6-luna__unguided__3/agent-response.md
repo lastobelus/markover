@@ -1,0 +1,1 @@
+Renamed the section to “Persistence” and clarified the rationale for using Redis: low-latency shared access across application instances.

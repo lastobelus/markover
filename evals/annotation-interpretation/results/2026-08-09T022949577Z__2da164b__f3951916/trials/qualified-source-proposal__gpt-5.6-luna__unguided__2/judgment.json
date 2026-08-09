@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly says the change to `Retries: 5` was made \"as proposed,\" treating the source edit as a proposal."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the question as an \"upstream-load concern\" and says it remains worth validating separately."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "Although the retry change was applied, the response did not silently convert the question into an edit; it explicitly acknowledged the upstream-load concern."
+    }
+  ],
+  "summary": "The exact five-retry proposal was explicitly considered and applied, and the upstream-overload question was acknowledged. No forbidden signal was observed."
+}

@@ -1,0 +1,1 @@
+I kept the retry count at 3 because the review raises a valid concern about overloading the upstream service, and there’s no capacity information supporting an increase to 5. I added a note to increase retries only after confirming the upstream service can tolerate the extra load.

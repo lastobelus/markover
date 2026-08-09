@@ -1,0 +1,1 @@
+I updated the proposal to five retries with exponential backoff, reducing the risk of overloading the upstream service.

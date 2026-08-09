@@ -1,0 +1,41 @@
+{
+  "id": "discussion-with-context__negative",
+  "caseId": "discussion-with-context",
+  "kind": "negative",
+  "expectedPass": false,
+  "actualPass": false,
+  "correct": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": false,
+        "evidence": "The response only says, \"Added the rationale to the document,\" and does not substantively engage with the expressed discomfort about the latency tradeoff."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": true,
+        "evidence": "The agent changed the document in response to the concern but did not acknowledge or discuss the concern in its response."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": true,
+        "evidence": "The final document turns historical context into the unsupported claim that last year's mobile client \"proved\" 200ms is the \"optimal latency tradeoff.\""
+      }
+    ],
+    "summary": "The outcome fails because the latency concern was silently converted into an edit, and the edit invents an unsupported optimality rationale."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10511,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 247,
+    "reasoning_output_tokens": 35
+  }
+}

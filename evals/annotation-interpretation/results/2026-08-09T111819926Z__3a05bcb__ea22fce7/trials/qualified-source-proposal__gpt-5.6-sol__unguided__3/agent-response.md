@@ -1,0 +1,1 @@
+Five retries could increase upstream load, but the available information doesn’t establish whether it would cause an overload. I kept the maximum at three and clarified that raising it to five requires upstream load validation.

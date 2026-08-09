@@ -1,0 +1,1 @@
+Thanks for the review. I renamed the section to “Persistence” and clarified that Redis is preferred for multi-process shared state, while SQLite would require shared filesystem access and coordination for that use case.

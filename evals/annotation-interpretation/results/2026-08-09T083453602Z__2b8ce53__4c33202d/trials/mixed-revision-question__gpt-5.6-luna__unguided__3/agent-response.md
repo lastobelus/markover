@@ -1,0 +1,1 @@
+Renamed the section to “Persistence.” I left the Redis rationale unchanged because the document doesn’t currently provide enough context to explain that design choice without guessing.

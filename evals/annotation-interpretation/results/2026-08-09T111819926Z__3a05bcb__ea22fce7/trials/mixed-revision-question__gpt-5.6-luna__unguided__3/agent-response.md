@@ -1,0 +1,1 @@
+Thanks for the review. I renamed the section to “Persistence” and clarified that Redis is used for shared state across processes or instances, while SQLite is better suited to local, single-process persistence.

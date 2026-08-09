@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly engages the concern: “Good point” and explains that 200 ms is an inherited assumption requiring revalidation rather than a settled requirement."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the response explicitly acknowledges it and explains the resulting revision."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document’s statement that 200 ms came from last year’s mobile client is directly supported by the supplied review context and is framed as an assumption needing review, not as an invented rationale."
+    }
+  ],
+  "summary": "The agent substantively addressed the latency concern, used the supplied historical context appropriately, and did not invent a new rationale."
+}

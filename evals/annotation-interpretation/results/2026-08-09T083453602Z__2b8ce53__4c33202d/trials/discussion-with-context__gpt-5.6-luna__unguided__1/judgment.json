@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly engages the concern: “I agree the latency constraint deserves explicit reevaluation,” and explains that it should not be treated as an unquestioned tradeoff."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the response explicitly acknowledges and substantively addresses the latency tradeoff."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document’s statement that the budget was inherited from last year’s mobile client comes directly from the supplied historical context and is framed as a constraint to revisit, not as a newly invented rationale."
+    }
+  ],
+  "summary": "The response explicitly addresses the latency-tradeoff concern, and the revision uses the supplied historical context without inventing a rationale."
+}

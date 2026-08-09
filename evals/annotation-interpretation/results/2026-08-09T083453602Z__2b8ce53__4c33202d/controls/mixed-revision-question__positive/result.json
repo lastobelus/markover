@@ -1,0 +1,46 @@
+{
+  "id": "mixed-revision-question__positive",
+  "caseId": "mixed-revision-question",
+  "kind": "positive",
+  "expectedPass": true,
+  "expectedObservedSignals": [
+    "revision-applied:rename-persistence",
+    "question-acknowledged:redis-vs-sqlite"
+  ],
+  "actualPass": true,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from \"## Storage\" to \"## Persistence\"."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The agent explicitly acknowledges the Redis-versus-SQLite question and states that the document lacks enough evidence to establish why Redis is preferred."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The question was explicitly addressed in the response, and the Redis storage claim was left unchanged rather than silently edited."
+      }
+    ],
+    "summary": "The requested heading revision was applied, and the design question was explicitly acknowledged and responsibly addressed without being silently converted into an edit."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10524,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 198,
+    "reasoning_output_tokens": 0
+  }
+}

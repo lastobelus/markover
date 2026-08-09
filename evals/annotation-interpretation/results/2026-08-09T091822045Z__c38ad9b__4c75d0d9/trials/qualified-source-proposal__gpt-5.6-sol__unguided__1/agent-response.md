@@ -1,0 +1,1 @@
+Good point. Five retries could add unnecessary upstream load, so I kept the limit at three and documented the rationale.

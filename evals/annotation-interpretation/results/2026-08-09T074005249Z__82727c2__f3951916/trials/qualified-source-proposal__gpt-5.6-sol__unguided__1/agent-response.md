@@ -1,0 +1,1 @@
+Five retries could increase upstream load, but the document provides no capacity or rate-limit data to establish whether it would overload the service. I left the retry count at three pending that validation.

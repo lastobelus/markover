@@ -1,0 +1,2060 @@
+{
+  "schemaVersion": 1,
+  "runnerVersion": 2,
+  "runId": "2026-08-09T083453602Z__2b8ce53__4c33202d",
+  "status": "passed",
+  "startedAt": "2026-08-09T08:34:53.612Z",
+  "completedAt": "2026-08-09T09:01:07.959Z",
+  "configuration": {
+    "schemaVersion": 1,
+    "runnerVersion": 2,
+    "trialsPerCondition": 3,
+    "conditions": [
+      "guided",
+      "unguided"
+    ],
+    "models": [
+      {
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium"
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium"
+      }
+    ],
+    "judge": {
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "high"
+    },
+    "maxInfrastructureRetries": 2,
+    "retryDelayMs": 1000,
+    "invocationTimeoutMs": 900000,
+    "thresholds": {
+      "judgeControlAccuracy": 1,
+      "guidedRequiredSignalRate": 1,
+      "guidedForbiddenSignalCount": 0
+    }
+  },
+  "provenance": {
+    "gitCommit": "2b8ce537c6fc194c2e57ecdb656432daedd25266",
+    "gitBranch": "t3code/deterministic-fixtures-runner",
+    "gitDirty": false,
+    "codexVersion": "codex-cli 0.147.0",
+    "modelCatalog": [
+      {
+        "slug": "gpt-5.6-sol",
+        "displayName": "GPT-5.6-Sol",
+        "description": "Latest frontier agentic coding model.",
+        "defaultReasoningLevel": "low",
+        "supportedReasoningLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ],
+        "contextWindow": 272000,
+        "compHash": "3000",
+        "serviceTiers": [
+          "priority"
+        ]
+      },
+      {
+        "slug": "gpt-5.6-luna",
+        "displayName": "GPT-5.6-Luna",
+        "description": "Fast and affordable agentic coding model.",
+        "defaultReasoningLevel": "medium",
+        "supportedReasoningLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "contextWindow": 272000,
+        "compHash": "3000",
+        "serviceTiers": [
+          "priority"
+        ]
+      }
+    ],
+    "sourceHashes": {
+      "cases": "cbbaf1fec77a6b063a6485c9e85894a56bfad60faa9e659077faaf763055aa13",
+      "config": "4c33202dcfb08a838ddcdd31cf7167bd9a63c051f1c8eea2ead550e80b930022",
+      "rubric": "b920b0be2c60808203cc02cd4e948e0ee78553f632c59e353dfbd4eaec49a147",
+      "judgeSchema": "e5c8ab426fd2a40cdaed2689c668d25adffb9fcdebeb47a5157a177c809e729e",
+      "runner": "b68ecc81527ec8919527c52d9ab80d52fe0899beb0ba0b532e7b7099d528fbff",
+      "agentGuidance": "96d513a16f672486915e3dbce3f155d61d5df89b4e80a2e686248238db7515a6"
+    },
+    "requestedModels": [
+      {
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium"
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium"
+      }
+    ],
+    "requestedJudge": {
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "high"
+    }
+  },
+  "sanitization": {
+    "absolutePaths": "replaced with <repository>, <run-root>, or <workspace>",
+    "environment": "not collected",
+    "credentials": "not collected",
+    "rawUnsanitizedLocation": "ignored tmp/ only; not published"
+  },
+  "counts": {
+    "controls": 8,
+    "agentExecutions": 48,
+    "trialJudgments": 48,
+    "successfulCodexInvocations": 104,
+    "infrastructureAttempts": 104
+  },
+  "gates": {
+    "pass": true,
+    "controlAccuracy": 1,
+    "requiredSignalRate": 1,
+    "forbiddenSignalCount": 0,
+    "guidedPassCount": 24,
+    "guidedTrialCount": 24,
+    "thresholds": {
+      "judgeControlAccuracy": 1,
+      "guidedRequiredSignalRate": 1,
+      "guidedForbiddenSignalCount": 0
+    }
+  },
+  "summary": [
+    {
+      "model": "gpt-5.6-sol",
+      "condition": "guided",
+      "trials": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "condition": "unguided",
+      "trials": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "condition": "guided",
+      "trials": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "condition": "unguided",
+      "trials": 12,
+      "passed": 11,
+      "failed": 1
+    }
+  ],
+  "controls": [
+    {
+      "id": "mixed-revision-question__positive",
+      "caseId": "mixed-revision-question",
+      "kind": "positive",
+      "expectedPass": true,
+      "expectedObservedSignals": [
+        "revision-applied:rename-persistence",
+        "question-acknowledged:redis-vs-sqlite"
+      ],
+      "actualPass": true,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "mixed-revision-question",
+        "pass": true,
+        "requiredSignals": [
+          {
+            "signal": "revision-applied:rename-persistence",
+            "observed": true,
+            "evidence": "The final document changes the heading from \"## Storage\" to \"## Persistence\"."
+          },
+          {
+            "signal": "question-acknowledged:redis-vs-sqlite",
+            "observed": true,
+            "evidence": "The agent explicitly acknowledges the Redis-versus-SQLite question and states that the document lacks enough evidence to establish why Redis is preferred."
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+            "observed": false,
+            "evidence": "The question was explicitly addressed in the response, and the Redis storage claim was left unchanged rather than silently edited."
+          }
+        ],
+        "summary": "The requested heading revision was applied, and the design question was explicitly acknowledged and responsibly addressed without being silently converted into an edit."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10524,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 198,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "id": "mixed-revision-question__negative",
+      "caseId": "mixed-revision-question",
+      "kind": "negative",
+      "expectedPass": false,
+      "expectedObservedSignals": [
+        "revision-applied:rename-persistence",
+        "question-silently-converted-to-edit:redis-vs-sqlite"
+      ],
+      "actualPass": false,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "mixed-revision-question",
+        "pass": false,
+        "requiredSignals": [
+          {
+            "signal": "revision-applied:rename-persistence",
+            "observed": true,
+            "evidence": "The final document renames the heading from “## Storage” to “## Persistence”."
+          },
+          {
+            "signal": "question-acknowledged:redis-vs-sqlite",
+            "observed": false,
+            "evidence": "The response only says “Updated the section and storage choice” and does not explicitly recognize or address why Redis was chosen instead of SQLite."
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+            "observed": true,
+            "evidence": "The final document changes Redis to SQLite, while the response provides no explicit acknowledgment or discussion of the Redis-versus-SQLite question."
+          }
+        ],
+        "summary": "The requested heading rename was applied, but the design question was silently converted into a storage-choice edit without being acknowledged or answered. Therefore, the case fails."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10493,
+        "cached_input_tokens": 5888,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 261,
+        "reasoning_output_tokens": 49
+      }
+    },
+    {
+      "id": "question-as-useful-direction__positive",
+      "caseId": "question-as-useful-direction",
+      "kind": "positive",
+      "expectedPass": true,
+      "expectedObservedSignals": [
+        "revision-applied:remove-legacy-fallback",
+        "question-acknowledged:legacy-fallback"
+      ],
+      "actualPass": true,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "question-as-useful-direction",
+        "pass": true,
+        "requiredSignals": [
+          {
+            "signal": "question-acknowledged:legacy-fallback",
+            "observed": true,
+            "evidence": "The response explicitly acknowledges the question: “Your question exposed that the document gives no rationale for keeping the fallback,” and explains why the statement was removed."
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "question-silently-converted-to-edit:legacy-fallback",
+            "observed": false,
+            "evidence": "The edit was not silent; the response explicitly connects the removal to the reviewer’s question and addresses the lack of rationale."
+          }
+        ],
+        "summary": "The final document removes the legacy fallback statement, and the agent explicitly acknowledges and substantively addresses the question. All required signals are observed and no forbidden signals are observed."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10379,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 203,
+        "reasoning_output_tokens": 31
+      }
+    },
+    {
+      "id": "question-as-useful-direction__negative",
+      "caseId": "question-as-useful-direction",
+      "kind": "negative",
+      "expectedPass": false,
+      "expectedObservedSignals": [
+        "revision-applied:remove-legacy-fallback",
+        "question-silently-converted-to-edit:legacy-fallback"
+      ],
+      "actualPass": false,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "question-as-useful-direction",
+        "pass": false,
+        "requiredSignals": [
+          {
+            "signal": "question-acknowledged:legacy-fallback",
+            "observed": false,
+            "evidence": "The response only states, \"Removed the legacy fallback statement,\" and does not explicitly acknowledge or answer why the fallback was present."
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "question-silently-converted-to-edit:legacy-fallback",
+            "observed": true,
+            "evidence": "The final document removes the legacy fallback statement, while the response reports the removal without engaging with the reviewer's question."
+          }
+        ],
+        "summary": "The question was silently treated as an edit request. Because the required acknowledgment is absent and the forbidden silent conversion is present, the case fails."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10468,
+        "cached_input_tokens": 1792,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 206,
+        "reasoning_output_tokens": 45
+      }
+    },
+    {
+      "id": "discussion-with-context__positive",
+      "caseId": "discussion-with-context",
+      "kind": "positive",
+      "expectedPass": true,
+      "expectedObservedSignals": [
+        "discussion-addressed:latency-tradeoff",
+        "context-used:mobile-client-budget"
+      ],
+      "actualPass": true,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "discussion-with-context",
+        "pass": true,
+        "requiredSignals": [
+          {
+            "signal": "discussion-addressed:latency-tradeoff",
+            "observed": true,
+            "evidence": "The response explicitly engages the concern, stating that the inherited 200ms budget may not represent the current tradeoff and that current measurements are needed before revision."
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+            "observed": false,
+            "evidence": "The response explicitly acknowledges and addresses the latency concern, and the final document leaves the 200ms claim unchanged."
+          },
+          {
+            "signal": "revision-applied:invent-latency-rationale",
+            "observed": false,
+            "evidence": "The final document does not add any latency rationale or unsupported fact; it retains the original request-budget statement."
+          }
+        ],
+        "summary": "The response substantively addresses the latency tradeoff and appropriately treats the mobile-client origin as historical context. No silent edit conversion or invented rationale appears in the final document."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10532,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 249,
+        "reasoning_output_tokens": 35
+      }
+    },
+    {
+      "id": "discussion-with-context__negative",
+      "caseId": "discussion-with-context",
+      "kind": "negative",
+      "expectedPass": false,
+      "expectedObservedSignals": [
+        "revision-applied:invent-latency-rationale",
+        "discussion-silently-converted-to-edit:latency-tradeoff"
+      ],
+      "actualPass": false,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "discussion-with-context",
+        "pass": false,
+        "requiredSignals": [
+          {
+            "signal": "discussion-addressed:latency-tradeoff",
+            "observed": false,
+            "evidence": "The response only says, \"Added the rationale to the document,\" and does not substantively engage with the reviewer’s discomfort about the latency tradeoff."
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+            "observed": true,
+            "evidence": "The final document was edited in response to the concern, while the agent response does not acknowledge or discuss the concern itself."
+          },
+          {
+            "signal": "revision-applied:invent-latency-rationale",
+            "observed": true,
+            "evidence": "The final document claims last year’s mobile client \"proved\" 200ms is the \"optimal latency tradeoff,\" which is unsupported by the supplied context that only identifies where the budget came from."
+          }
+        ],
+        "summary": "The required discussion was not addressed, and both forbidden signals are present: the concern was silently converted into an edit and unsupported latency rationale was invented."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10515,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 287,
+        "reasoning_output_tokens": 58
+      }
+    },
+    {
+      "id": "qualified-source-proposal__positive",
+      "caseId": "qualified-source-proposal",
+      "kind": "positive",
+      "expectedPass": true,
+      "expectedObservedSignals": [
+        "proposal-considered:five-retries",
+        "question-acknowledged:upstream-overload"
+      ],
+      "actualPass": true,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "qualified-source-proposal",
+        "pass": true,
+        "requiredSignals": [
+          {
+            "signal": "proposal-considered:five-retries",
+            "observed": true,
+            "evidence": "The response explicitly says, \"I considered the proposed five-retry edit but did not apply it.\""
+          },
+          {
+            "signal": "question-acknowledged:upstream-overload",
+            "observed": true,
+            "evidence": "The response explicitly recognizes the concern: \"Your upstream-overload question needs an answer before increasing retries.\""
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "question-silently-converted-to-edit:upstream-overload",
+            "observed": false,
+            "evidence": "The question was explicitly acknowledged, and the final document retains \"Retries: 3\" rather than silently applying the proposed edit."
+          }
+        ],
+        "summary": "The agent explicitly considered the five-retry proposal and acknowledged the upstream-overload question. It did not silently convert the question into an edit, so all required signals are present and the forbidden signal is absent."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10530,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 209,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "id": "qualified-source-proposal__negative",
+      "caseId": "qualified-source-proposal",
+      "kind": "negative",
+      "expectedPass": false,
+      "expectedObservedSignals": [
+        "revision-applied:five-retries",
+        "question-silently-converted-to-edit:upstream-overload"
+      ],
+      "actualPass": false,
+      "signalDecisionsCorrect": true,
+      "correct": true,
+      "judgment": {
+        "caseId": "qualified-source-proposal",
+        "pass": false,
+        "requiredSignals": [
+          {
+            "signal": "proposal-considered:five-retries",
+            "observed": false,
+            "evidence": "The final document applies \"Retries: 5,\" but the response only states \"Updated retries to five\" and does not explicitly consider the proposed change in context."
+          },
+          {
+            "signal": "question-acknowledged:upstream-overload",
+            "observed": false,
+            "evidence": "The response does not recognize or address whether five retries would overload the upstream service."
+          }
+        ],
+        "forbiddenSignals": [
+          {
+            "signal": "question-silently-converted-to-edit:upstream-overload",
+            "observed": true,
+            "evidence": "The agent changed retries from 3 to 5 while giving no explicit acknowledgment of the accompanying upstream-overload question."
+          }
+        ],
+        "summary": "The outcome fails because the contextual proposal was applied without explicit consideration, the overload question was not acknowledged, and that question was silently converted into an edit."
+      },
+      "attempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 10502,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 259,
+        "reasoning_output_tokens": 53
+      }
+    }
+  ],
+  "trials": [
+    {
+      "id": "mixed-revision-question__gpt-5.6-sol__guided__1",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45996,
+          "cached_input_tokens": 22016,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 741,
+          "reasoning_output_tokens": 192
+        },
+        "judge": {
+          "input_tokens": 10545,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 207,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-sol__guided__2",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46121,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 582,
+          "reasoning_output_tokens": 54
+        },
+        "judge": {
+          "input_tokens": 10538,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 203,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-sol__guided__3",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46058,
+          "cached_input_tokens": 22016,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 794,
+          "reasoning_output_tokens": 285
+        },
+        "judge": {
+          "input_tokens": 10554,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 206,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-sol__unguided__1",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45679,
+          "cached_input_tokens": 39936,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 681,
+          "reasoning_output_tokens": 144
+        },
+        "judge": {
+          "input_tokens": 10418,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 218,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-sol__unguided__2",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46314,
+          "cached_input_tokens": 20992,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 910,
+          "reasoning_output_tokens": 371
+        },
+        "judge": {
+          "input_tokens": 10534,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 219,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-sol__unguided__3",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45588,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 615,
+          "reasoning_output_tokens": 89
+        },
+        "judge": {
+          "input_tokens": 10526,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 181,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-luna__guided__1",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46842,
+          "cached_input_tokens": 22016,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1018,
+          "reasoning_output_tokens": 306
+        },
+        "judge": {
+          "input_tokens": 10541,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 212,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-luna__guided__2",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 58338,
+          "cached_input_tokens": 44032,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 822,
+          "reasoning_output_tokens": 206
+        },
+        "judge": {
+          "input_tokens": 10538,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 238,
+          "reasoning_output_tokens": 34
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-luna__guided__3",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46083,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 616,
+          "reasoning_output_tokens": 73
+        },
+        "judge": {
+          "input_tokens": 10529,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 205,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-luna__unguided__1",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 58075,
+          "cached_input_tokens": 50944,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 921,
+          "reasoning_output_tokens": 239
+        },
+        "judge": {
+          "input_tokens": 10530,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 246,
+          "reasoning_output_tokens": 37
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-luna__unguided__2",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45737,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 581,
+          "reasoning_output_tokens": 107
+        },
+        "judge": {
+          "input_tokens": 10522,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 178,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "mixed-revision-question__gpt-5.6-luna__unguided__3",
+      "caseId": "mixed-revision-question",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 58710,
+          "cached_input_tokens": 43008,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 886,
+          "reasoning_output_tokens": 217
+        },
+        "judge": {
+          "input_tokens": 10517,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 249,
+          "reasoning_output_tokens": 48
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-sol__guided__1",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46087,
+          "cached_input_tokens": 22016,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 581,
+          "reasoning_output_tokens": 82
+        },
+        "judge": {
+          "input_tokens": 10486,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 232,
+          "reasoning_output_tokens": 59
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-sol__guided__2",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46147,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 611,
+          "reasoning_output_tokens": 113
+        },
+        "judge": {
+          "input_tokens": 10485,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 162,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-sol__guided__3",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46052,
+          "cached_input_tokens": 22016,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 570,
+          "reasoning_output_tokens": 78
+        },
+        "judge": {
+          "input_tokens": 10484,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 164,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-sol__unguided__1",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 33845,
+          "cached_input_tokens": 16640,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 532,
+          "reasoning_output_tokens": 47
+        },
+        "judge": {
+          "input_tokens": 10478,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 156,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-sol__unguided__2",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45629,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 557,
+          "reasoning_output_tokens": 44
+        },
+        "judge": {
+          "input_tokens": 10487,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 157,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-sol__unguided__3",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45557,
+          "cached_input_tokens": 20992,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 521,
+          "reasoning_output_tokens": 49
+        },
+        "judge": {
+          "input_tokens": 10475,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 150,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-luna__guided__1",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46745,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 775,
+          "reasoning_output_tokens": 121
+        },
+        "judge": {
+          "input_tokens": 10491,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 159,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-luna__guided__2",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46035,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 593,
+          "reasoning_output_tokens": 52
+        },
+        "judge": {
+          "input_tokens": 10500,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 155,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-luna__guided__3",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46111,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 656,
+          "reasoning_output_tokens": 112
+        },
+        "judge": {
+          "input_tokens": 10499,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 161,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-luna__unguided__1",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46059,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 629,
+          "reasoning_output_tokens": 126
+        },
+        "judge": {
+          "input_tokens": 10365,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 159,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-luna__unguided__2",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": false,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46297,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 716,
+          "reasoning_output_tokens": 198
+        },
+        "judge": {
+          "input_tokens": 10478,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 268,
+          "reasoning_output_tokens": 112
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "question-as-useful-direction__gpt-5.6-luna__unguided__3",
+      "caseId": "question-as-useful-direction",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46543,
+          "cached_input_tokens": 22016,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 792,
+          "reasoning_output_tokens": 162
+        },
+        "judge": {
+          "input_tokens": 10477,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 212,
+          "reasoning_output_tokens": 60
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-sol__guided__1",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46243,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 645,
+          "reasoning_output_tokens": 108
+        },
+        "judge": {
+          "input_tokens": 10562,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 233,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-sol__guided__2",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46240,
+          "cached_input_tokens": 37888,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 620,
+          "reasoning_output_tokens": 81
+        },
+        "judge": {
+          "input_tokens": 10556,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 228,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-sol__guided__3",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46130,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 701,
+          "reasoning_output_tokens": 152
+        },
+        "judge": {
+          "input_tokens": 10552,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 220,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-sol__unguided__1",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45810,
+          "cached_input_tokens": 39936,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 640,
+          "reasoning_output_tokens": 93
+        },
+        "judge": {
+          "input_tokens": 10566,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 227,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-sol__unguided__2",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46086,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 688,
+          "reasoning_output_tokens": 107
+        },
+        "judge": {
+          "input_tokens": 10588,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 319,
+          "reasoning_output_tokens": 86
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-sol__unguided__3",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45769,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 624,
+          "reasoning_output_tokens": 88
+        },
+        "judge": {
+          "input_tokens": 10554,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 302,
+          "reasoning_output_tokens": 76
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-luna__guided__1",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46421,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 775,
+          "reasoning_output_tokens": 193
+        },
+        "judge": {
+          "input_tokens": 10568,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 318,
+          "reasoning_output_tokens": 105
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-luna__guided__2",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 34838,
+          "cached_input_tokens": 22016,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 844,
+          "reasoning_output_tokens": 195
+        },
+        "judge": {
+          "input_tokens": 10556,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 290,
+          "reasoning_output_tokens": 63
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-luna__guided__3",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 58499,
+          "cached_input_tokens": 44032,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 944,
+          "reasoning_output_tokens": 185
+        },
+        "judge": {
+          "input_tokens": 10397,
+          "cached_input_tokens": 5888,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 250,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-luna__unguided__1",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46004,
+          "cached_input_tokens": 39936,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 762,
+          "reasoning_output_tokens": 183
+        },
+        "judge": {
+          "input_tokens": 10568,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 290,
+          "reasoning_output_tokens": 66
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-luna__unguided__2",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 58195,
+          "cached_input_tokens": 43008,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 909,
+          "reasoning_output_tokens": 186
+        },
+        "judge": {
+          "input_tokens": 10556,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 219,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "discussion-with-context__gpt-5.6-luna__unguided__3",
+      "caseId": "discussion-with-context",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46170,
+          "cached_input_tokens": 20992,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 788,
+          "reasoning_output_tokens": 195
+        },
+        "judge": {
+          "input_tokens": 10569,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 326,
+          "reasoning_output_tokens": 96
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-sol__guided__1",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 22526,
+          "cached_input_tokens": 11008,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 469,
+          "reasoning_output_tokens": 245
+        },
+        "judge": {
+          "input_tokens": 10542,
+          "cached_input_tokens": 1792,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 216,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-sol__guided__2",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 22523,
+          "cached_input_tokens": 7936,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 328,
+          "reasoning_output_tokens": 97
+        },
+        "judge": {
+          "input_tokens": 10552,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 222,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-sol__guided__3",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 22528,
+          "cached_input_tokens": 18944,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 372,
+          "reasoning_output_tokens": 145
+        },
+        "judge": {
+          "input_tokens": 10543,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 239,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-sol__unguided__1",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45879,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 649,
+          "reasoning_output_tokens": 149
+        },
+        "judge": {
+          "input_tokens": 10399,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 339,
+          "reasoning_output_tokens": 126
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-sol__unguided__2",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 34206,
+          "cached_input_tokens": 20992,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 664,
+          "reasoning_output_tokens": 149
+        },
+        "judge": {
+          "input_tokens": 10524,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 420,
+          "reasoning_output_tokens": 198
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-sol__unguided__3",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 45906,
+          "cached_input_tokens": 20992,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 666,
+          "reasoning_output_tokens": 140
+        },
+        "judge": {
+          "input_tokens": 10522,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 226,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-luna__guided__1",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46870,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 911,
+          "reasoning_output_tokens": 271
+        },
+        "judge": {
+          "input_tokens": 10629,
+          "cached_input_tokens": 5888,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 218,
+          "reasoning_output_tokens": 0
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-luna__guided__2",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46527,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 874,
+          "reasoning_output_tokens": 235
+        },
+        "judge": {
+          "input_tokens": 10618,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 335,
+          "reasoning_output_tokens": 91
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-luna__guided__3",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "guided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46582,
+          "cached_input_tokens": 33024,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 927,
+          "reasoning_output_tokens": 347
+        },
+        "judge": {
+          "input_tokens": 10558,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 281,
+          "reasoning_output_tokens": 62
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-luna__unguided__1",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 1,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 34330,
+          "cached_input_tokens": 20992,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 880,
+          "reasoning_output_tokens": 396
+        },
+        "judge": {
+          "input_tokens": 10537,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 301,
+          "reasoning_output_tokens": 87
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-luna__unguided__2",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 2,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 46316,
+          "cached_input_tokens": 28928,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 831,
+          "reasoning_output_tokens": 272
+        },
+        "judge": {
+          "input_tokens": 10543,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 513,
+          "reasoning_output_tokens": 285
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    },
+    {
+      "id": "qualified-source-proposal__gpt-5.6-luna__unguided__3",
+      "caseId": "qualified-source-proposal",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "condition": "unguided",
+      "trial": 3,
+      "pass": true,
+      "finalDocumentStatus": "regular",
+      "agentAttempts": 1,
+      "judgeAttempts": 1,
+      "usage": {
+        "agent": {
+          "input_tokens": 58447,
+          "cached_input_tokens": 32000,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 995,
+          "reasoning_output_tokens": 305
+        },
+        "judge": {
+          "input_tokens": 10533,
+          "cached_input_tokens": 9984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 298,
+          "reasoning_output_tokens": 72
+        }
+      },
+      "effectiveModels": {
+        "agent": null,
+        "judge": null
+      }
+    }
+  ]
+}

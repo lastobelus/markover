@@ -1,0 +1,1 @@
+Good question. The document gave no reason to retain the legacy fallback, so I removed the statement.

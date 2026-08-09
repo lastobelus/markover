@@ -1,0 +1,1 @@
+I left retries at 3. Increasing to five would add upstream request load, and there isn’t enough information here about backoff or service capacity to confirm that it would be safe.

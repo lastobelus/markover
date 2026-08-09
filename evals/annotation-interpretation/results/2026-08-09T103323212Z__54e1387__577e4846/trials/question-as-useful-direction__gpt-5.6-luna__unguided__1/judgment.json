@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly says “Good question” and addresses it by explaining that the sentence did not state why the fallback exists, then describes the revision requiring compatibility rationale and removal criteria."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly acknowledged the question and explained how it informed the revision."
+    }
+  ],
+  "summary": "The response explicitly acknowledges and addresses the question while applying a related revision, so the required signal is present and the forbidden silent-conversion signal is absent."
+}

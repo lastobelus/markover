@@ -1,0 +1,1 @@
+I updated `document.md` to acknowledge the missing rationale and request documentation of the fallback’s purpose and removal criteria. This avoids assuming why it remains enabled.

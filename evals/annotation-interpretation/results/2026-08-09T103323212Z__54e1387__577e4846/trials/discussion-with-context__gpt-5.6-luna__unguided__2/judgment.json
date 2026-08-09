@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly engages the concern by stating that the budget “still needs revalidation” and that the figure is not being treated “as a settled requirement.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The edit was not silent; the response explicitly says it addresses the latency concern and explains how."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document attributes the 200ms budget to last year’s mobile client, which is supplied historical context, and marks it subject to revalidation rather than inventing a new rationale."
+    }
+  ],
+  "summary": "The agent substantively acknowledged the latency concern, appropriately incorporated the supplied historical context, and did not invent a latency rationale."
+}

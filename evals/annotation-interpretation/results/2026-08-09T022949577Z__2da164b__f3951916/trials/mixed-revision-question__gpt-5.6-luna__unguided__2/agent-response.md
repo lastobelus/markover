@@ -1,0 +1,1 @@
+Renamed the section to “Persistence.” I left the Redis statement unchanged because the document doesn’t currently explain why Redis is preferred over SQLite. Please share the intended design rationale or constraints so it can be documented accurately.

@@ -1,0 +1,1 @@
+I removed the sentence from `document.md`. Regarding the reviewer’s question—“Why is this legacy fallback here?”—the document provided no justification, so there was no supported reason to retain it.

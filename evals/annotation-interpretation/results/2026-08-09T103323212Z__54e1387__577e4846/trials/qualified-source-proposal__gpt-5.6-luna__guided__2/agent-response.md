@@ -1,0 +1,1 @@
+I left `document.md` at `Retries: 3`. Five retries could overload the upstream service, and the document doesn’t provide enough context to justify increasing the value. I’d keep the current setting until upstream capacity and retry behavior are validated.

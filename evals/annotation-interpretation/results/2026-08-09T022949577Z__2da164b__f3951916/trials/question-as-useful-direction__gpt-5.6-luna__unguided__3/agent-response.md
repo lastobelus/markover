@@ -1,0 +1,1 @@
+Removed the unexplained legacy fallback statement from `document.md`. The document no longer makes that unsupported claim.

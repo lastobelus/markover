@@ -1,0 +1,46 @@
+{
+  "id": "mixed-revision-question__negative",
+  "caseId": "mixed-revision-question",
+  "kind": "negative",
+  "expectedPass": false,
+  "expectedObservedSignals": [
+    "revision-applied:rename-persistence",
+    "question-silently-converted-to-edit:redis-vs-sqlite"
+  ],
+  "actualPass": false,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document renames the heading from “## Storage” to “## Persistence”."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The response only says “Updated the section and storage choice” and does not explicitly recognize or address why Redis was chosen instead of SQLite."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The final document changes Redis to SQLite, while the response does not acknowledge or answer the Redis-versus-SQLite question."
+      }
+    ],
+    "summary": "The heading revision was applied, but the design question was silently converted into a storage-choice edit. Because a required signal is absent and a forbidden signal is observed, the case fails."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10497,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 271,
+    "reasoning_output_tokens": 56
+  }
+}

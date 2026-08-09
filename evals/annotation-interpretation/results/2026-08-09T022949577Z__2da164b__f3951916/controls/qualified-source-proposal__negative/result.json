@@ -1,0 +1,41 @@
+{
+  "id": "qualified-source-proposal__negative",
+  "caseId": "qualified-source-proposal",
+  "kind": "negative",
+  "expectedPass": false,
+  "actualPass": false,
+  "correct": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": false,
+        "evidence": "Not included in the deterministic control's authoritative observed signal list."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": false,
+        "evidence": "Not included in the deterministic control's authoritative observed signal list."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": true,
+        "evidence": "Explicitly included in the deterministic control's authoritative observed signal list."
+      }
+    ],
+    "summary": "Fails because neither required signal is observed and the forbidden silent-conversion signal is observed, as dictated by the deterministic control."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10610,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 217,
+    "reasoning_output_tokens": 51
+  }
+}

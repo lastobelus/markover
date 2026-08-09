@@ -1,0 +1,1 @@
+That concern makes sense. I revised the document to explain that the 200ms budget came from last year’s mobile client and must be revalidated against current requirements before it is treated as a firm constraint.

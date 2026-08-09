@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the concern with “Good point” and substantively addresses it by requiring revalidation against current latency and product needs before treating 200ms as a constraint."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the response explicitly recognizes it and explains the revision."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document attributes the budget to last year's mobile client, which is supplied historical context, and does not invent an unsupported rationale."
+    }
+  ],
+  "summary": "The agent explicitly engaged with the latency-tradeoff concern and appropriately incorporated the supplied historical context without inventing a rationale."
+}

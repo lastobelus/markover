@@ -1,0 +1,1 @@
+I reviewed the note. The document doesn’t provide the rationale for keeping the legacy fallback enabled, so I left the sentence unchanged rather than inventing a reason. Please provide the intended rationale or policy context so it can be documented accurately.

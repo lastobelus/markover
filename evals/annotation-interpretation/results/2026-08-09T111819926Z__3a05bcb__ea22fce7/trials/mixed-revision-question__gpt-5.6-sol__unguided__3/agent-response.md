@@ -1,0 +1,1 @@
+Updated the section to “Persistence” and clarified that Redis supports shared, network-accessible state without requiring a common filesystem, unlike SQLite’s local-file model.

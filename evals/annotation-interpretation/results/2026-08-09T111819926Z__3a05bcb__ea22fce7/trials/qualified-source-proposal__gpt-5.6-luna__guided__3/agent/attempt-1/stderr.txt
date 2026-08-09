@@ -1,0 +1,1 @@
+2026-08-09T11:43:34.219627Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 503 Service Unavailable, url: wss://chatgpt.com/backend-api/codex/responses

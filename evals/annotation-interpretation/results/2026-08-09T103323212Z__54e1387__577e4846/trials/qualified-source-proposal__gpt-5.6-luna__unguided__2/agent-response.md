@@ -1,0 +1,1 @@
+I kept the retry limit at three and clarified that it is a maximum. Increasing it to five should require confirmation that the upstream service can handle the additional load.

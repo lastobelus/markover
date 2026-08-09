@@ -16,6 +16,7 @@ const read = (relativePath: string): Promise<string> =>
 
 test('central guidance distinguishes mixed feedback without prescribing workflow', () => {
   assert.match(FIXED_CONTRACT, /may mix revision requests, questions, discussion, and context/)
+  assert.match(FIXED_CONTRACT, /substantively addressing discussion and concerns/)
   assert.match(FIXED_CONTRACT, /explicitly acknowledge every question/)
   assert.match(FIXED_CONTRACT, /source edits as proposals/)
   assert.match(DEFAULT_INTERPRETATION_POLICY, /Use your judgment/)
@@ -45,12 +46,15 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   ])
 
   assert.match(agents, /review\.agentGuidance\.fixedContract/)
+  assert.match(agents, /substantively address discussion and concerns/)
   assert.match(agents, /explicitly acknowledge every question/)
   assert.match(agents, /source edits as context-dependent proposals/)
   assert.match(agentGuide, /does not classify annotations into rigid types or apply changes itself/)
+  assert.match(agentGuide, /substantively address discussion and concerns/)
   assert.match(agentGuide, /Use your judgment to respond to the review and make useful revisions\./)
   assert.match(agentGuide, /Removed X—.*it had no place there/)
   assert.match(agentGuide, /Possible stricter policies/)
   assert.doesNotMatch(humanGuide, /markover get|markover edit|Default policy|Possible stricter policies/)
   assert.match(development, /Agent-facing instructions must preserve the contract/)
+  assert.match(development, /substantive engagement with discussion and concerns/)
 })

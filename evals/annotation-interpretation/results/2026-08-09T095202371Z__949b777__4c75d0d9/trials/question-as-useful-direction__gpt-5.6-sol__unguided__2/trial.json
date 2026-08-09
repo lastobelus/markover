@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__unguided__2",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 2
+  },
+  "agentResponse": "Good question—the rationale wasn’t documented. I revised the text to require confirmation that clients still depend on the fallback; otherwise, it should be removed.",
+  "finalDocument": "The rationale for retaining the legacy fallback is not documented. Confirm whether any clients still require it; otherwise, remove it.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The agent explicitly acknowledges the feedback with “Good question” and addresses it by stating that the rationale was not documented and client dependency should be confirmed."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent: the response explicitly recognizes the question and explains the resulting revision."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged and substantively answered the legacy-fallback question while explaining the revision, so the required signal is present and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45745,
+      "cached_input_tokens": 20992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 645,
+      "reasoning_output_tokens": 133
+    },
+    "judge": {
+      "input_tokens": 10516,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 161,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

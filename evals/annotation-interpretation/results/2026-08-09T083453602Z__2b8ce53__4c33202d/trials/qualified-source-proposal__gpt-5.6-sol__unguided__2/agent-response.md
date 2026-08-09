@@ -1,0 +1,1 @@
+Updated the retry count from 3 to 5. The upstream load impact should be validated against the service’s limits and retry behavior.

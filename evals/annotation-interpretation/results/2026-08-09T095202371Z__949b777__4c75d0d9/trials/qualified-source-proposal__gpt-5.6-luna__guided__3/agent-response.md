@@ -1,0 +1,3 @@
+I kept the retry count at 3 because the review does not establish that five retries would be safe for the upstream service. I added a guardrail stating that any increase should follow confirmation of upstream capacity.
+
+The reviewer’s question—“Would five retries overload the upstream service?”—remains dependent on that capacity information; the provided context isn’t enough to answer definitively.

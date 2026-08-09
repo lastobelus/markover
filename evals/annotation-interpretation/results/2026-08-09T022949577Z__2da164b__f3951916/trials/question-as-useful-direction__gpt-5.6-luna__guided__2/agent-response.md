@@ -1,0 +1,1 @@
+I removed the sentence because the document did not provide a reason for keeping the legacy fallback enabled for all clients. That answers the reviewer’s question: its presence was unsupported, so it no longer belongs in the document.

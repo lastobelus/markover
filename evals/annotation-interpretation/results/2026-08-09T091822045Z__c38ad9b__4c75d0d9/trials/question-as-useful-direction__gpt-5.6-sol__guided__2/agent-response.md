@@ -1,0 +1,1 @@
+Good question—the document doesn’t provide a reason for retaining the legacy fallback. I revised it to make that gap explicit. If there’s a specific client dependency or migration constraint, we should document it; otherwise, the fallback’s removal should be considered.

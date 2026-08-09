@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly considers the proposed increase to five retries: “Five retries could add avoidable upstream load,” and explains why three were retained."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response directly addresses the overload question by stating that five retries “could add avoidable upstream load” and require upstream-capacity validation."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The question was explicitly acknowledged and answered in the response; the final-document clarification was not made silently."
+    }
+  ],
+  "summary": "The agent explicitly considered the five-retry proposal, addressed the upstream-overload concern, and retained three retries with an appropriate validation caveat."
+}

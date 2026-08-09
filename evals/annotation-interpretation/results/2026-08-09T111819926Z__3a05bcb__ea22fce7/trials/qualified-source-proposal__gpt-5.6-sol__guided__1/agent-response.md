@@ -1,0 +1,1 @@
+Five retries could increase upstream load, especially without backoff or rate limiting. Since the review doesn’t provide capacity or retry-policy details, I kept `Retries: 3`. I’d need confirmation that the upstream service can tolerate five attempts before increasing it.

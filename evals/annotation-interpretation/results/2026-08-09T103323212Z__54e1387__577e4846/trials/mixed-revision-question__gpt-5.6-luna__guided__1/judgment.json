@@ -1,0 +1,24 @@
+{
+  "caseId": "mixed-revision-question",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "revision-applied:rename-persistence",
+      "observed": true,
+      "evidence": "The final document changes the heading from “## Storage” to “## Persistence.”"
+    },
+    {
+      "signal": "question-acknowledged:redis-vs-sqlite",
+      "observed": true,
+      "evidence": "The agent response explicitly addresses the comparison, stating that Redis is preferred for low-latency shared state across processes while SQLite suits local file-backed persistence."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+      "observed": false,
+      "evidence": "The Redis-versus-SQLite question was not handled silently; the agent response explicitly summarizes the rationale added to the document."
+    }
+  ],
+  "summary": "The requested heading revision is present, and the agent explicitly acknowledges and addresses the Redis-versus-SQLite design question. All required signals are observed and the forbidden signal is absent."
+}

@@ -1,0 +1,1 @@
+Good point. I revised the text to clarify that the 200ms budget came from last year’s mobile client and must be revalidated against current requirements and latency tradeoffs before becoming a firm target.

@@ -1,0 +1,1 @@
+I clarified the sentence to note that the fallback’s compatibility rationale and removal criteria need to be documented before retaining it.

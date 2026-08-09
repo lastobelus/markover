@@ -1,0 +1,1 @@
+Five retries could increase upstream load, so I’ve kept the default at three and noted that five should only be used after confirming the service can absorb the additional retries.

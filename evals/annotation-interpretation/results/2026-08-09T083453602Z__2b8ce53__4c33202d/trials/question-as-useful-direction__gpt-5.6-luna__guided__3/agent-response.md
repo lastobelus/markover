@@ -1,0 +1,1 @@
+I removed the unsupported legacy fallback statement. Regarding your question—“Why is this legacy fallback here?”—the document did not provide a justification for it, so it has been removed.

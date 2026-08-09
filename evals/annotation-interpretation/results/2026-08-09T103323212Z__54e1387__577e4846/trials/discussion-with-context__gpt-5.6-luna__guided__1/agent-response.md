@@ -1,0 +1,1 @@
+Updated `document.md` to clarify that the 200ms request budget applies to the legacy mobile client, addressing the latency-tradeoff concern without implying it is a universal requirement.

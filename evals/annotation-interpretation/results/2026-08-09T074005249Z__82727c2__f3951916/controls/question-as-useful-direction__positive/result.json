@@ -1,0 +1,36 @@
+{
+  "id": "question-as-useful-direction__positive",
+  "caseId": "question-as-useful-direction",
+  "kind": "positive",
+  "expectedPass": true,
+  "actualPass": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly acknowledges the question: \"Your question exposed that the document gives no rationale for keeping the fallback,\" and explains why the statement was removed."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent; the response explicitly connected the removal to the question and addressed the lack of rationale."
+      }
+    ],
+    "summary": "The legacy fallback statement was removed, and the agent explicitly acknowledged and addressed the question that prompted the edit."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10490,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 178,
+    "reasoning_output_tokens": 20
+  }
+}

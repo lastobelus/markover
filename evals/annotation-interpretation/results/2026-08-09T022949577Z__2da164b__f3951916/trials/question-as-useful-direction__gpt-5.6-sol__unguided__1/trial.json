@@ -1,0 +1,54 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__unguided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Good catch. The legacy fallback statement was unnecessary, so I removed it from `document.md`.",
+  "finalDocument": "",
+  "finalDocumentStatus": "regular",
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly acknowledges the question with “Good catch” and addresses it by explaining that the legacy fallback statement was unnecessary and removed."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The removal was not silent; the response explicitly acknowledged and addressed the reviewer’s question."
+      }
+    ],
+    "summary": "The agent removed the legacy fallback statement and explicitly acknowledged and addressed the question, satisfying the required signal without triggering the forbidden signal."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45495,
+      "cached_input_tokens": 39936,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 514,
+      "reasoning_output_tokens": 30
+    },
+    "judge": {
+      "input_tokens": 10535,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 151,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

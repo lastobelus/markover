@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__unguided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Good question. I clarified the document to flag that the rationale for retaining the legacy fallback still needs to be documented, without assuming an unsupported reason.",
+  "finalDocument": "The legacy fallback remains enabled for all clients. The rationale for retaining it should be documented here.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The agent explicitly acknowledges the feedback with “Good question” and addresses it by explaining that the fallback’s rationale still needs documentation without inventing a reason."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent: the response explicitly recognizes the question and explains the resulting clarification."
+      }
+    ],
+    "summary": "The required acknowledgment is present, and the question was not silently treated as an edit request; therefore the case passes."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 58646,
+      "cached_input_tokens": 47872,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 1166,
+      "reasoning_output_tokens": 471
+    },
+    "judge": {
+      "input_tokens": 10395,
+      "cached_input_tokens": 1792,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 191,
+      "reasoning_output_tokens": 35
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

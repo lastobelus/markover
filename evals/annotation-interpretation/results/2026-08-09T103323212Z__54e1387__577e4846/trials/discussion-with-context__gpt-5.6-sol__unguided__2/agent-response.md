@@ -1,0 +1,1 @@
+Good point. I revised the document to clarify that the 200ms target came from last year’s mobile client and should be reassessed before becoming a firm requirement.

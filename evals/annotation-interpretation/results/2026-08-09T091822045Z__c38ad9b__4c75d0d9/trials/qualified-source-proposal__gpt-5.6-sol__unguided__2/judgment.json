@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly considers the proposed increase to five retries: “Without evidence that the upstream service can absorb five retries, I kept the limit at three.”"
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response directly addresses the overload concern by requiring evidence that the upstream service can absorb five retries and confirmation of upstream capacity."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The question was explicitly acknowledged and substantively addressed in the response; it was not silently treated as an edit request."
+    }
+  ],
+  "summary": "The agent explicitly considered the five-retry proposal, addressed the upstream-overload question, and made a qualified clarification without silently converting the question into an edit."
+}

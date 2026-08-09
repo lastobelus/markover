@@ -1,0 +1,1 @@
+I left `Retries: 3` unchanged. The document doesn’t provide enough information to determine whether five retries would overload the upstream service; that depends on request volume, backoff behavior, and upstream capacity or rate limits. If five retries are known to be safe, I can apply the proposed change.

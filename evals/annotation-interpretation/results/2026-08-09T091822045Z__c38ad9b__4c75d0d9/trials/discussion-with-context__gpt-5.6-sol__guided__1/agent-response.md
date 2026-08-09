@@ -1,0 +1,1 @@
+Agreed—the 200 ms budget shouldn’t be presented as a current constraint without validation. I updated `document.md` to explain its origin and flag it for revalidation.

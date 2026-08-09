@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": false,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": false,
+      "evidence": "The response says the count was kept at 3, but it does not explicitly consider the exact proposal to change it to five retries."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response explicitly addresses upstream load: “I kept the retry count at 3 to avoid unnecessary upstream load.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The response explicitly acknowledges and addresses the upstream-load concern rather than silently treating it as an edit request."
+    }
+  ],
+  "summary": "The upstream-overload question was acknowledged and was not silently converted into an edit, but the response did not explicitly consider the exact five-retry proposal. Therefore, not every required signal is observed."
+}

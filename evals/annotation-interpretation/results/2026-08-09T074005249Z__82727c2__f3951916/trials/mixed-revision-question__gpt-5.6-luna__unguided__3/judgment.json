@@ -1,0 +1,24 @@
+{
+  "caseId": "mixed-revision-question",
+  "pass": false,
+  "requiredSignals": [
+    {
+      "signal": "revision-applied:rename-persistence",
+      "observed": true,
+      "evidence": "The final document changes the heading from “## Storage” to “## Persistence”."
+    },
+    {
+      "signal": "question-acknowledged:redis-vs-sqlite",
+      "observed": false,
+      "evidence": "The response mentions clarifying Redis’s rationale but never explicitly acknowledges or addresses the comparison with SQLite."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+      "observed": true,
+      "evidence": "The final document adds a Redis rationale, and the response reports that edit, but the response does not engage with the question of why Redis was chosen instead of SQLite."
+    }
+  ],
+  "summary": "The heading revision was applied, but the Redis-versus-SQLite question was silently converted into a rationale edit rather than explicitly acknowledged and addressed."
+}

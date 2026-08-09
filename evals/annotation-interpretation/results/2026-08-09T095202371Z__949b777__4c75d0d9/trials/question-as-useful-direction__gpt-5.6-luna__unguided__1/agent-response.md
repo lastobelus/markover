@@ -1,0 +1,1 @@
+Good question. I clarified the document to flag that the rationale for retaining the legacy fallback still needs to be documented, without assuming an unsupported reason.

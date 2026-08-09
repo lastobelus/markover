@@ -1,0 +1,41 @@
+{
+  "id": "discussion-with-context__positive",
+  "caseId": "discussion-with-context",
+  "kind": "positive",
+  "expectedPass": true,
+  "actualPass": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": true,
+        "evidence": "The response explicitly engages the concern, stating that the inherited 200ms budget may not represent the current tradeoff and that current measurements are needed before revision."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": false,
+        "evidence": "The response explicitly acknowledges and discusses the latency concern, and says the claim was left unchanged."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": false,
+        "evidence": "The final document retains the original 200ms claim without adding any unsupported latency rationale or new factual justification."
+      }
+    ],
+    "summary": "The agent substantively addressed the latency-tradeoff concern, appropriately treated the mobile-client origin as historical context, and neither silently converted the concern into an edit nor invented a rationale."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10528,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 211,
+    "reasoning_output_tokens": 0
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly considers the proposed five retries, noting that they could increase upstream load and explaining why the document remains unchanged."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response directly addresses whether five retries could overload the upstream service and identifies missing traffic, rate-limit, and backoff context."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The question was explicitly discussed, and the final document retained `Retries: 3`; it was not silently converted into an edit."
+    }
+  ],
+  "summary": "Both required signals are observed, and the forbidden signal is not observed."
+}

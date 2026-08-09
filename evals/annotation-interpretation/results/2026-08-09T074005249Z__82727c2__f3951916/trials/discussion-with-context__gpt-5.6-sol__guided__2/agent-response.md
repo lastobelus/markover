@@ -1,0 +1,1 @@
+That’s a valid concern. I revised the document to identify 200 ms as a provisional target inherited from last year’s mobile client and to require validation against current client latency needs before treating it as firm.

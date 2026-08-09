@@ -1,0 +1,1 @@
+Yes, five retries could increase load on the upstream service, particularly during outages or without exponential backoff. I kept `Retries: 3`; increasing it should wait until upstream capacity and retry behavior are validated.

@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly quotes and addresses the reviewer’s question, explaining that the source lacks enough information to answer without inventing context."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "Although the document was edited, the response did not treat the question silently; it explicitly acknowledged and substantively addressed it."
+    }
+  ],
+  "summary": "The agent explicitly acknowledged the legacy-fallback question and explained why it could not be answered from the source, so the required signal is present and the forbidden silent-conversion signal is absent."
+}

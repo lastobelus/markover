@@ -1,0 +1,1 @@
+Renamed the section to “Persistence” and clarified the choice: Redis supports shared-service state, while SQLite is better suited to persistence local to one application instance.

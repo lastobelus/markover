@@ -1,0 +1,1 @@
+Good question—the legacy fallback statement didn’t belong here, so I removed it.

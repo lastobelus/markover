@@ -1,0 +1,1 @@
+Good point. I clarified that 200ms is inherited from last year’s mobile client and should be reassessed against current requirements before being treated as a constraint.

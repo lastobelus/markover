@@ -1,0 +1,3 @@
+Renamed the section to “Persistence.”
+
+On Redis versus SQLite: the document only identifies a need for shared state, so it doesn’t contain enough context to justify Redis specifically. I left the storage choice unchanged rather than inventing a rationale. Could you clarify the relevant requirements—such as multiple processes, persistence guarantees, or query needs—so we can document the decision accurately?

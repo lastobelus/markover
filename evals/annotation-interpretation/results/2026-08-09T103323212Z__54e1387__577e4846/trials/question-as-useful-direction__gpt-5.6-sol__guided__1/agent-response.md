@@ -1,0 +1,1 @@
+Good question. The document provided no compatibility reason for enabling the fallback universally. I revised it to require a documented client need; otherwise, the fallback should be removed.

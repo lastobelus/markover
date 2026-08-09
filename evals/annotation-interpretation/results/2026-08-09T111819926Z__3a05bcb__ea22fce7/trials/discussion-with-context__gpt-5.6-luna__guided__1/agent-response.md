@@ -1,0 +1,1 @@
+I revised `document.md` to clarify that the 200ms budget was inherited from last year’s mobile client. That provenance addresses the concern that it may not be an appropriate current latency target.

@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "discussion-with-context__gpt-5.6-luna__guided__1",
+    "caseId": "discussion-with-context",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "I revised the document to preserve the 200ms target while noting that it originated with last year’s mobile client and should be revalidated for the current use case.",
+  "finalDocument": "The request budget is 200ms, a target inherited from last year’s mobile client that should be revalidated for the current use case.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": true,
+        "evidence": "The response substantively addresses the concern by explaining that the 200ms target was preserved while its historical origin was noted and revalidation for the current use case was requested."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": false,
+        "evidence": "The response explicitly explains how the latency concern was handled rather than silently making a document edit."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": false,
+        "evidence": "The final document's statement that the target came from last year's mobile client is directly supported by the review, and the revalidation language does not invent a rationale for the target."
+      }
+    ],
+    "summary": "The response explicitly engages with the latency concern, and the final document uses the supplied historical context without inventing an unsupported rationale."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46200,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 683,
+      "reasoning_output_tokens": 111
+    },
+    "judge": {
+      "input_tokens": 10543,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 327,
+      "reasoning_output_tokens": 108
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

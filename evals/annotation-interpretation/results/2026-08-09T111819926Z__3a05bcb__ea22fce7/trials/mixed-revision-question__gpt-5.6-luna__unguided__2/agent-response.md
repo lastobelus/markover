@@ -1,0 +1,1 @@
+Thanks for the feedback. I renamed the section to “Persistence” and clarified that Redis is intended for network-accessible shared state, while SQLite is suitable for local state without concurrent shared access.

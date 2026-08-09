@@ -1,6 +1,6 @@
   const FIXED_CONTRACT_STATEMENTS = Object.freeze([
     'Feedback is free-form and may mix revision requests, questions, discussion, and context.',
-    'Interpret each part according to its apparent intent.',
+    'Respond to each part according to its apparent intent, including substantively addressing discussion and concerns.',
     'Never silently consume a question as an edit request: explicitly acknowledge every question in your response, even if you also act on it.',
     'Treat source edits as proposals whose meaning depends on context.'
   ])

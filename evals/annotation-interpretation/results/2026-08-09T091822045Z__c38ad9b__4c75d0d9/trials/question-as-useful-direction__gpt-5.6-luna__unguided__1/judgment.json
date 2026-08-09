@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": false,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": false,
+      "evidence": "The response only states that the sentence was revised; it does not explicitly acknowledge or answer the reviewer’s question about why the legacy fallback exists."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": true,
+      "evidence": "The final document changes the sentence to require documentation of purpose and removal criteria, while the response describes that edit without engaging with the original question."
+    }
+  ],
+  "summary": "The question was converted into a document revision without explicit acknowledgment, so the required signal is absent and the forbidden signal is present."
+}

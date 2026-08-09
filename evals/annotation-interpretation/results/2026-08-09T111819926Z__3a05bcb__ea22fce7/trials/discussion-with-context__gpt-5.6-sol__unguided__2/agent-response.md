@@ -1,0 +1,1 @@
+Good point. I revised the document to identify 200 ms as a legacy mobile-client budget that needs revalidation before being adopted as the current latency target.

@@ -1,0 +1,1 @@
+Thanks for flagging this. I’ve revised the document to treat 200ms as a current target rather than a fixed constraint, and noted that it should be validated against current client requirements.

@@ -1,0 +1,1 @@
+I revised the sentence to clarify that the 200 ms budget was inherited from last year’s mobile client and should be revalidated. No new latency target was introduced.

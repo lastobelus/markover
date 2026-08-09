@@ -1,0 +1,1 @@
+I revised `document.md` to note that the rationale for retaining the legacy fallback is not documented. The review’s question remains open: what is the reason this fallback is still enabled for all clients?

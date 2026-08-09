@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly quotes and addresses the question: “Regarding your question—‘Why is this legacy fallback here?’—the document did not provide a justification for it.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "Although the fallback statement was removed from the final document, the response explicitly acknowledged and answered the question, so the edit was not silent."
+    }
+  ],
+  "summary": "The question was explicitly acknowledged and substantively addressed, and the resulting removal was clearly explained."
+}

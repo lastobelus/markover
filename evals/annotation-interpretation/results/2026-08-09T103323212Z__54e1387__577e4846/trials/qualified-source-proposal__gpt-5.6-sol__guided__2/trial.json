@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-sol__guided__2",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 2
+  },
+  "agentResponse": "Five retries could increase upstream load, especially without backoff or rate limiting, but the document doesn’t provide enough context to determine whether it would overload the service. I kept the retry count at 3 pending confirmation of those safeguards and upstream limits.",
+  "finalDocument": "Retries: 3",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly considers the proposed five-retry value, stating that “Five retries could increase upstream load,” and explains why the document remains at 3."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response directly addresses whether five retries would overload the upstream service, noting possible increased load and insufficient context about backoff, rate limiting, safeguards, and upstream limits."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The question was explicitly acknowledged and discussed in the response; it was not silently treated as an edit request, and the final document retains “Retries: 3.”"
+      }
+    ],
+    "summary": "The agent explicitly considered the five-retry proposal and substantively answered the upstream-overload question while retaining the original retry count. All required signals are observed and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 22483,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 503,
+      "reasoning_output_tokens": 274
+    },
+    "judge": {
+      "input_tokens": 10542,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 236,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

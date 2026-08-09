@@ -1,0 +1,1 @@
+I revised the sentence to clarify that the fallback’s purpose and removal criteria need to be documented before retaining it.

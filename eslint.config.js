@@ -27,10 +27,12 @@ module.exports = defineConfig([
     ignores: [
       'build/**',
       'dist/**',
+      'evals/**/results/**',
       'node_modules/**',
       'packages/cli/bin/**',
       'release/**',
-      'src/vendor/**'
+      'src/vendor/**',
+      'tmp/**'
     ]
   },
   js.configs.recommended,

@@ -1,0 +1,1 @@
+The current request budget is 200ms, a target established for last year's mobile client. We should reassess whether that latency tradeoff remains appropriate for current clients and requirements before retaining it.

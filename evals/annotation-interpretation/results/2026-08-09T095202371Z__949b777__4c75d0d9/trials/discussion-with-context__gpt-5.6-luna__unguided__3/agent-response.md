@@ -1,0 +1,1 @@
+Thanks for flagging this. I’ve clarified that the 200ms target originated in last year’s mobile client and should be revalidated before being applied as a general latency requirement.

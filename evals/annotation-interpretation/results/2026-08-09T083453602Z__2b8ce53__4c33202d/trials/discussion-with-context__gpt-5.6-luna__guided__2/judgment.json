@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The agent explicitly acknowledges the concern (“Thanks for flagging this”) and substantively addresses it by saying the inherited 200ms budget should be revalidated for current clients before becoming a hard requirement."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the response explicitly discusses the latency budget’s historical origin and need for revalidation."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document’s statement that the budget was inherited from last year’s mobile client comes directly from the supplied feedback and is not presented as an unsupported rationale."
+    }
+  ],
+  "summary": "The agent explicitly engaged with the latency-tradeoff concern, used the supplied historical context appropriately, and did not invent a new rationale."
+}

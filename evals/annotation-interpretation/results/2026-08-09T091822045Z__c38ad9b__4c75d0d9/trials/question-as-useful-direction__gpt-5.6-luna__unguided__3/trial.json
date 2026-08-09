@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__unguided__3",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 3
+  },
+  "agentResponse": "I revised `document.md` to clarify that the fallback’s purpose, affected clients, and retirement criteria should be documented before removal.\n\nReviewer response: Good question. The document now calls out the missing rationale and the information needed to justify retiring the legacy fallback.",
+  "finalDocument": "The legacy fallback remains enabled for all clients. Document its purpose, affected clients, and retirement criteria before removing it.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The agent explicitly says, “Good question,” and addresses it by identifying the missing rationale and information needed before retiring the fallback."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The response explicitly acknowledges and addresses the reviewer’s question, so the document revision was not silent."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged and substantively addressed the question; no silent conversion to an edit occurred."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46057,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 757,
+      "reasoning_output_tokens": 223
+    },
+    "judge": {
+      "input_tokens": 10540,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 234,
+      "reasoning_output_tokens": 86
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

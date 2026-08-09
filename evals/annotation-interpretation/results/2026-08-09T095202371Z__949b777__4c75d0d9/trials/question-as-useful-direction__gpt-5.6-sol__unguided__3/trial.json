@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__unguided__3",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 3
+  },
+  "agentResponse": "Good question. I revised the document to acknowledge that the fallback’s purpose is undocumented and to require confirming whether any clients still depend on it before removing it.",
+  "finalDocument": "The legacy fallback remains enabled for all clients, but its purpose and continued necessity are not documented. Confirm which clients, if any, still depend on it and remove it if none do.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The agent explicitly says “Good question” and addresses the concern by explaining that the fallback’s undocumented purpose and client dependencies must be confirmed before removal."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The response explicitly acknowledges and addresses the question rather than silently treating it as an edit instruction."
+      }
+    ],
+    "summary": "The required acknowledgment is observable in the agent response, and the question was not silently converted into an edit."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45954,
+      "cached_input_tokens": 20992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 633,
+      "reasoning_output_tokens": 77
+    },
+    "judge": {
+      "input_tokens": 10530,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 209,
+      "reasoning_output_tokens": 56
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

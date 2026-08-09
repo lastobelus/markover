@@ -1,0 +1,1 @@
+Agreed—the 200ms budget shouldn’t be presented as settled. I revised the document to identify it as a target inherited from last year’s mobile client and call for revalidation against current client requirements.

@@ -1,0 +1,1 @@
+There wasn’t a supported reason for the legacy fallback statement to be included, so I removed it from `document.md`.

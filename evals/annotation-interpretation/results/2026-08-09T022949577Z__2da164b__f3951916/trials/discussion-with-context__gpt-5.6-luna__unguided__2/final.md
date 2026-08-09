@@ -1,0 +1,1 @@
+Use 200ms as the current request-latency target. This target originated with last year's mobile client and should be validated against current client requirements before being treated as a fixed constraint.

@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-sol__unguided__3",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 3
+  },
+  "agentResponse": "Good point. Five immediate retries could overload the upstream service. I updated the document to require exponential backoff with jitter, transient failures only, and adherence to upstream rate limits and `Retry-After` responses.",
+  "finalDocument": "Retries: 5, using exponential backoff with jitter for transient failures only; honor upstream rate limits and `Retry-After` responses.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly considers the proposed five-retry setting: “Five immediate retries could overload the upstream service,” while the final document applies “Retries: 5” with safeguards."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response directly acknowledges and answers the overload question: “Good point. Five immediate retries could overload the upstream service.”"
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The edit was not silent; the response explicitly addresses the upstream-overload concern and explains the mitigating revision."
+      }
+    ],
+    "summary": "The agent explicitly considered the five-retry proposal, acknowledged the overload concern, and explained the safeguards added to the final document. All required signals are observed and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46032,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 802,
+      "reasoning_output_tokens": 252
+    },
+    "judge": {
+      "input_tokens": 10558,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 219,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

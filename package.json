@@ -33,6 +33,8 @@
     "notices:generate": "npm run build --silent && node build/scripts/generate-third-party-notices.js",
     "notices:check": "npm run build --silent && npm run notices:check:built",
     "notices:check:built": "node build/scripts/generate-third-party-notices.js --check",
+    "eval:annotation": "npm run build --silent && node build/scripts/annotation-interpretation-eval.js run",
+    "eval:annotation:validate": "npm run build --silent && node build/scripts/annotation-interpretation-eval.js validate",
     "check": "npm run lint && npm run typecheck && npm run notices:check",
     "ci:local": "npm run build --silent && npm run lint && npm run typecheck && npm run notices:check:built && npm run test:built && npm run smoke:built -- --timeout=10"
   },

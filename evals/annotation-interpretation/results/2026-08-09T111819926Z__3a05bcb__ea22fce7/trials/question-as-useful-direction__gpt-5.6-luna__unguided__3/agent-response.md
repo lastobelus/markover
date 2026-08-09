@@ -1,0 +1,1 @@
+Good question. The document didn’t provide enough context to state the rationale accurately, so I revised the sentence to call for documenting why the fallback remains required and defining criteria for its removal.

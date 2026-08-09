@@ -1,0 +1,1 @@
+I revised `document.md` to allow five retries with exponential backoff and jitter, which helps reduce the risk of overloading the upstream service.

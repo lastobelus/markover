@@ -1,0 +1,1 @@
+I agree the 200ms target should not be treated as self-justifying. I’ve clarified that it was inherited from last year’s mobile client and should be revalidated against current latency requirements.

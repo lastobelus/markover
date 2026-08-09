@@ -1,0 +1,1 @@
+Good point. I updated `document.md` to explain that the 200 ms budget came from last year’s mobile client and should be revalidated before being treated as a firm requirement.

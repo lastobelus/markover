@@ -1,0 +1,1 @@
+I revised the document to note that the 200ms budget was inherited from last year’s mobile client and should be validated against current latency needs. That preserves the historical context while addressing the concern about whether the tradeoff remains appropriate.

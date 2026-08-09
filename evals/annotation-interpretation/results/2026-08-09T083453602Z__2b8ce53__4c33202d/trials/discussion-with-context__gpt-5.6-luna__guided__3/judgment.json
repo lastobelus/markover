@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The agent explicitly validates and substantively addresses the concern: “That concern is valid—the 200ms figure shouldn’t be treated as an unquestionable current requirement,” and explains that it preserved the target while flagging the need for revalidation."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the agent explicitly acknowledged it in the reviewer response and explained the resulting document treatment."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document attributes the target to last year’s mobile client, matching the supplied historical context, and calls for revalidation without inventing a new latency rationale or unsupported fact."
+    }
+  ],
+  "summary": "The agent explicitly engaged with the latency-tradeoff concern, appropriately used the supplied historical context, and did not invent an unsupported rationale. All required signals are observed and no forbidden signals are observed."
+}

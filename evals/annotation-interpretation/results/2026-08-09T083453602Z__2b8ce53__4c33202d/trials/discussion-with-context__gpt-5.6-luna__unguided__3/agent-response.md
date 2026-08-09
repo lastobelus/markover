@@ -1,0 +1,1 @@
+Thanks for flagging this. I’ve kept the mobile-client origin as context but clarified that the 200ms budget is provisional and should be validated against the current client and workload before being applied universally.

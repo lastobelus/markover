@@ -1,0 +1,1 @@
+That concern makes sense. I revised the sentence to identify 200 ms as inherited from last year’s mobile client and to require reassessment before adopting it as the current target. A replacement budget will need current latency requirements or measurements.

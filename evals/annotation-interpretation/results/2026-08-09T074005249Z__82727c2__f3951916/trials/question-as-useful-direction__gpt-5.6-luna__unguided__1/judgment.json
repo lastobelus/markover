@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": false,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": false,
+      "evidence": "The response reports removing the statement and thanks the reviewer, but does not explicitly acknowledge or answer the question about why the legacy fallback was present."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": true,
+      "evidence": "The final document removes the legacy fallback statement, while the response describes only that edit without explicitly engaging with the annotation as a question."
+    }
+  ],
+  "summary": "The question led to the requested removal, but the agent silently treated it as an edit request rather than explicitly acknowledging and addressing it."
+}

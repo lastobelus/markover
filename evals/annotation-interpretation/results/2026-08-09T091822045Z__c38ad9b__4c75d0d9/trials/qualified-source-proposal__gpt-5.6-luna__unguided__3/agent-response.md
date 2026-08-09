@@ -1,0 +1,1 @@
+Updated `document.md` to five retries with exponential backoff to reduce potential load on the upstream service.

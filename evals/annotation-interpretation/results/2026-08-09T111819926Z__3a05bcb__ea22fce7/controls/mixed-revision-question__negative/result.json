@@ -1,0 +1,46 @@
+{
+  "id": "mixed-revision-question__negative",
+  "caseId": "mixed-revision-question",
+  "kind": "negative",
+  "expectedPass": false,
+  "expectedObservedSignals": [
+    "revision-applied:rename-persistence",
+    "question-silently-converted-to-edit:redis-vs-sqlite"
+  ],
+  "actualPass": false,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document renames the heading from \"## Storage\" to \"## Persistence\"."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The response only says \"Updated the section and storage choice\" and does not explicitly recognize or answer why Redis was chosen instead of SQLite."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The final document changes \"Use Redis\" to \"Use SQLite,\" while the response does not acknowledge or address the design question."
+      }
+    ],
+    "summary": "The heading revision was applied, but the Redis-versus-SQLite question was silently converted into an edit rather than explicitly addressed; therefore the case fails."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10493,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 265,
+    "reasoning_output_tokens": 55
+  }
+}
