@@ -48,10 +48,9 @@ export interface LocalServiceOptions {
     action: 'handoff' | 'edit'
   ) => Promise<undefined | (() => void | Promise<void>)>) | undefined
   onActivate?: ((reviewId: string) => Promise<ReviewActivationResult>) | undefined
-  importReviews?: ((sourceDirectory: string) => Promise<string[]>) | undefined
   onChange?: ((
     artifact: ReviewArtifact,
-    action: 'created' | 'imported' | 'handoff' | 'edit'
+    action: 'created' | 'handoff' | 'edit'
   ) => void | Promise<void>) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
   interpretationPolicy?: (() => string) | undefined
@@ -111,7 +110,6 @@ function errorStatus(error: unknown): number {
   if (code === 'NOT_FOUND') return 404
   if (
     code === 'INVALID_ID' ||
-    code === 'INVALID_IMPORT' ||
     code === 'INVALID_JSON' ||
     code === 'INVALID_REVIEW' ||
     code === 'REVIEW_MISMATCH'
@@ -141,7 +139,6 @@ export async function startLocalService({
     'ACTIVATION_UNAVAILABLE',
     'Review activation is unavailable.'
   )),
-  importReviews = () => Promise.resolve([]),
   onChange = () => {},
   onUnauthorized = () => {},
   interpretationPolicy
@@ -253,29 +250,6 @@ export async function startLocalService({
 
       if (request.method === 'GET' && url.pathname === '/reviews') {
         sendJson(response, 200, { reviews: await store.list() })
-        return
-      }
-
-      if (request.method === 'POST' && url.pathname === '/reviews/import') {
-        const reviewIds = await runMutation(async () => {
-          const body = await readJson(request)
-          if (
-            !isRecord(body) ||
-            typeof body.sourceDirectory !== 'string' ||
-            !body.sourceDirectory
-          ) {
-            throw serviceError(
-              'INVALID_IMPORT',
-              'A review import source directory is required.'
-            )
-          }
-          const imported = await importReviews(body.sourceDirectory)
-          for (const reviewId of imported) {
-            await onChange(await store.load(reviewId), 'imported')
-          }
-          return imported
-        })
-        sendJson(response, 200, { imported: reviewIds })
         return
       }
 

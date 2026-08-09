@@ -18,8 +18,6 @@
     "link-handler": "npm run build --silent && node build/scripts/link-handler.js",
     "setup:canonical": "npm run build --silent && node build/scripts/setup-canonical.js",
     "start": "npm run build --silent && node build/scripts/start.js",
-    "review": "npm run build --silent && node build/scripts/review.js",
-    "review:open": "npm run build --silent && node build/scripts/open-review.js",
     "smoke:auth": "npm run build --silent && node build/scripts/smoke-auth.js",
     "smoke": "npm run build --silent && npm run smoke:built",
     "smoke:built": "node build/scripts/run-smoke.js",

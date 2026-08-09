@@ -43,13 +43,15 @@ test('macOS application menu delegates About to the native role', () => {
   assert.equal(aboutItems[0]?.click, undefined)
 })
 
-test('review mode disables opening an unrelated Markdown document', () => {
-  const template = applicationMenuTemplate({ isMac: true, reviewMode: true })
+test('the File menu keeps manual Markdown opening available', () => {
+  const onOpen = () => {}
+  const template = applicationMenuTemplate({ isMac: true, onOpen })
   const fileMenu = template.find((item) => item.label === 'File')
   assert.ok(fileMenu)
   const openItem = submenu(fileMenu)[0]
   assert.ok(openItem)
-  assert.equal(openItem.enabled, false)
+  assert.notEqual(openItem.enabled, false)
+  assert.equal(openItem.click, onOpen)
 })
 
 test('Review menu keeps deletion and cleanup extensible and state-aware', () => {

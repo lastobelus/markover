@@ -446,8 +446,6 @@ declare global {
     checksum: string
     projectRoot?: unknown
     tree?: ReviewTree
-    durable?: boolean
-    autosavePath?: string | null
   }
 
   interface ReviewStatusRequest {
@@ -526,7 +524,7 @@ declare global {
     readClipboardImage: () => Promise<MarkoverClipboardImage | null>
     saveAttachment: (
       attachment: MarkoverClipboardImage,
-      reviewId?: string | null
+      reviewId: string
     ) => Promise<ReviewAttachment>
     removeAttachment: (request: {
       reviewId: string
@@ -563,9 +561,7 @@ declare global {
       ) => ReviewActivationOutcome | Promise<ReviewActivationOutcome>
     ) => void
     activateReview: (reviewId: string) => void
-    autosaveReview: (reviewId: string | null, tree: ReviewTree) => void
-    finishReview: (tree: ReviewTree) => void
-    cancelReview: () => void
+    autosaveReview: (reviewId: string, tree: ReviewTree) => void
     getSettings: () => Promise<MarkoverSettingsEnvelope>
     updateSettings: (patch: unknown) => Promise<MarkoverSettingsEnvelope>
     getWindowFocusState: () => Promise<MarkoverWindowFocusState>

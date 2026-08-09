@@ -260,6 +260,10 @@ test('ordinary workflows use Node 24 and release candidates cover Node 22', () =
   assert.match(workflow, /npm run test:built/)
   assert.match(
     workflow,
+    /npm run pretest[\s\S]*sudo chown root:root node_modules\/electron\/dist\/chrome-sandbox/
+  )
+  assert.match(
+    workflow,
     /sudo chown root:root node_modules\/electron\/dist\/chrome-sandbox/
   )
   assert.match(
@@ -385,7 +389,6 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     'local-client',
     'local-service',
     'metadata-discovery',
-    'review-migration',
     'review-store',
     'service-endpoint',
     'settings-store'
@@ -396,7 +399,6 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   for (const name of [
     'local-service',
     'metadata-discovery',
-    'review-migration',
     'review-store',
     'service-endpoint'
   ]) {
@@ -415,10 +417,8 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     'markover',
     'macos-artifact-preflight',
     'macos-release-contract',
-    'open-review',
     'package-macos',
     'release-preflight',
-    'review',
     'start'
   ]) {
     assert.equal(fs.existsSync(path.join(root, `scripts/${name}.ts`)), true)
@@ -429,9 +429,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
     'macos-artifact-preflight',
     'macos-package',
     'markover-cli',
-    'open-review',
     'release',
-    'review',
     'third-party-notices'
   ]) {
     assert.equal(fs.existsSync(path.join(root, `test/${name}.test.ts`)), true)

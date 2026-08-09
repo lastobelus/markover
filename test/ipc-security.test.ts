@@ -141,9 +141,17 @@ test('privileged IPC rejects forged senders, subframes, URLs, and arguments', ()
 
 test('IPC payload contracts enforce exact current and handed-off schemas', () => {
   const tree = smokeReviewTree('/tmp/markover.svg')
+  const managedTree: ReviewTree = {
+    ...tree,
+    review: { id: 'mko_abcdef', status: 'editing' }
+  }
   assert.doesNotThrow(() => {
     assertRendererInvokeArguments('document:checksum', ['source'])
-    assertRendererSendArguments('review:autosave', [null, tree])
+    assertRendererInvokeArguments('attachment:save', [{
+      bytes: new Uint8Array([1]),
+      mimeType: 'image/png'
+    }, 'mko_abcdef'])
+    assertRendererSendArguments('review:autosave', ['mko_abcdef', managedTree])
     assertRendererSendArguments('review:snapshot-response', [{
       requestId: 'snapshot-1',
       reviewId: 'mko_abcdef',
@@ -202,6 +210,12 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
     assertRendererSendArguments('review:autosave', [null, { ...tree, extra: true }])
   })
   assert.throws(() => {
+    assertRendererInvokeArguments('attachment:save', [{
+      bytes: new Uint8Array([1]),
+      mimeType: 'image/png'
+    }, null])
+  })
+  assert.throws(() => {
     assertMainEventArguments('review:trashed', [{
       reviewId: 'mko_abcdef',
       path: '/tmp/private'
@@ -233,9 +247,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:activation-response',
     'review:autosave',
     'review:autosave-status:get',
-    'review:cancel',
     'review:context-menu:open',
-    'review:done',
     'review:initial-document',
     'review:list',
     'review:snapshot-response',

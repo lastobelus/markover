@@ -18,7 +18,6 @@ interface ApplicationMenuOptions {
   onTrashReview?: () => void
   onZoomIn?: () => void
   onZoomOut?: () => void
-  reviewMode?: boolean
 }
 
 export function applicationMenuTemplate({
@@ -36,8 +35,7 @@ export function applicationMenuTemplate({
   onSettings,
   onTrashReview,
   onZoomIn,
-  onZoomOut,
-  reviewMode = false
+  onZoomOut
 }: ApplicationMenuOptions = {}): MenuItemConstructorOptions[] {
   const template: MenuItemConstructorOptions[] = []
   if (isMac) {
@@ -69,7 +67,6 @@ export function applicationMenuTemplate({
       {
         label: 'Open Markdown…',
         accelerator: 'CommandOrControl+O',
-        enabled: !reviewMode,
         ...(onOpen ? { click: onOpen } : {})
       },
       { type: 'separator' },

@@ -109,10 +109,13 @@ also live beneath the Application Support root.
 
 Source proposals never rewrite the original reviewed Markdown. Review and
 attachment persistence is owned by
-[`src/review-store.ts`](../../src/review-store.ts), with review creation paths
-in [`scripts/open-review.ts`](../../scripts/open-review.ts). Storage behavior is
-covered by [`test/review-store.test.ts`](../../test/review-store.test.ts) and
-[`test/open-review.test.ts`](../../test/open-review.test.ts).
+[`src/review-store.ts`](../../src/review-store.ts). Managed review creation is
+addressed through [`scripts/markover.ts`](../../scripts/markover.ts) and
+[`src/local-service.ts`](../../src/local-service.ts). Storage and creation
+behavior are covered by
+[`test/review-store.test.ts`](../../test/review-store.test.ts),
+[`test/markover-cli.test.ts`](../../test/markover-cli.test.ts), and
+[`test/local-service.test.ts`](../../test/local-service.test.ts).
 
 Historical review JSON and attachments are preserved unless deletion is
 explicitly in scope. During pre-MVP development, do not add fallback readers,

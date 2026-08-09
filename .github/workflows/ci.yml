@@ -56,6 +56,9 @@ jobs:
       - name: Run tests
         run: npm run test:built
 
+      - name: Install Electron runtime
+        run: npm run pretest
+
       - name: Configure Electron sandbox
         run: |
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
