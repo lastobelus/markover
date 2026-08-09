@@ -36,20 +36,21 @@ test('guidance combines the fixed contract with a replaceable policy', () => {
   )
 })
 
-test('generic agent and public guidance preserve the same semantics', async () => {
-  const [agents, readme, guide, development] = await Promise.all([
+test('generic and dedicated agent guidance preserve the same semantics', async () => {
+  const [agents, agentGuide, humanGuide, development] = await Promise.all([
     read('AGENTS.md'),
-    read('README.md'),
-    read('docs/guide/index.html'),
-    read('docs/development.md')
+    read('docs/user/agents/index.html'),
+    read('docs/user/guide/index.html'),
+    read('docs/developer/development.md')
   ])
 
   assert.match(agents, /review\.agentGuidance\.fixedContract/)
   assert.match(agents, /explicitly acknowledge every question/)
   assert.match(agents, /source edits as context-dependent proposals/)
-  assert.match(readme, /does not classify annotations\s+or apply changes itself/)
-  assert.match(guide, /Use your judgment to respond to the review and make useful revisions\./)
-  assert.match(guide, /Removed X—.*it had no place there/)
-  assert.match(guide, /Optional stricter policies/)
+  assert.match(agentGuide, /does not classify annotations into rigid types or apply changes itself/)
+  assert.match(agentGuide, /Use your judgment to respond to the review and make useful revisions\./)
+  assert.match(agentGuide, /Removed X—.*it had no place there/)
+  assert.match(agentGuide, /Possible stricter policies/)
+  assert.doesNotMatch(humanGuide, /markover get|markover edit|Default policy|Possible stricter policies/)
   assert.match(development, /Agent-facing instructions must preserve the contract/)
 })

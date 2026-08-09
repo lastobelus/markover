@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#eee8e0">
+    <meta name="description" content="Exact open, get, edit, and interpretation guidance for agents using Markover.">
+    <title>For agents — Markover documentation</title>
+    <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body class="docs-page">
+    <aside class="docs-sidebar">
+      <a class="docs-brand brand-lockup brand-lockup-vertical" href="../" aria-label="Markover home">
+        <img class="brand-lockup-logo" src="../assets/markover-lockup.svg" alt="Markover">
+        <span class="brand-lockup-tagline">Structured review for Markdown.</span>
+      </a>
+      <nav class="docs-nav" aria-label="Documentation">
+        <p>Guide</p>
+        <a href="../guide/">Getting started</a>
+        <p>Agents</p>
+        <a href="#overview" aria-current="page">Agent workflow</a>
+        <a href="#open">Open a review</a>
+        <a href="#wait">Wait for the reviewer</a>
+        <a href="#get">Retrieve the handoff</a>
+        <a href="#edit">Reopen feedback</a>
+        <a href="#interpretation">Interpret feedback</a>
+        <p>Reference</p>
+        <a href="../privacy/">Privacy and local data</a>
+        <a href="../limitations/">Markdown and limitations</a>
+        <a href="https://github.com/lastobelus/markover/discussions">Support</a>
+        <p>Contributors</p>
+        <a href="https://github.com/lastobelus/markover/blob/main/AGENTS.md">Repository agent guidance</a>
+        <a href="https://github.com/lastobelus/markover">Source</a>
+      </nav>
+      <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
+    </aside>
+
+    <header class="docs-mobile-header">
+      <a href="../"><img src="../assets/markover-mark.svg" alt=""><span>Markover docs</span></a>
+      <a href="../guide/">User guide</a>
+    </header>
+
+    <main class="docs-content">
+      <p class="eyebrow">For agents</p>
+      <h1 id="overview">Review a Markdown document with Markover</h1>
+      <p class="docs-lede">This page is for coding agents and tool authors. Human reviewers should start with the <a href="../guide/">user guide</a>.</p>
+
+      <section id="open">
+        <h2>Open one review</h2>
+        <p>Give Markover one Markdown path and a short summary of why the document exists and what feedback would help:</p>
+        <pre><code>npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover open ./DOCUMENT.md \
+  --summary "Review these decisions before implementation."</code></pre>
+        <p>On first use, the launcher downloads the Apple Silicon app; verifies its checksum, bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and code seal; then atomically caches it. A successful command exits promptly with one JSON value:</p>
+        <pre><code>{"reviewId":"mko_8f3a2c","status":"editing","reviewUrl":"markover://review/mko_8f3a2c"}</code></pre>
+        <div class="callout"><strong>Retain the review ID.</strong> It is the stable identifier for every later operation on this review.</div>
+        <p>Give the reviewer all three opening aids: a best-effort <code>[Open in Markover](&lt;reviewUrl&gt;)</code> link, the raw review ID, and this Terminal fallback alone on its own line:</p>
+        <pre><code>open 'markover://review/mko_8f3a2c'</code></pre>
+        <p>Custom-scheme links work through macOS, but agent hosts including T3 Code and Codex may strip or decline them. The standalone command is the reliable handoff.</p>
+      </section>
+
+      <section id="wait">
+        <h2>Stop and wait for the reviewer</h2>
+        <p>After <code>open</code> succeeds and you have given the reviewer the link, raw review ID, and Terminal fallback, stop. Do not poll Markover or wait through a blocking process. The reviewer can work in Markover for as long as needed.</p>
+        <p>Retrieve the handoff once, only after the reviewer says “Check Markover” or otherwise clearly says the review is ready.</p>
+      </section>
+
+      <section id="get">
+        <h2>Retrieve one frozen handoff</h2>
+        <p>Use the retained review ID:</p>
+        <pre><code>npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover get mko_8f3a2c</code></pre>
+        <p><code>get</code> freezes the latest review, marks it read-only in Markover, and returns one JSON object containing the exact source and checksum, document tree, annotations, attachments, source proposals, review context, and agent guidance. Repeating <code>get</code> is idempotent, but ordinary agent workflow retrieves once and acts on that result.</p>
+      </section>
+
+      <section id="edit">
+        <h2>Reopen feedback only when requested</h2>
+        <p>If the reviewer needs to add or correct feedback after handoff, return the same review to editing:</p>
+        <pre><code>npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover edit mko_8f3a2c</code></pre>
+        <p>Retain the same review ID, stop again, and wait for another explicit request to retrieve it.</p>
+      </section>
+
+      <section id="interpretation">
+        <h2>Interpret feedback by intent</h2>
+        <p>Annotations are free-form. One annotation can request a revision, ask a question, discuss a tradeoff, and provide context. Every handoff includes a fixed contract under <code>review.agentGuidance.fixedContract</code>: interpret each part by its apparent intent, explicitly acknowledge every question, and treat exact source edits as context-dependent proposals.</p>
+        <p>The handoff also carries the review's snapshotted <code>review.agentGuidance.interpretationPolicy</code>. Follow both fields before acting. Markover carries this guidance; it does not classify annotations into rigid types or apply changes itself.</p>
+
+        <h3>Default policy</h3>
+        <pre><code>Use your judgment to respond to the review and make useful revisions. Ask for clarification when needed.</code></pre>
+        <p>A question may reveal an obvious useful revision without requiring another round trip, but the response must still acknowledge the question. For example:</p>
+        <pre><code>Removed X—you were right that it had no place there.</code></pre>
+
+        <h3>Possible stricter policies</h3>
+        <p>A reviewer may replace the default interpretation policy in Markover settings before opening the review. These examples are starting points, not required formats.</p>
+        <p>Ask before uncertain changes:</p>
+        <pre><code>Apply clear revision requests. Answer every question directly. Before making a change whose intent or effect is materially uncertain, ask for clarification.</code></pre>
+        <p>Use an explicit completion summary:</p>
+        <pre><code>Handle feedback in document order. In your final response, summarize revisions made, answer every question, and list anything left unresolved.</code></pre>
+      </section>
+
+      <nav class="docs-next" aria-label="Next page">
+        <span>Understand the review boundary</span>
+        <a href="../privacy/">Privacy, storage, and recovery →</a>
+      </nav>
+    </main>
+  </body>
+</html>

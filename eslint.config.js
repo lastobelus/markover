@@ -116,7 +116,7 @@ module.exports = defineConfig([
     }
   },
   {
-    files: ['docs/site.ts'],
+    files: ['docs/user/site.ts'],
     languageOptions: {
       globals: globals.browser,
       sourceType: 'script'
