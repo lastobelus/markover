@@ -2782,7 +2782,11 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
   closeImagePreview()
   const next = reviewSessions.recent(1)[0]
   if (next) {
-    await activateReview(next.reviewId)
+    const outcome = await activateReview(next.reviewId)
+    if (outcome === 'activated' || outcome === 'already-active') {
+      if (incomingReviewNoticeId === next.reviewId) hideIncomingReviewNotice()
+      if (incomingReviewWarningId === next.reviewId) clearIncomingReviewWarning()
+    }
   } else {
     renderDocumentTabs()
     setWorkspaceEmpty(true)

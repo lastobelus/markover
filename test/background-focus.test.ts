@@ -158,6 +158,10 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
+    /const outcome = await activateReview\(next\.reviewId\)[\s\S]*outcome === 'activated'[\s\S]*incomingReviewNoticeId === next\.reviewId[\s\S]*hideIncomingReviewNotice\(\)[\s\S]*incomingReviewWarningId === next\.reviewId[\s\S]*clearIncomingReviewWarning\(\)/
+  )
+  assert.match(
+    renderer,
     /function openImagePreview[\s\S]*imagePreview\.hidden = false[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeImagePreview[\s\S]*imagePreview\.hidden = true[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
   )
   assert.match(
