@@ -65,7 +65,7 @@ function evaluate(
   }
 }
 
-test('start-issue corpus covers the ten coordination branches', () => {
+test('start-issue corpus covers the eleven coordination branches', () => {
   assert.deepEqual(cases.map(({ id }) => id), [
     'untracked-single-session-work-uses-direct-pr',
     'untracked-durable-work-uses-issue',
@@ -75,7 +75,8 @@ test('start-issue corpus covers the ten coordination branches', () => {
     'post-claim-scan-reconstructs-unmarked-items',
     'merged-pr-followup-apply-now-reuses-tracker',
     'merged-pr-followup-issue-only-chooses-tracker',
-    'open-pr-markover-review-uses-development-instance',
+    'open-pr-artifact-review-uses-canonical-instance',
+    'requested-dev-instance-opens-pr-checklist',
     'numbered-slices-use-slice-pr-language'
   ])
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
@@ -119,7 +120,7 @@ test('branch-only guidance is progressively disclosed', () => {
   )
   assert.match(
     skillSource,
-    /PR-local Markover:[\s\S]*references\/markover-review\.md/
+    /Markover instance selection:[\s\S]*references\/markover-review\.md/
   )
 
   assert.match(readReference('work-item-routing.md'), /## Follow-up after merge/)
@@ -127,7 +128,10 @@ test('branch-only guidance is progressively disclosed', () => {
   assert.match(readReference('interview.md'), /# Implementation interview/)
   assert.match(readReference('existing-claim.md'), /# Existing work-intent claim/)
   const markoverReference = readReference('markover-review.md')
+  assert.match(markoverReference, /Use canonical for reviews of plans/)
   assert.match(markoverReference, /--instance dev open PATH/)
+  assert.match(markoverReference, /tmp\/pr-N-dev-checklist\.md/)
+  assert.match(markoverReference, /do not launch the instance separately/)
   assert.doesNotMatch(markoverReference, /open '<reviewUrl>'/)
 })
 

@@ -631,8 +631,8 @@
     }
   },
   {
-    "id": "open-pr-markover-review-uses-development-instance",
-    "description": "A new Markover review for an open pull request stays inside that pull request worktree and retains its instance selector through handoff.",
+    "id": "open-pr-artifact-review-uses-canonical-instance",
+    "description": "An ordinary plan or artifact review uses canonical even while its work belongs to an open pull request.",
     "provenance": {
       "kind": "synthetic",
       "sourceThreadIds": []
@@ -644,17 +644,69 @@
       "checkout": {
         "matchesTargetPullRequest": true
       },
-      "markoverAction": "open-new-review"
+      "markoverAction": "review-plan-or-artifact",
+      "developmentInstanceRequested": false
+    },
+    "requiredActions": [
+      "markover-instance-selected:canonical",
+      "review-id-retained:with-instance-selector",
+      "markover-get-edit-targeted:same-instance"
+    ],
+    "forbiddenActions": [
+      "markover-instance-selected:development-from-open-pr-alone",
+      "review-id-routed:across-instances"
+    ],
+    "controls": {
+      "positive": [
+        "markover-instance-selected:canonical",
+        "review-id-retained:with-instance-selector",
+        "markover-get-edit-targeted:same-instance"
+      ],
+      "negative": {
+        "signals": [
+          "markover-instance-selected:development-from-open-pr-alone",
+          "review-id-routed:across-instances"
+        ],
+        "expectedMissing": [
+          "markover-instance-selected:canonical",
+          "review-id-retained:with-instance-selector",
+          "markover-get-edit-targeted:same-instance"
+        ],
+        "expectedForbidden": [
+          "markover-instance-selected:development-from-open-pr-alone",
+          "review-id-routed:across-instances"
+        ]
+      }
+    }
+  },
+  {
+    "id": "requested-dev-instance-opens-pr-checklist",
+    "description": "An explicit request for a development instance cold-starts the current PR instance with a short PR-specific review checklist instead of an empty splash screen.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "open-pull-request"
+      },
+      "checkout": {
+        "matchesTargetPullRequest": true
+      },
+      "markoverAction": "run-development-instance",
+      "documentSupplied": false
     },
     "requiredActions": [
       "markover-instance-selected:development",
-      "markover-open-targeted:current-pr-worktree",
+      "dev-checklist-created:tmp-pr-specific",
+      "markover-open-targeted:checklist-in-current-pr-worktree",
       "review-id-retained:with-instance-selector",
       "markover-get-edit-targeted:same-instance",
       "pr-instance-state-preserved:routine-handoff"
     ],
     "forbiddenActions": [
-      "markover-instance-selected:canonical-for-new-pr-review",
+      "development-instance-launched:splash-only",
+      "dev-checklist-created:generic-filler",
       "review-id-routed:across-instances",
       "checkout-mutated:instance-resolution",
       "pr-instance-cleanup:auto"
@@ -662,27 +714,31 @@
     "controls": {
       "positive": [
         "markover-instance-selected:development",
-        "markover-open-targeted:current-pr-worktree",
+        "dev-checklist-created:tmp-pr-specific",
+        "markover-open-targeted:checklist-in-current-pr-worktree",
         "review-id-retained:with-instance-selector",
         "markover-get-edit-targeted:same-instance",
         "pr-instance-state-preserved:routine-handoff"
       ],
       "negative": {
         "signals": [
-          "markover-instance-selected:canonical-for-new-pr-review",
+          "development-instance-launched:splash-only",
+          "dev-checklist-created:generic-filler",
           "review-id-routed:across-instances",
           "checkout-mutated:instance-resolution",
           "pr-instance-cleanup:auto"
         ],
         "expectedMissing": [
           "markover-instance-selected:development",
-          "markover-open-targeted:current-pr-worktree",
+          "dev-checklist-created:tmp-pr-specific",
+          "markover-open-targeted:checklist-in-current-pr-worktree",
           "review-id-retained:with-instance-selector",
           "markover-get-edit-targeted:same-instance",
           "pr-instance-state-preserved:routine-handoff"
         ],
         "expectedForbidden": [
-          "markover-instance-selected:canonical-for-new-pr-review",
+          "development-instance-launched:splash-only",
+          "dev-checklist-created:generic-filler",
           "review-id-routed:across-instances",
           "checkout-mutated:instance-resolution",
           "pr-instance-cleanup:auto"
