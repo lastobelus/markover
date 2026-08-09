@@ -1,5 +1,64 @@
 [
   {
+    "id": "initial-issue-heading-precedes-interview",
+    "description": "A numbered start-issue request emits the exact GitHub issue title in the required heading before orientation or interview content can shape the thread title.",
+    "provenance": {
+      "kind": "synthetic",
+      "sourceThreadIds": []
+    },
+    "observations": {
+      "workItem": {
+        "state": "existing-issue",
+        "number": 101,
+        "title": "Keep the decision register reconciled with main using a local Codex gardener"
+      },
+      "interviewRequired": true
+    },
+    "requiredActions": [
+      "issue-heading-emitted:exact-number-and-title",
+      "issue-heading-format:h1-number-colon-title",
+      "issue-link-emitted:number-and-live-url",
+      "issue-identity-emitted:before-orientation-and-interview"
+    ],
+    "forbiddenActions": [
+      "issue-heading-format:em-dash",
+      "issue-link-omitted",
+      "issue-link-number:mismatched",
+      "orientation-started:before-issue-identity",
+      "interview-started:before-issue-identity"
+    ],
+    "controls": {
+      "positive": [
+        "issue-heading-emitted:exact-number-and-title",
+        "issue-heading-format:h1-number-colon-title",
+        "issue-link-emitted:number-and-live-url",
+        "issue-identity-emitted:before-orientation-and-interview"
+      ],
+      "negative": {
+        "signals": [
+          "issue-heading-format:em-dash",
+          "issue-link-omitted",
+          "issue-link-number:mismatched",
+          "orientation-started:before-issue-identity",
+          "interview-started:before-issue-identity"
+        ],
+        "expectedMissing": [
+          "issue-heading-emitted:exact-number-and-title",
+          "issue-heading-format:h1-number-colon-title",
+          "issue-link-emitted:number-and-live-url",
+          "issue-identity-emitted:before-orientation-and-interview"
+        ],
+        "expectedForbidden": [
+          "issue-heading-format:em-dash",
+          "issue-link-omitted",
+          "issue-link-number:mismatched",
+          "orientation-started:before-issue-identity",
+          "interview-started:before-issue-identity"
+        ]
+      }
+    }
+  },
+  {
     "id": "untracked-single-session-work-uses-direct-pr",
     "description": "Fresh work bounded to one pull request and one session selects a tracker, then creates only the tracked pull request.",
     "provenance": {

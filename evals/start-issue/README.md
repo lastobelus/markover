@@ -20,6 +20,10 @@ Every positive control contains all required actions and no forbidden action.
 Every negative control declares the exact missing and forbidden actions its
 trace must produce, preventing an unrelated failure from satisfying the test.
 
+The initial-heading case protects the semantic thread-title seed: the exact
+GitHub issue number and title appear as `# #XX: Title`, immediately followed by
+`[#XX on github](ITEM_URL)`, before orientation or interview content.
+
 The two fresh-work cases distinguish delivery shape without requiring GitHub
 state: one PR in one session uses that PR as its only work item; work that may
 span PRs or sessions, coordinates roadmap items, or is scheduled for later uses

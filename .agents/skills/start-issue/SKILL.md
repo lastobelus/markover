@@ -13,14 +13,20 @@ order.
 
 ## How to respond to initial start-issue prompt
 
-Resolve the live issue number and full GitHub title before the first response.
-Start that response with this shape:
+Resolve the live issue number, exact GitHub title, and item URL as the first
+lookup. Then immediately emit this identity block as the first substantive
+response:
 
 ```markdown
-# #52—Open a specific review through a clickable Markover deep link
+# #52: Open a specific review through a clickable Markover deep link
+[#52 on github](https://github.com/lastobelus/markover/issues/52)
 
 I’m checking its trackers, existing claim, and inflight overlap before proceeding.
 ```
+
+Treat both identity lines as an emission gate: complete them before continuing
+tracker discovery, inflight scanning, or an interview. Place no decision,
+question, activity summary, or recommendation before them.
 
 ## 1. Orient and select tracking
 
