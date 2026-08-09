@@ -51,6 +51,7 @@ declare global {
   type ResolvedAppearance = 'light' | 'dark'
   type TreeDensity = 'comfortable' | 'compact'
   type AnnotationTextSize = 'small' | 'medium' | 'large'
+  type ZoomPercent = 80 | 90 | 100 | 110 | 125 | 150
   type DefaultTreeView = 'all' | 'annotated'
   type IncomingReviewActivationPolicy =
     | 'never'
@@ -76,6 +77,7 @@ declare global {
     appearance: Appearance
     treeDensity: TreeDensity
     annotationTextSize: AnnotationTextSize
+    zoomPercent: ZoomPercent
     showKeyboardHelp: boolean
     openDocumentsSidebar: boolean
     defaultTreeView: DefaultTreeView
@@ -105,6 +107,7 @@ declare global {
 
   interface MarkoverSettingsApi {
     DEFAULT_SETTINGS: Readonly<MarkoverSettings>
+    ZOOM_LEVELS: readonly ZoomPercent[]
     DARK_COLORIZATION: Readonly<Record<Palette, DarkColorization>>
     WINDOW_BACKGROUNDS: Readonly<{
       light: Readonly<Record<Palette, string>>
@@ -117,11 +120,16 @@ declare global {
       appearance: readonly Appearance[]
       treeDensity: readonly TreeDensity[]
       annotationTextSize: readonly AnnotationTextSize[]
+      zoomPercent: readonly ZoomPercent[]
       defaultTreeView: readonly DefaultTreeView[]
       incomingReviewActivationPolicy: readonly IncomingReviewActivationPolicy[]
     }>
     normalizeSettings: (value?: unknown) => MarkoverSettings
     updateSettings: (current: unknown, patch: unknown) => MarkoverSettings
+    adjacentZoomPercent: (
+      current: ZoomPercent,
+      direction: -1 | 1
+    ) => ZoomPercent
     windowBackground: (
       settings: unknown,
       resolvedAppearance?: string

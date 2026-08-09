@@ -8,6 +8,7 @@ import { JSDOM } from 'jsdom'
 import { SettingsStore } from '../src/settings-store'
 
 const {
+  adjacentZoomPercent,
   applySettingsToView,
   confirmScreenshotRemoval,
   darkColorization,
@@ -15,7 +16,8 @@ const {
   normalizeSettings,
   sidebarPreferenceChanged,
   updateSettings,
-  windowBackground
+  windowBackground,
+  ZOOM_LEVELS
 } = require('../src/settings') as MarkoverSettingsApi
 
 const root = path.resolve(__dirname, '../..')
@@ -34,6 +36,7 @@ test('settings defaults cover the persisted preferences', () => {
     'appearance',
     'treeDensity',
     'annotationTextSize',
+    'zoomPercent',
     'showKeyboardHelp',
     'openDocumentsSidebar',
     'defaultTreeView',
@@ -53,6 +56,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     appearance: 'dark',
     treeDensity: 'compact',
     annotationTextSize: 'large',
+    zoomPercent: 125,
     showKeyboardHelp: false,
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
@@ -69,6 +73,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     appearance: 'dark',
     treeDensity: 'compact',
     annotationTextSize: 'large',
+    zoomPercent: 125,
     showKeyboardHelp: false,
     openDocumentsSidebar: false,
     defaultTreeView: 'annotated',
@@ -84,6 +89,20 @@ test('settings normalization accepts known choices and rejects unknown values', 
   assert.deepEqual(normalizeSettings({ palette: 'neon', appearance: 42 }), {
     ...DEFAULT_SETTINGS
   })
+})
+
+test('zoom levels advance through the supported bounds only', () => {
+  assert.deepEqual(ZOOM_LEVELS, [80, 90, 100, 110, 125, 150])
+  assert.equal(adjacentZoomPercent(100, 1), 110)
+  assert.equal(adjacentZoomPercent(100, -1), 90)
+  assert.equal(adjacentZoomPercent(80, -1), 80)
+  assert.equal(adjacentZoomPercent(150, 1), 150)
+  for (const value of ZOOM_LEVELS) {
+    assert.equal(normalizeSettings({ zoomPercent: value }).zoomPercent, value)
+  }
+  for (const value of [79, 85, 120, 151, '100', null]) {
+    assert.equal(normalizeSettings({ zoomPercent: value }).zoomPercent, 100)
+  }
 })
 
 test('autosave maximum delay accepts only integer values in the safe range', () => {
@@ -171,6 +190,7 @@ test('renderer settings apply immediately and reset through the same path', () =
   applySettingsToView({
     ...DEFAULT_SETTINGS,
     palette: 'ocean',
+    zoomPercent: 125,
     resolvedAppearance: 'dark',
     treeDensity: 'compact',
     annotationTextSize: 'large',
@@ -242,6 +262,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   assert.deepEqual(await store.load(), { ...DEFAULT_SETTINGS })
   await store.update({
     palette: 'ocean',
+    zoomPercent: 125,
     showKeyboardHelp: false,
     discoverAgentThreadFromLocalSessions: false,
     incomingReviewActivationPolicy: 'when-idle',
@@ -252,6 +273,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
 
   const restored = new SettingsStore(filePath)
   assert.equal((await restored.load()).palette, 'ocean')
+  assert.equal(restored.settings.zoomPercent, 125)
   assert.equal(restored.settings.showKeyboardHelp, false)
   assert.equal(restored.settings.discoverAgentThreadFromLocalSessions, false)
   assert.equal(restored.settings.incomingReviewActivationPolicy, 'when-idle')
@@ -417,10 +439,11 @@ test('settings are discoverable from the native menu and wired to a complete dia
     /bridge\.updateSettings\([\s\S]*\.catch\(\(\) => \{[\s\S]*restoreSettingsForm\(\)/
   )
   const dialogSettings = Object.keys(DEFAULT_SETTINGS).filter(
-    (key) => key !== 'autosaveMaximumDelayMs'
+    (key) => key !== 'autosaveMaximumDelayMs' && key !== 'zoomPercent'
   )
   for (const key of dialogSettings) {
     assert.match(html, new RegExp(`name="${key}"`))
   }
   assert.doesNotMatch(html, /name="autosaveMaximumDelayMs"/)
+  assert.doesNotMatch(html, /name="zoomPercent"/)
 })

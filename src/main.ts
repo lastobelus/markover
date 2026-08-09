@@ -84,9 +84,11 @@ import {
 } from './startup-contract'
 import { StartupDiagnostic } from './startup-diagnostic'
 import {
+  adjacentZoomPercent,
   darkColorization,
   DEFAULT_SETTINGS,
-  windowBackground
+  windowBackground,
+  ZOOM_LEVELS
 } from './settings'
 
 interface ReviewConfig {
@@ -197,6 +199,7 @@ let localServiceIdentity: ServiceIdentity | null = null
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
 let settingsUnsubscribe: (() => void) | null = null
+let zoomWriter: Promise<void> = Promise.resolve()
 let managedAutosave: ReviewAutosave | null = null
 let pendingAutosave: string | null = null
 let autosaveWriter: Promise<void> | null = null
@@ -445,13 +448,33 @@ function applyMainSettings(
 ): MarkoverSettingsEnvelope {
   nativeTheme.themeSource = settings.appearance
   const envelope = settingsEnvelope(settings)
-  mainWindow?.setBackgroundColor(
-    windowBackground(settings, envelope.resolvedAppearance)
-  )
-  if (broadcast && mainWindow) {
-    sendMainEvent(mainWindow.webContents, 'settings:changed', envelope)
+  const window = mainWindow
+  if (window && !window.isDestroyed()) {
+    window.setBackgroundColor(
+      windowBackground(settings, envelope.resolvedAppearance)
+    )
+    window.webContents.setZoomFactor(settings.zoomPercent / 100)
+  }
+  if (broadcast && window && !window.isDestroyed()) {
+    sendMainEvent(window.webContents, 'settings:changed', envelope)
   }
   return envelope
+}
+
+function requestZoomPercent(
+  resolveNext: (current: ZoomPercent) => ZoomPercent
+): void {
+  const operation = zoomWriter.catch(() => undefined).then(async () => {
+    const store = settingsStore
+    if (!store) throw new Error('Markover settings are unavailable.')
+    const next = resolveNext(store.settings.zoomPercent)
+    if (next === store.settings.zoomPercent) return
+    const settings = await store.update({ zoomPercent: next })
+    applyMainSettings(settings)
+    installApplicationMenu()
+  })
+  zoomWriter = operation.then(() => undefined, () => undefined)
+  void operation.catch(showZoomOperationError)
 }
 
 function sendMainEvent(
@@ -483,16 +506,25 @@ function sendRendererEvent(
 }
 
 function installApplicationMenu(): void {
+  const zoomPercent = settingsStore?.settings.zoomPercent ??
+    DEFAULT_SETTINGS.zoomPercent
+  const zoomIndex = ZOOM_LEVELS.indexOf(zoomPercent)
   const template = applicationMenuTemplate({
     appName: addressedInstance.branding.appName,
     canCleanUpAttachments: !reviewMode,
+    canResetZoom: zoomPercent !== DEFAULT_SETTINGS.zoomPercent,
     canTrashReview: !reviewMode && activeManagedReviewId !== null,
+    canZoomIn: zoomIndex < ZOOM_LEVELS.length - 1,
+    canZoomOut: zoomIndex > 0,
     reviewMode,
     onCleanUpAttachments: () => {
       void cleanUpUnusedAttachments().catch(showReviewOperationError)
     },
     onOpen: () => {
       sendRendererEvent('document:open-request')
+    },
+    onResetZoom: () => {
+      requestZoomPercent(() => DEFAULT_SETTINGS.zoomPercent)
     },
     onSettings: () => {
       sendRendererEvent('settings:open')
@@ -503,6 +535,12 @@ function installApplicationMenu(): void {
           showReviewOperationError
         )
       }
+    },
+    onZoomIn: () => {
+      requestZoomPercent((current) => adjacentZoomPercent(current, 1))
+    },
+    onZoomOut: () => {
+      requestZoomPercent((current) => adjacentZoomPercent(current, -1))
     }
   })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
@@ -532,6 +570,21 @@ async function showReviewOperationError(error: unknown): Promise<void> {
     defaultId: 0,
     noLink: true,
     message: 'Markover could not complete that review operation.',
+    detail: errorMessage(error)
+  }
+  const window = mainWindow
+  if (window && !window.isDestroyed()) await dialog.showMessageBox(window, options)
+  else await dialog.showMessageBox(options)
+}
+
+async function showZoomOperationError(error: unknown): Promise<void> {
+  process.stderr.write(`markover zoom: ${errorMessage(error)}\n`)
+  const options = {
+    type: 'error' as const,
+    buttons: ['OK'],
+    defaultId: 0,
+    noLink: true,
+    message: 'Markover could not save the zoom level.',
     detail: errorMessage(error)
   }
   const window = mainWindow
@@ -993,6 +1046,7 @@ function createWindow(
     }
   })
   mainWindow = window
+  window.webContents.setZoomFactor(startupSettings.zoomPercent / 100)
   mainWindowBlurredAt = window.isFocused()
     ? null
     : mainWindowBlurredAt ?? Date.now()
@@ -1012,6 +1066,9 @@ function createWindow(
   installRendererSecurityBoundaries(window.webContents)
   void window.loadFile(entryPath, { query })
   window.webContents.on('did-finish-load', () => {
+    window.webContents.setZoomFactor(
+      (settingsStore?.settings.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent) / 100
+    )
     mainWindow?.setTitle(reviewMode
       ? `${addressedInstance.branding.appName} Review`
       : `${addressedInstance.branding.appName} Inbox`)
@@ -1743,6 +1800,7 @@ if (!hasSingleInstanceLock) {
     nativeTheme.themeSource = initialSettings.appearance
     settingsUnsubscribe = await store.subscribe((settings) => {
       applyMainSettings(settings)
+      installApplicationMenu()
     })
     if (store.lastRecoveryWarning) {
       await recordStartupWarnings([{
@@ -1923,7 +1981,9 @@ if (!hasSingleInstanceLock) {
       patch: unknown
     ) => {
       const settings = await store.update(patch)
-      return applyMainSettings(settings)
+      const envelope = applyMainSettings(settings)
+      installApplicationMenu()
+      return envelope
     })
     privilegedIpc.handle('window:focus-state:get', currentWindowFocusState)
     privilegedIpc.handle('review:initial-document', () => (
