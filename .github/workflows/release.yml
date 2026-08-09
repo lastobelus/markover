@@ -9,6 +9,7 @@ permissions: {}
 
 jobs:
   test:
+    name: Release candidate (Node 22.13.0)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

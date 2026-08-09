@@ -222,8 +222,10 @@ test('developer release runbook preserves provenance and rollback boundaries', (
   for (const source of sources) assert.match(source, /releas(?:e|ing)\.md/)
 })
 
-test('continuous integration enforces the supported Node versions', () => {
+test('ordinary workflows use Node 24 and release candidates cover Node 22', () => {
   const workflow = read('.github/workflows/ci.yml')
+  const pagesWorkflow = read('.github/workflows/pages.yml')
+  const releaseWorkflow = read('.github/workflows/release.yml')
   const developmentGuide = read('docs/developer/development.md')
   const rootPackage = readJson('package.json') as PackageManifest
   const cliPackage = readJson('packages/cli/package.json') as PackageManifest
@@ -233,9 +235,13 @@ test('continuous integration enforces the supported Node versions', () => {
   assert.match(workflow, /pull_request:/)
   assert.match(workflow, /workflow_dispatch:/)
   assert.match(workflow, /timeout-minutes: 3/)
-  assert.match(workflow, /fail-fast: false/)
-  assert.match(workflow, /- '22\.13\.0'/)
-  assert.match(workflow, /- '24'/)
+  assert.match(workflow, /name: Verify \(Node 24\)/)
+  assert.equal((workflow.match(/node-version: '24'/g) || []).length, 1)
+  assert.doesNotMatch(workflow, /22\.13\.0/)
+  assert.match(pagesWorkflow, /node-version: '24'/)
+  assert.doesNotMatch(pagesWorkflow, /22\.13\.0/)
+  assert.match(releaseWorkflow, /name: Release candidate \(Node 22\.13\.0\)/)
+  assert.match(releaseWorkflow, /node-version: 22\.13\.0/)
   assert.match(workflow, /persist-credentials: false/)
   assert.match(workflow, /permissions:\n {2}contents: read/)
   assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/)
@@ -256,6 +262,7 @@ test('continuous integration enforces the supported Node versions', () => {
     (workflow.match(/Run bundled Electron smoke/g) || []).length,
     1
   )
+  assert.doesNotMatch(workflow, /matrix\.node-version/)
   assert.match(workflow, /retention-days: 7/)
   assert.match(workflow, /git diff --exit-code/)
   assert.equal(rootPackage.scripts.pretest, 'install-electron --no')

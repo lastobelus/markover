@@ -220,9 +220,11 @@ These controls are rejected for packaged applications and disabled in smoke.
 The tests cover the Markdown tree, navigation, review sessions and persistence,
 the local service and CLI protocol, settings, startup/readiness, the staged
 application, source-edit proposals, release artifacts, and the documentation
-site. Hosted CI runs the live Electron smoke once at the minimum supported Node
-version with a 60-second deadline and retains only a small failure-evidence
-bundle for seven days.
+site. Ordinary hosted CI runs static checks, tests, and the live Electron smoke
+on Node 24. The live smoke has a 60-second deadline and retains only a small
+failure-evidence bundle for seven days. The tag-triggered release workflow
+reruns the checks on the minimum supported Node 22.13.0 and owns packaged smoke
+before assembling a release candidate.
 
 Node's test runner retains its default test-file concurrency. Keep it enabled
 unless profiling demonstrates that a different setting improves the complete
@@ -255,7 +257,7 @@ gh api --method PUT \
 ### Main branch policy
 
 Protect `main` with a repository ruleset that requires pull requests, requires
-both Node.js CI jobs to pass against the latest `main`, and requires review
+the Node 24 verification check to pass against the latest `main`, and requires review
 conversations to be resolved. Do not require an approval while Markover has a
 single maintainer. Allow emergency bypass only through a pull request so the
 change and its CI result remain visible. Use squash merges; disable merge
@@ -336,8 +338,8 @@ commands preserve JSON-only stdout.
 
 The root package and `packages/cli` versions must match. A stable release tag
 named `vX.Y.Z` must match that version, be strictly newer than the preceding
-stable release, point to protected `main`, and already have both required CI
-checks. Before tagging, verify the external GitHub safeguards:
+stable release, point to protected `main`, and already have the required Node
+24 CI check. Before tagging, verify the external GitHub safeguards:
 
 ```sh
 npm run release:preflight -- github-readiness \
@@ -346,7 +348,8 @@ npm run release:preflight -- github-readiness \
 
 The GitHub release workflow then:
 
-1. Revalidates the tag contract and tests the repository.
+1. Revalidates the tag contract and tests the release candidate on the minimum
+   supported Node 22.13.0.
 2. Builds and verifies the native Apple Silicon app and matching CLI in
    unprivileged jobs. Native Intel release activation is deferred to issue #80.
 3. Independently rehashes the complete payload set and generates GitHub
