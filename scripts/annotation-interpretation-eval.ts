@@ -202,7 +202,6 @@ const commonConfigOverrides = Object.freeze([
   'apps._default.enabled=false',
   'web_search="disabled"',
   'tools.web_search=false',
-  'tools.view_image=false',
   'features.skill_mcp_dependency_install=false',
   'shell_environment_policy.inherit="core"',
   'shell_environment_policy.ignore_default_excludes=false',

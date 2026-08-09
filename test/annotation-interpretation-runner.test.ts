@@ -87,6 +87,7 @@ test('Codex commands isolate config, tools, network, sessions, and reasoning', (
     assert.ok(args.includes('apps._default.enabled=false'))
     assert.ok(args.includes('web_search="disabled"'))
     assert.ok(args.includes('project_doc_max_bytes=0'))
+    assert.ok(!args.some((arg) => arg.startsWith('tools.view_image=')))
   }
   assert.ok(agentArgs.includes('model_reasoning_effort="medium"'))
   assert.ok(agentArgs.includes('sandbox_workspace_write.network_access=false'))
