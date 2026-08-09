@@ -29,6 +29,249 @@
         Quit Markover
       </button>
     </section>
+
+    <section
+      id="inbox-prototype"
+      class="inbox-prototype"
+      aria-label="Development-only review inbox prototype"
+      hidden
+    >
+      <input
+        id="inbox-prototype-inbox"
+        class="inbox-prototype-mode-input"
+        type="radio"
+        name="inbox-prototype-mode"
+        checked
+      >
+      <input
+        id="inbox-prototype-projects"
+        class="inbox-prototype-mode-input"
+        type="radio"
+        name="inbox-prototype-mode"
+      >
+
+      <header class="inbox-prototype-app-header">
+        <div class="inbox-prototype-brand" role="img" aria-label="Markover">
+          <img
+            class="inbox-prototype-brand-mark"
+            src="../design/brand/markover-mark.svg"
+            alt=""
+            aria-hidden="true"
+          >
+          <img
+            class="inbox-prototype-brand-logotype"
+            src="../design/brand/markover-logotype.svg"
+            alt=""
+            aria-hidden="true"
+          >
+          <span class="inbox-prototype-development-badge">UI prototype</span>
+        </div>
+        <div class="inbox-prototype-document-meta">
+          <strong>2026-08-09__review-inbox-management.md</strong>
+          <span>markover · #97 Improve inbox / review management</span>
+        </div>
+        <span class="inbox-prototype-status">Editing</span>
+      </header>
+
+      <div class="inbox-prototype-tab-strip">
+        <div class="inbox-prototype-navigation-tabs" role="tablist" aria-label="Review organization">
+          <label for="inbox-prototype-inbox" role="tab">Inbox <span>5</span></label>
+          <label for="inbox-prototype-projects" role="tab">Projects</label>
+        </div>
+        <div class="inbox-prototype-document-tabs" role="tablist" aria-label="Open review working set">
+          <button class="inbox-prototype-document-tab is-active" type="button" role="tab" aria-selected="true">
+            <span>Review inbox management</span><i>Editing</i><b aria-label="Close tab">×</b>
+          </button>
+          <button class="inbox-prototype-document-tab" type="button" role="tab" aria-selected="false">
+            <span>2026-08-09__review-inbox-layout-follow-up.md</span><i>Editing</i><b aria-label="Close tab">×</b>
+          </button>
+          <button class="inbox-prototype-document-tab" type="button" role="tab" aria-selected="false">
+            <span>product-notes.md</span><b aria-label="Close tab">×</b>
+          </button>
+        </div>
+      </div>
+
+      <main class="inbox-prototype-workspace">
+        <aside class="inbox-prototype-review-pane">
+          <header class="inbox-prototype-pane-header">
+            <span class="eyebrow">Reviews</span>
+            <span class="inbox-prototype-count">5 need review</span>
+          </header>
+
+          <section class="inbox-prototype-inbox-panel" aria-label="Inbox">
+            <div class="inbox-prototype-section-heading">
+              <strong>Needs review</strong>
+              <span>Recent first</span>
+            </div>
+            <ul class="inbox-prototype-review-list">
+              <li>
+                <button class="inbox-prototype-review-row is-selected" type="button">
+                  <span class="inbox-prototype-project-icon is-markover">
+                    <img src="../design/brand/markover-mark.svg" alt="Markover project">
+                    <i></i>
+                  </span>
+                  <span class="inbox-prototype-review-copy">
+                    <span class="inbox-prototype-row-meta"><span>markover · inbox-spec.md</span><time>8m</time></span>
+                    <span class="inbox-prototype-thread-title"><i class="is-codex" title="Codex">✣</i><strong>Improve inbox / review management</strong></span>
+                    <span class="inbox-prototype-row-meta"><span>t3code/review-inbox-management</span><span>PR —</span></span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="inbox-prototype-review-row" type="button">
+                  <span class="inbox-prototype-project-icon is-markover">
+                    <img src="../design/brand/markover-mark.svg" alt="Markover project">
+                    <i></i>
+                  </span>
+                  <span class="inbox-prototype-review-copy">
+                    <span class="inbox-prototype-row-meta"><span>markover · 2026-08-09__review-inbox-layout-follow-up.md</span><time>14m</time></span>
+                    <span class="inbox-prototype-thread-title"><i class="is-codex" title="Codex">✣</i><strong>Improve inbox / review management</strong></span>
+                    <span class="inbox-prototype-row-meta"><span>t3code/review-inbox-management</span><span>PR —</span></span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="inbox-prototype-review-row" type="button">
+                  <span class="inbox-prototype-project-icon is-markover">
+                    <img src="../design/brand/markover-mark.svg" alt="Markover project">
+                    <i></i>
+                  </span>
+                  <span class="inbox-prototype-review-copy">
+                    <span class="inbox-prototype-row-meta"><span>markover · early-preview-announcement.md</span><time>22m</time></span>
+                    <span class="inbox-prototype-thread-title"><i class="is-claude" title="Claude">A</i><strong>Prepare early-preview announcement</strong></span>
+                    <span class="inbox-prototype-row-meta"><span>t3code/launch-readiness</span><span>PR #88</span></span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="inbox-prototype-review-row" type="button">
+                  <span class="inbox-prototype-project-icon is-markover">
+                    <img src="../design/brand/markover-mark.svg" alt="Markover project">
+                    <i></i>
+                  </span>
+                  <span class="inbox-prototype-review-copy">
+                    <span class="inbox-prototype-row-meta"><span>markover · Local review</span><time>2h</time></span>
+                    <span class="inbox-prototype-thread-title"><i class="is-local" title="Local Markdown">md</i><strong>product-notes.md</strong></span>
+                    <span class="inbox-prototype-row-meta"><span>doc/notes/product-notes.md · main</span><span>PR —</span></span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="inbox-prototype-review-row" type="button">
+                  <span class="inbox-prototype-project-icon is-notes">N<i></i></span>
+                  <span class="inbox-prototype-review-copy">
+                    <span class="inbox-prototype-row-meta"><span>notes-lab · research-summary.md</span><time>1d</time></span>
+                    <span class="inbox-prototype-thread-title"><i class="is-codex" title="Codex">✣</i><strong>Research notes and follow-ups</strong></span>
+                    <span class="inbox-prototype-row-meta is-unavailable"><span>Branch unavailable</span><span>PR —</span></span>
+                  </span>
+                </button>
+              </li>
+            </ul>
+
+            <details class="inbox-prototype-history">
+              <summary><span><b>With Agent</b><small>History</small></span><span>18 reviews · latest 2h</span></summary>
+              <ul class="inbox-prototype-review-list">
+                <li>
+                  <button class="inbox-prototype-review-row is-history" type="button">
+                    <span class="inbox-prototype-project-icon is-markover">
+                      <img src="../design/brand/markover-mark.svg" alt="Markover project">
+                      <i></i>
+                    </span>
+                    <span class="inbox-prototype-review-copy">
+                      <span class="inbox-prototype-row-meta"><span>markover · durability-plan.md</span><span>With Agent</span></span>
+                      <span class="inbox-prototype-thread-title"><i class="is-codex" title="Codex">✣</i><strong>Harden durability and recovery</strong></span>
+                      <span class="inbox-prototype-row-meta"><span>agent/autosave-crash-evidence</span><span>PR #76</span></span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="inbox-prototype-review-row is-history" type="button">
+                    <span class="inbox-prototype-project-icon is-markover">
+                      <img src="../design/brand/markover-mark.svg" alt="Markover project">
+                      <i></i>
+                    </span>
+                    <span class="inbox-prototype-review-copy">
+                      <span class="inbox-prototype-row-meta"><span>markover · signing-notes.md</span><span>With Agent</span></span>
+                      <span class="inbox-prototype-thread-title"><i class="is-claude" title="Claude">A</i><strong>Signing and notarization preflight</strong></span>
+                      <span class="inbox-prototype-row-meta"><span>t3code/signing-notarization</span><span>PR #81</span></span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+              <div class="inbox-prototype-history-actions"><button type="button">Show more</button><button type="button">View all in Projects</button></div>
+            </details>
+          </section>
+
+          <section class="inbox-prototype-projects-panel" aria-label="Projects">
+            <div class="inbox-prototype-section-heading">
+              <strong>Projects</strong>
+              <span>Actionable first</span>
+            </div>
+            <div class="inbox-prototype-project-tree">
+              <details open>
+                <summary><span class="inbox-prototype-project-icon is-markover"><img src="../design/brand/markover-mark.svg" alt=""><i></i></span><strong>markover</strong><span>4 editing · 8m</span></summary>
+                <div class="inbox-prototype-project-children">
+                  <details>
+                    <summary><i class="is-codex" title="Codex">✣</i><strong>Improve inbox / review management</strong><span>2 editing · 8m</span></summary>
+                    <div class="inbox-prototype-project-reviews">
+                      <button type="button"><i></i><span>inbox-spec.md</span><time>8m</time></button>
+                      <button type="button"><i></i><span>2026-08-09__review-inbox-layout-follow-up.md</span><time>14m</time></button>
+                      <button class="is-history" type="button"><i></i><span>initial-inbox-notes.md</span><time>With Agent</time></button>
+                    </div>
+                  </details>
+                  <details>
+                    <summary><i class="is-claude" title="Claude">A</i><strong>Prepare early-preview announcement</strong><span>1 editing · 22m</span></summary>
+                  </details>
+                  <details open>
+                    <summary><i class="is-local" title="Local Markdown">md</i><strong>Local reviews</strong><span>1 editing · 2h</span></summary>
+                    <div class="inbox-prototype-project-reviews">
+                      <button type="button"><i></i><span>product-notes.md</span><time>2h</time></button>
+                    </div>
+                  </details>
+                  <details>
+                    <summary><i class="is-codex" title="Codex">✣</i><strong>Harden durability and recovery</strong><span>0 editing · 2h</span></summary>
+                  </details>
+                </div>
+              </details>
+              <details>
+                <summary><span class="inbox-prototype-project-icon is-notes">N<i></i></span><strong>notes-lab</strong><span>1 editing · 1d</span></summary>
+              </details>
+              <details>
+                <summary><span class="inbox-prototype-project-icon is-t3">T<i></i></span><strong>T3 Code</strong><span>0 editing · 5d</span></summary>
+              </details>
+            </div>
+          </section>
+        </aside>
+
+        <section class="inbox-prototype-document-pane">
+          <header class="inbox-prototype-pane-header">
+            <span class="eyebrow">Document tree</span>
+            <span class="status-pill">4 of 19 blocks</span>
+          </header>
+          <div class="inbox-prototype-document-body">
+            <h2>Improve inbox / review management</h2>
+            <p>Make it fast and reliable to find every review that currently needs human attention.</p>
+            <div class="inbox-prototype-block is-selected"><i>○</i><span>Never miss work: expose every Editing review, including inside collapsed groups.</span></div>
+            <div class="inbox-prototype-block"><i>○</i><span>Control noise: keep old With Agent reviews out of the default working set.</span></div>
+            <div class="inbox-prototype-block"><i>○</i><span>Identify the right review using project, thread, document, and recency information.</span></div>
+            <h3>Selected UI direction</h3>
+            <div class="inbox-prototype-block"><i>○</i><span>Offer both activity-inbox and project-tree organization.</span></div>
+          </div>
+        </section>
+
+        <aside class="inbox-prototype-annotation-pane">
+          <header class="inbox-prototype-pane-header"><span class="eyebrow">Selected block</span></header>
+          <div class="inbox-prototype-annotation-body">
+            <section>
+              <strong>Source</strong>
+              <code>Never miss work: expose every Editing review, including inside collapsed groups.</code>
+            </section>
+            <label>Feedback <span>Not annotated</span></label>
+            <div class="inbox-prototype-feedback">What should the agent change, clarify, keep, or reconsider?</div>
+          </div>
+        </aside>
+      </main>
+    </section>
     <header class="app-header is-empty">
       <div class="brand" role="img" aria-label="Markover">
         <img
