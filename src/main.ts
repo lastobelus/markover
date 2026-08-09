@@ -40,6 +40,10 @@ import { ReviewStore, type ReviewArtifact } from './review-store'
 import { parseReviewUrl, type ReviewUrl } from './review-url'
 import { ReviewUrlDispatcher } from './review-url-dispatcher'
 import {
+  hardenedRendererWebPreferences,
+  installRendererSecurityBoundaries
+} from './renderer-security'
+import {
   createServiceIdentity,
   publishServiceConnection,
   secureServiceDirectory,
@@ -236,12 +240,28 @@ function isRendererSmokeResult(value: unknown): value is RendererSmokeResult {
     !isRecord(value) ||
     value.format !== 'markover-renderer-smoke' ||
     value.version !== 1 ||
+    !Array.isArray(value.diagnostics) ||
+    !value.diagnostics.every((item) => typeof item === 'string') ||
     !isRecord(value.checks)
   ) return false
   const checks = value.checks
   const keys = Object.keys(checks).sort()
   return (
-    keys.join(',') === 'cleanRuntime,documentsList,markdown,sourceDiff,yaml' &&
+    keys.join(',') === [
+      'blobImage',
+      'cleanRuntime',
+      'dataImage',
+      'documentsList',
+      'fileImage',
+      'markdown',
+      'navigationDenied',
+      'permissionDenied',
+      'sandboxedRenderer',
+      'sourceDiff',
+      'webviewDenied',
+      'windowOpenDenied',
+      'yaml'
+    ].join(',') &&
     keys.every((key) => typeof checks[key] === 'boolean')
   )
 }
@@ -670,8 +690,7 @@ function createWindow(
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+      ...hardenedRendererWebPreferences
     }
   })
   rendererReadyWebContentsId = null
@@ -679,6 +698,7 @@ function createWindow(
     resolveRendererReady = resolve
   })
 
+  installRendererSecurityBoundaries(mainWindow.webContents)
   void mainWindow.loadFile(path.join(__dirname, 'index.html'), {
     query: {
       palette: startupSettings.palette,
@@ -1372,7 +1392,9 @@ if (!hasSingleInstanceLock) {
 
     if (smokeMode) {
       await requireReviewStore().create({
-        tree: smokeReviewTree(),
+        tree: smokeReviewTree(
+          path.join(projectDirectory, 'design/brand/markover-mark.svg')
+        ),
         contextSummary: 'Fixed renderer smoke fixture.'
       })
     }
@@ -1494,6 +1516,7 @@ if (!hasSingleInstanceLock) {
         version: 1,
         ok: checksPassed,
         build: startupBuildIdentity,
+        diagnostics: result.diagnostics,
         checks: result.checks,
         phases: requireStartupDiagnostic().snapshot().phases
       }

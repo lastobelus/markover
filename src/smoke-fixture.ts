@@ -1,4 +1,4 @@
-export function smokeReviewTree(): ReviewTree {
+export function smokeReviewTree(imagePath: string): ReviewTree {
   const source = [
     '---',
     'title: Smoke',
@@ -62,6 +62,13 @@ export function smokeReviewTree(): ReviewTree {
           feedback: '',
           collapsed: false,
           children: [],
+          attachments: [{
+            id: 'smoke-file-image',
+            type: 'image',
+            label: 'Packaged local image',
+            path: imagePath,
+            mimeType: 'image/svg+xml'
+          }],
           sourceEdit: {
             original: '# Renderer smoke',
             current: '# Renderer smoke verified'
