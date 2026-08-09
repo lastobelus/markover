@@ -16,7 +16,7 @@ import {
   appendIncomingReview,
   incomingReviewAction,
   removeIncomingReview,
-  shouldDismissIncomingPrompt
+  retainIncomingReviewsAfter
 } from './incoming-review-policy'
 import * as MarkoverImagePreview from './image-preview'
 import * as MarkoverNavigation from './navigation'
@@ -248,12 +248,10 @@ let incomingReviewNoticeId: string | null = null
 let incomingReviewNoticePrompts: IncomingReviewPrompt[] = []
 let incomingReviewNoticeSequence: number | null = null
 let incomingReviewNoticeTimer: ReturnType<typeof setTimeout> | null = null
-let incomingReviewNoticeVersion = 0
 let incomingReviewWarningCount = 0
 let incomingReviewWarningId: string | null = null
 let incomingReviewWarningPrompts: IncomingReviewPrompt[] = []
 let incomingReviewWarningSequence: number | null = null
-let incomingReviewWarningVersion = 0
 let smokeRuntimeClean = true
 const smokeRuntimeDiagnostics: string[] = []
 const consoleError = console.error.bind(console)
@@ -1544,7 +1542,6 @@ function hideIncomingReviewNotice(): void {
   incomingReviewNoticePrompts = []
   incomingReviewNoticeSequence = null
   elements.incomingReviewNotice.hidden = true
-  incomingReviewNoticeVersion += 1
 }
 
 function scheduleIncomingReviewNoticeDismissal(): void {
@@ -1570,7 +1567,6 @@ function renderIncomingReviewNotice(session: ReviewSession): void {
     ? `New review added: ${session.documentName}`
     : `${String(incomingReviewNoticeCount)} new reviews added. Latest: ${session.documentName}`
   elements.incomingReviewNotice.hidden = false
-  incomingReviewNoticeVersion += 1
   scheduleIncomingReviewNoticeDismissal()
 }
 
@@ -1595,11 +1591,9 @@ function clearIncomingReviewWarning(): void {
   incomingReviewWarningPrompts = []
   incomingReviewWarningSequence = null
   if (elements.incomingReviewDialog.open) elements.incomingReviewDialog.close()
-  incomingReviewWarningVersion += 1
 }
 
 function renderIncomingReviewWarning(session: ReviewSession): void {
-  incomingReviewWarningVersion += 1
   elements.incomingReviewDialogMessage.textContent =
     incomingReviewWarningCount === 1
       ? `“${session.documentName}” was added. Open it instead of the current review?`
@@ -1626,47 +1620,66 @@ function showIncomingReviewWarning(
   renderIncomingReviewWarning(session)
 }
 
-function reconcileTrashedIncomingReview(reviewId: string): void {
-  const noticePrompts = removeIncomingReview(
-    incomingReviewNoticePrompts,
-    reviewId
-  )
-  if (noticePrompts.length !== incomingReviewNoticePrompts.length) {
-    incomingReviewNoticePrompts = noticePrompts
-    const latest = noticePrompts.at(-1)
-    const session = latest ? reviewSessions.get(latest.reviewId) : null
-    if (!latest || !session) {
-      hideIncomingReviewNotice()
-    } else {
-      incomingReviewNoticeCount = noticePrompts.length
-      incomingReviewNoticeId = latest.reviewId
-      incomingReviewNoticeSequence = latest.sequence
-      renderIncomingReviewNotice(session)
-    }
+function replaceIncomingReviewNoticePrompts(
+  prompts: IncomingReviewPrompt[]
+): void {
+  const available = prompts.filter((prompt) => reviewSessions.get(prompt.reviewId))
+  const latest = available.at(-1)
+  const session = latest ? reviewSessions.get(latest.reviewId) : null
+  if (!latest || !session) {
+    hideIncomingReviewNotice()
+    return
   }
+  incomingReviewNoticePrompts = available
+  incomingReviewNoticeCount = available.length
+  incomingReviewNoticeId = latest.reviewId
+  incomingReviewNoticeSequence = latest.sequence
+  renderIncomingReviewNotice(session)
+}
 
-  const warningPrompts = removeIncomingReview(
-    incomingReviewWarningPrompts,
-    reviewId
-  )
+function replaceIncomingReviewWarningPrompts(
+  prompts: IncomingReviewPrompt[]
+): void {
+  const available = prompts.filter((prompt) => reviewSessions.get(prompt.reviewId))
+  const latest = available.at(-1)
+  const session = latest ? reviewSessions.get(latest.reviewId) : null
+  if (!latest || !session) {
+    clearIncomingReviewWarning()
+    return
+  }
+  incomingReviewWarningPrompts = available
+  incomingReviewWarningCount = available.length
+  incomingReviewWarningId = latest.reviewId
+  incomingReviewWarningSequence = latest.sequence
+  renderIncomingReviewWarning(session)
+}
+
+function removeIncomingPrompts(reviewId: string): void {
+  const noticePrompts = removeIncomingReview(incomingReviewNoticePrompts, reviewId)
+  if (noticePrompts.length !== incomingReviewNoticePrompts.length) {
+    replaceIncomingReviewNoticePrompts(noticePrompts)
+  }
+  const warningPrompts = removeIncomingReview(incomingReviewWarningPrompts, reviewId)
   if (warningPrompts.length !== incomingReviewWarningPrompts.length) {
-    incomingReviewWarningPrompts = warningPrompts
-    const latest = warningPrompts.at(-1)
-    const session = latest ? reviewSessions.get(latest.reviewId) : null
-    if (!latest || !session) {
-      clearIncomingReviewWarning()
-    } else {
-      incomingReviewWarningCount = warningPrompts.length
-      incomingReviewWarningId = latest.reviewId
-      incomingReviewWarningSequence = latest.sequence
-      renderIncomingReviewWarning(session)
-    }
+    replaceIncomingReviewWarningPrompts(warningPrompts)
   }
 }
 
-function clearIncomingPromptsTargeting(reviewId: string): void {
-  if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
-  if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
+function dismissIncomingPromptsThrough(sequence: number): void {
+  const noticePrompts = retainIncomingReviewsAfter(
+    incomingReviewNoticePrompts,
+    sequence
+  )
+  if (noticePrompts.length !== incomingReviewNoticePrompts.length) {
+    replaceIncomingReviewNoticePrompts(noticePrompts)
+  }
+  const warningPrompts = retainIncomingReviewsAfter(
+    incomingReviewWarningPrompts,
+    sequence
+  )
+  if (warningPrompts.length !== incomingReviewWarningPrompts.length) {
+    replaceIncomingReviewWarningPrompts(warningPrompts)
+  }
 }
 
 async function activateIncomingReview(
@@ -1674,10 +1687,6 @@ async function activateIncomingReview(
   focusPreview: boolean,
   activationSequence: number
 ): Promise<void> {
-  const noticeVersion = incomingReviewNoticeVersion
-  const noticeSequence = incomingReviewNoticeSequence
-  const warningVersion = incomingReviewWarningVersion
-  const warningSequence = incomingReviewWarningSequence
   const outcome = await activateReview(reviewId)
   if (outcome === 'blocked') {
     const session = reviewSessions.get(reviewId)
@@ -1686,18 +1695,8 @@ async function activateIncomingReview(
     }
     return
   }
-  if (
-    incomingReviewNoticeVersion === noticeVersion &&
-    shouldDismissIncomingPrompt(noticeSequence, activationSequence)
-  ) {
-    hideIncomingReviewNotice()
-  }
-  if (
-    incomingReviewWarningVersion === warningVersion &&
-    shouldDismissIncomingPrompt(warningSequence, activationSequence)
-  ) {
-    clearIncomingReviewWarning()
-  }
+  if (outcome === 'missing') return
+  dismissIncomingPromptsThrough(activationSequence)
   if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
 }
 
@@ -2718,7 +2717,7 @@ async function activateReview(
   setWorkspaceEmpty(false)
   if (!reviewSessions.get(reviewId)) return 'missing'
   if (reviewId === state.reviewId) {
-    clearIncomingPromptsTargeting(reviewId)
+    removeIncomingPrompts(reviewId)
     return 'already-active'
   }
   state.finishAttachmentLabelEdit?.(true)
@@ -2727,7 +2726,7 @@ async function activateReview(
     await reviewMutations.wait(currentReviewId)
     if (!reviewSessions.get(reviewId)) return 'missing'
     if (reviewId === state.reviewId) {
-      clearIncomingPromptsTargeting(reviewId)
+      removeIncomingPrompts(reviewId)
       return 'already-active'
     }
   }
@@ -2767,12 +2766,12 @@ async function activateReview(
   if (selected) renderAnnotation(selected)
   renderDocumentTabs()
   renderReviewContext()
-  clearIncomingPromptsTargeting(reviewId)
+  removeIncomingPrompts(reviewId)
   return 'activated'
 }
 
 async function handleReviewTrashed(reviewId: string): Promise<void> {
-  reconcileTrashedIncomingReview(reviewId)
+  removeIncomingPrompts(reviewId)
   const wasActive = state.reviewId === reviewId
   const removed = reviewSessions.remove(reviewId)
   if (!removed) return

@@ -57,11 +57,11 @@ test('preload and renderer acknowledge activation without replacing an existing 
   assert.doesNotMatch(activationHandler, /configureManagedMode\(\)/)
   assert.match(
     renderer,
-    /function clearIncomingPromptsTargeting[\s\S]*incomingReviewNoticeId === reviewId[\s\S]*incomingReviewWarningId === reviewId[\s\S]*async function activateReview[\s\S]*clearIncomingPromptsTargeting\(reviewId\)/
+    /function removeIncomingPrompts[\s\S]*removeIncomingReview\(incomingReviewNoticePrompts, reviewId\)[\s\S]*removeIncomingReview\(incomingReviewWarningPrompts, reviewId\)[\s\S]*async function activateReview[\s\S]*removeIncomingPrompts\(reviewId\)/
   )
   assert.match(
     renderer,
-    /if \(reviewId === state\.reviewId\) \{[\s\S]*clearIncomingPromptsTargeting\(reviewId\)[\s\S]*return 'already-active'/
+    /if \(reviewId === state\.reviewId\) \{[\s\S]*removeIncomingPrompts\(reviewId\)[\s\S]*return 'already-active'/
   )
   assert.match(
     renderer,

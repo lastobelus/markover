@@ -28,11 +28,11 @@ export function removeIncomingReview(
   return prompts.filter((prompt) => prompt.reviewId !== reviewId)
 }
 
-export function shouldDismissIncomingPrompt(
-  promptSequence: number | null,
-  activationSequence: number
-): boolean {
-  return promptSequence !== null && promptSequence <= activationSequence
+export function retainIncomingReviewsAfter(
+  prompts: readonly IncomingReviewPrompt[],
+  sequence: number
+): IncomingReviewPrompt[] {
+  return prompts.filter((prompt) => prompt.sequence > sequence)
 }
 
 export function incomingReviewAction({

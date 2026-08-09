@@ -130,15 +130,11 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /if \(outcome === 'blocked'\)[\s\S]*activationSequence === incomingReviewSequence[\s\S]*showIncomingReviewNotice\(session, activationSequence\)[\s\S]*return\s*\}[\s\S]*hideIncomingReviewNotice\(\)/
+    /if \(outcome === 'blocked'\)[\s\S]*activationSequence === incomingReviewSequence[\s\S]*showIncomingReviewNotice\(session, activationSequence\)[\s\S]*return\s*\}[\s\S]*if \(outcome === 'missing'\) return[\s\S]*dismissIncomingPromptsThrough\(activationSequence\)/
   )
   assert.match(
     renderer,
-    /const noticeVersion = incomingReviewNoticeVersion[\s\S]*const noticeSequence = incomingReviewNoticeSequence[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewNoticeVersion === noticeVersion &&[\s\S]*shouldDismissIncomingPrompt\(noticeSequence, activationSequence\)/
-  )
-  assert.match(
-    renderer,
-    /const warningVersion = incomingReviewWarningVersion[\s\S]*const warningSequence = incomingReviewWarningSequence[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewWarningVersion === warningVersion &&[\s\S]*shouldDismissIncomingPrompt\(warningSequence, activationSequence\)/
+    /function dismissIncomingPromptsThrough[\s\S]*retainIncomingReviewsAfter\([\s\S]*incomingReviewNoticePrompts,[\s\S]*sequence[\s\S]*replaceIncomingReviewNoticePrompts\(noticePrompts\)[\s\S]*retainIncomingReviewsAfter\([\s\S]*incomingReviewWarningPrompts,[\s\S]*sequence[\s\S]*replaceIncomingReviewWarningPrompts\(warningPrompts\)/
   )
   assert.match(
     renderer,
@@ -154,11 +150,11 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /function reconcileTrashedIncomingReview[\s\S]*removeIncomingReview\([\s\S]*noticePrompts\.at\(-1\)[\s\S]*renderIncomingReviewNotice\(session\)[\s\S]*removeIncomingReview\([\s\S]*warningPrompts\.at\(-1\)[\s\S]*renderIncomingReviewWarning\(session\)[\s\S]*async function handleReviewTrashed[\s\S]*reconcileTrashedIncomingReview\(reviewId\)[\s\S]*reviewSessions\.remove\(reviewId\)/
+    /function removeIncomingPrompts[\s\S]*removeIncomingReview\(incomingReviewNoticePrompts, reviewId\)[\s\S]*replaceIncomingReviewNoticePrompts\(noticePrompts\)[\s\S]*removeIncomingReview\(incomingReviewWarningPrompts, reviewId\)[\s\S]*replaceIncomingReviewWarningPrompts\(warningPrompts\)[\s\S]*async function handleReviewTrashed[\s\S]*removeIncomingPrompts\(reviewId\)[\s\S]*reviewSessions\.remove\(reviewId\)/
   )
   assert.match(
     renderer,
-    /function clearIncomingPromptsTargeting[\s\S]*incomingReviewNoticeId === reviewId[\s\S]*hideIncomingReviewNotice\(\)[\s\S]*incomingReviewWarningId === reviewId[\s\S]*clearIncomingReviewWarning\(\)[\s\S]*async function activateReview[\s\S]*clearIncomingPromptsTargeting\(reviewId\)[\s\S]*return 'activated'/
+    /async function activateReview[\s\S]*if \(reviewId === state\.reviewId\) \{[\s\S]*removeIncomingPrompts\(reviewId\)[\s\S]*return 'already-active'[\s\S]*renderReviewContext\(\)[\s\S]*removeIncomingPrompts\(reviewId\)[\s\S]*return 'activated'/
   )
   assert.match(
     renderer,
