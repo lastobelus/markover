@@ -12,7 +12,7 @@ import {
   type IpcMainInvokeEvent,
   type WebContents
 } from 'electron'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { mkdirSync, rmSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -45,7 +45,6 @@ import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { openPublicLinkCommand } from './public-link-opener'
 import { type PublicLink, type PublicLinkId } from './public-links'
-import { importLegacyReviews } from './review-migration'
 import { ReviewAutosave } from './review-autosave'
 import {
   registerProtocolOnFirstLaunch,
@@ -93,15 +92,6 @@ import {
   ZOOM_LEVELS
 } from './settings'
 
-interface ReviewConfig {
-  inputPath: string | undefined
-  name: string | undefined
-  originalPath: string | null
-  attachmentsDirectory: string | undefined
-  autosavePath: string | null
-  durable: boolean
-}
-
 interface PendingSnapshot {
   purpose: ReviewSnapshotRequest['purpose']
   reject: (reason?: unknown) => void
@@ -141,14 +131,6 @@ const addressedInstance = runtimeInstanceFromEnvironment()
 app.setName(addressedInstance.branding.appName)
 process.title = addressedInstance.branding.appName
 
-function argumentValue(option: string): string | null {
-  const index = process.argv.indexOf(option)
-  return index === -1 ? null : process.argv[index + 1] || null
-}
-
-const reviewConfigPath = argumentValue('--markover-review-config')
-const reviewMode = process.argv.includes('--markover-review') ||
-  Boolean(reviewConfigPath)
 const projectDirectory = path.resolve(__dirname, '..')
 const checkoutDirectory = addressedInstance.checkout
 const appIconPath = path.isAbsolute(addressedInstance.branding.iconPngPath)
@@ -170,27 +152,15 @@ const endpointPath = smokeStateDirectory
   : addressedInstance.service.endpointPath
 const startupDiagnosticPath = path.join(
   applicationDataDirectory,
-  reviewMode
-    ? `startup-diagnostic-review-${String(process.pid)}.json`
-    : 'startup-diagnostic.json'
+  'startup-diagnostic.json'
 )
-const reviewStore = reviewMode
-  ? null
-  : new ReviewStore(
-      smokeStateDirectory
-        ? path.join(smokeStateDirectory, 'reviews')
-        : path.join(addressedInstance.stateRoot, 'reviews')
-    )
-const hasSingleInstanceLock = reviewMode || smokeMode ||
-  app.requestSingleInstanceLock()
-const backgroundServerMode = smokeMode || (!reviewMode &&
-  process.argv.includes('--markover-server')
-  )
-let reviewDocumentPromise: Promise<MarkoverDocument> | null = null
-let reviewFinished = false
-let reviewConfigPromise: Promise<ReviewConfig> | null = null
-let attachmentDirectoryPromise: Promise<string> | null = null
-let attachmentSequence = 0
+const reviewStore = new ReviewStore(
+  smokeStateDirectory
+    ? path.join(smokeStateDirectory, 'reviews')
+    : path.join(addressedInstance.stateRoot, 'reviews')
+)
+const hasSingleInstanceLock = smokeMode || app.requestSingleInstanceLock()
+const backgroundServerMode = smokeMode || process.argv.includes('--markover-server')
 let mainWindow: BrowserWindow | null = null
 let mainWindowBlurredAt: number | null = Date.now()
 let activeManagedReview: ReviewArtifact | null = null
@@ -203,8 +173,6 @@ let settingsStore: SettingsStore | null = null
 let settingsUnsubscribe: (() => void) | null = null
 let zoomWriter: Promise<void> = Promise.resolve()
 let managedAutosave: ReviewAutosave | null = null
-let pendingAutosave: string | null = null
-let autosaveWriter: Promise<void> | null = null
 let snapshotSequence = 0
 let statusSequence = 0
 let activationSequence = 0
@@ -251,7 +219,7 @@ const privilegedIpc = new PrivilegedIpc(ipcMain, {
   expectedEntry: () => rendererIpcEntry
 })
 
-if (process.platform === 'darwin' && app.isPackaged && !reviewMode && !smokeMode) {
+if (process.platform === 'darwin' && app.isPackaged && !smokeMode) {
   app.on('open-url', (event, value) => {
     event.preventDefault()
     const parsed = parseReviewUrl(value, CANONICAL_INSTANCE_SCHEME)
@@ -513,12 +481,11 @@ function installApplicationMenu(): void {
   const zoomIndex = ZOOM_LEVELS.indexOf(zoomPercent)
   const template = applicationMenuTemplate({
     appName: addressedInstance.branding.appName,
-    canCleanUpAttachments: !reviewMode,
+    canCleanUpAttachments: true,
     canResetZoom: zoomPercent !== DEFAULT_SETTINGS.zoomPercent,
-    canTrashReview: !reviewMode && activeManagedReviewId !== null,
+    canTrashReview: activeManagedReviewId !== null,
     canZoomIn: zoomIndex < ZOOM_LEVELS.length - 1,
     canZoomOut: zoomIndex > 0,
-    reviewMode,
     onCleanUpAttachments: () => {
       void cleanUpUnusedAttachments().catch(showReviewOperationError)
     },
@@ -646,7 +613,7 @@ async function withManagedMutationsPaused(
   reviewId: string | null = null,
   confirmBeforeSaving: (() => Promise<boolean>) | null = null
 ): Promise<void> {
-  if (reviewMode || managedShutdownStarted) {
+  if (managedShutdownStarted) {
     throw new Error('Managed review changes are unavailable right now.')
   }
   setManagedRendererPause(true)
@@ -860,113 +827,9 @@ function readClipboardImage(): MarkoverClipboardImage | null {
   }
 }
 
-async function loadReviewConfig(): Promise<ReviewConfig> {
-  if (!reviewConfigPromise) {
-    reviewConfigPromise = reviewConfigPath
-      ? fs.readFile(reviewConfigPath, 'utf8').then((source) => (
-          JSON.parse(source) as ReviewConfig
-        ))
-      : Promise.resolve({
-          inputPath: process.env.MARKOVER_REVIEW_INPUT_PATH,
-          name: process.env.MARKOVER_REVIEW_NAME,
-          originalPath: process.env.MARKOVER_REVIEW_ORIGINAL_PATH || null,
-          attachmentsDirectory: process.env.MARKOVER_ATTACHMENTS_DIR,
-          autosavePath: null,
-          durable: false
-        })
-  }
-  return reviewConfigPromise
-}
-
-async function atomicWrite(filePath: string, contents: string): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true })
-  const temporaryPath = path.join(
-    path.dirname(filePath),
-    `.${path.basename(filePath)}-${String(process.pid)}-${randomBytes(6).toString('hex')}.tmp`
-  )
-  try {
-    await fs.writeFile(temporaryPath, contents, {
-      encoding: 'utf8',
-      flag: 'wx',
-      flush: true
-    })
-    await fs.rename(temporaryPath, filePath)
-  } finally {
-    await fs.unlink(temporaryPath).catch((error: unknown) => {
-      if (errorProperty(error, 'code') !== 'ENOENT') throw error
-    })
-  }
-}
-
-function startAutosaveWriter(): void {
-  autosaveWriter = (async () => {
-    const config = await loadReviewConfig()
-    if (!config.autosavePath) {
-      pendingAutosave = null
-      return
-    }
-
-    while (pendingAutosave !== null) {
-      const contents = pendingAutosave
-      pendingAutosave = null
-      await atomicWrite(config.autosavePath, contents)
-    }
-  })().finally(() => {
-    autosaveWriter = null
-    if (pendingAutosave !== null) startAutosaveWriter()
-  })
-}
-
-function queueReviewAutosave(tree: unknown): Promise<void> {
-  if (!reviewMode) return Promise.resolve()
-
-  pendingAutosave = JSON.stringify(tree, null, 2)
-  if (!autosaveWriter) startAutosaveWriter()
-  return autosaveWriter || Promise.resolve()
-}
-
-async function flushReviewAutosave(): Promise<void> {
-  while (autosaveWriter) await autosaveWriter
-}
-
-async function finishReview(tree: ReviewTree): Promise<void> {
-  if (!reviewMode || reviewFinished) return
-  reviewFinished = true
-  await queueReviewAutosave(tree)
-  await flushReviewAutosave()
-  process.stdout.write(`${JSON.stringify(tree)}\n`, () => {
-    app.exit(0)
-  })
-}
-
-async function attachmentDirectory(): Promise<string> {
-  if (!attachmentDirectoryPromise) {
-    attachmentDirectoryPromise = loadReviewConfig().then(async (config) => {
-      const baseDirectory = path.resolve(
-        config.attachmentsDirectory ||
-        path.join(app.getAppPath(), '.markover', 'attachments')
-      )
-      await fs.mkdir(baseDirectory, { recursive: true })
-
-      if (config.durable) {
-        const entries = await fs.readdir(baseDirectory)
-        attachmentSequence = entries.reduce((maximum: number, entry: string) => {
-          const match = /^img-(\d+)\./.exec(entry)
-          return match ? Math.max(maximum, Number(match[1])) : maximum
-        }, 0)
-        return baseDirectory
-      }
-
-      return fs.mkdtemp(path.join(baseDirectory, 'review-'))
-    })
-  }
-  return attachmentDirectoryPromise
-}
-
 async function saveAttachment(
-  _event: IpcMainInvokeEvent,
   attachment: MarkoverClipboardImage,
-  reviewId: string | null = null
+  reviewId: string
 ): Promise<ReviewAttachment> {
   const extensions = new Map<string, string>([
     ['image/jpeg', 'jpg'],
@@ -981,69 +844,18 @@ async function saveAttachment(
   const image = nativeImage.createFromBuffer(buffer)
   if (image.isEmpty()) throw new Error('The pasted image could not be decoded.')
 
-  let id: string
-  let directory: string
-  if (reviewId && reviewStore) {
-    const saved = await reviewStore.saveAttachmentFile(
-      reviewId,
-      extension,
-      buffer
-    )
-    id = saved.id
-    directory = path.dirname(saved.path)
-  } else {
-    attachmentSequence += 1
-    id = `img-${String(attachmentSequence)}`
-    directory = await attachmentDirectory()
-  }
-  const filePath = path.join(directory, `${id}.${extension}`)
-  if (!reviewId || !reviewStore) await fs.writeFile(filePath, buffer)
+  const saved = await reviewStore.saveAttachmentFile(reviewId, extension, buffer)
 
   const size = image.getSize()
   return {
-    id,
+    id: saved.id,
     type: 'image',
     mimeType: attachment.mimeType,
-    path: filePath,
+    path: saved.path,
     checksum: bufferChecksum(buffer),
     width: size.width,
     height: size.height,
     label: ''
-  }
-}
-
-async function loadReviewDocument(): Promise<MarkoverDocument> {
-  const config = await loadReviewConfig()
-  const filePath = config.inputPath
-  if (!filePath) throw new Error('Missing MARKOVER_REVIEW_INPUT_PATH')
-
-  if (config.autosavePath) {
-    try {
-      const tree = JSON.parse(
-        await fs.readFile(config.autosavePath, 'utf8')
-      ) as ReviewTree
-      return {
-        name: tree.sourceDocument.name || config.name || path.basename(filePath),
-        path: tree.sourceDocument.path || config.originalPath || null,
-        source: tree.sourceDocument.content,
-        checksum: tree.sourceDocument.checksum,
-        tree,
-        durable: config.durable,
-        autosavePath: config.autosavePath
-      }
-    } catch (error) {
-      if (errorProperty(error, 'code') !== 'ENOENT') throw error
-    }
-  }
-
-  const source = await fs.readFile(filePath, 'utf8')
-  return {
-    name: config.name || path.basename(filePath),
-    path: config.originalPath || null,
-    source,
-    checksum: checksum(source),
-    durable: config.durable,
-    autosavePath: config.autosavePath || null
   }
 }
 
@@ -1118,9 +930,7 @@ function createWindow(
     window.webContents.setZoomFactor(
       (settingsStore?.settings.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent) / 100
     )
-    mainWindow?.setTitle(reviewMode
-      ? `${addressedInstance.branding.appName} Review`
-      : `${addressedInstance.branding.appName} Inbox`)
+    mainWindow?.setTitle(`${addressedInstance.branding.appName} Inbox`)
   })
   const publishWindowFocusState = (): void => {
     if (mainWindow !== window || window.isDestroyed()) return
@@ -1196,16 +1006,6 @@ function createWindow(
     }
   })
 
-  if (reviewMode) {
-    window.on('close', (event) => {
-      if (reviewFinished) return
-      event.preventDefault()
-      reviewFinished = true
-      void flushReviewAutosave().finally(() => {
-        app.exit(2)
-      })
-    })
-  }
   return window
 }
 
@@ -1235,8 +1035,7 @@ function managedDocument(
     source: artifact.sourceDocument.content,
     checksum: artifact.sourceDocument.checksum,
     projectRoot: repositoryRoot(artifact) || projectRoot,
-    tree: artifact,
-    durable: true
+    tree: artifact
   }
 }
 
@@ -1471,7 +1270,6 @@ function requestRendererSnapshot(
 }
 
 function requireReviewStore(): ReviewStore {
-  if (!reviewStore) throw new Error('Managed review storage is unavailable.')
   return reviewStore
 }
 
@@ -1515,7 +1313,7 @@ async function captureEditableManagedReviews(): Promise<void> {
 }
 
 async function startAndPublishService(): Promise<void> {
-  if (reviewMode || smokeMode) return
+  if (smokeMode) return
   const managedStore = requireReviewStore()
   const store = settingsStore
   if (!store) throw new Error('Settings are unavailable for service startup.')
@@ -1526,10 +1324,6 @@ async function startAndPublishService(): Promise<void> {
     interpretationPolicy: () => store.settings.agentInterpretationPolicy,
     beforeAction: flushManagedReview,
     onActivate: activateManagedReview,
-    importReviews: (sourceDirectory) => importLegacyReviews(
-      sourceDirectory,
-      managedStore.directory
-    ),
     async onChange(artifact, action) {
       if (action === 'created') {
         try {
@@ -1740,24 +1534,22 @@ function repairServiceRecords(): Promise<void> {
 if (!hasSingleInstanceLock) {
   app.quit()
 } else {
-  if (!reviewMode) {
-    app.on('second-instance', (_event, commandLine) => {
-      if (commandLine.includes('--markover-server')) {
-        repairServiceRecords().catch((error: unknown) => {
-          process.stderr.write(
-            `markover service recovery: ${errorMessage(error)}\n`
-          )
-        })
-        return
-      }
-      if (!mainWindow) createWindow()
-      const window = mainWindow
-      if (!window) throw new Error('Markover window could not be created.')
-      if (window.isMinimized()) window.restore()
-      window.show()
-      window.focus()
-    })
-  }
+  app.on('second-instance', (_event, commandLine) => {
+    if (commandLine.includes('--markover-server')) {
+      repairServiceRecords().catch((error: unknown) => {
+        process.stderr.write(
+          `markover service recovery: ${errorMessage(error)}\n`
+        )
+      })
+      return
+    }
+    if (!mainWindow) createWindow()
+    const window = mainWindow
+    if (!window) throw new Error('Markover window could not be created.')
+    if (window.isMinimized()) window.restore()
+    window.show()
+    window.focus()
+  })
 
   app.whenReady().then(async () => {
     const provisionalBuild = provisionalBuildIdentity()
@@ -1784,11 +1576,10 @@ if (!hasSingleInstanceLock) {
       ...controls
     }
     await beginMainStartupPhase('preparing-interface')
-    if (!reviewMode) await secureServiceDirectory(applicationDataDirectory)
+    await secureServiceDirectory(applicationDataDirectory)
     if (
       process.platform === 'darwin' &&
       app.isPackaged &&
-      !reviewMode &&
       !smokeMode
     ) {
       await registerProtocolOnFirstLaunch({
@@ -1807,13 +1598,6 @@ if (!hasSingleInstanceLock) {
       }
       app.dock.setIcon(appIconPath)
     }
-    if (reviewMode) reviewDocumentPromise = loadReviewDocument()
-    else if (!app.isPackaged && !smokeMode && checkoutDirectory) {
-      await importLegacyReviews(
-        path.join(checkoutDirectory, '.markover', 'reviews'),
-        path.join(addressedInstance.stateRoot, 'reviews')
-      )
-    }
     await startupDiagnostic.complete('preparing-interface')
 
     await beginMainStartupPhase('loading-settings')
@@ -1827,25 +1611,23 @@ if (!hasSingleInstanceLock) {
     )
     settingsStore = store
     const initialSettings = await store.load()
-    if (!reviewMode) {
-      managedAutosave = new ReviewAutosave(requireReviewStore(), {
-        maximumDelayMs: initialSettings.autosaveMaximumDelayMs,
-        onFailure(reviewId, error) {
-          process.stderr.write(
-            `markover autosave ${reviewId}: ${errorMessage(error)}\n`
-          )
-          sendManagedAutosaveStatus()
-        },
-        onRecovered() {
-          sendManagedAutosaveStatus()
-        },
-        onSaved(artifact) {
-          if (activeManagedReviewId === artifact.review.id) {
-            activeManagedReview = artifact
-          }
+    managedAutosave = new ReviewAutosave(requireReviewStore(), {
+      maximumDelayMs: initialSettings.autosaveMaximumDelayMs,
+      onFailure(reviewId, error) {
+        process.stderr.write(
+          `markover autosave ${reviewId}: ${errorMessage(error)}\n`
+        )
+        sendManagedAutosaveStatus()
+      },
+      onRecovered() {
+        sendManagedAutosaveStatus()
+      },
+      onSaved(artifact) {
+        if (activeManagedReviewId === artifact.review.id) {
+          activeManagedReview = artifact
         }
-      })
-    }
+      }
+    })
     nativeTheme.themeSource = initialSettings.appearance
     settingsUnsubscribe = await store.subscribe((settings) => {
       applyMainSettings(settings)
@@ -2002,18 +1784,16 @@ if (!hasSingleInstanceLock) {
       source: string
     ) => checksum(source))
     privilegedIpc.handle('attachment:save', (
-      event: IpcMainInvokeEvent,
+      _event: IpcMainInvokeEvent,
       attachment: MarkoverClipboardImage,
-      reviewId: string | null = null
+      reviewId: string
     ) => {
-      if (reviewId && managedAttachmentSavesBlocked) {
+      if (managedAttachmentSavesBlocked) {
         throw new Error('Markover is finishing review saves before quitting.')
       }
-      return reviewId
-        ? managedAttachmentMutations.track(() => (
-            saveAttachment(event, attachment, reviewId)
-          ))
-        : saveAttachment(event, attachment, reviewId)
+      return managedAttachmentMutations.track(() => (
+        saveAttachment(attachment, reviewId)
+      ))
     })
     privilegedIpc.handle('attachment:remove', (
       _event: IpcMainInvokeEvent,
@@ -2036,12 +1816,9 @@ if (!hasSingleInstanceLock) {
     })
     privilegedIpc.handle('window:focus-state:get', currentWindowFocusState)
     privilegedIpc.handle('review:initial-document', () => (
-      reviewMode
-        ? reviewDocumentPromise
-        : activeManagedReview && managedDocument(activeManagedReview)
+      activeManagedReview && managedDocument(activeManagedReview)
     ))
     privilegedIpc.handle('review:list', async () => {
-      if (reviewMode) return []
       try {
         const result = await requireReviewStore().listWithWarnings()
         if (result.warnings.length) {
@@ -2107,7 +1884,6 @@ if (!hasSingleInstanceLock) {
       _event: IpcMainEvent,
       reviewId: string
     ) => {
-      if (reviewMode) return
       const managedStore = requireReviewStore()
       activeManagedReviewId = reviewId
       managedStore.load(reviewId).then((artifact) => {
@@ -2121,27 +1897,10 @@ if (!hasSingleInstanceLock) {
     })
     privilegedIpc.on('review:autosave', (
       _event: IpcMainEvent,
-      reviewId: string | null,
+      reviewId: string,
       tree: ReviewTree
     ) => {
-      if (reviewMode) {
-        queueReviewAutosave(tree).catch((error: unknown) => {
-          process.stderr.write(`markover autosave: ${errorMessage(error)}\n`)
-        })
-      } else if (reviewId) {
-        requireManagedAutosave().queue(reviewId, tree)
-      }
-    })
-    privilegedIpc.on('review:done', (
-      _event: IpcMainEvent,
-      tree: ReviewTree
-    ) => {
-      void finishReview(tree)
-    })
-    privilegedIpc.on('review:cancel', () => {
-      if (!reviewMode || reviewFinished) return
-      reviewFinished = true
-      app.exit(2)
+      requireManagedAutosave().queue(reviewId, tree)
     })
 
     createWindow()
@@ -2157,7 +1916,7 @@ if (!hasSingleInstanceLock) {
     })
 
     app.on('activate', () => {
-      if (reviewMode || smokeMode) return
+      if (smokeMode) return
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
       mainWindow?.show()
       mainWindow?.focus()
@@ -2177,14 +1936,13 @@ if (!hasSingleInstanceLock) {
 
   app.on('before-quit', (event) => {
     if (
-      reviewMode ||
       !startupReady ||
       managedShutdownComplete ||
       !managedAutosave
     ) {
       stopSettingsSubscription()
       if (localService) void stopPublishedService().catch(() => {
-        // Startup failure and review-mode shutdown are already in progress.
+        // Startup failure shutdown is already in progress.
       })
       return
     }
@@ -2197,10 +1955,6 @@ if (!hasSingleInstanceLock) {
 
   app.on('will-quit', () => {
     if (
-      reviewMode &&
-      startupDiagnostic?.snapshot().status === 'ready'
-    ) rmSync(startupDiagnosticPath, { force: true })
-    if (
       smokeStateDirectory &&
       process.env.MARKOVER_SMOKE_RUNNER !== '1'
     ) {
@@ -2209,10 +1963,6 @@ if (!hasSingleInstanceLock) {
   })
 
   app.on('window-all-closed', () => {
-    if (reviewMode) {
-      if (!reviewFinished) app.exit(2)
-      return
-    }
     if (smokeMode) {
       app.quit()
       return

@@ -73,7 +73,6 @@ body:
         - Public npx bootstrap command
         - Previously downloaded packaged app
         - Development checkout with npm start
-        - Legacy review command
         - Other
     validations:
       required: true

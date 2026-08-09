@@ -31,11 +31,9 @@ interface RendererState {
   attachmentPreviewUrls: Map<string, string>
   documentName: string
   documentPath: string | null
-  durableReview: boolean
   finishAttachmentLabelEdit: ((commit?: boolean) => void) | null
   hoveredId: string | null
   reviewId: string | null
-  reviewMode: boolean
   selectedId: string | null
   annotatedOnly: boolean
   annotationView: 'selected' | 'list'
@@ -119,13 +117,11 @@ const elements = {
   attachmentList: requiredElement('#attachment-list'),
   brandLogotype: requiredElement<HTMLImageElement>('#brand-logotype'),
   brandMark: requiredElement<HTMLImageElement>('#brand-mark'),
-  cancelReviewButton: requiredElement<HTMLButtonElement>('#cancel-review-button'),
   checksum: requiredElement('#document-checksum'),
   copyTreeButton: requiredElement<HTMLButtonElement>('#copy-tree-button'),
   emptyOpenButton: requiredElement<HTMLButtonElement>('#empty-open-button'),
   emptyWorkspace: requiredElement('#empty-workspace'),
   documentTabs: requiredElement('#document-tabs'),
-  doneReviewButton: requiredElement<HTMLButtonElement>('#done-review-button'),
   durabilityWarning: requiredElement('#durability-warning'),
   imagePreview: requiredElement('#image-preview'),
   imagePreviewClose: requiredElement<HTMLButtonElement>('#image-preview-close'),
@@ -163,12 +159,10 @@ const elements = {
   sourceSaveBar: requiredElement('#source-save-bar'),
   sourceToggle: requiredElement<HTMLButtonElement>('#source-toggle'),
   sourceToggleIcon: requiredElement('#source-toggle-icon'),
-  standardActions: requiredElement('#standard-actions'),
   toast: requiredElement('#toast'),
   tree: requiredElement('#tree'),
   treeViewAll: requiredElement<HTMLButtonElement>('#tree-view-all'),
   treeViewAnnotated: requiredElement<HTMLButtonElement>('#tree-view-annotated'),
-  reviewActions: requiredElement('#review-actions'),
   reviewContextButton: requiredElement<HTMLButtonElement>('#review-context-button'),
   reviewContextClose: requiredElement<HTMLButtonElement>('#review-context-close'),
   reviewContextDrawer: requiredElement('#review-context-drawer'),
@@ -198,11 +192,9 @@ const state: RendererState = {
   attachmentPreviewUrls: new Map<string, string>(),
   documentName: 'sample.md',
   documentPath: null,
-  durableReview: false,
   finishAttachmentLabelEdit: null,
   hoveredId: null,
   reviewId: null,
-  reviewMode: false,
   selectedId: null,
   annotatedOnly: false,
   annotationView: 'selected',
@@ -291,11 +283,9 @@ const documentsListReady = import('@pierre/trees')
 const BRIDGE_METHODS = [
   'activateReview',
   'autosaveReview',
-  'cancelReview',
   'checksum',
   'copyText',
   'copyStartupDiagnostic',
-  'finishReview',
   'getBrandAssets',
   'getInitialReview',
   'getReviews',
@@ -1752,7 +1742,7 @@ function autosaveTree(
   tree: ReviewTree | null
 ): void {
   if (
-    !state.reviewMode ||
+    !reviewId ||
     !tree ||
     !MarkoverReviewSessions.isTreeEditable(tree)
   ) return
@@ -2844,11 +2834,7 @@ function managedReviewDocument(
 }
 
 function configureManagedMode(): void {
-  state.reviewMode = true
-  state.durableReview = true
   elements.openButton.hidden = true
-  elements.standardActions.hidden = false
-  elements.reviewActions.hidden = true
   elements.annotationGuidance.textContent =
     'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
 }
@@ -2978,6 +2964,10 @@ async function pasteImages(event: ClipboardEvent): Promise<void> {
   if (!pastedImages.length) return
 
   event.preventDefault()
+  if (!originReviewId) {
+    showToast('Attachments are available in managed reviews')
+    return
+  }
 
   for (const pastedImage of pastedImages) {
     try {
@@ -3042,18 +3032,6 @@ elements.copyTreeButton.addEventListener('click', () => {
   if (!finishActiveSourceEdit()) return
   bridge.copyText(MarkoverTree.serializeTree(currentTree()))
   showToast('Feedback JSON copied')
-})
-
-elements.doneReviewButton.addEventListener('click', () => {
-  if (!finishActiveSourceEdit()) return
-  elements.doneReviewButton.disabled = true
-  elements.doneReviewButton.textContent = 'Finishing…'
-  bridge.finishReview(currentTree())
-})
-
-elements.cancelReviewButton.addEventListener('click', () => {
-  elements.cancelReviewButton.disabled = true
-  bridge.cancelReview()
 })
 
 elements.sourceToggle.addEventListener('click', () => {
@@ -3609,22 +3587,6 @@ async function initialize(): Promise<void> {
       configureManagedMode()
       for (const document of reviews) {
         addManagedReview(managedReviewDocument(document), false)
-      }
-      await loadDocument(reviewDocument)
-    } else if (reviewDocument) {
-      state.reviewMode = true
-      state.durableReview = Boolean(reviewDocument.durable)
-      if (state.durableReview) {
-        elements.openButton.hidden = true
-        elements.standardActions.hidden = false
-        elements.reviewActions.hidden = true
-        elements.annotationGuidance.textContent =
-          'Annotations autosave continuously. Copy feedback JSON when you’re done.'
-      } else {
-        elements.standardActions.hidden = true
-        elements.reviewActions.hidden = false
-        elements.annotationGuidance.textContent =
-          'Add feedback to any blocks, then click Done to return the review to the agent.'
       }
       await loadDocument(reviewDocument)
     } else if (reviews.length) {

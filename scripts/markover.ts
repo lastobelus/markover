@@ -601,17 +601,6 @@ export async function executeCommand(
     readSessionDiscoverySetting: readDiscoverySetting = readSessionDiscoverySetting,
     settingsPath = path.join(path.dirname(endpointPath), 'settings.json')
   } = options
-  const importSource = instance?.checkout
-    ? path.join(instance.checkout, '.markover', 'reviews')
-    : path.join(projectDirectory, '.markover', 'reviews')
-
-  const prepareService = async () => {
-    await ensure()
-    await requestJson(endpointPath, 'POST', '/reviews/import', {
-      sourceDirectory: importSource
-    })
-  }
-
   if (parsed.command === 'open') {
     const sourcePath = path.resolve(parsed.sourcePath)
     let stats
@@ -643,7 +632,7 @@ export async function executeCommand(
       threadId: parsed.threadId ?? null,
       handoffKey
     })
-    await prepareService()
+    await ensure()
     const opened = await requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       metadata: {
@@ -676,7 +665,7 @@ export async function executeCommand(
     }
   }
 
-  await prepareService()
+  await ensure()
   const reviewId = encodeURIComponent(parsed.reviewId)
   if (parsed.command === 'get') {
     return requestJson(

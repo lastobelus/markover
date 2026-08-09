@@ -111,14 +111,6 @@ test('renderer commits source edits before navigation and tree handoff', () => {
   )
   assert.match(
     renderer,
-    /doneReviewButton\.addEventListener[\s\S]*finishActiveSourceEdit\(\)[\s\S]*finishReview\(currentTree\(\)\)/
-  )
-  assert.match(
-    renderer,
-    /function autosaveTree\([\s\S]*reviewId: string \| null[\s\S]*bridge\.autosaveReview\(reviewId, tree\)/
-  )
-  assert.doesNotMatch(
-    renderer,
-    /if \(reviewId\) bridge\.autosaveReview/
+    /function autosaveTree\([\s\S]*reviewId: string \| null[\s\S]*!reviewId[\s\S]*bridge\.autosaveReview\(reviewId, tree\)/
   )
 })

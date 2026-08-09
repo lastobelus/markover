@@ -123,7 +123,7 @@ test('renderer mutations drain before main blocks new attachment saves', () => {
   )
   assert.match(
     main,
-    /if \(reviewId && managedAttachmentSavesBlocked\)[\s\S]*finishing review saves before quitting/
+    /if \(managedAttachmentSavesBlocked\)[\s\S]*finishing review saves before quitting/
   )
   assert.match(
     renderer,

@@ -221,18 +221,15 @@ each choice from that baseline without duplicating the live decisions below.
    Restarting the single application instance restores every managed review and
    its collapse, feedback, status, and attachment state. Selection is retained
    while switching tabs during an application run and resets to the first block
-   after restart. The first upgraded checkout imports managed reviews from its
-   former `.markover/reviews` directory without overwriting user-data copies.
+   after restart. Former checkout-local `.markover/reviews` directories are not
+   scanned or imported; historical bytes remain untouched in place.
 
-   **Audit — Retain durable sessions; revise the former-directory import.**
-   Bounded-loss persistence is necessary for asynchronous multi-agent work and
-   has landed. Re-importing checkout-local reviews on every supported CLI open
-   is now an unnecessary compatibility path; issue
-   [#100](https://github.com/lastobelus/markover/issues/100) owns its removal
-   while preserving historical bytes. Evidence:
+   **Audit — Retain.** Bounded-loss persistence is necessary for asynchronous
+   multi-agent work. The current application has one addressed managed store
+   and no eager compatibility reader for former checkout-local reviews. Evidence:
    [review-store tests](test/review-store.test.ts),
-   [crash durability tests](test/durability-crash.test.ts), and issue
-   [#39](https://github.com/lastobelus/markover/issues/39).
+   [crash durability tests](test/durability-crash.test.ts), and
+   [PR #106](https://github.com/lastobelus/markover/pull/106).
 5. **Structural labels do not repeat source markers.** Headings use `H1`, `H2`,
    and so on; ordered items use their actual index; unordered items use an open
    bullet. The block text contains only the item's content.
@@ -314,17 +311,14 @@ each choice from that baseline without duplicating the live decisions below.
 
 ## Screenshot attachments
 
-1. **Pasted screenshots are workspace files, not JSON payloads.** Managed
-   reviews store them under each review in Markover's per-user application-data
-   directory. Legacy blocking reviews retain their gitignored
-   `.markover/attachments/` directory and optional `--attachments-dir <path>`
-   override. Emitted paths are absolute so a same-machine agent can inspect them
-   directly.
+1. **Pasted screenshots are managed-review files, not JSON payloads.** Each
+   managed review stores them under its directory in Markover's per-user
+   application data. Directly opened local Markdown does not save attachments.
+   Emitted paths are absolute so a same-machine agent can inspect them directly.
 
-   **Audit — Retain the managed path; revise the legacy path.** Same-machine
-   file references keep handoffs compact, while issue
-   [#100](https://github.com/lastobelus/markover/issues/100) owns removal of the
-   obsolete blocking-review directory and override. Evidence:
+   **Audit — Retain.** Same-machine file references keep handoffs compact, and
+   the obsolete blocking-review directory and attachment override have been
+   removed. Evidence:
    [review-store attachment tests](test/review-store.test.ts).
 2. **Attachments and prose remain separate data.** A node gains an ordered
    `attachments` array only when an image is pasted. Each entry contains an ID,
@@ -364,14 +358,10 @@ each choice from that baseline without duplicating the live decisions below.
    count and size, ignores invalid or unreadable managed reviews, and rescans
    before moving generated unreferenced files to Trash.
 
-   **Audit — Retain managed cleanup; revise legacy retention.** Guarded managed
-   cleanup does not sweep unknown files or touch the original Markdown source.
-   The still-shipped blocking prototype path removes only the tree reference and
-   leaves its separately stored attachment bytes; issue
-   [#100](https://github.com/lastobelus/markover/issues/100) owns removal of that
-   path and storage lifecycle. Evidence:
-   [review-store cleanup tests](test/review-store.test.ts), the
-   [legacy renderer branch](src/renderer.ts), and
+   **Audit — Retain.** Guarded managed cleanup does not sweep unknown files or
+   touch the original Markdown source. The application no longer has a separate
+   prototype attachment lifecycle. Evidence:
+   [review-store cleanup tests](test/review-store.test.ts) and
    [PR #106](https://github.com/lastobelus/markover/pull/106).
 
 ## Agent handoff
@@ -422,14 +412,15 @@ each choice from that baseline without duplicating the live decisions below.
    **Audit — Retain.** Local paths preserve original bytes and let an authorized
    same-machine agent choose when to inspect them. Evidence:
    [review-store attachment tests](test/review-store.test.ts).
-8. **Legacy commands remain temporarily available for comparison.** The
-   blocking `review` command and older durable `review:open`/`--resume` path are
-   not the primary multi-thread workflow.
+8. **One agent handoff command family is supported.** Durable, non-blocking
+   `markover open/get/edit` is the only agent-facing review lifecycle. The
+   blocking `review` and detached `review:open`/`--resume` prototypes do not
+   ship as scripts or runtime modes.
 
-   **Audit — Revise.** These prototype paths still ship as package scripts and
-   keep stale in-memory guidance reachable. Issue
-   [#100](https://github.com/lastobelus/markover/issues/100) owns their removal
-   as one coherent prototype-handoff cleanup.
+   **Audit — Retain.** One addressed lifecycle keeps storage, attachments,
+   restoration, and agent guidance under the same contract. Evidence:
+   [CLI tests](test/markover-cli.test.ts) and
+   [local-service tests](test/local-service.test.ts).
 9. **A successful `open` returns an instance-specific review deep link.** The
    canonical form is `markover://review/<id>`; isolated development instances
    use their own explicit schemes. Links select an existing managed review but

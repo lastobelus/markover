@@ -204,12 +204,6 @@ const bridge = {
   autosaveReview: (reviewId, tree) => {
     send('review:autosave', reviewId, tree)
   },
-  finishReview: (tree) => {
-    send('review:done', tree)
-  },
-  cancelReview: () => {
-    send('review:cancel')
-  },
   getSettings: () => invoke('settings:get'),
   updateSettings: (patch) => (
     invoke('settings:update', patch)

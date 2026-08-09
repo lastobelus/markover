@@ -78,7 +78,7 @@ export interface RendererInvokeArguments {
   'document:open': []
   'brand:assets': []
   'document:checksum': [string]
-  'attachment:save': [MarkoverClipboardImage, string | null | undefined]
+  'attachment:save': [MarkoverClipboardImage, string]
   'clipboard:read-image': []
   'review:autosave-status:get': []
   'settings:get': []
@@ -120,9 +120,7 @@ export interface RendererSendArguments {
   'review:activation-response': [ReviewActivationResponse]
   'clipboard:write': [string]
   'review:activate': [string]
-  'review:autosave': [string | null, ReviewTree]
-  'review:done': [ReviewTree]
-  'review:cancel': []
+  'review:autosave': [string, ReviewTree]
 }
 
 export interface MainEventArguments {
@@ -364,9 +362,7 @@ function isDocument(value: unknown): value is MarkoverDocument {
   if (!hasExactKeys(value, ['name', 'path', 'source', 'checksum'], [
     'reviewId',
     'projectRoot',
-    'tree',
-    'durable',
-    'autosavePath'
+    'tree'
   ])) return false
   if (
     !isStringOrNull(value.name) ||
@@ -378,12 +374,7 @@ function isDocument(value: unknown): value is MarkoverDocument {
       value.projectRoot !== undefined &&
       !isStringOrNull(value.projectRoot)
     ) ||
-    (value.tree !== undefined && !isReviewTree(value.tree)) ||
-    (value.durable !== undefined && typeof value.durable !== 'boolean') ||
-    (
-      value.autosavePath !== undefined &&
-      !isStringOrNull(value.autosavePath)
-    )
+    (value.tree !== undefined && !isReviewTree(value.tree))
   ) return false
   if (value.tree && (
     value.tree.sourceDocument.content !== value.source ||
@@ -702,11 +693,7 @@ export function assertRendererInvokeArguments(
     case 'attachment:save':
       valid = args.length === 2 &&
         isClipboardImage(args[0]) &&
-        (
-          args[1] === undefined ||
-          args[1] === null ||
-          isReviewId(args[1])
-        )
+        isReviewId(args[1])
       break
     case 'settings:update': valid = singleArgument(args, isSettingsPatch); break
     case 'review:context-menu:open':
@@ -726,7 +713,6 @@ export function assertRendererSendArguments(
   let valid = false
   switch (channel) {
     case 'startup:quit':
-    case 'review:cancel':
       valid = noArguments(args)
       break
     case 'review:snapshot-response':
@@ -744,15 +730,11 @@ export function assertRendererSendArguments(
     case 'review:activate': valid = singleArgument(args, isReviewId); break
     case 'review:autosave':
       valid = args.length === 2 &&
-        (args[0] === null || isReviewId(args[0])) &&
+        isReviewId(args[0]) &&
         isReviewTree(args[1]) &&
-        (
-          args[0] === null ||
-          !isRecord(args[1].review) ||
-          args[1].review.id === args[0]
-        )
+        isRecord(args[1].review) &&
+        args[1].review.id === args[0]
       break
-    case 'review:done': valid = singleArgument(args, isReviewTree); break
   }
   if (!valid) throw new IpcContractError(channel, 'renderer-to-main send')
 }

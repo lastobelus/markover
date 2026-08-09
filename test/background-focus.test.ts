@@ -204,17 +204,10 @@ test('shutdown leaves the shared endpoint for health-checked stale recovery', ()
   assert.doesNotMatch(main, /unlink\(endpointPath\)/)
 })
 
-test('development startup imports legacy reviews from the checkout root', () => {
+test('development startup does not scan checkout-local review storage', () => {
   const main = read('src/main.ts')
 
-  assert.match(
-    main,
-    /const checkoutDirectory = addressedInstance\.checkout/
-  )
-  assert.match(
-    main,
-    /!app\.isPackaged && !smokeMode && checkoutDirectory\) \{\s*await importLegacyReviews\(\s*path\.join\(checkoutDirectory, '\.markover', 'reviews'\),\s*path\.join\(addressedInstance\.stateRoot, 'reviews'\)/
-  )
+  assert.doesNotMatch(main, /importLegacyReviews|\.markover['"], ['"]reviews/)
 })
 
 test('successful smoke output flushes before exercising graceful quit', () => {
@@ -298,17 +291,11 @@ test('startup diagnostic exists before build identity validation', () => {
   )
 })
 
-test('lock-free review processes use isolated startup diagnostics', () => {
+test('the app has one addressed startup and diagnostic lifecycle', () => {
   const main = read('src/main.ts')
 
-  assert.match(
-    main,
-    /reviewMode\s*\? `startup-diagnostic-review-\$\{String\(process\.pid\)\}\.json`\s*: 'startup-diagnostic\.json'/
-  )
-  assert.match(
-    main,
-    /reviewMode &&\s*startupDiagnostic\?\.snapshot\(\)\.status === 'ready'[\s\S]*rmSync\(startupDiagnosticPath, \{ force: true \}\)/
-  )
+  assert.match(main, /applicationDataDirectory,\s*'startup-diagnostic\.json'/)
+  assert.doesNotMatch(main, /reviewMode|--markover-review|MARKOVER_REVIEW/)
 })
 
 test('automatic startup uses one-shot hidden background LaunchServices flags', () => {

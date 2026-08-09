@@ -14,7 +14,6 @@ import {
   startLocalService,
   type LocalServiceOptions
 } from '../src/local-service'
-import { importLegacyReviews } from '../src/review-migration'
 import {
   assertReviewArtifact,
   ReviewStore,
@@ -69,7 +68,7 @@ async function serviceFixture(
   const endpointPath = path.join(directory, 'service.json')
   const changes: Array<{
     artifact: ReviewArtifact
-    action: 'created' | 'imported' | 'handoff' | 'edit'
+    action: 'created' | 'handoff' | 'edit'
   }> = []
   const store = new ReviewStore(path.join(directory, 'reviews'), {
     idFactory: () => 'mko_aaa11111'
@@ -79,7 +78,6 @@ async function serviceFixture(
     identity,
     store,
     beforeAction: options.beforeAction,
-    importReviews: options.importReviews,
     async onChange(artifact, action) {
       changes.push({ artifact, action })
       await options.onChange?.(artifact, action)
@@ -298,15 +296,10 @@ test('rejects hostile credential forms before routing or bodies', async (t) => {
 
 test('gates every current non-health route with real HTTP', async (t) => {
   let beforeActions = 0
-  let imports = 0
   const fixture = await serviceFixture(t, {
     beforeAction() {
       beforeActions += 1
       return Promise.resolve(undefined)
-    },
-    importReviews() {
-      imports += 1
-      return Promise.resolve([])
     }
   })
   const wrongToken = fixture.identity.token === 'B'.repeat(43)
@@ -314,7 +307,6 @@ test('gates every current non-health route with real HTTP', async (t) => {
     : 'B'.repeat(43)
   const routes = [
     { method: 'GET', path: '/reviews', body: null },
-    { method: 'POST', path: '/reviews/import', body: '{' },
     { method: 'POST', path: '/reviews', body: '{' },
     { method: 'GET', path: '/reviews/mko_missing1', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/activate', body: null },
@@ -358,7 +350,6 @@ test('gates every current non-health route with real HTTP', async (t) => {
   assert.deepEqual(await fixture.store.list(), [])
   assert.deepEqual(fixture.changes, [])
   assert.equal(beforeActions, 0)
-  assert.equal(imports, 0)
 })
 
 test('accepts standards-valid Bearer scheme and spacing variants', async (t) => {
@@ -723,48 +714,6 @@ test('lists and loads reviews through one-shot requests', async (t) => {
   assert.ok(Array.isArray(listed.reviews))
   assert.equal(listed.reviews.length, 1)
   assert.deepEqual(listed.reviews[0], loaded)
-})
-
-test('imports checkout reviews and publishes them before handoff', async (t) => {
-  const sourceDirectory = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'markover-service-import-')
-  )
-  t.after(() => fs.rm(sourceDirectory, { recursive: true, force: true }))
-  const sourceStore = new ReviewStore(sourceDirectory, {
-    idFactory: () => 'mko_import01'
-  })
-  await sourceStore.create({
-    tree: tree(),
-    contextSummary: 'Import this review.'
-  })
-
-  let targetDirectory = ''
-  const fixture = await serviceFixture(t, {
-    importReviews(source) {
-      return importLegacyReviews(source, targetDirectory)
-    }
-  })
-  targetDirectory = fixture.store.directory
-
-  assert.deepEqual(
-    await requestJson(fixture.endpointPath, 'POST', '/reviews/import', {
-      sourceDirectory
-    }),
-    { imported: ['mko_import01'] }
-  )
-  assert.deepEqual(
-    fixture.changes.map(({ action, artifact }) => [action, artifact.review.id]),
-    [['imported', 'mko_import01']]
-  )
-  const imported = expectArtifact(
-    await requestJson(
-      fixture.endpointPath,
-      'GET',
-      '/reviews/mko_import01'
-    ),
-    'mko_import01'
-  )
-  assert.equal(imported.review.status, 'editing')
 })
 
 test('returns structured errors to the client', async (t) => {
