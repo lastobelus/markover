@@ -227,6 +227,8 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   assert.match(privacy, /outside Markover's control/)
   assert.match(privacy, /Library\/Caches\/Markover/)
   assert.match(privacy, /Application Support\/Markover/)
+  assert.match(privacy, /manually downloaded or copied <code>Markover\.app<\/code>/)
+  assert.match(privacy, /Applications or Downloads/)
   assert.match(privacy, /two-second window by default/)
   assert.match(privacy, /two-second bound is suspended/)
   assert.match(privacy, /within five seconds/)
