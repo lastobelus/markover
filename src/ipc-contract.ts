@@ -34,6 +34,7 @@ const SETTINGS_KEYS = [
   'appearance',
   'treeDensity',
   'annotationTextSize',
+  'zoomPercent',
   'showKeyboardHelp',
   'openDocumentsSidebar',
   'defaultTreeView',
@@ -495,6 +496,13 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'appearance': return value === 'system' || value === 'light' || value === 'dark'
     case 'treeDensity': return value === 'comfortable' || value === 'compact'
     case 'annotationTextSize': return value === 'small' || value === 'medium' || value === 'large'
+    case 'zoomPercent':
+      return value === 80 ||
+        value === 90 ||
+        value === 100 ||
+        value === 110 ||
+        value === 125 ||
+        value === 150
     case 'defaultTreeView': return value === 'all' || value === 'annotated'
     case 'incomingReviewActivationPolicy':
       return value === 'never' ||

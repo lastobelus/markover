@@ -3,24 +3,36 @@ import type { MenuItemConstructorOptions } from 'electron'
 interface ApplicationMenuOptions {
   appName?: string
   canCleanUpAttachments?: boolean
+  canResetZoom?: boolean
   canTrashReview?: boolean
+  canZoomIn?: boolean
+  canZoomOut?: boolean
   isMac?: boolean
   onCleanUpAttachments?: () => void
   onOpen?: () => void
+  onResetZoom?: () => void
   onSettings?: () => void
   onTrashReview?: () => void
+  onZoomIn?: () => void
+  onZoomOut?: () => void
   reviewMode?: boolean
 }
 
 export function applicationMenuTemplate({
   appName = 'Markover',
   canCleanUpAttachments = false,
+  canResetZoom = false,
   canTrashReview = false,
+  canZoomIn = true,
+  canZoomOut = true,
   isMac = process.platform === 'darwin',
   onCleanUpAttachments,
   onOpen,
+  onResetZoom,
   onSettings,
   onTrashReview,
+  onZoomIn,
+  onZoomOut,
   reviewMode = false
 }: ApplicationMenuOptions = {}): MenuItemConstructorOptions[] {
   const template: MenuItemConstructorOptions[] = []
@@ -93,6 +105,28 @@ export function applicationMenuTemplate({
   template.push({
     label: 'View',
     submenu: [
+      {
+        id: 'view.actual-size',
+        label: 'Actual Size',
+        accelerator: 'CommandOrControl+0',
+        enabled: canResetZoom,
+        ...(onResetZoom ? { click: onResetZoom } : {})
+      },
+      {
+        id: 'view.zoom-in',
+        label: 'Zoom In',
+        accelerator: 'CommandOrControl+Plus',
+        enabled: canZoomIn,
+        ...(onZoomIn ? { click: onZoomIn } : {})
+      },
+      {
+        id: 'view.zoom-out',
+        label: 'Zoom Out',
+        accelerator: 'CommandOrControl+-',
+        enabled: canZoomOut,
+        ...(onZoomOut ? { click: onZoomOut } : {})
+      },
+      { type: 'separator' },
       { role: 'reload' },
       { role: 'toggleDevTools' },
       { type: 'separator' },

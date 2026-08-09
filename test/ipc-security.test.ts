@@ -57,6 +57,21 @@ test('renderer entry validation requires the exact file and startup query', () =
   )
 })
 
+test('settings IPC accepts supported zoom levels only', () => {
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('settings:update', [{ zoomPercent: 80 }])
+  })
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('settings:update', [{ zoomPercent: 150 }])
+  })
+  assert.throws(
+    () => {
+      assertRendererInvokeArguments('settings:update', [{ zoomPercent: 120 }])
+    },
+    /Invalid renderer-to-main invoke IPC contract for settings:update/
+  )
+})
+
 test('privileged IPC rejects forged senders, subframes, URLs, and arguments', () => {
   type Listener = (event: unknown, ...args: unknown[]) => unknown
   const invokes = new Map<string, Listener>()
