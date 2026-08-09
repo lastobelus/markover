@@ -8,19 +8,24 @@ export interface IncomingReviewPolicyInput {
   policy: IncomingReviewActivationPolicy
 }
 
-export interface IncomingReviewBatch {
-  count: number
-  latestReviewId: string
+export interface IncomingReviewPrompt {
+  reviewId: string
+  sequence: number
 }
 
 export function appendIncomingReview(
-  current: IncomingReviewBatch | null,
+  prompts: readonly IncomingReviewPrompt[],
+  reviewId: string,
+  sequence: number
+): IncomingReviewPrompt[] {
+  return [...prompts, { reviewId, sequence }]
+}
+
+export function removeIncomingReview(
+  prompts: readonly IncomingReviewPrompt[],
   reviewId: string
-): IncomingReviewBatch {
-  return {
-    count: (current?.count ?? 0) + 1,
-    latestReviewId: reviewId
-  }
+): IncomingReviewPrompt[] {
+  return prompts.filter((prompt) => prompt.reviewId !== reviewId)
 }
 
 export function shouldDismissIncomingPrompt(

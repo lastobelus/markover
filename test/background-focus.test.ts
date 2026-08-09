@@ -91,7 +91,14 @@ test('warning and notice UI keep the current review safe and target the latest a
   assert.match(html, /id="incoming-review-dialog-keep"[\s\S]*>Keep Current</)
   assert.match(html, /id="incoming-review-dialog-open"[\s\S]*>Open New Review</)
   assert.match(html, /id="incoming-review-notice-open"[^>]*>Open</)
-  assert.match(renderer, /appendIncomingReview\([\s\S]*incomingReviewWarningId = batch\.latestReviewId/)
+  assert.match(
+    renderer,
+    /incomingReviewNoticePrompts = appendIncomingReview\([\s\S]*incomingReviewNoticeCount = incomingReviewNoticePrompts\.length[\s\S]*incomingReviewNoticeId = session\.reviewId/
+  )
+  assert.match(
+    renderer,
+    /incomingReviewWarningPrompts = appendIncomingReview\([\s\S]*incomingReviewWarningCount = incomingReviewWarningPrompts\.length[\s\S]*incomingReviewWarningId = session\.reviewId/
+  )
   assert.match(renderer, /incomingReviewDialogKeep\.focus\(\)/)
   assert.match(
     renderer,
@@ -147,7 +154,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /async function handleReviewTrashed[\s\S]*incomingReviewNoticeId === reviewId[\s\S]*hideIncomingReviewNotice\(\)[\s\S]*incomingReviewWarningId === reviewId[\s\S]*clearIncomingReviewWarning\(\)[\s\S]*reviewSessions\.remove\(reviewId\)/
+    /function reconcileTrashedIncomingReview[\s\S]*removeIncomingReview\([\s\S]*noticePrompts\.at\(-1\)[\s\S]*renderIncomingReviewNotice\(session\)[\s\S]*removeIncomingReview\([\s\S]*warningPrompts\.at\(-1\)[\s\S]*renderIncomingReviewWarning\(session\)[\s\S]*async function handleReviewTrashed[\s\S]*reconcileTrashedIncomingReview\(reviewId\)[\s\S]*reviewSessions\.remove\(reviewId\)/
   )
   assert.match(
     renderer,

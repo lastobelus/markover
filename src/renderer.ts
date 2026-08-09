@@ -6,6 +6,7 @@ import type {
   StartupPhase,
   StartupWarning
 } from './startup-contract'
+import type { IncomingReviewPrompt } from './incoming-review-policy'
 import { userFacingStartupWarnings } from './startup-contract'
 import * as MarkoverAgentGuidance from './agent-guidance'
 import * as MarkoverAnnotationBlock from './annotation-block'
@@ -14,6 +15,7 @@ import { autosaveFailureMessage } from './durability-status'
 import {
   appendIncomingReview,
   incomingReviewAction,
+  removeIncomingReview,
   shouldDismissIncomingPrompt
 } from './incoming-review-policy'
 import * as MarkoverImagePreview from './image-preview'
@@ -243,11 +245,13 @@ let incomingReviewQueue: Promise<void> = Promise.resolve()
 let incomingReviewSequence = 0
 let incomingReviewNoticeCount = 0
 let incomingReviewNoticeId: string | null = null
+let incomingReviewNoticePrompts: IncomingReviewPrompt[] = []
 let incomingReviewNoticeSequence: number | null = null
 let incomingReviewNoticeTimer: ReturnType<typeof setTimeout> | null = null
 let incomingReviewNoticeVersion = 0
 let incomingReviewWarningCount = 0
 let incomingReviewWarningId: string | null = null
+let incomingReviewWarningPrompts: IncomingReviewPrompt[] = []
 let incomingReviewWarningSequence: number | null = null
 let incomingReviewWarningVersion = 0
 let smokeRuntimeClean = true
@@ -1537,6 +1541,7 @@ function hideIncomingReviewNotice(): void {
   incomingReviewNoticeTimer = null
   incomingReviewNoticeCount = 0
   incomingReviewNoticeId = null
+  incomingReviewNoticePrompts = []
   incomingReviewNoticeSequence = null
   elements.incomingReviewNotice.hidden = true
   incomingReviewNoticeVersion += 1
@@ -1560,22 +1565,7 @@ function scheduleIncomingReviewNoticeDismissal(): void {
   incomingReviewNoticeTimer = setTimeout(hideIncomingReviewNotice, 6000)
 }
 
-function showIncomingReviewNotice(
-  session: ReviewSession,
-  sequence: number
-): void {
-  const batch = appendIncomingReview(
-    elements.incomingReviewNotice.hidden
-      ? null
-      : {
-          count: incomingReviewNoticeCount,
-          latestReviewId: incomingReviewNoticeId || session.reviewId
-        },
-    session.reviewId
-  )
-  incomingReviewNoticeCount = batch.count
-  incomingReviewNoticeId = batch.latestReviewId
-  incomingReviewNoticeSequence = sequence
+function renderIncomingReviewNotice(session: ReviewSession): void {
   elements.incomingReviewNoticeMessage.textContent = incomingReviewNoticeCount === 1
     ? `New review added: ${session.documentName}`
     : `${String(incomingReviewNoticeCount)} new reviews added. Latest: ${session.documentName}`
@@ -1584,30 +1574,31 @@ function showIncomingReviewNotice(
   scheduleIncomingReviewNoticeDismissal()
 }
 
+function showIncomingReviewNotice(
+  session: ReviewSession,
+  sequence: number
+): void {
+  incomingReviewNoticePrompts = appendIncomingReview(
+    incomingReviewNoticePrompts,
+    session.reviewId,
+    sequence
+  )
+  incomingReviewNoticeCount = incomingReviewNoticePrompts.length
+  incomingReviewNoticeId = session.reviewId
+  incomingReviewNoticeSequence = sequence
+  renderIncomingReviewNotice(session)
+}
+
 function clearIncomingReviewWarning(): void {
   incomingReviewWarningCount = 0
   incomingReviewWarningId = null
+  incomingReviewWarningPrompts = []
   incomingReviewWarningSequence = null
   if (elements.incomingReviewDialog.open) elements.incomingReviewDialog.close()
   incomingReviewWarningVersion += 1
 }
 
-function showIncomingReviewWarning(
-  session: ReviewSession,
-  sequence: number
-): void {
-  const batch = appendIncomingReview(
-    elements.incomingReviewDialog.open
-      ? {
-          count: incomingReviewWarningCount,
-          latestReviewId: incomingReviewWarningId || session.reviewId
-        }
-      : null,
-    session.reviewId
-  )
-  incomingReviewWarningCount = batch.count
-  incomingReviewWarningId = batch.latestReviewId
-  incomingReviewWarningSequence = sequence
+function renderIncomingReviewWarning(session: ReviewSession): void {
   incomingReviewWarningVersion += 1
   elements.incomingReviewDialogMessage.textContent =
     incomingReviewWarningCount === 1
@@ -1618,6 +1609,59 @@ function showIncomingReviewWarning(
     elements.incomingReviewDialogKeep.focus()
   }
   scheduleIncomingReviewNoticeDismissal()
+}
+
+function showIncomingReviewWarning(
+  session: ReviewSession,
+  sequence: number
+): void {
+  incomingReviewWarningPrompts = appendIncomingReview(
+    incomingReviewWarningPrompts,
+    session.reviewId,
+    sequence
+  )
+  incomingReviewWarningCount = incomingReviewWarningPrompts.length
+  incomingReviewWarningId = session.reviewId
+  incomingReviewWarningSequence = sequence
+  renderIncomingReviewWarning(session)
+}
+
+function reconcileTrashedIncomingReview(reviewId: string): void {
+  const noticePrompts = removeIncomingReview(
+    incomingReviewNoticePrompts,
+    reviewId
+  )
+  if (noticePrompts.length !== incomingReviewNoticePrompts.length) {
+    incomingReviewNoticePrompts = noticePrompts
+    const latest = noticePrompts.at(-1)
+    const session = latest ? reviewSessions.get(latest.reviewId) : null
+    if (!latest || !session) {
+      hideIncomingReviewNotice()
+    } else {
+      incomingReviewNoticeCount = noticePrompts.length
+      incomingReviewNoticeId = latest.reviewId
+      incomingReviewNoticeSequence = latest.sequence
+      renderIncomingReviewNotice(session)
+    }
+  }
+
+  const warningPrompts = removeIncomingReview(
+    incomingReviewWarningPrompts,
+    reviewId
+  )
+  if (warningPrompts.length !== incomingReviewWarningPrompts.length) {
+    incomingReviewWarningPrompts = warningPrompts
+    const latest = warningPrompts.at(-1)
+    const session = latest ? reviewSessions.get(latest.reviewId) : null
+    if (!latest || !session) {
+      clearIncomingReviewWarning()
+    } else {
+      incomingReviewWarningCount = warningPrompts.length
+      incomingReviewWarningId = latest.reviewId
+      incomingReviewWarningSequence = latest.sequence
+      renderIncomingReviewWarning(session)
+    }
+  }
 }
 
 async function activateIncomingReview(
@@ -2402,6 +2446,7 @@ elements.incomingReviewDialogOpen.addEventListener('click', () => {
 elements.incomingReviewDialog.addEventListener('close', () => {
   incomingReviewWarningCount = 0
   incomingReviewWarningId = null
+  incomingReviewWarningPrompts = []
   incomingReviewWarningSequence = null
   scheduleIncomingReviewNoticeDismissal()
 })
@@ -2715,8 +2760,7 @@ async function activateReview(
 }
 
 async function handleReviewTrashed(reviewId: string): Promise<void> {
-  if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
-  if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
+  reconcileTrashedIncomingReview(reviewId)
   const wasActive = state.reviewId === reviewId
   const removed = reviewSessions.remove(reviewId)
   if (!removed) return

@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   appendIncomingReview,
   incomingReviewAction,
+  removeIncomingReview,
   shouldDismissIncomingPrompt
 } from '../src/incoming-review-policy'
 
@@ -58,15 +59,13 @@ test('idle activation requires Markover to be backgrounded for the full duration
 })
 
 test('concurrent arrivals consolidate while retaining the newest review action', () => {
-  const first = appendIncomingReview(null, 'mko_first')
-  assert.deepEqual(first, {
-    count: 1,
-    latestReviewId: 'mko_first'
-  })
-  assert.deepEqual(appendIncomingReview(first, 'mko_latest'), {
-    count: 2,
-    latestReviewId: 'mko_latest'
-  })
+  const first = appendIncomingReview([], 'mko_first', 1)
+  const batch = appendIncomingReview(first, 'mko_latest', 2)
+  assert.deepEqual(batch, [
+    { reviewId: 'mko_first', sequence: 1 },
+    { reviewId: 'mko_latest', sequence: 2 }
+  ])
+  assert.deepEqual(removeIncomingReview(batch, 'mko_latest'), first)
 })
 
 test('activation clears older prompts without dismissing newer arrivals', () => {
