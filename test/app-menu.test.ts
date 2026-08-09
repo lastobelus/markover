@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
 
 import type { MenuItemConstructorOptions } from 'electron'
 
 import { applicationMenuTemplate } from '../src/app-menu'
+
+const root = path.resolve(__dirname, '..', '..')
 
 function submenu(item: MenuItemConstructorOptions): MenuItemConstructorOptions[] {
   assert.ok(Array.isArray(item.submenu))
@@ -72,4 +76,12 @@ test('Review menu keeps deletion and cleanup extensible and state-aware', () => 
   assert.ok(disabledReview)
   assert.equal(submenu(disabledReview)[0]?.enabled, false)
   assert.equal(submenu(disabledReview)[2]?.enabled, false)
+})
+
+test('review deletion copy distinguishes review data from the original document', () => {
+  const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+  assert.match(
+    main,
+    /Your original Markdown document will not be changed or deleted\./
+  )
 })
