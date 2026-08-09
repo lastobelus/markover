@@ -1596,15 +1596,27 @@ async function activateIncomingReview(
   focusPreview: boolean
 ): Promise<void> {
   const noticeVersion = incomingReviewNoticeVersion
+  const noticeReviewId = incomingReviewNoticeId
   const warningVersion = incomingReviewWarningVersion
+  const warningReviewId = incomingReviewWarningId
   const outcome = await activateReview(reviewId)
   if (outcome === 'blocked') {
     const session = reviewSessions.get(reviewId)
     if (session) showIncomingReviewNotice(session)
     return
   }
-  if (incomingReviewNoticeVersion === noticeVersion) hideIncomingReviewNotice()
-  if (incomingReviewWarningVersion === warningVersion) clearIncomingReviewWarning()
+  if (
+    incomingReviewNoticeVersion === noticeVersion &&
+    noticeReviewId === reviewId
+  ) {
+    hideIncomingReviewNotice()
+  }
+  if (
+    incomingReviewWarningVersion === warningVersion &&
+    warningReviewId === reviewId
+  ) {
+    clearIncomingReviewWarning()
+  }
   if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
 }
 
@@ -3369,13 +3381,21 @@ async function initialize(): Promise<void> {
       addManagedReview(managedReviewDocument(document), false)
     }
     const noticeVersion = incomingReviewNoticeVersion
+    const noticeReviewId = incomingReviewNoticeId
     const warningVersion = incomingReviewWarningVersion
+    const warningReviewId = incomingReviewWarningId
     const outcome = await activateReview(reviewId)
     if (outcome === 'activated' || outcome === 'already-active') {
-      if (incomingReviewNoticeVersion === noticeVersion) {
+      if (
+        incomingReviewNoticeVersion === noticeVersion &&
+        noticeReviewId === reviewId
+      ) {
         hideIncomingReviewNotice()
       }
-      if (incomingReviewWarningVersion === warningVersion) {
+      if (
+        incomingReviewWarningVersion === warningVersion &&
+        warningReviewId === reviewId
+      ) {
         clearIncomingReviewWarning()
       }
     }
