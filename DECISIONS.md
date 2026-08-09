@@ -1,16 +1,142 @@
-# Prototype decisions
+# Decision register
 
-These choices optimize for proving the happy path. They are not intended as a
-foundation for a production architecture.
+This is the authoritative record of Markover's product and architecture
+decisions. Statements describe behavior landed on `main`; approved but
+unlanded direction is named as planned work instead. Historical prototype
+choices remain visible only where their disposition helps explain the current
+boundary.
+
+## Register contract
+
+- **Retain** means the landed behavior remains the intended boundary.
+- **Revise** means the landed behavior or documented boundary needs owned
+  follow-up work.
+- **Superseded** means a replacement has landed; the old choice is history, not
+  a supported path.
+- **Planned** means an accepted replacement has an owner but has not landed.
+- **Deferred** means the boundary was reconsidered and is intentionally outside
+  the current launch scope.
+
+Audit notes cite implementation, tests, or issues rather than treating this
+file as evidence of itself. The issue 36 audit started at commit `005d83c` and
+was reconciled through commit `51f175f` before publication. An entry without an
+**Audit** note has not yet been reassessed.
+
+## Register maintenance
+
+- **Planned — Reconcile from durable Git state.** A gardener compares the last
+  successfully audited `main` commit with current `origin/main`, so a later run
+  catches merges missed while its host was offline. Manual local `codex exec`
+  runs are the interim trigger; the future trusted Intel host adds periodic
+  local scheduling, with merge hooks only as optional wakeups. Issue
+  [#101](https://github.com/lastobelus/markover/issues/101) owns the harness,
+  isolated worktree, single-flight behavior, subscription authentication, and
+  human-reviewed output. GitHub-hosted execution is excluded because the
+  official action expects an API key and official guidance warns against using
+  ChatGPT-managed CI authentication for public repositories. Evidence:
+  [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
+  and [Codex GitHub Action](https://learn.chatgpt.com/docs/github-action).
+
+## First-prototype disposition index
+
+The first prototype was recorded in commit `87977d8`. This index disposes of
+each choice from that baseline without duplicating the live decisions below.
+
+### Data and parsing
+
+- **P-D1 — Retain.** The exact source, checksum, tree, and block feedback remain
+  the review artifact. See Data and parsing 1 and the
+  [tree contract](src/contracts.ts).
+- **P-D2 — Retain.** Document-order block IDs remain intentionally stable only
+  for the exact source. A review preserves that source and checksum, so
+  cross-revision annotation matching is unnecessary for the current workflow.
+  See Data and parsing 2 and the
+  [deterministic-tree tests](test/tree.test.ts).
+- **P-D3 — Superseded.** The hand-written line scanner was replaced by
+  `markdown-it`, expanding CommonMark block coverage and preserving exact
+  source for constructs outside the selectable tree. The remaining extension
+  visibility boundary is planned under issue
+  [#15](https://github.com/lastobelus/markover/issues/15). See Data and parsing
+  3 and 8 and the
+  [extension-degradation test](test/tree.test.ts).
+- **P-D4 — Retain.** Headings and lists still share one structural tree. See
+  Data and parsing 4 and the [navigation tests](test/navigation.test.ts).
+
+### Interaction
+
+- **P-I1 — Retain.** Selection still targets a visible review block rather than
+  the synthetic document root. See Interaction 1.
+- **P-I2 — Retain.** Arrow keys still navigate the document structure. See
+  Interaction 2 and the [navigation tests](test/navigation.test.ts).
+- **P-I3 — Superseded.** The two-pane Tab toggle became an ordered focus cycle
+  across the optional Documents sidebar, Document tree, and Annotation pane.
+  See Interaction 3 and the [keyboard contract tests](test/brand.test.ts).
+- **P-I4 — Superseded.** In-memory annotations became durable managed reviews
+  with bounded-loss autosave and restart restoration. See Interaction 4,
+  [review-store tests](test/review-store.test.ts), and issue
+  [#39](https://github.com/lastobelus/markover/issues/39).
+
+### Agent handoff
+
+- **P-H1 — Superseded.** Clipboard Markdown is no longer the integration.
+  Product-independent `open`/`get`/`edit` commands now provide the primary
+  machine-readable handoff. See Agent handoff 1 and
+  [CLI tests](test/markover-cli.test.ts).
+- **P-H2 — Retain.** The complete JSON tree remains available through `get` and
+  the clipboard escape hatch. See Agent handoff 5–7.
+
+### Originally deferred work
+
+- **P-X1 — Superseded.** CommonMark block parsing and rich inline rendering
+  landed. See Data and parsing 3 and 7.
+- **P-X2a — Superseded.** Saving, bounded-loss recovery, and one-time import of
+  the former managed-review directory landed. See Interaction 4 and issue
+  [#39](https://github.com/lastobelus/markover/issues/39).
+- **P-X2b — Deferred.** Importing, merging, or migrating annotations onto a
+  different source revision remains outside the exact-source review workflow.
+  See Data and parsing 2.
+- **P-X3 — Deferred.** Matching annotations across document edits remains
+  unnecessary while every review carries immutable source plus checksum and
+  source edits are proposals rather than document mutations.
+- **P-X4 — Superseded.** A local authenticated CLI and loopback service provide
+  direct handoff without coupling Markover to one agent product. See Agent
+  handoff 1–5 and Local service authorization.
+- **P-X5 — Superseded.** The application now restores and switches among
+  multiple independent reviews. See Multi-document application state.
+- **P-X6a — Superseded.** Packaging and Electron hardening landed. The remaining
+  renderer `file:`-origin revision is planned under issue
+  [#95](https://github.com/lastobelus/markover/issues/95). See Electron
+  privilege boundary.
+- **P-X6b — Planned.** Keyboard and VoiceOver acceptance is a broad-announcement
+  gate owned by issues [#15](https://github.com/lastobelus/markover/issues/15)
+  and [#91](https://github.com/lastobelus/markover/issues/91).
+- **P-X6c — Planned.** Developer ID signing and notarization are owned by issue
+  [#13](https://github.com/lastobelus/markover/issues/13). App Sandbox and
+  auto-update are assessed with the later release decisions in this register.
+- **P-X7 — Revise.** The handoff tree declares format `markover-review` version
+  1, but no owned compatibility policy says what agents or future Markover
+  versions may rely on. Issue
+  [#99](https://github.com/lastobelus/markover/issues/99) owns the broad-launch
+  contract without adding speculative migration machinery.
 
 ## Data and parsing
 
 1. **The tree is the review artifact.** Its `sourceDocument` contains the exact
    Markdown content, its SHA-256 checksum, name, and path when known. Structural
    nodes store reviewer comments in a plainly named `feedback` field.
+
+   **Audit — Retain.** Exact source plus structured feedback is the core
+   handoff, and the public workflow depends on agents receiving both together.
+   Evidence: [tree contract](src/contracts.ts) and
+   [tree tests](test/tree.test.ts).
 2. **Node IDs are document-order IDs.** IDs such as `block-7` are deterministic
    for an exact document. No attempt is made to preserve annotations across
    edits; a changed checksum means a different review target.
+
+   **Audit — Retain.** IDs identify blocks inside an immutable review target;
+   review ID plus checksum prevents them from claiming cross-revision identity.
+   Evidence: [tree construction](src/tree.ts) and
+   [deterministic-tree tests](test/tree.test.ts).
 3. **Parsing is delegated to the third-party `markdown-it` parser using its
    CommonMark preset.** Markover does not maintain a Markdown grammar. It maps
    `markdown-it`'s token stream and source ranges into review blocks, gaining
@@ -18,9 +144,19 @@ foundation for a production architecture.
    room for extensions. Markover currently turns paragraphs, headings, ordered
    and unordered list items, thematic breaks, and code blocks into selectable
    nodes. The built-in table rule is enabled explicitly.
+
+   **Audit — Retain.** This replacement removed the prototype's private parser,
+   expanded block coverage, and kept source ranges deterministic. Evidence:
+   [parser implementation](src/tree.ts) and
+   [parser tests](test/tree.test.ts).
 4. **Heading and list structure share one tree.** Lower-level headings become
    children of the nearest higher-level heading. Nested list items become
    children of the preceding less-indented list item.
+
+   **Audit — Retain.** The shared hierarchy remains the useful navigation and
+   annotation unit demonstrated by the product. Evidence:
+   [tree tests](test/tree.test.ts) and
+   [navigation tests](test/navigation.test.ts).
 5. **Block quotes and tables are deliberately opaque nodes.** Their complete
    source ranges are selectable and their contents render, but markdown-it's
    nested quote tokens and table rows/cells are not copied into the review tree.
@@ -38,6 +174,12 @@ foundation for a production architecture.
    remain inert. Image pills open the source image in the same labeled preview
    modal used for screenshot attachments; relative paths resolve from the
    reviewed Markdown file.
+
+   **Audit — Retain (Data and parsing 5–7).** Opaque compound blocks, task
+   decoration, and inert inline rendering preserve useful review granularity
+   without turning Markover into a Markdown editor or browser. Evidence:
+   [tree tests](test/tree.test.ts) and
+   [image-preview tests](test/image-preview.test.ts).
 8. **Unrecognized extensions degrade through CommonMark.** With raw HTML and
    extensions disabled, syntax such as definition lists, footnotes,
    strikethrough, and HTML may appear as literal paragraph content, resolve as
@@ -45,24 +187,52 @@ foundation for a production architecture.
    tree. The exact input remains in `sourceDocument.content`; the sampler keeps
    these cases visible for a later unsupported-syntax design.
 
+   **Audit — Retain current behavior; planned public boundary.** Exact source
+   preservation makes degradation non-destructive, while issue
+   [#15](https://github.com/lastobelus/markover/issues/15) owns the compatibility
+   matrix and regression coverage required before broad announcement. Evidence:
+   [extension-degradation tests](test/tree.test.ts).
+
 ## Interaction
 
 1. **Selection is always a block, never the invisible document root.**
+
+   **Audit — Retain.** Only visible source-backed blocks provide an intelligible
+   annotation target. Evidence: [navigation tests](test/navigation.test.ts).
 2. **Arrow navigation operates structurally.** Left selects a parent; right
    selects a child or searches outward for the next sibling; up/down move among
    siblings and climb outward at boundaries.
+
+   **Audit — Retain.** Structural movement remains the primary keyboard model
+   and has direct behavioral coverage. Evidence:
+   [navigation tests](test/navigation.test.ts).
 3. **Tab and Shift-Tab cycle review panes.** When the documents list sidebar is
    expanded, focus cycles through Documents, Document tree, and Annotation.
    A collapsed or absent documents list is skipped. Control-Tab remains reserved
    for switching review sessions.
+
+   **Audit — Retain.** The three-surface cycle scales the prototype interaction
+   to the optional review inbox without overloading review switching. Evidence:
+   [keyboard contract tests](test/brand.test.ts).
 4. **Managed reviews are durable sessions.** Each `markover open` call creates a
-   distinct review ID and atomically writes its complete artifact after every
-   mutation to Markover's per-user application-data `reviews` directory.
+   distinct review ID. Mutations queue complete snapshots for atomic persistence
+   to Markover's per-user application-data `reviews` directory within a bounded,
+   configurable delay; handoff and orderly shutdown use explicit flush barriers.
    Restarting the single application instance restores every managed review and
    its collapse, feedback, status, and attachment state. Selection is retained
    while switching tabs during an application run and resets to the first block
    after restart. The first upgraded checkout imports managed reviews from its
    former `.markover/reviews` directory without overwriting user-data copies.
+
+   **Audit — Retain durable sessions; revise the former-directory import.**
+   Bounded-loss persistence is necessary for asynchronous multi-agent work and
+   has landed. Re-importing checkout-local reviews on every supported CLI open
+   is now an unnecessary compatibility path; issue
+   [#100](https://github.com/lastobelus/markover/issues/100) owns its removal
+   while preserving historical bytes. Evidence:
+   [review-store tests](test/review-store.test.ts),
+   [crash durability tests](test/durability-crash.test.ts), and issue
+   [#39](https://github.com/lastobelus/markover/issues/39).
 5. **Structural labels do not repeat source markers.** Headings use `H1`, `H2`,
    and so on; ordered items use their actual index; unordered items use an open
    bullet. The block text contains only the item's content.
@@ -83,6 +253,13 @@ foundation for a production architecture.
    the source header and tree row, and replace the tree block's visible content
    while retaining the immutable original for handoff. Revert removes only the
    proposal.
+
+   **Audit — Retain (Interaction 5–7).** Compact structural labels, propagated
+   annotation state, and immutable source-edit proposals make block feedback
+   understandable without mutating the reviewed file. Evidence:
+   [brand contract tests](test/brand.test.ts),
+   [source-panel tests](test/source-panel.test.ts), and
+   [source-edit tests](test/source-edits.test.ts).
 8. **The selection remains visible while reading forward.** Once the selected
    row scrolls above the document viewport, a non-interactive mirror stays
    pinned at the top. Content scrolls beneath its opaque background and shadow;
@@ -104,11 +281,36 @@ foundation for a production architecture.
     upward, so its bottom edge remains aligned with the other pane's hairline.
     No green outline surrounds the pane.
 12. **Navigation help is inset from the scrollbar.** Its right-side gap from
-    the scrollbar visually matches its bottom gap from the window.
+   the scrollbar visually matches its bottom gap from the window.
+
+   **Audit — Retain (Interaction 8–12).** These details form the landed visual
+   focus and reading contract; broader keyboard and VoiceOver acceptance remains
+   planned under issues [#15](https://github.com/lastobelus/markover/issues/15)
+   and [#91](https://github.com/lastobelus/markover/issues/91). Evidence:
+   [selected-location tests](test/selected-location.test.ts) and
+   [brand contract tests](test/brand.test.ts).
 13. **Annotation typing does not rebuild the tree per character.** The document
-    tree only rerenders when a block crosses the annotated/unannotated boundary,
-    and that rerender preserves `scrollTop`. Browser scroll anchoring is disabled
-    for the tree so feedback entry cannot walk the document one block at a time.
+   tree only rerenders when a block crosses the annotated/unannotated boundary,
+   and that rerender preserves `scrollTop`. Browser scroll anchoring is disabled
+   for the tree so feedback entry cannot walk the document one block at a time.
+
+   **Audit — Retain.** The optimization protects editing continuity without
+   changing persisted review semantics. Evidence:
+   [brand contract tests](test/brand.test.ts).
+14. **An incoming managed review joins the inbox before Markover decides whether
+    to activate it.** With no active document it opens immediately. Otherwise,
+    the default `never` policy preserves the current document and shows an Open
+    notice; `always`, `warn`, and `when-idle` provide explicit alternatives.
+    Idle activation requires Markover to remain in the background for the
+    configured one-to-sixty-minute interval. Concurrent arrivals remain visible
+    and consolidate prompts around the newest review.
+
+   **Audit — Retain.** Separating ingestion from activation prevents an agent's
+   background work from silently replacing the document a user is reading while
+   keeping every arrival recoverable. Evidence: the
+   [incoming-review policy](src/incoming-review-policy.ts),
+   [settings defaults](src/settings.ts), and
+   [policy tests](test/incoming-review-policy.test.ts).
 
 ## Screenshot attachments
 
@@ -118,6 +320,12 @@ foundation for a production architecture.
    `.markover/attachments/` directory and optional `--attachments-dir <path>`
    override. Emitted paths are absolute so a same-machine agent can inspect them
    directly.
+
+   **Audit — Retain the managed path; revise the legacy path.** Same-machine
+   file references keep handoffs compact, while issue
+   [#100](https://github.com/lastobelus/markover/issues/100) owns removal of the
+   obsolete blocking-review directory and override. Evidence:
+   [review-store attachment tests](test/review-store.test.ts).
 2. **Attachments and prose remain separate data.** A node gains an ordered
    `attachments` array only when an image is pasted. Each entry contains an ID,
    type, MIME type, absolute path, byte checksum, pixel dimensions, and optional
@@ -142,9 +350,24 @@ foundation for a production architecture.
 5. **There is no image editor or dedicated caption field.** Pasted images are
    not cropped, drawn on, highlighted, or recompressed. Short thumbnail labels
    aid reference; explanatory prose remains in `feedback`.
-6. **Attachment files have no automatic cleanup.** Removing an attachment from
-   a node leaves its bytes on disk. Review-history retention and cleanup remain
-   future work.
+
+   **Audit — Retain (Screenshot attachments 2–5).** Separate authoritative
+   metadata plus unchanged image bytes supports ordered, inspectable evidence
+   without expanding Markover into an image editor. Evidence:
+   [review-store attachment tests](test/review-store.test.ts),
+   [annotation rendering tests](test/annotation-block.test.ts), and
+   [image-preview tests](test/image-preview.test.ts).
+6. **Attachment removal and cleanup are recoverable operations.** Removing an
+   attachment first persists the reference-free tree, then moves the owned file
+   to Trash, and restores the prior tree if Trash rejects the file. Clean Up
+   Unused Attachments reports count and size, ignores invalid or unreadable
+   reviews, and rescans before moving generated unreferenced files to Trash.
+
+   **Audit — Superseded prototype retention policy.** The former indefinite
+   retention behavior was replaced by guarded cleanup without sweeping unknown
+   files or touching the original Markdown source. Evidence:
+   [review-store cleanup tests](test/review-store.test.ts) and
+   [PR #106](https://github.com/lastobelus/markover/pull/106).
 
 ## Agent handoff
 
@@ -153,6 +376,11 @@ foundation for a production architecture.
    existing application instance, returns a review ID, and exits. After the user
    says “Check Markover,” `markover get <id>` returns the complete review
    without agent polling or clipboard transfer.
+
+   **Audit — Retain.** This product-independent machine interface supports
+   concurrent threads without holding an agent process open. Evidence:
+   [CLI implementation](scripts/markover.ts) and
+   [CLI tests](test/markover-cli.test.ts).
 2. **A review ID represents one review session.** Opening the same source twice
    creates distinct IDs because branch, pull request, agent thread, purpose, and
    annotations may differ. Source checksums identify the exact Markdown target;
@@ -168,15 +396,45 @@ foundation for a production architecture.
 5. **Stdout is a strict machine interface.** Agent-facing commands emit exactly
    one JSON value on success. Diagnostics belong on stderr, and failures exit
    non-zero without contaminating stdout.
+
+   **Audit — Retain (Agent handoff 2–5).** Per-session identity, serialized
+   state transitions, explicit reopening, and JSON-only stdout make handoff
+   deterministic for concurrent agents. Evidence:
+   [review-store tests](test/review-store.test.ts),
+   [local-service tests](test/local-service.test.ts), and
+   [CLI tests](test/markover-cli.test.ts).
 6. **Clipboard export remains an escape hatch.** `Copy feedback JSON` copies the
    same complete tree. A concise-feedback format remains omitted because
    annotations are substantially less useful without their source and tree
    context.
+
+   **Audit — Retain.** Full JSON is a useful manual recovery path, but the
+   primary contract remains authenticated `get`; no second concise schema is
+   warranted. Evidence: [renderer UI](src/index.html) and Agent handoff 1–5.
 7. **Image handoff uses ordinary paths.** Full-tree JSON includes attachment
    metadata directly on annotated nodes; image bytes remain outside JSON.
+
+   **Audit — Retain.** Local paths preserve original bytes and let an authorized
+   same-machine agent choose when to inspect them. Evidence:
+   [review-store attachment tests](test/review-store.test.ts).
 8. **Legacy commands remain temporarily available for comparison.** The
    blocking `review` command and older durable `review:open`/`--resume` path are
    not the primary multi-thread workflow.
+
+   **Audit — Revise.** These prototype paths still ship as package scripts and
+   keep stale in-memory guidance reachable. Issue
+   [#100](https://github.com/lastobelus/markover/issues/100) owns their removal
+   as one coherent prototype-handoff cleanup.
+9. **A successful `open` returns an instance-specific review deep link.** The
+   canonical form is `markover://review/<id>`; isolated development instances
+   use their own explicit schemes. Links select an existing managed review but
+   never mutate it. Because agent hosts may not dispatch custom schemes, the
+   standalone `open '<reviewUrl>'` Terminal command is the reliable handoff.
+
+   **Audit — Retain.** The complete activation path landed under issue
+   [#52](https://github.com/lastobelus/markover/issues/52), with URL grammar and
+   activation behavior covered by
+   [deep-link contract tests](test/review-deep-link-contract.test.ts).
 
 ## Multi-document application state
 
@@ -195,6 +453,24 @@ foundation for a production architecture.
    and status acknowledgements form explicit barriers around handoff. Incomplete
    or legacy review directories are left untouched rather than silently
    migrated into the managed registry.
+
+   **Audit — Retain (Multi-document application state 1–4).** One addressed
+   owner plus isolated session state prevents checkout and thread collisions;
+   preserved unknown data follows the repository's no-speculative-migration
+   policy. Evidence: [review-session tests](test/review-sessions.test.ts),
+   [instance tests](test/instance.test.ts), and
+   [review-store tests](test/review-store.test.ts).
+5. **Whole-review deletion moves the self-contained managed-review directory to
+   Trash.** The main process owns confirmation, path resolution, save barriers,
+   and the destructive operation. Editing and pending-agent reviews are both
+   deletable, with a stronger warning while an agent owns the handoff; deleting
+   a review never changes or deletes its original Markdown file.
+
+   **Audit — Retain.** Recoverable directory-level deletion preserves a simple
+   ownership boundary and avoids an internal second trash lifecycle. Evidence:
+   [review-store deletion tests](test/review-store.test.ts),
+   [application-menu tests](test/app-menu.test.ts), and
+   [PR #106](https://github.com/lastobelus/markover/pull/106).
 
 ## Review metadata
 
@@ -216,6 +492,41 @@ foundation for a production architecture.
    a drawer containing the summary, paths, Git details, pull request, thread,
    and discovery provenance.
 
+   **Audit — Retain (Review metadata 1–5).** Required purpose plus explicit-first,
+   bounded best-effort provenance aids handoff without making local session
+   scanning mandatory or crowding navigation. Evidence:
+   [metadata-discovery tests](test/metadata-discovery.test.ts),
+   [CLI tests](test/markover-cli.test.ts), and
+   [review-session tests](test/review-sessions.test.ts).
+
+## Electron privilege boundary
+
+1. **The packaged renderer is sandboxed and capability-minimal.** Context
+   isolation and web security remain enabled; Node integration and webviews are
+   disabled. Navigation, redirects, new windows, webview attachment, permission
+   checks, and permission requests are denied. The Content Security Policy
+   admits only the bundled UI and the local image sources Markover currently
+   requires.
+2. **Renderer-to-main IPC is guarded before side effects.** Every privileged
+   invoke and one-way message must come from the active window's main frame at
+   the exact canonical entry URL and must match the channel's runtime schema and
+   arity. Invalid invokes reject; invalid one-way messages are dropped and
+   diagnosed without processing their payload.
+3. **The preload is a narrow validated bridge.** It exposes purpose-specific
+   methods rather than Electron objects and validates main-to-renderer payloads
+   before delivery. Packaged fuses disable RunAsNode, Node-options environment
+   handling, and CLI inspection while enforcing cookie encryption, embedded
+   ASAR integrity, and ASAR-only application loading.
+
+   **Audit — Retain (Electron privilege boundary 1–3).** These controls close
+   the focused-preview hardening gate while preserving only the capabilities
+   Markover exercises. Issue
+   [#95](https://github.com/lastobelus/markover/issues/95) owns the planned move
+   away from the remaining renderer `file:` origin and privilege. Evidence:
+   [IPC security](src/ipc-security.ts), [IPC contracts](src/ipc-contract.ts),
+   [IPC security tests](test/ipc-security.test.ts), and
+   [renderer security tests](test/renderer-security.test.ts).
+
 ## macOS release trust
 
 1. **The current trust mode is explicit hardened ad-hoc signing.** Packaging
@@ -229,12 +540,26 @@ foundation for a production architecture.
    code receive an empty profile. Device, personal-information, unsigned-memory,
    and disabled-library-validation grants are rejected by tests and final
    artifact verification.
+
+   **Audit — Retain current boundary (macOS release trust 1–2).** Explicit
+   fail-closed trust selection and minimal checked-in entitlements make the
+   ad-hoc preview claim verifiable; issue
+   [#13](https://github.com/lastobelus/markover/issues/13) owns the separate
+   Apple-verified transition. Evidence:
+   [macOS packaging tests](test/macos-package.test.ts) and
+   [artifact preflight tests](test/macos-artifact-preflight.test.ts).
 3. **The release contract starts at macOS 14 Sonoma and currently publishes
    Apple Silicon only.** Packaging keeps separate native architecture
    primitives and writes `LSMinimumSystemVersion = 14.0`; release preflight and
    bootstrap require the declared architecture and floor. Native Intel release
    activation and physical evidence are deferred to issue #80 at Broad
    announcement.
+
+   **Audit — Retain current boundary; planned expansion.** Sonoma remains the
+   explicit floor, while issue
+   [#80](https://github.com/lastobelus/markover/issues/80) owns native Intel
+   publication and physical validation before broad announcement. Evidence:
+   [release contract tests](test/release.test.ts).
 4. **The exact final ZIP is the release-verification boundary.** Native
    preflight verifies its checksum, safe extraction, app and helper IDs,
    version, architecture, strict code seal, hardened-runtime flags, exact
@@ -247,10 +572,34 @@ foundation for a production architecture.
    includes a validation marker; an unmarked cache never bypasses installation
    checks. A successful install warns on stderr that Markover is not
    Apple-verified; JSON stdout remains reserved for agent protocol results.
+
+   **Audit — Retain (macOS release trust 4–5).** Verification of the exact ZIP
+   before upload and again before cache promotion prevents an unverified byte
+   stream from becoming the installed candidate. Evidence:
+   [artifact preflight tests](test/macos-artifact-preflight.test.ts) and
+   [bootstrap tests](test/bootstrap.test.ts).
 6. **Apple verification remains a separate blocked transition.** Developer ID
    signing, notarization, stapling, and successful Gatekeeper assessment require
    Apple Developer Program access and a separately reviewed explicit trust-mode
    change. Credentials alone never activate or downgrade a release path.
+
+   **Audit — Planned replacement.** Ad-hoc trust cannot satisfy the broad gate;
+   issue [#13](https://github.com/lastobelus/markover/issues/13) owns explicit
+   Developer ID signing, notarization, stapling, and Gatekeeper evidence.
+7. **Minimum-Node and packaged smoke run only for tagged release candidates.**
+   Routine pull request and `main` CI run the portable checks and bundled
+   Electron smoke on Node 24 Linux. The tag-triggered release workflow first
+   tests the exact candidate on the minimum-supported Node 22.13.0, then builds
+   the exact Apple Silicon ZIP, verifies it, exercises the packaged review
+   lifecycle, and retains its native smoke evidence. Intel release qualification
+   remains deferred to issue #80.
+
+   **Audit — Retain.** Candidate-only minimum-version and native validation
+   preserves support-floor and release-byte evidence without duplicating those
+   slower lanes on every non-candidate commit. Evidence:
+   [continuous integration](.github/workflows/ci.yml), the
+   [release workflow](.github/workflows/release.yml), and the
+   [release workflow tests](test/release.test.ts).
 
 ## Release provenance and rollback
 
@@ -259,6 +608,12 @@ foundation for a production architecture.
    CLI. A staging job requires exactly those two payloads and their checksums
    before it can create a complete four-asset draft. Internal x64 CI is not a
    supported or published Intel release.
+
+   **Audit — Retain current boundary; planned expansion.** Draft completeness
+   is retained, while the Apple-Silicon-only asset set is replaced only when
+   issue [#80](https://github.com/lastobelus/markover/issues/80) lands verified
+   native Intel releases. Evidence:
+   [release workflow tests](test/release.test.ts).
 2. **Draft staging and publication are distinct protected operations.** The
    `release` environment gates both jobs. The first approval admits the oldest
    pending tag to rollback selection and complete draft assembly; the second
@@ -279,6 +634,13 @@ foundation for a production architecture.
    minimum-supported Node 22.13.0 before draft assembly. Repository rules
    restrict `v*` creation and separately prohibit updates and deletion without
    bypass.
+
+   **Audit — Retain (Release provenance and rollback 2–4).** Protected,
+   separately approved publication plus attestations, sidecars, and immutable
+   monotonic tags make source and release bytes independently inspectable.
+   Evidence: [release operation tests](test/release-operations.test.ts),
+   [release workflow tests](test/release.test.ts), and the
+   [release runbook](docs/developer/releasing.md).
 5. **Each release carries its own rollback contract.** Generated notes name one
    stable release explicitly designated `latest` as the known-good version and
    provide its exact version-pinned launcher. Monotonic version checks still
@@ -290,6 +652,16 @@ foundation for a production architecture.
    fix receives a new version. Deleting an actively dangerous immutable release
    is an exceptional documented incident action; its tag is never reused.
 
+   **Audit — Retain (Release provenance and rollback 5–6).** Version-pinned
+   rollback and withdrawal preserve an auditable lineage without rewriting
+   published artifacts. Issue
+   [#99](https://github.com/lastobelus/markover/issues/99) owns the review-format
+   boundary assumed by rollback, and issue
+   [#92](https://github.com/lastobelus/markover/issues/92) owns clean-profile
+   broad-candidate exercise. Evidence:
+   [release operation tests](test/release-operations.test.ts) and the
+   [release runbook](docs/developer/releasing.md).
+
 ## Local service authorization
 
 1. **The first authorization boundary is the local OS account.** Markover
@@ -299,6 +671,12 @@ foundation for a production architecture.
 2. **The service remains plain HTTP on `127.0.0.1`.** Local TLS, browser-client
    support, CORS, and `Host`/`Origin` policy do not strengthen the selected
    account boundary and are not part of protocol 2.
+
+   **Audit — Retain (Local service authorization 1–2).** A protected capability
+   enforces the selected OS-account boundary; transport features that do not
+   strengthen that boundary would add complexity without protection. Evidence:
+   [local-service tests](test/local-service.test.ts) and
+   [authorization smoke tests](test/smoke-auth.test.ts).
 3. **Each service process gets one full-access identity.** Startup generates a
    random UUID instance ID and a 256-bit capability with
    `randomBytes(32).toString('base64url')`. Restarting rotates both values; no
@@ -317,6 +695,12 @@ foundation for a production architecture.
 6. **Shutdown leaves one coherent stale pair.** Neither record is deleted on
    graceful shutdown. Stale records are useful to startup recovery and reveal
    no live credential once their owning process has stopped.
+
+   **Audit — Retain (Local service authorization 3–6).** Per-process rotation,
+   fixed sibling records, restrictive filesystem modes, and coherent stale
+   state provide recoverable discovery without persisting a live capability.
+   Evidence: [service-endpoint tests](test/service-endpoint.test.ts) and
+   [local-service tests](test/local-service.test.ts).
 7. **Only exact `GET /health` is public.** It returns `status`, protocol version
    2, and the service's non-secret instance ID. Every other request must
    authenticate before route matching or body reading with exactly one
@@ -350,12 +734,23 @@ foundation for a production architecture.
     migration. Existing review JSON and attachments remain untouched and need
     not be openable by the latest app. Restarts do not require draining review
     handoffs; issue 39 independently owns bounded-loss restart durability.
-13. **Issue 12 remains a three-PR stack.** PR 1 established capability
+
+   **Audit — Retain (Local service authorization 7–12).** Authentication before
+   parsing or routing, fresh client preflight, stable redacted failures, and a
+   clean protocol break form one testable fail-closed boundary. Evidence:
+   [local-service tests](test/local-service.test.ts),
+   [service-endpoint tests](test/service-endpoint.test.ts), and
+   [authorization smoke tests](test/smoke-auth.test.ts).
+13. **Issue 12 landed as a three-PR stack.** PR 1 established capability
     generation, protected publication, server enforcement, minimum client
-    propagation, and the reusable development smoke fixture. PR 2 owns bounded
+    propagation, and the reusable development smoke fixture. PR 2 added bounded
     record convergence, ordinary stale-instance detection, in-place record
-    repair, and deterministic client recovery. PR 3 owns exhaustive adversarial
+    repair, and deterministic client recovery. PR 3 added exhaustive adversarial
     verification and public privacy/data claims.
+
+   **Audit — Superseded delivery plan.** Issue
+   [#12](https://github.com/lastobelus/markover/issues/12) is closed and these
+   slices are historical provenance, not unfinished current ownership.
 14. **Publication recovery is bounded and non-destructive.** Record reads retry
     missing, malformed, or mismatched pairs for a short fixed convergence
     window. When complete probing still fails, the CLI invokes one normal
@@ -380,6 +775,13 @@ foundation for a production architecture.
     representative mutation. Unauthorized requests stop before routing, body
     parsing, callbacks, or state changes. Unknown routes authenticate before
     `404`; tests do not invent attachment or deletion APIs that do not exist.
+
+   **Audit — Retain (Local service authorization 14–17).** Bounded
+   non-destructive recovery and no automatic replay preserve ambiguous user
+   state, while the real-HTTP matrix verifies rejection before mutation.
+   Evidence: [service-endpoint tests](test/service-endpoint.test.ts),
+   [local-service tests](test/local-service.test.ts), and
+   [authorization smoke tests](test/smoke-auth.test.ts).
 18. **Local session discovery is visible and controllable.** The default-on
     “Discover agent thread from local session logs” setting controls only
     handoff-key-based Codex session scanning. Explicit thread IDs and Git
@@ -399,25 +801,133 @@ foundation for a production architecture.
     Markdown image contacts its host; the image remains inert before that
     action. After an authenticated agent retrieves a handoff, the recipient's
     storage, logging, and network behavior is outside Markover's control.
-21. **Issue 12 closes at the verified authorization boundary.** Issue 39 owns
+
+   **Audit — Retain (Local service authorization 18–20).** Controllable local
+   discovery and explicit privacy/network claims keep optional provenance from
+   becoming hidden data collection or an implied recipient guarantee. Evidence:
+   [metadata-discovery tests](test/metadata-discovery.test.ts),
+   [settings tests](test/settings.test.ts), and
+   [public-site tests](test/docs-site.test.ts).
+21. **Issue 12 closed at the verified authorization boundary.** Issue 39 owns
     bounded-loss durability, issue 13 owns packaged happy-path smoke, issue 9
     owns broader preview documentation and cleanup guidance, issue 15 owns
     deletion, and issue 64 owns the future in-app privacy link. The final slice
     does not absorb those roadmapped responsibilities.
 
-## Deliberately deferred
+   **Audit — Superseded coordination note.** The ownership split remains useful
+   history. Issues [#9](https://github.com/lastobelus/markover/issues/9) and
+   [#39](https://github.com/lastobelus/markover/issues/39) are complete; issues
+   [#13](https://github.com/lastobelus/markover/issues/13),
+   [#15](https://github.com/lastobelus/markover/issues/15), and
+   [#64](https://github.com/lastobelus/markover/issues/64) retain their current
+   release, compatibility/accessibility, and Help-surface work.
 
-- Drill-down into block-quote contents or table rows and cells
-- Footnote, definition-list, strikethrough, container, and other extension nodes
-- Explicit warnings and selectable fallback nodes for unsupported syntax
-- Annotation import, merge, or migration across document revisions
-- Matching annotations across document edits
-- Manual File > Open with a colocated Markover save artifact
-- `markover://review/<id>` deep links
-- Agent result writeback, per-annotation outcomes, and addressed state
-- Organized review history, revisions, retention, and cleanup
-- Automatic pull-request discovery
-- Same-user and privileged-process isolation, stale-port impersonation
-  protection, accessibility, Developer ID signing/notarization, App Sandbox,
-  and auto-update
-- Compatibility guarantees for the tree format
+## Planned and deferred boundaries
+
+- **Deferred — Compound-block drill-down.** Block quotes and tables remain
+  selectable opaque source ranges; rows, cells, and nested quote blocks do not
+  justify additional tree depth yet. Issue
+  [#15](https://github.com/lastobelus/markover/issues/15) owns publishing this
+  boundary. Evidence: [tree tests](test/tree.test.ts).
+- **Deferred — Markdown extension nodes.** Footnotes, definition lists,
+  strikethrough, containers, and other non-enabled extensions continue to
+  degrade through the current parser instead of creating a second grammar.
+  Issue [#15](https://github.com/lastobelus/markover/issues/15) owns the public
+  compatibility matrix. Evidence: [extension-degradation tests](test/tree.test.ts).
+- **Deferred — Unsupported-syntax UI.** Explicit warnings and selectable
+  fallback nodes are not required while exact source is preserved and #15
+  publishes the supported boundary; usage evidence can justify a later design.
+  Evidence: Data and parsing 8 and [tree tests](test/tree.test.ts).
+- **Deferred — Cross-revision annotation migration.** Import, merge, migration,
+  and block matching across edited documents conflict with the current
+  exact-source identity model and are not required for broad launch. Evidence:
+  [review-store immutability tests](test/review-store.test.ts).
+- **Retain — Manual document opening; planned managed-review repair.** The empty
+  state and Review > Open Markdown already expose a native file picker. Their
+  current transient renderer path does not add the selected document to the
+  Documents list or the durable managed-review lifecycle; issue
+  [#107](https://github.com/lastobelus/markover/issues/107) owns that repair
+  while preserving the original Markdown file. Evidence: the
+  [application menu](src/app-menu.ts), [main-process picker](src/main.ts), and
+  [renderer handoff](src/renderer.ts).
+- **Deferred — Agent result writeback.** Per-annotation outcomes and addressed
+  state require a separately designed agent-to-review protocol; the current
+  handoff intentionally ends at immutable `pending-agent` review data. Evidence:
+  [review-session tests](test/review-sessions.test.ts).
+- **Planned — Review history and remaining readiness.** Recoverable review
+  deletion and unused-attachment cleanup landed in PR #106. Issue
+  [#97](https://github.com/lastobelus/markover/issues/97) owns inbox/history
+  organization; issue [#15](https://github.com/lastobelus/markover/issues/15)
+  retains Markdown compatibility and accessibility remediation.
+- **Deferred — Automatic pull-request discovery.** Explicit `--pr` metadata and
+  best-effort Git discovery are sufficient; adding remote PR lookup would add a
+  network and credential boundary without a demonstrated workflow need.
+  Evidence: [metadata-discovery tests](test/metadata-discovery.test.ts).
+- **Deferred — Stronger local-adversary isolation.** Same-user and privileged
+  process isolation plus deliberate stale-port impersonation protection remain
+  outside the selected OS-account boundary until deployment evidence justifies
+  a stronger transport. Evidence: Local service authorization 1, 2, and 15 and
+  [authorization tests](test/local-service.test.ts).
+- **Planned — Accessibility acceptance.** Issues
+  [#15](https://github.com/lastobelus/markover/issues/15) and
+  [#91](https://github.com/lastobelus/markover/issues/91) own keyboard,
+  VoiceOver, and clean-profile broad-candidate evidence.
+- **Planned — Apple-verified releases.** Issue
+  [#13](https://github.com/lastobelus/markover/issues/13) owns Developer ID
+  signing, notarization, stapling, and Gatekeeper success.
+- **Deferred — App Sandbox and automatic updates.** Neither is part of the
+  current direct-download release contract; adopting either requires its own
+  capability and update-integrity design rather than being implied by signing.
+  Evidence: [macOS packaging tests](test/macos-package.test.ts) and the
+  [release runbook](docs/developer/releasing.md).
+- **Planned — Handoff format compatibility.** Issue
+  [#99](https://github.com/lastobelus/markover/issues/99) owns the versioning and
+  reader contract for `markover-review` without speculative compatibility
+  layers or historical-data migration.
+
+## Broad-announcement conclusion
+
+**No-go as of 2026-08-09 against `main` commit `51f175f`.** The landed product
+has a coherent exact-source review model, durable multi-agent handoff, explicit
+local authorization boundary, and verifiable ad-hoc release path. Broad
+announcement remains blocked because issue
+[#5](https://github.com/lastobelus/markover/issues/5) requires the focused-preview
+gate and every broad-launch evidence category to complete first.
+
+The remaining gates are grouped by outcome:
+
+- **Focused-preview completion:** Final Apple Silicon candidate selection and
+  clean-machine validation, public launch assets, feedback operations, and
+  packaged deep-link validation remain under issues
+  [#10](https://github.com/lastobelus/markover/issues/10),
+  [#11](https://github.com/lastobelus/markover/issues/11),
+  [#16](https://github.com/lastobelus/markover/issues/16),
+  [#17](https://github.com/lastobelus/markover/issues/17), and
+  [#90](https://github.com/lastobelus/markover/issues/90).
+- **Broad release trust and platform evidence:** Developer ID/notarization,
+  native Intel publication, clean-profile rollback, and removal of the renderer
+  `file:` origin remain under issues
+  [#13](https://github.com/lastobelus/markover/issues/13),
+  [#80](https://github.com/lastobelus/markover/issues/80),
+  [#92](https://github.com/lastobelus/markover/issues/92), and
+  [#95](https://github.com/lastobelus/markover/issues/95).
+- **Broad user and community readiness:** Accessibility, history and Markdown
+  compatibility, native Help surfaces, guide review, and clean-profile
+  keyboard/VoiceOver evidence remain under issues
+  [#15](https://github.com/lastobelus/markover/issues/15),
+  [#64](https://github.com/lastobelus/markover/issues/64),
+  [#84](https://github.com/lastobelus/markover/issues/84), and
+  [#91](https://github.com/lastobelus/markover/issues/91).
+- **Broad agent and decision-contract readiness:** Evaluation automation,
+  handoff-format compatibility, prototype-path retirement, and ongoing register
+  reconciliation remain under issues
+  [#46](https://github.com/lastobelus/markover/issues/46),
+  [#99](https://github.com/lastobelus/markover/issues/99),
+  [#100](https://github.com/lastobelus/markover/issues/100), and
+  [#101](https://github.com/lastobelus/markover/issues/101).
+
+A future **go** requires issue #5's checklists to be evidenced against the final
+candidate, the linked gate issues above to be complete or explicitly removed
+from the gate by the maintainer, and issue
+[#18](https://github.com/lastobelus/markover/issues/18) to execute the staged
+announcement and rollback plan.
