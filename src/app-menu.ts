@@ -1,5 +1,7 @@
 import type { MenuItemConstructorOptions } from 'electron'
 
+import { PUBLIC_LINKS, type PublicLinkId } from './public-links'
+
 interface ApplicationMenuOptions {
   appName?: string
   canCleanUpAttachments?: boolean
@@ -10,6 +12,7 @@ interface ApplicationMenuOptions {
   isMac?: boolean
   onCleanUpAttachments?: () => void
   onOpen?: () => void
+  onOpenPublicLink?: (id: PublicLinkId) => void
   onResetZoom?: () => void
   onSettings?: () => void
   onTrashReview?: () => void
@@ -28,6 +31,7 @@ export function applicationMenuTemplate({
   isMac = process.platform === 'darwin',
   onCleanUpAttachments,
   onOpen,
+  onOpenPublicLink,
   onResetZoom,
   onSettings,
   onTrashReview,
@@ -144,14 +148,22 @@ export function applicationMenuTemplate({
     label: 'Window',
     submenu: windowSubmenu
   })
+  const helpSubmenu: MenuItemConstructorOptions[] = PUBLIC_LINKS.map((link) => ({
+    id: `help.${link.id}`,
+    label: link.label,
+    ...(onOpenPublicLink
+      ? { click: () => { onOpenPublicLink(link.id) } }
+      : {})
+  }))
   if (!isMac) {
-    template.push({
-      label: 'Help',
-      submenu: [{
+    helpSubmenu.push(
+      { type: 'separator' },
+      {
         label: 'Settings…',
         ...(onSettings ? { click: onSettings } : {})
-      }]
-    })
+      }
+    )
   }
+  template.push({ role: 'help', submenu: helpSubmenu })
   return template
 }
