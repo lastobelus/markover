@@ -51,12 +51,17 @@ test('persisted review creation does not wait for renderer notification', () => 
 test('native window focus state reaches the renderer without activating Markover', () => {
   const main = read('src/main.ts')
   const preload = read('src/preload.ts')
+  const renderer = read('src/renderer.ts')
 
   assert.match(main, /window\.on\('focus',[\s\S]*mainWindowBlurredAt = null/)
   assert.match(main, /window\.on\('blur',[\s\S]*mainWindowBlurredAt = Date\.now\(\)/)
   assert.match(main, /privilegedIpc\.handle\('window:focus-state:get', currentWindowFocusState\)/)
   assert.match(preload, /getWindowFocusState:.*window:focus-state:get/)
   assert.match(preload, /onWindowFocusChanged:[\s\S]*window:focus-state/)
+  assert.match(
+    renderer,
+    /onWindowFocusChanged[\s\S]*windowFocusStateVersion \+= 1[\s\S]*const initialFocusStateVersion = windowFocusStateVersion[\s\S]*await bridge\.getWindowFocusState\(\)[\s\S]*windowFocusStateVersion === initialFocusStateVersion[\s\S]*windowFocusState = initialFocusState/
+  )
 })
 
 test('incoming reviews are listed before the activation policy runs', () => {

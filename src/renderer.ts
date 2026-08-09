@@ -238,6 +238,7 @@ let windowFocusState: MarkoverWindowFocusState = {
   focused: false,
   blurredAt: Date.now()
 }
+let windowFocusStateVersion = 0
 let incomingReviewQueue: Promise<void> = Promise.resolve()
 let incomingReviewSequence = 0
 let incomingReviewNoticeCount = 0
@@ -3423,10 +3424,15 @@ async function initialize(): Promise<void> {
   const startupInfo = await bridge.getStartupInfo()
   startupUi.development(startupInfo.development)
   bridge.onWindowFocusChanged((focusState) => {
+    windowFocusStateVersion += 1
     windowFocusState = focusState
     scheduleIncomingReviewNoticeDismissal()
   })
-  windowFocusState = await bridge.getWindowFocusState()
+  const initialFocusStateVersion = windowFocusStateVersion
+  const initialFocusState = await bridge.getWindowFocusState()
+  if (windowFocusStateVersion === initialFocusStateVersion) {
+    windowFocusState = initialFocusState
+  }
   bridge.onOpenMarkdownRequested(() => {
     void openMarkdownDocument()
   })
