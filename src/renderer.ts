@@ -1664,6 +1664,11 @@ function reconcileTrashedIncomingReview(reviewId: string): void {
   }
 }
 
+function clearIncomingPromptsTargeting(reviewId: string): void {
+  if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
+  if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
+}
+
 async function activateIncomingReview(
   reviewId: string,
   focusPreview: boolean,
@@ -2712,13 +2717,19 @@ async function activateReview(
 ): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
   if (!reviewSessions.get(reviewId)) return 'missing'
-  if (reviewId === state.reviewId) return 'already-active'
+  if (reviewId === state.reviewId) {
+    clearIncomingPromptsTargeting(reviewId)
+    return 'already-active'
+  }
   state.finishAttachmentLabelEdit?.(true)
   const currentReviewId = state.reviewId
   if (currentReviewId && reviewMutations.has(currentReviewId)) {
     await reviewMutations.wait(currentReviewId)
     if (!reviewSessions.get(reviewId)) return 'missing'
-    if (reviewId === state.reviewId) return 'already-active'
+    if (reviewId === state.reviewId) {
+      clearIncomingPromptsTargeting(reviewId)
+      return 'already-active'
+    }
   }
   if (!finishActiveSourceEdit()) return 'blocked'
   configureManagedMode()
@@ -2756,6 +2767,7 @@ async function activateReview(
   if (selected) renderAnnotation(selected)
   renderDocumentTabs()
   renderReviewContext()
+  clearIncomingPromptsTargeting(reviewId)
   return 'activated'
 }
 
@@ -2782,11 +2794,7 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
   closeImagePreview()
   const next = reviewSessions.recent(1)[0]
   if (next) {
-    const outcome = await activateReview(next.reviewId)
-    if (outcome === 'activated' || outcome === 'already-active') {
-      if (incomingReviewNoticeId === next.reviewId) hideIncomingReviewNotice()
-      if (incomingReviewWarningId === next.reviewId) clearIncomingReviewWarning()
-    }
+    await activateReview(next.reviewId)
   } else {
     renderDocumentTabs()
     setWorkspaceEmpty(true)
@@ -3513,26 +3521,7 @@ async function initialize(): Promise<void> {
     if (!reviewSessions.get(reviewId)) {
       addManagedReview(managedReviewDocument(document), false)
     }
-    const noticeVersion = incomingReviewNoticeVersion
-    const noticeReviewId = incomingReviewNoticeId
-    const warningVersion = incomingReviewWarningVersion
-    const warningReviewId = incomingReviewWarningId
-    const outcome = await activateReview(reviewId)
-    if (outcome === 'activated' || outcome === 'already-active') {
-      if (
-        incomingReviewNoticeVersion === noticeVersion &&
-        noticeReviewId === reviewId
-      ) {
-        hideIncomingReviewNotice()
-      }
-      if (
-        incomingReviewWarningVersion === warningVersion &&
-        warningReviewId === reviewId
-      ) {
-        clearIncomingReviewWarning()
-      }
-    }
-    return outcome
+    return activateReview(reviewId)
   })
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)

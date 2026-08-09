@@ -158,7 +158,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /const outcome = await activateReview\(next\.reviewId\)[\s\S]*outcome === 'activated'[\s\S]*incomingReviewNoticeId === next\.reviewId[\s\S]*hideIncomingReviewNotice\(\)[\s\S]*incomingReviewWarningId === next\.reviewId[\s\S]*clearIncomingReviewWarning\(\)/
+    /function clearIncomingPromptsTargeting[\s\S]*incomingReviewNoticeId === reviewId[\s\S]*hideIncomingReviewNotice\(\)[\s\S]*incomingReviewWarningId === reviewId[\s\S]*clearIncomingReviewWarning\(\)[\s\S]*async function activateReview[\s\S]*clearIncomingPromptsTargeting\(reviewId\)[\s\S]*return 'activated'/
   )
   assert.match(
     renderer,

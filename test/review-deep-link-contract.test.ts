@@ -53,19 +53,15 @@ test('preload and renderer acknowledge activation without replacing an existing 
     activationHandler,
     /if \(!reviewSessions\.get\(reviewId\)\)[\s\S]*addManagedReview\(managedReviewDocument\(document\), false\)/
   )
-  assert.match(activationHandler, /await activateReview\(reviewId\)/)
+  assert.match(activationHandler, /return activateReview\(reviewId\)/)
   assert.doesNotMatch(activationHandler, /configureManagedMode\(\)/)
   assert.match(
-    activationHandler,
-    /const noticeVersion = incomingReviewNoticeVersion[\s\S]*const noticeReviewId = incomingReviewNoticeId[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewNoticeVersion === noticeVersion &&[\s\S]*noticeReviewId === reviewId/
-  )
-  assert.match(
-    activationHandler,
-    /const warningVersion = incomingReviewWarningVersion[\s\S]*const warningReviewId = incomingReviewWarningId[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewWarningVersion === warningVersion &&[\s\S]*warningReviewId === reviewId/
+    renderer,
+    /function clearIncomingPromptsTargeting[\s\S]*incomingReviewNoticeId === reviewId[\s\S]*incomingReviewWarningId === reviewId[\s\S]*async function activateReview[\s\S]*clearIncomingPromptsTargeting\(reviewId\)/
   )
   assert.match(
     renderer,
-    /if \(reviewId === state\.reviewId\) return 'already-active'/
+    /if \(reviewId === state\.reviewId\) \{[\s\S]*clearIncomingPromptsTargeting\(reviewId\)[\s\S]*return 'already-active'/
   )
   assert.match(
     renderer,
