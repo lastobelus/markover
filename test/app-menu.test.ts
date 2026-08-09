@@ -23,6 +23,21 @@ test('macOS application menu is named Markover and exposes Settings', () => {
   assert.equal(settings.click, undefined)
 })
 
+test('macOS application menu delegates About to the native role', () => {
+  const template = applicationMenuTemplate({
+    appName: 'Markover-63',
+    isMac: true
+  })
+  const applicationMenu = template[0]
+  assert.ok(applicationMenu)
+  assert.equal(applicationMenu.label, 'Markover-63')
+  const items = submenu(applicationMenu)
+  const aboutItems = items.filter((item) => item.role === 'about')
+  assert.equal(aboutItems.length, 1)
+  assert.equal(items[0], aboutItems[0])
+  assert.equal(aboutItems[0]?.click, undefined)
+})
+
 test('review mode disables opening an unrelated Markdown document', () => {
   const template = applicationMenuTemplate({ isMac: true, reviewMode: true })
   const fileMenu = template.find((item) => item.label === 'File')

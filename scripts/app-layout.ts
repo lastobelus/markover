@@ -5,6 +5,7 @@ import path from 'node:path'
 import { rendererContentSecurityPolicy } from '../src/renderer-security'
 
 export const runtimeModuleNames = [
+  'about-panel',
   'agent-guidance',
   'app-menu',
   'async-mutation-tracker',
@@ -124,9 +125,13 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
   if (
     manifest === null ||
     typeof manifest !== 'object' ||
-    Reflect.get(manifest, 'main') !== 'src/main.js'
+    Reflect.get(manifest, 'main') !== 'src/main.js' ||
+    Reflect.get(manifest, 'author') !== 'Michael Johnston (lastobelus)' ||
+    Reflect.get(manifest, 'copyright') !==
+      'Copyright © 2026 Michael Johnston (lastobelus)' ||
+    Reflect.get(manifest, 'license') !== 'MIT'
   ) {
-    throw new Error('Staged package.json must use src/main.js as its entry point.')
+    throw new Error('Staged package.json contains invalid application metadata.')
   }
 
   const rendererBuffer = await fs.readFile(
@@ -149,7 +154,8 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
       typeof Reflect.get(buildIdentity, 'commit') !== 'string'
     ) ||
     typeof Reflect.get(buildIdentity, 'dirty') !== 'boolean' ||
-    Reflect.get(buildIdentity, 'rendererSha256') !== rendererSha256
+    Reflect.get(buildIdentity, 'rendererSha256') !== rendererSha256 ||
+    Reflect.get(buildIdentity, 'version') !== Reflect.get(manifest, 'version')
   ) {
     throw new Error('Staged build identity is invalid.')
   }

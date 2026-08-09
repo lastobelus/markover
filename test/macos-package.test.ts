@@ -33,7 +33,10 @@ const read = (relativePath: string): string => fs.readFileSync(
 )
 
 interface PackageManifest {
+  author: string
+  copyright: string
   devDependencies: Record<string, string>
+  license: string
   productName: string
   scripts: Record<string, string>
 }
@@ -48,6 +51,12 @@ test('macOS packaging produces a branded application bundle', () => {
   )
 
   assert.equal(packageJson.productName, 'Markover')
+  assert.equal(packageJson.author, 'Michael Johnston (lastobelus)')
+  assert.equal(
+    packageJson.copyright,
+    'Copyright © 2026 Michael Johnston (lastobelus)'
+  )
+  assert.equal(packageJson.license, 'MIT')
   assert.match(packageJson.scripts['package:mac'] ?? '', /^install-electron --no &&/)
   assert.equal(typeof packageJson.devDependencies['@electron/packager'], 'string')
   assert.equal(typeof packageJson.devDependencies['@electron/asar'], 'string')
@@ -117,6 +126,10 @@ test('macOS packaging produces a branded application bundle', () => {
     /new ReviewStore\([\s\S]*smokeStateDirectory[\s\S]*: path\.join\(addressedInstance\.stateRoot, 'reviews'\)/
   )
   assert.match(main, /process\.platform === 'darwin' && !app\.isPackaged && !smokeMode/)
+  assert.ok(
+    main.indexOf('app.setAboutPanelOptions') <
+      main.indexOf('installApplicationMenu()')
+  )
 })
 
 test('packaged hardening probes recognize smoke and tamper ASAR headers', async (t) => {

@@ -141,6 +141,7 @@ async function main(): Promise<void> {
     description: manifestString(manifest, 'description'),
     main: 'src/main.js',
     author: manifestString(manifest, 'author'),
+    copyright: manifestString(manifest, 'copyright'),
     license: manifestString(manifest, 'license')
   }
   await fs.writeFile(
