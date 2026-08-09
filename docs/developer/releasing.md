@@ -96,8 +96,8 @@ greater version, `v0.1.3`, became the published Apple Silicon release.
    withdrawn version. Prerelease tags use a separately reviewed
    workflow; they do not pass this workflow's stable-release gate.
 2. Update the root and bootstrap CLI package versions together.
-3. Merge the version change to protected `main` and wait for both required CI
-   checks on that exact commit.
+3. Merge the version change to protected `main` and wait for the required
+   `Verify (Node 24)` CI check on that exact commit.
 4. Run `github-readiness` and confirm it reports `ready`.
 5. Confirm Developer ID is still intentionally blocked unless the separately
    reviewed activation has landed:
