@@ -357,16 +357,21 @@ each choice from that baseline without duplicating the live decisions below.
    [review-store attachment tests](test/review-store.test.ts),
    [annotation rendering tests](test/annotation-block.test.ts), and
    [image-preview tests](test/image-preview.test.ts).
-6. **Attachment removal and cleanup are recoverable operations.** Removing an
-   attachment first persists the reference-free tree, then moves the owned file
-   to Trash, and restores the prior tree if Trash rejects the file. Clean Up
-   Unused Attachments reports count and size, ignores invalid or unreadable
-   reviews, and rescans before moving generated unreferenced files to Trash.
+6. **Managed attachment removal and cleanup are recoverable operations.**
+   Removing an attachment from a managed review first persists the
+   reference-free tree, then moves the owned file to Trash, and restores the
+   prior tree if Trash rejects the file. Clean Up Unused Attachments reports
+   count and size, ignores invalid or unreadable managed reviews, and rescans
+   before moving generated unreferenced files to Trash.
 
-   **Audit — Superseded prototype retention policy.** The former indefinite
-   retention behavior was replaced by guarded cleanup without sweeping unknown
-   files or touching the original Markdown source. Evidence:
-   [review-store cleanup tests](test/review-store.test.ts) and
+   **Audit — Retain managed cleanup; revise legacy retention.** Guarded managed
+   cleanup does not sweep unknown files or touch the original Markdown source.
+   The still-shipped blocking prototype path removes only the tree reference and
+   leaves its separately stored attachment bytes; issue
+   [#100](https://github.com/lastobelus/markover/issues/100) owns removal of that
+   path and storage lifecycle. Evidence:
+   [review-store cleanup tests](test/review-store.test.ts), the
+   [legacy renderer branch](src/renderer.ts), and
    [PR #106](https://github.com/lastobelus/markover/pull/106).
 
 ## Agent handoff
@@ -791,11 +796,11 @@ each choice from that baseline without duplicating the live decisions below.
     never prevents a review from opening.
 19. **Public privacy claims distinguish local storage from safe sharing.** The
     public page names stored review content, attachments, local paths, Git and
-    agent provenance, storage locations, recoverable in-app review deletion and
-    attachment cleanup, and the manual complete-reset boundary. Source-edit
-    proposals and review deletion do not mutate the original Markdown. Reviews
-    remain local to the macOS account, but same-user and privileged processes
-    remain inside the trust boundary.
+    agent provenance, storage locations, recoverable in-app managed-review
+    deletion and managed-attachment cleanup, and the manual complete-reset
+    boundary. Source-edit proposals and managed-review deletion do not mutate
+    the original Markdown. Reviews remain local to the macOS account, but
+    same-user and privileged processes remain inside the trust boundary.
 20. **Network and handoff boundaries are explicit.** Ordinary review handling
     has no telemetry, analytics, cloud sync, or automatic review upload.
     Installation can contact npm or GitHub, and explicitly previewing a remote
