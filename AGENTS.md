@@ -114,5 +114,19 @@ Every entry starts with `## term::`, so the index is available with `rg '^## .*:
 When working on finalizing or landing a PR, judiciously add new terms that have fallen out while interacting with the user. Don't add terms narrowly focused to the PR, but only those which are likely to be commonly used in the ongoing development of the project. When doing so, mention the terms you have added in your user response.
 
 
-## Github Stacked PRs
-Consider using stacked prs (https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) when they will help keep dependencies clear, or when working on a PR surfaces fixes, ideas, follow-on work, etc. that would complicate or be out of scope for that PR, but which depend on that PR.
+## Stacked pull requests
+
+Propose a [stacked PR plan](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs)
+before implementation when two or more reviewable slices must land in order.
+Also propose a child PR when authorized follow-on work discovered during an
+open PR is out of scope but depends on that unmerged PR. Keep independent work
+in ordinary PRs.
+
+For a stack, state the dependency order and base branch for every slice, keep
+each PR independently reviewable, and update child bases as lower PRs merge.
+
+## Computer use and Stealing Focus
+
+Whenever possible, work without stealing focus. When you encounter a task that
+can't be done without stealing focus, pause and ask the user first, so they can
+plan to give you control of the machine for the time you need.
