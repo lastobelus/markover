@@ -273,11 +273,13 @@ const BRIDGE_METHODS = [
   'getStartupInfo',
   'onOpenMarkdownRequested',
   'onReviewOpened',
+  'onReviewTrashed',
   'onReviewSnapshotRequested',
   'onReviewStatus',
   'onSettingsChanged',
   'onSettingsOpen',
   'openMarkdown',
+  'openReviewContextMenu',
   'readClipboardImage',
   'reportRendererInitialized',
   'reportSmokeResult',
@@ -285,6 +287,7 @@ const BRIDGE_METHODS = [
   'reportStartupPhase',
   'revealStartupDiagnostic',
   'saveAttachment',
+  'removeAttachment',
   'quitStartup',
   'updateSettings'
 ] as const satisfies ReadonlyArray<keyof MarkoverBridge>
@@ -1012,17 +1015,27 @@ function closeImagePreview(): void {
   elements.imagePreviewLabel.textContent = ''
 }
 
-function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void {
-  if (!isCurrentReviewEditable()) return
+function removeAttachmentFromNode(
+  node: ReviewNode,
+  attachment: ReviewAttachment
+): void {
   node.attachments = (node.attachments || []).filter(
     (item) => item.id !== attachment.id
   )
-  const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
-  if (previewUrl) URL.revokeObjectURL(previewUrl)
-  state.attachmentPreviewUrls.delete(attachment.id)
   node.feedback = node.feedback
     .split(`[!${attachmentReference(attachment)}]`)
     .join('')
+}
+
+function renderRemovedAttachment(
+  node: ReviewNode,
+  attachment: ReviewAttachment,
+  autosave: boolean
+): void {
+  const previewUrl = state.attachmentPreviewUrls.get(attachment.id)
+  if (previewUrl) URL.revokeObjectURL(previewUrl)
+  state.attachmentPreviewUrls.delete(attachment.id)
+  closeImagePreview()
   elements.annotationInput.value = node.feedback
   elements.annotationState.textContent = hasAnnotation(node)
     ? 'Annotated'
@@ -1035,7 +1048,51 @@ function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void 
     if (selected) renderAnnotation(selected)
   }
   updateAnnotationCount()
-  autosaveReview()
+  if (autosave) autosaveReview()
+}
+
+function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void {
+  if (!isCurrentReviewEditable()) return
+  removeAttachmentFromNode(node, attachment)
+  renderRemovedAttachment(node, attachment, true)
+}
+
+async function removeManagedAttachment(
+  node: ReviewNode,
+  attachment: ReviewAttachment,
+  reviewId: string
+): Promise<void> {
+  elements.workspace.inert = true
+  try {
+    await reviewMutations.waitCurrent(reviewId)
+    const session = reviewSessions.get(reviewId)
+    if (!session || state.reviewId !== reviewId) return
+    const candidate = structuredClone(session.tree)
+    const candidateNode = MarkoverTree.findNode(candidate.root, node.id)
+    if (!candidateNode) {
+      throw new Error(`Cannot find attachment block ${node.id}.`)
+    }
+    removeAttachmentFromNode(candidateNode, attachment)
+    const result = await bridge.removeAttachment({
+      reviewId,
+      attachmentId: attachment.id,
+      tree: candidate
+    })
+    if (result.outcome !== 'trashed') return
+    session.tree = candidate
+    const previewUrl = session.attachmentPreviewUrls.get(attachment.id)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    session.attachmentPreviewUrls.delete(attachment.id)
+    if (state.reviewId === reviewId) {
+      state.tree = candidate
+      state.attachmentPreviewUrls = session.attachmentPreviewUrls
+      renderRemovedAttachment(candidateNode, attachment, false)
+    }
+  } finally {
+    if (!document.documentElement.classList.contains('is-shutting-down')) {
+      elements.workspace.inert = false
+    }
+  }
 }
 
 function renderAttachmentList(node: ReviewNode): void {
@@ -1104,6 +1161,15 @@ function renderAttachmentList(node: ReviewNode): void {
       removeButton.title = `Remove ${attachment.id}`
       removeButton.addEventListener('click', (event) => {
         if (event.ctrlKey) return
+        if (state.reviewId) {
+          void reviewMutations.track(
+            state.reviewId,
+            removeManagedAttachment(node, attachment, state.reviewId)
+          ).catch((error: unknown) => {
+            showToast(error instanceof Error ? error.message : String(error))
+          })
+          return
+        }
         if (
           !MarkoverSettings.confirmScreenshotRemoval(
             preferences,
@@ -1695,6 +1761,19 @@ function applyDocumentsListRowMetadata(): void {
     if (content) {
       content.dataset.documentsListLabel = row.getAttribute('aria-label') || ''
     }
+    if (itemPath && !row.dataset.markoverContextMenu) {
+      row.dataset.markoverContextMenu = 'true'
+      row.addEventListener('contextmenu', (event) => {
+        const reviewId = documentsListPathToReviewId.get(itemPath)
+        if (!reviewId) return
+        event.preventDefault()
+        void bridge.openReviewContextMenu({ reviewId }).catch(
+          (error: unknown) => {
+            showToast(error instanceof Error ? error.message : String(error))
+          }
+        )
+      })
+    }
   }
 }
 
@@ -1759,6 +1838,12 @@ function renderDocumentsList(): void {
   applyDocumentsListWidth()
   applyAnnotationPaneWidth()
   if (!sessions.length || !DocumentsListFileTree) {
+    if (!sessions.length) {
+      documentsListPathToReviewId.clear()
+      documentsListReviewIdToPath.clear()
+      documentsListProjectPaths = []
+      documentsListModel?.resetPaths([], { initialExpandedPaths: [] })
+    }
     return
   }
 
@@ -2227,6 +2312,15 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
   button.addEventListener('click', () => {
     void activateReview(session.reviewId)
   })
+  button.addEventListener('contextmenu', (event) => {
+    event.preventDefault()
+    closeTabOverflow()
+    void bridge.openReviewContextMenu({ reviewId: session.reviewId }).catch(
+      (error: unknown) => {
+        showToast(error instanceof Error ? error.message : String(error))
+      }
+    )
+  })
   button.addEventListener('keydown', (event) => {
     const offset = event.key === 'ArrowLeft'
       ? -1
@@ -2294,6 +2388,15 @@ function renderDocumentTabs(): void {
       item.addEventListener('click', () => {
         void activateReview(session.reviewId)
       })
+      item.addEventListener('contextmenu', (event) => {
+        event.preventDefault()
+        closeTabOverflow()
+        void bridge.openReviewContextMenu({ reviewId: session.reviewId }).catch(
+          (error: unknown) => {
+            showToast(error instanceof Error ? error.message : String(error))
+          }
+        )
+      })
       menu.append(item)
     }
     overflow.append(menu)
@@ -2350,6 +2453,35 @@ async function activateReview(
   renderDocumentTabs()
   renderReviewContext()
   return 'activated'
+}
+
+async function handleReviewTrashed(reviewId: string): Promise<void> {
+  const wasActive = state.reviewId === reviewId
+  const removed = reviewSessions.remove(reviewId)
+  if (!removed) return
+  for (const url of removed.attachmentPreviewUrls.values()) {
+    URL.revokeObjectURL(url)
+  }
+  removed.attachmentPreviewUrls.clear()
+
+  if (!wasActive) {
+    renderDocumentTabs()
+    return
+  }
+  state.reviewId = null
+  state.tree = null
+  state.attachmentPreviewUrls = new Map()
+  state.sourceDrafts = new Map()
+  state.sourceEditingId = null
+  state.finishAttachmentLabelEdit = null
+  closeImagePreview()
+  const next = reviewSessions.recent(1)[0]
+  if (next) {
+    await activateReview(next.reviewId)
+  } else {
+    renderDocumentTabs()
+    setWorkspaceEmpty(true)
+  }
 }
 
 function addManagedReview(
@@ -3035,6 +3167,11 @@ async function initialize(): Promise<void> {
     configureManagedMode()
     await loadDocument(reviewDocument)
     elements.previewPane.focus()
+  })
+  bridge.onReviewTrashed(({ reviewId }) => {
+    void handleReviewTrashed(reviewId).catch((error: unknown) => {
+      showToast(error instanceof Error ? error.message : String(error))
+    })
   })
   bridge.onReviewActivationRequested(async ({ reviewId, document }) => {
     if (!document) {

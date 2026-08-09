@@ -47,6 +47,28 @@ export interface ReviewListResult {
   warnings: ReviewListWarning[]
 }
 
+export type ReviewDeletionPolicy = 'standard' | 'pending-agent'
+
+export interface UnusedAttachmentCandidate {
+  reviewId: string
+  attachmentId: string
+  filePath: string
+  bytes: number
+}
+
+export interface UnusedAttachmentScan {
+  candidates: UnusedAttachmentCandidate[]
+  totalBytes: number
+  warnings: ReviewListWarning[]
+}
+
+export interface UnusedAttachmentCleanupResult {
+  count: number
+  totalBytes: number
+}
+
+export type TrashItem = (filePath: string) => Promise<void>
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -217,6 +239,49 @@ function assertSameReviewTarget(current: unknown, updated: unknown): void {
       'A review update cannot change its source snapshot or block structure.'
     )
   }
+}
+
+function assertNever(value: never): never {
+  throw new ReviewStoreError('INVALID_STATUS', `Invalid review status: ${String(value)}`)
+}
+
+export function reviewDeletionPolicy(
+  status: ReviewStatus
+): ReviewDeletionPolicy {
+  switch (status) {
+    case 'editing': return 'standard'
+    case 'pending-agent': return 'pending-agent'
+    default: return assertNever(status)
+  }
+}
+
+function attachmentIds(root: ReviewNode): Set<string> {
+  const ids = new Set<string>()
+  const visit = (node: ReviewNode): void => {
+    for (const attachment of node.attachments || []) ids.add(attachment.id)
+    for (const child of node.children) visit(child)
+  }
+  visit(root)
+  return ids
+}
+
+function attachmentCount(root: ReviewNode, attachmentId: string): number {
+  let count = 0
+  const visit = (node: ReviewNode): void => {
+    count += (node.attachments || []).filter(
+      (attachment) => attachment.id === attachmentId
+    ).length
+    for (const child of node.children) visit(child)
+  }
+  visit(root)
+  return count
+}
+
+function sameCandidates(
+  left: UnusedAttachmentCandidate[],
+  right: UnusedAttachmentCandidate[]
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
 }
 
 export class ReviewStore {
@@ -431,6 +496,155 @@ export class ReviewStore {
       await fs.writeFile(filePath, bytes, { flag: 'wx', flush: true })
       return { id, path: filePath }
     })
+  }
+
+  async trashReview(
+    reviewId: string,
+    trashItem: TrashItem
+  ): Promise<ReviewDeletionPolicy> {
+    assertReviewId(reviewId)
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      const policy = reviewDeletionPolicy(current.review.status)
+      await trashItem(this.reviewDirectory(reviewId))
+      return policy
+    })
+  }
+
+  async removeAttachment(
+    reviewId: string,
+    attachmentId: string,
+    tree: unknown,
+    trashItem: TrashItem
+  ): Promise<ReviewArtifact> {
+    assertReviewId(reviewId)
+    if (!/^img-[1-9]\d*$/.test(attachmentId)) {
+      throw new ReviewStoreError(
+        'INVALID_ATTACHMENT',
+        `Invalid attachment ID: ${attachmentId}`
+      )
+    }
+    assertReviewTree(tree)
+
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      if (current.review.status !== 'editing') {
+        throw new ReviewStoreError(
+          'NOT_EDITABLE',
+          `Review ${reviewId} is with the agent and read only.`
+        )
+      }
+      assertSameReviewTarget(current, tree)
+      if (
+        attachmentCount(current.root, attachmentId) !== 1 ||
+        attachmentCount(tree.root, attachmentId) !== 0
+      ) {
+        throw new ReviewStoreError(
+          'ATTACHMENT_MISMATCH',
+          `Review ${reviewId} does not contain one removable ${attachmentId}.`
+        )
+      }
+
+      const updated: ReviewArtifact = {
+        ...treeFields(tree),
+        review: {
+          ...current.review,
+          updatedAt: this.timestamp()
+        }
+      }
+      const attachmentsDirectory = path.join(
+        this.reviewDirectory(reviewId),
+        'attachments'
+      )
+      let attachmentPath: string | null = null
+      try {
+        const attachmentPattern = new RegExp(
+          `^${attachmentId.replace('-', '\\-')}\\.[a-z0-9]+$`
+        )
+        const matches = (await fs.readdir(attachmentsDirectory))
+          .filter((entry) => attachmentPattern.test(entry))
+        if (matches.length > 1) {
+          throw new ReviewStoreError(
+            'ATTACHMENT_MISMATCH',
+            `Review ${reviewId} contains multiple files for ${attachmentId}.`
+          )
+        }
+        if (matches[0]) attachmentPath = path.join(attachmentsDirectory, matches[0])
+      } catch (error) {
+        if (errorCode(error) !== 'ENOENT') throw error
+      }
+
+      await this.write(reviewId, updated)
+      try {
+        if (attachmentPath) await trashItem(attachmentPath)
+      } catch (error) {
+        await this.write(reviewId, current)
+        throw error
+      }
+      return cloneJson(updated)
+    })
+  }
+
+  async scanUnusedAttachments(): Promise<UnusedAttachmentScan> {
+    const { reviews, warnings } = await this.listWithWarnings()
+    const candidates: UnusedAttachmentCandidate[] = []
+    for (const review of reviews) {
+      const reviewId = review.review.id
+      const referenced = attachmentIds(review.root)
+      const directory = path.join(this.reviewDirectory(reviewId), 'attachments')
+      try {
+        const entries = await fs.readdir(directory, { withFileTypes: true })
+        for (const entry of entries) {
+          const match = /^(img-[1-9]\d*)\.[a-z0-9]+$/.exec(entry.name)
+          const attachmentId = match?.[1]
+          if (!entry.isFile() || !attachmentId || referenced.has(attachmentId)) {
+            continue
+          }
+          const filePath = path.join(directory, entry.name)
+          const stats = await fs.stat(filePath)
+          candidates.push({
+            reviewId,
+            attachmentId,
+            filePath,
+            bytes: stats.size
+          })
+        }
+      } catch (error) {
+        if (errorCode(error) === 'ENOENT') continue
+        if (errorCode(error) === 'EACCES' || errorCode(error) === 'EPERM') {
+          warnings.push({ reviewId, reason: 'unreadable' })
+          continue
+        }
+        throw error
+      }
+    }
+    candidates.sort((left, right) => left.filePath.localeCompare(right.filePath))
+    warnings.sort((left, right) => left.reviewId.localeCompare(right.reviewId))
+    return {
+      candidates,
+      totalBytes: candidates.reduce((total, candidate) => total + candidate.bytes, 0),
+      warnings
+    }
+  }
+
+  async trashUnusedAttachments(
+    expected: UnusedAttachmentScan,
+    trashItem: TrashItem
+  ): Promise<UnusedAttachmentCleanupResult> {
+    const current = await this.scanUnusedAttachments()
+    if (!sameCandidates(expected.candidates, current.candidates)) {
+      throw new ReviewStoreError(
+        'CLEANUP_CHANGED',
+        'Unused attachments changed before cleanup. Review the updated count and try again.'
+      )
+    }
+    for (const candidate of current.candidates) {
+      await trashItem(candidate.filePath)
+    }
+    return {
+      count: current.candidates.length,
+      totalBytes: current.totalBytes
+    }
   }
 
   async handoff(reviewId: string): Promise<ReviewArtifact> {

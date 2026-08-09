@@ -149,10 +149,14 @@ const bridge = {
   saveAttachment: (attachment, reviewId) => (
     invoke('attachment:save', attachment, reviewId)
   ),
+  removeAttachment: (request) => invoke('attachment:remove', request),
   getInitialReview: () => (
     invoke('review:initial-document')
   ),
   getReviews: () => invoke('review:list'),
+  openReviewContextMenu: (request) => (
+    invoke('review:context-menu:open', request)
+  ),
   onReviewOpened: (callback) => {
     listen(
       'review:opened',
@@ -160,6 +164,11 @@ const bridge = {
         void callback(document)
       }
     )
+  },
+  onReviewTrashed: (callback) => {
+    listen('review:trashed', (event) => {
+      callback(event)
+    })
   },
   onReviewStatus: (callback) => {
     listen('review:status', (status: ReviewStatusRequest) => {
