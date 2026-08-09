@@ -55,7 +55,7 @@ async function createPayloads(directory: string, suffix = ''): Promise<void> {
 
 function releaseTagRunner({
   checkApp = 'github-actions',
-  checks = ['Verify (Node 22.13.0)', 'Verify (Node 24)'],
+  checks = ['Verify (Node 24)'],
   latestTag = 'v1.2.2',
   newestTag = latestTag,
   stableTags = [newestTag]
@@ -138,7 +138,7 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
     mainRef: 'origin/main',
     repository: 'example/markover',
     rootDirectory: root,
-    runner: releaseTagRunner({ checks: ['Verify (Node 22.13.0)'] }),
+    runner: releaseTagRunner({ checks: [] }),
     tag: 'v1.2.3'
   }), /Verify \(Node 24\)/)
   assert.throws(() => verifyReleaseTag({
@@ -148,7 +148,7 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
     rootDirectory: root,
     runner: releaseTagRunner({ checkApp: 'untrusted-check-app' }),
     tag: 'v1.2.3'
-  }), /Verify \(Node 22\.13\.0\)/)
+  }), /Verify \(Node 24\)/)
 
   const afterWithdrawal = verifyReleaseTag({
     commit: 'abc123',

@@ -320,7 +320,7 @@ export function verifyReleaseTag({
   const checkRuns = checksValue.check_runs.map((entry) => (
     jsonObject(entry, 'GitHub check run') as CheckRun
   ))
-  for (const name of ['Verify (Node 22.13.0)', 'Verify (Node 24)']) {
+  for (const name of ['Verify (Node 24)']) {
     if (!checkRuns.some((check) => (
       check.name === name && check.conclusion === 'success' &&
       check.app !== null && typeof check.app === 'object' &&

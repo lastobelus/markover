@@ -274,8 +274,11 @@ foundation for a production architecture.
 4. **Stable version tags only move forward and never move in place.** The
    release workflow accepts stable SemVer tags whose matching package versions
    are newer than every preserved stable tag, contained in protected `main`,
-   and already green on both required CI checks. Repository rules restrict
-   `v*` creation and separately prohibit updates and deletion without bypass.
+   and already green on the required `Verify (Node 24)` CI check. The
+   tag-triggered release workflow tests that exact candidate on the
+   minimum-supported Node 22.13.0 before draft assembly. Repository rules
+   restrict `v*` creation and separately prohibit updates and deletion without
+   bypass.
 5. **Each release carries its own rollback contract.** Generated notes name one
    stable release explicitly designated `latest` as the known-good version and
    provide its exact version-pinned launcher. Monotonic version checks still
