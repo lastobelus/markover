@@ -117,6 +117,10 @@ test('picker cancellation and failed creation cannot reuse a pending candidate',
     path.resolve(__dirname, '../../src/renderer.ts'),
     'utf8'
   )
+  const creationBoundary = main.match(
+    /async function createManagedLocalReview[\s\S]*?\n}\n\nfunction createWindow/
+  )?.[0]
+  assert.ok(creationBoundary)
 
   assert.match(
     main,
@@ -126,8 +130,13 @@ test('picker cancellation and failed creation cannot reuse a pending candidate',
     main,
     /const candidate = pendingLocalReviewCandidate\s*pendingLocalReviewCandidate = null\s*if \(!candidate\)/
   )
+  assert.doesNotMatch(creationBoundary, /activeManagedReview|installApplicationMenu/)
   assert.match(
     renderer,
     /localOpenInProgress[\s\S]*const candidate = await bridge\.openMarkdown\(\)\s*if \(!candidate\) return[\s\S]*bridge\.createLocalReview\(tree\)[\s\S]*finally[\s\S]*localOpenInProgress = false/
+  )
+  assert.match(
+    renderer,
+    /if \(!finishActiveSourceEdit\(\)\) return 'blocked'[\s\S]*bridge\.activateReview\(reviewId\)/
   )
 })

@@ -898,9 +898,6 @@ async function createManagedLocalReview(
   const artifact = await persistLocalReview(candidate, tree, reviewStore, {
     interpretationPolicy: settingsStore.settings.agentInterpretationPolicy
   })
-  activeManagedReview = artifact
-  activeManagedReviewId = artifact.review.id
-  installApplicationMenu()
   return managedDocument(artifact)
 }
 
