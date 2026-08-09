@@ -228,6 +228,7 @@ test('ordinary workflows use Node 24 and release candidates cover Node 22', () =
   const releaseWorkflow = read('.github/workflows/release.yml')
   const developmentGuide = read('docs/developer/development.md')
   const releaseRunbook = read('docs/developer/releasing.md')
+  const decisions = read('DECISIONS.md')
   const rootPackage = readJson('package.json') as PackageManifest
   const cliPackage = readJson('packages/cli/package.json') as PackageManifest
 
@@ -245,6 +246,12 @@ test('ordinary workflows use Node 24 and release candidates cover Node 22', () =
   assert.match(releaseWorkflow, /node-version: 22\.13\.0/)
   assert.match(releaseRunbook, /required\s+`Verify \(Node 24\)` CI check/)
   assert.doesNotMatch(releaseRunbook, /both required CI\s+checks/)
+  assert.match(decisions, /required `Verify \(Node 24\)` CI check/)
+  assert.match(
+    decisions,
+    /tag-triggered release workflow tests that exact candidate on the\s+minimum-supported Node 22\.13\.0/
+  )
+  assert.doesNotMatch(decisions, /both required CI checks/)
   assert.match(workflow, /persist-credentials: false/)
   assert.match(workflow, /permissions:\n {2}contents: read/)
   assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/)
