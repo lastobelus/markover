@@ -23,7 +23,7 @@ test('main installs renderer boundaries before loading local content', () => {
   )
   assert.ok(
     createWindow.indexOf('installRendererSecurityBoundaries(') <
-      createWindow.indexOf('mainWindow.loadFile(')
+      createWindow.indexOf('window.loadFile(')
   )
 })
 

@@ -134,7 +134,7 @@ test('renderer mutations drain before main blocks new attachment saves', () => {
 test('the existing live Electron smoke exits through the durability barrier', () => {
   const main = read('src/main.ts')
   const smokeResult = main.match(
-    /ipcMain\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
+    /privilegedIpc\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
   )?.[0] || ''
   const beforeQuit = main.slice(
     main.indexOf("app.on('before-quit'"),

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 export function smokeReviewTree(imagePath: string): ReviewTree {
   const source = [
     '---',
@@ -15,7 +17,7 @@ export function smokeReviewTree(imagePath: string): ReviewTree {
       name: 'smoke.md',
       path: '/markover-smoke/smoke.md',
       content: source,
-      checksum: 'sha256:markover-smoke-fixture'
+      checksum: `sha256:${createHash('sha256').update(source).digest('hex')}`
     },
     unsupported: [],
     root: {
@@ -63,7 +65,7 @@ export function smokeReviewTree(imagePath: string): ReviewTree {
           collapsed: false,
           children: [],
           attachments: [{
-            id: 'smoke-file-image',
+            id: 'img-1',
             type: 'image',
             label: 'Packaged local image',
             path: imagePath,

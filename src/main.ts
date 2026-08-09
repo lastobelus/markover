@@ -9,7 +9,8 @@ import {
   nativeTheme,
   shell,
   type IpcMainEvent,
-  type IpcMainInvokeEvent
+  type IpcMainInvokeEvent,
+  type WebContents
 } from 'electron'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdirSync, rmSync } from 'node:fs'
@@ -28,6 +29,14 @@ import {
   CANONICAL_INSTANCE_SCHEME,
   runtimeInstanceFromEnvironment
 } from './instance'
+import {
+  assertMainEventArguments,
+  type MainEventChannel
+} from './ipc-contract'
+import {
+  PrivilegedIpc,
+  type RendererIpcEntry
+} from './ipc-security'
 import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { importLegacyReviews } from './review-migration'
@@ -193,6 +202,7 @@ let rendererStartupFailed = false
 let rendererReadyWebContentsId: number | null = null
 let rendererReadyPromise: Promise<void> = Promise.resolve()
 let resolveRendererReady: (() => void) | null = null
+let rendererIpcEntry: RendererIpcEntry | null = null
 let managedAttachmentSavesBlocked = false
 let managedShutdownComplete = false
 let managedShutdownStarted = false
@@ -212,6 +222,17 @@ const reviewUrlDispatcher = new ReviewUrlDispatcher<ReviewUrl>(
     process.stderr.write(`markover review link: ${errorMessage(error)}\n`)
   }
 )
+const privilegedIpc = new PrivilegedIpc(ipcMain, {
+  activeWebContents: () => (
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow.webContents
+      : null
+  ),
+  diagnose(channel, reason) {
+    process.stderr.write(`markover ipc: rejected ${channel} (${reason})\n`)
+  },
+  expectedEntry: () => rendererIpcEntry
+})
 
 if (process.platform === 'darwin' && app.isPackaged && !reviewMode && !smokeMode) {
   app.on('open-url', (event, value) => {
@@ -403,19 +424,29 @@ function applyMainSettings(
   mainWindow?.setBackgroundColor(
     windowBackground(settings, envelope.resolvedAppearance)
   )
-  if (broadcast) mainWindow?.webContents.send('settings:changed', envelope)
+  if (broadcast && mainWindow) {
+    sendMainEvent(mainWindow.webContents, 'settings:changed', envelope)
+  }
   return envelope
 }
 
+function sendMainEvent(
+  webContents: WebContents,
+  channel: MainEventChannel,
+  ...args: unknown[]
+): void {
+  assertMainEventArguments(channel, args)
+  webContents.send(channel, ...args)
+}
+
 function sendRendererEvent(
-  channel: 'document:open-request' | 'settings:open',
-  value?: unknown
+  channel: 'document:open-request' | 'settings:open'
 ): void {
   if (!mainWindow || mainWindow.isDestroyed()) createWindow()
   if (!mainWindow) throw new Error('Markover window could not be created.')
   const window = mainWindow
   const send = () => {
-    window.webContents.send(channel, value)
+    sendMainEvent(window.webContents, channel)
   }
   if (window.webContents.isLoadingMainFrame()) {
     window.webContents.once('did-finish-load', send)
@@ -674,7 +705,7 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
-  mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1180,
     height: 760,
     minWidth: 760,
@@ -693,26 +724,28 @@ function createWindow(
       ...hardenedRendererWebPreferences
     }
   })
+  mainWindow = window
   rendererReadyWebContentsId = null
   rendererReadyPromise = new Promise<void>((resolve) => {
     resolveRendererReady = resolve
   })
 
-  installRendererSecurityBoundaries(mainWindow.webContents)
-  void mainWindow.loadFile(path.join(__dirname, 'index.html'), {
-    query: {
-      palette: startupSettings.palette,
-      appearance: startupSettings.resolvedAppearance,
-      colorization: darkColorization(startupSettings.palette),
-      instanceBadge: addressedInstance.branding.headerBadge || ''
-    }
-  })
-  mainWindow.webContents.on('did-finish-load', () => {
+  const entryPath = path.join(__dirname, 'index.html')
+  const query = {
+    palette: startupSettings.palette,
+    appearance: startupSettings.resolvedAppearance,
+    colorization: darkColorization(startupSettings.palette),
+    instanceBadge: addressedInstance.branding.headerBadge || ''
+  }
+  rendererIpcEntry = { filePath: entryPath, query }
+  installRendererSecurityBoundaries(window.webContents)
+  void window.loadFile(entryPath, { query })
+  window.webContents.on('did-finish-load', () => {
     mainWindow?.setTitle(reviewMode
       ? `${addressedInstance.branding.appName} Review`
       : `${addressedInstance.branding.appName} Inbox`)
   })
-  mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
+  window.webContents.on('preload-error', (_event, preloadPath, error) => {
     markRendererStartupFailed()
     void (async () => {
       await failStartupBestEffort(
@@ -722,7 +755,7 @@ function createWindow(
       await showStartupFailureDialog()
     })()
   })
-  mainWindow.webContents.on('did-fail-load', (
+  window.webContents.on('did-fail-load', (
     _event,
     errorCode,
     errorDescription,
@@ -739,7 +772,7 @@ function createWindow(
       await showStartupFailureDialog()
     })()
   })
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+  window.webContents.on('render-process-gone', (_event, details) => {
     const failedDuringStartup = !startupReady
     markRendererStartupFailed()
     void (async () => {
@@ -751,7 +784,7 @@ function createWindow(
       if (failedDuringStartup) await showStartupFailureDialog()
     })()
   })
-  mainWindow.on('unresponsive', () => {
+  window.on('unresponsive', () => {
     if (startupReady) return
     markRendererStartupFailed()
     void (async () => {
@@ -762,12 +795,15 @@ function createWindow(
       await showStartupFailureDialog()
     })()
   })
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindow = null
+      rendererIpcEntry = null
+    }
   })
 
   if (reviewMode) {
-    mainWindow.on('close', (event) => {
+    window.on('close', (event) => {
       if (reviewFinished) return
       event.preventDefault()
       reviewFinished = true
@@ -776,7 +812,7 @@ function createWindow(
       })
     })
   }
-  return mainWindow
+  return window
 }
 
 function repositoryRoot(artifact: ReviewArtifact): string | null {
@@ -828,7 +864,11 @@ function sendManagedReview(artifact: ReviewArtifact): void {
   if (!mainWindow) throw new Error('Markover window could not be created.')
   const window = mainWindow
   const send = () => {
-    window.webContents.send('review:opened', managedDocument(artifact))
+    sendMainEvent(
+      window.webContents,
+      'review:opened',
+      managedDocument(artifact)
+    )
   }
   if (window.webContents.isLoadingMainFrame()) {
     window.webContents.once('did-finish-load', send)
@@ -852,7 +892,7 @@ function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
       reject(new Error(`Timed out updating review ${artifact.review.id}.`))
     }, 5000)
     pendingStatuses.set(requestId, { reject, resolve, timeout })
-    window.webContents.send('review:status', {
+    sendMainEvent(window.webContents, 'review:status', {
       requestId,
       reviewId: artifact.review.id,
       status: artifact.review.status
@@ -862,7 +902,8 @@ function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
 
 function sendManagedAutosaveStatus(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
-  mainWindow.webContents.send(
+  sendMainEvent(
+    mainWindow.webContents,
     'review:autosave-status',
     currentManagedAutosaveStatus()
   )
@@ -876,7 +917,7 @@ function currentManagedAutosaveStatus(): ReviewAutosaveStatus {
 
 function setManagedRendererPause(paused: boolean): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
-  mainWindow.webContents.send('review:shutdown-state', paused)
+  sendMainEvent(mainWindow.webContents, 'review:shutdown-state', paused)
 }
 
 function focusMainWindow(): void {
@@ -940,7 +981,7 @@ async function requestRendererActivation(
       ))
     }, 5000)
     pendingActivations.set(requestId, { reject, resolve, reviewId, timeout })
-    window.webContents.send('review:activation-request', {
+    sendMainEvent(window.webContents, 'review:activation-request', {
       requestId,
       reviewId,
       document
@@ -1003,7 +1044,7 @@ function requestRendererSnapshot(
       reviewId,
       timeout
     })
-    window.webContents.send('review:snapshot-request', {
+    sendMainEvent(window.webContents, 'review:snapshot-request', {
       requestId,
       reviewId,
       purpose
@@ -1399,8 +1440,8 @@ if (!hasSingleInstanceLock) {
       })
     }
 
-    ipcMain.handle('startup:info', () => startupInfo)
-    ipcMain.handle('startup:phase', async (
+    privilegedIpc.handle('startup:info', () => startupInfo)
+    privilegedIpc.handle('startup:phase', async (
       _event: IpcMainInvokeEvent,
       phaseEvent: unknown
     ) => {
@@ -1420,7 +1461,7 @@ if (!hasSingleInstanceLock) {
         await requireStartupDiagnostic().complete(phaseEvent.phase)
       }
     })
-    ipcMain.handle('startup:renderer-initialized', async (
+    privilegedIpc.handle('startup:renderer-initialized', async (
       event: IpcMainInvokeEvent,
       initialization: unknown
     ): Promise<StartupReady> => {
@@ -1471,7 +1512,7 @@ if (!hasSingleInstanceLock) {
         throw error
       }
     })
-    ipcMain.handle('startup:failure', async (
+    privilegedIpc.handle('startup:failure', async (
       _event: IpcMainInvokeEvent,
       failure: unknown
     ) => {
@@ -1496,14 +1537,14 @@ if (!hasSingleInstanceLock) {
         diagnosticAvailable: requireStartupDiagnostic().available
       }
     })
-    ipcMain.handle('startup:copy-diagnostic', copyStartupDiagnostic)
-    ipcMain.handle('startup:reveal-diagnostic', () => {
+    privilegedIpc.handle('startup:copy-diagnostic', copyStartupDiagnostic)
+    privilegedIpc.handle('startup:reveal-diagnostic', () => {
       shell.showItemInFolder(startupDiagnosticPath)
     })
-    ipcMain.on('startup:quit', () => {
+    privilegedIpc.on('startup:quit', () => {
       app.quit()
     })
-    ipcMain.handle('smoke:result', (
+    privilegedIpc.handle('smoke:result', (
       _event: IpcMainInvokeEvent,
       result: unknown
     ) => {
@@ -1525,13 +1566,13 @@ if (!hasSingleInstanceLock) {
         else app.exit(1)
       })
     })
-    ipcMain.handle('document:open', openMarkdown)
-    ipcMain.handle('brand:assets', loadBrandAssets)
-    ipcMain.handle('document:checksum', (
+    privilegedIpc.handle('document:open', openMarkdown)
+    privilegedIpc.handle('brand:assets', loadBrandAssets)
+    privilegedIpc.handle('document:checksum', (
       _event: IpcMainInvokeEvent,
       source: string
     ) => checksum(source))
-    ipcMain.handle('attachment:save', (
+    privilegedIpc.handle('attachment:save', (
       event: IpcMainInvokeEvent,
       attachment: MarkoverClipboardImage,
       reviewId: string | null = null
@@ -1545,25 +1586,25 @@ if (!hasSingleInstanceLock) {
           ))
         : saveAttachment(event, attachment, reviewId)
     })
-    ipcMain.handle('clipboard:read-image', readClipboardImage)
-    ipcMain.handle(
+    privilegedIpc.handle('clipboard:read-image', readClipboardImage)
+    privilegedIpc.handle(
       'review:autosave-status:get',
       currentManagedAutosaveStatus
     )
-    ipcMain.handle('settings:get', () => settingsEnvelope(store.settings))
-    ipcMain.handle('settings:update', async (
+    privilegedIpc.handle('settings:get', () => settingsEnvelope(store.settings))
+    privilegedIpc.handle('settings:update', async (
       _event: IpcMainInvokeEvent,
       patch: unknown
     ) => {
       const settings = await store.update(patch)
       return applyMainSettings(settings)
     })
-    ipcMain.handle('review:initial-document', () => (
+    privilegedIpc.handle('review:initial-document', () => (
       reviewMode
         ? reviewDocumentPromise
         : activeManagedReview && managedDocument(activeManagedReview)
     ))
-    ipcMain.handle('review:list', async () => {
+    privilegedIpc.handle('review:list', async () => {
       if (reviewMode) return []
       try {
         const result = await requireReviewStore().listWithWarnings()
@@ -1579,7 +1620,7 @@ if (!hasSingleInstanceLock) {
         throw error
       }
     })
-    ipcMain.on('review:snapshot-response', (
+    privilegedIpc.on('review:snapshot-response', (
       _event: IpcMainEvent,
       response: ReviewSnapshotResponse
     ) => {
@@ -1594,7 +1635,7 @@ if (!hasSingleInstanceLock) {
       if (response.error) pending.reject(new Error(response.error))
       else pending.resolve(response.tree ?? null)
     })
-    ipcMain.on('review:status-response', (
+    privilegedIpc.on('review:status-response', (
       _event: IpcMainEvent,
       response: ReviewStatusResponse
     ) => {
@@ -1605,7 +1646,7 @@ if (!hasSingleInstanceLock) {
       if (response.error) pending.reject(new Error(response.error))
       else pending.resolve()
     })
-    ipcMain.on('review:activation-response', (
+    privilegedIpc.on('review:activation-response', (
       _event: IpcMainEvent,
       response: ReviewActivationResponse
     ) => {
@@ -1619,10 +1660,10 @@ if (!hasSingleInstanceLock) {
       }
       else pending.reject(new Error('Renderer omitted the activation outcome.'))
     })
-    ipcMain.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
+    privilegedIpc.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
       clipboard.writeText(text)
     })
-    ipcMain.on('review:activate', (
+    privilegedIpc.on('review:activate', (
       _event: IpcMainEvent,
       reviewId: string
     ) => {
@@ -1637,26 +1678,26 @@ if (!hasSingleInstanceLock) {
         process.stderr.write(`markover activate: ${errorMessage(error)}\n`)
       })
     })
-    ipcMain.on('review:autosave', (
+    privilegedIpc.on('review:autosave', (
       _event: IpcMainEvent,
-      reviewId: string,
+      reviewId: string | null,
       tree: ReviewTree
     ) => {
       if (reviewMode) {
         queueReviewAutosave(tree).catch((error: unknown) => {
           process.stderr.write(`markover autosave: ${errorMessage(error)}\n`)
         })
-      } else {
+      } else if (reviewId) {
         requireManagedAutosave().queue(reviewId, tree)
       }
     })
-    ipcMain.on('review:done', (
+    privilegedIpc.on('review:done', (
       _event: IpcMainEvent,
       tree: ReviewTree
     ) => {
       void finishReview(tree)
     })
-    ipcMain.on('review:cancel', () => {
+    privilegedIpc.on('review:cancel', () => {
       if (!reviewMode || reviewFinished) return
       reviewFinished = true
       app.exit(2)
@@ -1669,7 +1710,9 @@ if (!hasSingleInstanceLock) {
       mainWindow?.setBackgroundColor(
         windowBackground(store.settings, envelope.resolvedAppearance)
       )
-      mainWindow?.webContents.send('settings:changed', envelope)
+      if (mainWindow) {
+        sendMainEvent(mainWindow.webContents, 'settings:changed', envelope)
+      }
     })
 
     app.on('activate', () => {
