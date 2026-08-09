@@ -96,11 +96,30 @@ test('review deletion confirms before pausing or saving managed mutations', () =
   assert.ok(moveReviewToTrash)
 
   const confirmation = moveReviewToTrash.indexOf(
-    'if (!await confirmReviewTrash(reviewId)) return'
+    'const confirmedPolicy = await confirmReviewTrash(reviewId)'
   )
   const mutationPause = moveReviewToTrash.indexOf(
     'await withManagedMutationsPaused'
   )
   assert.notEqual(confirmation, -1)
   assert.ok(mutationPause > confirmation)
+})
+
+test('review deletion revalidates stale warnings before saving drafts', () => {
+  const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+  const pauseBarrier = /async function withManagedMutationsPaused\([\s\S]*?\n}\n\nasync function confirmReviewTrash/.exec(main)?.[0]
+  const moveReviewToTrash = /async function moveReviewToTrash\([\s\S]*?\n}\n\nasync function confirmUnusedAttachmentCleanup/.exec(main)?.[0]
+  assert.ok(pauseBarrier)
+  assert.ok(moveReviewToTrash)
+
+  const pause = pauseBarrier.indexOf('await localService?.pauseMutations()')
+  const revalidation = pauseBarrier.indexOf(
+    'if (confirmBeforeSaving && !await confirmBeforeSaving()) return'
+  )
+  const snapshot = pauseBarrier.indexOf('await requestRendererSnapshot')
+  assert.ok(pause !== -1 && revalidation > pause && snapshot > revalidation)
+  assert.match(
+    moveReviewToTrash,
+    /currentPolicy === confirmedPolicy[\s\S]*?confirmReviewTrash\(reviewId\)/
+  )
 })

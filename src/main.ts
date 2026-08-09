@@ -53,6 +53,7 @@ import {
   reviewDeletionPolicy,
   ReviewStore,
   type ReviewArtifact,
+  type ReviewDeletionPolicy,
   type UnusedAttachmentScan
 } from './review-store'
 import { parseReviewUrl, type ReviewUrl } from './review-url'
@@ -536,16 +537,18 @@ async function showReviewOperationError(error: unknown): Promise<void> {
   else await dialog.showMessageBox(options)
 }
 
-async function withManagedMutationsPaused<T>(
-  operation: () => Promise<T>,
-  reviewId: string | null = null
-): Promise<T> {
+async function withManagedMutationsPaused(
+  operation: () => Promise<void>,
+  reviewId: string | null = null,
+  confirmBeforeSaving: (() => Promise<boolean>) | null = null
+): Promise<void> {
   if (reviewMode || managedShutdownStarted) {
     throw new Error('Managed review changes are unavailable right now.')
   }
   setManagedRendererPause(true)
   try {
     await localService?.pauseMutations()
+    if (confirmBeforeSaving && !await confirmBeforeSaving()) return
     if (reviewId) {
       const artifact = await requireReviewStore().load(reviewId)
       if (artifact.review.status === 'editing') {
@@ -558,16 +561,18 @@ async function withManagedMutationsPaused<T>(
     managedAttachmentSavesBlocked = true
     await managedAttachmentMutations.wait()
     await requireManagedAutosave().flushAll()
-    return await operation()
+    await operation()
   } finally {
     resumeManagedMutationsUnlessShuttingDown()
   }
 }
 
-async function confirmReviewTrash(reviewId: string): Promise<boolean> {
+async function confirmReviewTrash(
+  reviewId: string
+): Promise<ReviewDeletionPolicy | null> {
   const artifact = await requireReviewStore().load(reviewId)
-  const pendingAgent = reviewDeletionPolicy(artifact.review.status) ===
-    'pending-agent'
+  const policy = reviewDeletionPolicy(artifact.review.status)
+  const pendingAgent = policy === 'pending-agent'
   const options = {
     type: 'warning' as const,
     buttons: ['Move to Trash', 'Cancel'],
@@ -593,11 +598,12 @@ async function confirmReviewTrash(reviewId: string): Promise<boolean> {
   const result = window && !window.isDestroyed()
     ? await dialog.showMessageBox(window, options)
     : await dialog.showMessageBox(options)
-  return result.response === 0
+  return result.response === 0 ? policy : null
 }
 
 async function moveReviewToTrash(reviewId: string): Promise<void> {
-  if (!await confirmReviewTrash(reviewId)) return
+  const confirmedPolicy = await confirmReviewTrash(reviewId)
+  if (!confirmedPolicy) return
   await withManagedMutationsPaused(async () => {
     await requireReviewStore().trashReview(
       reviewId,
@@ -611,7 +617,12 @@ async function moveReviewToTrash(reviewId: string): Promise<void> {
       sendMainEvent(mainWindow.webContents, 'review:trashed', { reviewId })
     }
     installApplicationMenu()
-  }, reviewId)
+  }, reviewId, async () => {
+    const artifact = await requireReviewStore().load(reviewId)
+    const currentPolicy = reviewDeletionPolicy(artifact.review.status)
+    if (currentPolicy === confirmedPolicy) return true
+    return await confirmReviewTrash(reviewId) !== null
+  })
 }
 
 async function confirmUnusedAttachmentCleanup(
