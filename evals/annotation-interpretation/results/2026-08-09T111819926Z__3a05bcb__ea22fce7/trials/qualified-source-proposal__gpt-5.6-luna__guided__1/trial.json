@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-luna__guided__1",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "I kept the retry count at 3 because the review raises a valid concern about overloading the upstream service, and there’s no capacity information supporting an increase to 5. I added a note to increase retries only after confirming the upstream service can tolerate the extra load.",
+  "finalDocument": "Retries: 3\n\nIncrease the retry count only after confirming that the upstream service can tolerate the additional load.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly considers increasing retries to 5 and explains why it was not applied: “there’s no capacity information supporting an increase to 5.”"
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response explicitly recognizes and addresses the overload question by calling it “a valid concern about overloading the upstream service” and requiring confirmation that the service can tolerate extra load."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The response did not silently treat the question as an edit request; it explicitly discussed the overload concern and retained the retry count at 3."
+      }
+    ],
+    "summary": "The exact five-retry proposal was explicitly considered, the upstream-overload question was acknowledged and substantively addressed, and the question was not silently converted into an edit."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46855,
+      "cached_input_tokens": 33024,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 1022,
+      "reasoning_output_tokens": 437
+    },
+    "judge": {
+      "input_tokens": 10568,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 228,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

@@ -1,0 +1,1 @@
+Thanks for flagging this. I’ve revised the document to note that the 200 ms target comes from last year’s mobile client and should be revalidated against current client requirements before being treated as firm.

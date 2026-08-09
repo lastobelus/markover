@@ -1,0 +1,1 @@
+I revised the document to note that the 200ms budget was inherited from last year’s mobile client and should be reassessed against current latency and user-experience requirements before being treated as a hard constraint.

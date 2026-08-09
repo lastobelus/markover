@@ -101,16 +101,17 @@ improvement requirement.
 ## Evidence and privacy
 
 The canonical committed evidence is
-[`2026-08-09T103323212Z__54e1387__577e4846`](results/2026-08-09T103323212Z__54e1387__577e4846/README.md).
+[`2026-08-09T111819926Z__3a05bcb__ea22fce7`](results/2026-08-09T111819926Z__3a05bcb__ea22fce7/README.md).
 It passed every signal decision in all eight artifact-based judge controls and
 all 24 guided trials without exposing evaluator descriptions to evaluated
 agents, publishing raw command output, or admitting unexpected workspace
-changes. The failed hint-free run is preserved because it exposed a real gap:
-the fixed contract did not explicitly require substantive engagement with
-discussion and concerns. The other earlier bundles remain available for
-historical analysis but are superseded because their admission controls were
-weaker or their published evidence retained evaluator hints or host-identifying
-command output.
+changes. Every judgment used the recorded run-local output-schema snapshot.
+The failed hint-free run is preserved because it exposed a real gap: the fixed
+contract did not explicitly require substantive engagement with discussion and
+concerns. The other earlier bundles remain available for historical analysis
+but are superseded because their admission controls were weaker, their judge
+schema came from the live checkout, or their published evidence retained
+evaluator hints or host-identifying command output.
 
 Execution state is written beneath ignored
 `tmp/annotation-interpretation/<run-id>/`. A complete matrix is promoted to

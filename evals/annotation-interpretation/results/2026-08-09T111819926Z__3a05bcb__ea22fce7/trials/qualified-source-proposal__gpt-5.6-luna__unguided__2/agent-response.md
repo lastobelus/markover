@@ -1,0 +1,1 @@
+Thanks for flagging this. I kept the retry limit at three and clarified that it is the maximum, rather than increasing it to five.

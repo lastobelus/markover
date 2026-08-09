@@ -1,0 +1,1 @@
+Good question. The document doesn’t provide enough context to explain why the legacy fallback exists. I revised it to state explicitly that its purpose and removal criteria still need to be documented.

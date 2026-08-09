@@ -1,0 +1,1 @@
+I revised the statement to clarify that the 200ms budget came from last year’s mobile client and should be validated before being applied as a general latency target.

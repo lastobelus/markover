@@ -2,6 +2,10 @@
 
 **Result: PASS**
 
+> Superseded because judge invocations read their output schema from the live
+> checkout. See the
+> [canonical run-local-schema rerun](../2026-08-09T111819926Z__3a05bcb__ea22fce7/README.md).
+
 Run ID: `2026-08-09T103323212Z__54e1387__577e4846`
 
 ## Reliability gates

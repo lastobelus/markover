@@ -1,0 +1,1 @@
+Good question. The document doesn’t establish why the fallback is still needed, so I revised the sentence to explicitly identify the missing rationale and removal criteria rather than implying the legacy behavior is justified.

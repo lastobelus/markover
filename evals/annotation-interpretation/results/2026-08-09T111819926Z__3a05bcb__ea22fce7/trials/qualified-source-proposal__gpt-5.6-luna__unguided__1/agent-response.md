@@ -1,0 +1,1 @@
+I kept the retry count at 3 because increasing it to 5 could add upstream load, and clarified that 3 is the maximum: `Retries: 3 (maximum)`.

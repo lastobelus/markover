@@ -1,0 +1,1 @@
+Good question. Since upstream capacity isn’t established, I kept retries at three and clarified that increasing to five requires confirmation the service can handle the additional requests.

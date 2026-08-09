@@ -1,0 +1,1 @@
+Good question. The document didn’t provide a supported rationale, so I added a note requiring the fallback’s purpose and retirement criteria to be documented before disabling it. Please provide the intended rationale if you’d like it stated explicitly.

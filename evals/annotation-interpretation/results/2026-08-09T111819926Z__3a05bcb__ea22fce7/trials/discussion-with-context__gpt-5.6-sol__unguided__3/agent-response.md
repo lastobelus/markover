@@ -1,0 +1,1 @@
+Good point. I revised the document to clarify that the 200 ms budget came from last year’s mobile client and needs reassessment before being treated as a current requirement.

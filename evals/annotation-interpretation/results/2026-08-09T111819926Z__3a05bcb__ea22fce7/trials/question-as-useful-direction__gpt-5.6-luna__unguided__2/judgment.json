@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly addresses the question by calling the fallback sentence unexplained and stating there was insufficient context to justify it or explain its purpose."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "Although the sentence was removed in the final document, the response explicitly acknowledges and addresses the underlying question rather than silently treating it as an edit request."
+    }
+  ],
+  "summary": "The outcome passes because the legacy-fallback question was explicitly acknowledged and addressed, and the resulting removal was not silent."
+}

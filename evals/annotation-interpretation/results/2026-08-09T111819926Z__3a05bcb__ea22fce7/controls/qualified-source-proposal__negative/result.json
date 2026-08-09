@@ -1,0 +1,46 @@
+{
+  "id": "qualified-source-proposal__negative",
+  "caseId": "qualified-source-proposal",
+  "kind": "negative",
+  "expectedPass": false,
+  "expectedObservedSignals": [
+    "revision-applied:five-retries",
+    "question-silently-converted-to-edit:upstream-overload"
+  ],
+  "actualPass": false,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": false,
+        "evidence": "The response says only “Updated retries to five,” applying the source edit without explicitly treating it as a contextual proposal or considering its implications."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": false,
+        "evidence": "The response does not recognize or address whether five retries would overload the upstream service."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": true,
+        "evidence": "The final document changes “Retries: 3” to “Retries: 5,” while the response merely reports the edit and does not acknowledge the overload question."
+      }
+    ],
+    "summary": "The outcome fails because the exact five-retry edit was applied without explicit consideration, and the upstream-overload question was silently converted into an edit."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10307,
+    "cached_input_tokens": 5888,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 207,
+    "reasoning_output_tokens": 0
+  }
+}

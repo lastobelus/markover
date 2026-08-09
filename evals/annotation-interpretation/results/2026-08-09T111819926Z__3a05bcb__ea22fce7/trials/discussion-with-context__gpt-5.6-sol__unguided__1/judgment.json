@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the concern with “Good point” and addresses it by stating that the 200 ms budget came from last year’s mobile client and should be reassessed."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the response explicitly acknowledges it and explains the resulting reassessment."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document’s reference to last year’s mobile client comes directly from the supplied feedback and is not an invented rationale."
+    }
+  ],
+  "summary": "The response substantively acknowledges the latency concern, and the final revision appropriately incorporates the supplied historical context without inventing a rationale."
+}

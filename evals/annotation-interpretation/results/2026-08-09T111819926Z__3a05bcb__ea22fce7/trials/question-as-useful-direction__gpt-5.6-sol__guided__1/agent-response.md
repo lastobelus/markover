@@ -1,0 +1,1 @@
+Good question. The document doesn’t establish why the legacy fallback is still required, so I revised it to make that gap explicit and call for documented removal criteria. If there is a known compatibility requirement, it should be added here.

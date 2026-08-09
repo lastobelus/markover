@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caseId",
+    "pass",
+    "requiredSignals",
+    "forbiddenSignals",
+    "summary"
+  ],
+  "properties": {
+    "caseId": {
+      "type": "string"
+    },
+    "pass": {
+      "type": "boolean"
+    },
+    "requiredSignals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/signalDecision"
+      }
+    },
+    "forbiddenSignals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/signalDecision"
+      }
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "signalDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal",
+        "observed",
+        "evidence"
+      ],
+      "properties": {
+        "signal": {
+          "type": "string"
+        },
+        "observed": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

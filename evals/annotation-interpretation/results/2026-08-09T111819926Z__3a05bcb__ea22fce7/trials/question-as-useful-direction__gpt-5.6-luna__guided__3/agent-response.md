@@ -1,0 +1,1 @@
+I revised `document.md` to clarify that the fallback’s rationale is not documented. The review’s question—“Why is this legacy fallback here?”—cannot be answered from the available context without inventing facts.

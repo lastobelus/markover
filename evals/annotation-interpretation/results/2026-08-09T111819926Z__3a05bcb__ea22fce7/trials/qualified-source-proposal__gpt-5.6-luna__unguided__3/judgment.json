@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly describes updating the document “to allow five retries with exponential backoff,” showing consideration of the proposed change from 3 to 5."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response explicitly says exponential backoff was added while “addressing the concern about overloading the upstream service.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The upstream-overload question was explicitly acknowledged in the response rather than silently treated as an edit instruction."
+    }
+  ],
+  "summary": "The five-retry proposal was explicitly considered and applied with exponential backoff, and the response directly acknowledged the upstream-overload concern. No forbidden silent conversion occurred."
+}

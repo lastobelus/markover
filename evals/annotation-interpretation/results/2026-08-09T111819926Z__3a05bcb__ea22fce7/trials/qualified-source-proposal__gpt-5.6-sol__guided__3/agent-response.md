@@ -1,0 +1,1 @@
+Five retries could increase upstream load, depending on request volume, backoff, and rate limits. Since the review doesn’t provide enough evidence that five is safe, I kept the documented retry count at three.

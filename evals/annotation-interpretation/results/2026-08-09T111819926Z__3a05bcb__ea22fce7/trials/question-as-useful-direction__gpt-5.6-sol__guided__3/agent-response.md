@@ -1,0 +1,1 @@
+Good question—the document doesn’t provide a reason. I revised it to explicitly flag that the fallback’s purpose and continued necessity are undocumented, rather than speculating.

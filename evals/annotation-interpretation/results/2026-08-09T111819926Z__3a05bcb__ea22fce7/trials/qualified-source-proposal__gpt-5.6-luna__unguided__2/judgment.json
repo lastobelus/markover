@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": false,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly considers the proposed increase by stating it kept the limit at three “rather than increasing it to five.”"
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": false,
+      "evidence": "The response does not explicitly recognize or address whether five retries would overload the upstream service."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": true,
+      "evidence": "The final document was edited to add “(maximum),” but the response does not substantively address the upstream-overload question."
+    }
+  ],
+  "summary": "The five-retry proposal was explicitly considered, but the upstream-overload question was not acknowledged and was instead accompanied by an edit, so the case fails."
+}

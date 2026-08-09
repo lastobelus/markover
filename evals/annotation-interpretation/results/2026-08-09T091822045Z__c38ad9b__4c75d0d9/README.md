@@ -4,7 +4,7 @@
 > genuine fixed-contract gap: one guided Luna response converted a discussion
 > concern into an edit without substantively addressing it. The contract was
 > strengthened and validated by the
-> [canonical integrity-checked rerun](../2026-08-09T103323212Z__54e1387__577e4846/README.md).
+> [canonical run-local-schema rerun](../2026-08-09T111819926Z__3a05bcb__ea22fce7/README.md).
 
 **Result: FAIL**
 

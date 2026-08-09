@@ -1,0 +1,1 @@
+Good point. I revised the statement to clarify that the 200 ms budget came from last year’s mobile client and should be reassessed.

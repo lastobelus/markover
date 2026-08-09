@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly considers the proposed change from 3 to 5 retries: “I kept retries at 3 rather than increasing them to 5.”"
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response directly addresses overload risk, stating that five retries “could add avoidable load” and that upstream rate-limit information is insufficient for a safe assessment."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "Although a rate-limit guardrail was added to the final document, the response explicitly acknowledges and substantively answers the upstream-load question."
+    }
+  ],
+  "summary": "The agent explicitly considered the five-retry proposal, addressed the upstream-overload concern, and did not silently convert the question into an edit."
+}

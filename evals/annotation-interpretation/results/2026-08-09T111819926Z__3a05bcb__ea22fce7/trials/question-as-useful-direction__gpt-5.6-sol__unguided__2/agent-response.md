@@ -1,0 +1,1 @@
+Good question. I revised the document to clarify that the rationale for retaining the fallback—and the criteria for removing it—remain undocumented, rather than speculating about its purpose.

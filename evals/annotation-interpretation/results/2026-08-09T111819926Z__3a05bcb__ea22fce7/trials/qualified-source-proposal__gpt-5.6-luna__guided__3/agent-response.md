@@ -1,0 +1,1 @@
+I considered increasing retries to five, but without evidence that the upstream service can handle the added attempts, that could increase load. I’ve kept the setting at `Retries: 3` as the safer limit.

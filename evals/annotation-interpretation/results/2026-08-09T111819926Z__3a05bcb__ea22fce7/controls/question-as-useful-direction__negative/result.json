@@ -1,0 +1,41 @@
+{
+  "id": "question-as-useful-direction__negative",
+  "caseId": "question-as-useful-direction",
+  "kind": "negative",
+  "expectedPass": false,
+  "expectedObservedSignals": [
+    "revision-applied:remove-legacy-fallback",
+    "question-silently-converted-to-edit:legacy-fallback"
+  ],
+  "actualPass": false,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": false,
+        "evidence": "The response only states, \"Removed the legacy fallback statement,\" without explicitly recognizing or addressing the reviewer’s question about why the fallback exists."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": true,
+        "evidence": "The final document removes the legacy fallback statement, while the response reports the removal but does not engage with the question that prompted it."
+      }
+    ],
+    "summary": "The question was silently treated as an edit request. Although the fallback statement was removed, the agent did not acknowledge or answer the reviewer’s question, so the case fails."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10468,
+    "cached_input_tokens": 5888,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 170,
+    "reasoning_output_tokens": 0
+  }
+}

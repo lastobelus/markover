@@ -1,0 +1,1 @@
+Five retries could overload the upstream service, but the available information isn’t enough to determine that safely. I retained three retries and added a note that increasing to five requires validating upstream capacity and retry limits first.

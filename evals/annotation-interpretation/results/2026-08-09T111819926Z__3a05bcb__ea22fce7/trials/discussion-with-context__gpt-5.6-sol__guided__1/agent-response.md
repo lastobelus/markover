@@ -1,0 +1,1 @@
+Agreed—the 200 ms figure shouldn’t be presented as a current requirement without validation. I revised the document to identify it as last year’s mobile-client budget and state that it must be revalidated before adoption as the current latency target.

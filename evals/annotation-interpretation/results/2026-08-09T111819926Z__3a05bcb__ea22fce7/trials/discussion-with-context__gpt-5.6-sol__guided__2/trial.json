@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "discussion-with-context__gpt-5.6-sol__guided__2",
+    "caseId": "discussion-with-context",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 2
+  },
+  "agentResponse": "Agreed—the 200ms target shouldn’t carry forward unquestioned. I revised the document to identify it as originating from last year’s mobile client and to require reassessment before treating it as the current latency target.",
+  "finalDocument": "The 200ms request budget was established for last year's mobile client and should be reassessed before it is used as the current latency target.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": true,
+        "evidence": "The response substantively agrees that the 200ms target should not carry forward unquestioned and explains that it now requires reassessment before use as the current latency target."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": false,
+        "evidence": "The concern was explicitly acknowledged and addressed in the response, rather than only being converted into a document edit."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": false,
+        "evidence": "The final document's statement that the budget originated with last year's mobile client is directly supported by the review context and is not presented as a newly invented rationale."
+      }
+    ],
+    "summary": "The agent explicitly engaged with the latency-tradeoff concern and used the supplied historical context without inventing an unsupported rationale."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46028,
+      "cached_input_tokens": 39936,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 633,
+      "reasoning_output_tokens": 79
+    },
+    "judge": {
+      "input_tokens": 10557,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 270,
+      "reasoning_output_tokens": 54
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

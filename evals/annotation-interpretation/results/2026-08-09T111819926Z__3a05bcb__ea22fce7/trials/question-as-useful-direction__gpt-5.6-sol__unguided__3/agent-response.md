@@ -1,0 +1,1 @@
+Good question. The document didn’t provide a rationale, so I revised it to require documenting which clients need the fallback, why, and the criteria for removing it.

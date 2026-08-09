@@ -1,0 +1,1 @@
+Agreed—the 200ms budget shouldn’t be treated as a current requirement without validation. I revised the document to identify its origin in last year’s mobile client and require revalidation before it guides latency tradeoffs.
