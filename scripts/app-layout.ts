@@ -2,6 +2,8 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { rendererContentSecurityPolicy } from '../src/renderer-security'
+
 export const runtimeModuleNames = [
   'agent-guidance',
   'app-menu',
@@ -20,6 +22,7 @@ export const runtimeModuleNames = [
   'review-store',
   'review-url',
   'review-url-dispatcher',
+  'renderer-security',
   'service-endpoint',
   'settings',
   'settings-store',
@@ -162,6 +165,13 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
     if (html.includes(forbidden)) {
       throw new Error(`Staged HTML contains a forbidden runtime reference: ${forbidden}`)
     }
+  }
+  const policyTag = html.match(
+    /<meta\b(?=[^>]*http-equiv="Content-Security-Policy")[^>]*>/i
+  )?.[0]
+  const policy = policyTag?.match(/\bcontent="([^"]+)"/i)?.[1]
+  if (policy !== rendererContentSecurityPolicy) {
+    throw new Error('Staged HTML has an unexpected Content Security Policy.')
   }
 
   const renderer = rendererBuffer.toString('utf8')

@@ -84,11 +84,20 @@ export interface RendererStartupFailureResult {
 export interface RendererSmokeResult {
   format: 'markover-renderer-smoke'
   version: 1
+  diagnostics: string[]
   checks: {
     cleanRuntime: boolean
+    blobImage: boolean
+    dataImage: boolean
     documentsList: boolean
+    fileImage: boolean
     markdown: boolean
+    navigationDenied: boolean
+    permissionDenied: boolean
+    sandboxedRenderer: boolean
     sourceDiff: boolean
+    webviewDenied: boolean
+    windowOpenDenied: boolean
     yaml: boolean
   }
 }

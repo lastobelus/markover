@@ -223,20 +223,29 @@ let paneResizeLayoutFrame: number | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
 let smokeRuntimeClean = true
+const smokeRuntimeDiagnostics: string[] = []
 const consoleError = console.error.bind(console)
 console.error = (...values: unknown[]) => {
   smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(
+    `console.error: ${values.map((value) => String(value)).join(' ')}`
+  )
   consoleError(...values)
 }
-for (const eventName of [
-  'error',
-  'securitypolicyviolation',
-  'unhandledrejection'
-] as const) {
-  window.addEventListener(eventName, () => {
-    smokeRuntimeClean = false
-  }, true)
-}
+window.addEventListener('error', (event) => {
+  smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(`error: ${event.message}`)
+}, true)
+window.addEventListener('securitypolicyviolation', (event) => {
+  smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(
+    `csp: ${event.violatedDirective} blocked ${event.blockedURI}`
+  )
+}, true)
+window.addEventListener('unhandledrejection', (event) => {
+  smokeRuntimeClean = false
+  smokeRuntimeDiagnostics.push(`unhandledrejection: ${String(event.reason)}`)
+}, true)
 
 const documentsListReady = import('@pierre/trees')
   .then(({ FileTree }) => {
@@ -2908,11 +2917,20 @@ function nextFrame(): Promise<void> {
 async function rendererSmokeResult(): Promise<{
   format: 'markover-renderer-smoke'
   version: 1
+  diagnostics: string[]
   checks: {
+    blobImage: boolean
     cleanRuntime: boolean
+    dataImage: boolean
     documentsList: boolean
+    fileImage: boolean
     markdown: boolean
+    navigationDenied: boolean
+    permissionDenied: boolean
+    sandboxedRenderer: boolean
     sourceDiff: boolean
+    webviewDenied: boolean
+    windowOpenDenied: boolean
     yaml: boolean
   }
 }> {
@@ -2934,14 +2952,65 @@ async function rendererSmokeResult(): Promise<{
       elements.sourceDiffStats.textContent.includes('+1') &&
       elements.sourceDiffStats.textContent.includes('−1')
   }
+  const fileImage = elements.attachmentList.querySelector<HTMLImageElement>(
+    'img[alt="Packaged local image"]'
+  )
+  if (fileImage && !fileImage.complete) {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        fileImage.addEventListener('load', () => { resolve() }, { once: true })
+        fileImage.addEventListener('error', () => { resolve() }, { once: true })
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, 1000))
+    ])
+  }
+  const blobUrl = URL.createObjectURL(new Blob([
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>'
+  ], { type: 'image/svg+xml' }))
+  const blobImage = new Image()
+  const blobImageLoaded = await new Promise<boolean>((resolve) => {
+    blobImage.addEventListener('load', () => { resolve(true) }, { once: true })
+    blobImage.addEventListener('error', () => { resolve(false) }, { once: true })
+    blobImage.src = blobUrl
+  })
+  URL.revokeObjectURL(blobUrl)
+  const popup = window.open('https://example.invalid/markover-smoke')
+  const windowOpenDenied = popup === null
+  popup?.close()
+  const webview = document.createElement('webview')
+  document.body.append(webview)
+  await nextFrame()
+  const webviewDenied = !Reflect.has(webview, 'getWebContentsId')
+  webview.remove()
+  const permissionState = await navigator.permissions.query({
+    name: 'geolocation'
+  })
+  const notificationPermission = await Notification.requestPermission()
+  const originalUrl = window.location.href
+  window.location.assign('https://example.invalid/markover-smoke-navigation')
+  await new Promise<void>((resolve) => setTimeout(resolve, 50))
   return {
     format: 'markover-renderer-smoke',
     version: 1,
+    diagnostics: [...smokeRuntimeDiagnostics],
     checks: {
+      blobImage: blobImageLoaded,
       cleanRuntime: smokeRuntimeClean,
+      dataImage: elements.brandMark.src.startsWith('data:image/svg+xml') &&
+        elements.brandMark.complete && elements.brandMark.naturalWidth > 0,
       documentsList,
+      fileImage: Boolean(
+        fileImage?.complete && fileImage.naturalWidth > 0
+      ),
       markdown: treeText.includes('Bundled Markdown renders here.'),
+      navigationDenied: window.location.href === originalUrl,
+      permissionDenied: permissionState.state === 'denied' &&
+        notificationPermission === 'denied',
+      sandboxedRenderer: !Reflect.has(globalThis, 'process') &&
+        !Reflect.has(globalThis, 'require'),
       sourceDiff,
+      webviewDenied,
+      windowOpenDenied,
       yaml: Boolean(elements.tree.querySelector('[data-node-id="smoke-yaml-title"]'))
     }
   }

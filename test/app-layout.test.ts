@@ -8,6 +8,7 @@ import {
   expectedStageEntries,
   verifyAppLayout
 } from '../scripts/app-layout'
+import { rendererContentSecurityPolicy } from '../src/renderer-security'
 
 async function fixture(t: TestContext): Promise<string> {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-app-'))
@@ -33,7 +34,7 @@ async function fixture(t: TestContext): Promise<string> {
   await fs.writeFile(
     path.join(directory, 'src/index.html'),
     [
-      '<meta http-equiv="Content-Security-Policy">',
+      `<meta http-equiv="Content-Security-Policy" content="${rendererContentSecurityPolicy}">`,
       '<script src="startup.js"></script>',
       '<script type="module" src="renderer.js"></script>'
     ].join('\n')
@@ -58,6 +59,20 @@ test('application layout reports missing required files', async (t) => {
   await assert.rejects(
     verifyAppLayout(directory),
     /Missing: src\/preload\.js/
+  )
+})
+
+test('application layout rejects Content Security Policy drift', async (t) => {
+  const directory = await fixture(t)
+  const htmlPath = path.join(directory, 'src/index.html')
+  const html = await fs.readFile(htmlPath, 'utf8')
+  await fs.writeFile(
+    htmlPath,
+    html.replace(rendererContentSecurityPolicy, "default-src 'self'")
+  )
+  await assert.rejects(
+    verifyAppLayout(directory),
+    /unexpected Content Security Policy/
   )
 })
 
