@@ -129,3 +129,5 @@ operations.
 - [Code of conduct](./CODE_OF_CONDUCT.md)
 - [Discussions](https://github.com/lastobelus/markover/discussions) for early
   ideas, usage questions, and general support
+- [Report a problem](https://github.com/lastobelus/markover/issues/new?template=bug.yml)
+  with the smallest sanitized reproduction of a defect

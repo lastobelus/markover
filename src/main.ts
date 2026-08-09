@@ -43,6 +43,8 @@ import {
 } from './ipc-security'
 import { startLocalService, type LocalService } from './local-service'
 import { discoverRepositoryRoot } from './metadata-discovery'
+import { openPublicLinkCommand } from './public-link-opener'
+import { type PublicLink, type PublicLinkId } from './public-links'
 import { importLegacyReviews } from './review-migration'
 import { ReviewAutosave } from './review-autosave'
 import {
@@ -523,6 +525,13 @@ function installApplicationMenu(): void {
     onOpen: () => {
       sendRendererEvent('document:open-request')
     },
+    onOpenPublicLink: (id) => {
+      void openPublicLink(id).catch((error: unknown) => {
+        process.stderr.write(
+          `markover public link: ${errorMessage(error)}\n`
+        )
+      })
+    },
     onResetZoom: () => {
       requestZoomPercent(() => DEFAULT_SETTINGS.zoomPercent)
     },
@@ -544,6 +553,46 @@ function installApplicationMenu(): void {
     }
   })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+function restoreMainWindowFocus(): void {
+  const window = mainWindow
+  if (!window || window.isDestroyed()) return
+  if (window.isMinimized()) window.restore()
+  window.show()
+  window.focus()
+}
+
+async function showPublicLinkFailure(
+  link: PublicLink,
+  error: unknown
+): Promise<'copy' | 'dismiss'> {
+  process.stderr.write(
+    `markover public link ${link.id}: ${errorMessage(error)}\n`
+  )
+  const options = {
+    type: 'error' as const,
+    buttons: ['Copy Link', 'OK'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    message: `Markover could not open ${link.label}.`,
+    detail: `${link.url}\n\nCopy the link and open it manually in a browser.`
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showMessageBox(window, options)
+    : await dialog.showMessageBox(options)
+  return result.response === 0 ? 'copy' : 'dismiss'
+}
+
+async function openPublicLink(id: PublicLinkId): Promise<void> {
+  await openPublicLinkCommand(id, {
+    copyText: (text) => { clipboard.writeText(text) },
+    openExternal: (url) => shell.openExternal(url),
+    restoreFocus: restoreMainWindowFocus,
+    showFailure: showPublicLinkFailure
+  })
 }
 
 function formatByteCount(bytes: number): string {

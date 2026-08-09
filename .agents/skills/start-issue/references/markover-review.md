@@ -1,7 +1,19 @@
-# PR-local Markover
+# Markover instance selection
 
-Use the current PR worktree's isolated development instance for every new
-Markover review opened after the pull request exists:
+Use canonical for reviews of plans, proposals, and other artifacts produced
+during the work. An open pull request does not by itself select its development
+instance.
+
+Use the current PR worktree's isolated development instance when the user asks
+for a development instance or asks to test the behavior being changed in the
+pull request. If the user supplies a document, open that document. Otherwise:
+
+1. Create `tmp/pr-N-dev-checklist.md` with a short PR-specific list of behavior,
+   interactions, or risks the user should inspect. Prefer concrete checks over
+   a generic dummy document.
+2. Open that file directly in the development instance. Let `open` cold-start
+   the instance with the review visible; do not launch the instance separately
+   into its splash screen.
 
 ```sh
 npm --silent run markover -- --instance dev open PATH --summary SUMMARY
@@ -9,12 +21,11 @@ npm --silent run markover -- --instance dev get REVIEW_ID
 npm --silent run markover -- --instance dev edit REVIEW_ID
 ```
 
-Retain the review ID together with its instance selector and use that same
-selector for every later operation on the review. Review IDs do not move
-between instances.
+Retain every review ID together with its instance selector and use that same
+selector for every later operation. Review IDs do not move between instances.
 
-A review opened through canonical before the pull request existed remains
-canonical; continue it without `--instance dev`.
+A canonical review remains canonical even after a pull request exists; continue
+it without `--instance dev`.
 
 Let `--instance dev` resolve only the current worktree's open pull request. If
 that identity cannot be resolved, stop and report the mismatch. Preserve the
