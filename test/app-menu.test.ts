@@ -6,6 +6,7 @@ import test from 'node:test'
 import type { MenuItemConstructorOptions } from 'electron'
 
 import { applicationMenuTemplate } from '../src/app-menu'
+import { PUBLIC_LINKS, type PublicLinkId } from '../src/public-links'
 
 const root = path.resolve(__dirname, '..', '..')
 
@@ -127,6 +128,44 @@ test('main process applies persisted zoom before and after renderer load', () =>
     main,
     /store\.update\(\{ zoomPercent: next \}\)[\s\S]*?installApplicationMenu\(\)/
   )
+})
+
+test('Help uses the native role and exposes the canonical public commands', () => {
+  const opened: PublicLinkId[] = []
+  const template = applicationMenuTemplate({
+    isMac: true,
+    onOpenPublicLink: (id) => { opened.push(id) }
+  })
+  const helpMenu = template.find((item) => item.role === 'help')
+  assert.ok(helpMenu)
+  assert.equal(helpMenu, template.at(-1))
+  const items = submenu(helpMenu)
+  assert.deepEqual(
+    items.map((item) => ({ id: item.id, label: item.label })),
+    PUBLIC_LINKS.map((link) => ({
+      id: `help.${link.id}`,
+      label: link.label
+    }))
+  )
+  for (const [index, item] of items.entries()) {
+    const click = item.click as (() => void) | undefined
+    assert.ok(click)
+    click()
+    assert.equal(opened.at(-1), PUBLIC_LINKS[index]?.id)
+  }
+})
+
+test('non-macOS Help preserves Settings after the public commands', () => {
+  const template = applicationMenuTemplate({ isMac: false })
+  const helpMenu = template.find((item) => item.role === 'help')
+  assert.ok(helpMenu)
+  const items = submenu(helpMenu)
+  assert.deepEqual(
+    items.slice(0, PUBLIC_LINKS.length).map((item) => item.label),
+    PUBLIC_LINKS.map((link) => link.label)
+  )
+  assert.equal(items[PUBLIC_LINKS.length]?.type, 'separator')
+  assert.equal(items[PUBLIC_LINKS.length + 1]?.label, 'Settings…')
 })
 
 test('review deletion copy distinguishes review data from the original document', () => {
