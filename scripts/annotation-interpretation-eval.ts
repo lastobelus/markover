@@ -438,8 +438,8 @@ function parseConfig(source: string): EvaluationConfig {
 
 function validateDefinition(definition: EvaluationDefinition): void {
   const { cases, config, judgeSchema, rubric } = definition
-  if (config.schemaVersion !== 1 || config.runnerVersion !== 2) {
-    throw new Error('Only annotation evaluation schema 1 and runner version 2 are supported')
+  if (config.schemaVersion !== 1 || config.runnerVersion !== 3) {
+    throw new Error('Only annotation evaluation schema 1 and runner version 3 are supported')
   }
   if (!Number.isInteger(config.trialsPerCondition) || config.trialsPerCondition < 1) {
     throw new Error('trialsPerCondition must be a positive integer')
@@ -580,7 +580,6 @@ export function buildMatrix(
 }
 
 export function buildAgentPrompt(
-  evaluationCase: EvaluationCase,
   condition: EvaluationCondition
 ): string {
   const guidance = condition === 'guided'
@@ -597,7 +596,6 @@ export function buildAgentPrompt(
     'Read both files, make any useful revision directly in document.md, and then respond naturally to the reviewer.',
     'Address the review as a real document task. Do not mention this evaluation or invent facts not supported by the review.',
     'Do not create, rename, or delete files.',
-    `Case description: ${evaluationCase.description}`,
     ...guidance,
     ''
   ].join('\n')
@@ -866,6 +864,35 @@ export function sanitizeEvidenceValue(
   return value
 }
 
+function redactCommandOutput(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactCommandOutput)
+  if (!isObject(value)) return value
+  const redacted = Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, redactCommandOutput(item)])
+  )
+  if (value.type === 'command_execution') {
+    for (const key of ['aggregated_output', 'output', 'stdout', 'stderr']) {
+      if (typeof value[key] === 'string') redacted[key] = '<redacted command output>'
+    }
+  }
+  return redacted
+}
+
+export function sanitizeCodexJsonl(
+  source: string,
+  replacements: ReadonlyArray<readonly [string, string]>
+): string {
+  return source.split('\n').map((line) => {
+    if (line.trim().length === 0) return ''
+    try {
+      const event = sanitizeEvidenceValue(JSON.parse(line) as unknown, replacements)
+      return JSON.stringify(redactCommandOutput(event))
+    } catch {
+      return JSON.stringify({ type: 'redacted_unparseable_event' })
+    }
+  }).join('\n')
+}
+
 export async function invokeCodex(
   command: CodexCommand
 ): Promise<CodexCommandResult> {
@@ -972,7 +999,7 @@ async function recordAttempt(
   replacements: ReadonlyArray<readonly [string, string]>
 ): Promise<void> {
   const attemptName = `attempt-${record.attempt}`
-  const sanitizedStdout = sanitizeEvidenceText(record.result.stdout, replacements)
+  const sanitizedStdout = sanitizeCodexJsonl(record.result.stdout, replacements)
   const sanitizedStderr = sanitizeEvidenceText(record.result.stderr, replacements)
   await Promise.all([
     writeEvidenceText(
@@ -1272,7 +1299,7 @@ async function runTrial(
 ): Promise<TrialResult> {
   const evaluationCase = findCase(definition.cases, spec.caseId)
   const workspace = path.join(directories.workspaces, spec.id)
-  const agentPrompt = buildAgentPrompt(evaluationCase, spec.condition)
+  const agentPrompt = buildAgentPrompt(spec.condition)
   const agentCommand: CodexCommand = {
     executable: codexPath,
     args: buildCodexArgs({
@@ -1584,7 +1611,7 @@ function reportMarkdown(manifest: JsonObject): string {
     '- `controls/` contains every structured judge-control invocation and judgment.',
     '- `trials/` contains prompts, sanitized JSONL event streams, stderr, timing, usage, responses, documents, and judgments.',
     '',
-    'Absolute local paths are replaced with stable placeholders. Credentials and unrelated environment variables are never collected.',
+    'Absolute local paths are replaced with stable placeholders, and command-output payloads are redacted from published JSONL. Credentials and unrelated environment variables are never collected.',
     ''
   ].join('\n')
 }
@@ -1793,6 +1820,7 @@ async function runEvaluation(options: RunOptions): Promise<RunResult> {
     },
     sanitization: {
       absolutePaths: 'replaced with <repository>, <run-root>, or <workspace>',
+      commandOutput: 'redacted from published JSONL event streams',
       environment: 'not collected',
       credentials: 'not collected',
       rawUnsanitizedLocation: 'ignored tmp/ only; not published'

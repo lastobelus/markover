@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "runnerVersion": 2,
+  "runnerVersion": 3,
   "trialsPerCondition": 3,
   "conditions": [
     "guided",

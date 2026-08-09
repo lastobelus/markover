@@ -15,6 +15,7 @@ import {
   parseCodexJsonl,
   reserveRunRoot,
   resetTrialWorkspace,
+  sanitizeCodexJsonl,
   sanitizeEvidenceDirectory,
   sanitizeEvidenceText,
   sanitizeEvidenceValue,
@@ -57,8 +58,8 @@ test('versioned configuration expands to the agreed 48-trial matrix', () => {
 test('guided and unguided prompts differ only by Markover guidance', () => {
   const evaluationCase = cases[0]
   assert.ok(evaluationCase)
-  const guided = buildAgentPrompt(evaluationCase, 'guided')
-  const unguided = buildAgentPrompt(evaluationCase, 'unguided')
+  const guided = buildAgentPrompt('guided')
+  const unguided = buildAgentPrompt('unguided')
 
   assert.match(guided, /Respond to the Markover review in review\.json/)
   assert.match(unguided, /Respond to the Markover review in review\.json/)
@@ -67,6 +68,10 @@ test('guided and unguided prompts differ only by Markover guidance', () => {
   for (const prompt of [guided, unguided]) {
     assert.doesNotMatch(prompt, /requiredSignals|forbiddenSignals/)
     assert.doesNotMatch(prompt, /question-acknowledged:/)
+    assert.doesNotMatch(prompt, /Case description:/)
+    assert.doesNotMatch(prompt, new RegExp(
+      evaluationCase.description.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    ))
   }
 })
 
@@ -274,6 +279,42 @@ test('published event streams replace local absolute paths', () => {
   ]), '<workspace>/document.md and <repository>/source.ts')
 })
 
+test('published event streams redact command output but retain useful events', () => {
+  const source = [
+    JSON.stringify({
+      type: 'item.completed',
+      item: {
+        type: 'command_execution',
+        command: 'ls -la',
+        aggregated_output: 'drwxr-xr-x lasto staff /repo/workspace',
+        status: 'completed',
+        exit_code: 0
+      }
+    }),
+    JSON.stringify({
+      type: 'item.completed',
+      item: { type: 'agent_message', text: 'Updated /repo/workspace/document.md' }
+    }),
+    ''
+  ].join('\n')
+  const sanitized = sanitizeCodexJsonl(source, [
+    ['/repo/workspace', '<workspace>']
+  ])
+  const events = sanitized.trim().split('\n').map((line) =>
+    JSON.parse(line) as { item: Record<string, unknown> }
+  )
+
+  assert.deepEqual(events[0]?.item, {
+    type: 'command_execution',
+    command: 'ls -la',
+    aggregated_output: '<redacted command output>',
+    status: 'completed',
+    exit_code: 0
+  })
+  assert.equal(events[1]?.item.text, 'Updated <workspace>/document.md')
+  assert.doesNotMatch(sanitized, /lasto|staff/)
+})
+
 test('published structured values and files replace local absolute paths', async (t) => {
   const directory = await fsPromises.mkdtemp(
     path.join(os.tmpdir(), 'markover-evidence-sanitization-')
@@ -413,7 +454,7 @@ test('rubric, schema, and package scripts preserve the agreed gates', () => {
   assert.match(eslintConfig, /'tmp\/\*\*'/)
   assert.match(packageJson.scripts['eval:annotation'] ?? '', / run$/)
   assert.match(packageJson.scripts['eval:annotation:validate'] ?? '', / validate$/)
-  assert.equal(config.runnerVersion, 2)
+  assert.equal(config.runnerVersion, 3)
   assert.deepEqual(config.thresholds, {
     judgeControlAccuracy: 1,
     guidedRequiredSignalRate: 1,

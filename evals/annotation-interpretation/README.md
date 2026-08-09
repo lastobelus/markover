@@ -65,6 +65,8 @@ rules, apps, MCP servers, skills, project guidance, web search, and network
 access. Each evaluated-agent trial runs ephemerally in a fresh Git repository
 with workspace-write access limited to its fixture. The judge runs ephemerally
 and read-only with shell, web search, apps, agents, and image tools disabled.
+Evaluated-agent prompts contain only task instructions and the review artifacts;
+case descriptions and signal expectations remain evaluator-only.
 
 The first gate runs eight fixed artifact-based judge controls. The judge sees
 only each review, original document, final document, response, rubric, and
@@ -114,6 +116,9 @@ and hash of the evaluated runner—requested model and reasoning settings,
 bundled model metadata, Codex CLI version, Git provenance, prompts, sanitized
 JSONL event streams, stderr, timing, token usage, responses, documents,
 judgments, errors, a machine-readable manifest, and a Markdown report.
+Published JSONL retains event structure, commands, statuses, and model messages,
+but replaces command-output payloads with a redaction marker so filesystem
+ownership and other host metadata cannot enter committed evidence.
 Unsanitized streams stay only under ignored `tmp/`. The runner never collects
 credentials, environment variables, or unrelated machine state, and replaces
 local absolute paths in every model-derived artifact with stable placeholders
