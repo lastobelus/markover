@@ -1,0 +1,1 @@
+I left `Retries: 3` unchanged. The document doesn’t provide enough information about upstream capacity, retry timing, or backoff behavior to determine whether five retries would overload the service. Can you confirm the upstream service’s limits or expected retry policy before we increase it?

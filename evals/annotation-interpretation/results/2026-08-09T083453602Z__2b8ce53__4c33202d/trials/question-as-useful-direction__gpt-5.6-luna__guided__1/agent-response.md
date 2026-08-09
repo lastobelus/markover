@@ -1,0 +1,1 @@
+I removed the sentence because the document provided no rationale for keeping the legacy fallback. The reviewer’s question is therefore addressed by removing the unsupported claim.

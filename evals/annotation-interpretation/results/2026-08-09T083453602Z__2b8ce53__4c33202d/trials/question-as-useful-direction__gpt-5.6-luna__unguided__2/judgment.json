@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": false,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": false,
+      "evidence": "The response says the statement was removed but does not explicitly recognize or answer the question of why the legacy fallback was present."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": true,
+      "evidence": "The final document removes the fallback statement, and the response reports that edit without addressing the annotation's question."
+    }
+  ],
+  "summary": "The question was converted into a removal without explicit acknowledgment or explanation, so the required signal is absent and the forbidden signal is present."
+}

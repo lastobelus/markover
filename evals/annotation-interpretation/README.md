@@ -94,10 +94,11 @@ descriptive and do not impose an improvement requirement.
 ## Evidence and privacy
 
 The canonical committed evidence is
-[`2026-08-09T074005249Z__82727c2__f3951916`](results/2026-08-09T074005249Z__82727c2__f3951916/README.md).
-It passed all eight artifact-based judge controls and all 24 guided trials.
-The earlier `2da164b` bundle is preserved for historical analysis but is
-superseded because its control prompts supplied the expected observed signals.
+[`2026-08-09T083453602Z__2b8ce53__4c33202d`](results/2026-08-09T083453602Z__2b8ce53__4c33202d/README.md).
+It passed every signal decision in all eight artifact-based judge controls and
+all 24 guided trials. The earlier bundles are preserved for historical
+analysis but are explicitly superseded because their control gates either
+supplied the expected observations or compared only aggregate pass/fail.
 
 Execution state is written beneath ignored
 `tmp/annotation-interpretation/<run-id>/`. A complete matrix is promoted to

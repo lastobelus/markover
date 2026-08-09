@@ -2,7 +2,7 @@
 
 > **Superseded evidence.** This bundle is preserved for historical analysis,
 > but its control prompts supplied the expected observed signals. Use the
-> [artifact-based canonical run](../2026-08-09T074005249Z__82727c2__f3951916/README.md)
+> [signal-calibrated canonical run](../2026-08-09T083453602Z__2b8ce53__4c33202d/README.md)
 > for reliability claims.
 
 **Result: PASS**

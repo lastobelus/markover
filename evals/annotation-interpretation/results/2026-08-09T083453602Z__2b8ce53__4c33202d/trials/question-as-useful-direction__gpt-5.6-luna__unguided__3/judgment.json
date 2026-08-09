@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly addresses the question by stating that the fallback statement was removed because the document provided no justification for keeping it."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent; the response explicitly explained the removal and connected it to the missing justification raised by the question."
+    }
+  ],
+  "summary": "The question was explicitly acknowledged and addressed, and the resulting removal was explained rather than silently applied."
+}

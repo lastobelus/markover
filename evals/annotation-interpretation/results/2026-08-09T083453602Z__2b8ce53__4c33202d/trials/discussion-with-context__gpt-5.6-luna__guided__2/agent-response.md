@@ -1,0 +1,1 @@
+Thanks for flagging this. I’ve clarified that the 200ms budget was inherited from last year’s mobile client and should be revalidated for current clients before being treated as a hard requirement.

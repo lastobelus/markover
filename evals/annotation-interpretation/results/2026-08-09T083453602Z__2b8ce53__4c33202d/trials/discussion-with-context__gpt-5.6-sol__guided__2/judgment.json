@@ -1,0 +1,24 @@
+{
+  "caseId": "discussion-with-context",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "discussion-addressed:latency-tradeoff",
+      "observed": true,
+      "evidence": "The response explicitly engages the concern by agreeing that the 200 ms budget “shouldn’t be presented as settled” and saying it should be reassessed before becoming the ongoing target."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+      "observed": false,
+      "evidence": "The concern was not handled silently; the response explicitly acknowledges and addresses the latency tradeoff before describing the edit."
+    },
+    {
+      "signal": "revision-applied:invent-latency-rationale",
+      "observed": false,
+      "evidence": "The final document uses the supplied historical context that the budget came from last year’s mobile client, but does not invent an unsupported rationale for the 200 ms target."
+    }
+  ],
+  "summary": "The agent substantively addressed the latency concern and used the supplied historical context without inventing a rationale. All required signals are present and no forbidden signals are observed."
+}

@@ -1,0 +1,1 @@
+The request budget is 200ms, a target inherited from last year's mobile client. Treat it as a provisional constraint: validate that the latency tradeoff remains acceptable for the current client and workload before enforcing it universally.

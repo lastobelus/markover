@@ -1,5 +1,10 @@
 # Annotation interpretation evaluation
 
+> **Superseded evidence.** This bundle uses artifact-based controls but checks
+> only their aggregate pass/fail outcomes. Use the
+> [signal-calibrated canonical run](../2026-08-09T083453602Z__2b8ce53__4c33202d/README.md),
+> which compares every required and forbidden signal decision.
+
 **Result: PASS**
 
 Run ID: `2026-08-09T074005249Z__82727c2__f3951916`

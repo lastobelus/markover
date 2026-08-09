@@ -1,0 +1,24 @@
+{
+  "caseId": "mixed-revision-question",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "revision-applied:rename-persistence",
+      "observed": true,
+      "evidence": "The final document changes the heading from “## Storage” to “## Persistence.”"
+    },
+    {
+      "signal": "question-acknowledged:redis-vs-sqlite",
+      "observed": true,
+      "evidence": "The response explicitly addresses “Redis versus SQLite,” notes that the document does not explain the choice, and asks whether the requirement is cross-process shared state or durable local persistence."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+      "observed": false,
+      "evidence": "The agent explicitly acknowledged and discussed the Redis-versus-SQLite question and left the technology unchanged."
+    }
+  ],
+  "summary": "The requested heading revision was applied, and the design question was explicitly acknowledged and substantively addressed. No forbidden silent conversion occurred."
+}

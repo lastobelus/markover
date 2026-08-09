@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly says it updated the document to use 5 retries and paired that choice with exponential backoff and jitter to address overload risk, showing consideration of the contextual proposal."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response explicitly recognizes “the concern about overloading the upstream service” and states that exponential backoff and jitter were added to address it."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly acknowledges the upstream-overload concern and identifies the mitigation applied."
+    }
+  ],
+  "summary": "The agent explicitly considered the five-retry proposal in light of the overload concern, acknowledged that concern, and added a stated mitigation; therefore all required signals are present and the forbidden signal is absent."
+}

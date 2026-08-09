@@ -1,0 +1,1 @@
+Thanks for flagging this. I removed the legacy fallback statement from the document.

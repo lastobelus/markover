@@ -1,0 +1,1 @@
+Agreed—the 200 ms budget shouldn’t be presented as settled. I revised the document to explain that it came from last year’s mobile client and should be reassessed before becoming the ongoing latency target.

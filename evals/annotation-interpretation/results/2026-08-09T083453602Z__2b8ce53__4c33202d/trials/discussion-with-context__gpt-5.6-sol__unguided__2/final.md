@@ -1,0 +1,1 @@
+The current request budget is 200ms, a figure inherited from last year's mobile client. Because that basis may no longer reflect the appropriate latency tradeoff, the budget should be reevaluated before it is treated as a firm constraint.
