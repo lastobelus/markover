@@ -67,8 +67,10 @@ and explain that native Intel releases are deferred to issue #80.
 
 This does not delete the x64 packaging, artifact-preflight, or packaged-smoke
 primitives. They remain tested development capabilities needed by issue #80.
-Continuous integration may continue to exercise both native implementations,
-but only the explicit release payload set is a supported public release.
+Ordinary pull-request and `main` CI do not package native apps. The tag-triggered
+release-candidate workflow alone packages and smokes the current Apple Silicon
+release set. Issue #80 owns reactivating native Intel release qualification when
+the Broad announcement reaches that gate.
 
 The current release set is exactly:
 

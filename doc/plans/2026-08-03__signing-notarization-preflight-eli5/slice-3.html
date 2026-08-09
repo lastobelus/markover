@@ -91,15 +91,20 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">PR #68 merged · v0.1.3 arm64 evidence published · Intel evidence deferred to #80</span>
+        <span class="context-status">PR #68 merged · scheduling correction implementing · tagged arm64 release candidates only · Intel deferred to #80</span>
       </summary>
       <div class="context-body">
         <p>
           This page describes slice 3 of
           <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>
           as merged in <a href="https://github.com/lastobelus/markover/pull/68">PR #68</a>,
-          snapshot 7 August 2026, on the published <code>v0.1.3</code> baseline
-          <code>03e52ac</code> containing
+          with a scheduling correction in progress on 8 August 2026 from merged
+          <code>main</code> baseline <code>3f0022f</code>. PR #68 added the reusable
+          runner correctly but mistakenly left native Apple Silicon and Intel packaging
+          on every pull request and <code>main</code> push. Branch
+          <code>agent/ci-packaged-smoke-release-only</code> removes that routine-CI lane
+          while preserving the tag-triggered Apple Silicon release candidate. The
+          published <code>v0.1.3</code> baseline <code>03e52ac</code> contains
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
           <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>, plus
           <a href="https://github.com/lastobelus/markover/pull/70">PR #70's</a>
@@ -116,7 +121,7 @@
         <div class="context-grid">
           <div>
             <h3>Scope and roadmap position</h3>
-            <p>Merged credential-free evidence runner: arm64 qualifies the current Apple Silicon release, while x64 remains an internal capability for issue #80. It reuses issue #12's happy-path helpers only; issue #12 keeps adversarial auth and issue #39 keeps bounded-loss durability.</p>
+            <p>Merged credential-free evidence runner: arm64 qualifies an exact tagged Apple Silicon release candidate, while routine pull requests keep non-packaging CI and x64 remains an internal capability for issue #80. It reuses issue #12's happy-path helpers only; issue #12 keeps adversarial auth and issue #39 keeps bounded-loss durability.</p>
           </div>
           <div>
             <h3>Follow-ups and change horizon</h3>
@@ -124,7 +129,7 @@
           </div>
           <div>
             <h3>Stable claims and current truth</h3>
-            <p>Stable: exact ZIP input, saved-state restart after the old PID exits, CLI open/get/edit, failed-launch cleanup, versioned sanitized evidence, and explicit exclusions. Physical Intel checks remain strict and reject Rosetta, but do not gate Apple Silicon publication. The v0.1.3 arm64 digest is <code>4219a1f2…b38c3c6</code>; its commit, run, assets, and release URL are immutable. Re-check issues #13, #80, and #11, the plan, runbook, release workflow, published release, and this card.</p>
+            <p>Stable: exact ZIP input, tagged-release scheduling, saved-state restart after the old PID exits, CLI open/get/edit, failed-launch cleanup, versioned sanitized evidence, and explicit exclusions. The ordinary Node matrix may change independently, but native package qualification does not return to every PR. Physical Intel checks remain strict and reject Rosetta, but do not gate Apple Silicon publication. The v0.1.3 arm64 digest is <code>4219a1f2…b38c3c6</code>; its commit, run, assets, and release URL are immutable. Re-check issues #13, #80, and #11, the plan, runbook, CI and release workflows, published release, and this card.</p>
           </div>
         </div>
       </div>

@@ -150,6 +150,9 @@ single run produces and verifies the complete set again.
 The native release builder runs the narrow happy path against its exact Apple
 Silicon final ZIP and retains `packaged-smoke-arm64.json` in a separate
 `packaged-smoke-*` workflow artifact.
+This qualification runs only from the `v*` tag-triggered release workflow.
+Ordinary pull requests and `main` pushes keep the faster non-packaging CI path
+and do not spend hosted macOS minutes building release candidates.
 Keeping these outside the exact toolchain-report directory preserves the
 release staging contract. The runner:
 
