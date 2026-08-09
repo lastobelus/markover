@@ -204,7 +204,7 @@ test('review deletion revalidates stale warnings before saving drafts', () => {
   assert.ok(pauseBarrier)
   assert.ok(moveReviewToTrash)
 
-  const pause = pauseBarrier.indexOf('await localService?.pauseMutations()')
+  const pause = pauseBarrier.indexOf('await pauseManagedMutations()')
   const revalidation = pauseBarrier.indexOf(
     'if (confirmBeforeSaving && !await confirmBeforeSaving()) return'
   )
