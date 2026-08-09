@@ -153,7 +153,9 @@ interface ControlResult {
   caseId: string
   kind: 'positive' | 'negative'
   expectedPass: boolean
+  expectedObservedSignals: string[]
   actualPass: boolean
+  signalDecisionsCorrect: boolean
   correct: boolean
   judgment: JudgeOutput
   attempts: number
@@ -436,8 +438,8 @@ function parseConfig(source: string): EvaluationConfig {
 
 function validateDefinition(definition: EvaluationDefinition): void {
   const { cases, config, judgeSchema, rubric } = definition
-  if (config.schemaVersion !== 1 || config.runnerVersion !== 1) {
-    throw new Error('Only annotation evaluation schema and runner version 1 are supported')
+  if (config.schemaVersion !== 1 || config.runnerVersion !== 2) {
+    throw new Error('Only annotation evaluation schema 1 and runner version 2 are supported')
   }
   if (!Number.isInteger(config.trialsPerCondition) || config.trialsPerCondition < 1) {
     throw new Error('trialsPerCondition must be a positive integer')
@@ -813,6 +815,18 @@ export function validateJudgeOutput(
     forbiddenSignals,
     summary: value.summary
   }
+}
+
+export function controlJudgmentMatches(
+  control: ControlArtifact,
+  judgment: JudgeOutput
+): boolean {
+  return [
+    ...judgment.requiredSignals,
+    ...judgment.forbiddenSignals
+  ].every(({ signal, observed }) =>
+    observed === control.observedSignals.includes(signal)
+  )
 }
 
 function replaceAll(source: string, value: string, replacement: string): string {
@@ -1218,13 +1232,16 @@ async function runControls(
         evidenceDirectory: path.join(directories.evidence, 'controls', id, 'judge'),
         rawDirectory: path.join(directories.raw, 'controls', id, 'judge')
       })
+      const signalDecisionsCorrect = controlJudgmentMatches(control, output.value)
       const result: ControlResult = {
         id,
         caseId: evaluationCase.id,
         kind,
         expectedPass,
+        expectedObservedSignals: control.observedSignals,
         actualPass: output.value.pass,
-        correct: output.value.pass === expectedPass,
+        signalDecisionsCorrect,
+        correct: output.value.pass === expectedPass && signalDecisionsCorrect,
         judgment: output.value,
         attempts: output.attempts.length,
         effectiveModel: lastParsed(output.attempts).effectiveModel,

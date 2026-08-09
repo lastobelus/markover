@@ -10,6 +10,7 @@ import {
   buildCodexArgs,
   buildJudgePrompt,
   buildMatrix,
+  controlJudgmentMatches,
   executeWithInfrastructureRetries,
   parseCodexJsonl,
   reserveRunRoot,
@@ -176,6 +177,38 @@ test('judge controls require semantic inference from fixed artifacts', () => {
   assert.doesNotMatch(prompt, /authoritative observed signal list/)
   assert.doesNotMatch(prompt, /Control kind|positive control|negative control/)
   assert.doesNotMatch(prompt, /context-used:mobile-client-budget/)
+})
+
+test('judge controls compare every expected signal decision', () => {
+  const evaluationCase = cases[0]
+  assert.ok(evaluationCase)
+  const control = evaluationCase.controls.negative
+  const judgment = {
+    caseId: evaluationCase.id,
+    pass: false,
+    requiredSignals: evaluationCase.requiredSignals.map((signal) => ({
+      signal,
+      observed: control.observedSignals.includes(signal),
+      evidence: 'control artifact'
+    })),
+    forbiddenSignals: evaluationCase.forbiddenSignals.map((signal) => ({
+      signal,
+      observed: control.observedSignals.includes(signal),
+      evidence: 'control artifact'
+    })),
+    summary: 'Expected negative control decisions.'
+  }
+  assert.equal(controlJudgmentMatches(control, judgment), true)
+
+  const wrongReason = {
+    ...judgment,
+    forbiddenSignals: judgment.forbiddenSignals.map((decision) => ({
+      ...decision,
+      observed: false
+    }))
+  }
+  assert.equal(wrongReason.pass, false)
+  assert.equal(controlJudgmentMatches(control, wrongReason), false)
 })
 
 test('Codex JSONL parsing captures final response, usage, and completion', () => {
@@ -380,6 +413,7 @@ test('rubric, schema, and package scripts preserve the agreed gates', () => {
   assert.match(eslintConfig, /'tmp\/\*\*'/)
   assert.match(packageJson.scripts['eval:annotation'] ?? '', / run$/)
   assert.match(packageJson.scripts['eval:annotation:validate'] ?? '', / validate$/)
+  assert.equal(config.runnerVersion, 2)
   assert.deepEqual(config.thresholds, {
     judgeControlAccuracy: 1,
     guidedRequiredSignalRate: 1,

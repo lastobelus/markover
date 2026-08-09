@@ -69,6 +69,9 @@ and read-only with shell, web search, apps, agents, and image tools disabled.
 The first gate runs eight fixed artifact-based judge controls. The judge sees
 only each review, original document, final document, response, rubric, and
 signal definitions; it is not given the expected signal decisions or outcome.
+Calibration compares every required and forbidden signal decision with the
+independently expected observations, so a negative control that fails for the
+wrong reason is itself a control failure.
 Any valid control misclassification stops the run before evaluated agents
 execute. Infrastructure failures are recorded and retried at most twice; valid
 semantic failures are never retried. Before each infrastructure retry, the
