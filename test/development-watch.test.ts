@@ -188,6 +188,7 @@ test('restart waits for the addressed process before launching the same target',
     canonicalInstance('running'),
     ['--example'],
     {
+      checkoutDirectory: '/checkouts/markover',
       isProcessAlive() {
         return running
       },
@@ -235,6 +236,7 @@ test('restart fails closed when resolution changes checkout identity', async () 
     canonicalInstance('running'),
     [],
     {
+      checkoutDirectory: '/checkouts/markover',
       killProcess() {
         killed = true
       },
@@ -249,4 +251,15 @@ test('restart fails closed when resolution changes checkout identity', async () 
 
   await assert.rejects(manager.restart(), /does not match watched canonical/)
   assert.equal(killed, false)
+})
+
+test('watcher refuses a running instance owned by another checkout', () => {
+  assert.throws(
+    () => new DevelopmentInstanceManager(
+      canonicalInstance('running'),
+      [],
+      { checkoutDirectory: '/checkouts/feature' }
+    ),
+    /run the loop from its owning checkout \/checkouts\/markover/
+  )
 })

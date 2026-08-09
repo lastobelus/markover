@@ -158,6 +158,7 @@ interface WatchTarget {
 }
 
 export interface DevelopmentInstanceManagerOptions {
+  checkoutDirectory?: string | undefined
   isProcessAlive?: ((pid: number) => boolean) | undefined
   killProcess?: ((pid: number, signal: NodeJS.Signals) => void) | undefined
   launch?: ((
@@ -193,14 +194,23 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-function targetFromInstance(instance: ResolvedInstance): WatchTarget {
+function targetFromInstance(
+  instance: ResolvedInstance,
+  checkoutDirectory: string
+): WatchTarget {
   if (!instance.checkout) {
     throw new Error(
       `Cannot watch ${instance.identity.key}: its checkout is unavailable.`
     )
   }
+  const checkout = path.resolve(instance.checkout)
+  if (checkout !== path.resolve(checkoutDirectory)) {
+    throw new Error(
+      `Cannot watch ${instance.identity.key}: run the loop from its owning checkout ${checkout}.`
+    )
+  }
   return {
-    checkout: path.resolve(instance.checkout),
+    checkout,
     identityKey: instance.identity.key,
     selector: instance.identity.kind === 'canonical'
       ? 'canonical'
@@ -247,6 +257,7 @@ export class DevelopmentInstanceManager {
     initialInstance: ResolvedInstance,
     appArguments: readonly string[],
     {
+      checkoutDirectory = projectDirectory,
       isProcessAlive = processIsAlive,
       killProcess = (pid, signal) => process.kill(pid, signal),
       launch = launchResolvedInstance,
@@ -259,7 +270,7 @@ export class DevelopmentInstanceManager {
       wait = delay
     }: DevelopmentInstanceManagerOptions = {}
   ) {
-    this.target = targetFromInstance(initialInstance)
+    this.target = targetFromInstance(initialInstance, checkoutDirectory)
     this.appArguments = appArguments
     this.isProcessAlive = isProcessAlive
     this.killProcess = killProcess
