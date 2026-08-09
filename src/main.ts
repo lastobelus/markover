@@ -42,6 +42,7 @@ import {
   type RendererIpcEntry
 } from './ipc-security'
 import { startLocalService, type LocalService } from './local-service'
+import { createLocalReview as persistLocalReview } from './local-review'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { openPublicLinkCommand } from './public-link-opener'
 import { type PublicLink, type PublicLinkId } from './public-links'
@@ -165,6 +166,7 @@ let mainWindow: BrowserWindow | null = null
 let mainWindowBlurredAt: number | null = Date.now()
 let activeManagedReview: ReviewArtifact | null = null
 let activeManagedReviewId: string | null = null
+let pendingLocalReviewCandidate: MarkoverDocument | null = null
 let localService: LocalService | null = null
 let closingPublishedService: LocalService | null = null
 let localServiceIdentity: ServiceIdentity | null = null
@@ -188,6 +190,7 @@ let rendererReadyPromise: Promise<void> = Promise.resolve()
 let resolveRendererReady: (() => void) | null = null
 let rendererIpcEntry: RendererIpcEntry | null = null
 let managedAttachmentSavesBlocked = false
+let managedLocalReviewCreationsBlocked = false
 let managedShutdownComplete = false
 let managedShutdownStarted = false
 let activeStartupPhase: StartupPhase | null = null
@@ -199,6 +202,7 @@ const pendingActivations = new Map<string, PendingActivation>()
 const pendingManagedReviewNotifications = new Map<string, ReviewArtifact>()
 const projectRoots = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
+const managedLocalReviewCreations = new AsyncMutationTracker()
 const reviewUrlDispatcher = new ReviewUrlDispatcher<ReviewUrl>(
   async (parsed) => {
     await activateManagedReview(parsed.reviewId)
@@ -616,9 +620,8 @@ async function withManagedMutationsPaused(
   if (managedShutdownStarted) {
     throw new Error('Managed review changes are unavailable right now.')
   }
-  setManagedRendererPause(true)
   try {
-    await localService?.pauseMutations()
+    await pauseManagedMutations()
     if (confirmBeforeSaving && !await confirmBeforeSaving()) return
     if (reviewId) {
       const artifact = await requireReviewStore().load(reviewId)
@@ -860,6 +863,7 @@ async function saveAttachment(
 }
 
 async function openMarkdown(): Promise<MarkoverDocument | null> {
+  pendingLocalReviewCandidate = null
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [
@@ -873,12 +877,29 @@ async function openMarkdown(): Promise<MarkoverDocument | null> {
   const filePath = result.filePaths[0]
   if (!filePath) return null
   const source = await fs.readFile(filePath, 'utf8')
-  return {
+  const candidate = {
     name: path.basename(filePath),
     path: filePath,
     source,
     checksum: checksum(source)
   }
+  pendingLocalReviewCandidate = candidate
+  return candidate
+}
+
+async function createManagedLocalReview(
+  tree: ReviewTree
+): Promise<MarkoverDocument> {
+  const candidate = pendingLocalReviewCandidate
+  pendingLocalReviewCandidate = null
+  if (!candidate) {
+    throw new Error('Choose a Markdown file before creating a local review.')
+  }
+  if (!settingsStore) throw new Error('Settings are unavailable.')
+  const artifact = await persistLocalReview(candidate, tree, reviewStore, {
+    interpretationPolicy: settingsStore.settings.agentInterpretationPolicy
+  })
+  return managedDocument(artifact)
 }
 
 function createWindow(
@@ -1386,16 +1407,21 @@ async function restorePublishedServiceForEditing(): Promise<void> {
 
 function resumeManagedMutations(): void {
   managedAttachmentSavesBlocked = false
+  managedLocalReviewCreationsBlocked = false
   localService?.resumeMutations()
   setManagedRendererPause(false)
 }
 
+async function pauseManagedMutations(): Promise<void> {
+  setManagedRendererPause(true)
+  managedLocalReviewCreationsBlocked = true
+  await localService?.pauseMutations()
+  await managedLocalReviewCreations.wait()
+}
+
 async function runManagedDurabilityShutdown(): Promise<void> {
   await runDurabilityShutdown({
-    async pauseMutations() {
-      setManagedRendererPause(true)
-      await localService?.pauseMutations()
-    },
+    pauseMutations: pauseManagedMutations,
     captureSnapshots: captureEditableManagedReviews,
     blockNewAttachments() {
       managedAttachmentSavesBlocked = true
@@ -1778,6 +1804,15 @@ if (!hasSingleInstanceLock) {
       })
     })
     privilegedIpc.handle('document:open', openMarkdown)
+    privilegedIpc.handle('review:create-local', (
+      _event: IpcMainInvokeEvent,
+      tree: ReviewTree
+    ) => {
+      if (managedLocalReviewCreationsBlocked) {
+        throw new Error('Markover is finishing review saves before quitting.')
+      }
+      return managedLocalReviewCreations.track(() => createManagedLocalReview(tree))
+    })
     privilegedIpc.handle('brand:assets', loadBrandAssets)
     privilegedIpc.handle('document:checksum', (
       _event: IpcMainInvokeEvent,

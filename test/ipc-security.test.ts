@@ -147,11 +147,20 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
   }
   assert.doesNotThrow(() => {
     assertRendererInvokeArguments('document:checksum', ['source'])
+    assertRendererInvokeArguments('review:create-local', [tree])
     assertRendererInvokeArguments('attachment:save', [{
       bytes: new Uint8Array([1]),
       mimeType: 'image/png'
     }, 'mko_abcdef'])
     assertRendererSendArguments('review:autosave', ['mko_abcdef', managedTree])
+    assertRendererInvokeResult('review:create-local', {
+      reviewId: 'mko_abcdef',
+      name: tree.sourceDocument.name,
+      path: tree.sourceDocument.path,
+      source: tree.sourceDocument.content,
+      checksum: tree.sourceDocument.checksum,
+      tree: managedTree
+    })
     assertRendererSendArguments('review:snapshot-response', [{
       requestId: 'snapshot-1',
       reviewId: 'mko_abcdef',
@@ -248,6 +257,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:autosave',
     'review:autosave-status:get',
     'review:context-menu:open',
+    'review:create-local',
     'review:initial-document',
     'review:list',
     'review:snapshot-response',

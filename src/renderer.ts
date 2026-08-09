@@ -211,6 +211,7 @@ let documentsListModel: FileTreeModel | null = null
 let documentsListObserver: MutationObserver | null = null
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let documentsListCollapsed = false
+let localOpenInProgress = false
 let documentsListWidth = 248
 let annotationPaneWidth: number | null = null
 let documentsListPathToReviewId = new Map<string, string>()
@@ -286,6 +287,7 @@ const BRIDGE_METHODS = [
   'checksum',
   'copyText',
   'copyStartupDiagnostic',
+  'createLocalReview',
   'getBrandAssets',
   'getInitialReview',
   'getReviews',
@@ -2847,7 +2849,7 @@ async function loadDocument(documentData: MarkoverDocument): Promise<void> {
     documentData.tree &&
     isReviewSessionTree(documentData.tree)
   ) {
-    addManagedReview({
+    const session = addManagedReview({
       reviewId: documentData.reviewId,
       name: documentData.name,
       path: documentData.path,
@@ -2856,7 +2858,8 @@ async function loadDocument(documentData: MarkoverDocument): Promise<void> {
       ...(typeof documentData.projectRoot === 'string'
         ? { projectRoot: documentData.projectRoot }
         : {})
-    })
+    }, false)
+    await activateReview(session.reviewId)
     return
   }
 
@@ -3013,11 +3016,22 @@ elements.annotationInput.addEventListener('paste', (event) => {
 })
 
 async function openMarkdownDocument(): Promise<void> {
-  const documentData = await bridge.openMarkdown()
-  if (documentData) {
-    if (!finishActiveSourceEdit()) return
-    await loadDocument(documentData)
+  if (localOpenInProgress || !finishActiveSourceEdit()) return
+  localOpenInProgress = true
+  try {
+    const candidate = await bridge.openMarkdown()
+    if (!candidate) return
+    const tree = MarkoverTree.parseMarkdown(
+      candidate.source,
+      candidate.checksum,
+      { name: candidate.name, path: candidate.path }
+    )
+    await loadDocument(await bridge.createLocalReview(tree))
     elements.previewPane.focus()
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : 'Could not open Markdown')
+  } finally {
+    localOpenInProgress = false
   }
 }
 

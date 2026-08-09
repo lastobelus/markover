@@ -214,10 +214,11 @@ each choice from that baseline without duplicating the live decisions below.
    **Audit — Retain.** The three-surface cycle scales the prototype interaction
    to the optional review inbox without overloading review switching. Evidence:
    [keyboard contract tests](test/brand.test.ts).
-4. **Managed reviews are durable sessions.** Each `markover open` call creates a
-   distinct review ID. Mutations queue complete snapshots for atomic persistence
-   to Markover's per-user application-data `reviews` directory within a bounded,
-   configurable delay; handoff and orderly shutdown use explicit flush barriers.
+4. **Managed reviews are durable sessions.** Each `markover open` call and each
+   successful native **Open Markdown…** action creates a distinct review ID.
+   Mutations queue complete snapshots for atomic persistence to Markover's
+   per-user application-data `reviews` directory within a bounded, configurable
+   delay; handoff and orderly shutdown use explicit flush barriers.
    Restarting the single application instance restores every managed review and
    its collapse, feedback, status, and attachment state. Selection is retained
    while switching tabs during an application run and resets to the first block
@@ -313,8 +314,9 @@ each choice from that baseline without duplicating the live decisions below.
 
 1. **Pasted screenshots are managed-review files, not JSON payloads.** Each
    managed review stores them under its directory in Markover's per-user
-   application data. Directly opened local Markdown does not save attachments.
-   Emitted paths are absolute so a same-machine agent can inspect them directly.
+   application data. Native **Open Markdown…** first creates a managed review,
+   so its attachments use the same storage and cleanup lifecycle. Emitted paths
+   are absolute so a same-machine agent can inspect them directly.
 
    **Audit — Retain.** Same-machine file references keep handoffs compact, and
    the obsolete blocking-review directory and attachment override have been
@@ -839,14 +841,15 @@ each choice from that baseline without duplicating the live decisions below.
   and block matching across edited documents conflict with the current
   exact-source identity model and are not required for broad launch. Evidence:
   [review-store immutability tests](test/review-store.test.ts).
-- **Retain — Manual document opening; planned managed-review repair.** The empty
-  state and Review > Open Markdown already expose a native file picker. Their
-  current transient renderer path does not add the selected document to the
-  Documents list or the durable managed-review lifecycle; issue
-  [#107](https://github.com/lastobelus/markover/issues/107) owns that repair
-  while preserving the original Markdown file. Evidence: the
-  [application menu](src/app-menu.ts), [main-process picker](src/main.ts), and
-  [renderer handoff](src/renderer.ts).
+- **Retain — Manual document opening creates a managed review.** The empty state
+  and File > Open Markdown expose a native file picker. Each successful choice
+  becomes an atomic managed review with a local-review context, appears in the
+  Documents list and tabs, restores after restart, and leaves its original
+  Markdown file untouched. Cancellation, snapshot mismatch, discovery failure,
+  and storage failure do not create a transient renderer-only fallback.
+  Evidence: the [local-review boundary](src/local-review.ts),
+  [local-review tests](test/local-review.test.ts), and issue
+  [#107](https://github.com/lastobelus/markover/issues/107).
 - **Deferred — Agent result writeback.** Per-annotation outcomes and addressed
   state require a separately designed agent-to-review protocol; the current
   handoff intentionally ends at immutable `pending-agent` review data. Evidence:

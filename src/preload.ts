@@ -134,6 +134,7 @@ const bridge = {
   reportSmokeResult: (result) => invoke('smoke:result', result),
   getBrandAssets: () => invoke('brand:assets'),
   openMarkdown: () => invoke('document:open'),
+  createLocalReview: (tree) => invoke('review:create-local', tree),
   onOpenMarkdownRequested: (callback) => {
     listen('document:open-request', () => {
       callback()

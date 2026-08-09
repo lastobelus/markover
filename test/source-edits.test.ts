@@ -103,7 +103,7 @@ test('renderer commits source edits before navigation and tree handoff', () => {
   )
   assert.match(
     renderer,
-    /openMarkdownDocument[\s\S]*bridge\.openMarkdown\(\)[\s\S]*finishActiveSourceEdit\(\)[\s\S]*loadDocument\(documentData\)/
+    /openMarkdownDocument[\s\S]*finishActiveSourceEdit\(\)[\s\S]*bridge\.openMarkdown\(\)[\s\S]*parseMarkdown[\s\S]*bridge\.createLocalReview\(tree\)[\s\S]*loadDocument/
   )
   assert.match(
     renderer,

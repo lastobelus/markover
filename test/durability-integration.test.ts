@@ -44,8 +44,15 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
     main.indexOf("app.on('will-quit'")
   )
 
-  assert.match(barrier, /setManagedRendererPause\(true\)/)
-  assert.match(barrier, /localService\?\.pauseMutations\(\)/)
+  assert.match(barrier, /pauseMutations: pauseManagedMutations/)
+  assert.match(
+    main,
+    /async function pauseManagedMutations[\s\S]*setManagedRendererPause\(true\)[\s\S]*managedLocalReviewCreationsBlocked = true[\s\S]*localService\?\.pauseMutations\(\)[\s\S]*managedLocalReviewCreations\.wait\(\)/
+  )
+  assert.match(
+    main,
+    /review:create-local[\s\S]*if \(managedLocalReviewCreationsBlocked\)[\s\S]*managedLocalReviewCreations\.track\(\(\) => createManagedLocalReview\(tree\)\)/
+  )
   assert.match(
     barrier,
     /captureSnapshots: captureEditableManagedReviews,[\s\S]*blockNewAttachments[\s\S]*managedAttachmentMutations\.wait\(\)/
@@ -62,6 +69,10 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   assert.match(
     main,
     /response === 1[\s\S]*restorePublishedServiceForEditing\(\)[\s\S]*managedShutdownStarted = false[\s\S]*return/
+  )
+  assert.match(
+    main,
+    /function resumeManagedMutations[\s\S]*managedLocalReviewCreationsBlocked = false/
   )
   assert.match(
     main,

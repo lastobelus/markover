@@ -387,6 +387,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   }
   for (const name of [
     'local-client',
+    'local-review',
     'local-service',
     'metadata-discovery',
     'review-store',
@@ -398,6 +399,7 @@ test('TypeScript build is strict, generated, and runtime-loader free', () => {
   }
   for (const name of [
     'local-service',
+    'local-review',
     'metadata-discovery',
     'review-store',
     'service-endpoint'
