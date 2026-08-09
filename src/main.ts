@@ -597,8 +597,8 @@ async function confirmReviewTrash(reviewId: string): Promise<boolean> {
 }
 
 async function moveReviewToTrash(reviewId: string): Promise<void> {
+  if (!await confirmReviewTrash(reviewId)) return
   await withManagedMutationsPaused(async () => {
-    if (!await confirmReviewTrash(reviewId)) return
     await requireReviewStore().trashReview(
       reviewId,
       (target) => shell.trashItem(target)

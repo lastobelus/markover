@@ -89,3 +89,18 @@ test('review deletion copy distinguishes review data from the original document'
     /detail: \[[\s\S]*?'Your original Markdown document will not be changed or deleted\.'/
   )
 })
+
+test('review deletion confirms before pausing or saving managed mutations', () => {
+  const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+  const moveReviewToTrash = /async function moveReviewToTrash\([\s\S]*?\n}\n\nasync function confirmUnusedAttachmentCleanup/.exec(main)?.[0]
+  assert.ok(moveReviewToTrash)
+
+  const confirmation = moveReviewToTrash.indexOf(
+    'if (!await confirmReviewTrash(reviewId)) return'
+  )
+  const mutationPause = moveReviewToTrash.indexOf(
+    'await withManagedMutationsPaused'
+  )
+  assert.notEqual(confirmation, -1)
+  assert.ok(mutationPause > confirmation)
+})
