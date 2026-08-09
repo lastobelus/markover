@@ -27,9 +27,13 @@ test('only the addressed managed review lifecycle ships', () => {
   const main = read('src/main.ts')
   const service = read('src/local-service.ts')
   const cli = read('scripts/markover.ts')
+  const securityGuide = read('docs/developer/local-service-security.md')
   assert.doesNotMatch(main, /--markover-review|MARKOVER_REVIEW|importLegacyReviews/)
   assert.doesNotMatch(service, /\/reviews\/import|importReviews/)
   assert.doesNotMatch(cli, /\/reviews\/import|\.markover['"], ['"]reviews/)
+  assert.doesNotMatch(securityGuide, /open-review/)
+  assert.match(securityGuide, /scripts\/markover\.ts/)
+  assert.match(securityGuide, /src\/local-service\.ts/)
 })
 
 test('manual Markdown opening remains available without a prototype runtime', () => {
