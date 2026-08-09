@@ -76,12 +76,34 @@ bundle executable directly when the canonical development handler must retain
 independently of the app-level suppression. Link-handler QA must inspect and
 restore the exact prior owner after an explicit LaunchServices exercise.
 
-The development command performs a deterministic one-shot build, verifies the
+`npm start` performs a deterministic one-shot build, verifies the
 exact staged layout under `build/app/`, and launches Electron from that stage.
 Additional command-line arguments and environment variables are forwarded to
 Electron unchanged, except `ELECTRON_RUN_AS_NODE` is removed. Paths beneath
 `build/app/` are private build details; other development tooling should depend
 only on the staging root.
+
+For repeated visual or interaction QA, keep the addressed instance on the
+development loop instead:
+
+```sh
+# Infer canonical or the current pull-request instance from this checkout
+npm run dev
+
+# Require the current pull-request instance
+npm run dev -- --instance dev
+```
+
+The loop watches maintained application sources and brand assets, coalesces
+rapid edits, and runs the same complete build and staged-layout verifier. A
+successful build asks only the addressed process to quit through Electron's
+normal shutdown lifecycle, waits for its durability barrier to finish, then
+launches the same checkout, state root, name, and icon. It prints `ready` only
+after the replacement publishes its healthy local service. A failed build or
+startup prints a concise diagnostic, leaves the watcher active, and tries again
+after the next relevant edit. Generated output, dependency directories, Git
+metadata, and instance state do not trigger rebuilds. Keep only one loop per
+instance and use `npm start` for deterministic one-shot work.
 
 ## Development review links
 

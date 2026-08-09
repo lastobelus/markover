@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -97,24 +97,40 @@ export async function resolveStartInstance(
   return instance
 }
 
-export async function main(args = process.argv.slice(2)): Promise<void> {
-  const parsed = parseStartArguments(args)
-  const instance = await resolveStartInstance(parsed)
+export interface LaunchResolvedInstanceOptions {
+  environment?: NodeJS.ProcessEnv
+  spawnProcess?: typeof spawn
+}
+
+export function launchResolvedInstance(
+  instance: ResolvedInstance,
+  appArguments: readonly string[],
+  {
+    environment = process.env,
+    spawnProcess = spawn
+  }: LaunchResolvedInstanceOptions = {}
+): ChildProcess {
   const loadedElectron: unknown = loadModule('electron')
   if (typeof loadedElectron !== 'string') {
     throw new Error('Electron executable path is unavailable.')
   }
-  const environment: NodeJS.ProcessEnv = {
-    ...process.env,
+  const childEnvironment: NodeJS.ProcessEnv = {
+    ...environment,
     [RESOLVED_INSTANCE_ENVIRONMENT]: resolvedInstanceEnvironment(instance)
   }
-  delete environment.ELECTRON_RUN_AS_NODE
+  delete childEnvironment.ELECTRON_RUN_AS_NODE
 
-  const child = spawn(
+  return spawnProcess(
     loadedElectron,
-    [appDirectory, ...parsed.appArguments],
-    { env: environment, stdio: 'inherit' }
+    [appDirectory, ...appArguments],
+    { env: childEnvironment, stdio: 'inherit' }
   )
+}
+
+export async function main(args = process.argv.slice(2)): Promise<void> {
+  const parsed = parseStartArguments(args)
+  const instance = await resolveStartInstance(parsed)
+  const child = launchResolvedInstance(instance, parsed.appArguments)
   child.on('exit', (code) => {
     process.exit(code ?? 0)
   })
