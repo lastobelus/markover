@@ -15,7 +15,7 @@ test('agent review events update the renderer without showing or focusing it', (
     /function sendManagedReview\(artifact: ReviewArtifact\): void \{[\s\S]*?\n\}/
   )?.[0] || ''
 
-  assert.match(managedReview, /webContents\.send\('review:opened'/)
+  assert.match(managedReview, /sendMainEvent\([\s\S]*'review:opened'/)
   assert.match(managedReview, /createWindow\(\{ show: false \}\)/)
   assert.doesNotMatch(managedReview, /\.show\(\)|\.focus\(\)|\.restore\(\)/)
 })
@@ -70,7 +70,7 @@ test('development startup imports legacy reviews from the checkout root', () => 
 test('successful smoke output flushes before exercising graceful quit', () => {
   const main = read('src/main.ts')
   const smokeResult = main.match(
-    /ipcMain\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
+    /privilegedIpc\.handle\('smoke:result',[\s\S]*?\n {4}\}\)/
   )?.[0] || ''
 
   assert.match(
@@ -86,7 +86,7 @@ test('every pre-ready failure blocks readiness and closes the service', () => {
     /webContents\.on\('render-process-gone',[\s\S]*?\n {2}\}\)/
   )?.[0] || ''
   const readiness = main.match(
-    /ipcMain\.handle\('startup:renderer-initialized',[\s\S]*?\n {4}\}\)/
+    /privilegedIpc\.handle\('startup:renderer-initialized',[\s\S]*?\n {4}\}\)/
   )?.[0] || ''
 
   assert.match(
@@ -102,7 +102,7 @@ test('every pre-ready failure blocks readiness and closes the service', () => {
 test('renderer fallback preserves a classified main-process failure', () => {
   const main = read('src/main.ts')
   const failureHandler = main.match(
-    /ipcMain\.handle\('startup:failure',[\s\S]*?\n {4}\}\)/
+    /privilegedIpc\.handle\('startup:failure',[\s\S]*?\n {4}\}\)/
   )?.[0] || ''
 
   assert.match(
