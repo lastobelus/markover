@@ -73,7 +73,10 @@ test('incoming reviews are listed before the activation policy runs', () => {
   assert.match(handler, /incomingReviewAction\(\{/)
   assert.match(handler, /if \(action === 'warn'\)[\s\S]*showIncomingReviewWarning/)
   assert.match(handler, /if \(action === 'notify'\)[\s\S]*showIncomingReviewNotice/)
-  assert.match(handler, /activateIncomingReview\(session\.reviewId, windowFocusState\.focused\)/)
+  assert.match(
+    handler,
+    /activateIncomingReview\([\s\S]*session\.reviewId,[\s\S]*windowFocusState\.focused,[\s\S]*sequence/
+  )
 })
 
 test('warning and notice UI keep the current review safe and target the latest arrival', () => {
@@ -85,8 +88,14 @@ test('warning and notice UI keep the current review safe and target the latest a
   assert.match(html, /id="incoming-review-notice-open"[^>]*>Open</)
   assert.match(renderer, /appendIncomingReview\([\s\S]*incomingReviewWarningId = batch\.latestReviewId/)
   assert.match(renderer, /incomingReviewDialogKeep\.focus\(\)/)
-  assert.match(renderer, /const reviewId = incomingReviewWarningId[\s\S]*activateIncomingReview\(reviewId, true\)/)
-  assert.match(renderer, /const reviewId = incomingReviewNoticeId[\s\S]*activateIncomingReview\(reviewId, true\)/)
+  assert.match(
+    renderer,
+    /const reviewId = incomingReviewWarningId[\s\S]*const sequence = incomingReviewWarningSequence[\s\S]*activateIncomingReview\(reviewId, true, sequence\)/
+  )
+  assert.match(
+    renderer,
+    /const reviewId = incomingReviewNoticeId[\s\S]*const sequence = incomingReviewNoticeSequence[\s\S]*activateIncomingReview\(reviewId, true, sequence\)/
+  )
   assert.match(
     renderer,
     /!windowFocusState\.focused \|\|[\s\S]*elements\.incomingReviewNotice\.hidden \|\|[\s\S]*elements\.incomingReviewDialog\.open \|\|[\s\S]*elements\.settingsDialog\.open \|\|[\s\S]*elements\.fixedContractDialog\.open/
@@ -113,11 +122,19 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /const noticeVersion = incomingReviewNoticeVersion[\s\S]*const noticeReviewId = incomingReviewNoticeId[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewNoticeVersion === noticeVersion &&[\s\S]*noticeReviewId === reviewId/
+    /const noticeVersion = incomingReviewNoticeVersion[\s\S]*const noticeSequence = incomingReviewNoticeSequence[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewNoticeVersion === noticeVersion &&[\s\S]*shouldDismissIncomingPrompt\(noticeSequence, activationSequence\)/
   )
   assert.match(
     renderer,
-    /const warningVersion = incomingReviewWarningVersion[\s\S]*const warningReviewId = incomingReviewWarningId[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewWarningVersion === warningVersion &&[\s\S]*warningReviewId === reviewId/
+    /const warningVersion = incomingReviewWarningVersion[\s\S]*const warningSequence = incomingReviewWarningSequence[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewWarningVersion === warningVersion &&[\s\S]*shouldDismissIncomingPrompt\(warningSequence, activationSequence\)/
+  )
+  assert.match(
+    renderer,
+    /noticeVisible && active === elements\.incomingReviewNoticeOpen[\s\S]*noticeVisible &&[\s\S]*elements\.incomingReviewNoticeOpen\.focus\(\)/
+  )
+  assert.match(
+    renderer,
+    /incomingReviewNoticeOpen\.addEventListener\([\s\S]*'focus',[\s\S]*scheduleIncomingReviewNoticeDismissal[\s\S]*'blur',[\s\S]*scheduleIncomingReviewNoticeDismissal/
   )
   assert.match(
     renderer,

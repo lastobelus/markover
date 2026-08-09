@@ -3,7 +3,8 @@ import test from 'node:test'
 
 import {
   appendIncomingReview,
-  incomingReviewAction
+  incomingReviewAction,
+  shouldDismissIncomingPrompt
 } from '../src/incoming-review-policy'
 
 const focused: MarkoverWindowFocusState = {
@@ -66,4 +67,11 @@ test('concurrent arrivals consolidate while retaining the newest review action',
     count: 2,
     latestReviewId: 'mko_latest'
   })
+})
+
+test('activation clears older prompts without dismissing newer arrivals', () => {
+  assert.equal(shouldDismissIncomingPrompt(1, 2), true)
+  assert.equal(shouldDismissIncomingPrompt(2, 2), true)
+  assert.equal(shouldDismissIncomingPrompt(3, 2), false)
+  assert.equal(shouldDismissIncomingPrompt(null, 2), false)
 })

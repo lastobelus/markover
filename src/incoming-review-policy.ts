@@ -23,6 +23,13 @@ export function appendIncomingReview(
   }
 }
 
+export function shouldDismissIncomingPrompt(
+  promptSequence: number | null,
+  activationSequence: number
+): boolean {
+  return promptSequence !== null && promptSequence <= activationSequence
+}
+
 export function incomingReviewAction({
   focusState,
   hasActiveDocument,
