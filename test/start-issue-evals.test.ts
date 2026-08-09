@@ -92,10 +92,18 @@ test('initial response identifies the live issue and title first', () => {
     skillSource,
     /both identity lines as an emission gate:[\s\S]*before continuing[\s\S]*inflight scanning, or an interview/
   )
+  assert.match(
+    skillSource,
+    /When no numbered work item exists yet,[\s\S]*Immediately after creation,[\s\S]*emit its identity block/
+  )
+  assert.match(
+    skillSource,
+    /Pre-creation[\s\S]*tracker or delivery-shape questions are exempt from the identity gate/
+  )
   assert.doesNotMatch(skillSource, /^# #52—/m)
   assert.match(
     readReference('interview.md'),
-    /both initial issue identity[\s\S]*emit them before[\s\S]*Decision or Question block/
+    /first interview response for a numbered item[\s\S]*emit[\s\S]*before the Decision or Question block/
   )
 })
 

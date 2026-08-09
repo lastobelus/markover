@@ -13,9 +13,9 @@ order.
 
 ## How to respond to initial start-issue prompt
 
-Resolve the live issue number, exact GitHub title, and item URL as the first
-lookup. Then immediately emit this identity block as the first substantive
-response:
+When the opening prompt names an existing numbered issue or pull request,
+resolve its live number, exact GitHub title, and item URL as the first lookup.
+Then immediately emit this identity block as the first substantive response:
 
 ```markdown
 # #52: Open a specific review through a clickable Markover deep link
@@ -24,9 +24,14 @@ response:
 I’m checking its trackers, existing claim, and inflight overlap before proceeding.
 ```
 
-Treat both identity lines as an emission gate: complete them before continuing
-tracker discovery, inflight scanning, or an interview. Place no decision,
-question, activity summary, or recommendation before them.
+For that existing item, treat both identity lines as an emission gate: complete
+them before continuing tracker discovery, inflight scanning, or an interview.
+Place no decision, question, activity summary, or recommendation before them.
+
+When no numbered work item exists yet, perform only the routing needed to
+create the issue or draft pull request. Immediately after creation, resolve and
+emit its identity block before continuing work on that new item. Pre-creation
+tracker or delivery-shape questions are exempt from the identity gate.
 
 ## 1. Orient and select tracking
 
