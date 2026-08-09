@@ -78,6 +78,57 @@ test('Review menu keeps deletion and cleanup extensible and state-aware', () => 
   assert.equal(submenu(disabledReview)[2]?.enabled, false)
 })
 
+test('View menu exposes bounded persistent zoom commands', () => {
+  const template = applicationMenuTemplate({
+    canResetZoom: true,
+    canZoomIn: false,
+    canZoomOut: true,
+    isMac: true,
+    onResetZoom: () => {},
+    onZoomIn: () => {},
+    onZoomOut: () => {}
+  })
+  const viewMenu = template.find((item) => item.label === 'View')
+  assert.ok(viewMenu)
+  const items = submenu(viewMenu)
+  const actualSize = items.find((item) => item.id === 'view.actual-size')
+  const zoomIn = items.find((item) => item.id === 'view.zoom-in')
+  const zoomOut = items.find((item) => item.id === 'view.zoom-out')
+  assert.ok(actualSize)
+  assert.ok(zoomIn)
+  assert.ok(zoomOut)
+
+  assert.equal(actualSize.accelerator, 'CommandOrControl+0')
+  assert.equal(actualSize.enabled, true)
+  assert.equal(typeof actualSize.click, 'function')
+  assert.equal(zoomIn.accelerator, 'CommandOrControl+Plus')
+  assert.equal(zoomIn.enabled, false)
+  assert.equal(typeof zoomIn.click, 'function')
+  assert.equal(zoomOut.accelerator, 'CommandOrControl+-')
+  assert.equal(zoomOut.enabled, true)
+  assert.equal(typeof zoomOut.click, 'function')
+})
+
+test('main process applies persisted zoom before and after renderer load', () => {
+  const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+  assert.match(
+    main,
+    /window\.webContents\.setZoomFactor\(startupSettings\.zoomPercent \/ 100\)[\s\S]*?window\.loadFile/
+  )
+  assert.match(
+    main,
+    /webContents\.on\('did-finish-load',[\s\S]*?webContents\.setZoomFactor\([\s\S]*?settingsStore\?\.settings\.zoomPercent/
+  )
+  assert.match(
+    main,
+    /function applyMainSettings\([\s\S]*?webContents\.setZoomFactor\(settings\.zoomPercent \/ 100\)/
+  )
+  assert.match(
+    main,
+    /store\.update\(\{ zoomPercent: next \}\)[\s\S]*?installApplicationMenu\(\)/
+  )
+})
+
 test('review deletion copy distinguishes review data from the original document', () => {
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
   assert.match(

@@ -1,10 +1,20 @@
 import * as agentGuidance from './agent-guidance'
 
+  const ZOOM_LEVELS: readonly ZoomPercent[] = Object.freeze([
+    80,
+    90,
+    100,
+    110,
+    125,
+    150
+  ])
+
   const DEFAULT_SETTINGS: Readonly<MarkoverSettings> = Object.freeze({
     palette: 'ember',
     appearance: 'system',
     treeDensity: 'comfortable',
     annotationTextSize: 'medium',
+    zoomPercent: 100,
     showKeyboardHelp: true,
     openDocumentsSidebar: true,
     defaultTreeView: 'all',
@@ -22,6 +32,7 @@ import * as agentGuidance from './agent-guidance'
     appearance: ['system', 'light', 'dark'],
     treeDensity: ['comfortable', 'compact'],
     annotationTextSize: ['small', 'medium', 'large'],
+    zoomPercent: ZOOM_LEVELS,
     defaultTreeView: ['all', 'annotated'],
     incomingReviewActivationPolicy: ['never', 'always', 'warn', 'when-idle']
   })
@@ -126,6 +137,19 @@ import * as agentGuidance from './agent-guidance'
     })
   }
 
+  function adjacentZoomPercent(
+    current: ZoomPercent,
+    direction: -1 | 1
+  ): ZoomPercent {
+    const index = ZOOM_LEVELS.indexOf(current)
+    if (index === -1) return DEFAULT_SETTINGS.zoomPercent
+    const nextIndex = Math.max(
+      0,
+      Math.min(ZOOM_LEVELS.length - 1, index + direction)
+    )
+    return ZOOM_LEVELS[nextIndex] ?? DEFAULT_SETTINGS.zoomPercent
+  }
+
   function windowBackground(
     settings: unknown,
     resolvedAppearance = 'light'
@@ -194,11 +218,13 @@ import * as agentGuidance from './agent-guidance'
 
   const api = {
     DEFAULT_SETTINGS,
+    ZOOM_LEVELS,
     DARK_COLORIZATION,
     OPTIONS,
     WINDOW_BACKGROUNDS,
     normalizeSettings,
     updateSettings,
+    adjacentZoomPercent,
     windowBackground,
     applySettingsToView,
     darkColorization,
@@ -207,6 +233,7 @@ import * as agentGuidance from './agent-guidance'
   } satisfies MarkoverSettingsApi
 
 export {
+  adjacentZoomPercent,
   applySettingsToView,
   confirmScreenshotRemoval,
   DARK_COLORIZATION,
@@ -217,6 +244,7 @@ export {
   sidebarPreferenceChanged,
   updateSettings,
   WINDOW_BACKGROUNDS,
-  windowBackground
+  windowBackground,
+  ZOOM_LEVELS
 }
 export default api
