@@ -1537,7 +1537,13 @@ function hideIncomingReviewNotice(): void {
 function scheduleIncomingReviewNoticeDismissal(): void {
   if (incomingReviewNoticeTimer) clearTimeout(incomingReviewNoticeTimer)
   incomingReviewNoticeTimer = null
-  if (!windowFocusState.focused || elements.incomingReviewNotice.hidden) return
+  if (
+    !windowFocusState.focused ||
+    elements.incomingReviewNotice.hidden ||
+    elements.incomingReviewDialog.open
+  ) {
+    return
+  }
   incomingReviewNoticeTimer = setTimeout(hideIncomingReviewNotice, 6000)
 }
 
@@ -2354,6 +2360,7 @@ elements.incomingReviewDialogOpen.addEventListener('click', () => {
 elements.incomingReviewDialog.addEventListener('close', () => {
   incomingReviewWarningCount = 0
   incomingReviewWarningId = null
+  scheduleIncomingReviewNoticeDismissal()
 })
 elements.incomingReviewNoticeOpen.addEventListener('click', () => {
   const reviewId = incomingReviewNoticeId

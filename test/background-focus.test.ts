@@ -87,7 +87,14 @@ test('warning and notice UI keep the current review safe and target the latest a
   assert.match(renderer, /incomingReviewDialogKeep\.focus\(\)/)
   assert.match(renderer, /const reviewId = incomingReviewWarningId[\s\S]*activateIncomingReview\(reviewId, true\)/)
   assert.match(renderer, /const reviewId = incomingReviewNoticeId[\s\S]*activateIncomingReview\(reviewId, true\)/)
-  assert.match(renderer, /if \(!windowFocusState\.focused \|\| elements\.incomingReviewNotice\.hidden\) return/)
+  assert.match(
+    renderer,
+    /!windowFocusState\.focused \|\|[\s\S]*elements\.incomingReviewNotice\.hidden \|\|[\s\S]*elements\.incomingReviewDialog\.open/
+  )
+  assert.match(
+    renderer,
+    /incomingReviewDialog\.addEventListener\('close',[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+  )
   assert.match(
     renderer,
     /if \(outcome === 'blocked'\)[\s\S]*return\s*\}[\s\S]*hideIncomingReviewNotice\(\)/
