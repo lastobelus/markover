@@ -319,7 +319,23 @@
       hidden
     ></div>
 
-    <nav id="document-tabs" class="document-tabs" role="tablist" aria-label="Recent reviews" hidden></nav>
+    <div id="review-tab-strip" class="review-tab-strip" hidden>
+      <nav class="review-navigation-tabs" aria-label="Review organization">
+        <button
+          id="review-navigation-inbox"
+          class="review-navigation-tab is-active"
+          type="button"
+          aria-pressed="true"
+        >Inbox <span id="review-inbox-count" class="review-inbox-count">0</span></button>
+        <button
+          id="review-navigation-projects"
+          class="review-navigation-tab"
+          type="button"
+          aria-pressed="false"
+        >Projects</button>
+      </nav>
+      <nav id="document-tabs" class="document-tabs" role="tablist" aria-label="Open reviews"></nav>
+    </div>
 
     <main id="empty-workspace" class="empty-workspace">
       <img
@@ -338,7 +354,8 @@
       <aside id="documents-list-sidebar" class="documents-list-sidebar" hidden>
         <header class="documents-list-header">
           <div class="pane-header-leading">
-            <span class="eyebrow">Documents</span>
+            <span class="eyebrow">Reviews</span>
+            <span id="review-list-count" class="review-list-count"></span>
           </div>
           <button
             id="documents-list-collapse"

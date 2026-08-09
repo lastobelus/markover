@@ -607,6 +607,69 @@ p {
   background: var(--primary-button-hover);
 }
 
+.review-tab-strip {
+  --documents-list-width: 390px;
+  display: grid;
+  min-height: 30px;
+  grid-template-columns: var(--documents-list-width) minmax(0, 1fr);
+  border-top: 1px solid var(--line);
+  background: var(--document-tabs-bg);
+}
+
+.review-tab-strip.is-sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.review-navigation-tabs {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+}
+
+.review-navigation-tab {
+  display: flex;
+  min-width: 0;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.review-navigation-tab + .review-navigation-tab {
+  border-left: 1px solid var(--line);
+}
+
+.review-navigation-tab:hover {
+  color: var(--ink);
+  background: rgb(var(--surface-rgb) / 74%);
+}
+
+.review-navigation-tab.is-active {
+  color: var(--accent);
+  background: var(--document-tab-active-bg);
+}
+
+.review-inbox-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: var(--primary-contrast);
+  background: var(--accent-deep);
+  font-size: 9px;
+  font-weight: 800;
+}
+
 .document-tabs {
   position: relative;
   display: flex;
@@ -615,8 +678,19 @@ p {
   gap: 0;
   align-items: end;
   overflow: visible;
-  border-top: 1px solid var(--line);
-  background: var(--document-tabs-bg);
+  background: transparent;
+}
+
+.document-tab-shell {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.document-tab-shell + .document-tab-shell {
+  border-left: 1px solid var(--surface);
 }
 
 .document-tab {
@@ -624,7 +698,7 @@ p {
   display: flex;
   flex: 1 1 0;
   min-width: 0;
-  max-width: 320px;
+  max-width: none;
   height: 30px;
   padding: 0 8px;
   align-items: center;
@@ -636,10 +710,6 @@ p {
   background: transparent;
   cursor: pointer;
   font-size: 10px;
-}
-
-.document-tab + .document-tab {
-  border-left: 1px solid var(--surface);
 }
 
 .document-tab:hover {
@@ -660,6 +730,40 @@ p {
   height: 4px;
   background: var(--accent);
   content: "";
+}
+
+.document-tab-close {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font: 700 15px/1 ui-sans-serif, sans-serif;
+  opacity: 0;
+}
+
+.document-tab-shell:hover .document-tab-close,
+.document-tab-shell.is-active .document-tab-close,
+.document-tab-close:focus-visible {
+  opacity: 1;
+}
+
+.document-tab-close:hover {
+  color: var(--ink);
+  background: rgb(var(--surface-rgb) / 86%);
+}
+
+.document-tab-close:disabled {
+  display: none;
 }
 
 .document-tab-name {
@@ -831,6 +935,22 @@ p {
   text-transform: uppercase;
 }
 
+.documents-list-header .pane-header-leading {
+  min-width: 0;
+  margin-right: auto;
+}
+
+.review-list-count {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 .documents-list-header::before {
   position: absolute;
   top: -1px;
@@ -864,14 +984,249 @@ p {
   min-width: 0;
   min-height: 0;
   flex: 1;
-  padding: 4px 2px 6px;
+  padding: 0 0 6px;
+  overflow-y: auto;
   color: var(--muted);
   font-size: 10px;
 }
 
-.documents-list-tree > file-tree {
-  width: 100%;
-  height: 100%;
+.review-list-section-heading,
+.review-history-group > summary,
+.review-project-group > summary,
+.review-thread-group > summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.review-list-section-heading {
+  min-height: 34px;
+  padding: 0 14px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.review-list-section-heading strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.review-list-rows {
+  display: grid;
+}
+
+.review-list-row {
+  position: relative;
+  display: grid;
+  width: calc(100% - 8px);
+  min-width: 0;
+  min-height: 62px;
+  margin: 2px 4px;
+  padding: 7px 9px 7px 6px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.review-list-row:hover {
+  background: rgb(var(--surface-rgb) / 68%);
+}
+
+.review-list-row.is-active {
+  border-color: var(--selection-line);
+  background: var(--accent-soft);
+}
+
+.review-project-icon,
+.review-provider-icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface);
+  font-weight: 800;
+}
+
+.review-project-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--accent-deep);
+  font-size: 10px;
+}
+
+.review-provider-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+.review-provider-icon.provider-local {
+  font-size: 7px;
+  text-transform: lowercase;
+}
+
+.review-list-row-content {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.review-list-row-line {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.review-list-row-meta {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.review-list-row-identity,
+.review-list-row-context,
+.review-list-row-title > span:last-child,
+.review-group-label strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-list-row-time,
+.review-list-row-meta > span:last-child {
+  flex: 0 0 auto;
+}
+
+.review-list-row-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.review-list-empty {
+  margin: 0;
+  padding: 18px 14px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.review-history-group {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.review-history-group > summary,
+.review-project-group > summary,
+.review-thread-group > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.review-history-group > summary::-webkit-details-marker,
+.review-project-group > summary::-webkit-details-marker,
+.review-thread-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.review-history-group > summary {
+  min-height: 38px;
+  padding: 0 14px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.review-history-group > summary > span:first-child {
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.review-history-group small {
+  margin-left: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.review-list-more {
+  margin: 4px 10px 8px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--accent-deep);
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.review-list-more:hover {
+  background: var(--accent-soft);
+}
+
+.review-project-tree {
+  display: grid;
+  padding: 5px 0;
+}
+
+.review-project-group > summary {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.review-thread-group > summary {
+  min-height: 32px;
+  padding: 0 10px 0 22px;
+}
+
+.review-group-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.review-thread-label {
+  font-size: 10px;
+}
+
+.review-count-badge {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--primary-contrast);
+  background: var(--accent-deep);
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.review-group-age {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.review-thread-reviews {
+  padding-left: 14px;
 }
 
 .documents-list-resizer {

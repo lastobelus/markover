@@ -169,6 +169,9 @@
         document.tree.review.createdAt ||
         ''
       )
+      const lifecycleActivityAt = Number.isFinite(reviewedAt)
+        ? reviewedAt
+        : this.now()
       const session: ReviewSession = {
         reviewId,
         documentName: document.name || basename(document.path) || 'Untitled',
@@ -178,8 +181,12 @@
         projectKey: project.key,
         projectName: project.name,
         projectRoot: project.root,
+        attentionRequestedAt: document.tree.review.status === 'editing'
+          ? lifecycleActivityAt
+          : 0,
+        lifecycleActivityAt,
         lastViewedOrder: ++this.viewSequence,
-        lastViewedAt: Number.isFinite(reviewedAt) ? reviewedAt : this.now(),
+        lastViewedAt: lifecycleActivityAt,
         selectedId: document.tree.root.children[0]?.id || null,
         annotatedOnly: false,
         annotationView: 'selected',
@@ -230,7 +237,14 @@
     ): ReviewSession | null {
       const session = this.get(reviewId)
       if (!session) return null
+      const previous = session.tree.review.status
       session.tree.review.status = status
+      if (status !== previous) {
+        session.lifecycleActivityAt = this.now()
+        if (status === 'editing') {
+          session.attentionRequestedAt = session.lifecycleActivityAt
+        }
+      }
       return session
     }
 

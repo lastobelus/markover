@@ -11,7 +11,6 @@
 | `@pierre/diffs` | `1.3.0-beta.10` | `apache-2.0` |
 | `@pierre/theme` | `1.1.0` | `MIT` |
 | `@pierre/theming` | `0.0.2` | `apache-2.0` |
-| `@pierre/trees` | `1.0.0-beta.4` | `apache-2.0` |
 | `@shikijs/core` | `4.4.1` | `MIT` |
 | `@shikijs/engine-javascript` | `4.4.1` | `MIT` |
 | `@shikijs/engine-oniguruma` | `4.4.1` | `MIT` |
@@ -35,8 +34,6 @@
 | `mdurl` | `2.1.0` | `MIT` |
 | `oniguruma-parser` | `0.12.2` | `MIT` |
 | `oniguruma-to-es` | `4.3.6` | `MIT` |
-| `preact-render-to-string` | `6.6.5` | `MIT` |
-| `preact` | `11.0.0-beta.0` | `MIT` |
 | `property-information` | `7.2.0` | `MIT` |
 | `punycode.js` | `2.3.1` | `MIT` |
 | `regex-recursion` | `6.0.2` | `MIT` |
@@ -53,7 +50,7 @@
 
 ### License 1: apache-2.0
 
-Applies to: `@pierre/diffs@1.3.0-beta.10`, `@pierre/theming@0.0.2`, `@pierre/trees@1.0.0-beta.4`
+Applies to: `@pierre/diffs@1.3.0-beta.10`, `@pierre/theming@0.0.2`
 
                                  Apache License
                            Version 2.0, January 2004
@@ -641,62 +638,6 @@ SOFTWARE.
 
 ### License 15: MIT
 
-Applies to: `preact-render-to-string@6.6.5`
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Jason Miller
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-### License 16: MIT
-
-Applies to: `preact@11.0.0-beta.0`
-
-The MIT License (MIT)
-
-Copyright (c) 2015-present Jason Miller
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-### License 17: MIT
-
 Applies to: `property-information@7.2.0`
 
 (The MIT License)
@@ -724,7 +665,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 18: MIT
+### License 16: MIT
 
 Applies to: `punycode.js@2.3.1`, `uc.micro@2.1.0`
 
@@ -751,7 +692,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 19: MIT
+### License 17: MIT
 
 Applies to: `regex-recursion@6.0.2`, `regex@6.1.0`
 
@@ -779,7 +720,7 @@ SOFTWARE.
 
 ---
 
-### License 20: MIT
+### License 18: MIT
 
 Applies to: `regex-utilities@2.3.0`
 
@@ -807,7 +748,7 @@ SOFTWARE.
 
 ---
 
-### License 21: MIT
+### License 19: MIT
 
 Applies to: `stringify-entities@4.0.4`
 
@@ -836,7 +777,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 22: ISC
+### License 20: ISC
 
 Applies to: `yaml@2.9.0`
 
@@ -853,47 +794,5 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
 OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
-
----
-
-### Notice 23: apache-2.0
-
-Applies to: `@pierre/trees@1.0.0-beta.4`
-
-This project includes some code derived from
-[@headless-tree/core](https://github.com/lukasbach/headless-tree).
-
-The initial version of this project used `headless-tree` as the underlying tree
-implementation. We have since written our own core at `packages/path-store`, but
-many of the best ideas from `headless-tree` made their way to `path-store` and
-`trees`. It's hard to identify exactly which code this is at this point, but
-definitely things like the drag and drop implementation and the general list
-approach to rendering and I'm sure more. The work that `@lukasbach` has
-contributed to this space is greatly appreciated. `<3`
-
-Original license for `headless-tree/core`:
-
-```
-MIT License
-
-Copyright (c) 2023 Lukas Bach
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
 
 ---

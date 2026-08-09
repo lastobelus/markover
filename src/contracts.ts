@@ -1,12 +1,4 @@
 import type {
-  FileTree,
-  FileTreeDirectoryHandle,
-  FileTreeIcons,
-  FileTreeItemHandle,
-  FileTreeSortEntry,
-  RemappedIcon
-} from '@pierre/trees' with { 'resolution-mode': 'import' }
-import type {
   RendererInitialization,
   RendererSmokeResult,
   RendererStartupFailure,
@@ -39,13 +31,6 @@ declare global {
     fail: (diagnosticAvailable?: boolean) => void
   }
   type MarkoverDiffStats = DiffStats
-  type MarkoverFileTreeConstructor = typeof FileTree
-  type MarkoverFileTreeDirectoryHandle = FileTreeDirectoryHandle
-  type MarkoverFileTreeIcons = FileTreeIcons
-  type MarkoverFileTreeItemHandle = FileTreeItemHandle
-  type MarkoverFileTreeSortEntry = FileTreeSortEntry
-  type MarkoverRemappedIcon = RemappedIcon
-
   type Palette = 'ember' | 'ocean' | 'olive'
   type Appearance = 'system' | 'light' | 'dark'
   type ResolvedAppearance = 'light' | 'dark'
@@ -620,6 +605,8 @@ declare global {
     projectKey: string
     projectName: string
     projectRoot: string | null
+    attentionRequestedAt: number
+    lifecycleActivityAt: number
     lastViewedOrder: number
     lastViewedAt: number
     selectedId: string | null
