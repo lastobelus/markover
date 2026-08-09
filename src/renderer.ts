@@ -241,8 +241,10 @@ let incomingReviewQueue: Promise<void> = Promise.resolve()
 let incomingReviewNoticeCount = 0
 let incomingReviewNoticeId: string | null = null
 let incomingReviewNoticeTimer: ReturnType<typeof setTimeout> | null = null
+let incomingReviewNoticeVersion = 0
 let incomingReviewWarningCount = 0
 let incomingReviewWarningId: string | null = null
+let incomingReviewWarningVersion = 0
 let smokeRuntimeClean = true
 const smokeRuntimeDiagnostics: string[] = []
 const consoleError = console.error.bind(console)
@@ -1529,6 +1531,7 @@ function hideIncomingReviewNotice(): void {
   incomingReviewNoticeCount = 0
   incomingReviewNoticeId = null
   elements.incomingReviewNotice.hidden = true
+  incomingReviewNoticeVersion += 1
 }
 
 function scheduleIncomingReviewNoticeDismissal(): void {
@@ -1554,6 +1557,7 @@ function showIncomingReviewNotice(session: ReviewSession): void {
     ? `New review added: ${session.documentName}`
     : `${String(incomingReviewNoticeCount)} new reviews added. Latest: ${session.documentName}`
   elements.incomingReviewNotice.hidden = false
+  incomingReviewNoticeVersion += 1
   scheduleIncomingReviewNoticeDismissal()
 }
 
@@ -1561,6 +1565,7 @@ function clearIncomingReviewWarning(): void {
   incomingReviewWarningCount = 0
   incomingReviewWarningId = null
   if (elements.incomingReviewDialog.open) elements.incomingReviewDialog.close()
+  incomingReviewWarningVersion += 1
 }
 
 function showIncomingReviewWarning(session: ReviewSession): void {
@@ -1575,6 +1580,7 @@ function showIncomingReviewWarning(session: ReviewSession): void {
   )
   incomingReviewWarningCount = batch.count
   incomingReviewWarningId = batch.latestReviewId
+  incomingReviewWarningVersion += 1
   elements.incomingReviewDialogMessage.textContent =
     incomingReviewWarningCount === 1
       ? `“${session.documentName}” was added. Open it instead of the current review?`
@@ -1589,14 +1595,16 @@ async function activateIncomingReview(
   reviewId: string,
   focusPreview: boolean
 ): Promise<void> {
+  const noticeVersion = incomingReviewNoticeVersion
+  const warningVersion = incomingReviewWarningVersion
   const outcome = await activateReview(reviewId)
   if (outcome === 'blocked') {
     const session = reviewSessions.get(reviewId)
     if (session) showIncomingReviewNotice(session)
     return
   }
-  hideIncomingReviewNotice()
-  if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
+  if (incomingReviewNoticeVersion === noticeVersion) hideIncomingReviewNotice()
+  if (incomingReviewWarningVersion === warningVersion) clearIncomingReviewWarning()
   if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
 }
 
@@ -2248,7 +2256,7 @@ function applySettings(
   }
 }
 
-function openSettings(): void {
+function restoreSettingsForm(): void {
   MarkoverSettings.applySettingsToView(
     { ...preferences, resolvedAppearance },
     {
@@ -2257,6 +2265,10 @@ function openSettings(): void {
       form: elements.settingsForm
     }
   )
+}
+
+function openSettings(): void {
+  restoreSettingsForm()
   if (!elements.settingsDialog.open) elements.settingsDialog.showModal()
   const palette = elements.settingsForm.elements.namedItem('palette')
   if (palette instanceof HTMLElement) palette.focus()
@@ -2298,12 +2310,25 @@ elements.settingsForm.addEventListener('change', (event) => {
   )) {
     return
   }
+  if (
+    control instanceof HTMLInputElement &&
+    control.type === 'number' &&
+    (!Number.isFinite(control.valueAsNumber) || !control.checkValidity())
+  ) {
+    restoreSettingsForm()
+    return
+  }
   const value = control instanceof HTMLInputElement && control.type === 'checkbox'
     ? control.checked
     : control instanceof HTMLInputElement && control.type === 'number'
       ? control.valueAsNumber
       : control.value
-  void bridge.updateSettings({ [control.name]: value }).then(applySettings)
+  void bridge.updateSettings({ [control.name]: value })
+    .then(applySettings)
+    .catch(() => {
+      restoreSettingsForm()
+      showToast('Could not save setting')
+    })
 })
 
 elements.incomingReviewDialogKeep.addEventListener('click', () => {
@@ -3343,10 +3368,16 @@ async function initialize(): Promise<void> {
     if (!reviewSessions.get(reviewId)) {
       addManagedReview(managedReviewDocument(document), false)
     }
+    const noticeVersion = incomingReviewNoticeVersion
+    const warningVersion = incomingReviewWarningVersion
     const outcome = await activateReview(reviewId)
     if (outcome === 'activated' || outcome === 'already-active') {
-      hideIncomingReviewNotice()
-      clearIncomingReviewWarning()
+      if (incomingReviewNoticeVersion === noticeVersion) {
+        hideIncomingReviewNotice()
+      }
+      if (incomingReviewWarningVersion === warningVersion) {
+        clearIncomingReviewWarning()
+      }
     }
     return outcome
   })

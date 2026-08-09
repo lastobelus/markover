@@ -408,6 +408,14 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(html, /<dialog id="fixed-contract-dialog"/)
   assert.match(renderer, /MarkoverAgentGuidance\.FIXED_CONTRACT_STATEMENTS/)
   assert.match(renderer, /elements\.fixedContractDialog\.showModal\(\)/)
+  assert.match(
+    renderer,
+    /control\.type === 'number'[\s\S]*!Number\.isFinite\(control\.valueAsNumber\)[\s\S]*!control\.checkValidity\(\)[\s\S]*restoreSettingsForm\(\)[\s\S]*return/
+  )
+  assert.match(
+    renderer,
+    /bridge\.updateSettings\([\s\S]*\.catch\(\(\) => \{[\s\S]*restoreSettingsForm\(\)/
+  )
   const dialogSettings = Object.keys(DEFAULT_SETTINGS).filter(
     (key) => key !== 'autosaveMaximumDelayMs'
   )

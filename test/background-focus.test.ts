@@ -94,6 +94,10 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
+    /const noticeVersion = incomingReviewNoticeVersion[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewNoticeVersion === noticeVersion/
+  )
+  assert.match(
+    renderer,
     /if \(elements\.settingsDialog\.open \|\| elements\.incomingReviewDialog\.open\) return/
   )
 })

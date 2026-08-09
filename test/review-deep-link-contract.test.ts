@@ -56,6 +56,10 @@ test('preload and renderer acknowledge activation without replacing an existing 
   assert.match(activationHandler, /await activateReview\(reviewId\)/)
   assert.doesNotMatch(activationHandler, /configureManagedMode\(\)/)
   assert.match(
+    activationHandler,
+    /const noticeVersion = incomingReviewNoticeVersion[\s\S]*await activateReview\(reviewId\)[\s\S]*incomingReviewNoticeVersion === noticeVersion/
+  )
+  assert.match(
     renderer,
     /if \(reviewId === state\.reviewId\) return 'already-active'/
   )
