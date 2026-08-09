@@ -143,7 +143,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /async function activateIncomingReview[\s\S]*if \(!reviewSessions\.get\(reviewId\)\) return/
+    /async function activateReview[\s\S]*if \(!reviewSessions\.get\(reviewId\)\) return 'missing'[\s\S]*await reviewMutations\.wait\(currentReviewId\)[\s\S]*if \(!reviewSessions\.get\(reviewId\)\) return 'missing'[\s\S]*reviewSessions\.activate\(reviewId\)/
   )
   assert.match(
     renderer,

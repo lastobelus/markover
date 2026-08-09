@@ -1625,7 +1625,6 @@ async function activateIncomingReview(
   focusPreview: boolean,
   activationSequence: number
 ): Promise<void> {
-  if (!reviewSessions.get(reviewId)) return
   const noticeVersion = incomingReviewNoticeVersion
   const noticeSequence = incomingReviewNoticeSequence
   const warningVersion = incomingReviewWarningVersion
@@ -2667,11 +2666,13 @@ async function activateReview(
   reviewId: string
 ): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
+  if (!reviewSessions.get(reviewId)) return 'missing'
   if (reviewId === state.reviewId) return 'already-active'
   state.finishAttachmentLabelEdit?.(true)
   const currentReviewId = state.reviewId
   if (currentReviewId && reviewMutations.has(currentReviewId)) {
     await reviewMutations.wait(currentReviewId)
+    if (!reviewSessions.get(reviewId)) return 'missing'
     if (reviewId === state.reviewId) return 'already-active'
   }
   if (!finishActiveSourceEdit()) return 'blocked'
