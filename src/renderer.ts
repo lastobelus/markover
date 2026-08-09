@@ -1604,7 +1604,11 @@ async function handleIncomingReview(
   reviewDocument: MarkoverDocument
 ): Promise<void> {
   const session = addManagedReview(managedReviewDocument(reviewDocument), false)
-  if (session.reviewId === state.reviewId) return
+  if (session.reviewId === state.reviewId) {
+    hideIncomingReviewNotice()
+    clearIncomingReviewWarning()
+    return
+  }
   const action = incomingReviewAction({
     focusState: windowFocusState,
     hasActiveDocument: state.tree !== null,
@@ -3336,14 +3340,13 @@ async function initialize(): Promise<void> {
       showToast(`Review ${reviewId} was not found in this Markover instance`)
       return 'missing'
     }
-    configureManagedMode()
     if (!reviewSessions.get(reviewId)) {
       addManagedReview(managedReviewDocument(document), false)
     }
     const outcome = await activateReview(reviewId)
     if (outcome === 'activated' || outcome === 'already-active') {
-      if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
-      if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
+      hideIncomingReviewNotice()
+      clearIncomingReviewWarning()
     }
     return outcome
   })

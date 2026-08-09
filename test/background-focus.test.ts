@@ -66,7 +66,10 @@ test('incoming reviews are listed before the activation policy runs', () => {
   )?.[0] || ''
 
   assert.match(handler, /addManagedReview\(managedReviewDocument\(reviewDocument\), false\)/)
-  assert.match(handler, /if \(session\.reviewId === state\.reviewId\) return/)
+  assert.match(
+    handler,
+    /if \(session\.reviewId === state\.reviewId\) \{[\s\S]*hideIncomingReviewNotice\(\)[\s\S]*clearIncomingReviewWarning\(\)[\s\S]*return/
+  )
   assert.match(handler, /incomingReviewAction\(\{/)
   assert.match(handler, /if \(action === 'warn'\)[\s\S]*showIncomingReviewWarning/)
   assert.match(handler, /if \(action === 'notify'\)[\s\S]*showIncomingReviewNotice/)

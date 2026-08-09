@@ -40,16 +40,21 @@ test('main captures packaged links early and routes them through acknowledged ac
 test('preload and renderer acknowledge activation without replacing an existing session', () => {
   const preload = read('src/preload.ts')
   const renderer = read('src/renderer.ts')
+  const activationHandler = renderer.match(
+    /bridge\.onReviewActivationRequested\([\s\S]*?\n {2}\}\)/
+  )?.[0] || ''
   assert.match(preload, /review:activation-request/)
   assert.match(preload, /review:activation-response/)
   assert.match(
-    renderer,
+    activationHandler,
     /onReviewActivationRequested[\s\S]*if \(!document\)[\s\S]*return 'missing'/
   )
   assert.match(
-    renderer,
+    activationHandler,
     /if \(!reviewSessions\.get\(reviewId\)\)[\s\S]*addManagedReview\(managedReviewDocument\(document\), false\)/
   )
+  assert.match(activationHandler, /await activateReview\(reviewId\)/)
+  assert.doesNotMatch(activationHandler, /configureManagedMode\(\)/)
   assert.match(
     renderer,
     /if \(reviewId === state\.reviewId\) return 'already-active'/
