@@ -17,6 +17,7 @@ const script = fs.readFileSync(
 )
 const styles = fs.readFileSync(path.join(userDirectory, 'styles.css'), 'utf8')
 const guide = fs.readFileSync(path.join(userDirectory, 'guide/index.html'), 'utf8')
+const agents = fs.readFileSync(path.join(userDirectory, 'agents/index.html'), 'utf8')
 const privacy = fs.readFileSync(
   path.join(userDirectory, 'privacy/index.html'),
   'utf8'
@@ -159,6 +160,10 @@ test('Pages deploys built docs when a documentation build input changes', () => 
     true
   )
   assert.equal(
+    fs.existsSync(path.join(projectDirectory, 'build/docs/user/agents/index.html')),
+    true
+  )
+  assert.equal(
     fs.existsSync(path.join(projectDirectory, 'build/docs/user/.nojekyll')),
     true
   )
@@ -180,6 +185,7 @@ test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(guide, /class="brand-lockup-logo" src="\.\.\/assets\/markover-lockup\.svg"/)
   assert.match(guide, /class="brand-lockup-tagline">Structured review for Markdown\.<\/span>/)
   assert.doesNotMatch(guide, /class="docs-brand-row"/)
+  assert.match(agents, /class="docs-brand brand-lockup brand-lockup-vertical"/)
 
   assert.match(styles, /\.brand-lockup-horizontal \{[^}]*align-items: flex-end;/)
   assert.match(styles, /\.brand-lockup-vertical \{[^}]*flex-direction: column;[^}]*align-items: flex-start;/)
@@ -237,6 +243,7 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/development.md')), false)
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/releasing.md')), false)
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/developer/releasing.md')), true)
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/user/agents/index.html')), true)
   assert.match(readme, /docs\/developer\/README\.md/)
   assert.match(developerIndex, /User pages explain consequences\s+and actions/)
   assert.match(developerIndex, /Developer documentation may link to those pages/)
@@ -249,6 +256,14 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(developerSecurity, /Retry\s+Quit, Cancel Quit, or Quit Anyway/)
   assert.match(developerSecurity, /test\/durability-crash\.test\.ts/)
   assert.doesNotMatch(guide, /1,500 milliseconds|persistence budget|exponential backoff/)
+  assert.match(guide, /Start a review with an agent/)
+  assert.match(guide, /Tell your agent the review is ready/)
+  assert.doesNotMatch(guide, /markover (?:open|get|edit)|review\.agentGuidance|Default policy/)
+  assert.match(agents, /id="open"[\s\S]*markover open/)
+  assert.match(agents, /id="get"[\s\S]*markover get/)
+  assert.match(agents, /id="edit"[\s\S]*markover edit/)
+  assert.match(agents, /review\.agentGuidance\.fixedContract/)
+  assert.match(agents, /Human reviewers should start with/)
 })
 
 test('the early-preview contract is concise and consistent on user entry paths', () => {
@@ -291,6 +306,7 @@ test('every local user-documentation link and asset stays inside the user root',
   const deployedUserDirectory = path.join(projectDirectory, 'build/docs/user')
   for (const relativePath of [
     'index.html',
+    'agents/index.html',
     'guide/index.html',
     'limitations/index.html',
     'privacy/index.html'

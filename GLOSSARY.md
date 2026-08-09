@@ -54,6 +54,12 @@ An inline annotation token such as `[!img-2]` that refers to an attachment label
 
 The attachment array is authoritative; the textual reference is a convenience for discussion.
 
+## audience root::
+
+One of the two top-level documentation boundaries: `docs/user` for the public product workflow and `docs/developer` for contributor implementation and operations.
+
+An explicitly labelled agent page may live in the public root when it serves the user workflow. Cross-links are optional, and deliberate repetition is preferable to making either audience read the wrong level of detail.
+
 ## babysit::
 
 Keep watching a pull request until its current head has green CI, a terminal positive review, no unresolved threads, and a clean mergeable state.

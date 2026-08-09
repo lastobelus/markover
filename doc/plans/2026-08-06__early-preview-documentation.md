@@ -8,9 +8,11 @@ The plan records the issue interview completed on August 6, 2026, the audience-s
 
 ## Outcome
 
-A prospective user can understand Markover's product promise, early-preview status, requirements, compatibility boundary, local-data behavior, cleanup path, and support channel in under two minutes without encountering contributor implementation detail.
+A prospective user can understand Markover's product promise, early-preview status, requirements, compatibility boundary, local-data behavior, cleanup path, and support channel in under two minutes without encountering contributor or agent-operational detail.
 
 A developer or contributor has a separate technical documentation root for building, testing, releasing, debugging, and understanding Markover's implementation. Each audience can follow an explicit cross-link when the other perspective is useful, but neither audience must sort through the other audience's material to complete its normal work.
+
+An agent has one explicitly labelled public workflow page for opening, waiting, retrieving, reopening, and interpreting a review. Human user pages explain the corresponding choices and consequences without embedding those commands or agent policies.
 
 ## Audience contract
 
@@ -18,6 +20,8 @@ Documentation has two explicit roots inside `docs/`:
 
 - **`docs/user/` — user documentation.** This is the source for the deployed public documentation site. It answers what Markover does, whether and how to try it, what data and compatibility consequences matter, how to recover or clean up, what limitations apply, and where to get help.
 - **`docs/developer/` — developer and contributor documentation.** This is repository documentation for architecture, protocols, schemas, threat-model mechanics, development setup, tests, packaging, release operations, and maintenance procedures. It is not included in the GitHub Pages artifact.
+
+The deployed root contains a dedicated `docs/user/agents/` page because agents participate in the public product workflow. This is an audience-labelled page, not a third documentation root: the human guide links to it instead of mixing exact CLI steps and interpretation policies into the user's reading path.
 
 Audience ownership is determined by the reader's decision, not by where a fact was first documented:
 
@@ -27,7 +31,7 @@ Audience ownership is determined by the reader's decision, not by where a fact w
 - Deliberate repetition is preferable to shared fragments, transclusion, or prose indirection that makes either audience read the wrong level of detail.
 - Repeated claims must agree semantically, but may use different language and depth for each audience.
 
-The repository `README.md` remains a short product and user entry point with one clearly separated contributor link into `docs/developer/`. `CONTRIBUTING.md` and agent-facing repository guidance enter through the developer root rather than sending contributors through the user guide.
+The repository `README.md` remains a short product and user entry point with a clearly labelled install-free agent section, a link to the public agent workflow, and one separated contributor link into `docs/developer/`. `CONTRIBUTING.md` enters through the developer root; repository agent guidance and the public agent page carry agent procedures without sending agents through the human guide.
 
 ## Public contract
 
@@ -53,6 +57,7 @@ docs/
 ├── user/
 │   ├── index.html
 │   ├── guide/
+│   ├── agents/
 │   ├── privacy/
 │   ├── limitations/
 │   ├── assets/
@@ -65,7 +70,7 @@ docs/
     └── local-service-security.md
 ```
 
-`docs/user/` becomes the GitHub Pages source root. TypeScript continues to emit the site script under `build/docs/user/`, and the Pages workflow uploads `build/docs/user` as the artifact root. Public URLs therefore remain `/`, `/guide/`, `/privacy/`, and `/limitations/`; `/user/` does not appear in user-facing URLs.
+`docs/user/` becomes the GitHub Pages source root. TypeScript continues to emit the site script under `build/docs/user/`, and the Pages workflow uploads `build/docs/user` as the artifact root. Public URLs are `/`, `/guide/`, `/agents/`, `/privacy/`, and `/limitations/`; `/user/` does not appear in public URLs.
 
 `docs/developer/` remains available through the repository and is excluded from the Pages artifact. Existing links and tests move to the new source paths in the same checkpoint. Because Markover is pre-MVP0, the move introduces no duplicate old paths, redirect files, fallback readers, or compatibility copies.
 
@@ -73,7 +78,7 @@ The proposed tree is the minimum starting structure, not a fixed taxonomy. Futur
 
 ### Canonical two-minute user entry point
 
-Place a compact **Before you try the early preview** summary next to the setup command in `README.md` and `docs/user/guide/index.html`. It states:
+Place a compact **Before you try the early preview** summary in `README.md` and `docs/user/guide/index.html`. The README keeps the install-free command under an explicit **For agents** heading; the human guide explains how a reviewer starts and completes work with an agent without duplicating agent commands. The summary states:
 
 - the Early macOS preview label;
 - macOS, architecture, and Node requirements;
@@ -83,6 +88,12 @@ Place a compact **Before you try the early preview** summary next to the setup c
 - links to Markdown limitations, privacy/storage/recovery, cleanup, and support.
 
 The website home page at `docs/user/index.html` labels the product as an Early macOS preview and routes prospective users to this setup summary. It does not duplicate the full disclosure set or link users into developer documentation as a prerequisite.
+
+### Public agent workflow
+
+Add `docs/user/agents/index.html` as the only deployed page addressed directly to agents. It co-locates the ordered `open`, reviewer URL/ID/Terminal handoff, wait, `get`, and `edit` steps; review-ID ownership; the fixed interpretation contract; the snapshotted policy; and completion bounds. It points human reviewers to the user guide and contributors to repository agent guidance.
+
+The human guide retains the user-visible half of the workflow: ask an agent to open a document, review it, say “Check Markover,” and request reopening when feedback changes. It contains no exact agent CLI commands, `review.agentGuidance` fields, or agent policy examples.
 
 ### User privacy, storage, and recovery
 
@@ -163,14 +174,15 @@ Release implementation mechanics remain in `docs/developer/releasing.md` and do 
 3. Establish `docs/user/` and `docs/developer/`, move existing files atomically, and update repository links and test fixtures without compatibility copies.
 4. Change the Pages artifact root to `build/docs/user` and verify that developer documentation is absent from the deployed artifact while public URLs remain unchanged.
 5. Add the developer index and split exact local-service security/storage mechanics out of the user privacy page into the developer reference.
-6. Add the canonical maturity label and compact setup disclosure to the README and user guide.
-7. Label the user website hero as an Early macOS preview and route its primary trial path to the user guide summary.
-8. Add the user Markdown support and preview limitations page, user navigation, and primary-path links.
-9. Expand the user privacy page with the accepted compatibility, storage, retention, cleanup, reinstall, and support material while leaving untested durability language out.
-10. Normalize general-support links in the user root and preserve the existing specialized intake routes.
-11. Add semantic documentation tests for root segregation, deployment exclusion, the new label, requirements, links, compatibility boundary, cleanup distinctions, and support model.
-12. Run the focused documentation tests, `npm run check`, and `npm test`; inspect the deployed user artifact and visually inspect desktop and narrow user layouts.
-13. Commit the completed checkpoint and coordinate its landed user privacy page and developer reference with #39 before #39's public-documentation slice edits either surface.
+6. Add the canonical maturity label and compact setup disclosure to the README and human user guide.
+7. Add the dedicated public agent workflow and remove agent-only commands and policies from the human guide.
+8. Label the user website hero as an Early macOS preview and route its primary trial path to the user guide summary.
+9. Add the user Markdown support and preview limitations page, user navigation, and primary-path links.
+10. Expand the user privacy page with the accepted compatibility, storage, retention, cleanup, reinstall, and support material while leaving untested durability language out.
+11. Normalize general-support links in the user root and preserve the existing specialized intake routes.
+12. Add semantic documentation tests for root segregation, deployment exclusion, audience separation, the new label, requirements, links, compatibility boundary, cleanup distinctions, and support model.
+13. Run the focused documentation tests, `npm run check`, and `npm test`; inspect the deployed user artifact and visually inspect desktop and narrow user layouts.
+14. Commit the completed checkpoint and coordinate its landed user privacy page and developer reference with #39 before #39's public-documentation slice edits either surface.
 
 ### Evidence gate — issue #39
 
@@ -206,6 +218,7 @@ Automated checks should assert audience boundaries and semantic anchors rather t
 
 - `docs/user/` and `docs/developer/` both exist and own the expected entry points;
 - Pages uploads `build/docs/user`, preserves the existing public URL shape, and excludes developer documentation;
+- `/guide/` addresses human reviewers while `/agents/` owns exact agent commands, review-ID handling, and interpretation policy;
 - repository links no longer target the former mixed-root paths;
 - every public user entry surface uses **Early macOS preview**;
 - README and user guide agree on macOS 14 Sonoma, Apple Silicon, native Intel deferral to #80, and Node.js 22.13.0 or newer;
@@ -222,7 +235,7 @@ Manual validation includes:
 
 - reading only the deployed user setup path as a prospective user and confirming the core contract is discoverable in under two minutes without contributor implementation detail;
 - following the developer root as a new contributor and confirming setup, tests, release operations, architecture/security detail, and the user contract are discoverable without entering the user guide first;
-- checking the user website, guide, privacy/storage/recovery page, and limitations page at desktop and narrow widths;
+- checking the user website, human guide, agent workflow, privacy/storage/recovery page, and limitations page at desktop and narrow widths;
 - confirming user-to-developer and developer-to-user cross-links are clearly labelled and optional;
 - verifying that some repetition improves local clarity and no page delegates essential audience-specific explanation to the other root;
 - verifying commands, filesystem targets, protocol details, and evidence pointers against current code immediately before publication.
@@ -233,6 +246,7 @@ This issue changes documentation architecture, documentation, deployment selecti
 
 - shared prose fragments, transclusion, a documentation framework, or deduplication machinery between the audience roots;
 - duplicate legacy paths, redirects, compatibility copies, or a `/user/` prefix in deployed public URLs;
+- a third mixed or agent-only documentation root outside `docs/user/` and `docs/developer/`;
 - data migrations, fallback review readers, dual writers, or a promise that every version opens every historical review;
 - in-app review deletion or cache-management UI;
 - new telemetry, network behavior, authorization mechanisms, or threat-model claims;

@@ -163,5 +163,5 @@ test('public guidance states the tested durability contract and its limits', () 
     development,
     /autosaveMaximumDelayMs[\s\S]*integer from `100` through `60000`\s+milliseconds[\s\S]*restart\s+it afterward/
   )
-  assert.match(readme, /guide\/#durability/)
+  assert.match(readme, /Autosave and automatic restart recovery/)
 })

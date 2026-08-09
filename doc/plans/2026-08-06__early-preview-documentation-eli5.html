@@ -283,7 +283,7 @@
       </summary>
       <div class="context-body">
         <p>This page explains the accepted plan for <a href="https://github.com/lastobelus/markover/issues/9">issue #9</a> in the Focused preview milestone. The audience roots, public information architecture, and tested durability boundary are settled.</p>
-        <p><strong>Stable center:</strong> <code>docs/user/</code> is the deployed public site; <code>docs/developer/</code> is the repository's contributor reference. Repetition is allowed when it keeps either audience's path clear. <a href="https://github.com/lastobelus/markover/issues/39">Issue #39</a> is closed, and its merged crash/restart evidence now supplies the user promise and developer invariants.</p>
+        <p><strong>Stable center:</strong> <code>docs/user/</code> is the deployed public site; <code>docs/developer/</code> is the repository's contributor reference. The human guide and the dedicated <code>/agents/</code> page keep user choices separate from agent commands while remaining inside the same deployed root. <a href="https://github.com/lastobelus/markover/issues/39">Issue #39</a> is closed, and its merged crash/restart evidence supplies the user promise and developer invariants.</p>
       </div>
     </details>
 
@@ -298,7 +298,7 @@
         <article class="mini-card card">
           <span class="tag">Deployed</span>
           <h3><code>docs/user/</code></h3>
-          <p>The Pages artifact root. It contains the website, setup guide, privacy/storage/recovery reference, Markdown limitations, assets, and user support links. Technical detail appears only when it changes a user's decision or action.</p>
+          <p>The Pages artifact root. It contains the website, human guide, explicitly labelled agent workflow, privacy/storage/recovery reference, Markdown limitations, assets, and support links. Agent commands do not appear in the human guide.</p>
         </article>
         <article class="mini-card card">
           <span class="tag">Repository</span>
@@ -406,6 +406,7 @@
             <li>Create <code>docs/user/</code> and <code>docs/developer/</code></li>
             <li>Deploy only <code>build/docs/user</code></li>
             <li>Early-preview labels and the two-minute setup summary</li>
+            <li>Separate human and agent workflow pages</li>
             <li>Audience-specific privacy and security references</li>
             <li>User limitations, cleanup and support</li>
             <li>Root, link and audience-boundary tests</li>
@@ -438,7 +439,7 @@
         <li><a href="https://github.com/lastobelus/markover/issues/10">Issue #10 — focused-preview prerelease</a></li>
         <li><a href="#" data-repo-path="doc/plans/2026-08-06__early-preview-documentation.md">Canonical Markdown plan</a></li>
         <li><a href="#" data-repo-path="README.md">README setup path</a></li>
-        <li><a href="#" data-repo-path="docs/user/guide/index.html">User guide</a>, <a href="#" data-repo-path="docs/user/privacy/index.html">privacy page</a>, and <a href="#" data-repo-path="docs/developer/development.md">developer guide</a></li>
+        <li><a href="#" data-repo-path="docs/user/guide/index.html">Human guide</a>, <a href="#" data-repo-path="docs/user/agents/index.html">agent workflow</a>, <a href="#" data-repo-path="docs/user/privacy/index.html">privacy page</a>, and <a href="#" data-repo-path="docs/developer/development.md">developer guide</a></li>
         <li><a href="#" data-repo-path="DECISIONS.md">Current Markdown behavior decisions</a></li>
       </ul>
     </section>

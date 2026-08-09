@@ -103,6 +103,7 @@ test('release workflow publishes Apple Silicon and the tiny CLI', () => {
 
 test('README exposes the repository-only install-free agent command', () => {
   const readme = read('README.md')
+  const agentGuide = read('docs/user/agents/index.html')
   const entry = read('packages/cli/src/index.ts')
 
   for (const source of [readme, entry]) {
@@ -111,11 +112,13 @@ test('README exposes the repository-only install-free agent command', () => {
       /https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz/
     )
   }
+  assert.match(readme, /For agents: open a review without installing/)
   assert.match(readme, /retain the returned `reviewId`/)
-  assert.match(
-    readme,
-    /“Check\s+Markover,” run the same launcher with `get <reviewId>`/
-  )
+  assert.match(readme, /markover\/agents\//)
+  assert.match(readme, /open 'markover:\/\/review\/mko_8f3a2c'/)
+  assert.match(agentGuide, /Retain the review ID/)
+  assert.match(agentGuide, /reviewer says “Check Markover”/)
+  assert.match(agentGuide, /markover get mko_8f3a2c/)
 })
 
 test('release documentation states the Sonoma and ad-hoc trust boundary', () => {
@@ -127,10 +130,10 @@ test('release documentation states the Sonoma and ad-hoc trust boundary', () => 
   for (const source of sources) {
     assert.match(source, /macOS 14 Sonoma/)
     assert.match(source, /not Apple-verified/i)
-    assert.match(source, /Apple Developer Program/)
     assert.doesNotMatch(source, /Apple Silicon (?:and|or) Intel/)
     assert.doesNotMatch(source, /xattr\s+-[a-zA-Z]*r/)
   }
+  assert.match(sources[2] ?? '', /Apple Developer Program/)
   assert.match(sources[0] ?? '', /issue #80/)
   assert.match(sources[1] ?? '', /issues\/80/)
   assert.match(sources[0] ?? '', /## Opening Markover on macOS/)
