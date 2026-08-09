@@ -168,9 +168,10 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Merged baseline 03e52ac · Apple Silicon v0\.1\.3 published · Intel deferred to #80 · 7 Aug 2026/
+    /Merged baseline 3f0022f · CI-cost correction implementing · Apple Silicon release smoke only · 8 Aug 2026/
   )
-  assert.match(pages[0] ?? '', /main<\/code> baseline <code>03e52ac<\/code>/)
+  assert.match(pages[0] ?? '', /main<\/code> baseline <code>3f0022f<\/code>/)
+  assert.match(pages[0] ?? '', /not every pull request or/)
   assert.match(pages[0] ?? '', /releases\/tag\/v0\.1\.3/)
   assert.match(pages[0] ?? '', /actions\/runs\/31221075875/)
   assert.match(
@@ -191,8 +192,9 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[3] ?? '',
-    /PR #68 merged · v0\.1\.3 arm64 evidence published · Intel evidence deferred to #80/
+    /PR #68 merged · scheduling correction implementing · tagged arm64 release candidates only · Intel deferred to #80/
   )
+  assert.match(pages[3] ?? '', /routine pull requests keep non-packaging CI/)
 })
 
 test('developer release runbook preserves provenance and rollback boundaries', () => {
@@ -279,18 +281,18 @@ test('continuous integration enforces the supported Node versions', () => {
   }
 })
 
-test('continuous integration validates both native packaged happy paths', () => {
-  const workflow = read('.github/workflows/ci.yml')
+test('packaged smoke runs only for a tagged release candidate', () => {
+  const continuousIntegration = read('.github/workflows/ci.yml')
+  const release = read('.github/workflows/release.yml')
 
-  assert.match(workflow, /name: Packaged smoke \(\$\{\{ matrix\.runner \}\}\)/)
-  assert.match(workflow, /- macos-15\n\s+- macos-15-intel/)
-  assert.match(workflow, /npm run package:mac/)
-  assert.match(workflow, /Verify exact native artifact/)
-  assert.match(workflow, /npm run release:preflight -- verify-macos/)
-  assert.match(workflow, /npm run smoke:packaged --/)
-  assert.match(workflow, /--evidence-kind=ci/)
-  assert.match(workflow, /--evidence=smoke-evidence\/packaged-smoke-/)
-  assert.match(workflow, /packaged-smoke-\$\{\{ matrix\.runner \}\}/)
+  assert.doesNotMatch(continuousIntegration, /runs-on: macos-/)
+  assert.doesNotMatch(continuousIntegration, /npm run package:mac/)
+  assert.doesNotMatch(continuousIntegration, /npm run smoke:packaged/)
+  assert.match(release, /push:\n\s+tags:\n\s+- 'v\*'/)
+  assert.match(release, /runs-on: macos-15/)
+  assert.doesNotMatch(release, /macos-15-intel/)
+  assert.match(release, /npm run package:mac/)
+  assert.match(release, /npm run smoke:packaged --/)
 })
 
 test('TypeScript build is strict, generated, and runtime-loader free', () => {
