@@ -1398,8 +1398,15 @@ async function startAndPublishService(): Promise<void> {
       managedStore.directory
     ),
     async onChange(artifact, action) {
-      if (action === 'created') await sendManagedReview(artifact)
-      else await sendManagedStatus(artifact)
+      if (action === 'created') {
+        void sendManagedReview(artifact).catch((error: unknown) => {
+          process.stderr.write(
+            `markover review notification ${artifact.review.id}: ${errorMessage(error)}\n`
+          )
+        })
+        return
+      }
+      await sendManagedStatus(artifact)
     },
     onUnauthorized(event) {
       if (!store.settings.logRejectedApiRequests) return

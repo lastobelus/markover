@@ -22,6 +22,20 @@ test('agent review events update the renderer without showing or focusing it', (
   assert.doesNotMatch(managedReview, /activeManagedReview(Id)? = artifact/)
 })
 
+test('persisted review creation does not wait for renderer notification', () => {
+  const main = read('src/main.ts')
+  const onChange = main.match(
+    /async onChange\(artifact, action\) \{[\s\S]*?\n {4}\},/
+  )?.[0] || ''
+
+  assert.match(
+    onChange,
+    /if \(action === 'created'\) \{[\s\S]*void sendManagedReview\(artifact\)\.catch[\s\S]*return/
+  )
+  assert.doesNotMatch(onChange, /await sendManagedReview\(artifact\)/)
+  assert.match(onChange, /await sendManagedStatus\(artifact\)/)
+})
+
 test('native window focus state reaches the renderer without activating Markover', () => {
   const main = read('src/main.ts')
   const preload = read('src/preload.ts')
