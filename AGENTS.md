@@ -112,3 +112,7 @@ findings have been addressed. Ensure such checkpoints are pushed to github.
 GLOSSARY.md contains a list of terms commonly used when working on this project.
 Every entry starts with `## term::`, so the index is available with `rg '^## .*::$' GLOSSARY.md` and a term with `rg -n -i '^## .*term.*::$' GLOSSARY.md`.
 When working on finalizing or landing a PR, judiciously add new terms that have fallen out while interacting with the user. Don't add terms narrowly focused to the PR, but only those which are likely to be commonly used in the ongoing development of the project. When doing so, mention the terms you have added in your user response.
+
+
+## Github Stacked PRs
+Consider using stacked prs (https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) when they will help keep dependencies clear, or when working on a PR surfaces fixes, ideas, follow-on work, etc. that would complicate or be out of scope for that PR, but which depend on that PR.
