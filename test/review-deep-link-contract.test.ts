@@ -25,6 +25,10 @@ test('main captures packaged links early and routes them through acknowledged ac
   assert.match(main, /review:activation-response/)
   assert.match(
     main,
+    /const focusState = currentWindowFocusState\(\)\s*focusMainWindow\(\)[\s\S]*requestRendererActivation\([\s\S]*focusState/
+  )
+  assert.match(
+    main,
     /await waitForRendererReady\(window\)/
   )
   assert.match(
@@ -37,7 +41,7 @@ test('main captures packaged links early and routes them through acknowledged ac
   )
 })
 
-test('preload and renderer acknowledge activation without replacing an existing session', () => {
+test('preload and renderer apply review-link activation policy', () => {
   const preload = read('src/preload.ts')
   const renderer = read('src/renderer.ts')
   const activationHandler = renderer.match(
@@ -49,12 +53,16 @@ test('preload and renderer acknowledge activation without replacing an existing 
     activationHandler,
     /onReviewActivationRequested[\s\S]*if \(!document\)[\s\S]*return 'missing'/
   )
-  assert.match(
-    activationHandler,
-    /if \(!reviewSessions\.get\(reviewId\)\)[\s\S]*addManagedReview\(managedReviewDocument\(document\), false\)/
-  )
-  assert.match(activationHandler, /return activateReview\(reviewId\)/)
+  assert.match(activationHandler, /queueReviewLink\(document, focusState\)/)
   assert.doesNotMatch(activationHandler, /configureManagedMode\(\)/)
+  assert.match(
+    renderer,
+    /async function handleReviewLink[\s\S]*addManagedReview\(managedReviewDocument\(reviewDocument\), false\)[\s\S]*policy: preferences\.reviewLinkActivationPolicy[\s\S]*showIncomingReviewWarning[\s\S]*return 'deferred'[\s\S]*showIncomingReviewNotice[\s\S]*return 'deferred'[\s\S]*activateIncomingReview/
+  )
+  assert.match(
+    renderer,
+    /function queueReviewLink[\s\S]*queueIncomingOperation\([\s\S]*handleReviewLink\(reviewDocument, focusState\)/
+  )
   assert.match(
     renderer,
     /function removeIncomingPrompts[\s\S]*removeIncomingReview\(incomingReviewNoticePrompts, reviewId\)[\s\S]*removeIncomingReview\(incomingReviewWarningPrompts, reviewId\)[\s\S]*async function activateReview[\s\S]*removeIncomingPrompts\(reviewId\)/

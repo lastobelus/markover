@@ -145,6 +145,14 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
     ...tree,
     review: { id: 'mko_abcdef', status: 'editing' }
   }
+  const document: MarkoverDocument = {
+    reviewId: 'mko_abcdef',
+    name: tree.sourceDocument.name,
+    path: tree.sourceDocument.path,
+    source: tree.sourceDocument.content,
+    checksum: tree.sourceDocument.checksum,
+    tree: managedTree
+  }
   assert.doesNotThrow(() => {
     assertRendererInvokeArguments('document:checksum', ['source'])
     assertRendererInvokeArguments('review:create-local', [tree])
@@ -182,6 +190,17 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
     assertMainEventArguments('window:focus-state', [{
       focused: true,
       blurredAt: null
+    }])
+    assertMainEventArguments('review:activation-request', [{
+      requestId: 'activation-1',
+      reviewId: 'mko_abcdef',
+      document,
+      focusState: { focused: false, blurredAt: 1 }
+    }])
+    assertRendererSendArguments('review:activation-response', [{
+      requestId: 'activation-1',
+      reviewId: 'mko_abcdef',
+      outcome: 'deferred'
     }])
     assertRendererInvokeArguments('review:context-menu:open', [{
       reviewId: 'mko_abcdef'
@@ -228,6 +247,13 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
     assertMainEventArguments('review:trashed', [{
       reviewId: 'mko_abcdef',
       path: '/tmp/private'
+    }])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('review:activation-request', [{
+      requestId: 'activation-1',
+      reviewId: 'mko_abcdef',
+      document
     }])
   })
 })

@@ -264,7 +264,7 @@ Examples include headings, paragraphs, list items, code blocks, tables, block qu
 
 ## review deep link::
 
-The planned `markover://review/<review-id>` URL that focuses Markover and selects a review without changing its content or lifecycle status; also called a review URL.
+The `markover://review/<review-id>` URL that focuses Markover and applies the configured review-link activation policy without changing review content or lifecycle status; also called a review URL.
 
 ## review envelope::
 

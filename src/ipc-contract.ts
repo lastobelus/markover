@@ -600,13 +600,20 @@ function isActivationOutcome(value: unknown): value is ReviewActivationOutcome {
   return value === 'activated' ||
     value === 'already-active' ||
     value === 'blocked' ||
+    value === 'deferred' ||
     value === 'missing'
 }
 
 function isActivationRequest(value: unknown): value is ReviewActivationRequest {
-  return hasExactKeys(value, ['requestId', 'reviewId', 'document']) &&
+  return hasExactKeys(value, [
+    'requestId',
+    'reviewId',
+    'document',
+    'focusState'
+  ]) &&
     isRequestId(value.requestId) &&
     isReviewId(value.reviewId) &&
+    isWindowFocusState(value.focusState) &&
     (value.document === null || isDocument(value.document)) &&
     (
       value.document === null ||

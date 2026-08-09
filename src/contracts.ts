@@ -480,6 +480,7 @@ declare global {
     | 'activated'
     | 'already-active'
     | 'blocked'
+    | 'deferred'
     | 'missing'
 
   interface ReviewActivationResult {
@@ -491,6 +492,7 @@ declare global {
     requestId: string
     reviewId: string
     document: MarkoverDocument | null
+    focusState: MarkoverWindowFocusState
   }
 
   interface ReviewActivationResponse {

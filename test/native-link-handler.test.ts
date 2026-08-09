@@ -33,6 +33,7 @@ test('native forwarding proves identity before sending the capability', () => {
     source,
     /activationUrl,[\s\S]*token: credential\.token,[\s\S]*timeoutInterval: 12/
   )
+  assert.match(source, /"blocked", "deferred", "missing"/)
 })
 
 test('native errors are bounded, redacted, instance-specific, and one-button', () => {

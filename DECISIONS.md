@@ -296,12 +296,14 @@ each choice from that baseline without duplicating the live decisions below.
     changing persisted review semantics. Evidence:
     [brand contract tests](test/brand.test.ts).
 14. **An incoming managed review joins the inbox before Markover decides whether
-    to activate it.** With no active document it opens immediately. Otherwise,
-    the default `never` policy preserves the current document and shows an Open
-    notice; `always`, `warn`, and `when-idle` provide explicit alternatives.
-    Idle activation requires Markover to remain in the background for the
-    configured one-to-sixty-minute interval. Concurrent arrivals remain visible
-    and consolidate prompts around the newest review.
+    to activate it.** Agent-created reviews and user-opened review links have
+    separate `never`, `always`, `warn`, and `when-idle` policies. Agent arrivals
+    default to `never`; explicit links default to `always`. With no active
+    document either source opens immediately. Idle activation uses the focus
+    state before a link brings Markover forward and requires Markover to have
+    remained in the background for the configured one-to-sixty-minute interval.
+    Deferred requests remain visible and consolidate prompts around the newest
+    review.
 
     **Audit — Retain.** Separating ingestion from activation prevents an agent's
     background work from silently replacing the document a user is reading while
@@ -425,9 +427,10 @@ each choice from that baseline without duplicating the live decisions below.
    [local-service tests](test/local-service.test.ts).
 9. **A successful `open` returns an instance-specific review deep link.** The
    canonical form is `markover://review/<id>`; isolated development instances
-   use their own explicit schemes. Links select an existing managed review but
-   never mutate it. Because agent hosts may not dispatch custom schemes, the
-   standalone `open '<reviewUrl>'` Terminal command is the reliable handoff.
+   use their own explicit schemes. Links focus Markover and apply the user's
+   review-link activation policy without mutating the review. Because agent
+   hosts may not dispatch custom schemes, the standalone
+   `open '<reviewUrl>'` Terminal command is the reliable handoff.
 
    **Audit — Retain.** The complete activation path landed under issue
    [#52](https://github.com/lastobelus/markover/issues/52), with URL grammar and

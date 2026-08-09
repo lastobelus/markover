@@ -242,6 +242,7 @@ function isReviewActivationOutcome(
   return value === 'activated' ||
     value === 'already-active' ||
     value === 'blocked' ||
+    value === 'deferred' ||
     value === 'missing'
 }
 
@@ -1196,7 +1197,8 @@ async function waitForRendererReady(window: BrowserWindow): Promise<void> {
 
 async function requestRendererActivation(
   reviewId: string,
-  document: MarkoverDocument | null
+  document: MarkoverDocument | null,
+  focusState: MarkoverWindowFocusState
 ): Promise<ReviewActivationOutcome> {
   if (!mainWindow || mainWindow.isDestroyed() || !startupReady) {
     return Promise.reject(Object.assign(
@@ -1221,7 +1223,8 @@ async function requestRendererActivation(
     sendMainEvent(window.webContents, 'review:activation-request', {
       requestId,
       reviewId,
-      document
+      document,
+      focusState
     } satisfies ReviewActivationRequest)
   })
 }
@@ -1237,10 +1240,12 @@ async function activateManagedReview(
     if (errorProperty(error, 'code') !== 'NOT_FOUND') throw error
   }
 
+  const focusState = currentWindowFocusState()
   focusMainWindow()
   const outcome = await requestRendererActivation(
     reviewId,
-    artifact ? managedDocument(artifact) : null
+    artifact ? managedDocument(artifact) : null,
+    focusState
   )
   if (artifact && (outcome === 'activated' || outcome === 'already-active')) {
     activeManagedReview = artifact
