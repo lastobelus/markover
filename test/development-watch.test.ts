@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import test from 'node:test'
 
@@ -9,6 +10,8 @@ import {
   type DevelopmentProcess
 } from '../scripts/development-watch'
 import type { ResolvedInstance } from '../src/instance'
+
+const projectDirectory = path.resolve(__dirname, '../..')
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
@@ -53,6 +56,27 @@ function canonicalInstance(
     pullRequest: null
   }
 }
+
+test('development command bootstraps before the first application build', async () => {
+  const manifest: unknown = JSON.parse(await fs.readFile(
+    path.join(projectDirectory, 'package.json'),
+    'utf8'
+  ))
+  assert.ok(manifest && typeof manifest === 'object')
+  const scripts: unknown = Reflect.get(manifest, 'scripts')
+  assert.ok(scripts && typeof scripts === 'object')
+  assert.equal(
+    Reflect.get(scripts, 'dev'),
+    'node scripts/development-watch-bootstrap.js'
+  )
+
+  const bootstrap = await fs.readFile(
+    path.join(projectDirectory, 'scripts/development-watch-bootstrap.js'),
+    'utf8'
+  )
+  assert.match(bootstrap, /buildSync/)
+  assert.doesNotMatch(bootstrap, /npm run build/)
+})
 
 test('development build inputs exclude generated and unrelated paths', () => {
   for (const filePath of [
@@ -192,9 +216,10 @@ test('restart waits for the addressed process before launching the same target',
       isProcessAlive() {
         return running
       },
-      killProcess(pid, signal) {
-        events.push(`kill:${String(pid)}:${signal}`)
+      quit(endpointPath) {
+        events.push(`quit:${endpointPath}`)
         running = false
+        return Promise.resolve()
       },
       launch(instance, appArguments) {
         events.push(
@@ -224,7 +249,7 @@ test('restart waits for the addressed process before launching the same target',
   await manager.restart()
 
   assert.deepEqual(events, [
-    'kill:90210:SIGTERM',
+    'quit:/state/markover/service.json',
     'launch:canonical:--example',
     'ready:/state/markover/service.json'
   ])
@@ -237,8 +262,9 @@ test('restart fails closed when resolution changes checkout identity', async () 
     [],
     {
       checkoutDirectory: '/checkouts/markover',
-      killProcess() {
+      quit() {
         killed = true
+        return Promise.resolve()
       },
       resolve() {
         return Promise.resolve(canonicalInstance(

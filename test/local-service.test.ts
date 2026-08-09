@@ -8,6 +8,7 @@ import test, { type TestContext } from 'node:test'
 import {
   LocalServiceError,
   readServiceConnection,
+  requestServiceQuit,
   requestJson
 } from '../src/local-client'
 import {
@@ -83,6 +84,7 @@ async function serviceFixture(
       await options.onChange?.(artifact, action)
     },
     onActivate: options.onActivate,
+    onQuit: options.onQuit,
     onUnauthorized: options.onUnauthorized,
     interpretationPolicy: options.interpretationPolicy
   })
@@ -225,6 +227,19 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
   )
 })
 
+test('authenticated quit acknowledges and invokes the app callback', async (t) => {
+  let quits = 0
+  const { endpointPath } = await serviceFixture(t, {
+    onQuit() {
+      quits += 1
+    }
+  })
+
+  await requestServiceQuit(endpointPath)
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(quits, 1)
+})
+
 test('rejects hostile credential forms before routing or bodies', async (t) => {
   const unauthorized: Array<{
     method: string
@@ -312,6 +327,7 @@ test('gates every current non-health route with real HTTP', async (t) => {
     { method: 'POST', path: '/reviews/mko_missing1/activate', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/handoff', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/edit', body: null },
+    { method: 'POST', path: '/quit', body: null },
     { method: 'GET', path: '/missing?private=secret', body: null },
     { method: 'GET', path: '/health?details=1', body: null },
     { method: 'POST', path: '/health', body: '{' }

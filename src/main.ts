@@ -1380,6 +1380,9 @@ async function startAndPublishService(): Promise<void> {
     interpretationPolicy: () => store.settings.agentInterpretationPolicy,
     beforeAction: flushManagedReview,
     onActivate: activateManagedReview,
+    onQuit() {
+      app.quit()
+    },
     async onChange(artifact, action) {
       if (action === 'created') {
         try {

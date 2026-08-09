@@ -18,7 +18,7 @@
     "link-handler": "npm run build --silent && node build/scripts/link-handler.js",
     "setup:canonical": "npm run build --silent && node build/scripts/setup-canonical.js",
     "start": "npm run build --silent && node build/scripts/start.js",
-    "dev": "npm run build --silent && node build/scripts/development-watch.js",
+    "dev": "node scripts/development-watch-bootstrap.js",
     "smoke:auth": "npm run build --silent && node build/scripts/smoke-auth.js",
     "smoke": "npm run build --silent && npm run smoke:built",
     "smoke:built": "node build/scripts/run-smoke.js",

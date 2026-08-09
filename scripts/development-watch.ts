@@ -2,7 +2,11 @@ import { spawn } from 'node:child_process'
 import { watch, type FSWatcher } from 'node:fs'
 import path from 'node:path'
 
-import { probeService, readEndpoint } from '../src/local-client'
+import {
+  probeService,
+  readEndpoint,
+  requestServiceQuit
+} from '../src/local-client'
 import type { ResolvedInstance } from '../src/instance'
 import {
   launchResolvedInstance,
@@ -160,7 +164,6 @@ interface WatchTarget {
 export interface DevelopmentInstanceManagerOptions {
   checkoutDirectory?: string | undefined
   isProcessAlive?: ((pid: number) => boolean) | undefined
-  killProcess?: ((pid: number, signal: NodeJS.Signals) => void) | undefined
   launch?: ((
     instance: ResolvedInstance,
     appArguments: readonly string[]
@@ -168,6 +171,7 @@ export interface DevelopmentInstanceManagerOptions {
   now?: (() => number) | undefined
   pollMilliseconds?: number | undefined
   probe?: ((endpointPath: string) => Promise<unknown>) | undefined
+  quit?: ((endpointPath: string) => Promise<void>) | undefined
   readProcessEndpoint?: ((endpointPath: string) => Promise<{ pid: number }>) | undefined
   resolve?: (() => Promise<ResolvedInstance>) | undefined
   timeoutMilliseconds?: number | undefined
@@ -237,7 +241,6 @@ export class DevelopmentInstanceManager {
   private activeProcess: DevelopmentProcess | null = null
   private readonly appArguments: readonly string[]
   private readonly isProcessAlive: (pid: number) => boolean
-  private readonly killProcess: (pid: number, signal: NodeJS.Signals) => void
   private readonly launch: (
     instance: ResolvedInstance,
     appArguments: readonly string[]
@@ -245,6 +248,7 @@ export class DevelopmentInstanceManager {
   private readonly now: () => number
   private readonly pollMilliseconds: number
   private readonly probe: (endpointPath: string) => Promise<unknown>
+  private readonly quit: (endpointPath: string) => Promise<void>
   private readonly readProcessEndpoint: (
     endpointPath: string
   ) => Promise<{ pid: number }>
@@ -259,11 +263,11 @@ export class DevelopmentInstanceManager {
     {
       checkoutDirectory = projectDirectory,
       isProcessAlive = processIsAlive,
-      killProcess = (pid, signal) => process.kill(pid, signal),
       launch = launchResolvedInstance,
       now = Date.now,
       pollMilliseconds = DEFAULT_POLL_MILLISECONDS,
       probe = probeService,
+      quit = requestServiceQuit,
       readProcessEndpoint = readEndpoint,
       resolve,
       timeoutMilliseconds = DEFAULT_TRANSITION_TIMEOUT_MILLISECONDS,
@@ -273,11 +277,11 @@ export class DevelopmentInstanceManager {
     this.target = targetFromInstance(initialInstance, checkoutDirectory)
     this.appArguments = appArguments
     this.isProcessAlive = isProcessAlive
-    this.killProcess = killProcess
     this.launch = launch
     this.now = now
     this.pollMilliseconds = pollMilliseconds
     this.probe = probe
+    this.quit = quit
     this.readProcessEndpoint = readProcessEndpoint
     this.resolve = resolve || (() => resolveStartInstance({
       selector: this.target.selector,
@@ -301,7 +305,7 @@ export class DevelopmentInstanceManager {
 
     if (runningPid !== null) {
       this.assertRestartEligible(current)
-      this.killProcess(runningPid, 'SIGTERM')
+      await this.quit(current.service.endpointPath)
       await this.waitForStop(runningPid)
     }
 
@@ -435,16 +439,6 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     initialInstance,
     parsed.appArguments
   )
-  let initialReady = false
-  try {
-    await manager.restart()
-    initialReady = true
-  } catch (error) {
-    process.stderr.write(
-      `markover dev initial launch: ${errorMessage(error)}\n`
-    )
-  }
-
   const controller = new DevelopmentWatchController({
     async build() {
       process.stderr.write(
@@ -466,10 +460,9 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   })
   startFilesystemWatcher(controller)
   process.stderr.write(
-    initialReady
-      ? `markover dev: watching ${manager.identityKey} for rebuilds; ready.\n`
-      : `markover dev: watching ${manager.identityKey}; awaiting a successful rebuild.\n`
+    `markover dev: watching ${manager.identityKey}; awaiting a successful rebuild.\n`
   )
+  controller.notify(null)
 }
 
 if (require.main === module) {

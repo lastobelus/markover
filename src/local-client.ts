@@ -298,3 +298,14 @@ export async function requestJson(
     )
   })
 }
+
+export async function requestServiceQuit(endpointPath: string): Promise<void> {
+  const response = await requestJson(endpointPath, 'POST', '/quit')
+  if (!isRecord(response) || response.status !== 'quitting') {
+    throw new LocalServiceError(
+      'INVALID_RESPONSE',
+      'Markover returned an invalid quit response.',
+      202
+    )
+  }
+}
