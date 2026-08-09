@@ -449,8 +449,8 @@ function parseConfig(source: string): EvaluationConfig {
 
 function validateDefinition(definition: EvaluationDefinition): void {
   const { cases, config, judgeSchema, rubric } = definition
-  if (config.schemaVersion !== 1 || config.runnerVersion !== 4) {
-    throw new Error('Only annotation evaluation schema 1 and runner version 4 are supported')
+  if (config.schemaVersion !== 1 || config.runnerVersion !== 5) {
+    throw new Error('Only annotation evaluation schema 1 and runner version 5 are supported')
   }
   if (!Number.isInteger(config.trialsPerCondition) || config.trialsPerCondition < 1) {
     throw new Error('trialsPerCondition must be a positive integer')
@@ -1269,6 +1269,7 @@ async function runJudge(
     codexPath: string
     definition: EvaluationDefinition
     directories: RuntimeDirectories
+    schemaPath: string
     evaluationCase: EvaluationCase
     prompt: string
     evidenceDirectory: string
@@ -1283,7 +1284,7 @@ async function runJudge(
       reasoningEffort: config.judge.reasoningEffort,
       workspace: input.directories.judgeWorkspace,
       sandbox: 'read-only',
-      schemaPath: path.join(evaluationDirectory, 'judge-output.schema.json'),
+      schemaPath: input.schemaPath,
       disableShell: true
     }),
     cwd: projectRoot,
@@ -1307,7 +1308,8 @@ async function runJudge(
 async function runControls(
   codexPath: string,
   definition: EvaluationDefinition,
-  directories: RuntimeDirectories
+  directories: RuntimeDirectories,
+  schemaPath: string
 ): Promise<ControlResult[]> {
   const results: ControlResult[] = []
   const totalControls = definition.cases.length * 2
@@ -1320,6 +1322,7 @@ async function runControls(
         codexPath,
         definition,
         directories,
+        schemaPath,
         evaluationCase,
         prompt: buildJudgePrompt({
           evaluationCase,
@@ -1367,6 +1370,7 @@ async function runTrial(
   codexPath: string,
   definition: EvaluationDefinition,
   directories: RuntimeDirectories,
+  schemaPath: string,
   spec: TrialSpec
 ): Promise<TrialResult> {
   const evaluationCase = findCase(definition.cases, spec.caseId)
@@ -1422,6 +1426,7 @@ async function runTrial(
     codexPath,
     definition,
     directories,
+    schemaPath,
     evaluationCase,
     prompt: buildJudgePrompt({
       evaluationCase,
@@ -1709,10 +1714,14 @@ function validateRunId(runId: string): void {
   }
 }
 
+export function pinnedJudgeSchemaPath(evidenceDirectory: string): string {
+  return path.join(evidenceDirectory, 'inputs', 'judge-output.schema.json')
+}
+
 async function writeInputs(
   definition: EvaluationDefinition,
   evidenceDirectory: string
-): Promise<void> {
+): Promise<string> {
   const inputDirectory = path.join(evidenceDirectory, 'inputs')
   await Promise.all([
     writeText(path.join(inputDirectory, 'cases.json'), definition.sources.cases),
@@ -1728,6 +1737,7 @@ async function writeInputs(
       definition.sources.agentGuidance
     )
   ])
+  return pinnedJudgeSchemaPath(evidenceDirectory)
 }
 
 export async function reserveRunRoot(runRoot: string): Promise<void> {
@@ -1837,12 +1847,17 @@ async function runEvaluation(options: RunOptions): Promise<RunResult> {
     fs.mkdir(directories.workspaces, { recursive: true }),
     initializeWorkspace(directories.judgeWorkspace)
   ])
-  await writeInputs(definition, directories.evidence)
+  const judgeSchemaPath = await writeInputs(definition, directories.evidence)
   const startedAt = new Date().toISOString()
   let controls: ControlResult[] = []
   const trials: TrialResult[] = []
   try {
-    controls = await runControls(options.codexPath, definition, directories)
+    controls = await runControls(
+      options.codexPath,
+      definition,
+      directories,
+      judgeSchemaPath
+    )
     const controlAccuracy = controls.filter(({ correct }) => correct).length /
       controls.length
     if (controlAccuracy !== definition.config.thresholds.judgeControlAccuracy) {
@@ -1856,6 +1871,7 @@ async function runEvaluation(options: RunOptions): Promise<RunResult> {
         options.codexPath,
         definition,
         directories,
+        judgeSchemaPath,
         spec
       )
       trials.push(result)

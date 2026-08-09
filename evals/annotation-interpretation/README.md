@@ -71,6 +71,9 @@ case descriptions and signal expectations remain evaluator-only.
 The first gate runs eight fixed artifact-based judge controls. The judge sees
 only each review, original document, final document, response, rubric, and
 signal definitions; it is not given the expected signal decisions or outcome.
+Before any judge starts, the runner writes the loaded output schema into the
+run-local evidence inputs and points every control and trial judgment at that
+snapshot. Later checkout edits therefore cannot change the recorded contract.
 Calibration compares every required and forbidden signal decision with the
 independently expected observations, so a negative control that fails for the
 wrong reason is itself a control failure.

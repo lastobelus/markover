@@ -14,6 +14,7 @@ import {
   executeWithInfrastructureRetries,
   inspectTrialWorkspace,
   parseCodexJsonl,
+  pinnedJudgeSchemaPath,
   reserveRunRoot,
   resetTrialWorkspace,
   sanitizeCodexJsonl,
@@ -111,6 +112,14 @@ test('Codex commands isolate config, tools, network, sessions, and reasoning', (
   assert.ok(judgeArgs.includes('features.shell_tool=false'))
   assert.ok(judgeArgs.includes('--output-schema'))
   assert.ok(judgeArgs.includes('read-only'))
+})
+
+test('judge invocations use the recorded run-local schema snapshot', () => {
+  const evidenceDirectory = '/run/evidence'
+  assert.equal(
+    pinnedJudgeSchemaPath(evidenceDirectory),
+    '/run/evidence/inputs/judge-output.schema.json'
+  )
 })
 
 test('judge prompt carries the exact case artifacts and rubric', () => {
@@ -502,7 +511,7 @@ test('rubric, schema, and package scripts preserve the agreed gates', () => {
   assert.match(eslintConfig, /'tmp\/\*\*'/)
   assert.match(packageJson.scripts['eval:annotation'] ?? '', / run$/)
   assert.match(packageJson.scripts['eval:annotation:validate'] ?? '', / validate$/)
-  assert.equal(config.runnerVersion, 4)
+  assert.equal(config.runnerVersion, 5)
   assert.deepEqual(config.thresholds, {
     judgeControlAccuracy: 1,
     guidedRequiredSignalRate: 1,
