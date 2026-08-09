@@ -188,6 +188,7 @@ let reviewConfigPromise: Promise<ReviewConfig> | null = null
 let attachmentDirectoryPromise: Promise<string> | null = null
 let attachmentSequence = 0
 let mainWindow: BrowserWindow | null = null
+let mainWindowBlurredAt: number | null = Date.now()
 let activeManagedReview: ReviewArtifact | null = null
 let activeManagedReviewId: string | null = null
 let localService: LocalService | null = null
@@ -991,6 +992,9 @@ function createWindow(
     }
   })
   mainWindow = window
+  mainWindowBlurredAt = window.isFocused()
+    ? null
+    : mainWindowBlurredAt ?? Date.now()
   rendererReadyWebContentsId = null
   rendererReadyPromise = new Promise<void>((resolve) => {
     resolveRendererReady = resolve
@@ -1010,6 +1014,22 @@ function createWindow(
     mainWindow?.setTitle(reviewMode
       ? `${addressedInstance.branding.appName} Review`
       : `${addressedInstance.branding.appName} Inbox`)
+  })
+  const publishWindowFocusState = (): void => {
+    if (mainWindow !== window || window.isDestroyed()) return
+    sendMainEvent(
+      window.webContents,
+      'window:focus-state',
+      currentWindowFocusState()
+    )
+  }
+  window.on('focus', () => {
+    mainWindowBlurredAt = null
+    publishWindowFocusState()
+  })
+  window.on('blur', () => {
+    mainWindowBlurredAt = Date.now()
+    publishWindowFocusState()
   })
   window.webContents.on('preload-error', (_event, preloadPath, error) => {
     markRendererStartupFailed()
@@ -1063,6 +1083,7 @@ function createWindow(
   })
   window.on('closed', () => {
     if (mainWindow === window) {
+      mainWindowBlurredAt = Date.now()
       mainWindow = null
       rendererIpcEntry = null
     }
@@ -1079,6 +1100,14 @@ function createWindow(
     })
   }
   return window
+}
+
+function currentWindowFocusState(): MarkoverWindowFocusState {
+  const focused = mainWindow?.isFocused() === true
+  return {
+    focused,
+    blurredAt: focused ? null : mainWindowBlurredAt
+  }
 }
 
 function repositoryRoot(artifact: ReviewArtifact): string | null {
@@ -1123,25 +1152,13 @@ async function managedDocuments(
   }))
 }
 
-function sendManagedReview(artifact: ReviewArtifact): void {
-  activeManagedReview = artifact
-  activeManagedReviewId = artifact.review.id
+async function sendManagedReview(artifact: ReviewArtifact): Promise<void> {
   installApplicationMenu()
   if (!mainWindow) createWindow({ show: false })
   if (!mainWindow) throw new Error('Markover window could not be created.')
   const window = mainWindow
-  const send = () => {
-    sendMainEvent(
-      window.webContents,
-      'review:opened',
-      managedDocument(artifact)
-    )
-  }
-  if (window.webContents.isLoadingMainFrame()) {
-    window.webContents.once('did-finish-load', send)
-  } else {
-    send()
-  }
+  await waitForRendererReady(window)
+  sendMainEvent(window.webContents, 'review:opened', managedDocument(artifact))
 }
 
 function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
@@ -1381,7 +1398,7 @@ async function startAndPublishService(): Promise<void> {
       managedStore.directory
     ),
     async onChange(artifact, action) {
-      if (action === 'created') sendManagedReview(artifact)
+      if (action === 'created') await sendManagedReview(artifact)
       else await sendManagedStatus(artifact)
     },
     onUnauthorized(event) {
@@ -1872,6 +1889,7 @@ if (!hasSingleInstanceLock) {
       const settings = await store.update(patch)
       return applyMainSettings(settings)
     })
+    privilegedIpc.handle('window:focus-state:get', currentWindowFocusState)
     privilegedIpc.handle('review:initial-document', () => (
       reviewMode
         ? reviewDocumentPromise

@@ -52,6 +52,11 @@ declare global {
   type TreeDensity = 'comfortable' | 'compact'
   type AnnotationTextSize = 'small' | 'medium' | 'large'
   type DefaultTreeView = 'all' | 'annotated'
+  type IncomingReviewActivationPolicy =
+    | 'never'
+    | 'always'
+    | 'warn'
+    | 'when-idle'
   type DarkColorization = 'high' | 'mid' | 'low'
 
   interface AgentGuidance {
@@ -75,6 +80,8 @@ declare global {
     openDocumentsSidebar: boolean
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
+    incomingReviewActivationPolicy: IncomingReviewActivationPolicy
+    incomingReviewIdleMinutes: number
     discoverAgentThreadFromLocalSessions: boolean
     logRejectedApiRequests: boolean
     agentInterpretationPolicy: string
@@ -111,6 +118,7 @@ declare global {
       treeDensity: readonly TreeDensity[]
       annotationTextSize: readonly AnnotationTextSize[]
       defaultTreeView: readonly DefaultTreeView[]
+      incomingReviewActivationPolicy: readonly IncomingReviewActivationPolicy[]
     }>
     normalizeSettings: (value?: unknown) => MarkoverSettings
     updateSettings: (current: unknown, patch: unknown) => MarkoverSettings
@@ -484,6 +492,11 @@ declare global {
     error?: string
   }
 
+  interface MarkoverWindowFocusState {
+    focused: boolean
+    blurredAt: number | null
+  }
+
   interface MarkoverBridge {
     getStartupInfo: () => Promise<StartupInfo>
     reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
@@ -547,6 +560,10 @@ declare global {
     cancelReview: () => void
     getSettings: () => Promise<MarkoverSettingsEnvelope>
     updateSettings: (patch: unknown) => Promise<MarkoverSettingsEnvelope>
+    getWindowFocusState: () => Promise<MarkoverWindowFocusState>
+    onWindowFocusChanged: (
+      callback: (state: MarkoverWindowFocusState) => void
+    ) => void
     onSettingsOpen: (callback: () => void) => void
     onSettingsChanged: (
       callback: (settings: MarkoverSettingsEnvelope) => void

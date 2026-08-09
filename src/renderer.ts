@@ -11,6 +11,10 @@ import * as MarkoverAgentGuidance from './agent-guidance'
 import * as MarkoverAnnotationBlock from './annotation-block'
 import * as MarkoverAnnotations from './annotations'
 import { autosaveFailureMessage } from './durability-status'
+import {
+  appendIncomingReview,
+  incomingReviewAction
+} from './incoming-review-policy'
 import * as MarkoverImagePreview from './image-preview'
 import * as MarkoverNavigation from './navigation'
 import * as MarkoverReviewSessions from './review-sessions'
@@ -124,6 +128,13 @@ const elements = {
   imagePreviewClose: requiredElement<HTMLButtonElement>('#image-preview-close'),
   imagePreviewContent: requiredElement<HTMLImageElement>('#image-preview-content'),
   imagePreviewLabel: requiredElement('#image-preview-label'),
+  incomingReviewDialog: requiredElement<HTMLDialogElement>('#incoming-review-dialog'),
+  incomingReviewDialogKeep: requiredElement<HTMLButtonElement>('#incoming-review-dialog-keep'),
+  incomingReviewDialogMessage: requiredElement('#incoming-review-dialog-message'),
+  incomingReviewDialogOpen: requiredElement<HTMLButtonElement>('#incoming-review-dialog-open'),
+  incomingReviewNotice: requiredElement('#incoming-review-notice'),
+  incomingReviewNoticeMessage: requiredElement('#incoming-review-notice-message'),
+  incomingReviewNoticeOpen: requiredElement<HTMLButtonElement>('#incoming-review-notice-open'),
   keyboardHelp: requiredElement('.keyboard-help'),
   name: requiredElement('#document-name'),
   openButton: requiredElement<HTMLButtonElement>('#open-button'),
@@ -222,6 +233,16 @@ let sourceDiffRenderer: DiffRenderer | null = null
 let paneResizeLayoutFrame: number | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
+let windowFocusState: MarkoverWindowFocusState = {
+  focused: false,
+  blurredAt: Date.now()
+}
+let incomingReviewQueue: Promise<void> = Promise.resolve()
+let incomingReviewNoticeCount = 0
+let incomingReviewNoticeId: string | null = null
+let incomingReviewNoticeTimer: ReturnType<typeof setTimeout> | null = null
+let incomingReviewWarningCount = 0
+let incomingReviewWarningId: string | null = null
 let smokeRuntimeClean = true
 const smokeRuntimeDiagnostics: string[] = []
 const consoleError = console.error.bind(console)
@@ -271,6 +292,7 @@ const BRIDGE_METHODS = [
   'getReviews',
   'getSettings',
   'getStartupInfo',
+  'getWindowFocusState',
   'onOpenMarkdownRequested',
   'onReviewOpened',
   'onReviewTrashed',
@@ -278,6 +300,7 @@ const BRIDGE_METHODS = [
   'onReviewStatus',
   'onSettingsChanged',
   'onSettingsOpen',
+  'onWindowFocusChanged',
   'openMarkdown',
   'openReviewContextMenu',
   'readClipboardImage',
@@ -1500,6 +1523,116 @@ function showToast(message: string): void {
   }, 1500)
 }
 
+function hideIncomingReviewNotice(): void {
+  if (incomingReviewNoticeTimer) clearTimeout(incomingReviewNoticeTimer)
+  incomingReviewNoticeTimer = null
+  incomingReviewNoticeCount = 0
+  incomingReviewNoticeId = null
+  elements.incomingReviewNotice.hidden = true
+}
+
+function scheduleIncomingReviewNoticeDismissal(): void {
+  if (incomingReviewNoticeTimer) clearTimeout(incomingReviewNoticeTimer)
+  incomingReviewNoticeTimer = null
+  if (!windowFocusState.focused || elements.incomingReviewNotice.hidden) return
+  incomingReviewNoticeTimer = setTimeout(hideIncomingReviewNotice, 6000)
+}
+
+function showIncomingReviewNotice(session: ReviewSession): void {
+  const batch = appendIncomingReview(
+    elements.incomingReviewNotice.hidden
+      ? null
+      : {
+          count: incomingReviewNoticeCount,
+          latestReviewId: incomingReviewNoticeId || session.reviewId
+        },
+    session.reviewId
+  )
+  incomingReviewNoticeCount = batch.count
+  incomingReviewNoticeId = batch.latestReviewId
+  elements.incomingReviewNoticeMessage.textContent = incomingReviewNoticeCount === 1
+    ? `New review added: ${session.documentName}`
+    : `${String(incomingReviewNoticeCount)} new reviews added. Latest: ${session.documentName}`
+  elements.incomingReviewNotice.hidden = false
+  scheduleIncomingReviewNoticeDismissal()
+}
+
+function clearIncomingReviewWarning(): void {
+  incomingReviewWarningCount = 0
+  incomingReviewWarningId = null
+  if (elements.incomingReviewDialog.open) elements.incomingReviewDialog.close()
+}
+
+function showIncomingReviewWarning(session: ReviewSession): void {
+  const batch = appendIncomingReview(
+    elements.incomingReviewDialog.open
+      ? {
+          count: incomingReviewWarningCount,
+          latestReviewId: incomingReviewWarningId || session.reviewId
+        }
+      : null,
+    session.reviewId
+  )
+  incomingReviewWarningCount = batch.count
+  incomingReviewWarningId = batch.latestReviewId
+  elements.incomingReviewDialogMessage.textContent =
+    incomingReviewWarningCount === 1
+      ? `“${session.documentName}” was added. Open it instead of the current review?`
+      : `${String(incomingReviewWarningCount)} new reviews were added. Open the most recent, “${session.documentName}”?`
+  if (!elements.incomingReviewDialog.open) {
+    elements.incomingReviewDialog.showModal()
+    elements.incomingReviewDialogKeep.focus()
+  }
+}
+
+async function activateIncomingReview(
+  reviewId: string,
+  focusPreview: boolean
+): Promise<void> {
+  const outcome = await activateReview(reviewId)
+  if (outcome === 'blocked') {
+    const session = reviewSessions.get(reviewId)
+    if (session) showIncomingReviewNotice(session)
+    return
+  }
+  if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
+  if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
+  if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
+}
+
+async function handleIncomingReview(
+  reviewDocument: MarkoverDocument
+): Promise<void> {
+  const session = addManagedReview(managedReviewDocument(reviewDocument), false)
+  const action = incomingReviewAction({
+    focusState: windowFocusState,
+    hasActiveDocument: state.tree !== null,
+    idleMinutes: preferences.incomingReviewIdleMinutes,
+    now: Date.now(),
+    policy: preferences.incomingReviewActivationPolicy
+  })
+  if (action === 'warn') {
+    showIncomingReviewWarning(session)
+    return
+  }
+  if (action === 'notify') {
+    showIncomingReviewNotice(session)
+    return
+  }
+  await activateIncomingReview(session.reviewId, windowFocusState.focused)
+}
+
+function queueIncomingReview(reviewDocument: MarkoverDocument): Promise<void> {
+  incomingReviewQueue = incomingReviewQueue.then(
+    () => handleIncomingReview(reviewDocument),
+    () => handleIncomingReview(reviewDocument)
+  ).catch((error: unknown) => {
+    console.error('Failed to add incoming review', error)
+    showToast('Could not add the incoming review')
+  })
+  return incomingReviewQueue
+}
+
 function autosaveReview(): void {
   autosaveTree(state.reviewId, state.tree)
 }
@@ -2162,8 +2295,28 @@ elements.settingsForm.addEventListener('change', (event) => {
   }
   const value = control instanceof HTMLInputElement && control.type === 'checkbox'
     ? control.checked
-    : control.value
+    : control instanceof HTMLInputElement && control.type === 'number'
+      ? control.valueAsNumber
+      : control.value
   void bridge.updateSettings({ [control.name]: value }).then(applySettings)
+})
+
+elements.incomingReviewDialogKeep.addEventListener('click', () => {
+  clearIncomingReviewWarning()
+})
+elements.incomingReviewDialogOpen.addEventListener('click', () => {
+  const reviewId = incomingReviewWarningId
+  clearIncomingReviewWarning()
+  if (reviewId) void activateIncomingReview(reviewId, true)
+})
+elements.incomingReviewDialog.addEventListener('close', () => {
+  incomingReviewWarningCount = 0
+  incomingReviewWarningId = null
+})
+elements.incomingReviewNoticeOpen.addEventListener('click', () => {
+  const reviewId = incomingReviewNoticeId
+  hideIncomingReviewNotice()
+  if (reviewId) void activateIncomingReview(reviewId, true)
 })
 
 function focusedPane(): WorkspacePane {
@@ -2410,6 +2563,7 @@ async function activateReview(
   reviewId: string
 ): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
+  configureManagedMode()
   if (reviewId === state.reviewId) return 'already-active'
   state.finishAttachmentLabelEdit?.(true)
   const currentReviewId = state.reviewId
@@ -3151,6 +3305,11 @@ async function rendererSmokeResult(): Promise<{
 async function initialize(): Promise<void> {
   const startupInfo = await bridge.getStartupInfo()
   startupUi.development(startupInfo.development)
+  bridge.onWindowFocusChanged((focusState) => {
+    windowFocusState = focusState
+    scheduleIncomingReviewNoticeDismissal()
+  })
+  windowFocusState = await bridge.getWindowFocusState()
   bridge.onOpenMarkdownRequested(() => {
     void openMarkdownDocument()
   })
@@ -3163,10 +3322,8 @@ async function initialize(): Promise<void> {
   }, false)
   await rendererStartupPhase(startupInfo, 'loading-brand', themeBrandAssets)
 
-  bridge.onReviewOpened(async (reviewDocument) => {
-    configureManagedMode()
-    await loadDocument(reviewDocument)
-    elements.previewPane.focus()
+  bridge.onReviewOpened((reviewDocument) => {
+    return queueIncomingReview(reviewDocument)
   })
   bridge.onReviewTrashed(({ reviewId }) => {
     void handleReviewTrashed(reviewId).catch((error: unknown) => {
@@ -3182,7 +3339,12 @@ async function initialize(): Promise<void> {
     if (!reviewSessions.get(reviewId)) {
       addManagedReview(managedReviewDocument(document), false)
     }
-    return activateReview(reviewId)
+    const outcome = await activateReview(reviewId)
+    if (outcome === 'activated' || outcome === 'already-active') {
+      if (incomingReviewNoticeId === reviewId) hideIncomingReviewNotice()
+      if (incomingReviewWarningId === reviewId) clearIncomingReviewWarning()
+    }
+    return outcome
   })
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)

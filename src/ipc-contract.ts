@@ -38,6 +38,8 @@ const SETTINGS_KEYS = [
   'openDocumentsSidebar',
   'defaultTreeView',
   'confirmAttachmentRemoval',
+  'incomingReviewActivationPolicy',
+  'incomingReviewIdleMinutes',
   'discoverAgentThreadFromLocalSessions',
   'logRejectedApiRequests',
   'agentInterpretationPolicy',
@@ -80,6 +82,7 @@ export interface RendererInvokeArguments {
   'review:autosave-status:get': []
   'settings:get': []
   'settings:update': [unknown]
+  'window:focus-state:get': []
   'review:initial-document': []
   'review:list': []
   'review:context-menu:open': [ReviewContextMenuRequest]
@@ -102,6 +105,7 @@ export interface RendererInvokeResults {
   'review:autosave-status:get': ReviewAutosaveStatus
   'settings:get': MarkoverSettingsEnvelope
   'settings:update': MarkoverSettingsEnvelope
+  'window:focus-state:get': MarkoverWindowFocusState
   'review:initial-document': MarkoverDocument | null
   'review:list': MarkoverDocument[]
   'review:context-menu:open': undefined
@@ -124,6 +128,7 @@ export interface MainEventArguments {
   'document:open-request': []
   'settings:open': []
   'settings:changed': [MarkoverSettingsEnvelope]
+  'window:focus-state': [MarkoverWindowFocusState]
   'review:opened': [MarkoverDocument]
   'review:status': [ReviewStatusRequest]
   'review:snapshot-request': [ReviewSnapshotRequest]
@@ -491,6 +496,11 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'treeDensity': return value === 'comfortable' || value === 'compact'
     case 'annotationTextSize': return value === 'small' || value === 'medium' || value === 'large'
     case 'defaultTreeView': return value === 'all' || value === 'annotated'
+    case 'incomingReviewActivationPolicy':
+      return value === 'never' ||
+        value === 'always' ||
+        value === 'warn' ||
+        value === 'when-idle'
     case 'showKeyboardHelp':
     case 'openDocumentsSidebar':
     case 'confirmAttachmentRemoval':
@@ -503,6 +513,11 @@ function settingsValueValid(key: string, value: unknown): boolean {
         Number.isInteger(value) &&
         value >= 100 &&
         value <= 60_000
+    case 'incomingReviewIdleMinutes':
+      return typeof value === 'number' &&
+        Number.isInteger(value) &&
+        value >= 1 &&
+        value <= 60
     default: return false
   }
 }
@@ -520,6 +535,13 @@ function isSettingsEnvelope(value: unknown): value is MarkoverSettingsEnvelope {
   return hasExactKeys(value, [...SETTINGS_KEYS, 'resolvedAppearance']) &&
     SETTINGS_KEYS.every((key) => settingsValueValid(key, value[key])) &&
     (value.resolvedAppearance === 'light' || value.resolvedAppearance === 'dark')
+}
+
+function isWindowFocusState(value: unknown): value is MarkoverWindowFocusState {
+  if (!hasExactKeys(value, ['focused', 'blurredAt'])) return false
+  if (typeof value.focused !== 'boolean') return false
+  if (value.focused) return value.blurredAt === null
+  return value.blurredAt === null || isPositiveInteger(value.blurredAt)
 }
 
 function isReviewStatusRequest(value: unknown): value is ReviewStatusRequest {
@@ -655,6 +677,7 @@ export function assertRendererInvokeArguments(
     case 'clipboard:read-image':
     case 'review:autosave-status:get':
     case 'settings:get':
+    case 'window:focus-state:get':
     case 'review:initial-document':
     case 'review:list':
       valid = noArguments(args)
@@ -764,6 +787,7 @@ export function assertRendererInvokeResult(
     case 'settings:update':
       valid = isSettingsEnvelope(value)
       break
+    case 'window:focus-state:get': valid = isWindowFocusState(value); break
     case 'review:list':
       valid = Array.isArray(value) && value.every(isDocument)
       break
@@ -782,6 +806,7 @@ export function assertMainEventArguments(
       valid = noArguments(args)
       break
     case 'settings:changed': valid = singleArgument(args, isSettingsEnvelope); break
+    case 'window:focus-state': valid = singleArgument(args, isWindowFocusState); break
     case 'review:opened': valid = singleArgument(args, isDocument); break
     case 'review:status': valid = singleArgument(args, isReviewStatusRequest); break
     case 'review:snapshot-request':

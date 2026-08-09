@@ -12,12 +12,52 @@ const read = (relativePath: string): string => fs.readFileSync(
 test('agent review events update the renderer without showing or focusing it', () => {
   const main = read('src/main.ts')
   const managedReview = main.match(
-    /function sendManagedReview\(artifact: ReviewArtifact\): void \{[\s\S]*?\n\}/
+    /async function sendManagedReview\(artifact: ReviewArtifact\): Promise<void> \{[\s\S]*?\n\}/
   )?.[0] || ''
 
   assert.match(managedReview, /sendMainEvent\([\s\S]*'review:opened'/)
   assert.match(managedReview, /createWindow\(\{ show: false \}\)/)
+  assert.match(managedReview, /await waitForRendererReady\(window\)/)
   assert.doesNotMatch(managedReview, /\.show\(\)|\.focus\(\)|\.restore\(\)/)
+  assert.doesNotMatch(managedReview, /activeManagedReview(Id)? = artifact/)
+})
+
+test('native window focus state reaches the renderer without activating Markover', () => {
+  const main = read('src/main.ts')
+  const preload = read('src/preload.ts')
+
+  assert.match(main, /window\.on\('focus',[\s\S]*mainWindowBlurredAt = null/)
+  assert.match(main, /window\.on\('blur',[\s\S]*mainWindowBlurredAt = Date\.now\(\)/)
+  assert.match(main, /privilegedIpc\.handle\('window:focus-state:get', currentWindowFocusState\)/)
+  assert.match(preload, /getWindowFocusState:.*window:focus-state:get/)
+  assert.match(preload, /onWindowFocusChanged:[\s\S]*window:focus-state/)
+})
+
+test('incoming reviews are listed before the activation policy runs', () => {
+  const renderer = read('src/renderer.ts')
+  const handler = renderer.match(
+    /async function handleIncomingReview\([\s\S]*?\n\}/
+  )?.[0] || ''
+
+  assert.match(handler, /addManagedReview\(managedReviewDocument\(reviewDocument\), false\)/)
+  assert.match(handler, /incomingReviewAction\(\{/)
+  assert.match(handler, /if \(action === 'warn'\)[\s\S]*showIncomingReviewWarning/)
+  assert.match(handler, /if \(action === 'notify'\)[\s\S]*showIncomingReviewNotice/)
+  assert.match(handler, /activateIncomingReview\(session\.reviewId, windowFocusState\.focused\)/)
+})
+
+test('warning and notice UI keep the current review safe and target the latest arrival', () => {
+  const renderer = read('src/renderer.ts')
+  const html = read('src/index.html')
+
+  assert.match(html, /id="incoming-review-dialog-keep"[\s\S]*>Keep Current</)
+  assert.match(html, /id="incoming-review-dialog-open"[\s\S]*>Open New Review</)
+  assert.match(html, /id="incoming-review-notice-open"[^>]*>Open</)
+  assert.match(renderer, /appendIncomingReview\([\s\S]*incomingReviewWarningId = batch\.latestReviewId/)
+  assert.match(renderer, /incomingReviewDialogKeep\.focus\(\)/)
+  assert.match(renderer, /const reviewId = incomingReviewWarningId[\s\S]*activateIncomingReview\(reviewId, true\)/)
+  assert.match(renderer, /const reviewId = incomingReviewNoticeId[\s\S]*activateIncomingReview\(reviewId, true\)/)
+  assert.match(renderer, /if \(!windowFocusState\.focused \|\| elements\.incomingReviewNotice\.hidden\) return/)
 })
 
 test('preload exposes one exact typed capability object', () => {

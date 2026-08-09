@@ -2286,6 +2286,47 @@ body.is-control-pressed .attachment-remove:hover {
   transform: translate(-50%, 0);
 }
 
+.incoming-review-notice {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 6;
+  display: flex;
+  max-width: min(430px, calc(100vw - 48px));
+  align-items: center;
+  gap: 12px;
+  padding: 10px 11px 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 12px 36px rgb(15 12 10 / 24%);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.incoming-review-notice[hidden] {
+  display: none;
+}
+
+.incoming-review-notice span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.incoming-review-notice button {
+  flex: none;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--primary-contrast);
+  background: var(--accent);
+  cursor: pointer;
+  font: 800 10px/1 ui-sans-serif, -apple-system, sans-serif;
+}
+
 .image-preview {
   position: fixed;
   inset: 0;
@@ -2573,6 +2614,22 @@ body.is-control-pressed .attachment-remove:hover {
   font: 700 11px/1 ui-sans-serif, -apple-system, sans-serif;
 }
 
+.settings-field input[type="number"] {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--input);
+  font: 700 11px/1 ui-sans-serif, -apple-system, sans-serif;
+}
+
+.settings-field :is(select, input)[disabled] {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .settings-policy-field {
   grid-template-columns: minmax(0, 0.7fr) minmax(220px, 1.3fr);
   padding: 12px 0;
@@ -2604,6 +2661,23 @@ body.is-control-pressed .attachment-remove:hover {
 
 .fixed-contract-dialog {
   width: min(540px, calc(100vw - 64px));
+}
+
+.incoming-review-dialog {
+  width: min(480px, calc(100vw - 64px));
+}
+
+.incoming-review-dialog-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.incoming-review-dialog p {
+  margin: 0;
+  padding: 22px 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .fixed-contract-layout {
