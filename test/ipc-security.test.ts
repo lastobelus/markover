@@ -198,6 +198,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     /privilegedIpc\.(?:handle|on)\(\s*'([^']+)'/g
   )].map((match) => match[1]).sort()
   assert.deepEqual(registrations, [
+    'attachment:remove',
     'attachment:save',
     'brand:assets',
     'clipboard:read-image',
@@ -209,6 +210,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:autosave',
     'review:autosave-status:get',
     'review:cancel',
+    'review:context-menu:open',
     'review:done',
     'review:initial-document',
     'review:list',

@@ -46,3 +46,30 @@ test('review mode disables opening an unrelated Markdown document', () => {
   assert.ok(openItem)
   assert.equal(openItem.enabled, false)
 })
+
+test('Review menu keeps deletion and cleanup extensible and state-aware', () => {
+  const template = applicationMenuTemplate({
+    isMac: true,
+    canCleanUpAttachments: true,
+    canTrashReview: true,
+    onCleanUpAttachments: () => {},
+    onTrashReview: () => {}
+  })
+  const reviewMenu = template.find((item) => item.label === 'Review')
+  assert.ok(reviewMenu)
+  const items = submenu(reviewMenu)
+  const trash = items.find((item) => item.id === 'review.move-to-trash')
+  const cleanup = items.find(
+    (item) => item.id === 'review.clean-up-unused-attachments'
+  )
+  assert.equal(trash?.enabled, true)
+  assert.equal(cleanup?.enabled, true)
+  assert.equal(typeof trash.click, 'function')
+  assert.equal(typeof cleanup.click, 'function')
+
+  const disabled = applicationMenuTemplate({ isMac: true })
+  const disabledReview = disabled.find((item) => item.label === 'Review')
+  assert.ok(disabledReview)
+  assert.equal(submenu(disabledReview)[0]?.enabled, false)
+  assert.equal(submenu(disabledReview)[2]?.enabled, false)
+})

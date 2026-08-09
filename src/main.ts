@@ -32,7 +32,10 @@ import {
 } from './instance'
 import {
   assertMainEventArguments,
-  type MainEventChannel
+  type AttachmentRemoveRequest,
+  type AttachmentRemoveResult,
+  type MainEventChannel,
+  type ReviewContextMenuRequest
 } from './ipc-contract'
 import {
   PrivilegedIpc,
@@ -46,7 +49,12 @@ import {
   registerProtocolOnFirstLaunch,
   SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT
 } from './protocol-registration'
-import { ReviewStore, type ReviewArtifact } from './review-store'
+import {
+  reviewDeletionPolicy,
+  ReviewStore,
+  type ReviewArtifact,
+  type UnusedAttachmentScan
+} from './review-store'
 import { parseReviewUrl, type ReviewUrl } from './review-url'
 import { ReviewUrlDispatcher } from './review-url-dispatcher'
 import {
@@ -474,15 +482,245 @@ function sendRendererEvent(
 function installApplicationMenu(): void {
   const template = applicationMenuTemplate({
     appName: addressedInstance.branding.appName,
+    canCleanUpAttachments: !reviewMode,
+    canTrashReview: !reviewMode && activeManagedReviewId !== null,
     reviewMode,
+    onCleanUpAttachments: () => {
+      void cleanUpUnusedAttachments().catch(showReviewOperationError)
+    },
     onOpen: () => {
       sendRendererEvent('document:open-request')
     },
     onSettings: () => {
       sendRendererEvent('settings:open')
+    },
+    onTrashReview: () => {
+      if (activeManagedReviewId) {
+        void moveReviewToTrash(activeManagedReviewId).catch(
+          showReviewOperationError
+        )
+      }
     }
   })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+function formatByteCount(bytes: number): string {
+  if (bytes < 1024) return `${String(bytes)} B`
+  const units = ['KB', 'MB', 'GB']
+  let value = bytes / 1024
+  let unit = units[0]
+  for (let index = 1; index < units.length && value >= 1024; index += 1) {
+    value /= 1024
+    unit = units[index]
+  }
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${unit}`
+}
+
+function resumeManagedMutationsUnlessShuttingDown(): void {
+  if (!managedShutdownStarted) resumeManagedMutations()
+}
+
+async function showReviewOperationError(error: unknown): Promise<void> {
+  process.stderr.write(`markover review cleanup: ${errorMessage(error)}\n`)
+  const options = {
+    type: 'error' as const,
+    buttons: ['OK'],
+    defaultId: 0,
+    noLink: true,
+    message: 'Markover could not complete that review operation.',
+    detail: errorMessage(error)
+  }
+  const window = mainWindow
+  if (window && !window.isDestroyed()) await dialog.showMessageBox(window, options)
+  else await dialog.showMessageBox(options)
+}
+
+async function withManagedMutationsPaused<T>(
+  operation: () => Promise<T>,
+  reviewId: string | null = null
+): Promise<T> {
+  if (reviewMode || managedShutdownStarted) {
+    throw new Error('Managed review changes are unavailable right now.')
+  }
+  setManagedRendererPause(true)
+  try {
+    await localService?.pauseMutations()
+    if (reviewId) {
+      const artifact = await requireReviewStore().load(reviewId)
+      if (artifact.review.status === 'editing') {
+        const tree = await requestRendererSnapshot(reviewId, 'shutdown')
+        if (tree) await requireManagedAutosave().saveNow(reviewId, tree)
+      }
+    } else {
+      await captureEditableManagedReviews()
+    }
+    managedAttachmentSavesBlocked = true
+    await managedAttachmentMutations.wait()
+    await requireManagedAutosave().flushAll()
+    return await operation()
+  } finally {
+    resumeManagedMutationsUnlessShuttingDown()
+  }
+}
+
+async function confirmReviewTrash(reviewId: string): Promise<boolean> {
+  const artifact = await requireReviewStore().load(reviewId)
+  const pendingAgent = reviewDeletionPolicy(artifact.review.status) ===
+    'pending-agent'
+  const options = {
+    type: 'warning' as const,
+    buttons: ['Move to Trash', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    message: pendingAgent
+      ? 'Move this review to Trash while it is with the agent?'
+      : 'Move this review to Trash?',
+    detail: [
+      pendingAgent
+        ? 'The agent may still be using this review. Its next read or update will fail.'
+        : 'This removes the review from Markover.',
+      '',
+      `The entire ${reviewId} review directory, including its attachments, will move to the macOS Trash. Existing review links will no longer open it.`
+    ].join('\n')
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showMessageBox(window, options)
+    : await dialog.showMessageBox(options)
+  return result.response === 0
+}
+
+async function moveReviewToTrash(reviewId: string): Promise<void> {
+  await withManagedMutationsPaused(async () => {
+    if (!await confirmReviewTrash(reviewId)) return
+    await requireReviewStore().trashReview(
+      reviewId,
+      (target) => shell.trashItem(target)
+    )
+    if (activeManagedReviewId === reviewId) {
+      activeManagedReviewId = null
+      activeManagedReview = null
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      sendMainEvent(mainWindow.webContents, 'review:trashed', { reviewId })
+    }
+    installApplicationMenu()
+  }, reviewId)
+}
+
+async function confirmUnusedAttachmentCleanup(
+  scan: UnusedAttachmentScan
+): Promise<boolean> {
+  const skipped = new Set(scan.warnings.map((warning) => warning.reviewId)).size
+  if (!scan.candidates.length) {
+    const detail = skipped
+      ? `No unused attachments were found. ${String(skipped)} review(s) could not be inspected and were left untouched.`
+      : 'No unused attachments were found.'
+    const options = {
+      type: 'info' as const,
+      buttons: ['OK'],
+      message: 'Review attachments are already clean.',
+      detail
+    }
+    const window = mainWindow
+    if (window && !window.isDestroyed()) await dialog.showMessageBox(window, options)
+    else await dialog.showMessageBox(options)
+    return false
+  }
+  const detail = [
+    `${String(scan.candidates.length)} unreferenced attachment file(s), ${formatByteCount(scan.totalBytes)}, will move to the macOS Trash.`,
+    skipped
+      ? `${String(skipped)} invalid or unreadable review(s) could not be inspected and will be left untouched.`
+      : null
+  ].filter((line): line is string => line !== null).join('\n\n')
+  const options = {
+    type: 'warning' as const,
+    buttons: ['Move Attachments to Trash', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    message: 'Clean up unused review attachments?',
+    detail
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showMessageBox(window, options)
+    : await dialog.showMessageBox(options)
+  return result.response === 0
+}
+
+async function cleanUpUnusedAttachments(): Promise<void> {
+  await withManagedMutationsPaused(async () => {
+    const scan = await requireReviewStore().scanUnusedAttachments()
+    if (!await confirmUnusedAttachmentCleanup(scan)) return
+    await requireReviewStore().trashUnusedAttachments(
+      scan,
+      (target) => shell.trashItem(target)
+    )
+  })
+}
+
+async function removeManagedAttachment(
+  request: AttachmentRemoveRequest
+): Promise<AttachmentRemoveResult> {
+  if (managedAttachmentSavesBlocked) {
+    throw new Error('Markover is finishing review saves before another change.')
+  }
+  const confirmRemoval = settingsStore?.settings.confirmAttachmentRemoval ??
+    DEFAULT_SETTINGS.confirmAttachmentRemoval
+  if (confirmRemoval) {
+    const options = {
+      type: 'warning' as const,
+      buttons: ['Remove Attachment', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+      message: `Remove ${request.attachmentId} from this review?`,
+      detail: 'The updated review will be saved first, then the attachment file will move to the macOS Trash.'
+    }
+    const window = mainWindow
+    const result = window && !window.isDestroyed()
+      ? await dialog.showMessageBox(window, options)
+      : await dialog.showMessageBox(options)
+    if (result.response !== 0) {
+      return {
+        reviewId: request.reviewId,
+        attachmentId: request.attachmentId,
+        outcome: 'cancelled'
+      }
+    }
+  }
+
+  await requireManagedAutosave().flush(request.reviewId)
+  const artifact = await requireReviewStore().removeAttachment(
+    request.reviewId,
+    request.attachmentId,
+    request.tree,
+    (target) => shell.trashItem(target)
+  )
+  if (activeManagedReviewId === request.reviewId) activeManagedReview = artifact
+  return {
+    reviewId: request.reviewId,
+    attachmentId: request.attachmentId,
+    outcome: 'trashed'
+  }
+}
+
+async function openReviewContextMenu(
+  event: IpcMainInvokeEvent,
+  reviewId: string
+): Promise<void> {
+  await requireReviewStore().load(reviewId)
+  const menu = Menu.buildFromTemplate([{
+    label: 'Move Review to Trash…',
+    click: () => {
+      void moveReviewToTrash(reviewId).catch(showReviewOperationError)
+    }
+  }])
+  const window = BrowserWindow.fromWebContents(event.sender)
+  menu.popup(window ? { window } : undefined)
 }
 
 function checksum(source: string): string {
@@ -873,6 +1111,7 @@ async function managedDocuments(
 function sendManagedReview(artifact: ReviewArtifact): void {
   activeManagedReview = artifact
   activeManagedReviewId = artifact.review.id
+  installApplicationMenu()
   if (!mainWindow) createWindow({ show: false })
   if (!mainWindow) throw new Error('Markover window could not be created.')
   const window = mainWindow
@@ -1021,6 +1260,7 @@ async function activateManagedReview(
   if (artifact && (outcome === 'activated' || outcome === 'already-active')) {
     activeManagedReview = artifact
     activeManagedReviewId = reviewId
+    installApplicationMenu()
   }
   if (
     (artifact === null && outcome !== 'missing') ||
@@ -1600,6 +1840,10 @@ if (!hasSingleInstanceLock) {
           ))
         : saveAttachment(event, attachment, reviewId)
     })
+    privilegedIpc.handle('attachment:remove', (
+      _event: IpcMainInvokeEvent,
+      request: AttachmentRemoveRequest
+    ) => managedAttachmentMutations.track(() => removeManagedAttachment(request)))
     privilegedIpc.handle('clipboard:read-image', readClipboardImage)
     privilegedIpc.handle(
       'review:autosave-status:get',
@@ -1634,6 +1878,10 @@ if (!hasSingleInstanceLock) {
         throw error
       }
     })
+    privilegedIpc.handle('review:context-menu:open', (
+      event: IpcMainInvokeEvent,
+      request: ReviewContextMenuRequest
+    ) => openReviewContextMenu(event, request.reviewId))
     privilegedIpc.on('review:snapshot-response', (
       _event: IpcMainEvent,
       response: ReviewSnapshotResponse
@@ -1687,6 +1935,7 @@ if (!hasSingleInstanceLock) {
       managedStore.load(reviewId).then((artifact) => {
         if (activeManagedReviewId === reviewId) {
           activeManagedReview = artifact
+          installApplicationMenu()
         }
       }).catch((error: unknown) => {
         process.stderr.write(`markover activate: ${errorMessage(error)}\n`)

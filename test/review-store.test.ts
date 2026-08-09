@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import {
   assertReviewTree,
+  reviewDeletionPolicy,
   ReviewStore,
   ReviewStoreError,
   type ReviewStoreOptions
@@ -432,6 +433,187 @@ test('attachment allocation is owned, editable, and serialized by the store', as
   )
   await assert.rejects(
     fs.access(path.join(directory, 'mko_missing1'))
+  )
+})
+
+test('review deletion policies cover every status and trash the exact directory', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const editing = await store.create({
+    tree: tree(),
+    contextSummary: 'Delete an editing review.'
+  })
+  const pending = await store.create({
+    tree: tree(),
+    contextSummary: 'Delete a pending review.'
+  })
+  await store.handoff(pending.review.id)
+  const trashed: string[] = []
+
+  assert.equal(reviewDeletionPolicy('editing'), 'standard')
+  assert.equal(reviewDeletionPolicy('pending-agent'), 'pending-agent')
+  assert.equal(
+    await store.trashReview(editing.review.id, (target) => {
+      trashed.push(target)
+      return Promise.resolve()
+    }),
+    'standard'
+  )
+  assert.equal(
+    await store.trashReview(pending.review.id, (target) => {
+      trashed.push(target)
+      return Promise.resolve()
+    }),
+    'pending-agent'
+  )
+  assert.deepEqual(trashed, [
+    store.reviewDirectory(editing.review.id),
+    store.reviewDirectory(pending.review.id)
+  ])
+})
+
+test('attachment removal saves the reference-free tree before trashing its file', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Remove one attachment.'
+  })
+  const saved = await store.saveAttachmentFile(
+    created.review.id,
+    'png',
+    Buffer.from('image')
+  )
+  const annotated = structuredClone(created)
+  const heading = child(annotated.root)
+  heading.feedback = '[!diagram]'
+  heading.attachments = [{ id: saved.id, label: 'diagram', path: saved.path }]
+  await store.updateTree(created.review.id, annotated)
+  const candidate = structuredClone(annotated)
+  const candidateHeading = child(candidate.root)
+  candidateHeading.feedback = ''
+  candidateHeading.attachments = []
+
+  const updated = await store.removeAttachment(
+    created.review.id,
+    saved.id,
+    candidate,
+    async (target) => {
+      assert.equal(target, saved.path)
+      const persisted: unknown = JSON.parse(
+        await fs.readFile(store.reviewPath(created.review.id), 'utf8')
+      )
+      assertReviewTree(persisted)
+      assert.deepEqual(child(persisted.root).attachments, [])
+    }
+  )
+  assert.deepEqual(child(updated.root).attachments, [])
+  assert.deepEqual(child((await store.load(created.review.id)).root).attachments, [])
+})
+
+test('attachment removal restores the review when Trash rejects the file', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Keep references on Trash failure.'
+  })
+  const saved = await store.saveAttachmentFile(
+    created.review.id,
+    'png',
+    Buffer.from('image')
+  )
+  const annotated = structuredClone(created)
+  child(annotated.root).attachments = [{ id: saved.id, path: saved.path }]
+  await store.updateTree(created.review.id, annotated)
+  const candidate = structuredClone(annotated)
+  child(candidate.root).attachments = []
+
+  await assert.rejects(
+    store.removeAttachment(
+      created.review.id,
+      saved.id,
+      candidate,
+      () => Promise.reject(new Error('Trash unavailable'))
+    ),
+    /Trash unavailable/
+  )
+  assert.equal(
+    attachment(child((await store.load(created.review.id)).root)).id,
+    saved.id
+  )
+})
+
+test('cleanup finds only generated unreferenced files and rejects stale scans', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Clean unused attachments.'
+  })
+  const used = await store.saveAttachmentFile(
+    created.review.id,
+    'png',
+    Buffer.from('used')
+  )
+  const unused = await store.saveAttachmentFile(
+    created.review.id,
+    'jpg',
+    Buffer.from('unused')
+  )
+  const annotated = structuredClone(created)
+  child(annotated.root).attachments = [{ id: used.id, path: used.path }]
+  await store.updateTree(created.review.id, annotated)
+  await fs.writeFile(
+    path.join(path.dirname(unused.path), 'notes.txt'),
+    'not owned cleanup data'
+  )
+  const invalidDirectory = path.join(directory, 'mko_broken1')
+  await fs.mkdir(invalidDirectory)
+  await fs.writeFile(path.join(invalidDirectory, 'review.json'), '{broken')
+
+  const scan = await store.scanUnusedAttachments()
+  assert.deepEqual(scan.candidates, [{
+    reviewId: created.review.id,
+    attachmentId: unused.id,
+    filePath: unused.path,
+    bytes: 6
+  }])
+  assert.deepEqual(scan.warnings, [{
+    reviewId: 'mko_broken1',
+    reason: 'invalid'
+  }])
+  const trashed: string[] = []
+  assert.deepEqual(
+    await store.trashUnusedAttachments(scan, (target) => {
+      trashed.push(target)
+      return Promise.resolve()
+    }),
+    { count: 1, totalBytes: 6 }
+  )
+  assert.deepEqual(trashed, [unused.path])
+
+  const stale = await store.scanUnusedAttachments()
+  await fs.writeFile(
+    path.join(path.dirname(unused.path), 'img-3.png'),
+    'new'
+  )
+  await assert.rejects(
+    store.trashUnusedAttachments(stale, () => Promise.resolve()),
+    (error: unknown) => hasErrorCode(error, 'CLEANUP_CHANGED')
   )
 })
 

@@ -132,6 +132,11 @@
       return Boolean(this.byReview.get(reviewId)?.size)
     }
 
+    async waitCurrent(reviewId: string): Promise<void> {
+      const operations = this.byReview.get(reviewId)
+      if (operations) await Promise.allSettled([...operations])
+    }
+
     async wait(reviewId: string): Promise<void> {
       while (this.has(reviewId)) {
         const operations = this.byReview.get(reviewId)
@@ -202,6 +207,14 @@
 
     get(reviewId: string): ReviewSession | null {
       return this.byId.get(reviewId) || null
+    }
+
+    remove(reviewId: string): ReviewSession | null {
+      const session = this.byId.get(reviewId) || null
+      if (!session) return null
+      this.byId.delete(reviewId)
+      if (this.activeId === reviewId) this.activeId = null
+      return session
     }
 
     snapshot(reviewId: string): ReviewSessionTree | null {
