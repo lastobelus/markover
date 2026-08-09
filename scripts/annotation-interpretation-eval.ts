@@ -16,6 +16,7 @@ const execFileAsync = promisify(execFile)
 
 export type EvaluationCondition = 'guided' | 'unguided'
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
+export type FinalDocumentStatus = 'regular' | 'missing' | 'invalid'
 
 export interface EvaluationCase {
   id: string
@@ -156,7 +157,8 @@ interface TrialResult {
   spec: TrialSpec
   agentResponse: string
   finalDocument: string | null
-  finalDocumentStatus: 'regular' | 'missing' | 'invalid'
+  finalDocumentStatus: FinalDocumentStatus
+  pass: boolean
   judgment: JudgeOutput
   agentAttempts: number
   judgeAttempts: number
@@ -538,12 +540,18 @@ interface JudgePromptInput {
   rubric: string
   agentResponse?: string
   finalDocument?: string | null
+  finalDocumentStatus?: FinalDocumentStatus
   controlSignals?: string[]
   controlKind?: 'positive' | 'negative'
 }
 
 export function buildJudgePrompt(input: JudgePromptInput): string {
   const { evaluationCase } = input
+  const finalDocument = input.finalDocument === undefined
+    ? evaluationCase.review.source
+    : input.finalDocument ?? `<document.md ${input.finalDocumentStatus ?? 'invalid'}>`
+  const finalDocumentStatus = input.finalDocumentStatus ??
+    (input.controlSignals === undefined ? 'regular' : 'deterministic-control')
   const controlSection = input.controlSignals === undefined
     ? []
     : [
@@ -577,7 +585,8 @@ export function buildJudgePrompt(input: JudgePromptInput): string {
     evaluationCase.review.source,
     '',
     '## Final document',
-    input.finalDocument ?? evaluationCase.review.source,
+    `Status: ${finalDocumentStatus}`,
+    finalDocument,
     '',
     '## Agent response',
     input.agentResponse ?? 'Deterministic control: use the authoritative observed signal list.',
@@ -771,6 +780,25 @@ export function sanitizeEvidenceText(
   )
 }
 
+export function sanitizeEvidenceValue(
+  value: unknown,
+  replacements: ReadonlyArray<readonly [string, string]>
+): unknown {
+  if (typeof value === 'string') {
+    return sanitizeEvidenceText(value, replacements)
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeEvidenceValue(item, replacements))
+  }
+  if (isObject(value)) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      key,
+      sanitizeEvidenceValue(item, replacements)
+    ]))
+  }
+  return value
+}
+
 export async function invokeCodex(
   command: CodexCommand
 ): Promise<CodexCommandResult> {
@@ -838,12 +866,28 @@ async function writeText(filePath: string, value: string): Promise<void> {
   await fs.writeFile(filePath, value)
 }
 
+async function writeEvidenceJson(
+  filePath: string,
+  value: unknown,
+  replacements: ReadonlyArray<readonly [string, string]>
+): Promise<void> {
+  await writeJson(filePath, sanitizeEvidenceValue(value, replacements))
+}
+
+async function writeEvidenceText(
+  filePath: string,
+  value: string,
+  replacements: ReadonlyArray<readonly [string, string]>
+): Promise<void> {
+  await writeText(filePath, sanitizeEvidenceText(value, replacements))
+}
+
 function commandEvidence(
   command: CodexCommand,
   replacements: ReadonlyArray<readonly [string, string]>
 ): JsonObject {
   return {
-    executable: command.executable,
+    executable: sanitizeEvidenceText(command.executable, replacements),
     args: command.args.map((argument) => sanitizeEvidenceText(
       argument,
       replacements
@@ -864,24 +908,33 @@ async function recordAttempt(
   const sanitizedStdout = sanitizeEvidenceText(record.result.stdout, replacements)
   const sanitizedStderr = sanitizeEvidenceText(record.result.stderr, replacements)
   await Promise.all([
-    writeText(path.join(evidenceDirectory, attemptName, 'prompt.md'), record.command.prompt),
+    writeEvidenceText(
+      path.join(evidenceDirectory, attemptName, 'prompt.md'),
+      record.command.prompt,
+      replacements
+    ),
     writeText(path.join(evidenceDirectory, attemptName, 'codex.jsonl'), sanitizedStdout),
     writeText(path.join(evidenceDirectory, attemptName, 'stderr.txt'), sanitizedStderr),
-    writeJson(path.join(evidenceDirectory, attemptName, 'command.json'), commandEvidence(
-      record.command,
+    writeEvidenceJson(
+      path.join(evidenceDirectory, attemptName, 'command.json'),
+      commandEvidence(record.command, replacements),
       replacements
-    )),
-    writeJson(path.join(evidenceDirectory, attemptName, 'metadata.json'), {
-      attempt: record.attempt,
-      exitCode: record.result.exitCode,
-      signal: record.result.signal,
-      timedOut: record.result.timedOut,
-      durationMs: record.result.durationMs,
-      infrastructureError: record.infrastructureError,
-      threadId: record.parsed?.threadId ?? null,
-      effectiveModel: record.parsed?.effectiveModel ?? null,
-      usage: record.parsed?.usage ?? null
-    }),
+    ),
+    writeEvidenceJson(
+      path.join(evidenceDirectory, attemptName, 'metadata.json'),
+      {
+        attempt: record.attempt,
+        exitCode: record.result.exitCode,
+        signal: record.result.signal,
+        timedOut: record.result.timedOut,
+        durationMs: record.result.durationMs,
+        infrastructureError: record.infrastructureError,
+        threadId: record.parsed?.threadId ?? null,
+        effectiveModel: record.parsed?.effectiveModel ?? null,
+        usage: record.parsed?.usage ?? null
+      },
+      replacements
+    ),
     writeText(path.join(rawDirectory, attemptName, 'codex.raw.jsonl'), record.result.stdout),
     writeText(path.join(rawDirectory, attemptName, 'stderr.raw.txt'), record.result.stderr)
   ])
@@ -892,7 +945,7 @@ async function delay(milliseconds: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-interface RetryInput<T> {
+export interface RetryInput<T> {
   command: CodexCommand
   evidenceDirectory: string
   rawDirectory: string
@@ -900,9 +953,11 @@ interface RetryInput<T> {
   maxRetries: number
   retryDelayMs: number
   decode: (message: string) => T
+  beforeAttempt?: (attempt: number) => Promise<void>
+  invoke?: (command: CodexCommand) => Promise<CodexCommandResult>
 }
 
-async function executeWithInfrastructureRetries<T>(
+export async function executeWithInfrastructureRetries<T>(
   input: RetryInput<T>
 ): Promise<SuccessfulAttempt<T>> {
   const attempts: AttemptRecord[] = []
@@ -911,7 +966,8 @@ async function executeWithInfrastructureRetries<T>(
     let parsed: ParsedCodexEvents | null = null
     let failure: string | null = null
     try {
-      result = await invokeCodex(input.command)
+      await input.beforeAttempt?.(attempt)
+      result = await (input.invoke ?? invokeCodex)(input.command)
       try {
         parsed = parseCodexJsonl(result.stdout)
       } catch (error) {
@@ -972,6 +1028,25 @@ async function executeWithInfrastructureRetries<T>(
 async function initializeWorkspace(workspace: string): Promise<void> {
   await fs.mkdir(workspace, { recursive: true })
   await execFileAsync('git', ['init', '--quiet'], { cwd: workspace })
+}
+
+export async function resetTrialWorkspace(
+  workspace: string,
+  review: EvaluationCase['review']
+): Promise<void> {
+  await fs.rm(workspace, { recursive: true, force: true })
+  await initializeWorkspace(workspace)
+  await Promise.all([
+    writeText(path.join(workspace, 'document.md'), review.source),
+    writeJson(path.join(workspace, 'review.json'), review)
+  ])
+}
+
+export function trialPass(
+  finalDocumentStatus: FinalDocumentStatus,
+  judgment: JudgeOutput
+): boolean {
+  return finalDocumentStatus === 'regular' && judgment.pass
 }
 
 function findCase(
@@ -1101,14 +1176,19 @@ async function runControls(
         usage: lastParsed(output.attempts).usage
       }
       results.push(result)
-      await writeJson(
+      await writeEvidenceJson(
         path.join(directories.evidence, 'controls', id, 'result.json'),
-        result
+        result,
+        replacementsFor(directories)
       )
       process.stdout.write(`judge control ${results.length}/${totalControls}: ${id}\n`)
     }
   }
-  await writeJson(path.join(directories.evidence, 'controls.json'), results)
+  await writeEvidenceJson(
+    path.join(directories.evidence, 'controls.json'),
+    results,
+    replacementsFor(directories)
+  )
   return results
 }
 
@@ -1120,11 +1200,6 @@ async function runTrial(
 ): Promise<TrialResult> {
   const evaluationCase = findCase(definition.cases, spec.caseId)
   const workspace = path.join(directories.workspaces, spec.id)
-  await initializeWorkspace(workspace)
-  await Promise.all([
-    writeText(path.join(workspace, 'document.md'), evaluationCase.review.source),
-    writeJson(path.join(workspace, 'review.json'), evaluationCase.review)
-  ])
   const agentPrompt = buildAgentPrompt(evaluationCase, spec.condition)
   const agentCommand: CodexCommand = {
     executable: codexPath,
@@ -1145,7 +1220,11 @@ async function runTrial(
     replacements: replacementsFor(directories, workspace),
     maxRetries: definition.config.maxInfrastructureRetries,
     retryDelayMs: definition.config.retryDelayMs,
-    decode: (message) => message
+    decode: (message) => message,
+    beforeAttempt: async () => resetTrialWorkspace(
+      workspace,
+      evaluationCase.review
+    )
   })
   let finalDocument: string | null = null
   let finalDocumentStatus: TrialResult['finalDocumentStatus'] = 'missing'
@@ -1173,7 +1252,8 @@ async function runTrial(
       evaluationCase,
       rubric: definition.rubric,
       agentResponse: agent.value,
-      finalDocument
+      finalDocument,
+      finalDocumentStatus
     }),
     evidenceDirectory: path.join(directories.evidence, 'trials', spec.id, 'judge'),
     rawDirectory: path.join(directories.raw, 'trials', spec.id, 'judge')
@@ -1183,6 +1263,7 @@ async function runTrial(
     agentResponse: agent.value,
     finalDocument,
     finalDocumentStatus,
+    pass: trialPass(finalDocumentStatus, judge.value),
     judgment: judge.value,
     agentAttempts: agent.attempts.length,
     judgeAttempts: judge.attempts.length,
@@ -1196,16 +1277,38 @@ async function runTrial(
     }
   }
   const trialDirectory = path.join(directories.evidence, 'trials', spec.id)
+  const evidenceReplacements = replacementsFor(directories, workspace)
   await Promise.all([
-    writeJson(path.join(trialDirectory, 'trial.json'), result),
-    writeJson(path.join(trialDirectory, 'review.json'), evaluationCase.review),
-    writeText(path.join(trialDirectory, 'original.md'), evaluationCase.review.source),
-    writeText(
-      path.join(trialDirectory, 'final.md'),
-      finalDocument ?? `<document.md ${finalDocumentStatus}>\n`
+    writeEvidenceJson(
+      path.join(trialDirectory, 'trial.json'),
+      result,
+      evidenceReplacements
     ),
-    writeText(path.join(trialDirectory, 'agent-response.md'), agent.value),
-    writeJson(path.join(trialDirectory, 'judgment.json'), judge.value)
+    writeEvidenceJson(
+      path.join(trialDirectory, 'review.json'),
+      evaluationCase.review,
+      evidenceReplacements
+    ),
+    writeEvidenceText(
+      path.join(trialDirectory, 'original.md'),
+      evaluationCase.review.source,
+      evidenceReplacements
+    ),
+    writeEvidenceText(
+      path.join(trialDirectory, 'final.md'),
+      finalDocument ?? `<document.md ${finalDocumentStatus}>\n`,
+      evidenceReplacements
+    ),
+    writeEvidenceText(
+      path.join(trialDirectory, 'agent-response.md'),
+      agent.value,
+      evidenceReplacements
+    ),
+    writeEvidenceJson(
+      path.join(trialDirectory, 'judgment.json'),
+      judge.value,
+      evidenceReplacements
+    ),
   ])
   return result
 }
@@ -1312,8 +1415,8 @@ function summarizeTrials(trials: readonly TrialResult[]): JsonObject[] {
       model: model ?? '',
       condition: condition ?? '',
       trials: groupedTrials.length,
-      passed: groupedTrials.filter(({ judgment }) => judgment.pass).length,
-      failed: groupedTrials.filter(({ judgment }) => !judgment.pass).length
+      passed: groupedTrials.filter(({ pass }) => pass).length,
+      failed: groupedTrials.filter(({ pass }) => !pass).length
     }
   })
 }
@@ -1331,7 +1434,7 @@ function aggregateGates(
   const requiredSignalRate = required.filter(({ observed }) => observed).length /
     required.length
   const forbiddenSignalCount = forbidden.filter(({ observed }) => observed).length
-  const guidedPassCount = guided.filter(({ judgment }) => judgment.pass).length
+  const guidedPassCount = guided.filter(({ pass }) => pass).length
   const pass =
     controlAccuracy === definition.config.thresholds.judgeControlAccuracy &&
     requiredSignalRate === definition.config.thresholds.guidedRequiredSignalRate &&
@@ -1445,12 +1548,37 @@ async function writeInputs(
   ])
 }
 
+export async function sanitizeEvidenceDirectory(
+  directory: string,
+  replacements: ReadonlyArray<readonly [string, string]>
+): Promise<void> {
+  const entries = await fs.readdir(directory, { withFileTypes: true })
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      await sanitizeEvidenceDirectory(entryPath, replacements)
+      continue
+    }
+    if (!entry.isFile()) {
+      throw new Error(`Evidence contains a non-regular entry: ${entryPath}`)
+    }
+    const source = await fs.readFile(entryPath, 'utf8')
+    const sanitized = sanitizeEvidenceText(source, replacements)
+    if (sanitized !== source) await fs.writeFile(entryPath, sanitized)
+  }
+}
+
 async function publishEvidence(
   runId: string,
-  evidenceDirectory: string
+  evidenceDirectory: string,
+  replacements: ReadonlyArray<readonly [string, string]>
 ): Promise<string> {
   const resultsRoot = path.join(evaluationDirectory, 'results')
   const resultDirectory = path.join(resultsRoot, runId)
+  const stagingDirectory = path.join(
+    resultsRoot,
+    `.${runId}.staging-${String(process.pid)}`
+  )
   try {
     await fs.access(resultDirectory)
     throw new Error(`Result directory already exists: ${resultDirectory}`)
@@ -1461,8 +1589,16 @@ async function publishEvidence(
     if (code !== 'ENOENT') throw error
   }
   await fs.mkdir(resultsRoot, { recursive: true })
-  await fs.cp(evidenceDirectory, resultDirectory, { recursive: true })
-  return resultDirectory
+  await fs.rm(stagingDirectory, { recursive: true, force: true })
+  try {
+    await fs.cp(evidenceDirectory, stagingDirectory, { recursive: true })
+    await sanitizeEvidenceDirectory(stagingDirectory, replacements)
+    await fs.rename(stagingDirectory, resultDirectory)
+    return resultDirectory
+  } catch (error) {
+    await fs.rm(stagingDirectory, { recursive: true, force: true })
+    throw error
+  }
 }
 
 interface RunOptions {
@@ -1595,7 +1731,7 @@ async function runEvaluation(options: RunOptions): Promise<RunResult> {
       reasoningEffort: trial.spec.reasoningEffort,
       condition: trial.spec.condition,
       trial: trial.spec.trial,
-      pass: trial.judgment.pass,
+      pass: trial.pass,
       finalDocumentStatus: trial.finalDocumentStatus,
       agentAttempts: trial.agentAttempts,
       judgeAttempts: trial.judgeAttempts,
@@ -1603,12 +1739,25 @@ async function runEvaluation(options: RunOptions): Promise<RunResult> {
       effectiveModels: trial.effectiveModels
     }))
   } as unknown as JsonObject
+  const evidenceReplacements = replacementsFor(directories)
   await Promise.all([
-    writeJson(path.join(directories.evidence, 'manifest.json'), manifest),
-    writeText(path.join(directories.evidence, 'README.md'), reportMarkdown(manifest))
+    writeEvidenceJson(
+      path.join(directories.evidence, 'manifest.json'),
+      manifest,
+      evidenceReplacements
+    ),
+    writeEvidenceText(
+      path.join(directories.evidence, 'README.md'),
+      reportMarkdown(manifest),
+      evidenceReplacements
+    )
   ])
   return {
-    resultDirectory: await publishEvidence(runId, directories.evidence),
+    resultDirectory: await publishEvidence(
+      runId,
+      directories.evidence,
+      evidenceReplacements
+    ),
     passed: gates.pass === true
   }
 }

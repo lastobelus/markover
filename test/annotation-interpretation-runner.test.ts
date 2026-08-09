@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import fsPromises from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
@@ -8,8 +10,13 @@ import {
   buildCodexArgs,
   buildJudgePrompt,
   buildMatrix,
+  executeWithInfrastructureRetries,
   parseCodexJsonl,
+  resetTrialWorkspace,
+  sanitizeEvidenceDirectory,
   sanitizeEvidenceText,
+  sanitizeEvidenceValue,
+  trialPass,
   validateJudgeOutput,
   type EvaluationCase,
   type EvaluationConfig
@@ -118,6 +125,40 @@ test('judge prompt carries the exact case artifacts and rubric', () => {
   }
 })
 
+test('invalid final documents are visible to the judge and fail the trial', () => {
+  const evaluationCase = cases[1]
+  assert.ok(evaluationCase)
+  const prompt = buildJudgePrompt({
+    evaluationCase,
+    rubric: '# Strict rubric',
+    agentResponse: 'Removed the document.',
+    finalDocument: null,
+    finalDocumentStatus: 'missing'
+  })
+  assert.match(
+    prompt,
+    /## Final document\nStatus: missing\n<document\.md missing>/
+  )
+  const judgment = {
+    caseId: evaluationCase.id,
+    pass: true,
+    requiredSignals: evaluationCase.requiredSignals.map((signal) => ({
+      signal,
+      observed: true,
+      evidence: 'observable'
+    })),
+    forbiddenSignals: evaluationCase.forbiddenSignals.map((signal) => ({
+      signal,
+      observed: false,
+      evidence: 'absent'
+    })),
+    summary: 'Signals pass.'
+  }
+  assert.equal(trialPass('regular', judgment), true)
+  assert.equal(trialPass('missing', judgment), false)
+  assert.equal(trialPass('invalid', judgment), false)
+})
+
 test('deterministic controls are explicit and authoritative to the judge', () => {
   const evaluationCase = cases[0]
   assert.ok(evaluationCase)
@@ -193,6 +234,104 @@ test('published event streams replace local absolute paths', () => {
     ['/repo/tmp/run/workspace', '<workspace>'],
     ['/repo', '<repository>']
   ]), '<workspace>/document.md and <repository>/source.ts')
+})
+
+test('published structured values and files replace local absolute paths', async (t) => {
+  const directory = await fsPromises.mkdtemp(
+    path.join(os.tmpdir(), 'markover-evidence-sanitization-')
+  )
+  t.after(async () => fsPromises.rm(directory, { recursive: true, force: true }))
+  const replacements = [[directory, '<workspace>']] as const
+  const nested = {
+    response: `${directory}/document.md`,
+    decisions: [{ evidence: `Read ${directory}/review.json` }]
+  }
+  assert.deepEqual(sanitizeEvidenceValue(nested, replacements), {
+    response: '<workspace>/document.md',
+    decisions: [{ evidence: 'Read <workspace>/review.json' }]
+  })
+  const child = path.join(directory, 'published')
+  await fsPromises.mkdir(child)
+  await fsPromises.writeFile(path.join(child, 'artifact.json'), JSON.stringify(nested))
+  await sanitizeEvidenceDirectory(child, replacements)
+  assert.doesNotMatch(
+    await fsPromises.readFile(path.join(child, 'artifact.json'), 'utf8'),
+    new RegExp(directory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  )
+})
+
+test('infrastructure retries restore the pristine trial workspace', async (t) => {
+  const directory = await fsPromises.mkdtemp(
+    path.join(os.tmpdir(), 'markover-eval-retry-')
+  )
+  t.after(async () => fsPromises.rm(directory, { recursive: true, force: true }))
+  const workspace = path.join(directory, 'workspace')
+  const evidenceDirectory = path.join(directory, 'evidence')
+  const rawDirectory = path.join(directory, 'raw')
+  const review = {
+    source: 'Original document.\n',
+    annotations: [{ block: 'Original document.', feedback: 'Review it.' }]
+  }
+  let invocations = 0
+  const successfulJsonl = [
+    JSON.stringify({ type: 'thread.started', thread_id: 'thread-2' }),
+    JSON.stringify({
+      type: 'item.completed',
+      item: { type: 'agent_message', text: 'Handled.' }
+    }),
+    JSON.stringify({ type: 'turn.completed', usage: { output_tokens: 1 } }),
+    ''
+  ].join('\n')
+
+  const output = await executeWithInfrastructureRetries({
+    command: {
+      executable: 'codex',
+      args: [],
+      cwd: workspace,
+      prompt: 'Handle the review.',
+      timeoutMs: 1000
+    },
+    evidenceDirectory,
+    rawDirectory,
+    replacements: [[directory, '<run-root>']],
+    maxRetries: 1,
+    retryDelayMs: 0,
+    decode: (message) => message,
+    beforeAttempt: async () => resetTrialWorkspace(workspace, review),
+    invoke: async () => {
+      invocations += 1
+      if (invocations === 1) {
+        await Promise.all([
+          fsPromises.writeFile(path.join(workspace, 'document.md'), 'Mutated.'),
+          fsPromises.writeFile(path.join(workspace, 'extra.txt'), 'unexpected')
+        ])
+        return {
+          exitCode: 1,
+          signal: null,
+          stdout: '',
+          stderr: 'transient failure',
+          durationMs: 1,
+          timedOut: false
+        }
+      }
+      assert.equal(
+        await fsPromises.readFile(path.join(workspace, 'document.md'), 'utf8'),
+        review.source
+      )
+      await assert.rejects(fsPromises.access(path.join(workspace, 'extra.txt')))
+      return {
+        exitCode: 0,
+        signal: null,
+        stdout: successfulJsonl,
+        stderr: '',
+        durationMs: 1,
+        timedOut: false
+      }
+    }
+  })
+
+  assert.equal(output.value, 'Handled.')
+  assert.equal(output.attempts.length, 2)
 })
 
 test('rubric, schema, and package scripts preserve the agreed gates', () => {

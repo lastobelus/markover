@@ -69,7 +69,9 @@ and read-only with shell, web search, apps, agents, and image tools disabled.
 The first gate runs eight deterministic judge controls. Any valid control
 misclassification stops the run before evaluated agents execute. Infrastructure
 failures are recorded and retried at most twice; valid semantic failures are
-never retried. Trials then execute sequentially across:
+never retried. Before each infrastructure retry, the runner recreates the
+fixture workspace from its original document and review so attempts cannot
+accumulate edits or extra files. Trials then execute sequentially across:
 
 - four cases;
 - `gpt-5.6-sol` and `gpt-5.6-luna` at medium reasoning;
@@ -79,8 +81,9 @@ never retried. Trials then execute sequentially across:
 That produces 48 evaluated-agent executions and 48 high-reasoning
 `gpt-5.6-sol` judgments, in addition to the eight judge controls. Guided runs
 pass only when every required signal is observed and no forbidden signal is
-observed. Unguided results are descriptive and do not impose an improvement
-requirement.
+observed. A missing, non-regular, or oversized final document fails the trial
+even if its response-level signals otherwise pass. Unguided results are
+descriptive and do not impose an improvement requirement.
 
 ## Evidence and privacy
 
@@ -95,4 +98,5 @@ prompts, sanitized JSONL event streams, stderr, timing, token usage, responses,
 documents, judgments, errors, a machine-readable manifest, and a Markdown
 report. Unsanitized streams stay only under ignored `tmp/`. The runner never
 collects credentials, environment variables, or unrelated machine state, and
-replaces local absolute paths with stable placeholders before publication.
+replaces local absolute paths in every model-derived artifact with stable
+placeholders before atomically publishing the evidence directory.
