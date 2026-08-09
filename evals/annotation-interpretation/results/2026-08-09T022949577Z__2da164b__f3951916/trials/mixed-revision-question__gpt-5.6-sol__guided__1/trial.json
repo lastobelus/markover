@@ -1,0 +1,59 @@
+{
+  "spec": {
+    "id": "mixed-revision-question__gpt-5.6-sol__guided__1",
+    "caseId": "mixed-revision-question",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "Renamed the section to “Persistence.”\n\nOn Redis versus SQLite: the document doesn’t include enough architectural context to explain that choice. Could you clarify whether Redis was selected specifically for shared state across multiple processes or instances? Once confirmed, I can add the rationale.",
+  "finalDocument": "## Persistence\n\nUse Redis for shared state.\n",
+  "finalDocumentStatus": "regular",
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from “## Storage” to “## Persistence.”"
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The agent explicitly addresses “Redis versus SQLite,” explains that the document lacks enough architectural context, and asks whether Redis was chosen for shared state across processes or instances."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The agent did not silently turn the question into an edit; it explicitly acknowledged the question and requested clarification without changing the Redis statement."
+      }
+    ],
+    "summary": "The requested heading revision is present, and the Redis-versus-SQLite question is explicitly and substantively acknowledged. No forbidden silent conversion occurred."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45936,
+      "cached_input_tokens": 20992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 620,
+      "reasoning_output_tokens": 76
+    },
+    "judge": {
+      "input_tokens": 10592,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 210,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

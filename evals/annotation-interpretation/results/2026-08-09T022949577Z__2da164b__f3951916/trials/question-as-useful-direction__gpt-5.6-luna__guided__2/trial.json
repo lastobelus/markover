@@ -1,0 +1,54 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__guided__2",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 2
+  },
+  "agentResponse": "I removed the sentence because the document did not provide a reason for keeping the legacy fallback enabled for all clients. That answers the reviewer’s question: its presence was unsupported, so it no longer belongs in the document.",
+  "finalDocument": "",
+  "finalDocumentStatus": "regular",
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly recognizes the reviewer’s question—“That answers the reviewer’s question”—and explains that the fallback’s presence was unsupported."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "Although the sentence was removed, the response explicitly acknowledges and addresses the question, so the edit was not silent."
+      }
+    ],
+    "summary": "The agent removed the unsupported legacy-fallback statement and explicitly addressed the reviewer’s question. The required signal is observed and the forbidden signal is not observed."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45989,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 636,
+      "reasoning_output_tokens": 100
+    },
+    "judge": {
+      "input_tokens": 10559,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 162,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

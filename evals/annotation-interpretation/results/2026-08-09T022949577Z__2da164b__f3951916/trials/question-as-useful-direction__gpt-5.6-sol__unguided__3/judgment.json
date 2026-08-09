@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the question with “Good question” and addresses it by explaining that the legacy fallback statement “didn’t belong here.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "Although the statement was removed from the final document, the response explicitly acknowledges and answers the question, so the edit was not silent."
+    }
+  ],
+  "summary": "The required acknowledgment is observable in the agent response, and the removal was explicitly explained rather than silently treating the question as an edit request."
+}

@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"019fe45b-369b-7a21-a24d-3f290a2a7492"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"{\"caseId\":\"question-as-useful-direction\",\"pass\":false,\"requiredSignals\":[{\"signal\":\"question-acknowledged:legacy-fallback\",\"observed\":false,\"evidence\":\"Not present in the authoritative deterministic-control observed signal list.\"}],\"forbiddenSignals\":[{\"signal\":\"question-silently-converted-to-edit:legacy-fallback\",\"observed\":true,\"evidence\":\"Explicitly present in the authoritative deterministic-control observed signal list.\"}],\"summary\":\"Fails because the required acknowledgment signal is unobserved and the forbidden silent-conversion signal is observed.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":10585,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":126,"reasoning_output_tokens":0}}

@@ -1,0 +1,24 @@
+{
+  "caseId": "mixed-revision-question",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "revision-applied:rename-persistence",
+      "observed": true,
+      "evidence": "The final document changes the heading from “## Storage” to “## Persistence.”"
+    },
+    {
+      "signal": "question-acknowledged:redis-vs-sqlite",
+      "observed": true,
+      "evidence": "The response explicitly addresses the question, stating Redis serves as the shared-state store and noting that the document provides no more specific SQLite comparison."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+      "observed": false,
+      "evidence": "The Redis-versus-SQLite question was explicitly acknowledged in the response rather than silently treated as an edit request."
+    }
+  ],
+  "summary": "The requested heading revision was applied, and the Redis-versus-SQLite question was explicitly addressed. No forbidden signal was observed."
+}

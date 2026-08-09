@@ -1,0 +1,1 @@
+I revised the document to clarify that the 200ms budget was inherited from last year’s mobile client and should be revalidated before being treated as a generally acceptable tradeoff.

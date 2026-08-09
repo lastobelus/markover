@@ -1,0 +1,1 @@
+Good concern. I’ve revised the text to explain that the 200ms target came from last year’s mobile client and to call for reassessing whether the tradeoff still fits current clients and requirements before retaining it.

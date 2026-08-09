@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly addresses the question by stating the fallback statement was removed because “it had no supporting explanation for remaining.”"
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent; the response explicitly explained the removal and addressed the lack of justification for the fallback."
+    }
+  ],
+  "summary": "The final document removes the legacy fallback statement, and the response explicitly addresses why it should not remain. The required signal is observed and the forbidden signal is absent."
+}

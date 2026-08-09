@@ -1,0 +1,54 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__unguided__3",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 3
+  },
+  "agentResponse": "Good question—the legacy fallback statement didn’t belong here, so I removed it.",
+  "finalDocument": "",
+  "finalDocumentStatus": "regular",
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly acknowledges the question with “Good question” and addresses it by explaining that the legacy fallback statement “didn’t belong here.”"
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "Although the statement was removed from the final document, the response explicitly acknowledges and answers the question, so the edit was not silent."
+      }
+    ],
+    "summary": "The required acknowledgment is observable in the agent response, and the removal was explicitly explained rather than silently treating the question as an edit request."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45539,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 606,
+      "reasoning_output_tokens": 131
+    },
+    "judge": {
+      "input_tokens": 10532,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 164,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

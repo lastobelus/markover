@@ -1,0 +1,36 @@
+{
+  "id": "question-as-useful-direction__negative",
+  "caseId": "question-as-useful-direction",
+  "kind": "negative",
+  "expectedPass": false,
+  "actualPass": false,
+  "correct": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": false,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": false,
+        "evidence": "Not present in the authoritative deterministic-control observed signal list."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": true,
+        "evidence": "Explicitly present in the authoritative deterministic-control observed signal list."
+      }
+    ],
+    "summary": "Fails because the required acknowledgment signal is unobserved and the forbidden silent-conversion signal is observed."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10585,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 126,
+    "reasoning_output_tokens": 0
+  }
+}

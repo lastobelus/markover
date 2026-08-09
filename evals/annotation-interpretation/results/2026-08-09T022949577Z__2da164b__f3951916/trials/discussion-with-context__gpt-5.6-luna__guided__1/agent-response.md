@@ -1,0 +1,1 @@
+I updated `document.md` to note that the 200 ms target came from last year’s mobile client and should be revalidated against current client and user needs. Your concern about the latency tradeoff is acknowledged; I did not treat the historical target as a firm requirement.

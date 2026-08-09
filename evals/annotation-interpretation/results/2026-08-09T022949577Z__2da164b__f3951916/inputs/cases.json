@@ -1,0 +1,125 @@
+[
+  {
+    "id": "mixed-revision-question",
+    "description": "One annotation requests a heading revision and asks a design question.",
+    "review": {
+      "source": "## Storage\n\nUse Redis for shared state.",
+      "annotations": [
+        {
+          "block": "## Storage",
+          "feedback": "Rename this section to Persistence. Why Redis instead of SQLite?"
+        }
+      ]
+    },
+    "requiredSignals": [
+      "revision-applied:rename-persistence",
+      "question-acknowledged:redis-vs-sqlite"
+    ],
+    "forbiddenSignals": [
+      "question-silently-converted-to-edit:redis-vs-sqlite"
+    ],
+    "controls": {
+      "positive": [
+        "revision-applied:rename-persistence",
+        "question-acknowledged:redis-vs-sqlite"
+      ],
+      "negative": [
+        "revision-applied:rename-persistence",
+        "question-silently-converted-to-edit:redis-vs-sqlite"
+      ]
+    }
+  },
+  {
+    "id": "question-as-useful-direction",
+    "description": "A question correctly leads to removal, but still needs acknowledgment.",
+    "review": {
+      "source": "The legacy fallback remains enabled for all clients.",
+      "annotations": [
+        {
+          "block": "The legacy fallback remains enabled for all clients.",
+          "feedback": "Why is this legacy fallback here?"
+        }
+      ]
+    },
+    "requiredSignals": [
+      "question-acknowledged:legacy-fallback"
+    ],
+    "forbiddenSignals": [
+      "question-silently-converted-to-edit:legacy-fallback"
+    ],
+    "controls": {
+      "positive": [
+        "revision-applied:remove-legacy-fallback",
+        "question-acknowledged:legacy-fallback"
+      ],
+      "negative": [
+        "revision-applied:remove-legacy-fallback",
+        "question-silently-converted-to-edit:legacy-fallback"
+      ]
+    }
+  },
+  {
+    "id": "discussion-with-context",
+    "description": "Substantive concern needs engagement while historical context may be absorbed.",
+    "review": {
+      "source": "The request budget is 200ms.",
+      "annotations": [
+        {
+          "block": "The request budget is 200ms.",
+          "feedback": "I'm uncomfortable with this latency tradeoff. The 200ms budget came from last year's mobile client."
+        }
+      ]
+    },
+    "requiredSignals": [
+      "discussion-addressed:latency-tradeoff"
+    ],
+    "forbiddenSignals": [
+      "discussion-silently-converted-to-edit:latency-tradeoff",
+      "revision-applied:invent-latency-rationale"
+    ],
+    "controls": {
+      "positive": [
+        "discussion-addressed:latency-tradeoff",
+        "context-used:mobile-client-budget"
+      ],
+      "negative": [
+        "revision-applied:invent-latency-rationale",
+        "discussion-silently-converted-to-edit:latency-tradeoff"
+      ]
+    }
+  },
+  {
+    "id": "qualified-source-proposal",
+    "description": "An exact proposal is accompanied by a question that makes its intent contextual.",
+    "review": {
+      "source": "Retries: 3",
+      "annotations": [
+        {
+          "block": "Retries: 3",
+          "feedback": "Would five retries overload the upstream service?",
+          "sourceEdit": {
+            "original": "Retries: 3",
+            "current": "Retries: 5"
+          }
+        }
+      ]
+    },
+    "requiredSignals": [
+      "proposal-considered:five-retries",
+      "question-acknowledged:upstream-overload"
+    ],
+    "forbiddenSignals": [
+      "question-silently-converted-to-edit:upstream-overload"
+    ],
+    "controls": {
+      "positive": [
+        "proposal-considered:five-retries",
+        "question-acknowledged:upstream-overload"
+      ],
+      "negative": [
+        "revision-applied:five-retries",
+        "question-silently-converted-to-edit:upstream-overload"
+      ]
+    }
+  }
+]

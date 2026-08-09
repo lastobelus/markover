@@ -1,0 +1,1 @@
+Good point. I revised the document to identify 200 ms as a legacy mobile-client target and require revalidation against current client needs and observed latency before adopting it going forward.

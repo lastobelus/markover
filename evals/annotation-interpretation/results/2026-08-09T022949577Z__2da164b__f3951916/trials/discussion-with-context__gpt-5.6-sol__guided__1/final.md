@@ -1,0 +1,1 @@
+The current request budget is 200 ms, a target inherited from last year's mobile client. Revalidate this budget against current client requirements and observed latency before adopting it as the ongoing target.

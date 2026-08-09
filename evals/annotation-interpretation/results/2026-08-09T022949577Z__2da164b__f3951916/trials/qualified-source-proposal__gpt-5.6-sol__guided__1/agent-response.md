@@ -1,0 +1,1 @@
+Five retries could increase upstream load, but the document doesn’t provide enough context about traffic, rate limits, or backoff to determine whether it would overload the service. I left `Retries: 3` unchanged pending confirmation that five retries is safe.

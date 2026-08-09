@@ -1,0 +1,59 @@
+{
+  "spec": {
+    "id": "mixed-revision-question__gpt-5.6-luna__unguided__1",
+    "caseId": "mixed-revision-question",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Renamed the section to “Persistence.”\n\nRedis is used here because it serves as the shared-state store; the document doesn’t provide a more specific comparison with SQLite.",
+  "finalDocument": "## Persistence\n\nUse Redis for shared state.\n",
+  "finalDocumentStatus": "regular",
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from “## Storage” to “## Persistence.”"
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The response explicitly addresses the question, stating Redis serves as the shared-state store and noting that the document provides no more specific SQLite comparison."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The Redis-versus-SQLite question was explicitly acknowledged in the response rather than silently treated as an edit request."
+      }
+    ],
+    "summary": "The requested heading revision was applied, and the Redis-versus-SQLite question was explicitly addressed. No forbidden signal was observed."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 57819,
+      "cached_input_tokens": 50944,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 762,
+      "reasoning_output_tokens": 174
+    },
+    "judge": {
+      "input_tokens": 10573,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 234,
+      "reasoning_output_tokens": 33
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

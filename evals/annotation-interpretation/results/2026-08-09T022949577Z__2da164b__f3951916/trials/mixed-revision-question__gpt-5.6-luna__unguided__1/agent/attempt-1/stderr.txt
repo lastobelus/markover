@@ -1,0 +1,1 @@
+2026-08-09T02:36:22.016163Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/zsh -lc "sed -n '1,40p' document.md"`: CreateProcess { message: "Rejected(\"Failed to create unified exec process: No such file or directory (os error 2)\")" }

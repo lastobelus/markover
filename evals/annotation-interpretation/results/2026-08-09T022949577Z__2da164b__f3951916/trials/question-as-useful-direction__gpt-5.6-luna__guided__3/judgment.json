@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly says, “Regarding your question,” and explains that the fallback lacked documented rationale and was therefore removed."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly acknowledged and addressed the question while explaining the removal."
+    }
+  ],
+  "summary": "The required question acknowledgment is present, and the question was not silently converted into an edit; therefore the case passes."
+}

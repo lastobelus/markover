@@ -1,0 +1,1 @@
+Good catch. The legacy fallback statement was unnecessary, so I removed it from `document.md`.

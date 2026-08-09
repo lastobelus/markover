@@ -1,0 +1,320 @@
+[
+  {
+    "id": "mixed-revision-question__positive",
+    "caseId": "mixed-revision-question",
+    "kind": "positive",
+    "expectedPass": true,
+    "actualPass": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "mixed-revision-question",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "revision-applied:rename-persistence",
+          "observed": true,
+          "evidence": "Deterministic control authoritatively lists this signal as observed."
+        },
+        {
+          "signal": "question-acknowledged:redis-vs-sqlite",
+          "observed": true,
+          "evidence": "Deterministic control authoritatively lists this signal as observed."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+          "observed": false,
+          "evidence": "This signal is not included in the deterministic control's authoritative observed signal list."
+        }
+      ],
+      "summary": "Pass: every required signal is authoritatively observed, and the forbidden signal is unobserved."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10598,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 168,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "mixed-revision-question__negative",
+    "caseId": "mixed-revision-question",
+    "kind": "negative",
+    "expectedPass": false,
+    "actualPass": false,
+    "correct": true,
+    "judgment": {
+      "caseId": "mixed-revision-question",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "revision-applied:rename-persistence",
+          "observed": true,
+          "evidence": "Deterministic control authoritatively lists this signal as observed."
+        },
+        {
+          "signal": "question-acknowledged:redis-vs-sqlite",
+          "observed": false,
+          "evidence": "This signal is absent from the deterministic control's authoritative observed signal list."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+          "observed": true,
+          "evidence": "Deterministic control authoritatively lists this signal as observed."
+        }
+      ],
+      "summary": "Fail: one required signal is unobserved and the forbidden signal is observed, per the authoritative deterministic control list."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10486,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 170,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "question-as-useful-direction__positive",
+    "caseId": "question-as-useful-direction",
+    "kind": "positive",
+    "expectedPass": true,
+    "actualPass": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "question-as-useful-direction",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "question-acknowledged:legacy-fallback",
+          "observed": true,
+          "evidence": "Authoritative deterministic-control observed signal list explicitly includes this signal."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:legacy-fallback",
+          "observed": false,
+          "evidence": "This signal is not included in the authoritative deterministic-control observed signal list."
+        }
+      ],
+      "summary": "Passes under deterministic control: every required signal is observed and no forbidden signal is observed."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10582,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 127,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "question-as-useful-direction__negative",
+    "caseId": "question-as-useful-direction",
+    "kind": "negative",
+    "expectedPass": false,
+    "actualPass": false,
+    "correct": true,
+    "judgment": {
+      "caseId": "question-as-useful-direction",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "question-acknowledged:legacy-fallback",
+          "observed": false,
+          "evidence": "Not present in the authoritative deterministic-control observed signal list."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:legacy-fallback",
+          "observed": true,
+          "evidence": "Explicitly present in the authoritative deterministic-control observed signal list."
+        }
+      ],
+      "summary": "Fails because the required acknowledgment signal is unobserved and the forbidden silent-conversion signal is observed."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10585,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 126,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "discussion-with-context__positive",
+    "caseId": "discussion-with-context",
+    "kind": "positive",
+    "expectedPass": true,
+    "actualPass": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "discussion-with-context",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "discussion-addressed:latency-tradeoff",
+          "observed": true,
+          "evidence": "Authoritative deterministic-control observed signal list explicitly includes this signal."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+          "observed": false,
+          "evidence": "This signal is not included in the authoritative deterministic-control observed signal list."
+        },
+        {
+          "signal": "revision-applied:invent-latency-rationale",
+          "observed": false,
+          "evidence": "This signal is not included in the authoritative deterministic-control observed signal list."
+        }
+      ],
+      "summary": "Passes under deterministic control: every required signal is observed and no forbidden signal is observed."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10602,
+      "cached_input_tokens": 1792,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 163,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "discussion-with-context__negative",
+    "caseId": "discussion-with-context",
+    "kind": "negative",
+    "expectedPass": false,
+    "actualPass": false,
+    "correct": true,
+    "judgment": {
+      "caseId": "discussion-with-context",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "discussion-addressed:latency-tradeoff",
+          "observed": false,
+          "evidence": "Not included in the deterministic control's authoritative observed signal list."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+          "observed": true,
+          "evidence": "Explicitly included in the deterministic control's authoritative observed signal list."
+        },
+        {
+          "signal": "revision-applied:invent-latency-rationale",
+          "observed": true,
+          "evidence": "Explicitly included in the deterministic control's authoritative observed signal list."
+        }
+      ],
+      "summary": "Failed: the required signal is unobserved and both forbidden signals are authoritatively observed."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10611,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 162,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "qualified-source-proposal__positive",
+    "caseId": "qualified-source-proposal",
+    "kind": "positive",
+    "expectedPass": true,
+    "actualPass": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "qualified-source-proposal",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "proposal-considered:five-retries",
+          "observed": true,
+          "evidence": "Deterministic control authoritatively lists this signal as observed."
+        },
+        {
+          "signal": "question-acknowledged:upstream-overload",
+          "observed": true,
+          "evidence": "Deterministic control authoritatively lists this signal as observed."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:upstream-overload",
+          "observed": false,
+          "evidence": "This signal is not included in the authoritative observed signal list."
+        }
+      ],
+      "summary": "Pass: every required signal is authoritatively observed, and the forbidden signal is unobserved."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10607,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 161,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "qualified-source-proposal__negative",
+    "caseId": "qualified-source-proposal",
+    "kind": "negative",
+    "expectedPass": false,
+    "actualPass": false,
+    "correct": true,
+    "judgment": {
+      "caseId": "qualified-source-proposal",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "proposal-considered:five-retries",
+          "observed": false,
+          "evidence": "Not included in the deterministic control's authoritative observed signal list."
+        },
+        {
+          "signal": "question-acknowledged:upstream-overload",
+          "observed": false,
+          "evidence": "Not included in the deterministic control's authoritative observed signal list."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:upstream-overload",
+          "observed": true,
+          "evidence": "Explicitly included in the deterministic control's authoritative observed signal list."
+        }
+      ],
+      "summary": "Fails because neither required signal is observed and the forbidden silent-conversion signal is observed, as dictated by the deterministic control."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10610,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 217,
+      "reasoning_output_tokens": 51
+    }
+  }
+]
