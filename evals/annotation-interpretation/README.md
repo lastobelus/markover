@@ -89,9 +89,11 @@ sequentially across:
 That produces 48 evaluated-agent executions and 48 high-reasoning
 `gpt-5.6-sol` judgments, in addition to the eight judge controls. Guided runs
 pass only when every required signal is observed and no forbidden signal is
-observed. A missing, non-regular, or oversized final document fails the trial
-even if its response-level signals otherwise pass. Unguided results are
-descriptive and do not impose an improvement requirement.
+observed. A missing, non-regular, or oversized final document fails the trial.
+So does a changed `review.json`, missing runner metadata, or any unexpected
+workspace entry. These integrity checks are automatic even if response-level
+signals otherwise pass. Unguided results are descriptive and do not impose an
+improvement requirement.
 
 ## Evidence and privacy
 

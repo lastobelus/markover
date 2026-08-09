@@ -12,6 +12,7 @@ import {
   buildMatrix,
   controlJudgmentMatches,
   executeWithInfrastructureRetries,
+  inspectTrialWorkspace,
   parseCodexJsonl,
   reserveRunRoot,
   resetTrialWorkspace,
@@ -161,9 +162,56 @@ test('invalid final documents are visible to the judge and fail the trial', () =
     })),
     summary: 'Signals pass.'
   }
-  assert.equal(trialPass('regular', judgment), true)
-  assert.equal(trialPass('missing', judgment), false)
-  assert.equal(trialPass('invalid', judgment), false)
+  assert.equal(trialPass('regular', 'valid', judgment), true)
+  assert.equal(trialPass('missing', 'valid', judgment), false)
+  assert.equal(trialPass('invalid', 'valid', judgment), false)
+  assert.equal(trialPass('regular', 'invalid', judgment), false)
+})
+
+test('trial workspaces reject review mutations and unexpected entries', async (t) => {
+  const directory = await fsPromises.mkdtemp(path.join(
+    os.tmpdir(),
+    'markover-trial-workspace-'
+  ))
+  t.after(() => fsPromises.rm(directory, { recursive: true, force: true }))
+  const workspace = path.join(directory, 'workspace')
+  const review = cases[0]?.review
+  assert.ok(review)
+
+  await resetTrialWorkspace(workspace, review)
+  assert.deepEqual(await inspectTrialWorkspace(workspace, review), {
+    status: 'valid',
+    violations: []
+  })
+
+  await Promise.all([
+    fsPromises.writeFile(path.join(workspace, 'review.json'), '{}\n'),
+    fsPromises.writeFile(path.join(workspace, 'extra.txt'), 'unexpected')
+  ])
+  assert.deepEqual(await inspectTrialWorkspace(workspace, review), {
+    status: 'invalid',
+    violations: ['unexpected-entry', 'review-modified']
+  })
+
+  await resetTrialWorkspace(workspace, review)
+  await fsPromises.rm(path.join(workspace, 'review.json'))
+  assert.deepEqual(await inspectTrialWorkspace(workspace, review), {
+    status: 'invalid',
+    violations: ['review-missing']
+  })
+
+  await resetTrialWorkspace(workspace, review)
+  await fsPromises.rm(path.join(workspace, '.git'), { recursive: true })
+  assert.deepEqual(await inspectTrialWorkspace(workspace, review), {
+    status: 'invalid',
+    violations: ['workspace-metadata-missing']
+  })
+
+  await fsPromises.rm(workspace, { recursive: true })
+  assert.deepEqual(await inspectTrialWorkspace(workspace, review), {
+    status: 'invalid',
+    violations: ['workspace-missing']
+  })
 })
 
 test('judge controls require semantic inference from fixed artifacts', () => {
@@ -454,7 +502,7 @@ test('rubric, schema, and package scripts preserve the agreed gates', () => {
   assert.match(eslintConfig, /'tmp\/\*\*'/)
   assert.match(packageJson.scripts['eval:annotation'] ?? '', / run$/)
   assert.match(packageJson.scripts['eval:annotation:validate'] ?? '', / validate$/)
-  assert.equal(config.runnerVersion, 3)
+  assert.equal(config.runnerVersion, 4)
   assert.deepEqual(config.thresholds, {
     judgeControlAccuracy: 1,
     guidedRequiredSignalRate: 1,

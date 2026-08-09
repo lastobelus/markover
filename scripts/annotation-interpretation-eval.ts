@@ -17,6 +17,15 @@ const execFileAsync = promisify(execFile)
 export type EvaluationCondition = 'guided' | 'unguided'
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
 export type FinalDocumentStatus = 'regular' | 'missing' | 'invalid'
+export type TrialWorkspaceStatus = 'valid' | 'invalid'
+export type TrialWorkspaceViolation =
+  | 'workspace-missing'
+  | 'workspace-metadata-missing'
+  | 'workspace-metadata-invalid'
+  | 'review-missing'
+  | 'review-invalid'
+  | 'review-modified'
+  | 'unexpected-entry'
 
 export interface EvaluationCase {
   id: string
@@ -168,6 +177,8 @@ interface TrialResult {
   agentResponse: string
   finalDocument: string | null
   finalDocumentStatus: FinalDocumentStatus
+  workspaceStatus: TrialWorkspaceStatus
+  workspaceViolations: TrialWorkspaceViolation[]
   pass: boolean
   judgment: JudgeOutput
   agentAttempts: number
@@ -438,8 +449,8 @@ function parseConfig(source: string): EvaluationConfig {
 
 function validateDefinition(definition: EvaluationDefinition): void {
   const { cases, config, judgeSchema, rubric } = definition
-  if (config.schemaVersion !== 1 || config.runnerVersion !== 3) {
-    throw new Error('Only annotation evaluation schema 1 and runner version 3 are supported')
+  if (config.schemaVersion !== 1 || config.runnerVersion !== 4) {
+    throw new Error('Only annotation evaluation schema 1 and runner version 4 are supported')
   }
   if (!Number.isInteger(config.trialsPerCondition) || config.trialsPerCondition < 1) {
     throw new Error('trialsPerCondition must be a positive integer')
@@ -1136,11 +1147,72 @@ export async function resetTrialWorkspace(
   ])
 }
 
+export async function inspectTrialWorkspace(
+  workspace: string,
+  review: EvaluationCase['review']
+): Promise<{
+  status: TrialWorkspaceStatus
+  violations: TrialWorkspaceViolation[]
+}> {
+  const violations: TrialWorkspaceViolation[] = []
+  let entries: string[]
+  try {
+    entries = await fs.readdir(workspace)
+  } catch (error) {
+    const code = isObject(error) && typeof error.code === 'string'
+      ? error.code
+      : null
+    if (code !== 'ENOENT') throw error
+    return { status: 'invalid', violations: ['workspace-missing'] }
+  }
+  if (entries.some((entry) => ![
+    '.git',
+    'document.md',
+    'review.json'
+  ].includes(entry))) {
+    violations.push('unexpected-entry')
+  }
+  try {
+    const metadata = await fs.lstat(path.join(workspace, '.git'))
+    if (!metadata.isDirectory()) violations.push('workspace-metadata-invalid')
+  } catch (error) {
+    const code = isObject(error) && typeof error.code === 'string'
+      ? error.code
+      : null
+    if (code !== 'ENOENT') throw error
+    violations.push('workspace-metadata-missing')
+  }
+  try {
+    const reviewPath = path.join(workspace, 'review.json')
+    const reviewStat = await fs.lstat(reviewPath)
+    if (!reviewStat.isFile() || reviewStat.size > 1024 * 1024) {
+      violations.push('review-invalid')
+    } else if (
+      await fs.readFile(reviewPath, 'utf8') !== `${JSON.stringify(review, null, 2)}\n`
+    ) {
+      violations.push('review-modified')
+    }
+  } catch (error) {
+    const code = isObject(error) && typeof error.code === 'string'
+      ? error.code
+      : null
+    if (code !== 'ENOENT') throw error
+    violations.push('review-missing')
+  }
+  return {
+    status: violations.length === 0 ? 'valid' : 'invalid',
+    violations
+  }
+}
+
 export function trialPass(
   finalDocumentStatus: FinalDocumentStatus,
+  workspaceStatus: TrialWorkspaceStatus,
   judgment: JudgeOutput
 ): boolean {
-  return finalDocumentStatus === 'regular' && judgment.pass
+  return finalDocumentStatus === 'regular' &&
+    workspaceStatus === 'valid' &&
+    judgment.pass
 }
 
 function findCase(
@@ -1342,6 +1414,10 @@ async function runTrial(
       : null
     if (code !== 'ENOENT') throw error
   }
+  const workspaceInspection = await inspectTrialWorkspace(
+    workspace,
+    evaluationCase.review
+  )
   const judge = await runJudge({
     codexPath,
     definition,
@@ -1362,7 +1438,13 @@ async function runTrial(
     agentResponse: agent.value,
     finalDocument,
     finalDocumentStatus,
-    pass: trialPass(finalDocumentStatus, judge.value),
+    workspaceStatus: workspaceInspection.status,
+    workspaceViolations: workspaceInspection.violations,
+    pass: trialPass(
+      finalDocumentStatus,
+      workspaceInspection.status,
+      judge.value
+    ),
     judgment: judge.value,
     agentAttempts: agent.attempts.length,
     judgeAttempts: judge.attempts.length,
@@ -1609,7 +1691,7 @@ function reportMarkdown(manifest: JsonObject): string {
     '- `manifest.json` contains machine-readable configuration, provenance, gates, control results, and trial summaries.',
     '- `inputs/` contains the exact versioned cases, config, rubric, judge schema, and agent guidance used by the run.',
     '- `controls/` contains every structured judge-control invocation and judgment.',
-    '- `trials/` contains prompts, sanitized JSONL event streams, stderr, timing, usage, responses, documents, and judgments.',
+    '- `trials/` contains prompts, sanitized JSONL event streams, stderr, timing, usage, responses, documents, workspace-integrity status, and judgments.',
     '',
     'Absolute local paths are replaced with stable placeholders, and command-output payloads are redacted from published JSONL. Credentials and unrelated environment variables are never collected.',
     ''
@@ -1850,6 +1932,8 @@ async function runEvaluation(options: RunOptions): Promise<RunResult> {
       trial: trial.spec.trial,
       pass: trial.pass,
       finalDocumentStatus: trial.finalDocumentStatus,
+      workspaceStatus: trial.workspaceStatus,
+      workspaceViolations: trial.workspaceViolations,
       agentAttempts: trial.agentAttempts,
       judgeAttempts: trial.judgeAttempts,
       usage: trial.usage,
