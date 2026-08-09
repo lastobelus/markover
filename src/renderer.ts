@@ -3513,22 +3513,21 @@ async function initialize(): Promise<void> {
     if (!reviewSessions.get(reviewId)) {
       addManagedReview(managedReviewDocument(document), false)
     }
-    const activationSequence = ++incomingReviewSequence
     const noticeVersion = incomingReviewNoticeVersion
-    const noticeSequence = incomingReviewNoticeSequence
+    const noticeReviewId = incomingReviewNoticeId
     const warningVersion = incomingReviewWarningVersion
-    const warningSequence = incomingReviewWarningSequence
+    const warningReviewId = incomingReviewWarningId
     const outcome = await activateReview(reviewId)
     if (outcome === 'activated' || outcome === 'already-active') {
       if (
         incomingReviewNoticeVersion === noticeVersion &&
-        shouldDismissIncomingPrompt(noticeSequence, activationSequence)
+        noticeReviewId === reviewId
       ) {
         hideIncomingReviewNotice()
       }
       if (
         incomingReviewWarningVersion === warningVersion &&
-        shouldDismissIncomingPrompt(warningSequence, activationSequence)
+        warningReviewId === reviewId
       ) {
         clearIncomingReviewWarning()
       }
