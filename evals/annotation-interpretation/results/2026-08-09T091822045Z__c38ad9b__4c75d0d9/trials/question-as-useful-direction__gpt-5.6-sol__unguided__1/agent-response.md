@@ -1,0 +1,1 @@
+Good question. The document didn’t provide a supported rationale, so I revised it to explicitly identify that gap and note that the removal conditions also remain undocumented.

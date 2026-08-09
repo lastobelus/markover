@@ -1,0 +1,1 @@
+Good point. Five retries could increase upstream load, so I kept the limit at three and clarified that any increase should first be validated through testing.

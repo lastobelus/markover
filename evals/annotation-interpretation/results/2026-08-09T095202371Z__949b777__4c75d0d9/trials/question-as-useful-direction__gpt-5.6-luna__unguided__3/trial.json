@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__unguided__3",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 3
+  },
+  "agentResponse": "Good question. I clarified that the legacy fallback remains enabled to preserve compatibility while clients transition to the new behavior.",
+  "finalDocument": "The legacy fallback remains enabled for all clients to preserve compatibility while clients transition to the new behavior.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly says “Good question” and answers why the fallback remains: “to preserve compatibility while clients transition to the new behavior.”"
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The response explicitly acknowledges and addresses the question, so the document edit was not silent."
+      }
+    ],
+    "summary": "The agent explicitly recognized and answered the legacy-fallback question; therefore the required signal is present and the forbidden silent-conversion signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45835,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 682,
+      "reasoning_output_tokens": 146
+    },
+    "judge": {
+      "input_tokens": 10503,
+      "cached_input_tokens": 1792,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 215,
+      "reasoning_output_tokens": 58
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

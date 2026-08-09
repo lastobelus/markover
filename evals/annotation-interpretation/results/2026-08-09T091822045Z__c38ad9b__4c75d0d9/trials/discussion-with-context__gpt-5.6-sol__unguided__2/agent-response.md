@@ -1,0 +1,1 @@
+Good point. I revised the document to flag the 200 ms request budget for revalidation and clarify that it originated with last year’s mobile client.

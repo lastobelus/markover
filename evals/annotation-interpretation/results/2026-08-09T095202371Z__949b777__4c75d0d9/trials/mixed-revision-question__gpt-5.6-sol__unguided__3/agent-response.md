@@ -1,0 +1,1 @@
+Renamed the section to “Persistence” and clarified that Redis enables shared access across application instances, unlike a local SQLite database.

@@ -1,0 +1,1 @@
+I clarified the document to note that the 200ms request budget was inherited from last year’s mobile client. That preserves the target while making its provenance explicit.

@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The agent explicitly acknowledges the feedback with “Good question” and addresses it by stating that the rationale was not documented and client dependency should be confirmed."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly recognizes the question and explains the resulting revision."
+    }
+  ],
+  "summary": "The agent explicitly acknowledged and substantively answered the legacy-fallback question while explaining the revision, so the required signal is present and the forbidden signal is absent."
+}

@@ -1,0 +1,1 @@
+Updated `document.md` to clarify that the retry limit is three, addressing the concern about overloading the upstream service with five retries.

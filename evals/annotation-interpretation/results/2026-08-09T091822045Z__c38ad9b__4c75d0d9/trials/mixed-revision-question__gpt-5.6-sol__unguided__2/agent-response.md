@@ -1,0 +1,1 @@
+Updated the section to **Persistence** and clarified that Redis is chosen for state shared across application instances, while SQLite is better suited to instance-local, file-based persistence.

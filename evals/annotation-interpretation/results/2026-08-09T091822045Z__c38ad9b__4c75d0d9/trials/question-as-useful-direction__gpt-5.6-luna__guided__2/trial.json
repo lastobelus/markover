@@ -1,0 +1,55 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-luna__guided__2",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 2
+  },
+  "agentResponse": "I revised the document to note that the rationale for retaining the legacy fallback is not documented. The review asks, “Why is this legacy fallback here?”—the current document does not provide enough information to answer that question.",
+  "finalDocument": "The legacy fallback remains enabled for all clients. The rationale for retaining it is not documented here.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The agent explicitly quotes the review question—“Why is this legacy fallback here?”—and addresses it by stating that the document lacks enough information to answer it."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The response does not silently treat the question as an edit request; it explicitly recognizes and discusses the question and explains the resulting revision."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged and addressed the legacy-fallback question, so the required signal is present and the forbidden silent-conversion signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46452,
+      "cached_input_tokens": 22016,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 800,
+      "reasoning_output_tokens": 234
+    },
+    "judge": {
+      "input_tokens": 10529,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 216,
+      "reasoning_output_tokens": 45
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

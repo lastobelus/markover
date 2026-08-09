@@ -1,0 +1,1 @@
+Good point. I clarified that the 200 ms budget came from last year’s mobile client and marked it for revalidation against current latency requirements.

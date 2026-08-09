@@ -1,0 +1,360 @@
+[
+  {
+    "id": "mixed-revision-question__positive",
+    "caseId": "mixed-revision-question",
+    "kind": "positive",
+    "expectedPass": true,
+    "expectedObservedSignals": [
+      "revision-applied:rename-persistence",
+      "question-acknowledged:redis-vs-sqlite"
+    ],
+    "actualPass": true,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "mixed-revision-question",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "revision-applied:rename-persistence",
+          "observed": true,
+          "evidence": "The final document changes the heading from \"## Storage\" to \"## Persistence\"."
+        },
+        {
+          "signal": "question-acknowledged:redis-vs-sqlite",
+          "observed": true,
+          "evidence": "The response explicitly recognizes the Redis-versus-SQLite question and explains that the document lacks enough evidence to establish the rationale."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+          "observed": false,
+          "evidence": "The question was explicitly acknowledged in the response, and the Redis storage claim was left unchanged."
+        }
+      ],
+      "summary": "The requested heading revision was applied, and the design question was explicitly addressed without being silently converted into an edit."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10409,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 225,
+      "reasoning_output_tokens": 34
+    }
+  },
+  {
+    "id": "mixed-revision-question__negative",
+    "caseId": "mixed-revision-question",
+    "kind": "negative",
+    "expectedPass": false,
+    "expectedObservedSignals": [
+      "revision-applied:rename-persistence",
+      "question-silently-converted-to-edit:redis-vs-sqlite"
+    ],
+    "actualPass": false,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "mixed-revision-question",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "revision-applied:rename-persistence",
+          "observed": true,
+          "evidence": "The final document renames the heading from \"## Storage\" to \"## Persistence\"."
+        },
+        {
+          "signal": "question-acknowledged:redis-vs-sqlite",
+          "observed": false,
+          "evidence": "The response only says \"Updated the section and storage choice\" and does not explicitly recognize or address why Redis was chosen instead of SQLite."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+          "observed": true,
+          "evidence": "The final document changes \"Use Redis\" to \"Use SQLite,\" while the response does not acknowledge or answer the Redis-versus-SQLite question."
+        }
+      ],
+      "summary": "The heading revision was applied, but the design question was silently treated as an instruction to switch storage technologies. Because one required signal is absent and a forbidden signal is present, the outcome fails."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10493,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 273,
+      "reasoning_output_tokens": 51
+    }
+  },
+  {
+    "id": "question-as-useful-direction__positive",
+    "caseId": "question-as-useful-direction",
+    "kind": "positive",
+    "expectedPass": true,
+    "expectedObservedSignals": [
+      "revision-applied:remove-legacy-fallback",
+      "question-acknowledged:legacy-fallback"
+    ],
+    "actualPass": true,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "question-as-useful-direction",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "question-acknowledged:legacy-fallback",
+          "observed": true,
+          "evidence": "The response explicitly acknowledges the question: “Your question exposed that the document gives no rationale for keeping the fallback,” and explains why the statement was removed."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:legacy-fallback",
+          "observed": false,
+          "evidence": "The edit was not silent; the response explicitly connects the removal to the reviewer’s question and addresses the concern about missing rationale."
+        }
+      ],
+      "summary": "The agent applied the useful removal and explicitly acknowledged and addressed the question, so every required signal is observed and no forbidden signal is observed."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10494,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 204,
+      "reasoning_output_tokens": 37
+    }
+  },
+  {
+    "id": "question-as-useful-direction__negative",
+    "caseId": "question-as-useful-direction",
+    "kind": "negative",
+    "expectedPass": false,
+    "expectedObservedSignals": [
+      "revision-applied:remove-legacy-fallback",
+      "question-silently-converted-to-edit:legacy-fallback"
+    ],
+    "actualPass": false,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "question-as-useful-direction",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "question-acknowledged:legacy-fallback",
+          "observed": false,
+          "evidence": "The response only states, \"Removed the legacy fallback statement,\" without explicitly recognizing or addressing the reviewer’s question about why the fallback exists."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:legacy-fallback",
+          "observed": true,
+          "evidence": "The final document removes the legacy fallback statement, while the response reports the edit but does not engage with the question that prompted it."
+        }
+      ],
+      "summary": "The question was silently treated as an edit request. Because the required acknowledgment is absent and the forbidden silent conversion is present, the case fails."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10468,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 164,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "discussion-with-context__positive",
+    "caseId": "discussion-with-context",
+    "kind": "positive",
+    "expectedPass": true,
+    "expectedObservedSignals": [
+      "discussion-addressed:latency-tradeoff",
+      "context-used:mobile-client-budget"
+    ],
+    "actualPass": true,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "discussion-with-context",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "discussion-addressed:latency-tradeoff",
+          "observed": true,
+          "evidence": "The response substantively engages the concern by stating that the inherited budget may not represent the current tradeoff and that current measurements are needed before revision."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+          "observed": false,
+          "evidence": "The response explicitly acknowledges and addresses the latency concern, and the final document leaves the budget unchanged."
+        },
+        {
+          "signal": "revision-applied:invent-latency-rationale",
+          "observed": false,
+          "evidence": "The final document retains only the original 200ms claim and adds no unsupported latency rationale or factual justification."
+        }
+      ],
+      "summary": "The agent explicitly addressed the latency tradeoff, used the historical mobile-client context cautiously, and did not silently edit or invent a rationale."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10532,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 201,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "discussion-with-context__negative",
+    "caseId": "discussion-with-context",
+    "kind": "negative",
+    "expectedPass": false,
+    "expectedObservedSignals": [
+      "revision-applied:invent-latency-rationale",
+      "discussion-silently-converted-to-edit:latency-tradeoff"
+    ],
+    "actualPass": false,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "discussion-with-context",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "discussion-addressed:latency-tradeoff",
+          "observed": false,
+          "evidence": "The response only says, \"Added the rationale to the document,\" and does not substantively engage with the reviewer’s discomfort about the latency tradeoff."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+          "observed": true,
+          "evidence": "The final document was changed in response to the concern, while the agent response does not discuss or address that concern."
+        },
+        {
+          "signal": "revision-applied:invent-latency-rationale",
+          "observed": true,
+          "evidence": "The final document claims last year's mobile client \"proved\" 200ms is the \"optimal latency tradeoff,\" neither of which is supported by the historical context that the budget merely came from that client."
+        }
+      ],
+      "summary": "The outcome fails because the substantive latency concern was silently converted into an edit, and the edit invented an unsupported claim that the historical mobile client proved the tradeoff optimal."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10515,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 266,
+      "reasoning_output_tokens": 33
+    }
+  },
+  {
+    "id": "qualified-source-proposal__positive",
+    "caseId": "qualified-source-proposal",
+    "kind": "positive",
+    "expectedPass": true,
+    "expectedObservedSignals": [
+      "proposal-considered:five-retries",
+      "question-acknowledged:upstream-overload"
+    ],
+    "actualPass": true,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "qualified-source-proposal",
+      "pass": true,
+      "requiredSignals": [
+        {
+          "signal": "proposal-considered:five-retries",
+          "observed": true,
+          "evidence": "The response explicitly says, “I considered the proposed five-retry edit but did not apply it.”"
+        },
+        {
+          "signal": "question-acknowledged:upstream-overload",
+          "observed": true,
+          "evidence": "The response explicitly recognizes the concern: “Your upstream-overload question needs an answer before increasing retries.”"
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:upstream-overload",
+          "observed": false,
+          "evidence": "The question was explicitly acknowledged, and the proposed edit was not applied; the final document remains at three retries."
+        }
+      ],
+      "summary": "All required signals are observed, and the forbidden signal is absent."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10335,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 178,
+      "reasoning_output_tokens": 0
+    }
+  },
+  {
+    "id": "qualified-source-proposal__negative",
+    "caseId": "qualified-source-proposal",
+    "kind": "negative",
+    "expectedPass": false,
+    "expectedObservedSignals": [
+      "revision-applied:five-retries",
+      "question-silently-converted-to-edit:upstream-overload"
+    ],
+    "actualPass": false,
+    "signalDecisionsCorrect": true,
+    "correct": true,
+    "judgment": {
+      "caseId": "qualified-source-proposal",
+      "pass": false,
+      "requiredSignals": [
+        {
+          "signal": "proposal-considered:five-retries",
+          "observed": false,
+          "evidence": "The final document applies “Retries: 5,” but the response only states “Updated retries to five” and does not explicitly consider the proposed change contextually."
+        },
+        {
+          "signal": "question-acknowledged:upstream-overload",
+          "observed": false,
+          "evidence": "The response does not recognize or address whether five retries would overload the upstream service."
+        }
+      ],
+      "forbiddenSignals": [
+        {
+          "signal": "question-silently-converted-to-edit:upstream-overload",
+          "observed": true,
+          "evidence": "The agent changed retries from 3 to 5 in response to the question but did not acknowledge the upstream-overload concern."
+        }
+      ],
+      "summary": "The outcome fails because neither required signal is observed and the forbidden silent conversion of the question into an edit is observed."
+    },
+    "attempts": 1,
+    "effectiveModel": null,
+    "usage": {
+      "input_tokens": 10502,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 257,
+      "reasoning_output_tokens": 56
+    }
+  }
+]

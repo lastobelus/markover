@@ -1,0 +1,1 @@
+Good point. I kept the retry count at 3 to avoid unnecessary upstream load and clarified that it is the maximum.

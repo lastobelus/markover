@@ -1,0 +1,1 @@
+Good question. I revised the document to acknowledge that the fallback’s purpose is undocumented and to require confirming whether any clients still depend on it before removing it.

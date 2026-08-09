@@ -1,5 +1,10 @@
 # Annotation interpretation evaluation
 
+> **Superseded evidence.** This run supplied each case description to the
+> evaluated agent and retained raw command-output payloads that could expose
+> host ownership metadata. Use the
+> [canonical hint-free, output-redacted run](../2026-08-09T095202371Z__949b777__4c75d0d9/README.md).
+
 **Result: PASS**
 
 Run ID: `2026-08-09T083453602Z__2b8ce53__4c33202d`

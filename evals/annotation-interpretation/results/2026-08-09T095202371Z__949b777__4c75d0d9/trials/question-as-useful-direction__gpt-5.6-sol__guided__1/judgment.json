@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly says, “Good question,” explains that no rationale was provided for retaining the fallback, and states why the unsupported statement was removed."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly acknowledged the question and substantively addressed the missing rationale and documentation needed if the fallback remains required."
+    }
+  ],
+  "summary": "The agent both removed the unsupported legacy-fallback statement and explicitly acknowledged and answered the reviewer’s question, so the required signal is present and the forbidden silent-conversion signal is absent."
+}

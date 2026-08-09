@@ -1,0 +1,1 @@
+I kept `document.md` at `Retries: 3`. Five retries could increase load on the upstream service, and the review does not provide enough context to justify raising the limit.

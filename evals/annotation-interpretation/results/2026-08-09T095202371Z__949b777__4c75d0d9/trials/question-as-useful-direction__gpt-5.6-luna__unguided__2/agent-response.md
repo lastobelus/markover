@@ -1,0 +1,1 @@
+Good catch—the original sentence did not explain why the fallback remains enabled. I revised the document to require documenting its rationale and defining criteria for its removal.

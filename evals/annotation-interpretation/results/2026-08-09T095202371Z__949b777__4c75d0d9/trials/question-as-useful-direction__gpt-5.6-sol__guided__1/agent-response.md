@@ -1,0 +1,1 @@
+Good question. The document provided no rationale for retaining the legacy fallback, so I removed the unsupported statement. If the fallback is still required, its purpose and affected clients should be documented explicitly.

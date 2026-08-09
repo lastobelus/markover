@@ -1,0 +1,1 @@
+Good point. I’ve marked the 200 ms budget as provisional, documented its origin in last year’s mobile client, and stated that it must be revalidated before guiding latency tradeoffs.

@@ -1,0 +1,1 @@
+Good point. Without evidence that the upstream service can absorb five retries, I kept the limit at three and clarified that it should increase only after upstream capacity is confirmed.

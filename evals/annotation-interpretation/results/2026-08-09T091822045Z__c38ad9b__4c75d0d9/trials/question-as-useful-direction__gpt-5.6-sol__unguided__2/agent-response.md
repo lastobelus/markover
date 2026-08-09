@@ -1,0 +1,1 @@
+Good question. The document didn’t provide a supported reason for retaining the fallback. I revised it to explicitly note that both the rationale and removal conditions remain undocumented, rather than implying a justification.

@@ -1,0 +1,1 @@
+I revised the sentence to clarify that the 200ms budget is inherited from last year’s mobile client and should be revalidated against current requirements.

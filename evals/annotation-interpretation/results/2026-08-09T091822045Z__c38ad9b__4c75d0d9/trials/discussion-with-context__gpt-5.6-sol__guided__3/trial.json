@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "discussion-with-context__gpt-5.6-sol__guided__3",
+    "caseId": "discussion-with-context",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 3
+  },
+  "agentResponse": "Agreed—the 200ms target shouldn’t be treated as settled. I revised the document to state that it needs reassessment and clarify that it came from last year’s mobile client.",
+  "finalDocument": "The request budget needs to be reassessed; the existing 200ms target was based on last year's mobile client.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": true,
+        "evidence": "The response substantively engages the concern by agreeing that the 200ms target “shouldn’t be treated as settled” and stating that it needs reassessment."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": false,
+        "evidence": "The response explicitly acknowledges and addresses the latency concern rather than only making a silent document edit."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": false,
+        "evidence": "The final document attributes the existing target to last year’s mobile client, matching the supplied historical context, and does not invent an unsupported rationale."
+      }
+    ],
+    "summary": "The response explicitly addresses the latency-tradeoff concern, and the revision appropriately absorbs the supplied historical context without presenting an invented rationale."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46214,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 627,
+      "reasoning_output_tokens": 93
+    },
+    "judge": {
+      "input_tokens": 10550,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 209,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

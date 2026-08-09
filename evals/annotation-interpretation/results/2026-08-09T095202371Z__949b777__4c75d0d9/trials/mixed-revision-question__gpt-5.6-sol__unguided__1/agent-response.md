@@ -1,0 +1,1 @@
+Updated the section to “Persistence” and clarified when Redis is preferable to SQLite, including the single-instance case where SQLite is the simpler choice.

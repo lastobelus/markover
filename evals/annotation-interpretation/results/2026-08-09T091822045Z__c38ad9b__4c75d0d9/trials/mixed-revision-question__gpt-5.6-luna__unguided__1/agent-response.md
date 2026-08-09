@@ -1,0 +1,1 @@
+Renamed the section to “Persistence” and clarified the Redis-versus-SQLite guidance: Redis is for state shared across application instances, while SQLite is for local persistence.

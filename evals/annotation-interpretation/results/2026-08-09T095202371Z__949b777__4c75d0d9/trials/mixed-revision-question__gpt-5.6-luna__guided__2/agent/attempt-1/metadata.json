@@ -1,0 +1,17 @@
+{
+  "attempt": 1,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 17936.850042,
+  "infrastructureError": null,
+  "threadId": "019fe5f4-bba4-7800-9bec-a5c65d29c15d",
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 46198,
+    "cached_input_tokens": 33024,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 692,
+    "reasoning_output_tokens": 152
+  }
+}

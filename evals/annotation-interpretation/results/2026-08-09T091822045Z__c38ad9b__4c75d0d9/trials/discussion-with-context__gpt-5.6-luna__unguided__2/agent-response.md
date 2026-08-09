@@ -1,0 +1,1 @@
+Thanks for flagging that. I clarified in the document that the 200 ms request budget is inherited from last year’s mobile client, so its provenance is explicit.

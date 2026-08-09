@@ -1,0 +1,1 @@
+Good question—the rationale wasn’t documented. I revised the text to require confirmation that clients still depend on the fallback; otherwise, it should be removed.

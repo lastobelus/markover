@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-sol__guided__1",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "Five retries could overload the upstream service, but we can’t determine that without capacity and backoff details. I kept retries at three and documented that increasing to five requires confirming the upstream can absorb the additional traffic.",
+  "finalDocument": "Retries: 3\n\nAn increase to five retries should be made only after confirming the upstream service can absorb the additional retry traffic under the configured backoff policy.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly considers the proposed five-retry setting: “Five retries could overload the upstream service” and explains why retries remained at three."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response directly addresses the overload question, stating that five retries could cause overload but that capacity and backoff details are needed to determine it."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The question was explicitly acknowledged and answered in the response; it was not silently treated as an edit request."
+      }
+    ],
+    "summary": "The agent explicitly considered the exact five-retry proposal, substantively addressed the upstream-overload question, and retained three retries pending supporting capacity and backoff information. All required signals are observed and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 47015,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 1043,
+      "reasoning_output_tokens": 451
+    },
+    "judge": {
+      "input_tokens": 10566,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 224,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

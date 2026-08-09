@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The agent explicitly says, “Good question,” and addresses it by identifying the missing rationale and information needed before retiring the fallback."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The response explicitly acknowledges and addresses the reviewer’s question, so the document revision was not silent."
+    }
+  ],
+  "summary": "The agent explicitly acknowledged and substantively addressed the question; no silent conversion to an edit occurred."
+}

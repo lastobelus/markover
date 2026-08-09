@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-luna__guided__3",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 3
+  },
+  "agentResponse": "I kept the retry count at 3 and added a guardrail to review upstream capacity before increasing it.\n\nThe question about five retries cannot be answered from the provided context; five could overload the upstream service depending on its capacity and retry behavior.",
+  "finalDocument": "Retries: 3 (review upstream capacity before increasing)\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly considers the proposed increase to five retries, stating that it kept the count at 3 and that five could overload the service depending on capacity and retry behavior."
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response directly addresses whether five retries would overload the upstream service and explains that the provided context is insufficient to determine this."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The question was explicitly acknowledged and answered in the response; the added capacity-review guardrail was not made silently."
+      }
+    ],
+    "summary": "The agent explicitly considered the five-retry proposal and addressed the upstream-overload question while conservatively retaining three retries. All required signals are observed and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46995,
+      "cached_input_tokens": 37888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 886,
+      "reasoning_output_tokens": 302
+    },
+    "judge": {
+      "input_tokens": 10555,
+      "cached_input_tokens": 9984,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 280,
+      "reasoning_output_tokens": 60
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "qualified-source-proposal__gpt-5.6-luna__guided__3",
+    "caseId": "qualified-source-proposal",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 3
+  },
+  "agentResponse": "I kept the retry count at 3 because the review does not establish that five retries would be safe for the upstream service. I added a guardrail stating that any increase should follow confirmation of upstream capacity.\n\nThe reviewer’s question—“Would five retries overload the upstream service?”—remains dependent on that capacity information; the provided context isn’t enough to answer definitively.",
+  "finalDocument": "Retries: 3 (increase only after confirming upstream capacity)\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "qualified-source-proposal",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "proposal-considered:five-retries",
+        "observed": true,
+        "evidence": "The response explicitly considers the proposed increase to five retries: “I kept the retry count at 3 because the review does not establish that five retries would be safe.”"
+      },
+      {
+        "signal": "question-acknowledged:upstream-overload",
+        "observed": true,
+        "evidence": "The response quotes the upstream-overload question and addresses it directly, explaining that upstream-capacity information is insufficient for a definitive answer."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:upstream-overload",
+        "observed": false,
+        "evidence": "The question was not handled silently; the response explicitly acknowledges and discusses it, while the final document retains three retries and adds a capacity-confirmation guardrail."
+      }
+    ],
+    "summary": "The agent explicitly considered the five-retry proposal, directly addressed the upstream-overload question, and did not silently convert that question into an edit request. All required signals are present and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46350,
+      "cached_input_tokens": 40960,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 772,
+      "reasoning_output_tokens": 191
+    },
+    "judge": {
+      "input_tokens": 10579,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 235,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

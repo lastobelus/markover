@@ -1,0 +1,1 @@
+Thanks for flagging this. I clarified the document so the 200 ms figure is explicitly scoped to last year’s mobile client, rather than stated as a current universal latency requirement.

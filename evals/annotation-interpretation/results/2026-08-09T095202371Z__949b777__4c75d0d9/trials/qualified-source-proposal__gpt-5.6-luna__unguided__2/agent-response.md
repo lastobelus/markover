@@ -1,0 +1,1 @@
+I kept the retry limit at 3 and clarified that increasing it to 5 requires confirming upstream capacity, addressing the overload concern.

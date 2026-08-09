@@ -1,0 +1,1 @@
+The request latency budget is provisionally 200 ms. This figure was inherited from last year's mobile client and should be revalidated against current client requirements before it drives latency tradeoffs.

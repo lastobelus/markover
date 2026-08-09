@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "mixed-revision-question__gpt-5.6-luna__guided__1",
+    "caseId": "mixed-revision-question",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "Updated `document.md`:\n\n```md\n## Persistence\n\nUse Redis for shared state.\n```\n\nThe section was renamed as requested. Regarding “Why Redis instead of SQLite?”: the current document doesn’t provide that rationale, so I haven’t added an unsupported explanation.",
+  "finalDocument": "## Persistence\n\nUse Redis for shared state.\n",
+  "finalDocumentStatus": "regular",
+  "pass": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from “## Storage” to “## Persistence”."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The agent explicitly addresses “Why Redis instead of SQLite?” and states that the document provides no rationale, so it did not add an unsupported explanation."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The question was explicitly acknowledged in the response and was not silently treated as an edit request."
+      }
+    ],
+    "summary": "The requested heading revision is present, and the Redis-versus-SQLite question is explicitly addressed without inventing rationale. All required signals are observed and no forbidden signal is observed."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 47162,
+      "cached_input_tokens": 33024,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 958,
+      "reasoning_output_tokens": 251
+    },
+    "judge": {
+      "input_tokens": 10544,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 207,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

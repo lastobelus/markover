@@ -1,0 +1,1 @@
+That concern makes sense. I revised the statement to identify the outdated basis for the 200 ms budget and clarify that it needs revalidation before becoming a firm latency target.

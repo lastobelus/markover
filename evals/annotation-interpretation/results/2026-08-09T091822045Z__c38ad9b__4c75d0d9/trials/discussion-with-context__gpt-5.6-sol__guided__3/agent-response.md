@@ -1,0 +1,1 @@
+Agreed—the 200ms target shouldn’t be treated as settled. I revised the document to state that it needs reassessment and clarify that it came from last year’s mobile client.

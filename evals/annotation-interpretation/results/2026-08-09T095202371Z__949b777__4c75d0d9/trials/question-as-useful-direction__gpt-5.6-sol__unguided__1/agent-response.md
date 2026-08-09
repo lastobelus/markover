@@ -1,0 +1,1 @@
+Good question. I revised the document to explicitly flag that the rationale for retaining the fallback—and the criteria for removing it—still need to be documented.
