@@ -1,0 +1,1 @@
+I reviewed the question about increasing retries from 3 to 5. Since the review provides no evidence that the upstream service can safely handle the additional attempts, I kept the setting at 3 to avoid potentially increasing load. No document change was necessary.

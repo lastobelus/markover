@@ -1,0 +1,1 @@
+That’s a fair concern. I clarified that the 200ms figure is inherited from last year’s mobile client and should be reassessed before being treated as the current target.

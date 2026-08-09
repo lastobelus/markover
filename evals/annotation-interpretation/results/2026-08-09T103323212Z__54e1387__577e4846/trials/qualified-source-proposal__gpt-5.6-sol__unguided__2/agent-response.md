@@ -1,0 +1,1 @@
+Good point. Five retries could amplify upstream load, so I kept the limit at three and clarified the rationale in `document.md`.

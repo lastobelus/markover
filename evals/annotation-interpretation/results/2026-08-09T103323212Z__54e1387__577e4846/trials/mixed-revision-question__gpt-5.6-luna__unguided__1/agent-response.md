@@ -1,0 +1,1 @@
+Renamed the section to “Persistence.” I kept the Redis statement unchanged because the review doesn’t provide enough information to explain the choice over SQLite without speculation.

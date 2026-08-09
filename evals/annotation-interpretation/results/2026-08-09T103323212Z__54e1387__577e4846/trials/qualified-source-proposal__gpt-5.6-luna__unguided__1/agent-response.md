@@ -1,0 +1,1 @@
+I kept the retry count at 3 and clarified that it remains bounded to reduce the risk of overloading the upstream service.

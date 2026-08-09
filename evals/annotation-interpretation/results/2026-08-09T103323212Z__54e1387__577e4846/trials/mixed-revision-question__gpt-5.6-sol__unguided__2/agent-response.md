@@ -1,0 +1,1 @@
+Renamed the section to “Persistence.” The document doesn’t contain enough context to justify Redis over SQLite, so I left that decision unchanged rather than adding an unsupported rationale.

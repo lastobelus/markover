@@ -2,7 +2,7 @@
 
 > **Superseded evidence.** This bundle uses artifact-based controls but checks
 > only their aggregate pass/fail outcomes. Use the
-> [canonical hint-free run](../2026-08-09T095202371Z__949b777__4c75d0d9/README.md),
+> [canonical integrity-checked run](../2026-08-09T103323212Z__54e1387__577e4846/README.md),
 > which compares every required and forbidden signal decision.
 
 **Result: PASS**

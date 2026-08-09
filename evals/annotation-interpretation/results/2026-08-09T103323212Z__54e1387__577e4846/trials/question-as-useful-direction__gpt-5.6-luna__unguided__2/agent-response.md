@@ -1,0 +1,1 @@
+Updated `document.md` to clarify that the rationale for keeping the legacy fallback enabled is not documented. The reason should be added once confirmed.

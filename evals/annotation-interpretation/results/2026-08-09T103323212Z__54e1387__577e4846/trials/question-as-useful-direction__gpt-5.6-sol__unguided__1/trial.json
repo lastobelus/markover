@@ -1,0 +1,57 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__unguided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 1
+  },
+  "agentResponse": "Good question. The document didn’t provide a reason, so I revised it to explicitly state that the rationale is undocumented rather than implying the fallback is justified.",
+  "finalDocument": "The rationale for keeping the legacy fallback enabled for all clients is not documented.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly acknowledges the feedback with “Good question” and addresses it by explaining that the document provided no reason for the fallback."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent: the response explicitly recognizes the question and explains the resulting revision."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged and addressed the question while explaining the applied revision, so the required signal is present and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 34124,
+      "cached_input_tokens": 11008,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 729,
+      "reasoning_output_tokens": 208
+    },
+    "judge": {
+      "input_tokens": 10504,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 154,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

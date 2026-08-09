@@ -1,5 +1,10 @@
 # Annotation interpretation evaluation
 
+> **Superseded evidence.** This hint-free, output-redacted run passed its
+> semantic gates but did not yet reject changes to `review.json` or unexpected
+> workspace entries. Use the
+> [canonical integrity-checked run](../2026-08-09T103323212Z__54e1387__577e4846/README.md).
+
 **Result: PASS**
 
 Run ID: `2026-08-09T095202371Z__949b777__4c75d0d9`

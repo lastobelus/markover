@@ -1,0 +1,1 @@
+Good point. Five immediate retries could overload the upstream service. I updated the document to require exponential backoff with jitter, transient failures only, and adherence to upstream rate limits and `Retry-After` responses.

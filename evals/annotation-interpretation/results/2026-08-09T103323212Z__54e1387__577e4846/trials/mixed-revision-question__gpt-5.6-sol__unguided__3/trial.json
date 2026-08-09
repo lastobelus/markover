@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "mixed-revision-question__gpt-5.6-sol__unguided__3",
+    "caseId": "mixed-revision-question",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 3
+  },
+  "agentResponse": "Renamed the section to “Persistence” and clarified that Redis supports shared state across application instances, whereas SQLite would require extra filesystem and coordination infrastructure.",
+  "finalDocument": "## Persistence\n\nUse Redis for state that must be shared across application instances. Unlike Redis, SQLite is an embedded, file-backed database, so sharing it across independently deployed instances would require additional filesystem and coordination infrastructure.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from “## Storage” to “## Persistence”."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The agent response explicitly contrasts Redis shared state across application instances with SQLite requiring additional filesystem and coordination infrastructure."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The Redis-versus-SQLite question was not handled silently; the agent explicitly addressed the comparison in its response."
+      }
+    ],
+    "summary": "The requested heading revision is present, and the agent explicitly addresses the Redis-versus-SQLite design question. All required signals are observed and the forbidden signal is absent."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45996,
+      "cached_input_tokens": 20992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 790,
+      "reasoning_output_tokens": 293
+    },
+    "judge": {
+      "input_tokens": 10544,
+      "cached_input_tokens": 5888,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 273,
+      "reasoning_output_tokens": 70
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

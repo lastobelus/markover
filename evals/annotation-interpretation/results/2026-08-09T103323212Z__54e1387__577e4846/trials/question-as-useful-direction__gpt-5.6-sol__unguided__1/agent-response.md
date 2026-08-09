@@ -1,0 +1,1 @@
+Good question. The document didn’t provide a reason, so I revised it to explicitly state that the rationale is undocumented rather than implying the fallback is justified.

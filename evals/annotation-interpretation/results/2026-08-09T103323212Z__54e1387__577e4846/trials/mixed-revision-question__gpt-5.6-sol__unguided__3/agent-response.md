@@ -1,0 +1,1 @@
+Renamed the section to “Persistence” and clarified that Redis supports shared state across application instances, whereas SQLite would require extra filesystem and coordination infrastructure.

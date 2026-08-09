@@ -1,0 +1,1 @@
+I revised the sentence to acknowledge that the fallback’s purpose and removal criteria need documentation before finalization. The reviewer’s question is valid; the document did not provide enough context to justify keeping it enabled.

@@ -1,0 +1,9 @@
+{
+  "source": "## Storage\n\nUse Redis for shared state.",
+  "annotations": [
+    {
+      "block": "## Storage",
+      "feedback": "Rename this section to Persistence. Why Redis instead of SQLite?"
+    }
+  ]
+}

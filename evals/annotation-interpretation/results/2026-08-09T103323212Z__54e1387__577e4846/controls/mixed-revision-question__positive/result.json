@@ -1,0 +1,46 @@
+{
+  "id": "mixed-revision-question__positive",
+  "caseId": "mixed-revision-question",
+  "kind": "positive",
+  "expectedPass": true,
+  "expectedObservedSignals": [
+    "revision-applied:rename-persistence",
+    "question-acknowledged:redis-vs-sqlite"
+  ],
+  "actualPass": true,
+  "signalDecisionsCorrect": true,
+  "correct": true,
+  "judgment": {
+    "caseId": "mixed-revision-question",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "revision-applied:rename-persistence",
+        "observed": true,
+        "evidence": "The final document changes the heading from \"## Storage\" to \"## Persistence\"."
+      },
+      {
+        "signal": "question-acknowledged:redis-vs-sqlite",
+        "observed": true,
+        "evidence": "The agent explicitly says, \"You also asked why Redis is preferred to SQLite,\" and addresses the lack of supporting evidence in the document."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:redis-vs-sqlite",
+        "observed": false,
+        "evidence": "The question was explicitly acknowledged and discussed; the agent states that the storage claim was left unchanged due to insufficient evidence."
+      }
+    ],
+    "summary": "All required signals are observed, and the forbidden signal is not observed."
+  },
+  "attempts": 1,
+  "effectiveModel": null,
+  "usage": {
+    "input_tokens": 10405,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 188,
+    "reasoning_output_tokens": 0
+  }
+}

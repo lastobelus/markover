@@ -1,0 +1,24 @@
+{
+  "caseId": "qualified-source-proposal",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "proposal-considered:five-retries",
+      "observed": true,
+      "evidence": "The response explicitly applies and considers the exact proposal: “Updated the document to `Retries: 5`,” then discusses its failure-path traffic implications."
+    },
+    {
+      "signal": "question-acknowledged:upstream-overload",
+      "observed": true,
+      "evidence": "The response directly addresses overload uncertainty: “the available information doesn’t establish whether that would overload the upstream service,” and recommends validating capacity and retry backoff behavior."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:upstream-overload",
+      "observed": false,
+      "evidence": "Although the final document changes retries to 5, the response explicitly acknowledges and substantively answers the upstream-overload question."
+    }
+  ],
+  "summary": "The agent explicitly considered the five-retry proposal and addressed the upstream-overload question; it did not silently convert the question into an edit."
+}

@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "discussion-with-context__gpt-5.6-luna__guided__1",
+    "caseId": "discussion-with-context",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "Updated `document.md` to clarify that the 200ms request budget applies to the legacy mobile client, addressing the latency-tradeoff concern without implying it is a universal requirement.",
+  "finalDocument": "The legacy mobile client has a request budget of 200ms.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "discussion-with-context",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "discussion-addressed:latency-tradeoff",
+        "observed": true,
+        "evidence": "The response explicitly identifies the “latency-tradeoff concern” and substantively addresses it by explaining that the 200ms budget is scoped to the legacy mobile client rather than treated as a universal requirement."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "discussion-silently-converted-to-edit:latency-tradeoff",
+        "observed": false,
+        "evidence": "The edit was not silent; the response explicitly acknowledged the latency-tradeoff concern and explained how the revision addressed it."
+      },
+      {
+        "signal": "revision-applied:invent-latency-rationale",
+        "observed": false,
+        "evidence": "The final document only attributes the 200ms budget to the legacy mobile client, consistent with the supplied historical context, and adds no unsupported rationale for the latency budget."
+      }
+    ],
+    "summary": "The agent explicitly engaged with the latency concern, used the historical mobile-client context to narrow the budget’s scope, and did not invent a rationale."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 45923,
+      "cached_input_tokens": 32000,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 570,
+      "reasoning_output_tokens": 106
+    },
+    "judge": {
+      "input_tokens": 10531,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 343,
+      "reasoning_output_tokens": 109
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

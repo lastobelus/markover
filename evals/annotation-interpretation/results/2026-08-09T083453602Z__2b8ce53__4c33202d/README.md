@@ -3,7 +3,7 @@
 > **Superseded evidence.** This run supplied each case description to the
 > evaluated agent and retained raw command-output payloads that could expose
 > host ownership metadata. Use the
-> [canonical hint-free, output-redacted run](../2026-08-09T095202371Z__949b777__4c75d0d9/README.md).
+> [canonical integrity-checked run](../2026-08-09T103323212Z__54e1387__577e4846/README.md).
 
 **Result: PASS**
 

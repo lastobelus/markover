@@ -1,0 +1,1 @@
+Good question. The document doesn’t provide a reason for retaining the legacy fallback, so I revised it to flag that gap explicitly: document why it is still required or remove it.

@@ -1,0 +1,1 @@
+Thanks for flagging this. I’ve revised the document to note that the 200 ms budget comes from last year’s mobile client and should be revalidated before being treated as a firm target.

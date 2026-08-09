@@ -1,0 +1,57 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__unguided__2",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "unguided",
+    "trial": 2
+  },
+  "agentResponse": "Good question. The document didn’t justify enabling the fallback for every client. I revised it to require identifying which clients still need it, why, and the criteria for removing it.",
+  "finalDocument": "Retain the legacy fallback only for clients that still require it. Document those clients, why they require the fallback, and the criteria for removing it.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly says “Good question,” addresses the lack of justification for enabling the fallback for every client, and explains the resulting revision."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent: the response explicitly acknowledged the question and explained how it informed the revision."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged and substantively addressed the question while applying a justified narrowing of the legacy fallback, so all required signals are present and no forbidden signals are observed."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46111,
+      "cached_input_tokens": 22016,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 789,
+      "reasoning_output_tokens": 221
+    },
+    "judge": {
+      "input_tokens": 10524,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 163,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

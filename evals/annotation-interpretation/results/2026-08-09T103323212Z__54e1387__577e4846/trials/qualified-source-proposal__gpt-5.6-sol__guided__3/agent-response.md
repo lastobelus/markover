@@ -1,0 +1,1 @@
+Potentially, yes. Increasing from three to five retries permits up to 67% more retry requests; actual load depends on backoff, concurrency, and failure rates. I left `Retries: 3` unchanged because the document doesn’t establish safeguards or upstream capacity that would justify five.

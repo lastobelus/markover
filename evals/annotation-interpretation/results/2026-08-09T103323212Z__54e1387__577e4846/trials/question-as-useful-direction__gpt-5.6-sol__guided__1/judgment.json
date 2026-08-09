@@ -1,0 +1,19 @@
+{
+  "caseId": "question-as-useful-direction",
+  "pass": true,
+  "requiredSignals": [
+    {
+      "signal": "question-acknowledged:legacy-fallback",
+      "observed": true,
+      "evidence": "The response explicitly acknowledges the feedback with “Good question” and addresses it by explaining that no compatibility reason was provided for universal enablement."
+    }
+  ],
+  "forbiddenSignals": [
+    {
+      "signal": "question-silently-converted-to-edit:legacy-fallback",
+      "observed": false,
+      "evidence": "The edit was not silent: the response explicitly discusses the question and explains the resulting revision."
+    }
+  ],
+  "summary": "The agent explicitly acknowledged and substantively answered the question, then applied a justified revision. All required signals are observed and no forbidden signals are observed."
+}

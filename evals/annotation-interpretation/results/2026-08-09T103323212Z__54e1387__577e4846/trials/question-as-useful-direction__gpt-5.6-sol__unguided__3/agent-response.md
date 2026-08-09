@@ -1,0 +1,1 @@
+Good question. No justification was provided, so I revised the document to require removing the fallback unless active clients demonstrably depend on it.

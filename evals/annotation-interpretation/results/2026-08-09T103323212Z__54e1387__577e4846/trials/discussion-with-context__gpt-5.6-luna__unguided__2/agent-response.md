@@ -1,0 +1,1 @@
+Updated `document.md` to clarify that the 200ms budget was inherited from last year’s mobile client and still needs revalidation. This addresses the latency concern without treating the figure as a settled requirement.

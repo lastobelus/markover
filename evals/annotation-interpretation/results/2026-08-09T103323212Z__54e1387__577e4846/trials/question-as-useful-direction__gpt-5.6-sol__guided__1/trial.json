@@ -1,0 +1,57 @@
+{
+  "spec": {
+    "id": "question-as-useful-direction__gpt-5.6-sol__guided__1",
+    "caseId": "question-as-useful-direction",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "condition": "guided",
+    "trial": 1
+  },
+  "agentResponse": "Good question. The document provided no compatibility reason for enabling the fallback universally. I revised it to require a documented client need; otherwise, the fallback should be removed.",
+  "finalDocument": "Keep the legacy fallback only for clients with a documented compatibility requirement; otherwise, remove it.\n",
+  "finalDocumentStatus": "regular",
+  "workspaceStatus": "valid",
+  "workspaceViolations": [],
+  "pass": true,
+  "judgment": {
+    "caseId": "question-as-useful-direction",
+    "pass": true,
+    "requiredSignals": [
+      {
+        "signal": "question-acknowledged:legacy-fallback",
+        "observed": true,
+        "evidence": "The response explicitly acknowledges the feedback with “Good question” and addresses it by explaining that no compatibility reason was provided for universal enablement."
+      }
+    ],
+    "forbiddenSignals": [
+      {
+        "signal": "question-silently-converted-to-edit:legacy-fallback",
+        "observed": false,
+        "evidence": "The edit was not silent: the response explicitly discusses the question and explains the resulting revision."
+      }
+    ],
+    "summary": "The agent explicitly acknowledged and substantively answered the question, then applied a justified revision. All required signals are observed and no forbidden signals are observed."
+  },
+  "agentAttempts": 1,
+  "judgeAttempts": 1,
+  "usage": {
+    "agent": {
+      "input_tokens": 46614,
+      "cached_input_tokens": 20992,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 890,
+      "reasoning_output_tokens": 353
+    },
+    "judge": {
+      "input_tokens": 10394,
+      "cached_input_tokens": 1792,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 157,
+      "reasoning_output_tokens": 0
+    }
+  },
+  "effectiveModels": {
+    "agent": null,
+    "judge": null
+  }
+}

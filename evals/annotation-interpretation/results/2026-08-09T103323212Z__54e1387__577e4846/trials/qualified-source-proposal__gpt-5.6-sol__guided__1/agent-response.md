@@ -1,0 +1,1 @@
+Five retries could increase upstream load, but the document doesn’t provide enough information to determine whether it would cause overload. I kept retries at three and added that an increase should first be validated against rate limits, request volume, and backoff behavior.

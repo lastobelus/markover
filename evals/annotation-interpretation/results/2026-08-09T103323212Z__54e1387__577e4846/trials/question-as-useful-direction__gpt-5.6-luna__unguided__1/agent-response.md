@@ -1,0 +1,1 @@
+Good question. The sentence didn’t explain why the fallback exists, so I revised it to require documenting its compatibility rationale and removal criteria before relying on it.

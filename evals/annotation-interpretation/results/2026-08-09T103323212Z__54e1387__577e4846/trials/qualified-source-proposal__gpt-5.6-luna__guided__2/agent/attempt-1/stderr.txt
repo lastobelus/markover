@@ -1,0 +1,1 @@
+2026-08-09T10:58:11.193311Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/zsh -lc "git status --short && rg -n --hidden -g '"'!review.json'"' -g '"'!document.md'"' \"Retries|retry|upstream\" . || true"`: CreateProcess { message: "Rejected(\"Failed to create unified exec process: No such file or directory (os error 2)\")" }
