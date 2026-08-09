@@ -283,20 +283,20 @@ each choice from that baseline without duplicating the live decisions below.
 12. **Navigation help is inset from the scrollbar.** Its right-side gap from
    the scrollbar visually matches its bottom gap from the window.
 
-   **Audit — Retain (Interaction 8–12).** These details form the landed visual
-   focus and reading contract; broader keyboard and VoiceOver acceptance remains
-   planned under issues [#15](https://github.com/lastobelus/markover/issues/15)
-   and [#91](https://github.com/lastobelus/markover/issues/91). Evidence:
-   [selected-location tests](test/selected-location.test.ts) and
-   [brand contract tests](test/brand.test.ts).
+    **Audit — Retain (Interaction 8–12).** These details form the landed visual
+    focus and reading contract; broader keyboard and VoiceOver acceptance remains
+    planned under issues [#15](https://github.com/lastobelus/markover/issues/15)
+    and [#91](https://github.com/lastobelus/markover/issues/91). Evidence:
+    [selected-location tests](test/selected-location.test.ts) and
+    [brand contract tests](test/brand.test.ts).
 13. **Annotation typing does not rebuild the tree per character.** The document
    tree only rerenders when a block crosses the annotated/unannotated boundary,
    and that rerender preserves `scrollTop`. Browser scroll anchoring is disabled
    for the tree so feedback entry cannot walk the document one block at a time.
 
-   **Audit — Retain.** The optimization protects editing continuity without
-   changing persisted review semantics. Evidence:
-   [brand contract tests](test/brand.test.ts).
+    **Audit — Retain.** The optimization protects editing continuity without
+    changing persisted review semantics. Evidence:
+    [brand contract tests](test/brand.test.ts).
 14. **An incoming managed review joins the inbox before Markover decides whether
     to activate it.** With no active document it opens immediately. Otherwise,
     the default `never` policy preserves the current document and shows an Open
@@ -305,12 +305,12 @@ each choice from that baseline without duplicating the live decisions below.
     configured one-to-sixty-minute interval. Concurrent arrivals remain visible
     and consolidate prompts around the newest review.
 
-   **Audit — Retain.** Separating ingestion from activation prevents an agent's
-   background work from silently replacing the document a user is reading while
-   keeping every arrival recoverable. Evidence: the
-   [incoming-review policy](src/incoming-review-policy.ts),
-   [settings defaults](src/settings.ts), and
-   [policy tests](test/incoming-review-policy.test.ts).
+    **Audit — Retain.** Separating ingestion from activation prevents an agent's
+    background work from silently replacing the document a user is reading while
+    keeping every arrival recoverable. Evidence: the
+    [incoming-review policy](src/incoming-review-policy.ts),
+    [settings defaults](src/settings.ts), and
+    [policy tests](test/incoming-review-policy.test.ts).
 
 ## Screenshot attachments
 
@@ -735,12 +735,12 @@ each choice from that baseline without duplicating the live decisions below.
     not be openable by the latest app. Restarts do not require draining review
     handoffs; issue 39 independently owns bounded-loss restart durability.
 
-   **Audit — Retain (Local service authorization 7–12).** Authentication before
-   parsing or routing, fresh client preflight, stable redacted failures, and a
-   clean protocol break form one testable fail-closed boundary. Evidence:
-   [local-service tests](test/local-service.test.ts),
-   [service-endpoint tests](test/service-endpoint.test.ts), and
-   [authorization smoke tests](test/smoke-auth.test.ts).
+    **Audit — Retain (Local service authorization 7–12).** Authentication before
+    parsing or routing, fresh client preflight, stable redacted failures, and a
+    clean protocol break form one testable fail-closed boundary. Evidence:
+    [local-service tests](test/local-service.test.ts),
+    [service-endpoint tests](test/service-endpoint.test.ts), and
+    [authorization smoke tests](test/smoke-auth.test.ts).
 13. **Issue 12 landed as a three-PR stack.** PR 1 established capability
     generation, protected publication, server enforcement, minimum client
     propagation, and the reusable development smoke fixture. PR 2 added bounded
@@ -748,9 +748,9 @@ each choice from that baseline without duplicating the live decisions below.
     repair, and deterministic client recovery. PR 3 added exhaustive adversarial
     verification and public privacy/data claims.
 
-   **Audit — Superseded delivery plan.** Issue
-   [#12](https://github.com/lastobelus/markover/issues/12) is closed and these
-   slices are historical provenance, not unfinished current ownership.
+    **Audit — Superseded delivery plan.** Issue
+    [#12](https://github.com/lastobelus/markover/issues/12) is closed and these
+    slices are historical provenance, not unfinished current ownership.
 14. **Publication recovery is bounded and non-destructive.** Record reads retry
     missing, malformed, or mismatched pairs for a short fixed convergence
     window. When complete probing still fails, the CLI invokes one normal
@@ -776,12 +776,12 @@ each choice from that baseline without duplicating the live decisions below.
     parsing, callbacks, or state changes. Unknown routes authenticate before
     `404`; tests do not invent attachment or deletion APIs that do not exist.
 
-   **Audit — Retain (Local service authorization 14–17).** Bounded
-   non-destructive recovery and no automatic replay preserve ambiguous user
-   state, while the real-HTTP matrix verifies rejection before mutation.
-   Evidence: [service-endpoint tests](test/service-endpoint.test.ts),
-   [local-service tests](test/local-service.test.ts), and
-   [authorization smoke tests](test/smoke-auth.test.ts).
+    **Audit — Retain (Local service authorization 14–17).** Bounded
+    non-destructive recovery and no automatic replay preserve ambiguous user
+    state, while the real-HTTP matrix verifies rejection before mutation.
+    Evidence: [service-endpoint tests](test/service-endpoint.test.ts),
+    [local-service tests](test/local-service.test.ts), and
+    [authorization smoke tests](test/smoke-auth.test.ts).
 18. **Local session discovery is visible and controllable.** The default-on
     “Discover agent thread from local session logs” setting controls only
     handoff-key-based Codex session scanning. Explicit thread IDs and Git
@@ -791,10 +791,11 @@ each choice from that baseline without duplicating the live decisions below.
     never prevents a review from opening.
 19. **Public privacy claims distinguish local storage from safe sharing.** The
     public page names stored review content, attachments, local paths, Git and
-    agent provenance, storage locations, indefinite retention, and the current
-    quit-then-delete procedure. Source-edit proposals do not mutate original
-    Markdown. Reviews remain local to the macOS account, but same-user and
-    privileged processes remain inside the trust boundary.
+    agent provenance, storage locations, recoverable in-app review deletion and
+    attachment cleanup, and the manual complete-reset boundary. Source-edit
+    proposals and review deletion do not mutate the original Markdown. Reviews
+    remain local to the macOS account, but same-user and privileged processes
+    remain inside the trust boundary.
 20. **Network and handoff boundaries are explicit.** Ordinary review handling
     has no telemetry, analytics, cloud sync, or automatic review upload.
     Installation can contact npm or GitHub, and explicitly previewing a remote
@@ -802,25 +803,25 @@ each choice from that baseline without duplicating the live decisions below.
     action. After an authenticated agent retrieves a handoff, the recipient's
     storage, logging, and network behavior is outside Markover's control.
 
-   **Audit — Retain (Local service authorization 18–20).** Controllable local
-   discovery and explicit privacy/network claims keep optional provenance from
-   becoming hidden data collection or an implied recipient guarantee. Evidence:
-   [metadata-discovery tests](test/metadata-discovery.test.ts),
-   [settings tests](test/settings.test.ts), and
-   [public-site tests](test/docs-site.test.ts).
+    **Audit — Retain (Local service authorization 18–20).** Controllable local
+    discovery and explicit privacy/network claims keep optional provenance from
+    becoming hidden data collection or an implied recipient guarantee. Evidence:
+    [metadata-discovery tests](test/metadata-discovery.test.ts),
+    [settings tests](test/settings.test.ts), and
+    [public-site tests](test/docs-site.test.ts).
 21. **Issue 12 closed at the verified authorization boundary.** Issue 39 owns
     bounded-loss durability, issue 13 owns packaged happy-path smoke, issue 9
     owns broader preview documentation and cleanup guidance, issue 15 owns
     deletion, and issue 64 owns the future in-app privacy link. The final slice
     does not absorb those roadmapped responsibilities.
 
-   **Audit — Superseded coordination note.** The ownership split remains useful
-   history. Issues [#9](https://github.com/lastobelus/markover/issues/9) and
-   [#39](https://github.com/lastobelus/markover/issues/39) are complete; issues
-   [#13](https://github.com/lastobelus/markover/issues/13),
-   [#15](https://github.com/lastobelus/markover/issues/15), and
-   [#64](https://github.com/lastobelus/markover/issues/64) retain their current
-   release, compatibility/accessibility, and Help-surface work.
+    **Audit — Superseded coordination note.** The ownership split remains useful
+    history. Issues [#9](https://github.com/lastobelus/markover/issues/9) and
+    [#39](https://github.com/lastobelus/markover/issues/39) are complete; issues
+    [#13](https://github.com/lastobelus/markover/issues/13),
+    [#15](https://github.com/lastobelus/markover/issues/15), and
+    [#64](https://github.com/lastobelus/markover/issues/64) retain their current
+    release, compatibility/accessibility, and Help-surface work.
 
 ## Planned and deferred boundaries
 
