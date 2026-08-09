@@ -76,6 +76,7 @@ export interface RendererInvokeArguments {
   'startup:reveal-diagnostic': []
   'smoke:result': [RendererSmokeResult]
   'document:open': []
+  'review:create-local': [ReviewTree]
   'brand:assets': []
   'document:checksum': [string]
   'attachment:save': [MarkoverClipboardImage, string]
@@ -99,6 +100,7 @@ export interface RendererInvokeResults {
   'startup:reveal-diagnostic': undefined
   'smoke:result': undefined
   'document:open': MarkoverDocument | null
+  'review:create-local': MarkoverDocument
   'brand:assets': MarkoverBrandAssets
   'document:checksum': string
   'attachment:save': ReviewAttachment
@@ -690,6 +692,7 @@ export function assertRendererInvokeArguments(
     case 'document:checksum':
       valid = singleArgument(args, (value) => typeof value === 'string')
       break
+    case 'review:create-local': valid = singleArgument(args, isReviewTree); break
     case 'attachment:save':
       valid = args.length === 2 &&
         isClipboardImage(args[0]) &&
@@ -762,6 +765,7 @@ export function assertRendererInvokeResult(
     case 'review:initial-document':
       valid = value === null || isDocument(value)
       break
+    case 'review:create-local': valid = isDocument(value); break
     case 'brand:assets':
       valid = hasExactKeys(value, ['mark', 'logotype', 'lockup']) &&
         typeof value.mark === 'string' &&

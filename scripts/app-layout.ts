@@ -16,6 +16,7 @@ export const runtimeModuleNames = [
   'instance',
   'local-client',
   'local-service',
+  'local-review',
   'main',
   'metadata-discovery',
   'protocol-registration',

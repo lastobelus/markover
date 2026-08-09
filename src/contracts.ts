@@ -518,6 +518,7 @@ declare global {
     reportSmokeResult: (result: RendererSmokeResult) => Promise<void>
     getBrandAssets: () => Promise<MarkoverBrandAssets | null>
     openMarkdown: () => Promise<MarkoverDocument | null>
+    createLocalReview: (tree: ReviewTree) => Promise<MarkoverDocument>
     onOpenMarkdownRequested: (callback: () => void) => void
     checksum: (source: string) => Promise<string>
     copyText: (text: string) => void

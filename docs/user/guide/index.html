@@ -59,6 +59,7 @@
       <section id="start">
         <h2>Start a review with an agent</h2>
         <p>Tell your agent which Markdown file you want to review and why the review is useful. The agent opens that file in Markover and gives you a review ID, a best-effort <strong>Open in Markover</strong> link, and a standalone Terminal command. You do not need to clone the repository, install an npm package globally, or run the agent's launcher command yourself.</p>
+        <p>To start without an agent, choose <strong>File → Open Markdown…</strong>. Markover creates a managed local review from the selected snapshot, saves feedback and attachments separately, and restores that review after restart. The original Markdown file is never changed or deleted.</p>
         <div class="callout"><strong>If the link does not open.</strong> Copy the standalone <code>open 'markover://…'</code> command the agent provides, paste it into Terminal, and press Return. Some agent hosts do not dispatch custom-scheme links directly.</div>
         <div class="callout"><strong>Keep the agent thread available.</strong> When your feedback is ready, return to the same conversation and say “Check Markover.”</div>
         <p>Agents and tool authors should follow the separate <a href="../agents/">agent workflow</a> for exact commands, review-ID handling, and feedback interpretation.</p>

@@ -42,6 +42,7 @@ import {
   type RendererIpcEntry
 } from './ipc-security'
 import { startLocalService, type LocalService } from './local-service'
+import { createLocalReview as persistLocalReview } from './local-review'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { openPublicLinkCommand } from './public-link-opener'
 import { type PublicLink, type PublicLinkId } from './public-links'
@@ -165,6 +166,7 @@ let mainWindow: BrowserWindow | null = null
 let mainWindowBlurredAt: number | null = Date.now()
 let activeManagedReview: ReviewArtifact | null = null
 let activeManagedReviewId: string | null = null
+let pendingLocalReviewCandidate: MarkoverDocument | null = null
 let localService: LocalService | null = null
 let closingPublishedService: LocalService | null = null
 let localServiceIdentity: ServiceIdentity | null = null
@@ -860,6 +862,7 @@ async function saveAttachment(
 }
 
 async function openMarkdown(): Promise<MarkoverDocument | null> {
+  pendingLocalReviewCandidate = null
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [
@@ -873,12 +876,32 @@ async function openMarkdown(): Promise<MarkoverDocument | null> {
   const filePath = result.filePaths[0]
   if (!filePath) return null
   const source = await fs.readFile(filePath, 'utf8')
-  return {
+  const candidate = {
     name: path.basename(filePath),
     path: filePath,
     source,
     checksum: checksum(source)
   }
+  pendingLocalReviewCandidate = candidate
+  return candidate
+}
+
+async function createManagedLocalReview(
+  tree: ReviewTree
+): Promise<MarkoverDocument> {
+  const candidate = pendingLocalReviewCandidate
+  pendingLocalReviewCandidate = null
+  if (!candidate) {
+    throw new Error('Choose a Markdown file before creating a local review.')
+  }
+  if (!settingsStore) throw new Error('Settings are unavailable.')
+  const artifact = await persistLocalReview(candidate, tree, reviewStore, {
+    interpretationPolicy: settingsStore.settings.agentInterpretationPolicy
+  })
+  activeManagedReview = artifact
+  activeManagedReviewId = artifact.review.id
+  installApplicationMenu()
+  return managedDocument(artifact)
 }
 
 function createWindow(
@@ -1778,6 +1801,10 @@ if (!hasSingleInstanceLock) {
       })
     })
     privilegedIpc.handle('document:open', openMarkdown)
+    privilegedIpc.handle('review:create-local', (
+      _event: IpcMainInvokeEvent,
+      tree: ReviewTree
+    ) => createManagedLocalReview(tree))
     privilegedIpc.handle('brand:assets', loadBrandAssets)
     privilegedIpc.handle('document:checksum', (
       _event: IpcMainInvokeEvent,
