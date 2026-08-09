@@ -12,14 +12,26 @@ const read = (relativePath: string): string => fs.readFileSync(
 test('agent review events update the renderer without showing or focusing it', () => {
   const main = read('src/main.ts')
   const managedReview = main.match(
-    /async function sendManagedReview\(artifact: ReviewArtifact\): Promise<void> \{[\s\S]*?\n\}/
+    /function sendManagedReview\(artifact: ReviewArtifact\): void \{[\s\S]*?\n\}/
   )?.[0] || ''
 
-  assert.match(managedReview, /sendMainEvent\([\s\S]*'review:opened'/)
+  assert.match(
+    managedReview,
+    /pendingManagedReviewNotifications\.set\(artifact\.review\.id, artifact\)/
+  )
   assert.match(managedReview, /createWindow\(\{ show: false \}\)/)
-  assert.match(managedReview, /await waitForRendererReady\(window\)/)
+  assert.match(managedReview, /flushPendingManagedReviewNotifications\(\)/)
   assert.doesNotMatch(managedReview, /\.show\(\)|\.focus\(\)|\.restore\(\)/)
   assert.doesNotMatch(managedReview, /activeManagedReview(Id)? = artifact/)
+
+  assert.match(
+    main,
+    /function flushPendingManagedReviewNotifications[\s\S]*rendererReadyWebContentsId !== window\.webContents\.id[\s\S]*sendMainEvent\([\s\S]*'review:opened'[\s\S]*pendingManagedReviewNotifications\.delete\(reviewId\)/
+  )
+  assert.match(
+    main,
+    /function markRendererReady[\s\S]*flushPendingManagedReviewNotifications\(\)/
+  )
 })
 
 test('persisted review creation does not wait for renderer notification', () => {
@@ -30,7 +42,7 @@ test('persisted review creation does not wait for renderer notification', () => 
 
   assert.match(
     onChange,
-    /if \(action === 'created'\) \{[\s\S]*void sendManagedReview\(artifact\)\.catch[\s\S]*return/
+    /if \(action === 'created'\) \{[\s\S]*sendManagedReview\(artifact\)[\s\S]*return/
   )
   assert.doesNotMatch(onChange, /await sendManagedReview\(artifact\)/)
   assert.match(onChange, /await sendManagedStatus\(artifact\)/)
@@ -54,6 +66,7 @@ test('incoming reviews are listed before the activation policy runs', () => {
   )?.[0] || ''
 
   assert.match(handler, /addManagedReview\(managedReviewDocument\(reviewDocument\), false\)/)
+  assert.match(handler, /if \(session\.reviewId === state\.reviewId\) return/)
   assert.match(handler, /incomingReviewAction\(\{/)
   assert.match(handler, /if \(action === 'warn'\)[\s\S]*showIncomingReviewWarning/)
   assert.match(handler, /if \(action === 'notify'\)[\s\S]*showIncomingReviewNotice/)

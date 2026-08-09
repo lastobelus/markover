@@ -1604,6 +1604,7 @@ async function handleIncomingReview(
   reviewDocument: MarkoverDocument
 ): Promise<void> {
   const session = addManagedReview(managedReviewDocument(reviewDocument), false)
+  if (session.reviewId === state.reviewId) return
   const action = incomingReviewAction({
     focusState: windowFocusState,
     hasActiveDocument: state.tree !== null,

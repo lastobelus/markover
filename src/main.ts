@@ -223,6 +223,7 @@ let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const pendingActivations = new Map<string, PendingActivation>()
+const pendingManagedReviewNotifications = new Map<string, ReviewArtifact>()
 const projectRoots = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
 const reviewUrlDispatcher = new ReviewUrlDispatcher<ReviewUrl>(
@@ -1152,13 +1153,38 @@ async function managedDocuments(
   }))
 }
 
-async function sendManagedReview(artifact: ReviewArtifact): Promise<void> {
+function flushPendingManagedReviewNotifications(): void {
+  const window = mainWindow
+  if (
+    !window ||
+    window.isDestroyed() ||
+    rendererReadyWebContentsId !== window.webContents.id
+  ) {
+    return
+  }
+  for (const [reviewId, artifact] of pendingManagedReviewNotifications) {
+    try {
+      sendMainEvent(
+        window.webContents,
+        'review:opened',
+        managedDocument(artifact)
+      )
+      pendingManagedReviewNotifications.delete(reviewId)
+    } catch (error) {
+      process.stderr.write(
+        `markover review notification ${reviewId}: ${errorMessage(error)}\n`
+      )
+      return
+    }
+  }
+}
+
+function sendManagedReview(artifact: ReviewArtifact): void {
+  pendingManagedReviewNotifications.set(artifact.review.id, artifact)
   installApplicationMenu()
   if (!mainWindow) createWindow({ show: false })
   if (!mainWindow) throw new Error('Markover window could not be created.')
-  const window = mainWindow
-  await waitForRendererReady(window)
-  sendMainEvent(window.webContents, 'review:opened', managedDocument(artifact))
+  flushPendingManagedReviewNotifications()
 }
 
 function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
@@ -1217,6 +1243,7 @@ function markRendererReady(webContentsId: number): void {
   rendererReadyWebContentsId = webContentsId
   resolveRendererReady?.()
   resolveRendererReady = null
+  flushPendingManagedReviewNotifications()
 }
 
 async function waitForRendererReady(window: BrowserWindow): Promise<void> {
@@ -1399,11 +1426,13 @@ async function startAndPublishService(): Promise<void> {
     ),
     async onChange(artifact, action) {
       if (action === 'created') {
-        void sendManagedReview(artifact).catch((error: unknown) => {
+        try {
+          sendManagedReview(artifact)
+        } catch (error) {
           process.stderr.write(
             `markover review notification ${artifact.review.id}: ${errorMessage(error)}\n`
           )
-        })
+        }
         return
       }
       await sendManagedStatus(artifact)
