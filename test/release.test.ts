@@ -260,6 +260,10 @@ test('ordinary workflows use Node 24 and release candidates cover Node 22', () =
   assert.match(workflow, /npm run test:built/)
   assert.match(
     workflow,
+    /npm run pretest[\s\S]*sudo chown root:root node_modules\/electron\/dist\/chrome-sandbox/
+  )
+  assert.match(
+    workflow,
     /sudo chown root:root node_modules\/electron\/dist\/chrome-sandbox/
   )
   assert.match(
