@@ -168,10 +168,10 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   }
   assert.match(
     pages[0] ?? '',
-    /Merged baseline 3f0022f · CI-cost correction implementing · Apple Silicon release smoke only · 8 Aug 2026/
+    /Merged baseline 32cf785 · PR #108 merged · Apple Silicon release smoke only · 8 Aug 2026/
   )
-  assert.match(pages[0] ?? '', /main<\/code> baseline <code>3f0022f<\/code>/)
-  assert.match(pages[0] ?? '', /not every pull request or/)
+  assert.match(pages[0] ?? '', /main<\/code> baseline <code>32cf785<\/code>/)
+  assert.match(pages[0] ?? '', /not every pull\s+request or/)
   assert.match(pages[0] ?? '', /releases\/tag\/v0\.1\.3/)
   assert.match(pages[0] ?? '', /actions\/runs\/31221075875/)
   assert.match(
@@ -192,7 +192,7 @@ test('signing preflight ELI5 stays interlinked and truth-scoped', () => {
   )
   assert.match(
     pages[3] ?? '',
-    /PR #68 merged · scheduling correction implementing · tagged arm64 release candidates only · Intel deferred to #80/
+    /PR #68 runner merged · PR #108 scheduling fix merged · tagged arm64 release candidates only · Intel deferred to #80/
   )
   assert.match(pages[3] ?? '', /routine pull requests keep non-packaging CI/)
 })

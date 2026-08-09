@@ -91,19 +91,20 @@
     <details class="card truth-context">
       <summary class="context-summary">
         <span class="context-title">Where This Is True</span>
-        <span class="context-status">PR #68 merged · scheduling correction implementing · tagged arm64 release candidates only · Intel deferred to #80</span>
+        <span class="context-status">PR #68 runner merged · PR #108 scheduling fix merged · tagged arm64 release candidates only · Intel deferred to #80</span>
       </summary>
       <div class="context-body">
         <p>
           This page describes slice 3 of
           <a href="https://github.com/lastobelus/markover/issues/13">issue #13</a>
           as merged in <a href="https://github.com/lastobelus/markover/pull/68">PR #68</a>,
-          with a scheduling correction in progress on 8 August 2026 from merged
-          <code>main</code> baseline <code>3f0022f</code>. PR #68 added the reusable
+          with its scheduling correction merged on 8 August 2026 in
+          <code>main</code> baseline <code>32cf785</code>. PR #68 added the reusable
           runner correctly but mistakenly left native Apple Silicon and Intel packaging
-          on every pull request and <code>main</code> push. Branch
-          <code>agent/ci-packaged-smoke-release-only</code> removes that routine-CI lane
-          while preserving the tag-triggered Apple Silicon release candidate. The
+          on every pull request and <code>main</code> push.
+          <a href="https://github.com/lastobelus/markover/pull/108">PR #108</a> removed
+          that routine-CI lane while preserving the tag-triggered Apple Silicon release
+          candidate. The
           published <code>v0.1.3</code> baseline <code>03e52ac</code> contains
           <a href="https://github.com/lastobelus/markover/pull/45">PR #45</a> and
           <a href="https://github.com/lastobelus/markover/pull/55">PR #55</a>, plus
