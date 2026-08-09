@@ -47,8 +47,8 @@ Project's identity is incomplete, or the user selects `New Project` or `New
 Milestone`, read [`references/tracker-selection.md`](references/tracker-selection.md)
 completely before the next tracking write.
 
-**PR-local Markover:** when the target is an open pull request and this run will
-open, get, or edit a Markover review, read
+**Markover instance selection:** when this run will open, get, or edit a
+Markover review, or the user asks to run a development instance, read
 [`references/markover-review.md`](references/markover-review.md) completely
 before the next Markover command.
 
