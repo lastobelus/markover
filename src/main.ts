@@ -574,15 +574,19 @@ async function confirmReviewTrash(reviewId: string): Promise<boolean> {
     defaultId: 1,
     cancelId: 1,
     noLink: true,
-    message: pendingAgent
-      ? 'Move this review to Trash while it is with the agent?'
-      : 'Move this review to Trash?',
+    message: [
+      pendingAgent
+        ? 'Move this review to Trash while it is with the agent?'
+        : 'Move this review to Trash?',
+      '',
+      'Your original Markdown document will not be changed or deleted.'
+    ].join('\n'),
     detail: [
       pendingAgent
         ? 'The agent may still be using this review. Its next read or update will fail.'
         : 'This removes the review from Markover.',
       '',
-      `The entire ${reviewId} review directory, including its feedback and review attachments, will move to the macOS Trash. Your original Markdown document will not be changed or deleted. Existing review links will no longer open the review.`
+      `The entire ${reviewId} review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.`
     ].join('\n')
   }
   const window = mainWindow

@@ -82,6 +82,10 @@ test('review deletion copy distinguishes review data from the original document'
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
   assert.match(
     main,
-    /Your original Markdown document will not be changed or deleted\./
+    /message: \[[\s\S]*?'Your original Markdown document will not be changed or deleted\.'[\s\S]*?\]\.join\('\\n'\)/
+  )
+  assert.doesNotMatch(
+    main,
+    /detail: \[[\s\S]*?'Your original Markdown document will not be changed or deleted\.'/
   )
 })
