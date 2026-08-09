@@ -355,6 +355,10 @@ test('an existing run workspace is rejected without reusing stale artifacts', as
 
 test('rubric, schema, and package scripts preserve the agreed gates', () => {
   const rubric = read('rubric.md')
+  const eslintConfig = fs.readFileSync(
+    path.join(root, 'eslint.config.js'),
+    'utf8'
+  )
   const schema = JSON.parse(read('judge-output.schema.json')) as {
     additionalProperties: boolean
   }
@@ -372,6 +376,8 @@ test('rubric, schema, and package scripts preserve the agreed gates', () => {
     assert.match(rubric, new RegExp(vocabulary))
   }
   assert.equal(schema.additionalProperties, false)
+  assert.match(eslintConfig, /'evals\/\*\*\/results\/\*\*'/)
+  assert.match(eslintConfig, /'tmp\/\*\*'/)
   assert.match(packageJson.scripts['eval:annotation'] ?? '', / run$/)
   assert.match(packageJson.scripts['eval:annotation:validate'] ?? '', / validate$/)
   assert.deepEqual(config.thresholds, {
