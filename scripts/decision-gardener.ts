@@ -24,6 +24,14 @@ export type GitCommandRunner = (
   args: readonly string[]
 ) => CommandResult
 
+export type GitContentReader = (
+  repository: string,
+  args: readonly string[],
+  label: string,
+  budget: ContentBudget,
+  maxItemBytes: number
+) => EncodedGitContent
+
 export interface MaterializedGitContent {
   bytes: number
   encoding: 'base64' | 'utf8'
@@ -195,7 +203,7 @@ function gitText(
   return requireGit(runner, repository, args, label).toString('utf8').trimEnd()
 }
 
-interface ContentBudget {
+export interface ContentBudget {
   remaining: number
 }
 
@@ -239,6 +247,69 @@ function encodeContent(
       omitted: false,
       sha256: digest,
       value: content.toString('base64')
+    }
+  }
+}
+
+function hashFile(filePath: string): string {
+  const digest = crypto.createHash('sha256')
+  const file = fsSync.openSync(filePath, 'r')
+  const chunk = Buffer.allocUnsafe(64 * 1024)
+  try {
+    for (;;) {
+      const bytesRead = fsSync.readSync(file, chunk, 0, chunk.byteLength, null)
+      if (bytesRead === 0) break
+      digest.update(chunk.subarray(0, bytesRead))
+    }
+  } finally {
+    fsSync.closeSync(file)
+  }
+  return digest.digest('hex')
+}
+
+export const readGitContent: GitContentReader = (
+  repository,
+  args,
+  label,
+  budget,
+  maxItemBytes
+) => {
+  const temporaryDirectory = fsSync.mkdtempSync(
+    path.join(os.tmpdir(), 'markover-decision-git-')
+  )
+  const outputPath = path.join(temporaryDirectory, 'stdout')
+  let output: number | undefined
+  try {
+    output = fsSync.openSync(outputPath, 'w', 0o600)
+    const result = spawnSync('git', [...args], {
+      cwd: repository,
+      encoding: 'buffer',
+      stdio: ['ignore', output, 'pipe']
+    })
+    if (result.error) throw result.error
+    if (result.status !== 0) {
+      throw new Error(
+        `${label} failed: ${result.stderr.toString('utf8').trim() || 'git exited non-zero'}`
+      )
+    }
+    fsSync.closeSync(output)
+    output = undefined
+    const bytes = fsSync.statSync(outputPath).size
+    if (bytes <= maxItemBytes && bytes <= budget.remaining) {
+      return encodeContent(fsSync.readFileSync(outputPath), budget, maxItemBytes)
+    }
+    return {
+      bytes,
+      encoding: null,
+      omitted: true,
+      reason: bytes > maxItemBytes ? 'item_limit' : 'aggregate_limit',
+      sha256: hashFile(outputPath)
+    }
+  } finally {
+    try {
+      if (output !== undefined) fsSync.closeSync(output)
+    } finally {
+      fsSync.rmSync(temporaryDirectory, { force: true, recursive: true })
     }
   }
 }
@@ -356,6 +427,7 @@ function readCommit(
   repository: string,
   commit: string,
   runner: GitCommandRunner,
+  contentReader: GitContentReader,
   budget: ContentBudget,
   maxItemBytes: number
 ): Omit<AuditedCommit, 'changedPaths'> & {
@@ -394,10 +466,10 @@ function readCommit(
     'diff-tree', '--root', '--first-parent', '--no-commit-id', '--name-status',
     '-r', '-z', '--find-renames', commit
   ], `Read changed paths for ${commit}`))
-  const patch = requireGit(runner, repository, [
+  const patch = contentReader(repository, [
     'show', '--first-parent', '--format=fuller', '--binary', '--find-renames',
     '--no-ext-diff', commit
-  ], `Read patch for ${commit}`)
+  ], `Read patch for ${commit}`, budget, maxItemBytes)
   return {
     author: { date: authorDate, email: authorEmail, name: authorName },
     changedPaths,
@@ -408,7 +480,7 @@ function readCommit(
     },
     message,
     parents: parents.length === 0 ? [] : parents.split(' '),
-    patch: encodeContent(patch, budget, maxItemBytes),
+    patch,
     sha,
     subject
   }
@@ -467,7 +539,7 @@ function readPathSnapshot(
   suffix: string,
   entry: TreeEntry | undefined,
   includeContent: boolean,
-  runner: GitCommandRunner,
+  contentReader: GitContentReader,
   budget: ContentBudget,
   maxItemBytes: number
 ): AuditedPathSnapshot {
@@ -475,12 +547,13 @@ function readPathSnapshot(
     return [prefixIndex, suffix, null, null, null, null]
   }
   const content = includeContent
-    ? encodeContent(requireGit(
-        runner,
+    ? contentReader(
         repository,
         ['cat-file', '-p', entry.object],
-        `Read referenced evidence ${filePath}`
-      ), budget, maxItemBytes)
+        `Read referenced evidence ${filePath}`,
+        budget,
+        maxItemBytes
+      )
     : null
   return [prefixIndex, suffix, entry.mode, entry.type, entry.object, content]
 }
@@ -514,6 +587,7 @@ function compactPathPrefixes(paths: readonly string[]): {
 }
 
 export function assembleDecisionAuditBundle({
+  contentReader = readGitContent,
   generatedAt = new Date().toISOString(),
   limits: requestedLimits = {},
   ownershipSnapshot,
@@ -521,6 +595,7 @@ export function assembleDecisionAuditBundle({
   runner = runGitCommand,
   targetRef = 'origin/main'
 }: {
+  contentReader?: GitContentReader
   generatedAt?: string
   limits?: Partial<AuditBundleLimits>
   ownershipSnapshot: unknown
@@ -548,6 +623,7 @@ export function assembleDecisionAuditBundle({
     repository,
     commit,
     runner,
+    contentReader,
     contentBudget,
     limits.maxItemBytes
   ))
@@ -588,7 +664,7 @@ export function assembleDecisionAuditBundle({
       compactPath[1],
       tree.get(filePath),
       referencedPaths.has(filePath),
-      runner,
+      contentReader,
       contentBudget,
       limits.maxItemBytes
     )
@@ -1366,7 +1442,7 @@ export async function invokeDecisionGardenerCodex({
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
     let settled = false
-    let timedOut = false
+    let terminationError: Error | undefined
     let forceTimer: NodeJS.Timeout | undefined
     const clearTimers = (): void => {
       clearTimeout(timeoutTimer)
@@ -1387,13 +1463,18 @@ export async function invokeDecisionGardenerCodex({
     const timeoutError = (): Error => new Error(
       `codex exec timed out after ${String(timeoutMs)} ms.`
     )
-    const timeoutTimer = setTimeout(() => {
-      timedOut = true
+    const terminate = (error: Error): void => {
+      if (settled || terminationError !== undefined) return
+      terminationError = error
+      clearTimeout(timeoutTimer)
       child.kill('SIGTERM')
       forceTimer = setTimeout(() => {
         child.kill('SIGKILL')
-        settleReject(timeoutError())
+        settleReject(error)
       }, terminationGraceMs)
+    }
+    const timeoutTimer = setTimeout(() => {
+      terminate(timeoutError())
     }, timeoutMs)
     child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk))
     child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk))
@@ -1401,14 +1482,13 @@ export async function invokeDecisionGardenerCodex({
       settleReject(error)
     })
     child.stdin.on('error', (error) => {
-      child.kill('SIGTERM')
-      settleReject(new Error('codex exec closed stdin before reading the audit input.', {
+      terminate(new Error('codex exec closed stdin before reading the audit input.', {
         cause: error
       }))
     })
     child.on('close', (code) => {
-      if (timedOut) {
-        settleReject(timeoutError())
+      if (terminationError !== undefined) {
+        settleReject(terminationError)
         return
       }
       if (code !== 0) {

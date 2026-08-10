@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -17,6 +18,7 @@ import {
   parseCodexAuditJsonl,
   parseDecisionCheckpoint,
   replaceDecisionCheckpoint,
+  readGitContent,
   runBoundedAudit,
   validateCompleteProposal,
   writeImmutableAuditBundle,
@@ -207,6 +209,39 @@ test('audit bundles pin commit patches, changed paths, snapshots, and ownership'
   assert.ok(featureContent !== null && featureContent !== undefined)
   assert.equal(featureContent.omitted, false)
   assert.equal(featureContent.value, 'export const feature = true\n')
+})
+
+test('large Git content is capped before it is buffered in memory', async (t) => {
+  const fixture = await createAuditRepository()
+  t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
+  const binaryPath = path.join(fixture.repository, 'large.bin')
+  await fs.writeFile(binaryPath, Buffer.alloc(2 * 1024 * 1024, 0xa5))
+  git(fixture.repository, ['add', 'large.bin'])
+  git(fixture.repository, ['commit', '-m', 'Add large binary'])
+  const commit = git(fixture.repository, ['rev-parse', 'HEAD'])
+  const budget = { remaining: 4 * 1024 }
+  const args = [
+    'show', '--first-parent', '--format=fuller', '--binary', '--find-renames',
+    '--no-ext-diff', commit
+  ]
+  const patch = readGitContent(
+    fixture.repository,
+    args,
+    `Read patch for ${commit}`,
+    budget,
+    1024
+  )
+  assert.equal(patch.omitted, true)
+  assert.equal(patch.reason, 'item_limit')
+  assert.ok(patch.bytes > 1024)
+  const expected = spawnSync('git', args, {
+    cwd: fixture.repository,
+    encoding: 'buffer',
+    maxBuffer: 8 * 1024 * 1024
+  }).stdout
+  assert.equal(patch.bytes, expected.byteLength)
+  assert.equal(patch.sha256, crypto.createHash('sha256').update(expected).digest('hex'))
+  assert.equal(budget.remaining, 4 * 1024)
 })
 
 test('the initial Markover catch-up inventory stays below the model-input bound', () => {
@@ -515,20 +550,23 @@ test('Codex invocation disables tools, local instructions, network, and credenti
   })
 })
 
-test('Codex invocation rejects stdin EPIPE without crashing the host', async (t) => {
+test('Codex invocation force-kills after stdin EPIPE without crashing the host', async (t) => {
   const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-codex-epipe-'))
   t.after(() => fs.rm(repository, { recursive: true, force: true }))
   const executable = path.join(repository, 'fake-codex')
   await fs.writeFile(executable, [
-    '#!/usr/bin/env node',
-    "require('node:fs').closeSync(0)",
-    'setTimeout(() => process.exit(9), 250)',
+    '#!/usr/bin/env python3',
+    'import os, signal, time',
+    'signal.signal(signal.SIGTERM, signal.SIG_IGN)',
+    'os.close(0)',
+    'while True: time.sleep(1)',
     ''
   ].join('\n'), { mode: 0o755 })
   const bundle = {
     ...invocationBundle(),
     ownershipSnapshot: { padding: 'x'.repeat(1024 * 1024) }
   }
+  const startedAt = Date.now()
   await assert.rejects(invokeDecisionGardenerCodex({
     codex: executable,
     input: { bundle, contexts: [], round: 0 },
@@ -536,9 +574,12 @@ test('Codex invocation rejects stdin EPIPE without crashing the host', async (t)
     prompt: '# Test',
     repository,
     schemaPath: path.join(repository, 'schema.json'),
-    terminationGraceMs: 50,
+    terminationGraceMs: 100,
     timeoutMs: 1_000
   }), /closed stdin/)
+  const elapsed = Date.now() - startedAt
+  assert.ok(elapsed >= 90)
+  assert.ok(elapsed < 2_000)
 })
 
 test('Codex invocation force-kills a child that ignores its timeout', async (t) => {
