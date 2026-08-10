@@ -12,9 +12,7 @@ export const macosFusePolicy = {
   EnableEmbeddedAsarIntegrityValidation: true,
   OnlyLoadAppFromAsar: true,
   LoadBrowserProcessSpecificV8Snapshot: false,
-  // Markover still loads its renderer and local attachment previews over
-  // file URLs. Issue #95 owns replacing this narrow exception.
-  GrantFileProtocolExtraPrivileges: true,
+  GrantFileProtocolExtraPrivileges: false,
   WasmTrapHandlers: true
 } as const
 

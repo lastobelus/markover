@@ -19,6 +19,7 @@ import {
   retainIncomingReviewsAfter
 } from './incoming-review-policy'
 import * as MarkoverImagePreview from './image-preview'
+import { internalAttachmentUrl } from './internal-url'
 import * as MarkoverNavigation from './navigation'
 import * as MarkoverReviewSessions from './review-sessions'
 import * as MarkoverSettings from './settings'
@@ -368,7 +369,7 @@ inlineMarkdown.renderer.rules.image = (tokens, index) => {
 }
 
 function openSourceImagePreview(source: string, label: string): void {
-  const url = MarkoverImagePreview.sourceUrl(source, state.documentPath)
+  const url = MarkoverImagePreview.sourceUrl(source)
   openImagePreview({
     ...(url ? { url } : {}),
     label,
@@ -1026,12 +1027,12 @@ function openImagePreview(attachment: ReviewAttachment): void {
 function attachmentPreviewUrl(attachment: ReviewAttachment): string | null {
   const sessionUrl = state.attachmentPreviewUrls.get(attachment.id)
   if (sessionUrl) return sessionUrl
-  if (!attachment.path?.startsWith('/')) return null
-  const encodedPath = attachment.path
-    .split('/')
-    .map((part: string) => encodeURIComponent(part))
-    .join('/')
-  return `file://${encodedPath}`
+  if (!state.reviewId) return null
+  try {
+    return internalAttachmentUrl(state.reviewId, attachment.id)
+  } catch {
+    return null
+  }
 }
 
 function closeImagePreview(): void {
@@ -3406,7 +3407,7 @@ async function rendererSmokeResult(): Promise<{
     cleanRuntime: boolean
     dataImage: boolean
     documentsList: boolean
-    fileImage: boolean
+    attachmentImage: boolean
     markdown: boolean
     navigationDenied: boolean
     permissionDenied: boolean
@@ -3435,14 +3436,14 @@ async function rendererSmokeResult(): Promise<{
       elements.sourceDiffStats.textContent.includes('+1') &&
       elements.sourceDiffStats.textContent.includes('−1')
   }
-  const fileImage = elements.attachmentList.querySelector<HTMLImageElement>(
+  const attachmentImage = elements.attachmentList.querySelector<HTMLImageElement>(
     'img[alt="Packaged local image"]'
   )
-  if (fileImage && !fileImage.complete) {
+  if (attachmentImage && !attachmentImage.complete) {
     await Promise.race([
       new Promise<void>((resolve) => {
-        fileImage.addEventListener('load', () => { resolve() }, { once: true })
-        fileImage.addEventListener('error', () => { resolve() }, { once: true })
+        attachmentImage.addEventListener('load', () => { resolve() }, { once: true })
+        attachmentImage.addEventListener('error', () => { resolve() }, { once: true })
       }),
       new Promise<void>((resolve) => setTimeout(resolve, 1000))
     ])
@@ -3482,8 +3483,8 @@ async function rendererSmokeResult(): Promise<{
       dataImage: elements.brandMark.src.startsWith('data:image/svg+xml') &&
         elements.brandMark.complete && elements.brandMark.naturalWidth > 0,
       documentsList,
-      fileImage: Boolean(
-        fileImage?.complete && fileImage.naturalWidth > 0
+      attachmentImage: Boolean(
+        attachmentImage?.complete && attachmentImage.naturalWidth > 0
       ),
       markdown: treeText.includes('Bundled Markdown renders here.'),
       navigationDenied: window.location.href === originalUrl,

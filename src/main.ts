@@ -7,6 +7,8 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  net,
+  protocol,
   shell,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -17,6 +19,7 @@ import { mkdirSync, rmSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { aboutPanelOptions } from './about-panel'
 import { applicationMenuTemplate } from './app-menu'
@@ -30,6 +33,16 @@ import {
   CANONICAL_INSTANCE_SCHEME,
   runtimeInstanceFromEnvironment
 } from './instance'
+import {
+  InternalAttachmentAllowlist,
+  resolveInternalRequestFile
+} from './internal-protocol'
+import {
+  internalRendererEntryUrl,
+  MARKOVER_INTERNAL_SCHEME,
+  MARKOVER_INTERNAL_SCHEME_PRIVILEGES,
+  MARKOVER_RENDERER_ENTRY_URL
+} from './internal-url'
 import {
   assertMainEventArguments,
   type AttachmentRemoveRequest,
@@ -92,6 +105,11 @@ import {
   windowBackground,
   ZOOM_LEVELS
 } from './settings'
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: MARKOVER_INTERNAL_SCHEME,
+  privileges: MARKOVER_INTERNAL_SCHEME_PRIVILEGES
+}])
 
 interface PendingSnapshot {
   purpose: ReviewSnapshotRequest['purpose']
@@ -165,6 +183,7 @@ const reviewStore = new ReviewStore(
     ? path.join(smokeStateDirectory, 'reviews')
     : path.join(addressedInstance.stateRoot, 'reviews')
 )
+const internalAttachments = new InternalAttachmentAllowlist(reviewStore.directory)
 const hasSingleInstanceLock = smokeMode || app.requestSingleInstanceLock()
 const backgroundServerMode = smokeMode || process.argv.includes('--markover-server')
 let mainWindow: BrowserWindow | null = null
@@ -267,11 +286,11 @@ function isRendererSmokeResult(value: unknown): value is RendererSmokeResult {
   const keys = Object.keys(checks).sort()
   return (
     keys.join(',') === [
+      'attachmentImage',
       'blobImage',
       'cleanRuntime',
       'dataImage',
       'documentsList',
-      'fileImage',
       'markdown',
       'navigationDenied',
       'permissionDenied',
@@ -692,6 +711,7 @@ async function moveReviewToTrash(reviewId: string): Promise<void> {
       reviewId,
       (target) => shell.trashItem(target)
     )
+    internalAttachments.removeReview(reviewId)
     if (activeManagedReviewId === reviewId) {
       activeManagedReviewId = null
       activeManagedReview = null
@@ -798,6 +818,7 @@ async function removeManagedAttachment(
     request.tree,
     (target) => shell.trashItem(target)
   )
+  internalAttachments.remove(request.reviewId, request.attachmentId)
   if (activeManagedReviewId === request.reviewId) activeManagedReview = artifact
   return {
     reviewId: request.reviewId,
@@ -857,6 +878,7 @@ async function saveAttachment(
   if (image.isEmpty()) throw new Error('The pasted image could not be decoded.')
 
   const saved = await reviewStore.saveAttachmentFile(reviewId, extension, buffer)
+  internalAttachments.register(reviewId, saved.id, saved.path)
 
   const size = image.getSize()
   return {
@@ -946,16 +968,15 @@ function createWindow(
     resolveRendererReady = resolve
   })
 
-  const entryPath = path.join(__dirname, 'index.html')
   const query = {
     palette: startupSettings.palette,
     appearance: startupSettings.resolvedAppearance,
     colorization: darkColorization(startupSettings.palette),
     instanceBadge: addressedInstance.branding.headerBadge || ''
   }
-  rendererIpcEntry = { filePath: entryPath, query }
+  rendererIpcEntry = { url: MARKOVER_RENDERER_ENTRY_URL, query }
   installRendererSecurityBoundaries(window.webContents)
-  void window.loadFile(entryPath, { query })
+  void window.loadURL(internalRendererEntryUrl(query))
   window.webContents.on('did-finish-load', () => {
     window.webContents.setZoomFactor(
       (settingsStore?.settings.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent) / 100
@@ -1058,6 +1079,7 @@ function managedDocument(
   artifact: ReviewArtifact,
   projectRoot: string | null = null
 ): MarkoverDocument {
+  internalAttachments.replaceReview(artifact.review.id, artifact)
   return {
     reviewId: artifact.review.id,
     name: artifact.sourceDocument.name,
@@ -1591,6 +1613,23 @@ if (!hasSingleInstanceLock) {
   })
 
   app.whenReady().then(async () => {
+    protocol.handle(MARKOVER_INTERNAL_SCHEME, async (request) => {
+      const resolved = await resolveInternalRequestFile(
+        request.url,
+        projectDirectory,
+        internalAttachments
+      )
+      if (!resolved.ok) {
+        return new Response('Not found.', {
+          status: resolved.status,
+          headers: {
+            'cache-control': 'no-store',
+            'content-type': 'text/plain; charset=utf-8'
+          }
+        })
+      }
+      return net.fetch(pathToFileURL(resolved.filePath).href)
+    })
     const provisionalBuild = provisionalBuildIdentity()
     startupBuildIdentity = provisionalBuild
     startupDiagnostic = new StartupDiagnostic({
@@ -1662,6 +1701,7 @@ if (!hasSingleInstanceLock) {
         sendManagedAutosaveStatus()
       },
       onSaved(artifact) {
+        internalAttachments.replaceReview(artifact.review.id, artifact)
         if (activeManagedReviewId === artifact.review.id) {
           activeManagedReview = artifact
         }
@@ -1682,12 +1722,25 @@ if (!hasSingleInstanceLock) {
     installApplicationMenu()
 
     if (smokeMode) {
-      await requireReviewStore().create({
-        tree: smokeReviewTree(
-          path.join(projectDirectory, 'design/brand/markover-mark.svg')
-        ),
+      const imagePath = path.join(
+        projectDirectory,
+        'design/brand/markover-mark.svg'
+      )
+      const artifact = await requireReviewStore().create({
+        tree: smokeReviewTree(imagePath),
         contextSummary: 'Fixed renderer smoke fixture.'
       })
+      const saved = await requireReviewStore().saveAttachmentFile(
+        artifact.review.id,
+        'svg',
+        await fs.readFile(imagePath)
+      )
+      const attachment = artifact.root.children
+        .flatMap((node) => node.attachments || [])
+        .find((candidate) => candidate.id === saved.id)
+      if (!attachment) throw new Error('Renderer smoke attachment is invalid.')
+      attachment.path = saved.path
+      await requireReviewStore().updateTree(artifact.review.id, artifact)
     }
 
     privilegedIpc.handle('startup:info', () => startupInfo)

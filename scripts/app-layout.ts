@@ -14,6 +14,8 @@ export const runtimeModuleNames = [
   'ipc-contract',
   'ipc-security',
   'instance',
+  'internal-protocol',
+  'internal-url',
   'local-client',
   'local-service',
   'local-review',

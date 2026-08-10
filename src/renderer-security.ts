@@ -22,7 +22,7 @@ export const rendererContentSecurityPolicy = [
   "font-src 'self'",
   "form-action 'none'",
   "frame-src 'none'",
-  "img-src 'self' data: blob: file:",
+  "img-src 'self' data: blob:",
   "media-src 'none'",
   "object-src 'none'",
   "script-src 'self'",

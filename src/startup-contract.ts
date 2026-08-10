@@ -90,7 +90,7 @@ export interface RendererSmokeResult {
     blobImage: boolean
     dataImage: boolean
     documentsList: boolean
-    fileImage: boolean
+    attachmentImage: boolean
     markdown: boolean
     navigationDenied: boolean
     permissionDenied: boolean

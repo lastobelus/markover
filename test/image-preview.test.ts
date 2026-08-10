@@ -12,18 +12,13 @@ test('uses an image label with stable fallbacks', () => {
   assert.equal(labelFor({}), 'Image')
 })
 
-test('resolves source images from the reviewed document', () => {
-  assert.equal(
-    sourceUrl('../design/example image.png', '/tmp/markover/examples/sample.md'),
-    'file:///tmp/markover/design/example%20image.png'
-  )
-  assert.equal(
-    sourceUrl('/tmp/example image.png', '/tmp/markover/sample.md'),
-    'file:///tmp/example%20image.png'
-  )
-  assert.equal(sourceUrl('https://example.com/image.png', null), 'https://example.com/image.png')
-  assert.equal(sourceUrl('javascript:alert(1)', '/tmp/sample.md'), null)
-  assert.equal(sourceUrl('./image.png', null), null)
+test('allows only CSP-safe source image URLs', () => {
+  assert.equal(sourceUrl('../design/example image.png'), null)
+  assert.equal(sourceUrl('/tmp/example image.png'), null)
+  assert.equal(sourceUrl('https://example.com/image.png'), null)
+  assert.equal(sourceUrl('data:image/png;base64,AA=='), 'data:image/png;base64,AA==')
+  assert.equal(sourceUrl('javascript:alert(1)'), null)
+  assert.equal(sourceUrl('./image.png'), null)
 })
 
 test('labels source images from alt text or their basename', () => {
