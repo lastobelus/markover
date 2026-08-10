@@ -83,6 +83,10 @@ test('development command bootstraps before the first application build', async 
   assert.match(bootstrap, /isWatcherInput\(filePath\)/)
   assert.match(bootstrap, /developmentLoop\.notify\(filePath\)/)
   assert.match(bootstrap, /externalWatch: true/)
+  assert.match(bootstrap, /requestBootstrapReload\(\)/)
+  assert.match(bootstrap, /delete require\.cache\[resolvedBootstrap\]/)
+  assert.match(bootstrap, /process\.off\(signal, handler\)/)
+  assert.match(bootstrap, /process\.exitCode = 1\s+void stop\('SIGHUP'\)/)
   assert.match(bootstrap, /Keeping the bootstrap watcher active/)
   assert.match(bootstrap, /INVALID_START_ARGUMENT/)
   assert.doesNotMatch(bootstrap, /npm run build/)
@@ -102,6 +106,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   )
   const notifications: Array<string | null> = []
   const exits: number[] = []
+  const requiredSpecifiers: string[] = []
   const stops: NodeJS.Signals[] = []
   const timers: Array<() => void> = []
   let mainCalls = 0
@@ -109,13 +114,9 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     event: string,
     filename: string | Buffer | null
   ) => void = () => {}
-  let watchError: (error: Error) => void = () => {}
   const bootstrapWatcher = {
     close() {},
-    on(event: string, listener: (error: Error) => void) {
-      if (event === 'error') watchError = listener
-      return bootstrapWatcher
-    }
+    on() { return bootstrapWatcher }
   }
   const bundledWatcher = {
     main() {
@@ -133,6 +134,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     }
   }
   const requireStub = ((specifier: string) => {
+    requiredSpecifiers.push(specifier)
     if (specifier === 'node:fs') {
       return {
         watch(
@@ -170,12 +172,17 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   vm.runInNewContext(source, {
     Buffer,
     __dirname: path.join(projectDirectory, 'scripts'),
+    __filename: path.join(
+      projectDirectory,
+      'scripts/development-watch-bootstrap.js'
+    ),
     clearTimeout() {},
     process: {
       argv: ['node', 'development-watch-bootstrap.js'],
       exit(code: number) { exits.push(code) },
       exitCode: 0,
       on() {},
+      off() {},
       stderr: { write() {} }
     },
     require: requireStub,
@@ -198,11 +205,15 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
 
   assert.deepEqual(stops, ['SIGHUP'])
 
-  watchError(new Error('recursive watch failed'))
-  await waitUntil(() => exits.length === 1)
+  watchCallback('change', 'scripts/development-watch-bootstrap.js')
+  assert.equal(timers.length, 1)
+  timers.shift()?.()
+  await waitUntil(() => requiredSpecifiers.includes(
+    path.join(projectDirectory, 'scripts/development-watch-bootstrap.js')
+  ))
 
   assert.deepEqual(stops, ['SIGHUP', 'SIGHUP'])
-  assert.deepEqual(exits, [1])
+  assert.deepEqual(exits, [])
 })
 
 test('development build inputs exclude generated and unrelated paths', () => {

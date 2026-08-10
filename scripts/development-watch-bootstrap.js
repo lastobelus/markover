@@ -1,4 +1,4 @@
-/* global Buffer, __dirname, clearTimeout, process, require, setTimeout */
+/* global Buffer, __dirname, __filename, clearTimeout, process, require, setTimeout */
 
 const { watch } = require('node:fs')
 const path = require('node:path')
@@ -31,6 +31,9 @@ const watchedFiles = new Set([
   'tsconfig.json'
 ])
 const debounceMilliseconds = 120
+const bootstrapSourcePath = normalizedRelativePath(
+  path.relative(projectDirectory, __filename)
+)
 
 function normalizedRelativePath(filePath) {
   return filePath.replaceAll(path.sep, '/').replace(/^\.\//, '')
@@ -62,6 +65,7 @@ let stopping = false
 let timer = null
 let developmentLoop = null
 let completedRevision = 0
+let bootstrapReloadRequested = false
 let revision = 0
 let transition = null
 let watcherInputs = new Set()
@@ -82,12 +86,22 @@ function scheduleWatcherStart() {
   if (timer !== null) clearTimeout(timer)
   timer = setTimeout(() => {
     timer = null
-    void startWatcher()
+    if (bootstrapReloadRequested) {
+      bootstrapReloadRequested = false
+      void reloadBootstrap()
+    } else {
+      void startWatcher()
+    }
   }, debounceMilliseconds)
 }
 
 function requestWatcherStart() {
   revision += 1
+  scheduleWatcherStart()
+}
+
+function requestBootstrapReload() {
+  bootstrapReloadRequested = true
   scheduleWatcherStart()
 }
 
@@ -99,6 +113,13 @@ const bootstrapWatcher = watch(
       ? filename.toString('utf8')
       : filename
     if (!isBuildInput(filePath)) return
+    if (
+      filePath !== null &&
+      normalizedRelativePath(filePath) === bootstrapSourcePath
+    ) {
+      requestBootstrapReload()
+      return
+    }
     if (!started || starting || isWatcherInput(filePath)) {
       requestWatcherStart()
     } else {
@@ -132,8 +153,39 @@ async function stop(signal) {
   }
 }
 
+const signalHandlers = new Map()
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
-  process.on(signal, () => { void stop(signal) })
+  const handler = () => { void stop(signal) }
+  signalHandlers.set(signal, handler)
+  process.on(signal, handler)
+}
+
+function removeSignalHandlers() {
+  for (const [signal, handler] of signalHandlers) {
+    process.off(signal, handler)
+  }
+  signalHandlers.clear()
+}
+
+async function reloadBootstrap() {
+  if (stopping) return
+  stopping = true
+  if (timer !== null) {
+    clearTimeout(timer)
+    timer = null
+  }
+  bootstrapWatcher.close()
+  removeSignalHandlers()
+  try {
+    if (transition !== null) await transition
+    if (developmentLoop !== null) await developmentLoop.stop('SIGHUP')
+    const resolvedBootstrap = require.resolve(__filename)
+    delete require.cache[resolvedBootstrap]
+    require(resolvedBootstrap)
+  } catch (error) {
+    fail(error)
+    process.exit(1)
+  }
 }
 
 async function startWatcher() {
