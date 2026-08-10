@@ -16,7 +16,11 @@ test('main captures packaged links early and routes them through acknowledged ac
   assert.ok(openUrl >= 0 && openUrl < ready)
   assert.match(
     main,
-    /parseReviewUrl\(value, CANONICAL_INSTANCE_SCHEME\)[\s\S]*reviewUrlDispatcher\.receive\(parsed\)/
+    /parseReviewUrl\(value, CANONICAL_INSTANCE_SCHEME\)[\s\S]*reviewUrlDispatcher\.receive\(\{[\s\S]*focusState: currentWindowFocusState\(\),[\s\S]*parsed[\s\S]*\}\)/
+  )
+  assert.match(
+    main,
+    /new ReviewUrlDispatcher<PendingReviewUrl>\([\s\S]*activateManagedReview\(parsed\.reviewId, focusState\)/
   )
   assert.match(main, /onActivate: activateManagedReview/)
   assert.match(main, /requestRendererActivation\(/)
@@ -25,7 +29,7 @@ test('main captures packaged links early and routes them through acknowledged ac
   assert.match(main, /review:activation-response/)
   assert.match(
     main,
-    /const focusState = currentWindowFocusState\(\)\s*focusMainWindow\(\)[\s\S]*requestRendererActivation\([\s\S]*focusState/
+    /async function activateManagedReview\([\s\S]*focusState = currentWindowFocusState\(\)[\s\S]*focusMainWindow\(\)[\s\S]*requestRendererActivation\([\s\S]*focusState/
   )
   assert.match(
     main,

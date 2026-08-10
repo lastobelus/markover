@@ -114,6 +114,11 @@ interface PendingActivation {
   timeout: ReturnType<typeof setTimeout>
 }
 
+interface PendingReviewUrl {
+  focusState: MarkoverWindowFocusState
+  parsed: ReviewUrl
+}
+
 function errorProperty(
   error: unknown,
   key: 'code' | 'message' | 'stack'
@@ -203,9 +208,9 @@ const pendingManagedReviewNotifications = new Map<string, ReviewArtifact>()
 const projectRoots = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
 const managedLocalReviewCreations = new AsyncMutationTracker()
-const reviewUrlDispatcher = new ReviewUrlDispatcher<ReviewUrl>(
-  async (parsed) => {
-    await activateManagedReview(parsed.reviewId)
+const reviewUrlDispatcher = new ReviewUrlDispatcher<PendingReviewUrl>(
+  async ({ focusState, parsed }) => {
+    await activateManagedReview(parsed.reviewId, focusState)
   },
   (error) => {
     process.stderr.write(`markover review link: ${errorMessage(error)}\n`)
@@ -228,7 +233,10 @@ if (process.platform === 'darwin' && app.isPackaged && !smokeMode) {
     event.preventDefault()
     const parsed = parseReviewUrl(value, CANONICAL_INSTANCE_SCHEME)
     if (!parsed) return
-    reviewUrlDispatcher.receive(parsed)
+    reviewUrlDispatcher.receive({
+      focusState: currentWindowFocusState(),
+      parsed
+    })
   })
 }
 
@@ -1230,7 +1238,8 @@ async function requestRendererActivation(
 }
 
 async function activateManagedReview(
-  reviewId: string
+  reviewId: string,
+  focusState = currentWindowFocusState()
 ): Promise<ReviewActivationResult> {
   const store = requireReviewStore()
   let artifact: ReviewArtifact | null = null
@@ -1240,7 +1249,6 @@ async function activateManagedReview(
     if (errorProperty(error, 'code') !== 'NOT_FOUND') throw error
   }
 
-  const focusState = currentWindowFocusState()
   focusMainWindow()
   const outcome = await requestRendererActivation(
     reviewId,
