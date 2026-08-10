@@ -147,6 +147,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     requiredSpecifiers.push(specifier)
     if (specifier === 'node:fs') {
       return {
+        existsSync() { return true },
         readFileSync() { return bootstrapSource },
         watch(
           _directory: string,
@@ -174,6 +175,12 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
               if (scriptSource.includes("require('node:os')")) {
                 const nodeOs = context.require('node:os') as typeof os
                 nodeOs.tmpdir()
+              }
+              if (scriptSource.includes("require('node:fs').existsSync")) {
+                const nodeFs = context.require('node:fs') as {
+                  existsSync(filePath: string): boolean
+                }
+                nodeFs.existsSync('/bootstrap-preflight')
               }
             }
           }
@@ -280,7 +287,9 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   bootstrapPreflightError = null
   bootstrapSource = source.replace(
     "const { buildSync } = require('esbuild')",
-    "const { buildSync } = require('esbuild')\nrequire('node:os').tmpdir()"
+    "const { buildSync } = require('esbuild')\n" +
+      "require('node:os').tmpdir()\n" +
+      "require('node:fs').existsSync(__filename)"
   )
   watchCallback('change', 'scripts/development-watch-bootstrap.js')
   assert.equal(timers.length, 1)

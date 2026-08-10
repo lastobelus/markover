@@ -67,7 +67,7 @@ function preflightBootstrapSource(source) {
   const preflightRequire = (specifier) => {
     if (specifier === 'node:fs') {
       return {
-        readFileSync,
+        ...require(specifier),
         watch() { return inertWatcher }
       }
     }
