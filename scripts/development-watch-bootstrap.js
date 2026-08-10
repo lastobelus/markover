@@ -78,7 +78,10 @@ function preflightBootstrapSource(source) {
         buildSync() { return { metafile: { inputs: {} } } }
       }
     }
-    return { main() { return Promise.resolve(inertLoop) } }
+    if (specifier === outputPath) {
+      return { main() { return Promise.resolve(inertLoop) } }
+    }
+    return require(specifier)
   }
   preflightRequire.cache = {}
   preflightRequire.resolve = (specifier) => specifier

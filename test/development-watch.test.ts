@@ -106,6 +106,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     path.join(projectDirectory, 'scripts/development-watch-bootstrap.js'),
     'utf8'
   )
+  let bootstrapSource = source
   const notifications: Array<string | null> = []
   const exits: number[] = []
   const requiredSpecifiers: string[] = []
@@ -146,7 +147,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     requiredSpecifiers.push(specifier)
     if (specifier === 'node:fs') {
       return {
-        readFileSync() { return source },
+        readFileSync() { return bootstrapSource },
         watch(
           _directory: string,
           _options: unknown,
@@ -158,16 +159,21 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
       }
     }
     if (specifier === 'node:path') return path
+    if (specifier === 'node:os') return os
     if (specifier === 'node:vm') {
       return {
-        Script: function Script() {
+        Script: function Script(scriptSource: string) {
           if (bootstrapPreflightError === 'syntax') {
             throw new SyntaxError('invalid bootstrap')
           }
           return {
-            runInNewContext() {
+            runInNewContext(context: { require: NodeJS.Require }) {
               if (bootstrapPreflightError === 'runtime') {
                 throw new ReferenceError('missing bootstrap dependency')
+              }
+              if (scriptSource.includes("require('node:os')")) {
+                const nodeOs = context.require('node:os') as typeof os
+                nodeOs.tmpdir()
               }
             }
           }
@@ -272,6 +278,10 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   assert.deepEqual(exits, [])
 
   bootstrapPreflightError = null
+  bootstrapSource = source.replace(
+    "const { buildSync } = require('esbuild')",
+    "const { buildSync } = require('esbuild')\nrequire('node:os').tmpdir()"
+  )
   watchCallback('change', 'scripts/development-watch-bootstrap.js')
   assert.equal(timers.length, 1)
   timers.shift()?.()
