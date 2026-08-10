@@ -133,7 +133,7 @@ export function helpPayload() {
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
       'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done; pass --pr-status after a successful lookup, or continue without it and report the lookup failure without replacing the last observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
-      'If the user wants to add feedback afterward, run edit before asking them to continue.'
+      'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.'
     ],
     pullRequestStatus: {
       lookup: 'gh pr view <pull-request-url-or-number> --json state,isDraft,url',

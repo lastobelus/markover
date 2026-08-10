@@ -202,6 +202,10 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   )
   assert.match(helpPayload().pullRequestStatus.failure, /does not block/)
   assert.match(helpPayload().workflow.join(' '), /run revise once/)
+  assert.match(
+    helpPayload().workflow.join(' '),
+    /add feedback before revise, run edit.*After revise, open a new review/
+  )
   assert.match(helpPayload().workflow.join(' '), /--pr-status merged/)
 
   const misuse = spawnSync(process.execPath, [cliPath, 'wat'], {
