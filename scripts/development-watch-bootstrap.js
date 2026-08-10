@@ -36,6 +36,12 @@ function fail(error) {
   process.stderr.write(`markover dev bootstrap: ${message}\n`)
 }
 
+function isArgumentError(error) {
+  return error !== null &&
+    typeof error === 'object' &&
+    error.code === 'INVALID_START_ARGUMENT'
+}
+
 let starting = false
 let started = false
 let stopping = false
@@ -102,7 +108,9 @@ async function startWatcher() {
       sourcemap: 'inline',
       target: 'node26'
     })
-    watcher = require(outputPath)
+    const resolvedOutput = require.resolve(outputPath)
+    delete require.cache[resolvedOutput]
+    watcher = require(resolvedOutput)
   } catch (error) {
     fail(error)
     process.stderr.write(
@@ -118,8 +126,14 @@ async function startWatcher() {
     bootstrapWatcher.close()
   } catch (error) {
     fail(error)
-    process.exitCode = 1
-    bootstrapWatcher.close()
+    if (isArgumentError(error)) {
+      process.exitCode = 1
+      bootstrapWatcher.close()
+    } else {
+      process.stderr.write(
+        'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
+      )
+    }
   } finally {
     starting = false
   }

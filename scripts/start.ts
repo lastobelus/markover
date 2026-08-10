@@ -22,6 +22,15 @@ export interface ParsedStartArguments {
   appArguments: string[]
 }
 
+export class StartArgumentError extends Error {
+  readonly code = 'INVALID_START_ARGUMENT'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'StartArgumentError'
+  }
+}
+
 export function parseStartArguments(args: readonly string[]): ParsedStartArguments {
   let selector: ParsedStartArguments['selector'] = null
   const appArguments: string[] = []
@@ -31,10 +40,12 @@ export function parseStartArguments(args: readonly string[]): ParsedStartArgumen
       if (argument !== undefined) appArguments.push(argument)
       continue
     }
-    if (selector !== null) throw new Error('--instance may be specified only once.')
+    if (selector !== null) {
+      throw new StartArgumentError('--instance may be specified only once.')
+    }
     const value = args[index + 1]
     if (value !== 'canonical' && value !== 'dev') {
-      throw new Error('--instance requires canonical or dev.')
+      throw new StartArgumentError('--instance requires canonical or dev.')
     }
     selector = value === 'dev' ? 'development' : 'canonical'
     index += 1

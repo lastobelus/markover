@@ -9,6 +9,7 @@ import {
   isDevelopmentBuildInput,
   type DevelopmentProcess
 } from '../scripts/development-watch'
+import { parseStartArguments, StartArgumentError } from '../scripts/start'
 import type { ResolvedInstance } from '../src/instance'
 
 const projectDirectory = path.resolve(__dirname, '../..')
@@ -77,7 +78,15 @@ test('development command bootstraps before the first application build', async 
   assert.match(bootstrap, /buildSync/)
   assert.match(bootstrap, /watch\(/)
   assert.match(bootstrap, /Keeping the bootstrap watcher active/)
+  assert.match(bootstrap, /INVALID_START_ARGUMENT/)
   assert.doesNotMatch(bootstrap, /npm run build/)
+})
+
+test('invalid development arguments remain non-retryable bootstrap errors', () => {
+  assert.throws(
+    () => parseStartArguments(['--instance', 'invalid']),
+    StartArgumentError
+  )
 })
 
 test('development build inputs exclude generated and unrelated paths', () => {
