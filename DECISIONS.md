@@ -22,6 +22,8 @@ file as evidence of itself. The issue 36 audit started at commit `005d83c` and
 was reconciled through commit `51f175f` before publication. An entry without an
 **Audit** note has not yet been reassessed.
 
+<!-- decision-gardener-checkpoint: 51f175f391c752f5b3246d43310f67412571bb7b -->
+
 ## Register maintenance
 
 - **Planned — Reconcile from durable Git state.** A gardener compares the last
