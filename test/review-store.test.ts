@@ -878,6 +878,44 @@ test('a new store restores sessions from disk without sharing mutable state', as
   assert.equal((await restoredStore.list()).length, 1)
 })
 
+test('a new store restores Revised and Done lifecycle states', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const revised = await store.create({
+    tree: tree('# Revised\n'),
+    contextSummary: 'Restore a Revised review.'
+  })
+  await store.handoff(revised.review.id)
+  await store.revise(revised.review.id)
+
+  const done = await store.create({
+    tree: tree('# Done\n'),
+    contextSummary: 'Restore a Done review.',
+    git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+    pullRequest: { number: 129 }
+  })
+  await store.done(
+    'https://github.com/lastobelus/markover/pull/129',
+    'merged'
+  )
+
+  const restoredStore = new ReviewStore(directory)
+  assert.equal(
+    (await restoredStore.load(revised.review.id)).review.status,
+    'revised'
+  )
+  const restoredDone = await restoredStore.load(done.review.id)
+  assert.equal(restoredDone.review.status, 'done')
+  assert.equal(
+    (restoredDone.review.pullRequest as Record<string, unknown>).status,
+    'merged'
+  )
+})
+
 test('concurrent handoffs serialize to one frozen result', async (t) => {
   const timestamps = [
     '2026-07-30T20:00:00.000Z',
