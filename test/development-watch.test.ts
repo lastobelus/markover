@@ -663,7 +663,7 @@ test('stop owns a pre-service process before unavailable PR resolution', async (
       },
       resolve() {
         resolutionCalls += 1
-        if (resolutionCalls > 2) {
+        if (resolutionCalls > 1) {
           return Promise.reject(new Error('GitHub unavailable'))
         }
         return Promise.resolve(canonicalInstance('stopped'))
@@ -677,10 +677,57 @@ test('stop owns a pre-service process before unavailable PR resolution', async (
   await manager.restart()
   await manager.stop()
 
-  assert.equal(resolutionCalls, 2)
+  assert.equal(resolutionCalls, 1)
   assert.deepEqual(events, [
     'control:{"action":"quit","type":"markover-development-control","version":1}'
   ])
+})
+
+test('restart validates remote inputs before stopping the accepted process', async () => {
+  let allowResolution = true
+  let running = false
+  let stopped = false
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('stopped'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      isProcessAlive() {
+        return running
+      },
+      launch() {
+        running = true
+        return {
+          exitCode: null,
+          pid: 90211,
+          send() {
+            stopped = true
+            running = false
+            return true
+          },
+          signalCode: null
+        }
+      },
+      probe() {
+        return Promise.resolve()
+      },
+      readProcessEndpoint() {
+        return Promise.resolve({ pid: 90211 })
+      },
+      resolve() {
+        return allowResolution
+          ? Promise.resolve(canonicalInstance('stopped'))
+          : Promise.reject(new Error('GitHub unavailable'))
+      }
+    }
+  )
+
+  await manager.restart()
+  allowResolution = false
+
+  await assert.rejects(manager.restart(), /GitHub unavailable/)
+  assert.equal(running, true)
+  assert.equal(stopped, false)
 })
 
 test('an asynchronous spawn error stays inside the recoverable cycle', async () => {

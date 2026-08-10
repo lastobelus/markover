@@ -263,6 +263,14 @@ function assertExactTarget(
   }
 }
 
+function stoppedInstance(instance: ResolvedInstance): ResolvedInstance {
+  return {
+    ...instance,
+    coldStart: { eligible: true, blockedBy: null },
+    process: { status: 'stopped' }
+  }
+}
+
 export class DevelopmentInstanceManager {
   private activeProcess: DevelopmentProcess | null = null
   private readonly appArguments: readonly string[]
@@ -326,18 +334,21 @@ export class DevelopmentInstanceManager {
   }
 
   async restart(): Promise<void> {
-    await this.stopActiveProcess()
     const current = await this.resolveExactInstance()
-    const endpointPid = current.process.status === 'running'
-      ? (await this.readProcessEndpoint(current.service.endpointPath)).pid
-      : null
-
-    if (endpointPid !== null) {
-      this.assertRestartEligible(current)
+    this.assertRestartEligible(current)
+    const activePid = this.liveActiveProcessPid()
+    let stopped = current
+    if (activePid !== null) {
+      await this.stopActiveProcess()
+      stopped = stoppedInstance(current)
+    } else if (current.process.status === 'running') {
+      const endpointPid = (
+        await this.readProcessEndpoint(current.service.endpointPath)
+      ).pid
       await this.stopRunningProcess(endpointPid, endpointPid)
+      stopped = stoppedInstance(current)
     }
 
-    const stopped = await this.resolveExactInstance()
     if (
       stopped.process.status !== 'stopped' ||
       !stopped.coldStart.eligible
