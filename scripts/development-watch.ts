@@ -23,12 +23,15 @@ const DEFAULT_POLL_MILLISECONDS = 100
 
 const watchedDirectories = [
   'design/brand',
+  'packages/cli/src',
   'scripts',
-  'src'
+  'src',
+  'test'
 ] as const
 
 const watchedFiles = new Set([
   '.markover/development.json',
+  'docs/user/site.ts',
   'package.json',
   'tsconfig.build.json',
   'tsconfig.json'

@@ -9,9 +9,16 @@ const outputPath = path.resolve(
   __dirname,
   '../build/scripts/development-watch-bootstrap.cjs'
 )
-const watchedDirectories = ['design/brand', 'scripts', 'src']
+const watchedDirectories = [
+  'design/brand',
+  'packages/cli/src',
+  'scripts',
+  'src',
+  'test'
+]
 const watchedFiles = new Set([
   '.markover/development.json',
+  'docs/user/site.ts',
   'package.json',
   'tsconfig.build.json',
   'tsconfig.json'

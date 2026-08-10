@@ -198,6 +198,9 @@ test('development build inputs exclude generated and unrelated paths', () => {
     'src/renderer.ts',
     'scripts/build-app.ts',
     'design/brand/markover-mark.svg',
+    'docs/user/site.ts',
+    'packages/cli/src/index.ts',
+    'test/development-watch.test.ts',
     'package.json',
     'tsconfig.json',
     '.markover/development.json'
