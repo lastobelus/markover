@@ -10,6 +10,7 @@ import {
   assembleDecisionAuditBundle,
   buildDecisionGardenerCodexArgs,
   decisionGardenerChildEnvironment,
+  defaultAuditBundleLimits,
   discoverCommitRange,
   loadRequestedContext,
   parseCodexAuditJsonl,
@@ -75,7 +76,7 @@ async function createAuditRepository(): Promise<{
   await commitFile(
     repository,
     'DECISIONS.md',
-    `# Decision register\n\n${checkpointPrefix}${checkpoint} -->\n`,
+    `# Decision register\n\nEvidence: [feature](src/feature.ts).\n\n${checkpointPrefix}${checkpoint} -->\n`,
     'Record audit checkpoint'
   )
   await commitFile(
@@ -173,14 +174,38 @@ test('audit bundles pin commit patches, changed paths, snapshots, and ownership'
   assert.deepEqual(bundle.ownershipSnapshot, ownershipSnapshot)
   assert.ok(bundle.commits.every(({ patch }) => patch.bytes > 0))
   assert.deepEqual(
-    bundle.paths.map(({ path: filePath }) => filePath),
+    bundle.paths.map(([prefixIndex, suffix]) =>
+      `${bundle.pathPrefixes[prefixIndex] ?? ''}${suffix}`
+    ),
     ['DECISIONS.md', 'src/feature.ts', 'test/feature.test.ts']
   )
-  assert.equal(
-    bundle.paths.find(({ path: filePath }) => filePath === 'src/feature.ts')
-      ?.content?.value,
-    'export const feature = true\n'
-  )
+  const featureContent = bundle.paths.find(
+    ([prefixIndex, suffix]) =>
+      `${bundle.pathPrefixes[prefixIndex] ?? ''}${suffix}` === 'src/feature.ts'
+  )?.[5]
+  assert.ok(featureContent !== null && featureContent !== undefined)
+  assert.equal(featureContent.omitted, false)
+  assert.equal(featureContent.value, 'export const feature = true\n')
+})
+
+test('the initial Markover catch-up inventory stays below the model-input bound', () => {
+  const repository = path.resolve(__dirname, '../..')
+  const bundle = assembleDecisionAuditBundle({
+    generatedAt: '2026-08-10T00:00:00.000Z',
+    ownershipSnapshot: { issues: [], schemaVersion: 1 },
+    repository,
+    targetRef: 'HEAD'
+  })
+  const sourceBytes = Buffer.byteLength(JSON.stringify({
+    bundle,
+    contexts: [],
+    round: 0
+  }))
+  assert.ok(sourceBytes <= defaultAuditBundleLimits.maxInputBytes)
+  const largeCommit = bundle.commits.find(({ sha }) => sha.startsWith('c356d4c3'))
+  assert.ok(largeCommit)
+  assert.equal(largeCommit.patch.omitted, true)
+  assert.ok(bundle.paths.length > 5_000)
 })
 
 test('bundle snapshots are write-once and carry verified prompt/schema hashes', async (t) => {
@@ -241,6 +266,41 @@ test('single-flight ownership is atomic and cannot release another run', async (
   await second.release()
 })
 
+test('single-flight acquisition atomically replaces a provably dead owner', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-stale-lock-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const lock = path.join(root, 'active.lock')
+  await fs.mkdir(lock)
+  await fs.writeFile(path.join(lock, 'owner.json'), JSON.stringify({
+    acquiredAt: '2026-08-10T00:00:00.000Z',
+    hostname: 'test-host',
+    pid: 4242,
+    token: 'dead-owner'
+  }))
+  await fs.writeFile(path.join(lock, '.reaping.json'), JSON.stringify({
+    claimedAt: '2026-08-10T00:01:00.000Z',
+    pid: 4343,
+    token: 'dead-reaper'
+  }))
+  const inspectedPids: number[] = []
+  const lease = await acquireSingleFlightLock(lock, {}, {
+    processAlive: (pid) => {
+      inspectedPids.push(pid)
+      return false
+    }
+  })
+  assert.deepEqual(new Set(inspectedPids), new Set([4242, 4343]))
+  const owner = JSON.parse(
+    await fs.readFile(path.join(lock, 'owner.json'), 'utf8')
+  ) as { token: string }
+  assert.equal(owner.token, lease.token)
+  assert.equal(
+    (await fs.readdir(root)).filter((name) => name.includes('.stale.')).length,
+    0
+  )
+  await lease.release()
+})
+
 test('adaptive context accepts only reachable Git data within strict bounds', async (t) => {
   const fixture = await createAuditRepository()
   t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
@@ -254,7 +314,8 @@ test('adaptive context accepts only reachable Git data within strict bounds', as
     target: fixture.target
   })
   assert.equal(contexts.length, 2)
-  assert.equal(contexts[0]?.content.value, 'export const feature = true\n')
+  assert.equal(contexts[0]?.content.omitted, false)
+  assert.equal(contexts[0].content.value, 'export const feature = true\n')
   assert.throws(() => loadRequestedContext({
     repository: fixture.repository,
     requests: [{ kind: 'path', reason: 'Escape', value: '../secret' }],
@@ -286,13 +347,20 @@ test('bounded audit resolves context or emits an explicit ambiguity', async () =
     },
     generatedAt: '2026-08-10T00:00:00.000Z',
     ownershipSnapshot: {},
+    pathPrefixes: [],
     paths: [],
     schemaVersion: 1 as const,
     target,
     targetRef: 'origin/main'
   }
   const loaded: LoadedContext = {
-    content: { bytes: 4, encoding: 'utf8', sha256: 'd'.repeat(64), value: 'test' },
+    content: {
+      bytes: 4,
+      encoding: 'utf8',
+      omitted: false,
+      sha256: 'd'.repeat(64),
+      value: 'test'
+    },
     kind: 'path',
     object: 'e'.repeat(40),
     objectType: 'blob',
@@ -360,6 +428,26 @@ test('bounded audit resolves context or emits an explicit ambiguity', async () =
   assert.equal(repeatedAttempts, 2)
   assert.equal(repeated.status, 'ambiguous')
   assert.match(repeated.report.ambiguities[0]?.summary ?? '', /repeated/)
+
+  let oversizedInvocations = 0
+  const oversized = await runBoundedAudit({
+    bundle: {
+      ...bundle,
+      decisions: {
+        ...bundle.decisions,
+        content: `# Decision register\n${'x'.repeat(2_000)}`
+      }
+    },
+    invoke: () => {
+      oversizedInvocations += 1
+      return Promise.resolve(completeResult(bundle))
+    },
+    loadContext: () => Promise.resolve([]),
+    maxInputBytes: 512
+  })
+  assert.equal(oversizedInvocations, 0)
+  assert.equal(oversized.status, 'ambiguous')
+  assert.match(oversized.report.ambiguities[0]?.summary ?? '', /limit is 512/)
 })
 
 test('complete proposals must advance the one checkpoint to the audited target', () => {

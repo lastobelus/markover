@@ -12,6 +12,15 @@ existing issues and work intent. Never invent product direction, create an
 issue, close an issue, remove a launch gate, or claim that unlanded work has
 landed.
 
+The version-1 bundle compacts high-cardinality Git inventories. Each
+`paths` item is
+`[prefixIndex, suffix, mode, type, objectId, contentOrNull]`; concatenate
+`pathPrefixes[prefixIndex]` and `suffix` to recover its repository path. Each
+`changedPaths` item is `[status, pathIndex, oldPathIndexOrNull]`, where path
+indexes address that shared `paths` array. Content with `omitted: true` retains
+its byte count and SHA-256 but requires a focused context request when its
+bytes are necessary for classification.
+
 Return `needs_context` only when a specific repository path or Git object is
 necessary to classify landed behavior. Each request must be minimal and state
 why it is needed. Repository paths must be normalized, relative paths from the

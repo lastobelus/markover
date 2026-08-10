@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { TextDecoder } from 'node:util'
 
@@ -23,15 +24,44 @@ export type GitCommandRunner = (
   args: readonly string[]
 ) => CommandResult
 
-export interface EncodedGitContent {
+export interface MaterializedGitContent {
   bytes: number
   encoding: 'base64' | 'utf8'
+  omitted: false
   sha256: string
   value: string
 }
 
-export interface ChangedPath {
-  oldPath?: string
+export interface OmittedGitContent {
+  bytes: number
+  encoding: null
+  omitted: true
+  reason: 'aggregate_limit' | 'item_limit'
+  sha256: string
+}
+
+export type EncodedGitContent = MaterializedGitContent | OmittedGitContent
+
+export interface AuditBundleLimits {
+  maxEmbeddedContentBytes: number
+  maxInputBytes: number
+  maxItemBytes: number
+}
+
+export const defaultAuditBundleLimits: AuditBundleLimits = Object.freeze({
+  maxEmbeddedContentBytes: 256 * 1024,
+  maxInputBytes: 1536 * 1024,
+  maxItemBytes: 128 * 1024
+})
+
+export type ChangedPath = readonly [
+  status: string,
+  pathIndex: number,
+  oldPathIndex: number | null
+]
+
+interface RawChangedPath {
+  oldPath: string | null
   path: string
   status: string
 }
@@ -47,13 +77,14 @@ export interface AuditedCommit {
   subject: string
 }
 
-export interface AuditedPathSnapshot {
+export type AuditedPathSnapshot = readonly [
+  prefixIndex: number,
+  suffix: string,
+  mode: string | null,
+  type: string | null,
+  object: string | null,
   content: EncodedGitContent | null
-  mode: string | null
-  object: string | null
-  path: string
-  type: string | null
-}
+]
 
 export interface DecisionAuditBundle {
   checkpoint: string
@@ -65,6 +96,7 @@ export interface DecisionAuditBundle {
   }
   generatedAt: string
   ownershipSnapshot: unknown
+  pathPrefixes: readonly string[]
   paths: readonly AuditedPathSnapshot[]
   schemaVersion: typeof decisionGardenerSchemaVersion
   target: string
@@ -119,6 +151,10 @@ export interface SingleFlightLease {
   token: string
 }
 
+export interface SingleFlightOptions {
+  processAlive?: (pid: number) => boolean
+}
+
 export const runGitCommand: GitCommandRunner = (repository, args) => {
   const result = spawnSync('git', [...args], {
     cwd: repository,
@@ -159,19 +195,49 @@ function gitText(
   return requireGit(runner, repository, args, label).toString('utf8').trimEnd()
 }
 
-function encodeContent(content: Buffer): EncodedGitContent {
+interface ContentBudget {
+  remaining: number
+}
+
+function encodeContent(
+  content: Buffer,
+  budget?: ContentBudget,
+  maxItemBytes = Number.POSITIVE_INFINITY
+): EncodedGitContent {
+  const digest = sha256(content)
+  if (content.byteLength > maxItemBytes) {
+    return {
+      bytes: content.byteLength,
+      encoding: null,
+      omitted: true,
+      reason: 'item_limit',
+      sha256: digest
+    }
+  }
+  if (budget !== undefined && content.byteLength > budget.remaining) {
+    return {
+      bytes: content.byteLength,
+      encoding: null,
+      omitted: true,
+      reason: 'aggregate_limit',
+      sha256: digest
+    }
+  }
+  if (budget !== undefined) budget.remaining -= content.byteLength
   try {
     return {
       bytes: content.byteLength,
       encoding: 'utf8',
-      sha256: sha256(content),
+      omitted: false,
+      sha256: digest,
       value: utf8Decoder.decode(content)
     }
   } catch {
     return {
       bytes: content.byteLength,
       encoding: 'base64',
-      sha256: sha256(content),
+      omitted: false,
+      sha256: digest,
       value: content.toString('base64')
     }
   }
@@ -263,10 +329,10 @@ export function discoverCommitRange({
   return { commits, target }
 }
 
-function parseChangedPaths(source: Buffer): ChangedPath[] {
+function parseChangedPaths(source: Buffer): RawChangedPath[] {
   const fields = source.toString('utf8').split('\0')
   if (fields.at(-1) === '') fields.pop()
-  const paths: ChangedPath[] = []
+  const paths: RawChangedPath[] = []
   for (let index = 0; index < fields.length;) {
     const status = fields[index++]
     if (!status) throw new Error('Git returned an incomplete changed-path record.')
@@ -281,7 +347,7 @@ function parseChangedPaths(source: Buffer): ChangedPath[] {
     }
     const currentPath = fields[index++]
     if (!currentPath) throw new Error('Git returned an incomplete path record.')
-    paths.push({ path: currentPath, status })
+    paths.push({ oldPath: null, path: currentPath, status })
   }
   return paths
 }
@@ -289,8 +355,12 @@ function parseChangedPaths(source: Buffer): ChangedPath[] {
 function readCommit(
   repository: string,
   commit: string,
-  runner: GitCommandRunner
-): AuditedCommit {
+  runner: GitCommandRunner,
+  budget: ContentBudget,
+  maxItemBytes: number
+): Omit<AuditedCommit, 'changedPaths'> & {
+  changedPaths: readonly RawChangedPath[]
+} {
   const metadata = requireGit(runner, repository, [
     'show', '-s',
     '--format=%H%x00%P%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%b',
@@ -338,51 +408,128 @@ function readCommit(
     },
     message,
     parents: parents.length === 0 ? [] : parents.split(' '),
-    patch: encodeContent(patch),
+    patch: encodeContent(patch, budget, maxItemBytes),
     sha,
     subject
   }
 }
 
-function readPathSnapshot(
+interface TreeEntry {
+  mode: string
+  object: string
+  type: string
+}
+
+function readTargetTree(
   repository: string,
   target: string,
-  filePath: string,
   runner: GitCommandRunner
-): AuditedPathSnapshot {
-  const record = requireGit(runner, repository, [
-    'ls-tree', '-z', target, '--', filePath
-  ], `Inspect ${filePath} at ${target}`).toString('utf8')
-  if (record.length === 0) {
-    return { content: null, mode: null, object: null, path: filePath, type: null }
-  }
-  const match = record.match(/^([0-7]{6}) ([a-z]+) ([0-9a-f]{40})\t[^\0]+\0$/)
-  if (!match?.[1] || !match[2] || !match[3]) {
-    throw new Error(`Git returned malformed tree metadata for ${filePath}.`)
-  }
-  const [, mode, type, object] = match
-  const content = requireGit(
+): Map<string, TreeEntry> {
+  const source = requireGit(
     runner,
     repository,
-    ['cat-file', '-p', object],
-    `Read ${filePath} at ${target}`
-  )
-  return { content: encodeContent(content), mode, object, path: filePath, type }
+    ['ls-tree', '-r', '-z', target],
+    `Read tree for ${target}`
+  ).toString('utf8')
+  const entries = new Map<string, TreeEntry>()
+  for (const record of source.split('\0')) {
+    if (record.length === 0) continue
+    const match = record.match(/^([0-7]{6}) ([a-z]+) ([0-9a-f]{40})\t(.+)$/s)
+    if (!match?.[1] || !match[2] || !match[3] || !match[4]) {
+      throw new Error(`Git returned malformed tree metadata for ${target}.`)
+    }
+    entries.set(match[4], { mode: match[1], object: match[3], type: match[2] })
+  }
+  return entries
+}
+
+function referencedRepositoryPaths(decisions: string): Set<string> {
+  const paths = new Set<string>()
+  for (const match of decisions.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
+    const destination = match[1]
+    if (
+      destination !== undefined && !destination.includes('://') &&
+      !destination.startsWith('#')
+    ) {
+      const withoutFragment = destination.split('#')[0]
+      if (withoutFragment !== undefined && withoutFragment.length > 0) {
+        paths.add(withoutFragment)
+      }
+    }
+  }
+  return paths
+}
+
+function readPathSnapshot(
+  repository: string,
+  filePath: string,
+  prefixIndex: number,
+  suffix: string,
+  entry: TreeEntry | undefined,
+  includeContent: boolean,
+  runner: GitCommandRunner,
+  budget: ContentBudget,
+  maxItemBytes: number
+): AuditedPathSnapshot {
+  if (entry === undefined) {
+    return [prefixIndex, suffix, null, null, null, null]
+  }
+  const content = includeContent
+    ? encodeContent(requireGit(
+        runner,
+        repository,
+        ['cat-file', '-p', entry.object],
+        `Read referenced evidence ${filePath}`
+      ), budget, maxItemBytes)
+    : null
+  return [prefixIndex, suffix, entry.mode, entry.type, entry.object, content]
+}
+
+function compactPathPrefixes(paths: readonly string[]): {
+  pathPrefixes: readonly string[]
+  suffixes: ReadonlyMap<string, readonly [prefixIndex: number, suffix: string]>
+} {
+  const prefixForPath = new Map<string, string>()
+  const prefixes = new Set<string>()
+  for (const filePath of paths) {
+    const segments = filePath.split('/')
+    const prefix = segments.length === 1
+      ? ''
+      : `${segments.slice(0, Math.min(4, segments.length - 1)).join('/')}/`
+    prefixForPath.set(filePath, prefix)
+    prefixes.add(prefix)
+  }
+  const pathPrefixes = [...prefixes].sort()
+  const indexes = new Map(pathPrefixes.map((prefix, index) => [prefix, index]))
+  const suffixes = new Map<string, readonly [number, string]>()
+  for (const filePath of paths) {
+    const prefix = prefixForPath.get(filePath)
+    const prefixIndex = prefix === undefined ? undefined : indexes.get(prefix)
+    if (prefix === undefined || prefixIndex === undefined) {
+      throw new Error(`Could not compact audit path ${filePath}.`)
+    }
+    suffixes.set(filePath, [prefixIndex, filePath.slice(prefix.length)])
+  }
+  return { pathPrefixes, suffixes }
 }
 
 export function assembleDecisionAuditBundle({
   generatedAt = new Date().toISOString(),
+  limits: requestedLimits = {},
   ownershipSnapshot,
   repository,
   runner = runGitCommand,
   targetRef = 'origin/main'
 }: {
   generatedAt?: string
+  limits?: Partial<AuditBundleLimits>
   ownershipSnapshot: unknown
   repository: string
   runner?: GitCommandRunner
   targetRef?: string
 }): DecisionAuditBundle {
+  const limits = auditBundleLimits(requestedLimits)
+  const contentBudget = { remaining: limits.maxEmbeddedContentBytes }
   const target = resolveCommit(repository, targetRef, runner)
   const decisions = requireGit(
     runner,
@@ -397,18 +544,56 @@ export function assembleDecisionAuditBundle({
     runner,
     targetRef: target
   })
-  const commits = range.commits.map((commit) => readCommit(repository, commit, runner))
+  const rawCommits = range.commits.map((commit) => readCommit(
+    repository,
+    commit,
+    runner,
+    contentBudget,
+    limits.maxItemBytes
+  ))
   const changedPaths = new Set<string>()
-  for (const commit of commits) {
+  for (const commit of rawCommits) {
     for (const changed of commit.changedPaths) {
       changedPaths.add(changed.path)
-      if (changed.oldPath !== undefined) changedPaths.add(changed.oldPath)
+      if (changed.oldPath !== null) changedPaths.add(changed.oldPath)
     }
   }
-  const paths = [...changedPaths].sort().map((filePath) =>
-    readPathSnapshot(repository, range.target, filePath, runner)
-  )
-  return {
+  const sortedPaths = [...changedPaths].sort()
+  const pathIndexes = new Map(sortedPaths.map((filePath, index) => [filePath, index]))
+  const commits: AuditedCommit[] = rawCommits.map((commit) => ({
+    ...commit,
+    changedPaths: commit.changedPaths.map((changed) => {
+      const pathIndex = pathIndexes.get(changed.path)
+      const oldPathIndex = changed.oldPath === null
+        ? null
+        : pathIndexes.get(changed.oldPath)
+      if (pathIndex === undefined || oldPathIndex === undefined) {
+        throw new Error('Could not index a changed path in the audit bundle.')
+      }
+      return [changed.status, pathIndex, oldPathIndex]
+    })
+  }))
+  const tree = readTargetTree(repository, range.target, runner)
+  const referencedPaths = referencedRepositoryPaths(decisions)
+  const compacted = compactPathPrefixes(sortedPaths)
+  const paths = sortedPaths.map((filePath) => {
+    const compactPath = compacted.suffixes.get(filePath)
+    if (compactPath === undefined) {
+      throw new Error(`Could not find compact audit path ${filePath}.`)
+    }
+    return readPathSnapshot(
+      repository,
+      filePath,
+      compactPath[0],
+      compactPath[1],
+      tree.get(filePath),
+      referencedPaths.has(filePath),
+      runner,
+      contentBudget,
+      limits.maxItemBytes
+    )
+  })
+  const bundle: DecisionAuditBundle = {
     checkpoint,
     commits,
     decisions: {
@@ -418,10 +603,40 @@ export function assembleDecisionAuditBundle({
     },
     generatedAt,
     ownershipSnapshot: cloneJsonValue(ownershipSnapshot),
+    pathPrefixes: compacted.pathPrefixes,
     paths,
     schemaVersion: decisionGardenerSchemaVersion,
     target: range.target,
     targetRef
+  }
+  return bundle
+}
+
+function auditBundleLimits(
+  overrides: Partial<AuditBundleLimits>
+): AuditBundleLimits {
+  const limits = { ...defaultAuditBundleLimits, ...overrides }
+  for (const [name, value] of Object.entries(limits)) {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      throw new Error(`${name} must be a positive safe integer.`)
+    }
+  }
+  if (limits.maxItemBytes > limits.maxEmbeddedContentBytes) {
+    throw new Error('maxItemBytes cannot exceed maxEmbeddedContentBytes.')
+  }
+  return limits
+}
+
+function auditRoundInputBytes(input: AuditRoundInput): number {
+  return Buffer.byteLength(JSON.stringify(input), 'utf8')
+}
+
+function assertInputSize(input: AuditRoundInput, maxInputBytes: number): void {
+  const bytes = auditRoundInputBytes(input)
+  if (bytes > maxInputBytes) {
+    throw new Error(
+      `Decision-gardener input is ${String(bytes)} bytes; the limit is ${String(maxInputBytes)}.`
+    )
   }
 }
 
@@ -491,33 +706,70 @@ export async function writeImmutableAuditBundle({
 
 export async function acquireSingleFlightLock(
   lockDirectory: string,
-  detail: Record<string, unknown> = {}
+  detail: Record<string, unknown> = {},
+  options: SingleFlightOptions = {}
 ): Promise<SingleFlightLease> {
   const token = crypto.randomUUID()
-  try {
-    await fs.mkdir(lockDirectory, { recursive: false, mode: 0o700 })
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    const ownerPath = path.join(lockDirectory, 'owner.json')
-    const owner = await fs.readFile(ownerPath, 'utf8').catch(() => 'unreadable')
-    throw new Error(
-      `A decision-gardener run already owns ${lockDirectory}: ${owner.trim()}`,
-      { cause: error }
-    )
-  }
+  const processAlive = options.processAlive ?? localProcessAlive
   const owner = {
     ...detail,
     acquiredAt: new Date().toISOString(),
+    hostname: os.hostname(),
     pid: process.pid,
     token
   }
+  const candidate = `${lockDirectory}.candidate.${token}`
+  await fs.mkdir(candidate, { recursive: false, mode: 0o700 })
   try {
     await writeExclusive(
-      path.join(lockDirectory, 'owner.json'),
+      path.join(candidate, 'owner.json'),
       `${JSON.stringify(owner, null, 2)}\n`
     )
+    let acquired = false
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      try {
+        await fs.rename(candidate, lockDirectory)
+        acquired = true
+        break
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code
+        if (code !== 'EEXIST' && code !== 'ENOTEMPTY') throw error
+        const ownerPath = path.join(lockDirectory, 'owner.json')
+        let existingSource: string
+        try {
+          existingSource = await fs.readFile(ownerPath, 'utf8')
+        } catch (readError) {
+          if ((readError as NodeJS.ErrnoException).code === 'ENOENT') continue
+          throw readError
+        }
+        const existing = parseSingleFlightOwner(existingSource, lockDirectory)
+        if (processAlive(existing.pid)) {
+          throw new Error(
+            `A decision-gardener run already owns ${lockDirectory}: ${existingSource.trim()}`,
+            { cause: error }
+          )
+        }
+        const claimed = await claimDeadSingleFlightLock(
+          lockDirectory,
+          existing.token,
+          processAlive
+        )
+        if (!claimed) continue
+        const stale = `${lockDirectory}.stale.${crypto.randomUUID()}`
+        try {
+          await fs.rename(lockDirectory, stale)
+        } catch (renameError) {
+          if ((renameError as NodeJS.ErrnoException).code === 'ENOENT') continue
+          throw renameError
+        }
+        await fs.rm(stale, { recursive: true })
+      }
+    }
+    if (!acquired) {
+      throw new Error(`Could not acquire ${lockDirectory} after concurrent recovery.`)
+    }
   } catch (error) {
-    await fs.rm(lockDirectory, { recursive: true, force: true })
+    await fs.rm(candidate, { recursive: true, force: true })
     throw error
   }
   let released = false
@@ -534,6 +786,90 @@ export async function acquireSingleFlightLock(
       await fs.rm(lockDirectory, { recursive: true })
       released = true
     }
+  }
+}
+
+function parseSingleFlightOwner(
+  source: string,
+  lockDirectory: string
+): { pid: number; token: string } {
+  let value: unknown
+  try {
+    value = JSON.parse(source) as unknown
+  } catch (error) {
+    throw new Error(`The owner of ${lockDirectory} is malformed.`, { cause: error })
+  }
+  if (
+    !isRecord(value) || !Number.isSafeInteger(value.pid) ||
+    Number(value.pid) < 1 || typeof value.token !== 'string' ||
+    value.token.length === 0
+  ) throw new Error(`The owner of ${lockDirectory} is malformed.`)
+  return { pid: Number(value.pid), token: value.token }
+}
+
+async function claimDeadSingleFlightLock(
+  lockDirectory: string,
+  expectedOwnerToken: string,
+  processAlive: (pid: number) => boolean
+): Promise<boolean> {
+  const claimPath = path.join(lockDirectory, '.reaping.json')
+  const claim = {
+    claimedAt: new Date().toISOString(),
+    pid: process.pid,
+    token: crypto.randomUUID()
+  }
+  try {
+    await writeExclusive(claimPath, `${JSON.stringify(claim, null, 2)}\n`)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+      throw error
+    }
+    const existingClaimSource = await fs.readFile(claimPath, 'utf8').catch(
+      (readError: unknown) => {
+        if ((readError as NodeJS.ErrnoException).code === 'ENOENT') return null
+        throw readError
+      }
+    )
+    if (existingClaimSource === null) return false
+    const existingClaim = parseSingleFlightOwner(existingClaimSource, claimPath)
+    if (processAlive(existingClaim.pid)) {
+      throw new Error(`A live recovery already owns ${lockDirectory}.`, {
+        cause: error
+      })
+    }
+    await fs.unlink(claimPath).catch((unlinkError: unknown) => {
+      if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') throw unlinkError
+    })
+    return false
+  }
+  let currentOwner: { pid: number; token: string }
+  try {
+    currentOwner = parseSingleFlightOwner(
+      await fs.readFile(path.join(lockDirectory, 'owner.json'), 'utf8'),
+      lockDirectory
+    )
+  } catch (error) {
+    await fs.unlink(claimPath).catch(() => undefined)
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw error
+  }
+  if (currentOwner.token !== expectedOwnerToken) {
+    await fs.unlink(claimPath)
+    return false
+  }
+  return true
+}
+
+function localProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ESRCH') return false
+    if (code === 'EPERM') return true
+    throw error
   }
 }
 
@@ -832,12 +1168,14 @@ export async function runBoundedAudit({
   bundle,
   invoke,
   loadContext,
-  maxContextRounds = 2
+  maxContextRounds = 2,
+  maxInputBytes = defaultAuditBundleLimits.maxInputBytes
 }: {
   bundle: DecisionAuditBundle
   invoke: (input: AuditRoundInput) => Promise<unknown>
   loadContext: (requests: readonly ContextRequest[]) => Promise<readonly LoadedContext[]>
   maxContextRounds?: number
+  maxInputBytes?: number
 }): Promise<AuditAgentResult> {
   if (!Number.isInteger(maxContextRounds) || maxContextRounds < 0) {
     throw new Error('maxContextRounds must be a non-negative integer.')
@@ -845,7 +1183,13 @@ export async function runBoundedAudit({
   const contexts: LoadedContext[] = []
   const requested = new Set<string>()
   for (let round = 0; ; round += 1) {
-    const result = validateAuditAgentResult(await invoke({ bundle, contexts, round }))
+    const input = { bundle, contexts, round }
+    try {
+      assertInputSize(input, maxInputBytes)
+    } catch (error) {
+      return contextFailure(error instanceof Error ? error.message : String(error))
+    }
+    const result = validateAuditAgentResult(await invoke(input))
     if (result.status !== 'needs_context') {
       if (result.status === 'complete') validateCompleteProposal(result, bundle.target)
       return result
@@ -976,6 +1320,7 @@ export async function invokeDecisionGardenerCodex({
   codex = 'codex',
   environment = process.env,
   input,
+  maxInputBytes = defaultAuditBundleLimits.maxInputBytes,
   model,
   prompt,
   reasoningEffort = 'high',
@@ -986,6 +1331,7 @@ export async function invokeDecisionGardenerCodex({
   codex?: string
   environment?: NodeJS.ProcessEnv
   input: AuditRoundInput
+  maxInputBytes?: number
   model: string
   prompt: string
   reasoningEffort?: 'high' | 'low' | 'medium' | 'xhigh'
@@ -996,6 +1342,13 @@ export async function invokeDecisionGardenerCodex({
   const args = buildDecisionGardenerCodexArgs({
     model, reasoningEffort, repository, schemaPath
   })
+  const stdin = buildDecisionGardenerInput(prompt, input)
+  const inputBytes = Buffer.byteLength(stdin, 'utf8')
+  if (inputBytes > maxInputBytes) {
+    throw new Error(
+      `Decision-gardener prompt is ${String(inputBytes)} bytes; the limit is ${String(maxInputBytes)}.`
+    )
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(codex, args, {
       cwd: repository,
@@ -1025,7 +1378,7 @@ export async function invokeDecisionGardenerCodex({
         reject(error instanceof Error ? error : new Error(String(error)))
       }
     })
-    child.stdin.end(buildDecisionGardenerInput(prompt, input))
+    child.stdin.end(stdin)
   })
 }
 
