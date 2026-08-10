@@ -101,6 +101,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     'utf8'
   )
   const notifications: Array<string | null> = []
+  const exits: number[] = []
   const stops: NodeJS.Signals[] = []
   const timers: Array<() => void> = []
   let mainCalls = 0
@@ -108,9 +109,13 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     event: string,
     filename: string | Buffer | null
   ) => void = () => {}
+  let watchError: (error: Error) => void = () => {}
   const bootstrapWatcher = {
     close() {},
-    on() { return bootstrapWatcher }
+    on(event: string, listener: (error: Error) => void) {
+      if (event === 'error') watchError = listener
+      return bootstrapWatcher
+    }
   }
   const bundledWatcher = {
     main() {
@@ -168,7 +173,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     clearTimeout() {},
     process: {
       argv: ['node', 'development-watch-bootstrap.js'],
-      exit() { throw new Error('bootstrap exited unexpectedly') },
+      exit(code: number) { exits.push(code) },
       exitCode: 0,
       on() {},
       stderr: { write() {} }
@@ -192,6 +197,12 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   await waitUntil(() => mainCalls === 2)
 
   assert.deepEqual(stops, ['SIGHUP'])
+
+  watchError(new Error('recursive watch failed'))
+  await waitUntil(() => exits.length === 1)
+
+  assert.deepEqual(stops, ['SIGHUP', 'SIGHUP'])
+  assert.deepEqual(exits, [1])
 })
 
 test('development build inputs exclude generated and unrelated paths', () => {

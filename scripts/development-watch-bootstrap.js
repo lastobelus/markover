@@ -103,7 +103,7 @@ const bootstrapWatcher = watch(
 bootstrapWatcher.on('error', (error) => {
   fail(error)
   process.exitCode = 1
-  bootstrapWatcher.close()
+  void stop('SIGHUP')
 })
 
 async function stop(signal) {
