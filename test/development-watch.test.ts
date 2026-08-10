@@ -496,6 +496,61 @@ test('a watcher-owned process without a service quits through its control channe
   ])
 })
 
+test('an owned process falls back to control when its quit route fails', async () => {
+  const events: string[] = []
+  let launches = 0
+  let running = false
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('stopped'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      isProcessAlive() {
+        return running
+      },
+      launch() {
+        launches += 1
+        running = true
+        return {
+          exitCode: null,
+          pid: 90211,
+          send(message) {
+            events.push(`control:${JSON.stringify(message)}`)
+            running = false
+            return true
+          },
+          signalCode: null
+        }
+      },
+      probe() {
+        return Promise.resolve()
+      },
+      quit(endpointPath) {
+        events.push(`quit:${endpointPath}`)
+        return Promise.reject(new Error('quit route unavailable'))
+      },
+      readProcessEndpoint() {
+        return Promise.resolve({ pid: 90211 })
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('stopped'))
+      },
+      wait() {
+        return Promise.resolve()
+      }
+    }
+  )
+
+  await manager.restart()
+  await manager.restart()
+
+  assert.equal(launches, 2)
+  assert.deepEqual(events, [
+    'quit:/state/markover/service.json',
+    'control:{"action":"quit","type":"markover-development-control","version":1}'
+  ])
+})
+
 test('stop owns a pre-service process before unavailable PR resolution', async () => {
   const events: string[] = []
   let probeCalls = 0

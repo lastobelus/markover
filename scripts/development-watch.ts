@@ -387,15 +387,17 @@ export class DevelopmentInstanceManager {
     endpointPid: number | null
   ): Promise<void> {
     if (endpointPid !== null) {
-      await this.quit(this.target.endpointPath)
+      try {
+        await this.quit(this.target.endpointPath)
+      } catch (error) {
+        if (!this.sendOwnedProcessQuit(runningPid)) throw error
+      }
     } else {
-      const active = this.activeProcess
-      if (active?.pid !== runningPid || !active.send) {
+      if (!this.sendOwnedProcessQuit(runningPid)) {
         throw new Error(
           `Cannot stop ${this.identityKey}: its owned process has no control channel.`
         )
       }
-      active.send(DEVELOPMENT_CONTROL_QUIT)
     }
     await this.waitForStop(runningPid)
     this.activeProcess = null
@@ -413,6 +415,13 @@ export class DevelopmentInstanceManager {
       // A watcher-owned pre-service process still has its private control path.
     }
     await this.stopRunningProcess(activePid, endpointPid)
+    return true
+  }
+
+  private sendOwnedProcessQuit(runningPid: number): boolean {
+    const active = this.activeProcess
+    if (active?.pid !== runningPid || !active.send) return false
+    active.send(DEVELOPMENT_CONTROL_QUIT)
     return true
   }
 
