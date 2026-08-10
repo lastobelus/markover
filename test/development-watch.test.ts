@@ -209,11 +209,19 @@ test('development build inputs exclude generated and unrelated paths', () => {
   for (const filePath of [
     'src/renderer.ts',
     'scripts/build-app.ts',
+    '.github/workflows/ci.yml',
     'design/brand/markover-mark.svg',
+    'docs/developer/development.md',
     'docs/user/site.ts',
+    'examples/review.md',
     'packages/cli/src/index.ts',
     'test/development-watch.test.ts',
+    'LICENSE',
+    'README.md',
+    'THIRD_PARTY_NOTICES.md',
+    'favicon.svg',
     'package.json',
+    'packages/cli/package.json',
     'tsconfig.json',
     '.markover/development.json'
   ]) assert.equal(isDevelopmentBuildInput(filePath), true, filePath)
@@ -223,8 +231,7 @@ test('development build inputs exclude generated and unrelated paths', () => {
     'node_modules/electron/index.js',
     '.git/index',
     '.markover/generated/pr-85/icon.png',
-    '.markover/instance/service.json',
-    'docs/developer/development.md'
+    '.markover/instance/service.json'
   ]) assert.equal(isDevelopmentBuildInput(filePath), false, filePath)
 })
 

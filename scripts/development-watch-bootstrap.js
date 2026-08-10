@@ -10,7 +10,10 @@ const outputPath = path.resolve(
   '../build/scripts/development-watch-bootstrap.cjs'
 )
 const watchedDirectories = [
+  '.github',
   'design/brand',
+  'docs',
+  'examples',
   'packages/cli/src',
   'scripts',
   'src',
@@ -18,8 +21,12 @@ const watchedDirectories = [
 ]
 const watchedFiles = new Set([
   '.markover/development.json',
-  'docs/user/site.ts',
+  'LICENSE',
+  'README.md',
+  'THIRD_PARTY_NOTICES.md',
+  'favicon.svg',
   'package.json',
+  'packages/cli/package.json',
   'tsconfig.build.json',
   'tsconfig.json'
 ])

@@ -22,7 +22,10 @@ const DEFAULT_TRANSITION_TIMEOUT_MILLISECONDS = 30_000
 const DEFAULT_POLL_MILLISECONDS = 100
 
 const watchedDirectories = [
+  '.github',
   'design/brand',
+  'docs',
+  'examples',
   'packages/cli/src',
   'scripts',
   'src',
@@ -31,8 +34,12 @@ const watchedDirectories = [
 
 const watchedFiles = new Set([
   '.markover/development.json',
-  'docs/user/site.ts',
+  'LICENSE',
+  'README.md',
+  'THIRD_PARTY_NOTICES.md',
+  'favicon.svg',
   'package.json',
+  'packages/cli/package.json',
   'tsconfig.build.json',
   'tsconfig.json'
 ])
