@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import test from 'node:test'
+import vm from 'node:vm'
 
 import {
   DevelopmentInstanceManager,
@@ -77,6 +78,10 @@ test('development command bootstraps before the first application build', async 
   )
   assert.match(bootstrap, /buildSync/)
   assert.match(bootstrap, /watch\(/)
+  assert.match(bootstrap, /metafile: true/)
+  assert.match(bootstrap, /isWatcherInput\(filePath\)/)
+  assert.match(bootstrap, /developmentLoop\.notify\(filePath\)/)
+  assert.match(bootstrap, /externalWatch: true/)
   assert.match(bootstrap, /Keeping the bootstrap watcher active/)
   assert.match(bootstrap, /INVALID_START_ARGUMENT/)
   assert.doesNotMatch(bootstrap, /npm run build/)
@@ -87,6 +92,105 @@ test('invalid development arguments remain non-retryable bootstrap errors', () =
     () => parseStartArguments(['--instance', 'invalid']),
     StartArgumentError
   )
+})
+
+test('bootstrap reloads watcher inputs and delegates application inputs', async () => {
+  const source = await fs.readFile(
+    path.join(projectDirectory, 'scripts/development-watch-bootstrap.js'),
+    'utf8'
+  )
+  const notifications: Array<string | null> = []
+  const stops: NodeJS.Signals[] = []
+  const timers: Array<() => void> = []
+  let mainCalls = 0
+  let watchCallback: (
+    event: string,
+    filename: string | Buffer | null
+  ) => void = () => {}
+  const bootstrapWatcher = {
+    close() {},
+    on() { return bootstrapWatcher }
+  }
+  const bundledWatcher = {
+    main() {
+      mainCalls += 1
+      return Promise.resolve({
+        notify(filePath: string | null) {
+          notifications.push(filePath)
+          return true
+        },
+        stop(signal: NodeJS.Signals) {
+          stops.push(signal)
+          return Promise.resolve()
+        }
+      })
+    }
+  }
+  const requireStub = ((specifier: string) => {
+    if (specifier === 'node:fs') {
+      return {
+        watch(
+          _directory: string,
+          _options: unknown,
+          callback: typeof watchCallback
+        ) {
+          watchCallback = callback
+          return bootstrapWatcher
+        }
+      }
+    }
+    if (specifier === 'node:path') return path
+    if (specifier === 'esbuild') {
+      return {
+        buildSync() {
+          return {
+            metafile: {
+              inputs: {
+                'scripts/development-watch.ts': {},
+                'src/instance.ts': {}
+              }
+            }
+          }
+        }
+      }
+    }
+    return bundledWatcher
+  }) as NodeJS.Require
+  const resolveStub = ((specifier: string) => specifier) as NodeJS.RequireResolve
+  resolveStub.paths = () => null
+  requireStub.resolve = resolveStub
+  requireStub.cache = {}
+
+  vm.runInNewContext(source, {
+    Buffer,
+    __dirname: path.join(projectDirectory, 'scripts'),
+    clearTimeout() {},
+    process: {
+      argv: ['node', 'development-watch-bootstrap.js'],
+      exit() { throw new Error('bootstrap exited unexpectedly') },
+      exitCode: 0,
+      on() {},
+      stderr: { write() {} }
+    },
+    require: requireStub,
+    setTimeout(callback: () => void) {
+      timers.push(callback)
+      return timers.length
+    }
+  })
+  await waitUntil(() => mainCalls === 1)
+  await wait(1)
+
+  watchCallback('change', 'src/renderer.ts')
+  assert.deepEqual(notifications, ['src/renderer.ts'])
+  assert.deepEqual(stops, [])
+
+  watchCallback('change', 'src/instance.ts')
+  assert.equal(timers.length, 1)
+  timers.shift()?.()
+  await waitUntil(() => mainCalls === 2)
+
+  assert.deepEqual(stops, ['SIGHUP'])
 })
 
 test('development build inputs exclude generated and unrelated paths', () => {

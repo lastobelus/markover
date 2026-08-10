@@ -470,11 +470,17 @@ function startFilesystemWatcher(
 }
 
 export interface DevelopmentLoop {
+  notify: (filePath: string | null) => boolean
   stop: (signal: NodeJS.Signals) => Promise<void>
 }
 
+export interface DevelopmentLoopOptions {
+  externalWatch?: boolean
+}
+
 export async function main(
-  args = process.argv.slice(2)
+  args = process.argv.slice(2),
+  { externalWatch = false }: DevelopmentLoopOptions = {}
 ): Promise<DevelopmentLoop> {
   const parsed = parseStartArguments(args)
   const initialInstance = await resolveStartInstance(parsed)
@@ -501,7 +507,9 @@ export async function main(
       )
     }
   })
-  const filesystemWatcher = startFilesystemWatcher(controller)
+  const filesystemWatcher = externalWatch
+    ? null
+    : startFilesystemWatcher(controller)
   process.stderr.write(
     `markover dev: watching ${manager.identityKey}; awaiting a successful rebuild.\n`
   )
@@ -511,7 +519,7 @@ export async function main(
   const stop = async (signal: NodeJS.Signals) => {
     if (stopping) return
     stopping = true
-    filesystemWatcher.close()
+    filesystemWatcher?.close()
     controller.close()
     process.stderr.write(
       `markover dev ${manager.identityKey}: ${signal}; waiting for managed shutdown.\n`
@@ -526,7 +534,12 @@ export async function main(
       process.exitCode = 1
     }
   }
-  return { stop }
+  return {
+    notify(filePath) {
+      return controller.notify(filePath)
+    },
+    stop
+  }
 }
 
 if (require.main === module) {

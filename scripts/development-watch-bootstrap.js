@@ -47,6 +47,35 @@ let started = false
 let stopping = false
 let timer = null
 let developmentLoop = null
+let completedRevision = 0
+let revision = 0
+let transition = null
+let watcherInputs = new Set()
+
+function normalizedBundleInput(filePath) {
+  const absolutePath = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(projectDirectory, filePath)
+  return normalizedRelativePath(path.relative(projectDirectory, absolutePath))
+}
+
+function isWatcherInput(filePath) {
+  if (filePath === null) return true
+  return watcherInputs.has(normalizedRelativePath(filePath))
+}
+
+function scheduleWatcherStart() {
+  if (timer !== null) clearTimeout(timer)
+  timer = setTimeout(() => {
+    timer = null
+    void startWatcher()
+  }, debounceMilliseconds)
+}
+
+function requestWatcherStart() {
+  revision += 1
+  scheduleWatcherStart()
+}
 
 const bootstrapWatcher = watch(
   projectDirectory,
@@ -55,12 +84,12 @@ const bootstrapWatcher = watch(
     const filePath = Buffer.isBuffer(filename)
       ? filename.toString('utf8')
       : filename
-    if (started || !isBuildInput(filePath)) return
-    if (timer !== null) clearTimeout(timer)
-    timer = setTimeout(() => {
-      timer = null
-      void startWatcher()
-    }, debounceMilliseconds)
+    if (!isBuildInput(filePath)) return
+    if (!started || starting || isWatcherInput(filePath)) {
+      requestWatcherStart()
+    } else {
+      developmentLoop.notify(filePath)
+    }
   }
 )
 
@@ -79,6 +108,7 @@ async function stop(signal) {
   }
   bootstrapWatcher.close()
   try {
+    if (transition !== null) await transition
     if (developmentLoop !== null) await developmentLoop.stop(signal)
   } catch (error) {
     fail(error)
@@ -93,50 +123,72 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
 }
 
 async function startWatcher() {
-  if (starting || started) return
+  if (starting || stopping) return
   starting = true
-  let watcher
-  try {
-    buildSync({
-      entryPoints: [path.resolve(__dirname, 'development-watch.ts')],
-      bundle: true,
-      format: 'cjs',
-      logLevel: 'silent',
-      outfile: outputPath,
-      packages: 'external',
-      platform: 'node',
-      sourcemap: 'inline',
-      target: 'node26'
-    })
-    const resolvedOutput = require.resolve(outputPath)
-    delete require.cache[resolvedOutput]
-    watcher = require(resolvedOutput)
-  } catch (error) {
-    fail(error)
-    process.stderr.write(
-      'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
-    )
-    starting = false
-    return
-  }
-
-  try {
-    developmentLoop = await watcher.main(process.argv.slice(2))
-    started = true
-    bootstrapWatcher.close()
-  } catch (error) {
-    fail(error)
-    if (isArgumentError(error)) {
-      process.exitCode = 1
-      bootstrapWatcher.close()
-    } else {
+  const targetRevision = revision
+  transition = (async () => {
+    let watcher
+    let buildResult
+    try {
+      if (developmentLoop !== null) {
+        const previousLoop = developmentLoop
+        developmentLoop = null
+        started = false
+        await previousLoop.stop('SIGHUP')
+      }
+      if (stopping) return
+      buildResult = buildSync({
+        entryPoints: [path.resolve(__dirname, 'development-watch.ts')],
+        bundle: true,
+        format: 'cjs',
+        logLevel: 'silent',
+        metafile: true,
+        outfile: outputPath,
+        packages: 'external',
+        platform: 'node',
+        sourcemap: 'inline',
+        target: 'node26'
+      })
+      const resolvedOutput = require.resolve(outputPath)
+      delete require.cache[resolvedOutput]
+      watcher = require(resolvedOutput)
+    } catch (error) {
+      fail(error)
       process.stderr.write(
         'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
       )
+      return
     }
-  } finally {
+
+    try {
+      if (stopping) return
+      developmentLoop = await watcher.main(
+        process.argv.slice(2),
+        { externalWatch: true }
+      )
+      watcherInputs = new Set(
+        Object.keys(buildResult.metafile.inputs).map(normalizedBundleInput)
+      )
+      started = true
+    } catch (error) {
+      fail(error)
+      if (isArgumentError(error)) {
+        process.exitCode = 1
+        bootstrapWatcher.close()
+      } else {
+        process.stderr.write(
+          'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
+        )
+      }
+    }
+  })().finally(() => {
+    completedRevision = targetRevision
     starting = false
-  }
+    transition = null
+    if (!stopping && completedRevision < revision) scheduleWatcherStart()
+  })
+  await transition
 }
 
+revision += 1
 void startWatcher()
