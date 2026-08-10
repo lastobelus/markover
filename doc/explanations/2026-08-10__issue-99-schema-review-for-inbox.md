@@ -57,9 +57,11 @@ Invariants:
 
 The plan currently makes `agentThread`, `git`, and `pullRequest` opaque required keys. Their **unknown additive properties** may remain opaque, but the fields used by #97 and #123 need v1 guarantees.
 
+Here, **host** is a role: the user-facing application or harness that contains and presents the requesting thread, such as T3 Code, LastCode, or the Codex app. It is not a computer, operating-system hostname, DNS/network host, repository, worktree, process, or metadata path. **Provider** is the agent runtime or service executing the thread, such as Codex or Claude. A standalone product may fill both roles—for example, the Codex app as host and Codex as provider—without collapsing the two schema concepts.
+
 Minimum typed cores:
 
-- `agentThread`: nullable object with nonblank `provider`, nonblank `id`, and optional nonblank `host`. `(host, provider, id)` is requesting-thread identity; requesting-thread-title is app-private mutable enrichment and never identity.
+- `agentThread`: nullable object with nonblank `provider`, nonblank `id`, and optional nonblank `host`. `host` is a stable logical integration identifier such as `t3code`, `lastcode`, or `codex-app`, never an installation path, machine hostname, version, or mutable display label. `(host, provider, id)` is requesting-thread identity; requesting-thread-title is app-private mutable enrichment and never identity.
 - `git`: nullable object with nullable sanitized `repositoryUrl`, `branch`, and `commit`. These are hints, but their types and meanings must be stable when present.
 - `pullRequest`: nullable object with required positive integer `number` when present; optional canonical `url`; and the typed observation fields requested below.
 
@@ -120,6 +122,8 @@ Keep `review.contextSummary` as the required portable review purpose. The reques
 - machine-local discovery evidence where useful.
 
 The requesting-thread-title is a mutable label, not requesting-thread identity. An unavailable refresh preserves the last authoritative observation; original prompts, stale previews, review purpose, and document names are not valid thread-title sources. They are display fallbacks only.
+
+Authority describes ownership of the observation source, not where the text happens to be rendered. `host` means host-owned state or a host-supplied update, such as T3’s `projection_threads.title` or a future LastCode push. `provider` means the provider’s own API or session metadata, even when that thread-title is displayed inside a host UI.
 
 Refresh should be event-driven: on review arrival, app launch/foreground, Inbox/Projects opening, or an explicit user action. A future LastCode integration may push requesting-thread-title changes to active linked reviews. Do not add polling or filesystem/database watchers.
 
