@@ -35,6 +35,7 @@ gardener itself does not create that follow-up.
 
 Return `complete` only after considering every supplied commit. Include the
 complete proposed `DECISIONS.md`, even when no semantic register entry changes.
+When the status is `complete`, `report.ambiguities` must be empty.
 Preserve unrelated register content and advance the one
 `decision-gardener-checkpoint` marker to the exact audited target commit. A
 clean audit therefore still produces a reviewable checkpoint-only proposal.

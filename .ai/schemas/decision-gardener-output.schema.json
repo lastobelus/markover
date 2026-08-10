@@ -45,6 +45,7 @@
         },
         "ambiguities": {
           "type": "array",
+          "description": "Unresolved evidence; this array must be empty when the top-level status is complete.",
           "items": {
             "type": "object",
             "properties": {

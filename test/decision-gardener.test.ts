@@ -10,6 +10,7 @@ import {
   acquireSingleFlightLock,
   assembleDecisionAuditBundle,
   buildDecisionGardenerCodexArgs,
+  buildDecisionGardenerInput,
   decisionGardenerChildEnvironment,
   defaultAuditBundleLimits,
   discoverCommitRange,
@@ -20,6 +21,7 @@ import {
   replaceDecisionCheckpoint,
   readGitContent,
   runBoundedAudit,
+  validateAuditAgentResult,
   validateCompleteProposal,
   writeImmutableAuditBundle,
   type AuditAgentResult,
@@ -437,7 +439,8 @@ test('bounded audit resolves context or emits an explicit ambiguity', async () =
           }
         : completeResult(bundle))
     },
-    loadContext: () => Promise.resolve([loaded])
+    loadContext: () => Promise.resolve([loaded]),
+    prompt: '# Audit'
   })
   assert.equal(complete.status, 'complete')
   assert.deepEqual(rounds, [0, 1])
@@ -460,7 +463,8 @@ test('bounded audit resolves context or emits an explicit ambiguity', async () =
       })
     },
     loadContext: () => Promise.resolve([loaded]),
-    maxContextRounds: 2
+    maxContextRounds: 2,
+    prompt: '# Audit'
   })
   assert.equal(attempts, 3)
   assert.equal(ambiguous.status, 'ambiguous')
@@ -479,31 +483,46 @@ test('bounded audit resolves context or emits an explicit ambiguity', async () =
         status: 'needs_context'
       })
     },
-    loadContext: () => Promise.resolve([loaded])
+    loadContext: () => Promise.resolve([loaded]),
+    prompt: '# Audit'
   })
   assert.equal(repeatedAttempts, 2)
   assert.equal(repeated.status, 'ambiguous')
   assert.match(repeated.report.ambiguities[0]?.summary ?? '', /repeated/)
 
   let oversizedInvocations = 0
+  const oversizedBundle = {
+    ...bundle,
+    decisions: {
+      ...bundle.decisions,
+      content: `# Decision register\n${'x'.repeat(2_000)}`
+    }
+  }
+  const oversizedInput = { bundle: oversizedBundle, contexts: [], round: 0 }
+  const oversizedPrompt = `# Audit\n\n${'p'.repeat(256)}`
+  const unframedBytes = Buffer.byteLength(JSON.stringify(oversizedInput), 'utf8')
+  const maxInputBytes = unframedBytes + 16
+  assert.ok(unframedBytes <= maxInputBytes)
+  assert.ok(
+    Buffer.byteLength(buildDecisionGardenerInput(oversizedPrompt, oversizedInput), 'utf8') >
+      maxInputBytes
+  )
   const oversized = await runBoundedAudit({
-    bundle: {
-      ...bundle,
-      decisions: {
-        ...bundle.decisions,
-        content: `# Decision register\n${'x'.repeat(2_000)}`
-      }
-    },
+    bundle: oversizedBundle,
     invoke: () => {
       oversizedInvocations += 1
       return Promise.resolve(completeResult(bundle))
     },
     loadContext: () => Promise.resolve([]),
-    maxInputBytes: 512
+    maxInputBytes,
+    prompt: oversizedPrompt
   })
   assert.equal(oversizedInvocations, 0)
   assert.equal(oversized.status, 'ambiguous')
-  assert.match(oversized.report.ambiguities[0]?.summary ?? '', /limit is 512/)
+  assert.match(
+    oversized.report.ambiguities[0]?.summary ?? '',
+    new RegExp(`limit is ${String(maxInputBytes)}`)
+  )
 })
 
 test('complete proposals must advance the one checkpoint to the audited target', () => {
@@ -517,6 +536,13 @@ test('complete proposals must advance the one checkpoint to the audited target',
   }
   assert.equal(validateCompleteProposal(result, target), result.proposedDecisions)
   assert.throws(() => validateCompleteProposal(result, 'c'.repeat(40)), /expected/)
+  assert.throws(() => validateAuditAgentResult({
+    ...result,
+    report: {
+      ...result.report,
+      ambiguities: [{ evidence: ['commit:a'], summary: 'Still unresolved.' }]
+    }
+  }), /must not contain unresolved ambiguities/)
 })
 
 test('Codex invocation disables tools, local instructions, network, and credentials', () => {

@@ -703,15 +703,15 @@ function auditBundleLimits(
   return limits
 }
 
-function auditRoundInputBytes(input: AuditRoundInput): number {
-  return Buffer.byteLength(JSON.stringify(input), 'utf8')
-}
-
-function assertInputSize(input: AuditRoundInput, maxInputBytes: number): void {
-  const bytes = auditRoundInputBytes(input)
+function assertInputSize(
+  prompt: string,
+  input: AuditRoundInput,
+  maxInputBytes: number
+): void {
+  const bytes = Buffer.byteLength(buildDecisionGardenerInput(prompt, input), 'utf8')
   if (bytes > maxInputBytes) {
     throw new Error(
-      `Decision-gardener input is ${String(bytes)} bytes; the limit is ${String(maxInputBytes)}.`
+      `Decision-gardener prompt is ${String(bytes)} bytes; the limit is ${String(maxInputBytes)}.`
     )
   }
 }
@@ -1187,6 +1187,9 @@ export function validateAuditAgentResult(value: unknown): AuditAgentResult {
   if (value.status === 'complete' && typeof value.proposedDecisions !== 'string') {
     throw new Error('A complete result must contain the proposed DECISIONS.md.')
   }
+  if (value.status === 'complete' && parsedReport.ambiguities.length !== 0) {
+    throw new Error('A complete result must not contain unresolved ambiguities.')
+  }
   if (value.status === 'ambiguous' && value.proposedDecisions !== null) {
     throw new Error('An ambiguous result must not contain a DECISIONS.md proposal.')
   }
@@ -1245,13 +1248,15 @@ export async function runBoundedAudit({
   invoke,
   loadContext,
   maxContextRounds = 2,
-  maxInputBytes = defaultAuditBundleLimits.maxInputBytes
+  maxInputBytes = defaultAuditBundleLimits.maxInputBytes,
+  prompt
 }: {
   bundle: DecisionAuditBundle
   invoke: (input: AuditRoundInput) => Promise<unknown>
   loadContext: (requests: readonly ContextRequest[]) => Promise<readonly LoadedContext[]>
   maxContextRounds?: number
   maxInputBytes?: number
+  prompt: string
 }): Promise<AuditAgentResult> {
   if (!Number.isInteger(maxContextRounds) || maxContextRounds < 0) {
     throw new Error('maxContextRounds must be a non-negative integer.')
@@ -1261,7 +1266,7 @@ export async function runBoundedAudit({
   for (let round = 0; ; round += 1) {
     const input = { bundle, contexts, round }
     try {
-      assertInputSize(input, maxInputBytes)
+      assertInputSize(prompt, input, maxInputBytes)
     } catch (error) {
       return contextFailure(error instanceof Error ? error.message : String(error))
     }
