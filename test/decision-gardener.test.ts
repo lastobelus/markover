@@ -636,6 +636,41 @@ test('Codex invocation force-kills a child that ignores its timeout', async (t) 
   assert.ok(elapsed < 2_000)
 })
 
+test('Codex invocation bounds stdout and stderr from a child that will not exit', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-codex-output-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  for (const stream of ['stdout', 'stderr'] as const) {
+    const repository = path.join(root, stream)
+    await fs.mkdir(repository)
+    const executable = path.join(repository, 'fake-codex')
+    await fs.writeFile(executable, [
+      '#!/usr/bin/env python3',
+      'import signal, sys, time',
+      'signal.signal(signal.SIGTERM, signal.SIG_IGN)',
+      `sys.${stream}.write('x' * 2048)`,
+      `sys.${stream}.flush()`,
+      'while True: time.sleep(1)',
+      ''
+    ].join('\n'), { mode: 0o755 })
+    const startedAt = Date.now()
+    await assert.rejects(invokeDecisionGardenerCodex({
+      codex: executable,
+      input: { bundle: invocationBundle(), contexts: [], round: 0 },
+      maxStderrBytes: 1024,
+      maxStdoutBytes: 1024,
+      model: 'test-model',
+      prompt: '# Test',
+      repository,
+      schemaPath: path.join(repository, 'schema.json'),
+      terminationGraceMs: 100,
+      timeoutMs: 1_000
+    }), new RegExp(`${stream} exceeded the 1024 byte limit`))
+    const elapsed = Date.now() - startedAt
+    assert.ok(elapsed >= 90)
+    assert.ok(elapsed < 2_000)
+  }
+})
+
 test('Codex JSONL parser rejects tool activity and accepts one schema result', () => {
   const result: AuditAgentResult = {
     contextRequests: [],

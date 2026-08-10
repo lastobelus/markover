@@ -1402,6 +1402,8 @@ export async function invokeDecisionGardenerCodex({
   environment = process.env,
   input,
   maxInputBytes = defaultAuditBundleLimits.maxInputBytes,
+  maxStderrBytes = 1024 * 1024,
+  maxStdoutBytes = 4 * 1024 * 1024,
   model,
   prompt,
   reasoningEffort = 'high',
@@ -1414,6 +1416,8 @@ export async function invokeDecisionGardenerCodex({
   environment?: NodeJS.ProcessEnv
   input: AuditRoundInput
   maxInputBytes?: number
+  maxStderrBytes?: number
+  maxStdoutBytes?: number
   model: string
   prompt: string
   reasoningEffort?: 'high' | 'low' | 'medium' | 'xhigh'
@@ -1427,6 +1431,12 @@ export async function invokeDecisionGardenerCodex({
   }
   if (!Number.isSafeInteger(terminationGraceMs) || terminationGraceMs < 1) {
     throw new Error('terminationGraceMs must be a positive safe integer.')
+  }
+  if (!Number.isSafeInteger(maxStdoutBytes) || maxStdoutBytes < 1) {
+    throw new Error('maxStdoutBytes must be a positive safe integer.')
+  }
+  if (!Number.isSafeInteger(maxStderrBytes) || maxStderrBytes < 1) {
+    throw new Error('maxStderrBytes must be a positive safe integer.')
   }
   const args = buildDecisionGardenerCodexArgs({
     model, reasoningEffort, repository, schemaPath
@@ -1446,6 +1456,8 @@ export async function invokeDecisionGardenerCodex({
     })
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
+    let stdoutBytes = 0
+    let stderrBytes = 0
     let settled = false
     let terminationError: Error | undefined
     let forceTimer: NodeJS.Timeout | undefined
@@ -1481,8 +1493,30 @@ export async function invokeDecisionGardenerCodex({
     const timeoutTimer = setTimeout(() => {
       terminate(timeoutError())
     }, timeoutMs)
-    child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk))
-    child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk))
+    const captureOutput = (
+      chunks: Buffer[],
+      chunk: Buffer,
+      stream: 'stderr' | 'stdout'
+    ): void => {
+      if (settled || terminationError !== undefined) return
+      const bytes = stream === 'stdout'
+        ? (stdoutBytes += chunk.byteLength)
+        : (stderrBytes += chunk.byteLength)
+      const limit = stream === 'stdout' ? maxStdoutBytes : maxStderrBytes
+      if (bytes > limit) {
+        terminate(new Error(
+          `codex exec ${stream} exceeded the ${String(limit)} byte limit.`
+        ))
+        return
+      }
+      chunks.push(chunk)
+    }
+    child.stdout.on('data', (chunk: Buffer) => {
+      captureOutput(stdout, chunk, 'stdout')
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      captureOutput(stderr, chunk, 'stderr')
+    })
     child.on('error', (error) => {
       settleReject(error)
     })
