@@ -173,6 +173,7 @@ export class DevelopmentWatchController {
 
 interface WatchTarget {
   checkout: string
+  endpointPath: string
   identityKey: string
   selector: NonNullable<ParsedStartArguments['selector']>
 }
@@ -231,6 +232,7 @@ function targetFromInstance(
   }
   return {
     checkout,
+    endpointPath: instance.service.endpointPath,
     identityKey: instance.identity.key,
     selector: instance.identity.kind === 'canonical'
       ? 'canonical'
@@ -316,16 +318,15 @@ export class DevelopmentInstanceManager {
   }
 
   async restart(): Promise<void> {
+    await this.stopActiveProcess()
     const current = await this.resolveExactInstance()
-    const activePid = this.liveActiveProcessPid()
     const endpointPid = current.process.status === 'running'
       ? (await this.readProcessEndpoint(current.service.endpointPath)).pid
       : null
-    const runningPid = activePid || endpointPid
 
-    if (runningPid !== null) {
+    if (endpointPid !== null) {
       this.assertRestartEligible(current)
-      await this.stopRunningProcess(current, runningPid, endpointPid)
+      await this.stopRunningProcess(endpointPid, endpointPid)
     }
 
     const stopped = await this.resolveExactInstance()
@@ -360,15 +361,14 @@ export class DevelopmentInstanceManager {
   }
 
   async stop(): Promise<void> {
+    if (await this.stopActiveProcess()) return
     const current = await this.resolveExactInstance()
-    const activePid = this.liveActiveProcessPid()
     const endpointPid = current.process.status === 'running'
       ? (await this.readProcessEndpoint(current.service.endpointPath)).pid
       : null
-    const runningPid = activePid || endpointPid
-    if (runningPid === null) return
+    if (endpointPid === null) return
 
-    await this.stopRunningProcess(current, runningPid, endpointPid)
+    await this.stopRunningProcess(endpointPid, endpointPid)
   }
 
   private assertRestartEligible(instance: ResolvedInstance): void {
@@ -383,12 +383,11 @@ export class DevelopmentInstanceManager {
   }
 
   private async stopRunningProcess(
-    instance: ResolvedInstance,
     runningPid: number,
     endpointPid: number | null
   ): Promise<void> {
     if (endpointPid !== null) {
-      await this.quit(instance.service.endpointPath)
+      await this.quit(this.target.endpointPath)
     } else {
       const active = this.activeProcess
       if (active?.pid !== runningPid || !active.send) {
@@ -400,6 +399,21 @@ export class DevelopmentInstanceManager {
     }
     await this.waitForStop(runningPid)
     this.activeProcess = null
+  }
+
+  private async stopActiveProcess(): Promise<boolean> {
+    const activePid = this.liveActiveProcessPid()
+    if (activePid === null) return false
+    let endpointPid: number | null = null
+    try {
+      await this.probe(this.target.endpointPath)
+      const endpoint = await this.readProcessEndpoint(this.target.endpointPath)
+      if (endpoint.pid === activePid) endpointPid = activePid
+    } catch {
+      // A watcher-owned pre-service process still has its private control path.
+    }
+    await this.stopRunningProcess(activePid, endpointPid)
+    return true
   }
 
   private liveActiveProcessPid(): number | null {

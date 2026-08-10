@@ -496,6 +496,60 @@ test('a watcher-owned process without a service quits through its control channe
   ])
 })
 
+test('stop owns a pre-service process before unavailable PR resolution', async () => {
+  const events: string[] = []
+  let probeCalls = 0
+  let resolutionCalls = 0
+  let running = false
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('stopped'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      isProcessAlive() {
+        return running
+      },
+      launch() {
+        running = true
+        return {
+          exitCode: null,
+          pid: 90211,
+          send(message) {
+            events.push(`control:${JSON.stringify(message)}`)
+            running = false
+            return true
+          },
+          signalCode: null
+        }
+      },
+      probe() {
+        probeCalls += 1
+        return probeCalls === 1
+          ? Promise.resolve()
+          : Promise.reject(new Error('service unavailable'))
+      },
+      resolve() {
+        resolutionCalls += 1
+        if (resolutionCalls > 2) {
+          return Promise.reject(new Error('GitHub unavailable'))
+        }
+        return Promise.resolve(canonicalInstance('stopped'))
+      },
+      wait() {
+        return Promise.resolve()
+      }
+    }
+  )
+
+  await manager.restart()
+  await manager.stop()
+
+  assert.equal(resolutionCalls, 2)
+  assert.deepEqual(events, [
+    'control:{"action":"quit","type":"markover-development-control","version":1}'
+  ])
+})
+
 test('an asynchronous spawn error stays inside the recoverable cycle', async () => {
   let launches = 0
   const failedLaunchEmitter = new EventEmitter()
