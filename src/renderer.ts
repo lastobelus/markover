@@ -1556,8 +1556,8 @@ function scheduleIncomingReviewNoticeDismissal(): void {
 
 function renderIncomingReviewNotice(session: ReviewSession): void {
   elements.incomingReviewNoticeMessage.textContent = incomingReviewNoticeCount === 1
-    ? `New review added: ${session.documentName}`
-    : `${String(incomingReviewNoticeCount)} new reviews added. Latest: ${session.documentName}`
+    ? `Review ready: ${session.documentName}`
+    : `${String(incomingReviewNoticeCount)} reviews ready. Latest: ${session.documentName}`
   elements.incomingReviewNotice.hidden = false
   scheduleIncomingReviewNoticeDismissal()
 }
@@ -1588,8 +1588,8 @@ function clearIncomingReviewWarning(): void {
 function renderIncomingReviewWarning(session: ReviewSession): void {
   elements.incomingReviewDialogMessage.textContent =
     incomingReviewWarningCount === 1
-      ? `“${session.documentName}” was added. Open it instead of the current review?`
-      : `${String(incomingReviewWarningCount)} new reviews were added. Open the most recent, “${session.documentName}”?`
+      ? `“${session.documentName}” is ready. Open it instead of the current review?`
+      : `${String(incomingReviewWarningCount)} reviews are ready. Open the most recent, “${session.documentName}”?`
   if (!elements.incomingReviewDialog.open) {
     elements.incomingReviewDialog.showModal()
     elements.incomingReviewDialogKeep.focus()
@@ -1678,18 +1678,19 @@ async function activateIncomingReview(
   reviewId: string,
   focusPreview: boolean,
   activationSequence: number
-): Promise<void> {
+): Promise<ReviewActivationOutcome> {
   const outcome = await activateReview(reviewId)
   if (outcome === 'blocked') {
     const session = reviewSessions.get(reviewId)
     if (session && activationSequence === incomingReviewSequence) {
       showIncomingReviewNotice(session, activationSequence)
     }
-    return
+    return outcome
   }
-  if (outcome === 'missing') return
+  if (outcome === 'missing') return outcome
   dismissIncomingPromptsThrough(activationSequence)
   if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
+  return outcome
 }
 
 async function handleIncomingReview(
@@ -1722,6 +1723,33 @@ async function handleIncomingReview(
     windowFocusState.focused,
     sequence
   )
+}
+
+async function handleReviewLink(
+  reviewDocument: MarkoverDocument,
+  focusState: MarkoverWindowFocusState
+): Promise<ReviewActivationOutcome> {
+  const sequence = ++incomingReviewSequence
+  const session = addManagedReview(managedReviewDocument(reviewDocument), false)
+  if (session.reviewId === state.reviewId) {
+    return activateReview(session.reviewId)
+  }
+  const action = incomingReviewAction({
+    focusState,
+    hasActiveDocument: state.tree !== null,
+    idleMinutes: preferences.incomingReviewIdleMinutes,
+    now: Date.now(),
+    policy: preferences.reviewLinkActivationPolicy
+  })
+  if (action === 'warn') {
+    showIncomingReviewWarning(session, sequence)
+    return 'deferred'
+  }
+  if (action === 'notify') {
+    showIncomingReviewNotice(session, sequence)
+    return 'deferred'
+  }
+  return activateIncomingReview(session.reviewId, true, sequence)
 }
 
 function queueIncomingReview(reviewDocument: MarkoverDocument): Promise<void> {
@@ -3504,15 +3532,12 @@ async function initialize(): Promise<void> {
       showToast(error instanceof Error ? error.message : String(error))
     })
   })
-  bridge.onReviewActivationRequested(async ({ reviewId, document }) => {
+  bridge.onReviewActivationRequested(async ({ reviewId, document, focusState }) => {
     if (!document) {
       showToast(`Review ${reviewId} was not found in this Markover instance`)
       return 'missing'
     }
-    if (!reviewSessions.get(reviewId)) {
-      addManagedReview(managedReviewDocument(document), false)
-    }
-    return activateReview(reviewId)
+    return handleReviewLink(document, focusState)
   })
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)

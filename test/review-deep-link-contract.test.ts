@@ -16,13 +16,21 @@ test('main captures packaged links early and routes them through acknowledged ac
   assert.ok(openUrl >= 0 && openUrl < ready)
   assert.match(
     main,
-    /parseReviewUrl\(value, CANONICAL_INSTANCE_SCHEME\)[\s\S]*reviewUrlDispatcher\.receive\(parsed\)/
+    /parseReviewUrl\(value, CANONICAL_INSTANCE_SCHEME\)[\s\S]*reviewUrlDispatcher\.receive\(\{[\s\S]*focusState: currentWindowFocusState\(\),[\s\S]*parsed[\s\S]*\}\)/
+  )
+  assert.match(
+    main,
+    /new ReviewUrlDispatcher<PendingReviewUrl>\([\s\S]*activateManagedReview\(parsed\.reviewId, focusState\)/
   )
   assert.match(main, /onActivate: activateManagedReview/)
   assert.match(main, /requestRendererActivation\(/)
   assert.match(main, /review:activation-request/)
   assert.match(main, /ACTIVATION_TIMEOUT/)
   assert.match(main, /review:activation-response/)
+  assert.match(
+    main,
+    /async function activateManagedReview\([\s\S]*focusState = currentWindowFocusState\(\)[\s\S]*focusMainWindow\(\)[\s\S]*requestRendererActivation\([\s\S]*focusState/
+  )
   assert.match(
     main,
     /await waitForRendererReady\(window\)/
@@ -37,7 +45,7 @@ test('main captures packaged links early and routes them through acknowledged ac
   )
 })
 
-test('preload and renderer acknowledge activation without replacing an existing session', () => {
+test('preload and renderer apply review-link activation policy', () => {
   const preload = read('src/preload.ts')
   const renderer = read('src/renderer.ts')
   const activationHandler = renderer.match(
@@ -49,12 +57,13 @@ test('preload and renderer acknowledge activation without replacing an existing 
     activationHandler,
     /onReviewActivationRequested[\s\S]*if \(!document\)[\s\S]*return 'missing'/
   )
-  assert.match(
-    activationHandler,
-    /if \(!reviewSessions\.get\(reviewId\)\)[\s\S]*addManagedReview\(managedReviewDocument\(document\), false\)/
-  )
-  assert.match(activationHandler, /return activateReview\(reviewId\)/)
+  assert.match(activationHandler, /handleReviewLink\(document, focusState\)/)
+  assert.doesNotMatch(activationHandler, /queueIncomingReview|incomingReviewQueue/)
   assert.doesNotMatch(activationHandler, /configureManagedMode\(\)/)
+  assert.match(
+    renderer,
+    /async function handleReviewLink[\s\S]*addManagedReview\(managedReviewDocument\(reviewDocument\), false\)[\s\S]*policy: preferences\.reviewLinkActivationPolicy[\s\S]*showIncomingReviewWarning[\s\S]*return 'deferred'[\s\S]*showIncomingReviewNotice[\s\S]*return 'deferred'[\s\S]*activateIncomingReview/
+  )
   assert.match(
     renderer,
     /function removeIncomingPrompts[\s\S]*removeIncomingReview\(incomingReviewNoticePrompts, reviewId\)[\s\S]*removeIncomingReview\(incomingReviewWarningPrompts, reviewId\)[\s\S]*async function activateReview[\s\S]*removeIncomingPrompts\(reviewId\)/

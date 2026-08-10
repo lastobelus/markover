@@ -258,7 +258,7 @@ private func forward(_ value: String, binding: Binding) async throws {
     response.statusCode == 200,
     let activation = try? JSONDecoder().decode(Activation.self, from: data),
     activation.reviewId == id,
-    ["activated", "already-active", "blocked", "missing"].contains(
+    ["activated", "already-active", "blocked", "deferred", "missing"].contains(
       activation.outcome
     )
   else {

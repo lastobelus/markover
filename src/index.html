@@ -388,7 +388,16 @@
             </select>
           </label>
           <label class="settings-field">
-            <span><strong>Switch after being idle</strong><small>Markover is idle after it has not been the active app for this many minutes.</small></span>
+            <span><strong>When you open a review link</strong><small>Choose whether the linked review replaces the one you are reading or editing.</small></span>
+            <select name="reviewLinkActivationPolicy">
+              <option value="never">Never switch</option>
+              <option value="always">Always switch</option>
+              <option value="warn">Ask before switching</option>
+              <option value="when-idle">Switch when idle</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span><strong>Switch after being idle</strong><small>For either “Switch when idle” policy, Markover is idle after it has not been the active app for this many minutes.</small></span>
             <input
               name="incomingReviewIdleMinutes"
               type="number"

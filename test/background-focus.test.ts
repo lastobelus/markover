@@ -130,7 +130,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /if \(outcome === 'blocked'\)[\s\S]*activationSequence === incomingReviewSequence[\s\S]*showIncomingReviewNotice\(session, activationSequence\)[\s\S]*return\s*\}[\s\S]*if \(outcome === 'missing'\) return[\s\S]*dismissIncomingPromptsThrough\(activationSequence\)/
+    /if \(outcome === 'blocked'\)[\s\S]*activationSequence === incomingReviewSequence[\s\S]*showIncomingReviewNotice\(session, activationSequence\)[\s\S]*return outcome[\s\S]*if \(outcome === 'missing'\) return outcome[\s\S]*dismissIncomingPromptsThrough\(activationSequence\)/
   )
   assert.match(
     renderer,
