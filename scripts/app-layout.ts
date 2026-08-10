@@ -9,6 +9,7 @@ export const runtimeModuleNames = [
   'agent-guidance',
   'app-menu',
   'async-mutation-tracker',
+  'development-control',
   'development-config',
   'durability-shutdown',
   'ipc-contract',

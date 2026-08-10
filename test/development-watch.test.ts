@@ -323,6 +323,53 @@ test('loop stop requests managed quit and waits for the addressed process', asyn
   assert.deepEqual(events, ['quit:/state/markover/service.json'])
 })
 
+test('a watcher-owned process without a service quits through its control channel', async () => {
+  const events: string[] = []
+  let running = false
+  let launches = 0
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('stopped'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      isProcessAlive() {
+        return running
+      },
+      launch() {
+        launches += 1
+        running = true
+        return {
+          exitCode: null,
+          pid: 90211,
+          send(message) {
+            events.push(`control:${JSON.stringify(message)}`)
+            running = false
+            return true
+          },
+          signalCode: null
+        }
+      },
+      probe() {
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('stopped'))
+      },
+      wait() {
+        return Promise.resolve()
+      }
+    }
+  )
+
+  await manager.restart()
+  await manager.restart()
+
+  assert.equal(launches, 2)
+  assert.deepEqual(events, [
+    'control:{"action":"quit","type":"markover-development-control","version":1}'
+  ])
+})
+
 test('watcher refuses a running instance owned by another checkout', () => {
   assert.throws(
     () => new DevelopmentInstanceManager(

@@ -111,6 +111,7 @@ export async function resolveStartInstance(
 export interface LaunchResolvedInstanceOptions {
   detached?: boolean
   environment?: NodeJS.ProcessEnv
+  ipc?: boolean
   spawnProcess?: typeof spawn
 }
 
@@ -120,6 +121,7 @@ export function launchResolvedInstance(
   {
     detached = false,
     environment = process.env,
+    ipc = false,
     spawnProcess = spawn
   }: LaunchResolvedInstanceOptions = {}
 ): ChildProcess {
@@ -136,7 +138,13 @@ export function launchResolvedInstance(
   return spawnProcess(
     loadedElectron,
     [appDirectory, ...appArguments],
-    { detached, env: childEnvironment, stdio: 'inherit' }
+    {
+      detached,
+      env: childEnvironment,
+      stdio: ipc
+        ? ['inherit', 'inherit', 'inherit', 'ipc']
+        : 'inherit'
+    }
   )
 }
 

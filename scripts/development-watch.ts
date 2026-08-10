@@ -1,7 +1,8 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { watch, type FSWatcher } from 'node:fs'
 import path from 'node:path'
 
+import { DEVELOPMENT_CONTROL_QUIT } from '../src/development-control'
 import {
   probeService,
   readEndpoint,
@@ -36,6 +37,7 @@ const watchedFiles = new Set([
 export interface DevelopmentProcess {
   exitCode: number | null
   pid?: number | undefined
+  send?: ChildProcess['send'] | undefined
   signalCode: NodeJS.Signals | null
 }
 
@@ -266,7 +268,7 @@ export class DevelopmentInstanceManager {
       launch = (instance, appArguments) => launchResolvedInstance(
         instance,
         appArguments,
-        { detached: process.platform !== 'win32' }
+        { detached: process.platform !== 'win32', ipc: true }
       ),
       now = Date.now,
       pollMilliseconds = DEFAULT_POLL_MILLISECONDS,
@@ -309,8 +311,7 @@ export class DevelopmentInstanceManager {
 
     if (runningPid !== null) {
       this.assertRestartEligible(current)
-      await this.quit(current.service.endpointPath)
-      await this.waitForStop(runningPid)
+      await this.stopRunningProcess(current, runningPid, endpointPid)
     }
 
     const stopped = await this.resolveExactInstance()
@@ -340,9 +341,7 @@ export class DevelopmentInstanceManager {
     const runningPid = activePid || endpointPid
     if (runningPid === null) return
 
-    await this.quit(current.service.endpointPath)
-    await this.waitForStop(runningPid)
-    this.activeProcess = null
+    await this.stopRunningProcess(current, runningPid, endpointPid)
   }
 
   private assertRestartEligible(instance: ResolvedInstance): void {
@@ -354,6 +353,26 @@ export class DevelopmentInstanceManager {
         `Cannot restart ${instance.identity.key}: its pull request is ${instance.pullRequest?.state || 'unavailable'}.`
       )
     }
+  }
+
+  private async stopRunningProcess(
+    instance: ResolvedInstance,
+    runningPid: number,
+    endpointPid: number | null
+  ): Promise<void> {
+    if (endpointPid !== null) {
+      await this.quit(instance.service.endpointPath)
+    } else {
+      const active = this.activeProcess
+      if (active?.pid !== runningPid || !active.send) {
+        throw new Error(
+          `Cannot stop ${this.identityKey}: its owned process has no control channel.`
+        )
+      }
+      active.send(DEVELOPMENT_CONTROL_QUIT)
+    }
+    await this.waitForStop(runningPid)
+    this.activeProcess = null
   }
 
   private liveActiveProcessPid(): number | null {
