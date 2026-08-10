@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import test from 'node:test'
@@ -475,6 +476,49 @@ test('a watcher-owned process without a service quits through its control channe
   assert.deepEqual(events, [
     'control:{"action":"quit","type":"markover-development-control","version":1}'
   ])
+})
+
+test('an asynchronous spawn error stays inside the recoverable cycle', async () => {
+  let launches = 0
+  const failedLaunchEmitter = new EventEmitter()
+  const failedLaunch = Object.assign(failedLaunchEmitter, {
+    exitCode: null,
+    pid: undefined,
+    signalCode: null
+  }) as DevelopmentProcess
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('stopped'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      launch() {
+        launches += 1
+        if (launches === 1) {
+          setImmediate(() => failedLaunchEmitter.emit(
+            'error',
+            new Error('spawn Electron EACCES')
+          ))
+          return failedLaunch
+        }
+        return {
+          exitCode: null,
+          pid: 90211,
+          signalCode: null
+        }
+      },
+      probe() {
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('stopped'))
+      }
+    }
+  )
+
+  await assert.rejects(manager.restart(), /spawn Electron EACCES/)
+  await manager.restart()
+
+  assert.equal(launches, 2)
 })
 
 test('watcher refuses a running instance owned by another checkout', () => {

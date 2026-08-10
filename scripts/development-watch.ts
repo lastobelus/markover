@@ -39,6 +39,10 @@ const watchedFiles = new Set([
 
 export interface DevelopmentProcess {
   exitCode: number | null
+  once?: ((
+    event: 'error',
+    listener: (error: Error) => void
+  ) => unknown) | undefined
   pid?: number | undefined
   send?: ChildProcess['send'] | undefined
   signalCode: NodeJS.Signals | null
@@ -328,11 +332,24 @@ export class DevelopmentInstanceManager {
     }
 
     const launched = this.launch(stopped, this.appArguments)
+    const launchFailure = launched.once
+      ? new Promise<never>((_resolve, reject) => {
+          launched.once?.('error', (error) => {
+            reject(new Error(
+              `Cannot launch ${this.identityKey}: ${errorMessage(error)}`
+            ))
+          })
+        })
+      : null
     if (!launched.pid) {
+      if (launchFailure !== null) await launchFailure
       throw new Error(`Cannot restart ${this.identityKey}: Electron did not report a process ID.`)
     }
     this.activeProcess = launched
-    await this.waitForReady(stopped.service.endpointPath, launched)
+    const readiness = this.waitForReady(stopped.service.endpointPath, launched)
+    await (launchFailure === null
+      ? readiness
+      : Promise.race([readiness, launchFailure]))
   }
 
   async stop(): Promise<void> {
