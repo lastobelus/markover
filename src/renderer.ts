@@ -1752,36 +1752,15 @@ async function handleReviewLink(
   return activateIncomingReview(session.reviewId, true, sequence)
 }
 
-function queueIncomingOperation<T>(
-  operation: () => Promise<T>,
-  failureMessage: string
-): Promise<T> {
-  const result = incomingReviewQueue.then(operation, operation)
-  incomingReviewQueue = result.then(
-    () => undefined,
-    (error: unknown) => {
-      console.error(failureMessage, error)
-      showToast('Could not process the review request')
-    }
-  )
-  return result
-}
-
 function queueIncomingReview(reviewDocument: MarkoverDocument): Promise<void> {
-  return queueIncomingOperation(
+  incomingReviewQueue = incomingReviewQueue.then(
     () => handleIncomingReview(reviewDocument),
-    'Failed to add incoming review'
-  )
-}
-
-function queueReviewLink(
-  reviewDocument: MarkoverDocument,
-  focusState: MarkoverWindowFocusState
-): Promise<ReviewActivationOutcome> {
-  return queueIncomingOperation(
-    () => handleReviewLink(reviewDocument, focusState),
-    'Failed to process review link'
-  )
+    () => handleIncomingReview(reviewDocument)
+  ).catch((error: unknown) => {
+    console.error('Failed to add incoming review', error)
+    showToast('Could not add the incoming review')
+  })
+  return incomingReviewQueue
 }
 
 function autosaveReview(): void {
@@ -3558,7 +3537,7 @@ async function initialize(): Promise<void> {
       showToast(`Review ${reviewId} was not found in this Markover instance`)
       return 'missing'
     }
-    return queueReviewLink(document, focusState)
+    return handleReviewLink(document, focusState)
   })
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)

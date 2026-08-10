@@ -53,15 +53,12 @@ test('preload and renderer apply review-link activation policy', () => {
     activationHandler,
     /onReviewActivationRequested[\s\S]*if \(!document\)[\s\S]*return 'missing'/
   )
-  assert.match(activationHandler, /queueReviewLink\(document, focusState\)/)
+  assert.match(activationHandler, /handleReviewLink\(document, focusState\)/)
+  assert.doesNotMatch(activationHandler, /queueIncomingReview|incomingReviewQueue/)
   assert.doesNotMatch(activationHandler, /configureManagedMode\(\)/)
   assert.match(
     renderer,
     /async function handleReviewLink[\s\S]*addManagedReview\(managedReviewDocument\(reviewDocument\), false\)[\s\S]*policy: preferences\.reviewLinkActivationPolicy[\s\S]*showIncomingReviewWarning[\s\S]*return 'deferred'[\s\S]*showIncomingReviewNotice[\s\S]*return 'deferred'[\s\S]*activateIncomingReview/
-  )
-  assert.match(
-    renderer,
-    /function queueReviewLink[\s\S]*queueIncomingOperation\([\s\S]*handleReviewLink\(reviewDocument, focusState\)/
   )
   assert.match(
     renderer,
