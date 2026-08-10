@@ -61,6 +61,7 @@ function preflightBootstrapSource(source) {
   }
   const inertLoop = {
     notify() { return true },
+    start() {},
     stop() { return Promise.resolve() }
   }
   const preflightRequire = (specifier) => {
@@ -252,14 +253,8 @@ async function startWatcher() {
   transition = (async () => {
     let watcher
     let buildResult
+    let candidateLoop
     try {
-      if (developmentLoop !== null) {
-        const previousLoop = developmentLoop
-        developmentLoop = null
-        started = false
-        await previousLoop.stop('SIGHUP')
-      }
-      if (stopping) return
       buildResult = buildSync({
         entryPoints: [path.resolve(__dirname, 'development-watch.ts')],
         bundle: true,
@@ -275,8 +270,17 @@ async function startWatcher() {
       const resolvedOutput = require.resolve(outputPath)
       delete require.cache[resolvedOutput]
       watcher = require(resolvedOutput)
+      candidateLoop = await watcher.main(
+        process.argv.slice(2),
+        { deferStart: true, externalWatch: true }
+      )
     } catch (error) {
       fail(error)
+      if (isArgumentError(error) && developmentLoop === null) {
+        process.exitCode = 1
+        bootstrapWatcher.close()
+        return
+      }
       process.stderr.write(
         'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
       )
@@ -285,24 +289,22 @@ async function startWatcher() {
 
     try {
       if (stopping) return
-      developmentLoop = await watcher.main(
-        process.argv.slice(2),
-        { externalWatch: true }
-      )
+      if (developmentLoop !== null) {
+        const previousLoop = developmentLoop
+        await previousLoop.stop('SIGHUP')
+      }
+      if (stopping) return
+      developmentLoop = candidateLoop
       watcherInputs = new Set(
         Object.keys(buildResult.metafile.inputs).map(normalizedBundleInput)
       )
       started = true
+      developmentLoop.start()
     } catch (error) {
       fail(error)
-      if (isArgumentError(error)) {
-        process.exitCode = 1
-        bootstrapWatcher.close()
-      } else {
-        process.stderr.write(
-          'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
-        )
-      }
+      process.stderr.write(
+        'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
+      )
     }
   })().finally(() => {
     completedRevision = targetRevision

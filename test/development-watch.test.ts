@@ -112,6 +112,8 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   const stops: NodeJS.Signals[] = []
   const timers: Array<() => void> = []
   let bootstrapPreflightError: 'runtime' | 'syntax' | null = null
+  let watcherBundleValid = true
+  let watcherMainError = false
   let mainCalls = 0
   let watchCallback: (
     event: string,
@@ -124,11 +126,15 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   const bundledWatcher = {
     main() {
       mainCalls += 1
+      if (watcherMainError) {
+        return Promise.reject(new Error('watcher initialization failed'))
+      }
       return Promise.resolve({
         notify(filePath: string | null) {
           notifications.push(filePath)
           return true
         },
+        start() {},
         stop(signal: NodeJS.Signals) {
           stops.push(signal)
           return Promise.resolve()
@@ -171,6 +177,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     if (specifier === 'esbuild') {
       return {
         buildSync() {
+          if (!watcherBundleValid) throw new Error('watcher bundle failed')
           return {
             metafile: {
               inputs: {
@@ -218,10 +225,31 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   assert.deepEqual(notifications, ['src/renderer.ts'])
   assert.deepEqual(stops, [])
 
+  watcherBundleValid = false
+  watchCallback('change', 'src/instance.ts')
+  assert.equal(timers.length, 1)
+  timers.shift()?.()
+  await wait(1)
+
+  assert.equal(mainCalls, 1)
+  assert.deepEqual(stops, [])
+
+  watcherBundleValid = true
+  watcherMainError = true
   watchCallback('change', 'src/instance.ts')
   assert.equal(timers.length, 1)
   timers.shift()?.()
   await waitUntil(() => mainCalls === 2)
+  await wait(1)
+
+  assert.deepEqual(stops, [])
+
+  watcherMainError = false
+  watchCallback('change', 'src/instance.ts')
+  assert.equal(timers.length, 1)
+  timers.shift()?.()
+  await waitUntil(() => mainCalls === 3)
+  await wait(1)
 
   assert.deepEqual(stops, ['SIGHUP'])
 

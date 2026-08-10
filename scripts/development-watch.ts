@@ -529,16 +529,21 @@ function startFilesystemWatcher(
 
 export interface DevelopmentLoop {
   notify: (filePath: string | null) => boolean
+  start: () => void
   stop: (signal: NodeJS.Signals) => Promise<void>
 }
 
 export interface DevelopmentLoopOptions {
+  deferStart?: boolean
   externalWatch?: boolean
 }
 
 export async function main(
   args = process.argv.slice(2),
-  { externalWatch = false }: DevelopmentLoopOptions = {}
+  {
+    deferStart = false,
+    externalWatch = false
+  }: DevelopmentLoopOptions = {}
 ): Promise<DevelopmentLoop> {
   const parsed = parseStartArguments(args)
   const initialInstance = await resolveStartInstance(parsed)
@@ -565,20 +570,26 @@ export async function main(
       )
     }
   })
-  const filesystemWatcher = externalWatch
-    ? null
-    : startFilesystemWatcher(controller)
-  process.stderr.write(
-    `markover dev: watching ${manager.identityKey}; awaiting a successful rebuild.\n`
-  )
-  controller.notify(null)
-
+  let filesystemWatcher: FSWatcher | null = null
+  let loopStarted = false
   let stopping = false
+  const start = () => {
+    if (loopStarted || stopping) return
+    loopStarted = true
+    filesystemWatcher = externalWatch
+      ? null
+      : startFilesystemWatcher(controller)
+    process.stderr.write(
+      `markover dev: watching ${manager.identityKey}; awaiting a successful rebuild.\n`
+    )
+    controller.notify(null)
+  }
   const stop = async (signal: NodeJS.Signals) => {
     if (stopping) return
     stopping = true
     filesystemWatcher?.close()
     controller.close()
+    if (!loopStarted) return
     process.stderr.write(
       `markover dev ${manager.identityKey}: ${signal}; waiting for managed shutdown.\n`
     )
@@ -592,10 +603,12 @@ export async function main(
       process.exitCode = 1
     }
   }
+  if (!deferStart) start()
   return {
     notify(filePath) {
       return controller.notify(filePath)
     },
+    start,
     stop
   }
 }
