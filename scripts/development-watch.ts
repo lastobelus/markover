@@ -263,7 +263,11 @@ export class DevelopmentInstanceManager {
     {
       checkoutDirectory = projectDirectory,
       isProcessAlive = processIsAlive,
-      launch = launchResolvedInstance,
+      launch = (instance, appArguments) => launchResolvedInstance(
+        instance,
+        appArguments,
+        { detached: process.platform !== 'win32' }
+      ),
       now = Date.now,
       pollMilliseconds = DEFAULT_POLL_MILLISECONDS,
       probe = probeService,
@@ -325,6 +329,20 @@ export class DevelopmentInstanceManager {
     }
     this.activeProcess = launched
     await this.waitForReady(stopped.service.endpointPath, launched)
+  }
+
+  async stop(): Promise<void> {
+    const current = await this.resolveExactInstance()
+    const activePid = this.liveActiveProcessPid()
+    const endpointPid = current.process.status === 'running'
+      ? (await this.readProcessEndpoint(current.service.endpointPath)).pid
+      : null
+    const runningPid = activePid || endpointPid
+    if (runningPid === null) return
+
+    await this.quit(current.service.endpointPath)
+    await this.waitForStop(runningPid)
+    this.activeProcess = null
   }
 
   private assertRestartEligible(instance: ResolvedInstance): void {
@@ -432,7 +450,13 @@ function startFilesystemWatcher(
   return watcher
 }
 
-export async function main(args = process.argv.slice(2)): Promise<void> {
+export interface DevelopmentLoop {
+  stop: (signal: NodeJS.Signals) => Promise<void>
+}
+
+export async function main(
+  args = process.argv.slice(2)
+): Promise<DevelopmentLoop> {
   const parsed = parseStartArguments(args)
   const initialInstance = await resolveStartInstance(parsed)
   const manager = new DevelopmentInstanceManager(
@@ -458,15 +482,40 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
       )
     }
   })
-  startFilesystemWatcher(controller)
+  const filesystemWatcher = startFilesystemWatcher(controller)
   process.stderr.write(
     `markover dev: watching ${manager.identityKey}; awaiting a successful rebuild.\n`
   )
   controller.notify(null)
+
+  let stopping = false
+  const stop = async (signal: NodeJS.Signals) => {
+    if (stopping) return
+    stopping = true
+    filesystemWatcher.close()
+    controller.close()
+    process.stderr.write(
+      `markover dev ${manager.identityKey}: ${signal}; waiting for managed shutdown.\n`
+    )
+    try {
+      await controller.waitForIdle()
+      await manager.stop()
+    } catch (error) {
+      process.stderr.write(
+        `markover dev ${manager.identityKey}: shutdown failed: ${errorMessage(error)}\n`
+      )
+      process.exitCode = 1
+    }
+  }
+  return { stop }
 }
 
 if (require.main === module) {
-  void main().catch((error: unknown) => {
+  void main().then((loop) => {
+    for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+      process.on(signal, () => { void loop.stop(signal) })
+    }
+  }).catch((error: unknown) => {
     process.stderr.write(`markover dev: ${errorMessage(error)}\n`)
     process.exitCode = 1
   })

@@ -75,6 +75,8 @@ test('development command bootstraps before the first application build', async 
     'utf8'
   )
   assert.match(bootstrap, /buildSync/)
+  assert.match(bootstrap, /watch\(/)
+  assert.match(bootstrap, /Keeping the bootstrap watcher active/)
   assert.doesNotMatch(bootstrap, /npm run build/)
 })
 
@@ -277,6 +279,39 @@ test('restart fails closed when resolution changes checkout identity', async () 
 
   await assert.rejects(manager.restart(), /does not match watched canonical/)
   assert.equal(killed, false)
+})
+
+test('loop stop requests managed quit and waits for the addressed process', async () => {
+  const events: string[] = []
+  let running = true
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('running'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      isProcessAlive() {
+        return running
+      },
+      quit(endpointPath) {
+        events.push(`quit:${endpointPath}`)
+        running = false
+        return Promise.resolve()
+      },
+      readProcessEndpoint() {
+        return Promise.resolve({ pid: 90210 })
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('running'))
+      },
+      wait() {
+        return Promise.resolve()
+      }
+    }
+  )
+
+  await manager.stop()
+
+  assert.deepEqual(events, ['quit:/state/markover/service.json'])
 })
 
 test('watcher refuses a running instance owned by another checkout', () => {

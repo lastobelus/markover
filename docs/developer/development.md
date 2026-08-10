@@ -103,7 +103,9 @@ after the replacement publishes its healthy local service. A failed build or
 startup prints a concise diagnostic, leaves the watcher active, and tries again
 after the next relevant edit. Generated output, dependency directories, Git
 metadata, and instance state do not trigger rebuilds. Keep only one loop per
-instance and use `npm start` for deterministic one-shot work.
+instance and use `npm start` for deterministic one-shot work. End the loop with
+Ctrl-C; it asks the addressed instance to quit through the same managed
+shutdown path and waits for that process before returning.
 
 ## Development review links
 
