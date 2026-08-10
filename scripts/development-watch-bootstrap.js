@@ -1,7 +1,8 @@
 /* global Buffer, __dirname, __filename, clearTimeout, process, require, setTimeout */
 
-const { watch } = require('node:fs')
+const { readFileSync, watch } = require('node:fs')
 const path = require('node:path')
+const { Script } = require('node:vm')
 const { buildSync } = require('esbuild')
 
 const projectDirectory = path.resolve(__dirname, '..')
@@ -169,6 +170,15 @@ function removeSignalHandlers() {
 
 async function reloadBootstrap() {
   if (stopping) return
+  try {
+    new Script(readFileSync(__filename, 'utf8'), { filename: __filename })
+  } catch (error) {
+    fail(error)
+    process.stderr.write(
+      'markover dev bootstrap: Keeping the current watcher active.\n'
+    )
+    return
+  }
   stopping = true
   if (timer !== null) {
     clearTimeout(timer)
