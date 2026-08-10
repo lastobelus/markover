@@ -16,7 +16,10 @@ import {
   SERVICE_INSTANCE_PATTERN,
   type ServiceIdentity
 } from './service-endpoint'
-import { isPullRequestStatus } from './pull-request'
+import {
+  isPullRequestStatus,
+  parseGitHubPullRequestUrl
+} from './pull-request'
 
 export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
 
@@ -43,7 +46,7 @@ export interface LocalServiceOptions {
   store: Pick<
     ReviewStore,
     | 'create'
-    | 'done'
+    | 'doneReview'
     | 'edit'
     | 'handoff'
     | 'list'
@@ -337,32 +340,58 @@ export async function startLocalService({
               'Done requires a pull request status.'
             )
           }
-          const candidates = await store.matchingPullRequestReviews(
-            pullRequestUrl
-          )
-          const rollbacks: Array<() => void | Promise<void>> = []
-          try {
-            for (const candidate of candidates) {
-              if (candidate.review.status !== 'editing') continue
-              const rollback = await beforeAction(
-                candidate.review.id,
-                'done'
-              )
-              if (rollback) rollbacks.push(rollback)
-            }
-            const completed = await store.done(
-              pullRequestUrl,
-              pullRequestStatus
+          const pullRequest = parseGitHubPullRequestUrl(pullRequestUrl)
+          if (!pullRequest) {
+            throw serviceError(
+              'INVALID_PULL_REQUEST',
+              'Done requires a canonical GitHub pull request URL.'
             )
-            for (const artifact of completed.reviews) {
-              await onChange(artifact, 'done')
-            }
-            return completed
-          } catch (error) {
-            await Promise.allSettled(rollbacks.map(async (rollback) => {
-              await rollback()
-            }))
-            throw error
+          }
+          if (pullRequestStatus !== 'merged') {
+            throw serviceError(
+              'INVALID_PULL_REQUEST_STATUS',
+              'Done requires a verified merged pull request status.'
+            )
+          }
+          const candidates = await store.matchingPullRequestReviews(
+            pullRequest.url
+          )
+          const reviews: ReviewArtifact[] = []
+          for (const candidate of candidates) {
+            const completed = await serializeReviewAction(
+              candidate.review.id,
+              async () => {
+                const current = await store.load(candidate.review.id)
+                let rollback: undefined | (() => void | Promise<void>)
+                if (current.review.status === 'editing') {
+                  rollback = await beforeAction(candidate.review.id, 'done')
+                }
+                let committed = false
+                try {
+                  const artifact = await store.doneReview(
+                    candidate.review.id,
+                    pullRequest.url,
+                    pullRequestStatus
+                  )
+                  if (!artifact) {
+                    if (rollback) await rollback()
+                    return null
+                  }
+                  committed = true
+                  await onChange(artifact, 'done')
+                  return artifact
+                } catch (error) {
+                  if (!committed && rollback) await rollback()
+                  throw error
+                }
+              }
+            )
+            if (completed) reviews.push(completed)
+          }
+          return {
+            pullRequestUrl: pullRequest.url,
+            reviews,
+            status: 'done' as const
           }
         })
         sendJson(response, 200, {

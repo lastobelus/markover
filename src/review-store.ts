@@ -831,6 +831,28 @@ export class ReviewStore {
     }
   }
 
+  async doneReview(
+    reviewId: string,
+    pullRequestUrl: string,
+    pullRequestStatus: PullRequestStatus
+  ): Promise<ReviewArtifact | null> {
+    assertReviewId(reviewId)
+    const identity = parseGitHubPullRequestUrl(pullRequestUrl)
+    if (!identity) {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST',
+        `Invalid GitHub pull request URL: ${pullRequestUrl}`
+      )
+    }
+    if (pullRequestStatus !== 'merged') {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST_STATUS',
+        'Done requires a verified merged pull request status.'
+      )
+    }
+    return this.markDone(reviewId, identity)
+  }
+
   async matchingPullRequestReviews(
     pullRequestUrl: string
   ): Promise<ReviewArtifact[]> {

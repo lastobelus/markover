@@ -329,6 +329,74 @@ test('done captures an editing review before completing it', async (t) => {
   }])
 })
 
+test('done rechecks and serializes a review that becomes editable', async (t) => {
+  let releaseCandidates!: () => void
+  let candidatesFound!: () => void
+  const candidatesReady = new Promise<void>((resolve) => {
+    candidatesFound = resolve
+  })
+  const candidatesBarrier = new Promise<void>((resolve) => {
+    releaseCandidates = resolve
+  })
+  const storeReference: { current?: ReviewStore } = {}
+  const barriers: string[] = []
+  const fixture = await serviceFixture(t, {
+    async beforeAction(reviewId, action) {
+      if (action !== 'done') return
+      barriers.push(reviewId)
+      assert.ok(storeReference.current)
+      const latest = await storeReference.current.load(reviewId)
+      child(latest.root).feedback = 'Captured after the review became editable.'
+      await storeReference.current.updateTree(reviewId, latest)
+    }
+  })
+  storeReference.current = fixture.store
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: {
+      contextSummary: 'Complete after an edit race.',
+      git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+      pullRequest: { number: 123 }
+    }
+  })
+  await requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff'
+  )
+
+  const matching = fixture.store.matchingPullRequestReviews.bind(fixture.store)
+  fixture.store.matchingPullRequestReviews = async (pullRequestUrl) => {
+    const candidates = await matching(pullRequestUrl)
+    candidatesFound()
+    await candidatesBarrier
+    return candidates
+  }
+  const done = requestJson(fixture.endpointPath, 'POST', '/reviews/done', {
+    pullRequestUrl: 'https://github.com/lastobelus/markover/pull/123',
+    pullRequestStatus: 'merged'
+  })
+  await candidatesReady
+  assert.deepEqual(
+    await requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/edit'
+    ),
+    { reviewId: 'mko_aaa11111', status: 'editing' }
+  )
+  releaseCandidates()
+  await done
+
+  const completed = await fixture.store.load('mko_aaa11111')
+  assert.deepEqual(barriers, ['mko_aaa11111'])
+  assert.equal(completed.review.status, 'done')
+  assert.equal(
+    child(completed.root).feedback,
+    'Captured after the review became editable.'
+  )
+})
+
 test('authenticated quit acknowledges and invokes the app callback', async (t) => {
   let quits = 0
   const { endpointPath } = await serviceFixture(t, {
