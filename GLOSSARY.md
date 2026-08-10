@@ -380,6 +380,18 @@ It changes the block's proposed presentation and diff without rewriting the sour
 
 The agent-facing CLI rule that success writes exactly one JSON value to stdout while diagnostics go to stderr and failures exit nonzero.
 
+## thread-host::
+
+The user-facing application that contains and presents an agent thread, such as T3 Code, LastCode, or the Codex app.
+
+Use **thread-host** rather than bare *host* or *harness* in prose, and `threadHost` for typed-data and code identifiers. A thread-host is distinct from the provider that executes the thread and from a computer, hostname, network host, repository, worktree, or process.
+
+## thread-title::
+
+The current user-visible title of an agent thread, including user renames.
+
+A **requesting-thread-title** is the thread-title of the agent thread that requested a review. A thread-title is a mutable label, not a review title or thread identity, and must not be inferred from an original prompt or stale preview.
+
 ## truth context::
 
 Upfront context on an ELI5 artifact stating which PR or roadmap state it describes, what is stable, and what known work may change it.

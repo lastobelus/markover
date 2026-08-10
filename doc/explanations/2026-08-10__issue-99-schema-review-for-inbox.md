@@ -26,7 +26,7 @@ Opaque extensions remain an extensibility mechanism inside typed objects, not a 
 
 `workspace.json` should have its own private format/version, such as `format: "markover-workspace"` and `version: 1`. Its durability promise is restart restoration, not portable interchange: stale review references are pruned, unknown/incompatible state can be preserved for diagnosis and replaced with safe defaults, and loss resets presentation rather than review data.
 
-The private enrichment shape remains a proposal until #131 completes discovery. Keeping per-review data inside the managed review directory would let review Trash move the artifact, attachments, and private enrichment together. Requesting-thread-title is thread-level, however, so #131 should evaluate a shared index keyed by stable host/provider/thread identity rather than duplicate potentially divergent observations into every linked review.
+The private enrichment shape remains a proposal until #131 completes discovery. Keeping per-review data inside the managed review directory would let review Trash move the artifact, attachments, and private enrichment together. Requesting-thread-title is thread-level, however, so #131 should evaluate a shared index keyed by stable thread-host/provider/thread identity rather than duplicate potentially divergent observations into every linked review.
 
 ## Blocking requests before v1
 
@@ -57,15 +57,15 @@ Invariants:
 
 The plan currently makes `agentThread`, `git`, and `pullRequest` opaque required keys. Their **unknown additive properties** may remain opaque, but the fields used by #97 and #123 need v1 guarantees.
 
-Here, **host** is a role: the user-facing application or harness that contains and presents the requesting thread, such as T3 Code, LastCode, or the Codex app. It is not a computer, operating-system hostname, DNS/network host, repository, worktree, process, or metadata path. **Provider** is the agent runtime or service executing the thread, such as Codex or Claude. A standalone product may fill both roles—for example, the Codex app as host and Codex as provider—without collapsing the two schema concepts.
+Here, **thread-host** is the user-facing application that contains and presents the requesting thread, such as T3 Code, LastCode, or the Codex app. It is distinct from a computer, operating-system hostname, DNS/network host, repository, worktree, process, or metadata path. **Provider** is the agent runtime or service executing the thread, such as Codex or Claude. A standalone product may fill both roles—for example, the Codex app as thread-host and Codex as provider—without collapsing the two schema concepts.
 
 Minimum typed cores:
 
-- `agentThread`: nullable object with nonblank `provider`, nonblank `id`, and optional nonblank `host`. `host` is a stable logical integration identifier such as `t3code`, `lastcode`, or `codex-app`, never an installation path, machine hostname, version, or mutable display label. `(host, provider, id)` is requesting-thread identity; requesting-thread-title is app-private mutable enrichment and never identity.
+- `agentThread`: nullable object with nonblank `provider`, nonblank `id`, and optional nonblank `threadHost`. `threadHost` is a stable logical integration identifier such as `t3code`, `lastcode`, or `codex-app`, never an installation path, machine hostname, version, or mutable display label. `(threadHost, provider, id)` is requesting-thread identity; requesting-thread-title is app-private mutable enrichment and never identity.
 - `git`: nullable object with nullable sanitized `repositoryUrl`, `branch`, and `commit`. These are hints, but their types and meanings must be stable when present.
 - `pullRequest`: nullable object with required positive integer `number` when present; optional canonical `url`; and the typed observation fields requested below.
 
-Unknown additive properties may extend each typed core. Provider database paths, log paths, raw host records, and other machine-local adapter evidence should not use those extensions merely to bypass the privacy boundary; they belong in settings or the #131 sidecar. Core consumers must not parse arbitrary producer blobs to recover fields the UI depends upon.
+Unknown additive properties may extend each typed core. Provider database paths, log paths, raw thread-host records, and other machine-local adapter evidence should not use those extensions merely to bypass the privacy boundary; they belong in settings or the #131 sidecar. Core consumers must not parse arbitrary producer blobs to recover fields the UI depends upon.
 
 ### 4. Include #123 lifecycle and PR-observation domains in v1
 
@@ -96,7 +96,7 @@ The portable artifact should carry only portable Git/PR hints. [#131](https://gi
 - checkout root and common Git directory;
 - locally normalized project key and fallback path identity;
 - project display-name override, favicon selection/cache, and repository-root hover text;
-- requesting-thread-title discovery evidence or cache that contains machine-local host/provider details.
+- requesting-thread-title discovery evidence or cache that contains machine-local thread-host/provider details.
 
 Repository grouping follows these invariants:
 
@@ -113,17 +113,17 @@ Repository grouping follows these invariants:
 
 Keep `review.contextSummary` as the required portable review purpose. The requesting-thread-title is the current user-visible title of the agent thread that requested the review; it is not a review title and is not needed to interpret the handoff.
 
-`review.json` should contain the stable `agentThread` identity core but no requesting-thread-title observation. App-private thread metadata should be keyed by stable host/provider/thread identity and preserve:
+`review.json` should contain the stable `agentThread` identity core but no requesting-thread-title observation. App-private thread metadata should be keyed by stable thread-host/provider/thread identity and preserve:
 
 - nonblank requesting-thread-title value;
-- authority class `host` or `provider`;
+- authority class `thread-host` or `provider`;
 - stable source/integration identifier;
 - validated observation time and last-attempt time;
 - machine-local discovery evidence where useful.
 
 The requesting-thread-title is a mutable label, not requesting-thread identity. An unavailable refresh preserves the last authoritative observation; original prompts, stale previews, review purpose, and document names are not valid thread-title sources. They are display fallbacks only.
 
-Authority describes ownership of the observation source, not where the text happens to be rendered. `host` means host-owned state or a host-supplied update, such as T3’s `projection_threads.title` or a future LastCode push. `provider` means the provider’s own API or session metadata, even when that thread-title is displayed inside a host UI.
+Authority describes ownership of the observation source, not where the text happens to be rendered. `thread-host` means thread-host-owned state or a thread-host-supplied update, such as T3’s `projection_threads.title` or a future LastCode push. `provider` means the provider’s own API or session metadata, even when that thread-title is displayed inside a thread-host UI.
 
 Refresh should be event-driven: on review arrival, app launch/foreground, Inbox/Projects opening, or an explicit user action. A future LastCode integration may push requesting-thread-title changes to active linked reviews. Do not add polling or filesystem/database watchers.
 

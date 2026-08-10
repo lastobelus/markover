@@ -51,10 +51,10 @@ review URL as an inline-code Terminal command, alone on its own line:
 
 `open '<reviewUrl>'`
 
-Custom-scheme links work through macOS and this Terminal command, but agent
-hosts including T3Code and Codex may strip or decline them. The isolated command
-is the reliable handoff: it is easy to triple-click and paste into the attached
-terminal.
+Custom-scheme links work through macOS and this Terminal command, but
+thread-hosts including T3Code and the Codex app may strip or decline them. The
+isolated command is the reliable handoff: it is easy to triple-click and paste
+into the attached terminal.
 
 ## Markover dogfooding
 

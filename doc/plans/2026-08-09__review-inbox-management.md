@@ -58,17 +58,17 @@ The project favicon leads the row. Missing favicon/provider/branch/PR values use
 
 ## Agent-thread vocabulary
 
-- **Host** means the user-facing application or harness that contains and presents the requesting thread, such as T3 Code, LastCode, or the Codex app. It does not mean the computer, operating-system hostname, DNS/network host, repository, worktree, process, or metadata path.
+- **Thread-host** means the user-facing application that contains and presents the requesting thread, such as T3 Code, LastCode, or the Codex app. A thread-host is distinct from a computer, operating-system hostname, DNS/network host, repository, worktree, process, or metadata path.
 - **Provider** means the agent runtime or service that executes the thread, such as Codex or Claude, and may own provider-level thread/session metadata.
-- A standalone product can occupy both roles: for example, the Codex app can be the host while Codex is the provider. The roles remain conceptually distinct even when one product fills both.
-- Persist `agentThread.host` as a stable logical integration identifier such as `t3code`, `lastcode`, or `codex-app`, never as an installation path, machine hostname, version, or mutable display label. It remains optional when no host can be identified.
-- A **host-authoritative** thread-title is read from host-owned state or supplied by a host integration, such as T3’s `projection_threads.title` or a future LastCode push. A **provider-authoritative** thread-title comes from the provider’s own API or session metadata, even when the host displays it.
+- A standalone product can occupy both roles: for example, the Codex app can be the thread-host while Codex is the provider. The roles remain conceptually distinct even when one product fills both.
+- Persist `agentThread.threadHost` as a stable logical integration identifier such as `t3code`, `lastcode`, or `codex-app`, never as an installation path, machine hostname, version, or mutable display label. It remains optional when no thread-host can be identified.
+- A **thread-host-authoritative** thread-title is read from thread-host-owned state or supplied by a thread-host integration, such as T3’s `projection_threads.title` or a future LastCode push. A **provider-authoritative** thread-title comes from the provider’s own API or session metadata, even when the thread-host displays it.
 
 ## Requesting-thread-titles
 
 - The requesting-thread-title is the current user-visible title of the agent thread that requested the review; it is not a review title. Review purpose remains `contextSummary`, and Local reviews use their document name.
 - Display the requesting-thread-title, including user renames, rather than a permanent snapshot of the original generated title.
-- Resolve thread-title authority in this order: host-authoritative thread-title, provider-authoritative thread-title, then a clearly labeled fallback such as review purpose or document name.
+- Resolve thread-title authority in this order: thread-host-authoritative thread-title, provider-authoritative thread-title, then a clearly labeled fallback such as review purpose or document name.
 - Never infer a requesting-thread-title from the opening prompt or stale preview.
 - Keep stable requesting-thread identity in `review.json`; preserve requesting-thread-title value, source/provenance, and observation time in app-private thread metadata keyed by that identity.
 - Attempt an event-driven thread-title refresh when a review arrives, when Markover launches or returns to foreground, and when Inbox or Projects opens. Provide a manual `Refresh Thread-title` action.
@@ -78,9 +78,9 @@ The project favicon leads the row. Missing favicon/provider/branch/PR values use
 
 ## Agent integration settings
 
-- Replace the single Codex-only local-session discovery toggle with explicit per-host and per-provider integration settings.
+- Replace the single Codex-only local-session discovery toggle with explicit per-thread-host and per-provider integration settings.
 - Each known integration shows its default metadata location, optional user path override, availability/validation state, and discovery explanation.
-- Treat configurable locations as metadata sources, not only log directories: Codex currently uses `~/.codex/sessions`, while the authoritative T3 title came from host-side state.
+- Treat configurable locations as metadata sources, not only log directories: Codex currently uses `~/.codex/sessions`, while the authoritative T3 title came from thread-host-owned state.
 - Markover may detect and suggest recognized integrations, but must not inspect their metadata until the user explicitly enables each integration.
 - Tool-assisted thread-title discovery must request the current user-visible requesting-thread-title and evidence source, prohibit inference from original prompts/previews, and return unavailable rather than guess.
 
@@ -128,7 +128,7 @@ The first slice should exercise the visual edge cases already known to matter: m
 
 - `src/contracts.ts`: persisted review-origin, recency, requesting-thread-title provenance, project-identity, and workspace-state contracts.
 - `src/review-store.ts`: creation/status timestamps and durable metadata updates that do not conflate autosave with attention recency.
-- `src/metadata-discovery.ts`: repository identity plus host/provider requesting-thread-title adapters.
+- `src/metadata-discovery.ts`: repository identity plus thread-host/provider requesting-thread-title adapters.
 - `src/settings.ts`, `src/settings-store.ts`, and `src/index.html`: explicit integrations and persisted navigation/workspace preferences.
 - `src/review-sessions.ts`: actionable projections, grouping, ordering, rollups, tab working set, and project equivalence.
 - `src/renderer.ts`, `src/index.html`, and `src/styles.css`: split tab strip, Inbox rows, Projects tree, bounded history, Local variants, and accessible interaction.
@@ -142,7 +142,7 @@ The first slice should exercise the visual edge cases already known to matter: m
 - A collapsed Projects row truthfully reports actionable descendant count and recency.
 - Projects ordering, persisted expansion, explicit ancestor reveal, and bounded history behave as specified.
 - Agent and Local rows remain distinguishable and useful with duplicate requesting-thread-titles, timestamp-prefixed filenames, missing metadata, and long values.
-- Renaming a thread in a supported host/provider combination is reflected after a defined refresh trigger without falling back to the original prompt.
+- Renaming a thread in a supported thread-host/provider combination is reflected after a defined refresh trigger without falling back to the original prompt.
 - Disabled integrations perform no metadata inspection; invalid overrides explain the failure and do not destroy the last authoritative thread-title.
 - Equivalent worktrees group together while forks and unrelated directories remain separate.
 - Document-tab closure is data-neutral and review cleanup remains recoverable through #15.
@@ -164,4 +164,4 @@ The first slice should exercise the visual edge cases already known to matter: m
 
 - Debounced meaningful-`updatedAt` Inbox ordering is a fallback only if `attentionRequestedAt` feels stale in real use.
 - Full-text search/filter is not required for the first slice; reassess after the action-first Inbox and project hierarchy are used with real history.
-- Additional host/provider adapters follow completed rename experiments rather than speculative shared parsing.
+- Additional thread-host/provider adapters follow completed rename experiments rather than speculative shared parsing.
