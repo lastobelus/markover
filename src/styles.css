@@ -2286,6 +2286,16 @@ body.is-control-pressed .attachment-remove:hover {
   transform: translate(-50%, 0);
 }
 
+.toast.is-actionable {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.toast.is-actionable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .incoming-review-notice {
   position: fixed;
   right: 24px;

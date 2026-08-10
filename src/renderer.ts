@@ -1516,7 +1516,16 @@ function updateAnnotationCount(): void {
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
+function clearToastActionability(): void {
+  elements.toast.classList.remove('is-actionable')
+  elements.toast.removeAttribute('role')
+  elements.toast.tabIndex = -1
+  elements.toast.onclick = null
+  elements.toast.onkeydown = null
+}
+
 function showToast(message: string): void {
+  clearToastActionability()
   elements.toast.textContent = message
   elements.toast.classList.add('is-visible')
   elements.toast.setAttribute('aria-hidden', 'false')
@@ -3370,24 +3379,24 @@ async function rendererStartupPhase<T>(
 
 function showStartupWarnings(warnings: StartupWarning[]): void {
   if (!warnings.length) return
+  clearToastActionability()
   elements.toast.textContent = warnings.length === 1
     ? 'Startup recovered one item. Click to show the diagnostic.'
     : `Startup recovered or skipped ${String(warnings.length)} items. Click to show the diagnostic.`
-  elements.toast.classList.add('is-visible')
+  elements.toast.classList.add('is-visible', 'is-actionable')
   elements.toast.setAttribute('aria-hidden', 'false')
   elements.toast.setAttribute('role', 'button')
   elements.toast.tabIndex = 0
   const reveal = (): void => {
     void bridge.revealStartupDiagnostic()
   }
-  elements.toast.addEventListener('click', reveal, { once: true })
+  elements.toast.onclick = reveal
   const revealFromKeyboard = (event: KeyboardEvent): void => {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
-    elements.toast.removeEventListener('keydown', revealFromKeyboard)
     reveal()
   }
-  elements.toast.addEventListener('keydown', revealFromKeyboard)
+  elements.toast.onkeydown = revealFromKeyboard
 }
 
 function nextFrame(): Promise<void> {
