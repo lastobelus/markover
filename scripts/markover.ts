@@ -132,7 +132,7 @@ export function helpPayload() {
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
-      'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, continue without those observation flags, report the failure, and preserve the last observation.',
+      'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
       'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.'
     ],
@@ -146,7 +146,7 @@ export function helpPayload() {
       },
       values: ['draft', 'open', 'merged', 'closed'],
       persistence: 'A successful observation is stored with its receipt time and source agent. A missing --pr-status preserves the last successful observation.',
-      failure: 'A failed lookup does not block open, get, or revise. Continue without --pr-status and report the failure. done requires a verified merged observation.'
+      failure: 'A failed lookup does not block open, get, or revise. Continue without --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. done requires a verified merged observation.'
     },
     defaultAgentGuidance,
     commands: [
