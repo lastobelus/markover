@@ -162,6 +162,7 @@ test('explicit metadata overrides discovered values', async () => {
     sourcePath: '/repo/plan.md',
     branch: 'explicit-branch',
     pullRequestNumber: 7,
+    pullRequestUrl: 'https://github.com/upstream/markover/pull/7',
     threadId: 'explicit-thread',
     handoffKey: 'mko_handoff_0123456789abcdef'
   }, {
@@ -190,6 +191,7 @@ test('explicit metadata overrides discovered values', async () => {
   })
   assert.deepEqual(metadata.pullRequest, {
     number: 7,
+    url: 'https://github.com/upstream/markover/pull/7',
     discovery: 'explicit'
   })
 })

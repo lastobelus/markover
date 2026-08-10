@@ -48,6 +48,7 @@ test('parses lifecycle commands and PR observations', () => {
       branch: null,
       handoffKey: null,
       pullRequestNumber: null,
+      pullRequestUrl: null,
       pullRequestStatus: null,
       threadId: null
     }
@@ -204,6 +205,10 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(helpPayload().workflow.join(' '), /run revise once/)
   assert.match(
     helpPayload().workflow.join(' '),
+    /On open, pass its canonical url with --pr-url/
+  )
+  assert.match(
+    helpPayload().workflow.join(' '),
     /add feedback before revise, run edit.*After revise, open a new review/
   )
   assert.match(helpPayload().workflow.join(' '), /--pr-status merged/)
@@ -261,6 +266,8 @@ test('parses explicit review metadata', () => {
       'mko_handoff_0123456789abcdef',
       '--pr',
       '42',
+      '--pr-url',
+      'https://github.com/upstream/markover/pull/42',
       '--pr-status',
       'draft',
       '--thread-id',
@@ -273,6 +280,7 @@ test('parses explicit review metadata', () => {
       branch: 'feature/review-inbox',
       handoffKey: 'mko_handoff_0123456789abcdef',
       pullRequestNumber: 42,
+      pullRequestUrl: 'https://github.com/upstream/markover/pull/42',
       pullRequestStatus: 'draft',
       threadId: 'thread-123'
     }
@@ -287,6 +295,32 @@ test('parses explicit review metadata', () => {
       'not-a-number'
     ]),
     /positive integer/
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--pr',
+      '42',
+      '--pr-url',
+      'https://github.com/upstream/markover/pull/43'
+    ]),
+    /must identify the pull request number/
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--pr',
+      '42',
+      '--pr-status',
+      'open'
+    ]),
+    /requires --pr and --pr-url/
   )
   assert.throws(
     () => parseCommandArguments([
@@ -401,11 +435,12 @@ test('executes CLI commands against the local service', async (t) => {
       return Promise.resolve({
         git: parsed.branch ? {
           branch: parsed.branch,
-          repositoryUrl: 'git@github.com:lastobelus/markover.git',
+          repositoryUrl: 'git@github.com:fork-owner/markover.git',
           sources: { branch: 'explicit' as const }
         } : null,
         pullRequest: parsed.pullRequestNumber ? {
           number: parsed.pullRequestNumber,
+          ...(parsed.pullRequestUrl ? { url: parsed.pullRequestUrl } : {}),
           discovery: 'explicit' as const
         } : null,
         agentThread: parsed.threadId ? {
@@ -424,6 +459,7 @@ test('executes CLI commands against the local service', async (t) => {
       branch: 'feature/review-inbox',
       handoffKey: 'mko_handoff_0123456789abcdef',
       pullRequestNumber: 42,
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/42',
       threadId: 'thread-123'
     }, options),
     {
@@ -445,7 +481,7 @@ test('executes CLI commands against the local service', async (t) => {
   assert.equal(handedOff.review.contextSummary, 'Review exact source.')
   assert.deepEqual(handedOff.review.git, {
     branch: 'feature/review-inbox',
-    repositoryUrl: 'git@github.com:lastobelus/markover.git',
+    repositoryUrl: 'git@github.com:fork-owner/markover.git',
     sources: { branch: 'explicit' }
   })
   assert.deepEqual(handedOff.review.pullRequest, {

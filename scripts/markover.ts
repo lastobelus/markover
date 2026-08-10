@@ -78,6 +78,7 @@ export type ParsedCommand = ParsedInstanceTarget & (
       branch?: string | null
       handoffKey?: string | null
       pullRequestNumber?: number | null
+      pullRequestUrl?: string | null
       pullRequestStatus?: PullRequestStatus | null
       threadId?: string | null
     }
@@ -131,7 +132,7 @@ export function helpPayload() {
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
-      'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done; pass --pr-status after a successful lookup, or continue without it and report the lookup failure without replacing the last observation.',
+      'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, continue without those observation flags, report the failure, and preserve the last observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
       'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.'
     ],
@@ -151,7 +152,7 @@ export function helpPayload() {
     commands: [
       {
         name: 'open',
-        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-status <draft|open|merged|closed>] [--thread-id <id>] [--handoff-key <key>]',
+        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <id>] [--handoff-key <key>]',
         purpose: 'Open a durable, non-blocking review and print {reviewId,status,reviewUrl} as JSON.'
       },
       {
@@ -345,6 +346,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   let branch = null
   let handoffKey = null
   let pullRequestNumber = null
+  let pullRequestUrl = null
   let pullRequestStatus: PullRequestStatus | null = null
   let threadId = null
   for (let index = 0; index < rest.length; index += 1) {
@@ -355,6 +357,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       argument === '--branch' ||
       argument === '--handoff-key' ||
       argument === '--pr' ||
+      argument === '--pr-url' ||
       argument === '--pr-status' ||
       argument === '--thread-id'
     ) {
@@ -369,6 +372,16 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       if (argument === '--branch') branch = value
       if (argument === '--handoff-key') handoffKey = value
       if (argument === '--thread-id') threadId = value
+      if (argument === '--pr-url') {
+        const identity = parseGitHubPullRequestUrl(value)
+        if (!identity) {
+          throw commandError(
+            '--pr-url requires a canonical GitHub pull request URL.',
+            'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url> --pr-status <status>'
+          )
+        }
+        pullRequestUrl = identity.url
+      }
       if (argument === '--pr-status') {
         if (!isPullRequestStatus(value)) {
           throw commandError(
@@ -447,10 +460,25 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       )
     }
   }
-  if (pullRequestStatus && !pullRequestNumber) {
+  if (pullRequestUrl && !pullRequestNumber) {
     throw commandError(
-      '--pr-status requires --pr when opening a review.',
-      'markover open <markdown-path> --summary <text> --pr <number> --pr-status <status>'
+      '--pr-url requires --pr when opening a review.',
+      'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url>'
+    )
+  }
+  if (
+    pullRequestUrl &&
+    parseGitHubPullRequestUrl(pullRequestUrl)?.number !== pullRequestNumber
+  ) {
+    throw commandError(
+      '--pr-url must identify the pull request number passed with --pr.',
+      'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url>'
+    )
+  }
+  if (pullRequestStatus && (!pullRequestNumber || !pullRequestUrl)) {
+    throw commandError(
+      '--pr-status requires --pr and --pr-url when opening a review.',
+      'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url> --pr-status <status>'
     )
   }
   return targeted({
@@ -460,6 +488,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     branch,
     handoffKey,
     pullRequestNumber,
+    pullRequestUrl,
     pullRequestStatus,
     threadId
   })
@@ -736,6 +765,7 @@ export async function executeCommand(
       sourcePath,
       branch: parsed.branch ?? null,
       pullRequestNumber: parsed.pullRequestNumber ?? null,
+      pullRequestUrl: parsed.pullRequestUrl ?? null,
       threadId: parsed.threadId ?? null,
       handoffKey
     })
