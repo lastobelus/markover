@@ -159,7 +159,7 @@ test('Projects put actionable rollups before every non-actionable lifecycle stat
   assert.equal(projection.projects[1]?.threads[0]?.editingCount, 0)
 })
 
-test('missing optional metadata remains explicit and never invents a thread title', () => {
+test('missing optional metadata remains explicit and never invents a requesting-thread-title', () => {
   const sessions = new ReviewSessions()
   sessions.add(reviewDocument('mko_missing1', 'research-summary.md', {
     contextSummary: '',

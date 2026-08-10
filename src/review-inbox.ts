@@ -93,9 +93,9 @@ function rowTitle(
   agentThread: unknown,
   local: boolean
 ): Pick<ReviewInboxRow, 'title' | 'titleSource'> {
-  const threadTitle = stringField(agentThread, ['title', 'name'])
-  if (threadTitle) {
-    return { title: threadTitle, titleSource: 'thread-title' }
+  const requestingThreadTitle = stringField(agentThread, ['title', 'name'])
+  if (requestingThreadTitle) {
+    return { title: requestingThreadTitle, titleSource: 'thread-title' }
   }
   const contextSummary = session.tree.review.contextSummary?.trim()
   if (contextSummary && !local) {

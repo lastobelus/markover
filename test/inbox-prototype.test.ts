@@ -19,11 +19,11 @@ test('development inbox fixture covers the selected review identities', async ()
   assert.ok(needsReview)
   assert.equal(needsReview.children.length, 5)
 
-  const threadTitles = Array.from(
+  const requestingThreadTitles = Array.from(
     needsReview.querySelectorAll('.inbox-prototype-thread-title strong')
   ).map((element) => element.textContent.trim())
   assert.equal(
-    threadTitles.filter((title) => title === 'Improve inbox / review management').length,
+    requestingThreadTitles.filter((title) => title === 'Improve inbox / review management').length,
     2
   )
   assert.match(needsReview.textContent || '', /2026-08-09__review-inbox-layout-follow-up\.md/)

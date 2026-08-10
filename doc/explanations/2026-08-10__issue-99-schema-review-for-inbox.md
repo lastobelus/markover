@@ -4,7 +4,7 @@ Review target: [`2026-08-09__review-handoff-format-compatibility.md`](/Users/las
 
 ## Outcome
 
-Changes are requested before v1 is frozen. The compatibility and reader-boundary design is sound, but classifying all of `review.agentThread`, `review.git`, and `review.pullRequest` as intentionally opaque leaves #97 unable to implement stable Inbox identity, project grouping, current titles, or PR-state presentation. It also conflicts with #123, which is already adding typed PR lifecycle observations.
+Changes are requested before v1 is frozen. The compatibility and reader-boundary design is sound, but classifying all of `review.agentThread`, `review.git`, and `review.pullRequest` as intentionally opaque leaves #97 unable to implement stable Inbox identity, project grouping, or PR-state presentation. It also conflicts with #123, which is already adding typed PR lifecycle observations.
 
 The product should distinguish four durable data domains:
 
@@ -22,11 +22,11 @@ Opaque extensions remain an extensibility mechanism inside typed objects, not a 
 | `reviews/<review-id>/review.json` | #99 format; #123 lifecycle/agent PR observations; #126 GitHub authority | Portable source snapshot, review tree, annotations, guidance, typed identity/context, and app-owned lifecycle | Returned by `get` and clipboard export | Incompatible or invalid artifacts fail closed and remain preserved |
 | App-level `workspace.json` | #97 workspace-state child PR stacked on PR #120 | Inbox/Projects mode, hierarchy expansion, open/active review tabs, per-review block/view presentation | Never included in handoff, clipboard, or agent-service responses | Atomic writes; invalid or incompatible state fails soft and resets/rebuilds without hiding a valid review |
 | Existing settings storage | #97 for its new preferences/integrations, coordinated with other settings owners | User preferences, enabled integrations, metadata-location overrides | Never included in review artifacts | Validate fields independently; a settings failure must not invalidate reviews |
-| Candidate `reviews/<review-id>/state.json` | #131 discovery and later implementation | Machine-local source/repository identity evidence, discovery provenance/cache, and other per-review enrichment | Never included in handoff, clipboard, or agent-service responses | Exact schema, versioning, rediscovery, corruption, and cleanup semantics must be resolved by #131; failure must not invalidate `review.json` |
+| Candidate app-private enrichment store, potentially combining per-review sidecars with a shared thread index | #131 discovery and later implementation | Machine-local source/repository identity evidence, requesting-thread-title observations, discovery provenance/cache, and other enrichment | Never included in handoff, clipboard, or agent-service responses | Exact storage shape, schema, versioning, rediscovery, corruption, and cleanup semantics must be resolved by #131; failure must not invalidate `review.json` |
 
 `workspace.json` should have its own private format/version, such as `format: "markover-workspace"` and `version: 1`. Its durability promise is restart restoration, not portable interchange: stale review references are pruned, unknown/incompatible state can be preserved for diagnosis and replaced with safe defaults, and loss resets presentation rather than review data.
 
-The per-review sidecar name and shape remain proposals until #131 completes discovery. Keeping it inside the managed review directory would let review Trash move the artifact, attachments, and private enrichment together, but #131 must verify atomicity, privacy, rediscovery, and cleanup before implementation.
+The private enrichment shape remains a proposal until #131 completes discovery. Keeping per-review data inside the managed review directory would let review Trash move the artifact, attachments, and private enrichment together. Requesting-thread-title is thread-level, however, so #131 should evaluate a shared index keyed by stable host/provider/thread identity rather than duplicate potentially divergent observations into every linked review.
 
 ## Blocking requests before v1
 
@@ -48,7 +48,7 @@ Invariants:
 
 - On creation in `editing`, it equals `createdAt`.
 - It changes only when the review transitions from a non-`editing` state into `editing`.
-- Autosaves, viewing, title refresh, PR refresh, tab activity, and ordinary `updatedAt` changes never alter it.
+- Autosaves, viewing, thread-title refresh, PR refresh, tab activity, and ordinary `updatedAt` changes never alter it.
 - Leaving `editing` does not alter it.
 
 `updatedAt` cannot substitute for this field because #97 deliberately prevents autosaves and metadata refreshes from reordering the Inbox.
@@ -59,7 +59,7 @@ The plan currently makes `agentThread`, `git`, and `pullRequest` opaque required
 
 Minimum typed cores:
 
-- `agentThread`: nullable object with nonblank `provider`, nonblank `id`, and optional nonblank `host`. `(host, provider, id)` is identity; title is a mutable observation and never identity.
+- `agentThread`: nullable object with nonblank `provider`, nonblank `id`, and optional nonblank `host`. `(host, provider, id)` is requesting-thread identity; requesting-thread-title is app-private mutable enrichment and never identity.
 - `git`: nullable object with nullable sanitized `repositoryUrl`, `branch`, and `commit`. These are hints, but their types and meanings must be stable when present.
 - `pullRequest`: nullable object with required positive integer `number` when present; optional canonical `url`; and the typed observation fields requested below.
 
@@ -94,7 +94,7 @@ The portable artifact should carry only portable Git/PR hints. [#131](https://gi
 - checkout root and common Git directory;
 - locally normalized project key and fallback path identity;
 - project display-name override, favicon selection/cache, and repository-root hover text;
-- current-title discovery evidence or cache that contains machine-local host/provider details.
+- requesting-thread-title discovery evidence or cache that contains machine-local host/provider details.
 
 Repository grouping follows these invariants:
 
@@ -107,16 +107,21 @@ Repository grouping follows these invariants:
 - Losing or rebuilding the #131 sidecar may require rediscovery and may temporarily reduce grouping quality, but it never changes, corrupts, or hides the portable review.
 - Trashing a review must carry its sidecar with the managed review directory without touching the original Markdown source; #15 and #131 coordinate that invariant.
 
-## Thread-title boundary
+## Requesting-thread-title boundary
 
-Keep `review.contextSummary` as the required portable review purpose. Add a nullable typed current-title observation associated with `agentThread`:
+Keep `review.contextSummary` as the required portable review purpose. The requesting-thread-title is the current user-visible title of the agent thread that requested the review; it is not a review title and is not needed to interpret the handoff.
 
-- nonblank title value;
+`review.json` should contain the stable `agentThread` identity core but no requesting-thread-title observation. App-private thread metadata should be keyed by stable host/provider/thread identity and preserve:
+
+- nonblank requesting-thread-title value;
 - authority class `host` or `provider`;
-- stable source/integration identifier without a local database path;
-- validated observation time.
+- stable source/integration identifier;
+- validated observation time and last-attempt time;
+- machine-local discovery evidence where useful.
 
-The title is a mutable label, not thread identity. An unavailable refresh preserves the last authoritative observation; original prompts and stale previews are not valid current-title sources. The portable title observation contains only its stable value, authority, source identifier, and time. Provider-specific database paths and raw evidence belong in the #131 sidecar; integration enablement, path overrides, and validation diagnostics belong in settings.
+The requesting-thread-title is a mutable label, not requesting-thread identity. An unavailable refresh preserves the last authoritative observation; original prompts, stale previews, review purpose, and document names are not valid thread-title sources. They are display fallbacks only.
+
+Refresh should be event-driven: on review arrival, app launch/foreground, Inbox/Projects opening, or an explicit user action. A future LastCode integration may push requesting-thread-title changes to active linked reviews. Do not add polling or filesystem/database watchers.
 
 ## App-private workspace state
 
@@ -130,7 +135,7 @@ These #97 values belong in app-level `workspace.json`, outside the handoff artif
 
 These values instead belong in settings, not `workspace.json`:
 
-- the `Review purpose` versus `Thread title` display preference;
+- the `Review purpose` versus `Thread-title` display preference;
 - enabled integrations and their metadata-location overrides.
 
 Workspace invariants:
@@ -155,7 +160,8 @@ Extend #99's representative fixture and shared decoder tests to cover:
 - `revised` and `done` if #123 lands before v1 publication;
 - PR identity without observation and every PR observation state/source;
 - invalid observation-without-association and older-observation replacement;
-- current-title observation and unavailable-refresh retention;
+- stable `agentThread` identity without any portable requesting-thread-title observation;
+- proof that private requesting-thread-title observations update every linked review projection and retain the last authoritative value after an unavailable refresh;
 - proof that `workspace.json`, settings, and #131 sidecar data are absent from handoff, clipboard, and agent-visible service output;
 - proof that missing or incompatible private state does not invalidate a compatible `review.json`.
 
