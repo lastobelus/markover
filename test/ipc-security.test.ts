@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 
 import type { IpcMain } from 'electron'
@@ -18,12 +17,13 @@ import {
   type IpcRejectionReason,
   type RendererIpcEntry
 } from '../src/ipc-security'
+import { MARKOVER_RENDERER_ENTRY_URL } from '../src/internal-url'
 import { smokeReviewTree } from '../src/smoke-fixture'
 
 const root = path.resolve(__dirname, '../..')
 
 const entry: RendererIpcEntry = {
-  filePath: '/tmp/Markover App/index.html',
+  url: MARKOVER_RENDERER_ENTRY_URL,
   query: {
     palette: 'ember',
     appearance: 'dark',
@@ -33,14 +33,14 @@ const entry: RendererIpcEntry = {
 }
 
 function entryUrl(overrides: Record<string, string> = {}): string {
-  const url = pathToFileURL(entry.filePath)
+  const url = new URL(entry.url)
   for (const [key, value] of Object.entries({ ...entry.query, ...overrides })) {
     url.searchParams.set(key, value)
   }
   return url.href
 }
 
-test('renderer entry validation requires the exact file and startup query', () => {
+test('renderer entry validation requires the exact internal URL and startup query', () => {
   assert.equal(isExpectedRendererEntryUrl(entryUrl(), entry), true)
   assert.equal(isExpectedRendererEntryUrl(entryUrl({ palette: 'ocean' }), entry), false)
 
@@ -115,7 +115,7 @@ test('privileged IPC rejects forged senders, subframes, URLs, and arguments', ()
     () => invoke({ sender: contents, senderFrame: { url: entryUrl() } }, 'source'),
     /Rejected privileged IPC request/
   )
-  frame.url = pathToFileURL('/tmp/other.html').href
+  frame.url = 'markover-app://app/src/other.html'
   assert.throws(
     () => invoke(event, 'source'),
     /Rejected privileged IPC request/

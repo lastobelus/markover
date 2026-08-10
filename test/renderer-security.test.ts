@@ -13,6 +13,10 @@ const root = path.resolve(__dirname, '../..')
 
 test('main installs renderer boundaries before loading local content', () => {
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+  assert.ok(
+    main.indexOf('protocol.registerSchemesAsPrivileged(') <
+      main.indexOf('app.whenReady()')
+  )
   const createWindow = main.slice(
     main.indexOf('function createWindow('),
     main.indexOf('function repositoryRoot(')
@@ -23,8 +27,9 @@ test('main installs renderer boundaries before loading local content', () => {
   )
   assert.ok(
     createWindow.indexOf('installRendererSecurityBoundaries(') <
-      createWindow.indexOf('window.loadFile(')
+      createWindow.indexOf('window.loadURL(')
   )
+  assert.doesNotMatch(createWindow, /loadFile/)
 })
 
 test('renderer preferences use the exact hardened capability profile', () => {
@@ -45,7 +50,7 @@ test('renderer CSP allows only the required bundled and image surfaces', () => {
     "font-src 'self'",
     "form-action 'none'",
     "frame-src 'none'",
-    "img-src 'self' data: blob: file:",
+    "img-src 'self' data: blob:",
     "media-src 'none'",
     "object-src 'none'",
     "script-src 'self'",

@@ -175,7 +175,7 @@ test('macOS packaging declares an exhaustive fuse and capability policy', () => 
     EnableEmbeddedAsarIntegrityValidation: true,
     OnlyLoadAppFromAsar: true,
     LoadBrowserProcessSpecificV8Snapshot: false,
-    GrantFileProtocolExtraPrivileges: true,
+    GrantFileProtocolExtraPrivileges: false,
     WasmTrapHandlers: true
   })
   assert.doesNotThrow(() => {

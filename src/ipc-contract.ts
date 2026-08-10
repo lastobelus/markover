@@ -457,7 +457,7 @@ function isRendererSmokeResult(value: unknown): value is RendererSmokeResult {
     'blobImage',
     'dataImage',
     'documentsList',
-    'fileImage',
+    'attachmentImage',
     'markdown',
     'navigationDenied',
     'permissionDenied',

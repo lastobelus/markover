@@ -721,13 +721,9 @@ declare global {
   }
 
   interface MarkoverImagePreviewApi {
-    fileUrl: (filePath?: string | null) => string | null
     labelFor: (image?: { id?: string; label?: string } | null) => string
     sourceLabel: (source: string, alt: string) => string
-    sourceUrl: (
-      source: string,
-      documentPath?: string | null
-    ) => string | null
+    sourceUrl: (source: string) => string | null
   }
 
   interface MarkoverNavigationApi {

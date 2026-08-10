@@ -116,7 +116,7 @@ test('main process applies persisted zoom before and after renderer load', () =>
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
   assert.match(
     main,
-    /window\.webContents\.setZoomFactor\(startupSettings\.zoomPercent \/ 100\)[\s\S]*?window\.loadFile/
+    /window\.webContents\.setZoomFactor\(startupSettings\.zoomPercent \/ 100\)[\s\S]*?window\.loadURL/
   )
   assert.match(
     main,

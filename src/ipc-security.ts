@@ -1,5 +1,3 @@
-import { pathToFileURL } from 'node:url'
-
 import type {
   IpcMain,
   IpcMainEvent,
@@ -18,8 +16,8 @@ import {
 } from './ipc-contract'
 
 export interface RendererIpcEntry {
-  filePath: string
   query: Readonly<Record<string, string>>
+  url: string
 }
 
 export interface PrivilegedIpcOptions {
@@ -66,10 +64,10 @@ export function isExpectedRendererEntryUrl(
 ): boolean {
   try {
     const actual = new URL(value)
-    const canonical = pathToFileURL(expected.filePath)
-    return actual.protocol === 'file:' &&
-      actual.username === '' &&
-      actual.password === '' &&
+    const canonical = new URL(expected.url)
+    return actual.protocol === canonical.protocol &&
+      actual.username === canonical.username &&
+      actual.password === canonical.password &&
       actual.host === canonical.host &&
       actual.pathname === canonical.pathname &&
       actual.hash === '' &&
