@@ -1,0 +1,1 @@
+Refresh canonical Markover to current `origin/main` without starting an issue. Preserve all reviews, wait for active CLI requests, gracefully quit, fast-forward `/Users/lasto/projects/markover`, rebuild and relaunch canonical, then verify startup is ready, the renderer uses `markover-app://app`, and the diagnostic pill opens Finder.
