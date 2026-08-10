@@ -1326,6 +1326,7 @@ export async function invokeDecisionGardenerCodex({
   reasoningEffort = 'high',
   repository,
   schemaPath,
+  terminationGraceMs = 5_000,
   timeoutMs = 30 * 60 * 1000
 }: {
   codex?: string
@@ -1337,8 +1338,15 @@ export async function invokeDecisionGardenerCodex({
   reasoningEffort?: 'high' | 'low' | 'medium' | 'xhigh'
   repository: string
   schemaPath: string
+  terminationGraceMs?: number
   timeoutMs?: number
 }): Promise<AuditAgentResult> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) {
+    throw new Error('timeoutMs must be a positive safe integer.')
+  }
+  if (!Number.isSafeInteger(terminationGraceMs) || terminationGraceMs < 1) {
+    throw new Error('terminationGraceMs must be a positive safe integer.')
+  }
   const args = buildDecisionGardenerCodexArgs({
     model, reasoningEffort, repository, schemaPath
   })
@@ -1357,25 +1365,62 @@ export async function invokeDecisionGardenerCodex({
     })
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
-    const timer = setTimeout(() => child.kill('SIGTERM'), timeoutMs)
+    let settled = false
+    let timedOut = false
+    let forceTimer: NodeJS.Timeout | undefined
+    const clearTimers = (): void => {
+      clearTimeout(timeoutTimer)
+      if (forceTimer !== undefined) clearTimeout(forceTimer)
+    }
+    const settleReject = (error: Error): void => {
+      if (settled) return
+      settled = true
+      clearTimers()
+      reject(error)
+    }
+    const settleResolve = (result: AuditAgentResult): void => {
+      if (settled) return
+      settled = true
+      clearTimers()
+      resolve(result)
+    }
+    const timeoutError = (): Error => new Error(
+      `codex exec timed out after ${String(timeoutMs)} ms.`
+    )
+    const timeoutTimer = setTimeout(() => {
+      timedOut = true
+      child.kill('SIGTERM')
+      forceTimer = setTimeout(() => {
+        child.kill('SIGKILL')
+        settleReject(timeoutError())
+      }, terminationGraceMs)
+    }, timeoutMs)
     child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk))
     child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk))
     child.on('error', (error) => {
-      clearTimeout(timer)
-      reject(error)
+      settleReject(error)
+    })
+    child.stdin.on('error', (error) => {
+      child.kill('SIGTERM')
+      settleReject(new Error('codex exec closed stdin before reading the audit input.', {
+        cause: error
+      }))
     })
     child.on('close', (code) => {
-      clearTimeout(timer)
+      if (timedOut) {
+        settleReject(timeoutError())
+        return
+      }
       if (code !== 0) {
-        reject(new Error(
+        settleReject(new Error(
           `codex exec exited ${String(code)}: ${Buffer.concat(stderr).toString('utf8').trim()}`
         ))
         return
       }
       try {
-        resolve(parseCodexAuditJsonl(Buffer.concat(stdout).toString('utf8')))
+        settleResolve(parseCodexAuditJsonl(Buffer.concat(stdout).toString('utf8')))
       } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)))
+        settleReject(error instanceof Error ? error : new Error(String(error)))
       }
     })
     child.stdin.end(stdin)

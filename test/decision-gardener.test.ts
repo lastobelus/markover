@@ -12,6 +12,7 @@ import {
   decisionGardenerChildEnvironment,
   defaultAuditBundleLimits,
   discoverCommitRange,
+  invokeDecisionGardenerCodex,
   loadRequestedContext,
   parseCodexAuditJsonl,
   parseDecisionCheckpoint,
@@ -104,6 +105,26 @@ function completeResult(bundle: DecisionAuditBundle): AuditAgentResult {
     report: emptyReport,
     schemaVersion: 1,
     status: 'complete'
+  }
+}
+
+function invocationBundle(): DecisionAuditBundle {
+  const checkpoint = 'a'.repeat(40)
+  return {
+    checkpoint,
+    commits: [],
+    decisions: {
+      content: `# Decision register\n\n${checkpointPrefix}${checkpoint} -->\n`,
+      path: 'DECISIONS.md',
+      sha256: 'b'.repeat(64)
+    },
+    generatedAt: '2026-08-10T00:00:00.000Z',
+    ownershipSnapshot: {},
+    pathPrefixes: [],
+    paths: [],
+    schemaVersion: 1,
+    target: checkpoint,
+    targetRef: 'origin/main'
   }
 }
 
@@ -492,6 +513,60 @@ test('Codex invocation disables tools, local instructions, network, and credenti
     HOME: '/home',
     PATH: '/bin'
   })
+})
+
+test('Codex invocation rejects stdin EPIPE without crashing the host', async (t) => {
+  const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-codex-epipe-'))
+  t.after(() => fs.rm(repository, { recursive: true, force: true }))
+  const executable = path.join(repository, 'fake-codex')
+  await fs.writeFile(executable, [
+    '#!/usr/bin/env node',
+    "require('node:fs').closeSync(0)",
+    'setTimeout(() => process.exit(9), 250)',
+    ''
+  ].join('\n'), { mode: 0o755 })
+  const bundle = {
+    ...invocationBundle(),
+    ownershipSnapshot: { padding: 'x'.repeat(1024 * 1024) }
+  }
+  await assert.rejects(invokeDecisionGardenerCodex({
+    codex: executable,
+    input: { bundle, contexts: [], round: 0 },
+    model: 'test-model',
+    prompt: '# Test',
+    repository,
+    schemaPath: path.join(repository, 'schema.json'),
+    terminationGraceMs: 50,
+    timeoutMs: 1_000
+  }), /closed stdin/)
+})
+
+test('Codex invocation force-kills a child that ignores its timeout', async (t) => {
+  const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-codex-timeout-'))
+  t.after(() => fs.rm(repository, { recursive: true, force: true }))
+  const executable = path.join(repository, 'fake-codex')
+  await fs.writeFile(executable, [
+    '#!/usr/bin/env python3',
+    'import signal, sys, time',
+    'signal.signal(signal.SIGTERM, signal.SIG_IGN)',
+    'sys.stdin.buffer.read()',
+    'while True: time.sleep(1)',
+    ''
+  ].join('\n'), { mode: 0o755 })
+  const startedAt = Date.now()
+  await assert.rejects(invokeDecisionGardenerCodex({
+    codex: executable,
+    input: { bundle: invocationBundle(), contexts: [], round: 0 },
+    model: 'test-model',
+    prompt: '# Test',
+    repository,
+    schemaPath: path.join(repository, 'schema.json'),
+    terminationGraceMs: 100,
+    timeoutMs: 500
+  }), /timed out after 500 ms/)
+  const elapsed = Date.now() - startedAt
+  assert.ok(elapsed >= 590)
+  assert.ok(elapsed < 2_000)
 })
 
 test('Codex JSONL parser rejects tool activity and accepts one schema result', () => {
