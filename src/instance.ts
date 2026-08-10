@@ -552,12 +552,12 @@ async function resolveCanonicalInstance(
   const validCheckout = descriptor
     ? await canonicalCheckoutIsValid(descriptor)
     : false
-  const blockedBy: ColdStartBlock | null = running
-    ? 'already-running'
-    : !rawDescriptor
-        ? 'canonical-descriptor-missing'
-        : !descriptor || !validCheckout
-            ? 'canonical-checkout-invalid'
+  const blockedBy: ColdStartBlock | null = !rawDescriptor
+    ? 'canonical-descriptor-missing'
+    : !descriptor || !validCheckout
+        ? 'canonical-checkout-invalid'
+        : running
+            ? 'already-running'
             : null
   return {
     version: 1,

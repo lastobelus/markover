@@ -266,7 +266,9 @@ function assertExactTarget(
 function stoppedInstance(instance: ResolvedInstance): ResolvedInstance {
   return {
     ...instance,
-    coldStart: { eligible: true, blockedBy: null },
+    coldStart: instance.coldStart.blockedBy === 'already-running'
+      ? { eligible: true, blockedBy: null }
+      : instance.coldStart,
     process: { status: 'stopped' }
   }
 }
@@ -391,6 +393,15 @@ export class DevelopmentInstanceManager {
   }
 
   private assertRestartEligible(instance: ResolvedInstance): void {
+    if (
+      instance.identity.kind === 'canonical' &&
+      instance.coldStart.blockedBy !== null &&
+      instance.coldStart.blockedBy !== 'already-running'
+    ) {
+      throw new Error(
+        `Cannot restart ${instance.identity.key}: ${instance.coldStart.blockedBy}.`
+      )
+    }
     if (
       instance.identity.kind === 'development' &&
       instance.pullRequest?.state !== 'open'

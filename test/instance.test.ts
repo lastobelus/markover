@@ -169,7 +169,7 @@ test('a running canonical service remains routable without a start descriptor', 
   assert.deepEqual(resolved.process, { status: 'running' })
   assert.deepEqual(resolved.coldStart, {
     eligible: false,
-    blockedBy: 'already-running'
+    blockedBy: 'canonical-descriptor-missing'
   })
   assert.equal(resolved.checkout, null)
 })

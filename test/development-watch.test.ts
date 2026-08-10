@@ -513,6 +513,38 @@ test('restart fails closed when resolution changes checkout identity', async () 
   assert.equal(killed, false)
 })
 
+test('restart validates a running canonical checkout before shutdown', async () => {
+  let killed = false
+  let launched = false
+  const invalidCanonical = canonicalInstance('running')
+  invalidCanonical.coldStart = {
+    eligible: false,
+    blockedBy: 'canonical-checkout-invalid'
+  }
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('running'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      launch() {
+        launched = true
+        return { exitCode: null, pid: 90211, signalCode: null }
+      },
+      quit() {
+        killed = true
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve(invalidCanonical)
+      }
+    }
+  )
+
+  await assert.rejects(manager.restart(), /canonical-checkout-invalid/)
+  assert.equal(killed, false)
+  assert.equal(launched, false)
+})
+
 test('loop stop requests managed quit and waits for the addressed process', async () => {
   const events: string[] = []
   let running = true
