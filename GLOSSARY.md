@@ -6,7 +6,7 @@ Every entry starts with `## term::`, so the index is available with `rg '^## .*:
 
 ## agent handoff loop::
 
-The normal `open` → human review → `get` workflow, with `edit` used when the human needs another feedback pass.
+The normal `open` → human review → `get` → agent response → `revise` workflow, with `edit` used when the human changes a handoff before the agent finishes.
 
 ## annotated-only view::
 
@@ -113,6 +113,12 @@ Use **review tree** for the serialized data structure and **document tree** for 
 An operation that must capture and persist the exact latest review state before acknowledging success.
 
 Handoff, reopen, and graceful shutdown are durability barriers; ordinary mutations may use bounded autosave scheduling.
+
+## done::
+
+The persisted terminal review status indicating that the associated pull request has been verified as merged.
+
+An agent reports the merge through the PR-scoped `done` command; Markover does not infer or poll for it.
 
 ## editing::
 
@@ -230,6 +236,12 @@ The UI label is **WITH AGENT · READ ONLY**. Prefer *pending-agent* for code and
 
 The planned effective interpretation policy copied into a review when it opens so later settings changes cannot alter that review's handoffs.
 
+## pull-request status observation::
+
+A timestamped `draft`, `open`, `merged`, or `closed` value supplied by an agent after a live GitHub lookup.
+
+It records source `agent` in the review envelope. Issue #126 owns replacing these opportunistic observations with optional authoritative GitHub refresh.
+
 ## protocol 2::
 
 The clean-break local-service protocol with capability authorization and paired endpoint and credential records.
@@ -274,7 +286,7 @@ It is not the whole review artifact or the review tree.
 
 ## review ID::
 
-The opaque `mko_…` identifier for one managed review, used by later `get`, `edit`, activation, and deep-link operations.
+The opaque `mko_…` identifier for one managed review, used by later `get`, `edit`, `revise`, activation, and deep-link operations.
 
 Opening identical source twice still creates two review IDs because purpose, context, and annotations may differ.
 
@@ -315,6 +327,12 @@ Annotations and source edits may change; the source content, checksum, block IDs
 The serialized deterministic hierarchy of review blocks for one source document, including mutable annotation state.
 
 Use **document tree** for the central UI view of this structure.
+
+## revised::
+
+The persisted read-only review status indicating that the agent has acted on every part of the handed-off feedback.
+
+A later feedback round opens a new independent review; revision lineage and version ordinals are deferred to issue #128.
 
 ## roadmap status ledger::
 

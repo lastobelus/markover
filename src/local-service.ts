@@ -16,12 +16,13 @@ import {
   SERVICE_INSTANCE_PATTERN,
   type ServiceIdentity
 } from './service-endpoint'
+import { isPullRequestStatus } from './pull-request'
 
 export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
 
 interface ReviewRoute {
   reviewId: string
-  action: 'activate' | 'handoff' | 'edit' | null
+  action: 'activate' | 'handoff' | 'edit' | 'revise' | null
 }
 
 export interface LocalService {
@@ -41,16 +42,23 @@ export interface LocalServiceOptions {
   identity: ServiceIdentity
   store: Pick<
     ReviewStore,
-    'create' | 'edit' | 'handoff' | 'list' | 'load'
+    | 'create'
+    | 'done'
+    | 'edit'
+    | 'handoff'
+    | 'list'
+    | 'load'
+    | 'matchingPullRequestReviews'
+    | 'revise'
   >
   beforeAction?: ((
     reviewId: string,
-    action: 'handoff' | 'edit'
+    action: 'handoff' | 'edit' | 'done'
   ) => Promise<undefined | (() => void | Promise<void>)>) | undefined
   onActivate?: ((reviewId: string) => Promise<ReviewActivationResult>) | undefined
   onChange?: ((
     artifact: ReviewArtifact,
-    action: 'created' | 'handoff' | 'edit'
+    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done'
   ) => void | Promise<void>) | undefined
   onQuit?: (() => void) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
@@ -112,23 +120,28 @@ function errorStatus(error: unknown): number {
   if (
     code === 'INVALID_ID' ||
     code === 'INVALID_JSON' ||
+    code === 'INVALID_PULL_REQUEST' ||
+    code === 'INVALID_PULL_REQUEST_STATUS' ||
     code === 'INVALID_REVIEW' ||
+    code === 'PULL_REQUEST_REQUIRED' ||
     code === 'REVIEW_MISMATCH'
   ) {
     return 400
   }
-  if (code === 'NOT_EDITABLE') return 409
+  if (code === 'INVALID_TRANSITION' || code === 'NOT_EDITABLE') return 409
   if (code === 'SHUTTING_DOWN') return 503
   if (code === 'BODY_TOO_LARGE') return 413
   return 500
 }
 
 export function reviewRoute(pathname: string): ReviewRoute | null {
-  const match = /^\/reviews\/([^/]+)(?:\/(activate|handoff|edit))?$/.exec(pathname)
+  const match = /^\/reviews\/([^/]+)(?:\/(activate|handoff|edit|revise))?$/.exec(pathname)
   if (!match) return null
   return {
     reviewId: decodeURIComponent(match[1] as string),
-    action: (match[2] as 'activate' | 'handoff' | 'edit' | undefined) || null
+    action: (
+      match[2] as 'activate' | 'handoff' | 'edit' | 'revise' | undefined
+    ) || null
   }
 }
 
@@ -272,6 +285,7 @@ export async function startLocalService({
             agentThread: metadata.agentThread,
             git: metadata.git,
             pullRequest: metadata.pullRequest,
+            pullRequestStatus: record.pullRequestStatus,
             interpretationPolicy: interpretationPolicy?.()
           }
           const created = await store.create(createInput)
@@ -303,11 +317,88 @@ export async function startLocalService({
       }
 
       if (
+        request.method === 'POST' &&
+        url.pathname === '/reviews/done'
+      ) {
+        const result = await runMutation(async () => {
+          const body = await readJson(request)
+          const record = isRecord(body) ? body : {}
+          const pullRequestUrl = record.pullRequestUrl
+          const pullRequestStatus = record.pullRequestStatus
+          if (typeof pullRequestUrl !== 'string') {
+            throw serviceError(
+              'INVALID_PULL_REQUEST',
+              'Done requires a GitHub pull request URL.'
+            )
+          }
+          if (!isPullRequestStatus(pullRequestStatus)) {
+            throw serviceError(
+              'INVALID_PULL_REQUEST_STATUS',
+              'Done requires a pull request status.'
+            )
+          }
+          const candidates = await store.matchingPullRequestReviews(
+            pullRequestUrl
+          )
+          const rollbacks: Array<() => void | Promise<void>> = []
+          try {
+            for (const candidate of candidates) {
+              if (candidate.review.status !== 'editing') continue
+              const rollback = await beforeAction(
+                candidate.review.id,
+                'done'
+              )
+              if (rollback) rollbacks.push(rollback)
+            }
+            const completed = await store.done(
+              pullRequestUrl,
+              pullRequestStatus
+            )
+            for (const artifact of completed.reviews) {
+              await onChange(artifact, 'done')
+            }
+            return completed
+          } catch (error) {
+            await Promise.allSettled(rollbacks.map(async (rollback) => {
+              await rollback()
+            }))
+            throw error
+          }
+        })
+        sendJson(response, 200, {
+          pullRequestUrl: result.pullRequestUrl,
+          reviewIds: result.reviews.map((artifact) => artifact.review.id),
+          status: result.status
+        })
+        return
+      }
+
+      if (
         route &&
         request.method === 'POST' &&
-        (route.action === 'handoff' || route.action === 'edit')
+        (
+          route.action === 'handoff' ||
+          route.action === 'edit' ||
+          route.action === 'revise'
+        )
       ) {
         const action = route.action
+        const body = await readJson(request)
+        const record = isRecord(body) ? body : {}
+        const suppliedPullRequestStatus = record.pullRequestStatus
+        if (
+          suppliedPullRequestStatus !== undefined &&
+          suppliedPullRequestStatus !== null &&
+          !isPullRequestStatus(suppliedPullRequestStatus)
+        ) {
+          throw serviceError(
+            'INVALID_PULL_REQUEST_STATUS',
+            'Invalid pull request status.'
+          )
+        }
+        const pullRequestStatus = isPullRequestStatus(
+          suppliedPullRequestStatus
+        ) ? suppliedPullRequestStatus : undefined
         const artifact = await runMutation(() => (
           serializeReviewAction(route.reviewId, async () => {
             let rollbackHandoff: undefined | (() => void | Promise<void>)
@@ -320,8 +411,10 @@ export async function startLocalService({
             let changed
             try {
               changed = action === 'handoff'
-                ? await store.handoff(route.reviewId)
-                : await store.edit(route.reviewId)
+                ? await store.handoff(route.reviewId, pullRequestStatus)
+                : action === 'revise'
+                  ? await store.revise(route.reviewId, pullRequestStatus)
+                  : await store.edit(route.reviewId)
             } catch (error) {
               if (rollbackHandoff) await rollbackHandoff()
               throw error

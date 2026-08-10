@@ -182,6 +182,16 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
       error: 'Snapshot failed.'
     }])
     assertMainEventArguments('review:shutdown-state', [true])
+    assertMainEventArguments('review:status', [{
+      requestId: 'status-1',
+      reviewId: 'mko_abcdef',
+      status: 'revised'
+    }])
+    assertMainEventArguments('review:status', [{
+      requestId: 'status-2',
+      reviewId: 'mko_abcdef',
+      status: 'done'
+    }])
     assertRendererInvokeArguments('window:focus-state:get', [])
     assertRendererInvokeResult('window:focus-state:get', {
       focused: false,

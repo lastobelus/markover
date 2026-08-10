@@ -38,11 +38,13 @@ test('guidance combines the fixed contract with a replaceable policy', () => {
 })
 
 test('generic and dedicated agent guidance preserve the same semantics', async () => {
-  const [agents, agentGuide, humanGuide, development] = await Promise.all([
+  const [agents, agentGuide, humanGuide, development, babysit, cli] = await Promise.all([
     read('AGENTS.md'),
     read('docs/user/agents/index.html'),
     read('docs/user/guide/index.html'),
-    read('docs/developer/development.md')
+    read('docs/developer/development.md'),
+    read('.agents/skills/babysit/SKILL.md'),
+    read('scripts/markover.ts')
   ])
 
   assert.match(agents, /review\.agentGuidance\.fixedContract/)
@@ -52,11 +54,18 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(agents, /back-and-forth human QA/)
   assert.match(agents, /keep\s+`npm run dev` running from the owning checkout/)
   assert.match(agents, /after the loop reports `ready`/)
+  assert.match(agents, /help payload's `pullRequestStatus` contract/)
+  assert.match(agents, /run `revise <reviewId>`/)
   assert.match(agentGuide, /does not classify annotations into rigid types or apply changes itself/)
   assert.match(agentGuide, /substantively address discussion and concerns/)
   assert.match(agentGuide, /Use your judgment to respond to the review and make useful revisions\./)
   assert.match(agentGuide, /Removed X—.*it had no place there/)
   assert.match(agentGuide, /Possible stricter policies/)
+  assert.match(agentGuide, /id="revise"/)
+  assert.match(agentGuide, /id="done"/)
+  assert.match(babysit, /machine-readable\s+help[\s\S]*`pullRequestStatus`/)
+  assert.match(babysit, /Run `done`/)
+  assert.match(cli, /gh pr view <pull-request-url-or-number> --json state,isDraft,url/)
   assert.doesNotMatch(humanGuide, /markover get|markover edit|Default policy|Possible stricter policies/)
   assert.match(development, /Agent-facing instructions must preserve the contract/)
   assert.match(development, /substantive engagement with discussion and concerns/)

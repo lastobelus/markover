@@ -33,7 +33,7 @@ function commandUsage(error: unknown): string | undefined {
     : undefined
 }
 
-test('parses open, get, and edit commands', () => {
+test('parses lifecycle commands and PR observations', () => {
   assert.deepEqual(
     parseCommandArguments([
       'open',
@@ -48,12 +48,43 @@ test('parses open, get, and edit commands', () => {
       branch: null,
       handoffKey: null,
       pullRequestNumber: null,
+      pullRequestStatus: null,
       threadId: null
     }
   )
   assert.deepEqual(
     parseCommandArguments(['get', 'mko_aaa11111']),
-    { command: 'get', reviewId: 'mko_aaa11111' }
+    {
+      command: 'get',
+      reviewId: 'mko_aaa11111',
+      pullRequestStatus: null
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments([
+      'revise',
+      'mko_aaa11111',
+      '--pr-status',
+      'open'
+    ]),
+    {
+      command: 'revise',
+      reviewId: 'mko_aaa11111',
+      pullRequestStatus: 'open'
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments([
+      'done',
+      'https://github.com/lastobelus/markover/pull/123',
+      '--pr-status',
+      'merged'
+    ]),
+    {
+      command: 'done',
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/123',
+      pullRequestStatus: 'merged'
+    }
   )
   assert.deepEqual(
     parseCommandArguments(['edit', 'mko_aaa11111']),
@@ -67,7 +98,8 @@ test('development targeting is worktree-local and cleanup requires an exact iden
     {
       command: 'get',
       instance: 'development',
-      reviewId: 'mko_aaa11111'
+      reviewId: 'mko_aaa11111',
+      pullRequestStatus: null
     }
   )
   assert.deepEqual(
@@ -164,6 +196,13 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
     helpPayload().workflow.join(' '),
     /review\.agentGuidance\.fixedContract/
   )
+  assert.equal(
+    helpPayload().pullRequestStatus.lookup,
+    'gh pr view <pull-request-url-or-number> --json state,isDraft,url'
+  )
+  assert.match(helpPayload().pullRequestStatus.failure, /does not block/)
+  assert.match(helpPayload().workflow.join(' '), /run revise once/)
+  assert.match(helpPayload().workflow.join(' '), /--pr-status merged/)
 
   const misuse = spawnSync(process.execPath, [cliPath, 'wat'], {
     encoding: 'utf8'
@@ -171,7 +210,10 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.equal(misuse.status, 1)
   assert.equal(misuse.stdout, '')
   assert.match(misuse.stderr, /Unknown command: wat/)
-  assert.match(misuse.stderr, /Usage: markover <open\|get\|edit\|cleanup\|help>/)
+  assert.match(
+    misuse.stderr,
+    /Usage: markover <open\|get\|revise\|done\|edit\|cleanup\|help>/
+  )
   assert.match(
     misuse.stderr,
     /Run "npm --silent run markover -- help" for complete usage\./
@@ -215,6 +257,8 @@ test('parses explicit review metadata', () => {
       'mko_handoff_0123456789abcdef',
       '--pr',
       '42',
+      '--pr-status',
+      'draft',
       '--thread-id',
       'thread-123'
     ]),
@@ -225,6 +269,7 @@ test('parses explicit review metadata', () => {
       branch: 'feature/review-inbox',
       handoffKey: 'mko_handoff_0123456789abcdef',
       pullRequestNumber: 42,
+      pullRequestStatus: 'draft',
       threadId: 'thread-123'
     }
   )
@@ -352,6 +397,7 @@ test('executes CLI commands against the local service', async (t) => {
       return Promise.resolve({
         git: parsed.branch ? {
           branch: parsed.branch,
+          repositoryUrl: 'git@github.com:lastobelus/markover.git',
           sources: { branch: 'explicit' as const }
         } : null,
         pullRequest: parsed.pullRequestNumber ? {
@@ -395,11 +441,13 @@ test('executes CLI commands against the local service', async (t) => {
   assert.equal(handedOff.review.contextSummary, 'Review exact source.')
   assert.deepEqual(handedOff.review.git, {
     branch: 'feature/review-inbox',
+    repositoryUrl: 'git@github.com:lastobelus/markover.git',
     sources: { branch: 'explicit' }
   })
   assert.deepEqual(handedOff.review.pullRequest, {
     number: 42,
-    discovery: 'explicit'
+    discovery: 'explicit',
+    url: 'https://github.com/lastobelus/markover/pull/42'
   })
   assert.deepEqual(handedOff.review.agentThread, {
     provider: 'codex',
@@ -413,6 +461,37 @@ test('executes CLI commands against the local service', async (t) => {
       reviewId: 'mko_aaa11111'
     }, options),
     { reviewId: 'mko_aaa11111', status: 'editing' }
+  )
+
+  const observedHandoff = await executeCommand({
+    command: 'get',
+    reviewId: 'mko_aaa11111',
+    pullRequestStatus: 'open'
+  }, options)
+  assertReviewArtifact(observedHandoff, 'mko_aaa11111')
+  assert.equal(
+    (observedHandoff.review.pullRequest as Record<string, unknown>).status,
+    'open'
+  )
+  assert.deepEqual(
+    await executeCommand({
+      command: 'revise',
+      reviewId: 'mko_aaa11111',
+      pullRequestStatus: 'open'
+    }, options),
+    { reviewId: 'mko_aaa11111', status: 'revised' }
+  )
+  assert.deepEqual(
+    await executeCommand({
+      command: 'done',
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/42',
+      pullRequestStatus: 'merged'
+    }, options),
+    {
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/42',
+      reviewIds: ['mko_aaa11111'],
+      status: 'done'
+    }
   )
 
   assert.deepEqual(

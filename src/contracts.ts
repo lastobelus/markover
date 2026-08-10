@@ -427,6 +427,8 @@ declare global {
   type ReviewSessionStatus =
     | 'editing'
     | 'pending-agent'
+    | 'revised'
+    | 'done'
     | 'handoff-in-progress'
 
   interface MarkoverBrandAssets {
