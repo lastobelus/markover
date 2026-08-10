@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { watch, type FSWatcher } from 'node:fs'
+import { realpathSync, watch, type FSWatcher } from 'node:fs'
 import path from 'node:path'
 
 import { DEVELOPMENT_CONTROL_QUIT } from '../src/development-control'
@@ -178,6 +178,14 @@ interface WatchTarget {
   selector: NonNullable<ParsedStartArguments['selector']>
 }
 
+function realPath(filePath: string): string {
+  try {
+    return realpathSync(filePath)
+  } catch {
+    return path.resolve(filePath)
+  }
+}
+
 export interface DevelopmentInstanceManagerOptions {
   checkoutDirectory?: string | undefined
   isProcessAlive?: ((pid: number) => boolean) | undefined
@@ -224,8 +232,8 @@ function targetFromInstance(
       `Cannot watch ${instance.identity.key}: its checkout is unavailable.`
     )
   }
-  const checkout = path.resolve(instance.checkout)
-  if (checkout !== path.resolve(checkoutDirectory)) {
+  const checkout = realPath(instance.checkout)
+  if (checkout !== realPath(checkoutDirectory)) {
     throw new Error(
       `Cannot watch ${instance.identity.key}: run the loop from its owning checkout ${checkout}.`
     )
@@ -247,7 +255,7 @@ function assertExactTarget(
   if (
     instance.identity.key !== target.identityKey ||
     !instance.checkout ||
-    path.resolve(instance.checkout) !== target.checkout
+    realPath(instance.checkout) !== target.checkout
   ) {
     throw new Error(
       `Resolved ${instance.identity.key} does not match watched ${target.identityKey}.`

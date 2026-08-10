@@ -54,6 +54,53 @@ function fail(error) {
   process.stderr.write(`markover dev bootstrap: ${message}\n`)
 }
 
+function preflightBootstrapSource(source) {
+  const inertWatcher = {
+    close() {},
+    on() { return inertWatcher }
+  }
+  const inertLoop = {
+    notify() { return true },
+    stop() { return Promise.resolve() }
+  }
+  const preflightRequire = (specifier) => {
+    if (specifier === 'node:fs') {
+      return {
+        readFileSync,
+        watch() { return inertWatcher }
+      }
+    }
+    if (specifier === 'node:path') return path
+    if (specifier === 'node:vm') return { Script }
+    if (specifier === 'esbuild') {
+      return {
+        buildSync() { return { metafile: { inputs: {} } } }
+      }
+    }
+    return { main() { return Promise.resolve(inertLoop) } }
+  }
+  preflightRequire.cache = {}
+  preflightRequire.resolve = (specifier) => specifier
+  const preflightProcess = {
+    argv: ['node', __filename, ...process.argv.slice(2)],
+    exit(code) { throw new Error(`Bootstrap preflight exited ${String(code)}.`) },
+    exitCode: 0,
+    off() {},
+    on() {},
+    stderr: { write() {} }
+  }
+  const inertTimer = () => ({})
+  new Script(source, { filename: __filename }).runInNewContext({
+    Buffer,
+    __dirname,
+    __filename,
+    clearTimeout() {},
+    process: preflightProcess,
+    require: preflightRequire,
+    setTimeout: inertTimer
+  })
+}
+
 function isArgumentError(error) {
   return error !== null &&
     typeof error === 'object' &&
@@ -171,7 +218,7 @@ function removeSignalHandlers() {
 async function reloadBootstrap() {
   if (stopping) return
   try {
-    new Script(readFileSync(__filename, 'utf8'), { filename: __filename })
+    preflightBootstrapSource(readFileSync(__filename, 'utf8'))
   } catch (error) {
     fail(error)
     process.stderr.write(

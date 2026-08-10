@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import vm from 'node:vm'
@@ -86,7 +87,7 @@ test('development command bootstraps before the first application build', async 
   assert.match(bootstrap, /requestBootstrapReload\(\)/)
   assert.match(bootstrap, /delete require\.cache\[resolvedBootstrap\]/)
   assert.match(bootstrap, /process\.off\(signal, handler\)/)
-  assert.match(bootstrap, /new Script\(readFileSync\(__filename/)
+  assert.match(bootstrap, /preflightBootstrapSource\(readFileSync\(__filename/)
   assert.match(bootstrap, /process\.exitCode = 1\s+void stop\('SIGHUP'\)/)
   assert.match(bootstrap, /Keeping the bootstrap watcher active/)
   assert.match(bootstrap, /INVALID_START_ARGUMENT/)
@@ -110,7 +111,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   const requiredSpecifiers: string[] = []
   const stops: NodeJS.Signals[] = []
   const timers: Array<() => void> = []
-  let bootstrapValid = true
+  let bootstrapPreflightError: 'runtime' | 'syntax' | null = null
   let mainCalls = 0
   let watchCallback: (
     event: string,
@@ -154,7 +155,16 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
     if (specifier === 'node:vm') {
       return {
         Script: function Script() {
-          if (!bootstrapValid) throw new SyntaxError('invalid bootstrap')
+          if (bootstrapPreflightError === 'syntax') {
+            throw new SyntaxError('invalid bootstrap')
+          }
+          return {
+            runInNewContext() {
+              if (bootstrapPreflightError === 'runtime') {
+                throw new ReferenceError('missing bootstrap dependency')
+              }
+            }
+          }
         }
       }
     }
@@ -215,7 +225,7 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
 
   assert.deepEqual(stops, ['SIGHUP'])
 
-  bootstrapValid = false
+  bootstrapPreflightError = 'syntax'
   watchCallback('change', 'scripts/development-watch-bootstrap.js')
   assert.equal(timers.length, 1)
   timers.shift()?.()
@@ -224,7 +234,16 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   assert.deepEqual(stops, ['SIGHUP'])
   assert.deepEqual(exits, [])
 
-  bootstrapValid = true
+  bootstrapPreflightError = 'runtime'
+  watchCallback('change', 'scripts/development-watch-bootstrap.js')
+  assert.equal(timers.length, 1)
+  timers.shift()?.()
+  await wait(1)
+
+  assert.deepEqual(stops, ['SIGHUP'])
+  assert.deepEqual(exits, [])
+
+  bootstrapPreflightError = null
   watchCallback('change', 'scripts/development-watch-bootstrap.js')
   assert.equal(timers.length, 1)
   timers.shift()?.()
@@ -688,4 +707,22 @@ test('watcher refuses a running instance owned by another checkout', () => {
     ),
     /run the loop from its owning checkout \/checkouts\/markover/
   )
+})
+
+test('watcher accepts a checkout alias with the same real path', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-watch-'))
+  const checkout = path.join(directory, 'checkout')
+  const alias = path.join(directory, 'checkout-alias')
+  try {
+    await fs.mkdir(checkout)
+    await fs.symlink(checkout, alias)
+
+    assert.doesNotThrow(() => new DevelopmentInstanceManager(
+      canonicalInstance('stopped', alias),
+      [],
+      { checkoutDirectory: checkout }
+    ))
+  } finally {
+    await fs.rm(directory, { force: true, recursive: true })
+  }
 })
