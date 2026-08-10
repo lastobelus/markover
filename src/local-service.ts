@@ -52,6 +52,7 @@ export interface LocalServiceOptions {
     artifact: ReviewArtifact,
     action: 'created' | 'handoff' | 'edit'
   ) => void | Promise<void>) | undefined
+  onQuit?: (() => void) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
   interpretationPolicy?: (() => string) | undefined
 }
@@ -140,6 +141,7 @@ export async function startLocalService({
     'Review activation is unavailable.'
   )),
   onChange = () => {},
+  onQuit = () => {},
   onUnauthorized = () => {},
   interpretationPolicy
 }: LocalServiceOptions): Promise<LocalService> {
@@ -247,6 +249,12 @@ export async function startLocalService({
       }
 
       const url = new URL(request.url || '', 'http://127.0.0.1')
+
+      if (request.method === 'POST' && url.pathname === '/quit') {
+        sendJson(response, 202, { status: 'quitting' })
+        setImmediate(onQuit)
+        return
+      }
 
       if (request.method === 'GET' && url.pathname === '/reviews') {
         sendJson(response, 200, { reviews: await store.list() })

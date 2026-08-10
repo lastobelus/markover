@@ -24,6 +24,7 @@ import { pathToFileURL } from 'node:url'
 import { aboutPanelOptions } from './about-panel'
 import { applicationMenuTemplate } from './app-menu'
 import { AsyncMutationTracker } from './async-mutation-tracker'
+import { isDevelopmentControlQuit } from './development-control'
 import { loadDevelopmentConfig } from './development-config'
 import {
   persistReviewSnapshots,
@@ -154,6 +155,9 @@ function errorMessage(error: unknown): string {
 const addressedInstance = runtimeInstanceFromEnvironment()
 app.setName(addressedInstance.branding.appName)
 process.title = addressedInstance.branding.appName
+process.on('message', (message) => {
+  if (isDevelopmentControlQuit(message)) app.quit()
+})
 
 const projectDirectory = path.resolve(__dirname, '..')
 const checkoutDirectory = addressedInstance.checkout
@@ -1380,6 +1384,9 @@ async function startAndPublishService(): Promise<void> {
     interpretationPolicy: () => store.settings.agentInterpretationPolicy,
     beforeAction: flushManagedReview,
     onActivate: activateManagedReview,
+    onQuit() {
+      app.quit()
+    },
     async onChange(artifact, action) {
       if (action === 'created') {
         try {

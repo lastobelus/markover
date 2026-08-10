@@ -101,6 +101,18 @@ active CLI request finish, then rely on persisted managed-review state to
 return. Bounded-loss crash/restart durability is tracked separately in issue
 39; do not fold that work into authorization changes.
 
+## Human QA development loop
+
+When UI, interaction, or native-app work needs back-and-forth human QA, ask the
+user for a QA window before launching or focusing Markover, then keep
+`npm run dev` running from the owning checkout. Use
+`npm run dev -- --instance dev` when the pull-request instance must be explicit.
+Make the next change only after the loop reports `ready`, invite the user to
+check that exact instance, and keep the same loop alive across feedback rounds.
+Run one loop per addressed instance; finish deterministic checks separately
+with `npm run ci:local`. If the loop reports a failed build or startup, fix the
+cause and let the next edit drive recovery rather than starting another app.
+
 ## Git checkpoints
 
 Commit completed work at natural checkpoints. In particular, when the user

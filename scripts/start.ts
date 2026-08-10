@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -22,6 +22,15 @@ export interface ParsedStartArguments {
   appArguments: string[]
 }
 
+export class StartArgumentError extends Error {
+  readonly code = 'INVALID_START_ARGUMENT'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'StartArgumentError'
+  }
+}
+
 export function parseStartArguments(args: readonly string[]): ParsedStartArguments {
   let selector: ParsedStartArguments['selector'] = null
   const appArguments: string[] = []
@@ -31,10 +40,12 @@ export function parseStartArguments(args: readonly string[]): ParsedStartArgumen
       if (argument !== undefined) appArguments.push(argument)
       continue
     }
-    if (selector !== null) throw new Error('--instance may be specified only once.')
+    if (selector !== null) {
+      throw new StartArgumentError('--instance may be specified only once.')
+    }
     const value = args[index + 1]
     if (value !== 'canonical' && value !== 'dev') {
-      throw new Error('--instance requires canonical or dev.')
+      throw new StartArgumentError('--instance requires canonical or dev.')
     }
     selector = value === 'dev' ? 'development' : 'canonical'
     index += 1
@@ -97,24 +108,50 @@ export async function resolveStartInstance(
   return instance
 }
 
-export async function main(args = process.argv.slice(2)): Promise<void> {
-  const parsed = parseStartArguments(args)
-  const instance = await resolveStartInstance(parsed)
+export interface LaunchResolvedInstanceOptions {
+  detached?: boolean
+  environment?: NodeJS.ProcessEnv
+  ipc?: boolean
+  spawnProcess?: typeof spawn
+}
+
+export function launchResolvedInstance(
+  instance: ResolvedInstance,
+  appArguments: readonly string[],
+  {
+    detached = false,
+    environment = process.env,
+    ipc = false,
+    spawnProcess = spawn
+  }: LaunchResolvedInstanceOptions = {}
+): ChildProcess {
   const loadedElectron: unknown = loadModule('electron')
   if (typeof loadedElectron !== 'string') {
     throw new Error('Electron executable path is unavailable.')
   }
-  const environment: NodeJS.ProcessEnv = {
-    ...process.env,
+  const childEnvironment: NodeJS.ProcessEnv = {
+    ...environment,
     [RESOLVED_INSTANCE_ENVIRONMENT]: resolvedInstanceEnvironment(instance)
   }
-  delete environment.ELECTRON_RUN_AS_NODE
+  delete childEnvironment.ELECTRON_RUN_AS_NODE
 
-  const child = spawn(
+  return spawnProcess(
     loadedElectron,
-    [appDirectory, ...parsed.appArguments],
-    { env: environment, stdio: 'inherit' }
+    [appDirectory, ...appArguments],
+    {
+      detached,
+      env: childEnvironment,
+      stdio: ipc
+        ? ['inherit', 'inherit', 'inherit', 'ipc']
+        : 'inherit'
+    }
   )
+}
+
+export async function main(args = process.argv.slice(2)): Promise<void> {
+  const parsed = parseStartArguments(args)
+  const instance = await resolveStartInstance(parsed)
+  const child = launchResolvedInstance(instance, parsed.appArguments)
   child.on('exit', (code) => {
     process.exit(code ?? 0)
   })
