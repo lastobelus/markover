@@ -32,6 +32,11 @@ import {
   type ResolvedInstance
 } from '../src/instance'
 import { reviewUrl } from '../src/review-url'
+import {
+  isPullRequestStatus,
+  parseGitHubPullRequestUrl,
+  type PullRequestStatus
+} from '../src/pull-request'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
@@ -55,7 +60,17 @@ interface ParsedInstanceTarget {
 export type ParsedCommand = ParsedInstanceTarget & (
   | { command: 'help' }
   | { command: 'cleanup'; expectedIdentity: `pr-${number}` }
-  | { command: 'get' | 'edit'; reviewId: string }
+  | { command: 'edit'; reviewId: string }
+  | {
+      command: 'get' | 'revise'
+      reviewId: string
+      pullRequestStatus?: PullRequestStatus | null
+    }
+  | {
+      command: 'done'
+      pullRequestUrl: string
+      pullRequestStatus: 'merged'
+    }
   | {
       command: 'open'
       sourcePath: string
@@ -63,6 +78,8 @@ export type ParsedCommand = ParsedInstanceTarget & (
       branch?: string | null
       handoffKey?: string | null
       pullRequestNumber?: number | null
+      pullRequestUrl?: string | null
+      pullRequestStatus?: PullRequestStatus | null
       threadId?: string | null
     }
 )
@@ -114,19 +131,44 @@ export function helpPayload() {
       'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
-      'If the user wants to add feedback afterward, run edit before asking them to continue.'
+      'After acting on every part of the review, run revise once so Markover records the completed handoff.',
+      'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get or revise, preserving the review ID also preserves the last successful observation.',
+      'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
+      'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.'
     ],
+    pullRequestStatus: {
+      lookup: 'gh pr view <pull-request-url-or-number> --json state,isDraft,url',
+      mapping: {
+        draft: 'isDraft is true',
+        open: 'isDraft is false and state is OPEN',
+        merged: 'state is MERGED',
+        closed: 'state is CLOSED'
+      },
+      values: ['draft', 'open', 'merged', 'closed'],
+      persistence: 'A successful observation is stored with its receipt time and source agent. A missing --pr-status preserves the last successful observation.',
+      failure: 'A failed lookup does not block open, get, or revise. Continue without --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. done requires a verified merged observation.'
+    },
     defaultAgentGuidance,
     commands: [
       {
         name: 'open',
-        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number>] [--thread-id <id>] [--handoff-key <key>]',
+        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <id>] [--handoff-key <key>]',
         purpose: 'Open a durable, non-blocking review and print {reviewId,status,reviewUrl} as JSON.'
       },
       {
         name: 'get',
-        usage: 'get <review-id>',
+        usage: 'get <review-id> [--pr-status <draft|open|merged|closed>]',
         purpose: 'Freeze one review and print its complete markover-review JSON.'
+      },
+      {
+        name: 'revise',
+        usage: 'revise <review-id> [--pr-status <draft|open|merged|closed>]',
+        purpose: 'Record that the agent acted on every part of a frozen review.'
+      },
+      {
+        name: 'done',
+        usage: 'done <pull-request-url> --pr-status merged',
+        purpose: 'Mark every local review associated with a verified merged pull request Done.'
       },
       {
         name: 'edit',
@@ -195,6 +237,8 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   if (
     command !== 'open' &&
     command !== 'get' &&
+    command !== 'revise' &&
+    command !== 'done' &&
     command !== 'edit' &&
     command !== 'cleanup'
   ) {
@@ -212,7 +256,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       `Unknown command: ${command}`,
-      'markover <open|get|edit|cleanup|help> ...'
+      'markover <open|get|revise|done|edit|cleanup|help> ...'
     )
   }
 
@@ -240,15 +284,61 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     })
   }
 
-  if (command === 'get' || command === 'edit') {
-    const reviewId = rest[0]
-    if (rest.length !== 1 || reviewId === undefined || reviewId.startsWith('--')) {
+  if (command === 'done') {
+    const pullRequestUrl = rest[0]
+    const option = rest[1]
+    const status = rest[2]
+    if (
+      rest.length !== 3 ||
+      !pullRequestUrl ||
+      !parseGitHubPullRequestUrl(pullRequestUrl) ||
+      option !== '--pr-status' ||
+      status !== 'merged'
+    ) {
       throw commandError(
-        `${command} requires exactly one review ID.`,
+        'done requires one canonical GitHub pull request URL and a verified merged status.',
+        'markover done <pull-request-url> --pr-status merged'
+      )
+    }
+    return targeted({
+      command,
+      pullRequestUrl,
+      pullRequestStatus: 'merged' as const
+    })
+  }
+
+  if (command === 'get' || command === 'revise' || command === 'edit') {
+    const reviewId = rest[0]
+    if (reviewId === undefined || reviewId.startsWith('--')) {
+      throw commandError(
+        `${command} requires one review ID.`,
         `markover ${command} <review-id>`
       )
     }
-    return targeted({ command, reviewId })
+    if (command === 'edit') {
+      if (rest.length !== 1) {
+        throw commandError(
+          'edit requires exactly one review ID.',
+          'markover edit <review-id>'
+        )
+      }
+      return targeted({ command, reviewId })
+    }
+    let pullRequestStatus: PullRequestStatus | null = null
+    if (rest.length !== 1) {
+      if (
+        rest.length !== 3 ||
+        rest[1] !== '--pr-status' ||
+        !isPullRequestStatus(rest[2])
+      ) {
+        throw commandError(
+          `${command} accepts only an optional pull request status.`,
+          `markover ${command} <review-id> [--pr-status <draft|open|merged|closed>]`
+        )
+      }
+      pullRequestStatus = rest[2]
+    }
+    return targeted({ command, reviewId, pullRequestStatus })
   }
 
   let sourcePath = null
@@ -256,6 +346,8 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   let branch = null
   let handoffKey = null
   let pullRequestNumber = null
+  let pullRequestUrl = null
+  let pullRequestStatus: PullRequestStatus | null = null
   let threadId = null
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index]
@@ -265,6 +357,8 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       argument === '--branch' ||
       argument === '--handoff-key' ||
       argument === '--pr' ||
+      argument === '--pr-url' ||
+      argument === '--pr-status' ||
       argument === '--thread-id'
     ) {
       const value = rest[index + 1]
@@ -278,6 +372,25 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       if (argument === '--branch') branch = value
       if (argument === '--handoff-key') handoffKey = value
       if (argument === '--thread-id') threadId = value
+      if (argument === '--pr-url') {
+        const identity = parseGitHubPullRequestUrl(value)
+        if (!identity) {
+          throw commandError(
+            '--pr-url requires a canonical GitHub pull request URL.',
+            'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url> --pr-status <status>'
+          )
+        }
+        pullRequestUrl = identity.url
+      }
+      if (argument === '--pr-status') {
+        if (!isPullRequestStatus(value)) {
+          throw commandError(
+            '--pr-status requires draft, open, merged, or closed.',
+            'markover open <markdown-path> --summary <text> --pr <number> --pr-status <status>'
+          )
+        }
+        pullRequestStatus = value
+      }
       if (argument === '--pr') {
         pullRequestNumber = Number(value)
         if (
@@ -347,6 +460,27 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       )
     }
   }
+  if (pullRequestUrl && !pullRequestNumber) {
+    throw commandError(
+      '--pr-url requires --pr when opening a review.',
+      'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url>'
+    )
+  }
+  if (
+    pullRequestUrl &&
+    parseGitHubPullRequestUrl(pullRequestUrl)?.number !== pullRequestNumber
+  ) {
+    throw commandError(
+      '--pr-url must identify the pull request number passed with --pr.',
+      'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url>'
+    )
+  }
+  if (pullRequestStatus && (!pullRequestNumber || !pullRequestUrl)) {
+    throw commandError(
+      '--pr-status requires --pr and --pr-url when opening a review.',
+      'markover open <markdown-path> --summary <text> --pr <number> --pr-url <url> --pr-status <status>'
+    )
+  }
   return targeted({
     command,
     sourcePath,
@@ -354,6 +488,8 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     branch,
     handoffKey,
     pullRequestNumber,
+    pullRequestUrl,
+    pullRequestStatus,
     threadId
   })
 }
@@ -629,12 +765,14 @@ export async function executeCommand(
       sourcePath,
       branch: parsed.branch ?? null,
       pullRequestNumber: parsed.pullRequestNumber ?? null,
+      pullRequestUrl: parsed.pullRequestUrl ?? null,
       threadId: parsed.threadId ?? null,
       handoffKey
     })
     await ensure()
     const opened = await requestJson(endpointPath, 'POST', '/reviews', {
       tree,
+      pullRequestStatus: parsed.pullRequestStatus,
       metadata: {
         contextSummary: parsed.contextSummary,
         ...metadata
@@ -645,8 +783,7 @@ export async function executeCommand(
       typeof opened !== 'object' ||
       Array.isArray(opened) ||
       typeof Reflect.get(opened, 'reviewId') !== 'string' ||
-      (Reflect.get(opened, 'status') !== 'editing' &&
-        Reflect.get(opened, 'status') !== 'pending-agent')
+      Reflect.get(opened, 'status') !== 'editing'
     ) {
       throw new LocalServiceError(
         'INCOMPATIBLE_SERVICE',
@@ -654,7 +791,7 @@ export async function executeCommand(
       )
     }
     const reviewId = Reflect.get(opened, 'reviewId') as string
-    const status = Reflect.get(opened, 'status') as 'editing' | 'pending-agent'
+    const status = Reflect.get(opened, 'status') as 'editing'
     return {
       reviewId,
       status,
@@ -666,12 +803,31 @@ export async function executeCommand(
   }
 
   await ensure()
+  if (parsed.command === 'done') {
+    return requestJson(endpointPath, 'POST', '/reviews/done', {
+      pullRequestUrl: parsed.pullRequestUrl,
+      pullRequestStatus: parsed.pullRequestStatus
+    })
+  }
   const reviewId = encodeURIComponent(parsed.reviewId)
   if (parsed.command === 'get') {
     return requestJson(
       endpointPath,
       'POST',
-      `/reviews/${reviewId}/handoff`
+      `/reviews/${reviewId}/handoff`,
+      parsed.pullRequestStatus
+        ? { pullRequestStatus: parsed.pullRequestStatus }
+        : undefined
+    )
+  }
+  if (parsed.command === 'revise') {
+    return requestJson(
+      endpointPath,
+      'POST',
+      `/reviews/${reviewId}/revise`,
+      parsed.pullRequestStatus
+        ? { pullRequestStatus: parsed.pullRequestStatus }
+        : undefined
     )
   }
   return requestJson(endpointPath, 'POST', `/reviews/${reviewId}/edit`)

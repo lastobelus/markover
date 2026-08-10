@@ -42,6 +42,8 @@
   --primary-button-hover-text: var(--secondary-contrast);
   --status-editing: var(--markover-primary);
   --status-pending: var(--markover-secondary);
+  --status-revised: #3d7f74;
+  --status-done: var(--muted);
   --status-progress: #d89b35;
   --status-other: var(--muted);
   --source-error: #b6422d;
@@ -685,9 +687,18 @@ p {
   white-space: nowrap;
 }
 
-.document-tab-status.is-pending {
+.document-tab-status.is-pending-agent {
   color: var(--secondary-contrast);
   background: var(--brand-burgundy);
+}
+
+.document-tab-status.is-revised {
+  background: var(--status-revised);
+}
+
+.document-tab-status.is-done {
+  color: var(--paper);
+  background: var(--status-done);
 }
 
 .document-tab-overflow {

@@ -335,6 +335,8 @@ test('only managed editing trees are editable', () => {
     false
   )
   assert.equal(isTreeEditable({ review: { status: 'pending-agent' } }), false)
+  assert.equal(isTreeEditable({ review: { status: 'revised' } }), false)
+  assert.equal(isTreeEditable({ review: { status: 'done' } }), false)
   assert.equal(isTreeEditable({ review: { status: 'unknown' } }), false)
 })
 

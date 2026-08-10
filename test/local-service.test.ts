@@ -69,7 +69,7 @@ async function serviceFixture(
   const endpointPath = path.join(directory, 'service.json')
   const changes: Array<{
     artifact: ReviewArtifact
-    action: 'created' | 'handoff' | 'edit'
+    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done'
   }> = []
   const store = new ReviewStore(path.join(directory, 'reviews'), {
     idFactory: () => 'mko_aaa11111'
@@ -224,6 +224,176 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
   assert.deepEqual(
     changes.map((change) => change.action),
     ['created', 'handoff', 'handoff', 'edit']
+  )
+})
+
+test('persists PR observations through revise and PR-scoped done', async (t) => {
+  const { changes, endpointPath, store } = await serviceFixture(t)
+  assert.deepEqual(
+    await requestJson(endpointPath, 'POST', '/reviews', {
+      tree: tree(),
+      pullRequestStatus: 'draft',
+      metadata: {
+        contextSummary: 'Review the PR lifecycle.',
+        git: {
+          repositoryUrl: 'git@github.com:lastobelus/markover.git'
+        },
+        pullRequest: { number: 123, discovery: 'explicit' }
+      }
+    }),
+    { reviewId: 'mko_aaa11111', status: 'editing' }
+  )
+
+  const handedOff = expectArtifact(await requestJson(
+    endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff',
+    { pullRequestStatus: 'open' }
+  ), 'mko_aaa11111')
+  assert.equal(handedOff.review.status, 'pending-agent')
+  assert.equal(
+    (handedOff.review.pullRequest as Record<string, unknown>).status,
+    'open'
+  )
+
+  assert.deepEqual(
+    await requestJson(
+      endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/revise',
+      { pullRequestStatus: 'open' }
+    ),
+    { reviewId: 'mko_aaa11111', status: 'revised' }
+  )
+  assert.deepEqual(
+    await requestJson(endpointPath, 'POST', '/reviews/done', {
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/123',
+      pullRequestStatus: 'merged'
+    }),
+    {
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/123',
+      reviewIds: ['mko_aaa11111'],
+      status: 'done'
+    }
+  )
+  const completed = await store.load('mko_aaa11111')
+  assert.equal(completed.review.status, 'done')
+  assert.deepEqual(completed.review.pullRequest, {
+    number: 123,
+    discovery: 'explicit',
+    url: 'https://github.com/lastobelus/markover/pull/123',
+    status: 'merged',
+    statusObservedAt: completed.review.updatedAt,
+    statusSource: 'agent'
+  })
+  assert.deepEqual(
+    changes.map((change) => change.action),
+    ['created', 'handoff', 'revise', 'done']
+  )
+  assert.deepEqual(
+    await requestJson(endpointPath, 'POST', '/reviews/done', {
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/999',
+      pullRequestStatus: 'merged'
+    }),
+    {
+      pullRequestUrl: 'https://github.com/lastobelus/markover/pull/999',
+      reviewIds: [],
+      status: 'done'
+    }
+  )
+})
+
+test('done captures an editing review before completing it', async (t) => {
+  const barriers: Array<{ reviewId: string; action: string }> = []
+  const { endpointPath } = await serviceFixture(t, {
+    beforeAction(reviewId, action) {
+      barriers.push({ reviewId, action })
+      return Promise.resolve(undefined)
+    }
+  })
+  await requestJson(endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: {
+      contextSummary: 'Review before merge.',
+      git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+      pullRequest: { number: 123 }
+    }
+  })
+  await requestJson(endpointPath, 'POST', '/reviews/done', {
+    pullRequestUrl: 'https://github.com/lastobelus/markover/pull/123',
+    pullRequestStatus: 'merged'
+  })
+  assert.deepEqual(barriers, [{
+    reviewId: 'mko_aaa11111',
+    action: 'done'
+  }])
+})
+
+test('done rechecks and serializes a review that becomes editable', async (t) => {
+  let releaseCandidates!: () => void
+  let candidatesFound!: () => void
+  const candidatesReady = new Promise<void>((resolve) => {
+    candidatesFound = resolve
+  })
+  const candidatesBarrier = new Promise<void>((resolve) => {
+    releaseCandidates = resolve
+  })
+  const storeReference: { current?: ReviewStore } = {}
+  const barriers: string[] = []
+  const fixture = await serviceFixture(t, {
+    async beforeAction(reviewId, action) {
+      if (action !== 'done') return
+      barriers.push(reviewId)
+      assert.ok(storeReference.current)
+      const latest = await storeReference.current.load(reviewId)
+      child(latest.root).feedback = 'Captured after the review became editable.'
+      await storeReference.current.updateTree(reviewId, latest)
+    }
+  })
+  storeReference.current = fixture.store
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: {
+      contextSummary: 'Complete after an edit race.',
+      git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+      pullRequest: { number: 123 }
+    }
+  })
+  await requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff'
+  )
+
+  const matching = fixture.store.matchingPullRequestReviews.bind(fixture.store)
+  fixture.store.matchingPullRequestReviews = async (pullRequestUrl) => {
+    const candidates = await matching(pullRequestUrl)
+    candidatesFound()
+    await candidatesBarrier
+    return candidates
+  }
+  const done = requestJson(fixture.endpointPath, 'POST', '/reviews/done', {
+    pullRequestUrl: 'https://github.com/lastobelus/markover/pull/123',
+    pullRequestStatus: 'merged'
+  })
+  await candidatesReady
+  assert.deepEqual(
+    await requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/edit'
+    ),
+    { reviewId: 'mko_aaa11111', status: 'editing' }
+  )
+  releaseCandidates()
+  await done
+
+  const completed = await fixture.store.load('mko_aaa11111')
+  assert.deepEqual(barriers, ['mko_aaa11111'])
+  assert.equal(completed.review.status, 'done')
+  assert.equal(
+    child(completed.root).feedback,
+    'Captured after the review became editable.'
   )
 })
 

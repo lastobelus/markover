@@ -162,6 +162,245 @@ test('edit returns a pending review to editing and is idempotent', async (t) => 
   assert.deepEqual(retry, editing)
 })
 
+test('revise completes a handoff and rejects backward transitions', async (t) => {
+  const timestamps = [
+    '2026-08-10T01:00:00.000Z',
+    '2026-08-10T01:01:00.000Z',
+    '2026-08-10T01:02:00.000Z'
+  ]
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => timestamps.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Check revision completion.'
+  })
+  await assert.rejects(
+    store.revise(created.review.id),
+    (error: unknown) => hasErrorCode(error, 'INVALID_TRANSITION')
+  )
+  await store.handoff(created.review.id)
+  const revised = await store.revise(created.review.id)
+  const retry = await store.revise(created.review.id)
+
+  assert.equal(revised.review.status, 'revised')
+  assert.equal(revised.review.updatedAt, '2026-08-10T01:02:00.000Z')
+  assert.deepEqual(retry, revised)
+  await assert.rejects(
+    store.edit(created.review.id),
+    (error: unknown) => hasErrorCode(error, 'INVALID_TRANSITION')
+  )
+  await assert.rejects(
+    store.handoff(created.review.id),
+    (error: unknown) => hasErrorCode(error, 'INVALID_TRANSITION')
+  )
+})
+
+test('stores successful agent PR observations with transition receipt time', async (t) => {
+  const timestamps = [
+    '2026-08-10T02:00:00.000Z',
+    '2026-08-10T02:01:00.000Z',
+    '2026-08-10T02:02:00.000Z'
+  ]
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => timestamps.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Check PR observations.',
+    git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
+    pullRequest: { number: 123, discovery: 'explicit' },
+    pullRequestStatus: 'draft'
+  })
+  assert.deepEqual(created.review.pullRequest, {
+    number: 123,
+    discovery: 'explicit',
+    url: 'https://github.com/lastobelus/markover/pull/123',
+    status: 'draft',
+    statusObservedAt: '2026-08-10T02:00:00.000Z',
+    statusSource: 'agent'
+  })
+
+  const handedOff = await store.handoff(created.review.id, 'open')
+  assert.deepEqual(handedOff.review.pullRequest, {
+    number: 123,
+    discovery: 'explicit',
+    url: 'https://github.com/lastobelus/markover/pull/123',
+    status: 'open',
+    statusObservedAt: '2026-08-10T02:01:00.000Z',
+    statusSource: 'agent'
+  })
+  const revised = await store.revise(created.review.id, 'open')
+  assert.equal(revised.review.status, 'revised')
+  assert.deepEqual(revised.review.pullRequest, {
+    number: 123,
+    discovery: 'explicit',
+    url: 'https://github.com/lastobelus/markover/pull/123',
+    status: 'open',
+    statusObservedAt: '2026-08-10T02:02:00.000Z',
+    statusSource: 'agent'
+  })
+})
+
+test('an omitted PR observation preserves the last successful value', async (t) => {
+  const timestamps = [
+    '2026-08-10T02:10:00.000Z',
+    '2026-08-10T02:11:00.000Z',
+    '2026-08-10T02:12:00.000Z'
+  ]
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => timestamps.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Preserve the prior PR observation.',
+    git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+    pullRequest: { number: 123 },
+    pullRequestStatus: 'open'
+  })
+  const observed = created.review.pullRequest
+  await store.handoff(created.review.id)
+  const revised = await store.revise(created.review.id)
+  assert.deepEqual(revised.review.pullRequest, observed)
+  assert.equal(revised.review.updatedAt, '2026-08-10T02:12:00.000Z')
+})
+
+test('requires canonical PR identity and complete lifecycle observations', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => '2026-08-10T02:20:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  await assert.rejects(
+    store.create({
+      tree: tree(),
+      contextSummary: 'Missing repository identity.',
+      pullRequest: { number: 123 }
+    }),
+    (error: unknown) => hasErrorCode(error, 'INVALID_PULL_REQUEST')
+  )
+  await assert.rejects(
+    store.create({
+      tree: tree(),
+      contextSummary: 'Mismatched pull request identity.',
+      pullRequest: {
+        number: 124,
+        url: 'https://github.com/lastobelus/markover/pull/123'
+      }
+    }),
+    (error: unknown) => hasErrorCode(error, 'INVALID_PULL_REQUEST')
+  )
+  await assert.rejects(
+    store.create({
+      tree: tree(),
+      contextSummary: 'Incomplete pull request observation.',
+      git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+      pullRequest: { number: 123, status: 'open' }
+    }),
+    (error: unknown) => hasErrorCode(error, 'INVALID_PULL_REQUEST_STATUS')
+  )
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Validate the Done invariant.',
+    git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+    pullRequest: { number: 123 },
+    pullRequestStatus: 'open'
+  })
+  const invalidDone = structuredClone(created)
+  invalidDone.review.status = 'done'
+  await store.write(created.review.id, invalidDone)
+  await assert.rejects(
+    store.load(created.review.id),
+    (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
+  )
+})
+
+test('done matches repository and PR identity and is retry-safe', async (t) => {
+  const ids = [
+    'mko_aaa11111',
+    'mko_bbb22222',
+    'mko_ccc33333',
+    'mko_ddd44444'
+  ]
+  let minute = 0
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string,
+    now: () => `2026-08-10T03:${String(minute++).padStart(2, '0')}:00.000Z`
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const first = await store.create({
+    tree: tree('# First\n'),
+    contextSummary: 'First matching review.',
+    git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
+    pullRequest: { number: 123 }
+  })
+  const second = await store.create({
+    tree: tree('# Second\n'),
+    contextSummary: 'Second matching review.',
+    git: { repositoryUrl: 'https://github.com/Lastobelus/Markover.git' },
+    pullRequest: { number: 123 }
+  })
+  const otherPr = await store.create({
+    tree: tree('# Other PR\n'),
+    contextSummary: 'Different PR.',
+    git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
+    pullRequest: { number: 124 }
+  })
+  const otherRepository = await store.create({
+    tree: tree('# Other repository\n'),
+    contextSummary: 'Different repository.',
+    git: { repositoryUrl: 'git@github.com:openai/markover.git' },
+    pullRequest: { number: 123 }
+  })
+  await store.handoff(second.review.id)
+  await store.revise(second.review.id)
+
+  const completed = await store.done(
+    'https://github.com/lastobelus/markover/pull/123',
+    'merged'
+  )
+  assert.deepEqual(
+    completed.reviews.map((review) => review.review.id),
+    [first.review.id, second.review.id]
+  )
+  for (const review of completed.reviews) {
+    assert.equal(review.review.status, 'done')
+    assert.equal(
+      (review.review.pullRequest as Record<string, unknown>).status,
+      'merged'
+    )
+    assert.equal(
+      (review.review.pullRequest as Record<string, unknown>).url,
+      'https://github.com/lastobelus/markover/pull/123'
+    )
+  }
+  assert.equal((await store.load(otherPr.review.id)).review.status, 'editing')
+  assert.equal(
+    (await store.load(otherRepository.review.id)).review.status,
+    'editing'
+  )
+  assert.deepEqual(await store.done(
+    'https://github.com/lastobelus/markover/pull/123',
+    'merged'
+  ), completed)
+  await assert.rejects(
+    store.done('https://github.com/lastobelus/markover/pull/123', 'closed'),
+    (error: unknown) => hasErrorCode(error, 'INVALID_PULL_REQUEST_STATUS')
+  )
+})
+
 test('tree updates are allowed only while editing', async (t) => {
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111'
@@ -456,6 +695,8 @@ test('review deletion policies cover every status and trash the exact directory'
 
   assert.equal(reviewDeletionPolicy('editing'), 'standard')
   assert.equal(reviewDeletionPolicy('pending-agent'), 'pending-agent')
+  assert.equal(reviewDeletionPolicy('revised'), 'standard')
+  assert.equal(reviewDeletionPolicy('done'), 'standard')
   assert.equal(
     await store.trashReview(editing.review.id, (target) => {
       trashed.push(target)
@@ -635,6 +876,44 @@ test('a new store restores sessions from disk without sharing mutable state', as
 
   assert.equal((await restoredStore.load(created.review.id)).root.text, 'Document')
   assert.equal((await restoredStore.list()).length, 1)
+})
+
+test('a new store restores Revised and Done lifecycle states', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const revised = await store.create({
+    tree: tree('# Revised\n'),
+    contextSummary: 'Restore a Revised review.'
+  })
+  await store.handoff(revised.review.id)
+  await store.revise(revised.review.id)
+
+  const done = await store.create({
+    tree: tree('# Done\n'),
+    contextSummary: 'Restore a Done review.',
+    git: { repositoryUrl: 'https://github.com/lastobelus/markover' },
+    pullRequest: { number: 129 }
+  })
+  await store.done(
+    'https://github.com/lastobelus/markover/pull/129',
+    'merged'
+  )
+
+  const restoredStore = new ReviewStore(directory)
+  assert.equal(
+    (await restoredStore.load(revised.review.id)).review.status,
+    'revised'
+  )
+  const restoredDone = await restoredStore.load(done.review.id)
+  assert.equal(restoredDone.review.status, 'done')
+  assert.equal(
+    (restoredDone.review.pullRequest as Record<string, unknown>).status,
+    'merged'
+  )
 })
 
 test('concurrent handoffs serialize to one frozen result', async (t) => {

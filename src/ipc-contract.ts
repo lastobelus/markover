@@ -320,6 +320,8 @@ function isReviewEnvelope(value: unknown): boolean {
     (
       value.status === 'editing' ||
       value.status === 'pending-agent' ||
+      value.status === 'revised' ||
+      value.status === 'done' ||
       value.status === 'handoff-in-progress'
     ) &&
     isOptionalString(value.createdAt) &&
@@ -554,6 +556,8 @@ function isReviewStatusRequest(value: unknown): value is ReviewStatusRequest {
     (
       value.status === 'editing' ||
       value.status === 'pending-agent' ||
+      value.status === 'revised' ||
+      value.status === 'done' ||
       value.status === 'handoff-in-progress'
     )
 }

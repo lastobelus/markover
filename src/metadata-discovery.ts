@@ -62,6 +62,7 @@ export interface ReviewMetadataInput {
   sourcePath: string
   branch?: string | null
   pullRequestNumber?: number | null
+  pullRequestUrl?: string | null
   threadId?: string | null
   handoffKey?: string | null
 }
@@ -69,7 +70,11 @@ export interface ReviewMetadataInput {
 export interface ReviewMetadata {
   git: GitMetadata | null
   agentThread: CodexThread | null
-  pullRequest: { number: number; discovery: 'explicit' } | null
+  pullRequest: {
+    number: number
+    url?: string
+    discovery: 'explicit'
+  } | null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -338,6 +343,7 @@ export async function discoverReviewMetadata({
   sourcePath,
   branch = null,
   pullRequestNumber = null,
+  pullRequestUrl = null,
   threadId = null,
   handoffKey = null
 }: ReviewMetadataInput, options: ReviewMetadataOptions = {}): Promise<ReviewMetadata> {
@@ -376,6 +382,7 @@ export async function discoverReviewMetadata({
     pullRequest: pullRequestNumber
       ? {
           number: pullRequestNumber,
+          ...(pullRequestUrl ? { url: pullRequestUrl } : {}),
           discovery: 'explicit'
         }
       : null

@@ -2,10 +2,25 @@ import { randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { guidance } from './agent-guidance'
+import {
+  canonicalPullRequestMetadata,
+  hasPullRequestObservationFields,
+  isPullRequestStatus,
+  parseGitHubPullRequestUrl,
+  pullRequestObservation,
+  reviewPullRequestIdentity,
+  type GitHubPullRequestIdentity,
+  type PullRequestStatus
+} from './pull-request'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
-export type ReviewStatus = 'editing' | 'pending-agent'
-const REVIEW_STATUSES = new Set<ReviewStatus>(['editing', 'pending-agent'])
+export type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
+const REVIEW_STATUSES = new Set<ReviewStatus>([
+  'editing',
+  'pending-agent',
+  'revised',
+  'done'
+])
 
 export interface ReviewEnvelope {
   id: string
@@ -29,7 +44,14 @@ export interface ReviewCreateInput {
   agentThread?: unknown
   git?: unknown
   pullRequest?: unknown
+  pullRequestStatus?: unknown
   interpretationPolicy?: unknown
+}
+
+export interface DoneReviewsResult {
+  pullRequestUrl: string
+  reviews: ReviewArtifact[]
+  status: 'done'
 }
 
 export interface ReviewStoreOptions {
@@ -191,6 +213,47 @@ export function assertReviewArtifact(
       `Review ${reviewId} has an invalid envelope.`
     )
   }
+  assertPullRequestEnvelope(
+    artifact.review.pullRequest,
+    artifact.review.status
+  )
+}
+
+function assertPullRequestEnvelope(
+  pullRequest: unknown,
+  reviewStatus: ReviewStatus
+): void {
+  if (pullRequest === null) {
+    if (reviewStatus === 'done') {
+      throw new ReviewStoreError(
+        'INVALID_REVIEW',
+        'A Done review requires an associated merged pull request.'
+      )
+    }
+    return
+  }
+  if (
+    !isRecord(pullRequest) ||
+    !canonicalPullRequestMetadata(pullRequest, null)
+  ) {
+    throw new ReviewStoreError(
+      'INVALID_REVIEW',
+      'An associated pull request requires a canonical GitHub URL and matching positive number.'
+    )
+  }
+  const observation = pullRequestObservation(pullRequest)
+  if (hasPullRequestObservationFields(pullRequest) && !observation) {
+    throw new ReviewStoreError(
+      'INVALID_REVIEW',
+      'Pull request observations require status, statusObservedAt, and statusSource together.'
+    )
+  }
+  if (reviewStatus === 'done' && observation?.status !== 'merged') {
+    throw new ReviewStoreError(
+      'INVALID_REVIEW',
+      'A Done review requires a merged pull request observation.'
+    )
+  }
 }
 
 function treeFields(tree: unknown): Omit<ReviewTree, 'review'> {
@@ -251,8 +314,56 @@ export function reviewDeletionPolicy(
   switch (status) {
     case 'editing': return 'standard'
     case 'pending-agent': return 'pending-agent'
+    case 'revised': return 'standard'
+    case 'done': return 'standard'
     default: return assertNever(status)
   }
+}
+
+function observedPullRequest(
+  pullRequest: unknown,
+  status: unknown,
+  observedAt: string,
+  pullRequestUrl?: string
+): unknown {
+  if (status === undefined || status === null) return cloneJson(pullRequest)
+  if (!isPullRequestStatus(status)) {
+    const description = typeof status === 'string'
+      ? status
+      : JSON.stringify(status)
+    throw new ReviewStoreError(
+      'INVALID_PULL_REQUEST_STATUS',
+      `Invalid pull request status: ${description}`
+    )
+  }
+  if (
+    !isRecord(pullRequest) ||
+    !canonicalPullRequestMetadata(pullRequest, null)
+  ) {
+    throw new ReviewStoreError(
+      'PULL_REQUEST_REQUIRED',
+      'A pull request status requires an associated pull request.'
+    )
+  }
+  return {
+    ...cloneJson(pullRequest),
+    ...(pullRequestUrl ? { url: pullRequestUrl } : {}),
+    status,
+    statusObservedAt: observedAt,
+    statusSource: 'agent'
+  }
+}
+
+function transitionAllowed(
+  current: ReviewStatus,
+  next: ReviewStatus
+): boolean {
+  if (current === next) return true
+  if (current === 'editing') return next === 'pending-agent'
+  if (current === 'pending-agent') {
+    return next === 'editing' || next === 'revised'
+  }
+  return false
 }
 
 function attachmentIds(root: ReviewNode): Set<string> {
@@ -311,6 +422,7 @@ export class ReviewStore {
     agentThread = null,
     git = null,
     pullRequest = null,
+    pullRequestStatus,
     interpretationPolicy
   }: ReviewCreateInput): Promise<ReviewArtifact> {
     assertReviewTree(tree)
@@ -318,6 +430,25 @@ export class ReviewStore {
       throw new ReviewStoreError(
         'INVALID_REVIEW',
         'A non-empty context summary is required.'
+      )
+    }
+    const canonicalPullRequest = pullRequest === null || pullRequest === undefined
+      ? null
+      : canonicalPullRequestMetadata(pullRequest, git)
+    if (pullRequest !== null && pullRequest !== undefined && !canonicalPullRequest) {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST',
+        'An associated pull request requires a GitHub repository remote and positive pull request number.'
+      )
+    }
+    if (
+      canonicalPullRequest &&
+      hasPullRequestObservationFields(canonicalPullRequest) &&
+      !pullRequestObservation(canonicalPullRequest)
+    ) {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST_STATUS',
+        'Pull request observations require status, statusObservedAt, and statusSource together.'
       )
     }
 
@@ -351,7 +482,11 @@ export class ReviewStore {
             contextSummary,
             agentThread: cloneJson(agentThread),
             git: cloneJson(git),
-            pullRequest: cloneJson(pullRequest),
+            pullRequest: observedPullRequest(
+              canonicalPullRequest,
+              pullRequestStatus,
+              timestamp
+            ),
             agentGuidance: guidance(interpretationPolicy)
           }
         }
@@ -647,15 +782,102 @@ export class ReviewStore {
     }
   }
 
-  async handoff(reviewId: string): Promise<ReviewArtifact> {
-    return this.transition(reviewId, 'pending-agent')
+  async handoff(
+    reviewId: string,
+    pullRequestStatus?: PullRequestStatus
+  ): Promise<ReviewArtifact> {
+    return this.transition(reviewId, 'pending-agent', pullRequestStatus)
   }
 
   async edit(reviewId: string): Promise<ReviewArtifact> {
     return this.transition(reviewId, 'editing')
   }
 
-  async transition(reviewId: string, status: string): Promise<ReviewArtifact> {
+  async revise(
+    reviewId: string,
+    pullRequestStatus?: PullRequestStatus
+  ): Promise<ReviewArtifact> {
+    return this.transition(reviewId, 'revised', pullRequestStatus)
+  }
+
+  async done(
+    pullRequestUrl: string,
+    pullRequestStatus: PullRequestStatus
+  ): Promise<DoneReviewsResult> {
+    const identity = parseGitHubPullRequestUrl(pullRequestUrl)
+    if (!identity) {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST',
+        `Invalid GitHub pull request URL: ${pullRequestUrl}`
+      )
+    }
+    if (pullRequestStatus !== 'merged') {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST_STATUS',
+        'Done requires a verified merged pull request status.'
+      )
+    }
+
+    const candidates = await this.matchingPullRequestReviews(identity.url)
+    const reviews: ReviewArtifact[] = []
+    for (const candidate of candidates) {
+      const updated = await this.markDone(candidate.review.id, identity)
+      if (updated) reviews.push(updated)
+    }
+    return {
+      pullRequestUrl: identity.url,
+      reviews,
+      status: 'done'
+    }
+  }
+
+  async doneReview(
+    reviewId: string,
+    pullRequestUrl: string,
+    pullRequestStatus: PullRequestStatus
+  ): Promise<ReviewArtifact | null> {
+    assertReviewId(reviewId)
+    const identity = parseGitHubPullRequestUrl(pullRequestUrl)
+    if (!identity) {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST',
+        `Invalid GitHub pull request URL: ${pullRequestUrl}`
+      )
+    }
+    if (pullRequestStatus !== 'merged') {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST_STATUS',
+        'Done requires a verified merged pull request status.'
+      )
+    }
+    return this.markDone(reviewId, identity)
+  }
+
+  async matchingPullRequestReviews(
+    pullRequestUrl: string
+  ): Promise<ReviewArtifact[]> {
+    const identity = parseGitHubPullRequestUrl(pullRequestUrl)
+    if (!identity) {
+      throw new ReviewStoreError(
+        'INVALID_PULL_REQUEST',
+        `Invalid GitHub pull request URL: ${pullRequestUrl}`
+      )
+    }
+    return (await this.list()).filter((artifact) => {
+      const candidate = reviewPullRequestIdentity(
+        artifact.review.pullRequest,
+        artifact.review.git
+      )
+      return candidate?.repository === identity.repository &&
+        candidate.number === identity.number
+    })
+  }
+
+  async transition(
+    reviewId: string,
+    status: string,
+    pullRequestStatus?: PullRequestStatus
+  ): Promise<ReviewArtifact> {
     assertReviewId(reviewId)
     if (!isReviewStatus(status)) {
       throw new ReviewStoreError('INVALID_STATUS', `Invalid review status: ${status}`)
@@ -663,11 +885,61 @@ export class ReviewStore {
 
     return this.serialize(reviewId, async () => {
       const current = await this.read(reviewId)
-      if (current.review.status === status) return cloneJson(current)
+      if (!transitionAllowed(current.review.status, status)) {
+        throw new ReviewStoreError(
+          'INVALID_TRANSITION',
+          `Review ${reviewId} cannot move from ${current.review.status} to ${status}.`
+        )
+      }
+      if (
+        current.review.status === status &&
+        pullRequestStatus === undefined
+      ) return cloneJson(current)
 
       const updated = cloneJson(current)
       updated.review.status = status
-      updated.review.updatedAt = this.timestamp()
+      const timestamp = this.timestamp()
+      updated.review.updatedAt = timestamp
+      updated.review.pullRequest = observedPullRequest(
+        current.review.pullRequest,
+        pullRequestStatus,
+        timestamp
+      )
+      await this.write(reviewId, updated)
+      return cloneJson(updated)
+    })
+  }
+
+  private async markDone(
+    reviewId: string,
+    identity: GitHubPullRequestIdentity
+  ): Promise<ReviewArtifact | null> {
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      const candidate = reviewPullRequestIdentity(
+        current.review.pullRequest,
+        current.review.git
+      )
+      if (
+        candidate?.repository !== identity.repository ||
+        candidate.number !== identity.number
+      ) return null
+      if (
+        current.review.status === 'done' &&
+        isRecord(current.review.pullRequest) &&
+        current.review.pullRequest.status === 'merged'
+      ) return cloneJson(current)
+
+      const timestamp = this.timestamp()
+      const updated = cloneJson(current)
+      updated.review.status = 'done'
+      updated.review.updatedAt = timestamp
+      updated.review.pullRequest = observedPullRequest(
+        current.review.pullRequest,
+        'merged',
+        timestamp,
+        identity.url
+      )
       await this.write(reviewId, updated)
       return cloneJson(updated)
     })

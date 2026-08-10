@@ -24,6 +24,8 @@
         <a href="#wait">Wait for the reviewer</a>
         <a href="#get">Retrieve the handoff</a>
         <a href="#edit">Reopen feedback</a>
+        <a href="#revise">Complete the handoff</a>
+        <a href="#done">Complete merged work</a>
         <a href="#interpretation">Interpret feedback</a>
         <p>Reference</p>
         <a href="../privacy/">Privacy and local data</a>
@@ -48,6 +50,7 @@
 
       <section id="open">
         <h2>Open one review</h2>
+        <p>Run <code>markover help</code> before a pull-request-associated <code>open</code>, <code>get</code>, <code>revise</code>, or <code>done</code>. Its machine-readable <code>pullRequestStatus</code> contract is the source of truth for the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</p>
         <p>Give Markover one Markdown path and a short summary of why the document exists and what feedback would help:</p>
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
@@ -83,6 +86,24 @@
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover edit mko_8f3a2c</code></pre>
         <p>Retain the same review ID, stop again, and wait for another explicit request to retrieve it.</p>
+      </section>
+
+      <section id="revise">
+        <h2>Record the completed handoff</h2>
+        <p>After acting on every part of the frozen review, mark it Revised before reporting completion:</p>
+        <pre><code>npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover revise mko_8f3a2c</code></pre>
+        <p>Revised reviews remain read-only. If another feedback round is useful, open the revised document as a new independent review.</p>
+      </section>
+
+      <section id="done">
+        <h2>Complete reviews after merge</h2>
+        <p>After verifying a pull request merged, use its canonical URL and the verified merged observation:</p>
+        <pre><code>npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover done https://github.com/OWNER/REPOSITORY/pull/123 --pr-status merged</code></pre>
+        <p>Markover moves every matching local review to the terminal Done state. A pull request with no matching local reviews is a successful no-op.</p>
       </section>
 
       <section id="interpretation">

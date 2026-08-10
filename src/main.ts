@@ -1340,12 +1340,12 @@ function requireManagedAutosave(): ReviewAutosave {
 
 async function flushManagedReview(
   reviewId: string,
-  action: 'handoff' | 'edit'
+  action: 'handoff' | 'edit' | 'done'
 ): Promise<() => Promise<void>> {
   const store = requireReviewStore()
   try {
     const tree = await requestRendererSnapshot(reviewId, 'handoff')
-    if (tree && action === 'handoff') {
+    if (tree && action !== 'edit') {
       await requireManagedAutosave().saveNow(reviewId, tree)
     }
   } catch (error) {

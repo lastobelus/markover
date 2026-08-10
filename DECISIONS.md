@@ -853,19 +853,24 @@ each choice from that baseline without duplicating the live decisions below.
   Evidence: the [local-review boundary](src/local-review.ts),
   [local-review tests](test/local-review.test.ts), and issue
   [#107](https://github.com/lastobelus/markover/issues/107).
-- **Deferred — Agent result writeback.** Per-annotation outcomes and addressed
-  state require a separately designed agent-to-review protocol; the current
-  handoff intentionally ends at immutable `pending-agent` review data. Evidence:
-  [review-session tests](test/review-sessions.test.ts).
+- **Retain — Minimal agent lifecycle writeback.** A handoff remains immutable,
+  but the agent explicitly marks the whole review `revised` after acting on all
+  feedback. A verified PR merge marks every associated local review `done`.
+  Per-annotation outcomes remain outside this lifecycle protocol. Issue
+  [#123](https://github.com/lastobelus/markover/issues/123) owns the transition;
+  issue [#128](https://github.com/lastobelus/markover/issues/128) defers review
+  lineage and version ordinals.
 - **Planned — Review history and remaining readiness.** Recoverable review
   deletion and unused-attachment cleanup landed in PR #106. Issue
   [#97](https://github.com/lastobelus/markover/issues/97) owns inbox/history
   organization; issue [#15](https://github.com/lastobelus/markover/issues/15)
   retains Markdown compatibility and accessibility remediation.
-- **Deferred — Automatic pull-request discovery.** Explicit `--pr` metadata and
-  best-effort Git discovery are sufficient; adding remote PR lookup would add a
-  network and credential boundary without a demonstrated workflow need.
-  Evidence: [metadata-discovery tests](test/metadata-discovery.test.ts).
+- **Deferred — Markover-owned pull-request refresh.** Agents opportunistically
+  supply timestamped PR lifecycle observations during review commands; Markover
+  stores them without owning GitHub credentials or polling. Issue
+  [#126](https://github.com/lastobelus/markover/issues/126) owns an optional
+  GitHub connection for authoritative refresh. Evidence:
+  [metadata-discovery tests](test/metadata-discovery.test.ts).
 - **Deferred — Stronger local-adversary isolation.** Same-user and privileged
   process isolation plus deliberate stale-port impersonation protection remain
   outside the selected OS-account boundary until deployment evidence justifies

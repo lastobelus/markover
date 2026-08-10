@@ -22,6 +22,11 @@ recovery guidance:
 npm --silent run markover -- help
 ```
 
+Before `open`, `get`, `revise`, or `done` for a pull-request-associated review,
+follow the help payload's `pullRequestStatus` contract. That contract is the
+source of truth for the live `gh pr view` lookup, status mapping, command flags,
+and non-blocking lookup-failure behavior.
+
 The normal flow is `open` once, retain the returned `reviewId`, give the user a
 best-effort Markdown link whose target is the returned `reviewUrl`, include the
 raw review ID and the standalone Terminal command below, and stop. When the
@@ -33,7 +38,10 @@ free-form and can mix revision requests, questions, discussion, and context;
 respond to each part by intent, substantively address discussion and concerns,
 explicitly acknowledge every question even when you also act on it, and treat
 exact source edits as context-dependent proposals.
-If the user needs to change feedback after handoff, run `edit <reviewId>`.
+After acting on every part of the feedback, run `revise <reviewId>` before
+reporting completion. If the user needs to change feedback while the review is
+still with the agent, run `edit <reviewId>`. A later feedback round opens a new
+review rather than reopening a Revised review.
 Keep `--silent`: agent-facing success output is exactly one JSON value on
 stdout, while errors explain the relevant usage and recovery on stderr.
 
@@ -70,8 +78,9 @@ Markdown artifact:
    session.
 6. Retain the review ID in the agent thread. When the user says to check
    Markover, run `npm --silent run markover -- get <review-id>` once. If the
-   user needs to add feedback afterward, use
-   `npm --silent run markover -- edit <review-id>`.
+   user needs to add feedback before you finish, use
+   `npm --silent run markover -- edit <review-id>`. After acting on the complete
+   handoff, run `npm --silent run markover -- revise <review-id>`.
 
 A meaningful block is a heading, paragraph, list, block quote, table, or code
 block that Markover presents as a reviewable unit. Do not inflate or fragment a

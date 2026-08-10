@@ -73,6 +73,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isReviewStatus(value: unknown): value is ReviewSessionStatus {
   return value === 'editing' ||
     value === 'pending-agent' ||
+    value === 'revised' ||
+    value === 'done' ||
     value === 'handoff-in-progress'
 }
 
@@ -1224,8 +1226,16 @@ function renderReviewEditability(): void {
   elements.annotationReadonly.hidden = !readonly
 
   if (readonly) {
-    elements.annotationGuidance.textContent =
-      'The agent has this review. Ask it to return the review to editing if you need to add more.'
+    const status = state.tree && isReviewSessionTree(state.tree)
+      ? state.tree.review.status
+      : 'pending-agent'
+    elements.reviewStateBanner.textContent =
+      `${reviewStatusLabel(status)} · Read only`
+    elements.annotationGuidance.textContent = status === 'revised'
+      ? 'The agent has addressed this review. Open a new review for another feedback round.'
+      : status === 'done'
+        ? 'This review belongs to merged work and is retained as read-only history.'
+        : 'The agent has this review. Ask it to return the review to editing if you need to add more.'
   } else if (managed) {
     elements.annotationGuidance.textContent =
       'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
@@ -1803,7 +1813,10 @@ function captureActiveSession(): void {
 
 function reviewStatusLabel(status: ReviewSessionStatus): string {
   if (status === 'handoff-in-progress') return 'Handing off'
-  return status === 'pending-agent' ? 'With agent' : 'Editing'
+  if (status === 'pending-agent') return 'With agent'
+  if (status === 'revised') return 'Revised'
+  if (status === 'done') return 'Done'
+  return 'Editing'
 }
 
 function addReviewContextField(label: string, value: unknown): void {
@@ -1929,6 +1942,12 @@ const DOCUMENT_STATUS_SPRITE = `
     <symbol id="markover-status-pending" viewBox="0 0 10 10">
       <circle cx="5" cy="5" r="4" fill="var(--status-pending)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
+    <symbol id="markover-status-revised" viewBox="0 0 10 10">
+      <circle cx="5" cy="5" r="4" fill="var(--status-revised)" stroke="var(--status-outline)" stroke-width="0.75" />
+    </symbol>
+    <symbol id="markover-status-done" viewBox="0 0 10 10">
+      <circle cx="5" cy="5" r="4" fill="var(--status-done)" stroke="var(--status-outline)" stroke-width="0.75" />
+    </symbol>
     <symbol id="markover-status-progress" viewBox="0 0 10 10">
       <circle cx="5" cy="5" r="4" fill="var(--status-progress)" stroke="var(--status-outline)" stroke-width="0.75" />
     </symbol>
@@ -1941,6 +1960,8 @@ const DOCUMENT_STATUS_SPRITE = `
 function documentsListStatusIcon(status: ReviewSessionStatus): string {
   if (status === 'editing') return 'markover-status-editing'
   if (status === 'pending-agent') return 'markover-status-pending'
+  if (status === 'revised') return 'markover-status-revised'
+  if (status === 'done') return 'markover-status-done'
   return 'markover-status-progress'
 }
 
@@ -2639,7 +2660,7 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
   const status = document.createElement('span')
   status.className = [
     'document-tab-status',
-    session.tree.review.status !== 'editing' ? 'is-pending' : ''
+    `is-${session.tree.review.status}`
   ].filter(Boolean).join(' ')
   status.textContent = reviewStatusLabel(session.tree.review.status)
   button.append(status)
