@@ -61,6 +61,23 @@ test('user-facing recovery warnings exclude cosmetic brand fallback', () => {
   ])
 })
 
+test('startup recovery toast supports pointer and keyboard activation', async () => {
+  const [renderer, styles] = await Promise.all([
+    fs.readFile(path.resolve(__dirname, '../../src/renderer.ts'), 'utf8'),
+    fs.readFile(path.resolve(__dirname, '../../src/styles.css'), 'utf8')
+  ])
+  assert.match(
+    renderer,
+    /classList\.add\('is-visible', 'is-actionable'\)/
+  )
+  assert.match(renderer, /elements\.toast\.onclick = reveal/)
+  assert.match(renderer, /event\.key !== 'Enter' && event\.key !== ' '/)
+  assert.match(
+    styles,
+    /\.toast\.is-actionable \{[^}]*pointer-events: auto;/
+  )
+})
+
 test('startup diagnostic is atomic, private, and clears stale failure', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-startup-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
