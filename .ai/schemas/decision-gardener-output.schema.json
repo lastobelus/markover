@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["needs_context", "complete", "ambiguous"]
+    },
+    "contextRequests": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["path", "path_at_commit", "git_object"]
+          },
+          "value": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        },
+        "required": ["kind", "value", "reason"],
+        "additionalProperties": false
+      }
+    },
+    "proposedDecisions": { "type": ["string", "null"] },
+    "report": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string" },
+        "classifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "entry": {
+                "type": "string",
+                "description": "Exact bold DECISIONS.md entry label when an existing entry block changes."
+              },
+              "classification": {
+                "type": "string",
+                "enum": ["Retain", "Revise", "Superseded", "Planned", "Deferred"]
+              },
+              "evidence": { "type": "array", "items": { "type": "string" } },
+              "reason": { "type": "string" }
+            },
+            "required": ["entry", "classification", "evidence", "reason"],
+            "additionalProperties": false
+          }
+        },
+        "ambiguities": {
+          "type": "array",
+          "description": "Unresolved evidence; this array must be empty when the top-level status is complete.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "summary": { "type": "string" },
+              "evidence": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["summary", "evidence"],
+            "additionalProperties": false
+          }
+        },
+        "ownershipMatches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "issue": { "type": "integer", "minimum": 1 },
+              "title": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "required": ["issue", "title", "reason"],
+            "additionalProperties": false
+          }
+        },
+        "suggestedFollowups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "summary": { "type": "string" },
+              "ownerIssue": { "type": ["integer", "null"], "minimum": 1 }
+            },
+            "required": ["summary", "ownerIssue"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "summary",
+        "classifications",
+        "ambiguities",
+        "ownershipMatches",
+        "suggestedFollowups"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "status",
+    "contextRequests",
+    "proposedDecisions",
+    "report"
+  ],
+  "additionalProperties": false
+}

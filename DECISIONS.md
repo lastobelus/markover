@@ -22,20 +22,44 @@ file as evidence of itself. The issue 36 audit started at commit `005d83c` and
 was reconciled through commit `51f175f` before publication. An entry without an
 **Audit** note has not yet been reassessed.
 
+<!-- decision-gardener-checkpoint: 51f175f391c752f5b3246d43310f67412571bb7b -->
+
 ## Register maintenance
 
 - **Planned — Reconcile from durable Git state.** A gardener compares the last
   successfully audited `main` commit with current `origin/main`, so a later run
-  catches merges missed while its host was offline. Manual local `codex exec`
-  runs are the interim trigger; the future trusted Intel host adds periodic
-  local scheduling, with merge hooks only as optional wakeups. Issue
+  catches merges missed while its host was offline. Commit patches and
+  changed-path inventories both compare merges with their first parent, keeping
+  the audit aligned with each merge's mainline effect. Manual local `codex
+  exec` runs are the interim trigger; the future trusted Intel host adds
+  periodic local scheduling, with merge hooks only as optional wakeups. Issue
   [#101](https://github.com/lastobelus/markover/issues/101) owns the harness,
   isolated worktree, single-flight behavior, subscription authentication, and
-  human-reviewed output. GitHub-hosted execution is excluded because the
-  official action expects an API key and official guidance warns against using
-  ChatGPT-managed CI authentication for public repositories. Evidence:
+  human-reviewed output. Historical path requests address one exact reachable
+  commit and path, keeping omitted evidence retrievable in one bounded context
+  round. Single-flight leases atomically publish recovery claims and compare
+  both PID and a timezone-stable process start identity, so a crash or reused
+  PID cannot preserve a dead owner. Complete proposals preserve unclassified
+  register entries byte-for-byte and identify each changed entry by its exact
+  bold label. Oversized Git output is counted and hashed as a stream without a
+  full memory buffer or temporary-file spool. GitHub-hosted execution is
+  excluded because the official action expects an API key and guidance warns
+  against using ChatGPT-managed CI authentication for public repositories.
+  Evidence:
   [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
   and [Codex GitHub Action](https://learn.chatgpt.com/docs/github-action).
+- **Planned — Checkpoint publication is self-identifying.** A gardener
+  publication changes exactly `DECISIONS.md`, and its checkpoint names the
+  publication commit's first parent. The next reconciliation excludes that
+  publication commit from the audit range. Candidate discovery follows full
+  history; a recognized publication merge excludes its entire
+  first-parent-exclusive closure, including review and fixup commits. If no
+  other commit has landed, the audited target remains the named parent.
+  Any commit that changes another path fails this recognition and is audited
+  normally, preventing checkpoint-only proposals from triggering themselves
+  forever. Issue
+  [#101](https://github.com/lastobelus/markover/issues/101) owns the publisher
+  and validation contract.
 
 ## First-prototype disposition index
 
