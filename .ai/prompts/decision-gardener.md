@@ -39,8 +39,11 @@ gardener itself does not create that follow-up.
 Return `complete` only after considering every supplied commit. Include the
 complete proposed `DECISIONS.md`, even when no semantic register entry changes.
 When the status is `complete`, `report.ambiguities` must be empty.
-Preserve unrelated register content and advance the one
-`decision-gardener-checkpoint` marker to the exact audited target commit. A
-clean audit therefore still produces a reviewable checkpoint-only proposal.
+Preserve every existing section heading and bold entry label. When an existing
+entry block changes, set `report.classifications[].entry` to that exact bold
+label; unclassified entry blocks must remain byte-for-byte unchanged. Advance
+the one `decision-gardener-checkpoint` marker to the exact audited target
+commit. A clean audit therefore still produces a reviewable checkpoint-only
+proposal.
 
 The response must conform exactly to the supplied JSON Schema.

@@ -1341,6 +1341,7 @@ export function validateAuditAgentResult(value: unknown): AuditAgentResult {
 
 export function validateCompleteProposal(
   result: AuditAgentResult,
+  sourceDecisions: string,
   target: string
 ): string {
   if (result.status !== 'complete' || result.proposedDecisions === null) {
@@ -1355,7 +1356,105 @@ export function validateCompleteProposal(
       `The proposed DECISIONS.md checkpoint is ${checkpoint}; expected ${target}.`
     )
   }
+  validateDecisionPreservation(
+    sourceDecisions,
+    result.proposedDecisions,
+    result.report.classifications
+  )
   return result.proposedDecisions
+}
+
+interface DecisionDocumentParts {
+  entries: ReadonlyMap<string, string>
+  entryOrder: readonly string[]
+  structure: readonly string[]
+}
+
+function normalizeDecisionCheckpoint(source: string): string {
+  return source.replace(
+    new RegExp(`(<!--\\s*${decisionCheckpointLabel}:\\s*)[0-9a-f]{40}(\\s*-->)`),
+    '$1<checkpoint>$2'
+  )
+}
+
+function splitDecisionDocument(source: string): DecisionDocumentParts {
+  const lines = source.match(/[^\n]*(?:\n|$)/g)?.filter(Boolean) ?? []
+  const entries = new Map<string, string>()
+  const entryOrder: string[] = []
+  const structure: string[] = []
+  let outside = ''
+  for (let index = 0; index < lines.length;) {
+    const line = lines[index] ?? ''
+    const entry = line.match(/^(?:\d+\.|-)\s+\*\*([^*\n]+)\*\*/)
+    if (entry?.[1] === undefined) {
+      outside += line
+      index += 1
+      continue
+    }
+    if (outside.length > 0) {
+      structure.push(outside)
+      outside = ''
+    }
+    const label = entry[1]
+    if (entries.has(label)) {
+      throw new Error(`DECISIONS.md contains a duplicate entry label: ${label}`)
+    }
+    let block = line
+    entryOrder.push(label)
+    index += 1
+    while (index < lines.length) {
+      const nested = lines[index] ?? ''
+      if (
+        /^(?:\d+\.|-)\s+\*\*[^*\n]+\*\*/.test(nested) ||
+        /^##\s+/.test(nested)
+      ) break
+      block += nested
+      index += 1
+    }
+    entries.set(label, block)
+  }
+  if (outside.length > 0) structure.push(outside)
+  return { entries, entryOrder, structure }
+}
+
+function validateDecisionPreservation(
+  source: string,
+  proposal: string,
+  classifications: AuditReport['classifications']
+): void {
+  parseDecisionCheckpoint(source)
+  const original = splitDecisionDocument(normalizeDecisionCheckpoint(source))
+  const proposed = splitDecisionDocument(normalizeDecisionCheckpoint(proposal))
+  const classified = new Set(classifications.map(({ entry }) => entry))
+  for (const [label, originalBlock] of original.entries) {
+    const proposedBlock = proposed.entries.get(label)
+    if (proposedBlock === undefined) {
+      throw new Error(`The proposed DECISIONS.md removes the entry: ${label}`)
+    }
+    if (proposedBlock !== originalBlock && !classified.has(label)) {
+      throw new Error(
+        `The proposed DECISIONS.md changes the unclassified entry: ${label}`
+      )
+    }
+  }
+  let entryCursor = 0
+  for (const label of original.entryOrder) {
+    const found = proposed.entryOrder.indexOf(label, entryCursor)
+    if (found < 0) {
+      throw new Error('The proposed DECISIONS.md changes existing entry order.')
+    }
+    entryCursor = found + 1
+  }
+  let cursor = 0
+  const normalizedProposal = normalizeDecisionCheckpoint(proposal)
+  for (const segment of original.structure) {
+    if (segment.trim().length === 0) continue
+    const found = normalizedProposal.indexOf(segment, cursor)
+    if (found < 0) {
+      throw new Error('The proposed DECISIONS.md changes unclassified document structure.')
+    }
+    cursor = found + segment.length
+  }
 }
 
 function contextFailure(message: string): AuditAgentResult {
@@ -1403,7 +1502,9 @@ export async function runBoundedAudit({
     }
     const result = validateAuditAgentResult(await invoke(input))
     if (result.status !== 'needs_context') {
-      if (result.status === 'complete') validateCompleteProposal(result, bundle.target)
+      if (result.status === 'complete') {
+        validateCompleteProposal(result, bundle.decisions.content, bundle.target)
+      }
       return result
     }
     if (round >= maxContextRounds) {

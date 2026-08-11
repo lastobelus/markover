@@ -39,7 +39,9 @@ was reconciled through commit `51f175f` before publication. An entry without an
   commit and path, keeping omitted evidence retrievable in one bounded context
   round. Single-flight leases atomically publish recovery claims and compare
   both PID and a timezone-stable process start identity, so a crash or reused
-  PID cannot preserve a dead owner. GitHub-hosted execution is excluded
+  PID cannot preserve a dead owner. Complete proposals preserve unclassified
+  register entries byte-for-byte and identify each changed entry by its exact
+  bold label. GitHub-hosted execution is excluded
   because the official action expects an API key and official guidance warns
   against using ChatGPT-managed CI authentication for public repositories.
   Evidence:

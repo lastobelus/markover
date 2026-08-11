@@ -34,7 +34,10 @@
           "items": {
             "type": "object",
             "properties": {
-              "entry": { "type": "string" },
+              "entry": {
+                "type": "string",
+                "description": "Exact bold DECISIONS.md entry label when an existing entry block changes."
+              },
               "classification": {
                 "type": "string",
                 "enum": ["Retain", "Revise", "Superseded", "Planned", "Deferred"]

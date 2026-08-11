@@ -762,17 +762,86 @@ test('bounded audit resolves context or emits an explicit ambiguity', async () =
   )
 })
 
-test('complete proposals must advance the one checkpoint to the audited target', () => {
+test('complete proposals advance the checkpoint and preserve unclassified entries', () => {
+  const checkpoint = 'a'.repeat(40)
   const target = 'b'.repeat(40)
+  const source = [
+    '# Decision register',
+    '',
+    'Stable register introduction.',
+    '',
+    `${checkpointPrefix}${checkpoint} -->`,
+    '',
+    '## Stable decisions',
+    '',
+    '1. **Keep this entry.** Its original decision.',
+    '   Supporting evidence remains here.',
+    '',
+    '2. **Keep another entry.** Its decision remains stable.',
+    ''
+  ].join('\n')
+  const proposed = replaceDecisionCheckpoint(source, target)
   const result: AuditAgentResult = {
     contextRequests: [],
-    proposedDecisions: `# Decision register\n\n${checkpointPrefix}${target} -->\n`,
+    proposedDecisions: proposed,
     report: emptyReport,
     schemaVersion: 1,
     status: 'complete'
   }
-  assert.equal(validateCompleteProposal(result, target), result.proposedDecisions)
-  assert.throws(() => validateCompleteProposal(result, 'c'.repeat(40)), /expected/)
+  assert.equal(
+    validateCompleteProposal(result, source, target),
+    result.proposedDecisions
+  )
+  assert.throws(
+    () => validateCompleteProposal(result, source, 'c'.repeat(40)),
+    /expected/
+  )
+  assert.throws(() => validateCompleteProposal({
+    ...result,
+    proposedDecisions: `# Decision register\n\n${checkpointPrefix}${target} -->\n`
+  }, source, target), /removes the entry|document structure/)
+  const changedProposal = proposed.replace(
+    'Its original decision.',
+    'Its revised decision.'
+  )
+  assert.throws(() => validateCompleteProposal({
+    ...result,
+    proposedDecisions: changedProposal
+  }, source, target), /unclassified entry/)
+  const classifiedResult: AuditAgentResult = {
+    ...result,
+    proposedDecisions: changedProposal,
+    report: {
+      ...emptyReport,
+      classifications: [{
+        classification: 'Revise',
+        entry: 'Keep this entry.',
+        evidence: ['commit:b'],
+        reason: 'Landed behavior changed.'
+      }]
+    }
+  }
+  assert.equal(
+    validateCompleteProposal(classifiedResult, source, target),
+    changedProposal
+  )
+  const firstBlock = [
+    '1. **Keep this entry.** Its original decision.',
+    '   Supporting evidence remains here.',
+    ''
+  ].join('\n')
+  const secondBlock = '2. **Keep another entry.** Its decision remains stable.\n'
+  const reorderedProposal = proposed.replace(
+    `${firstBlock}\n${secondBlock}`,
+    `${secondBlock}${firstBlock}\n`
+  )
+  assert.throws(
+    () => validateCompleteProposal({
+      ...result,
+      proposedDecisions: reorderedProposal
+    }, source, target),
+    /entry order/
+  )
   assert.throws(() => validateAuditAgentResult({
     ...result,
     report: {
