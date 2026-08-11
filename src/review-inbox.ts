@@ -17,6 +17,7 @@ export interface ReviewInboxRow {
   local: boolean
   projectKey: string
   projectName: string
+  projectRoot: string | null
   provider: string | null
   pullRequestNumber: number | null
   pullRequestStatus: PullRequestStatus | null
@@ -144,6 +145,7 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
     local,
     projectKey: session.projectKey,
     projectName: session.projectName,
+    projectRoot: session.projectRoot,
     provider,
     pullRequestNumber,
     pullRequestStatus: pullRequestState?.status ?? null,

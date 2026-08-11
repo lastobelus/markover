@@ -31,7 +31,7 @@ const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
 type FixtureOptions = Omit<
   LocalServiceOptions,
   'identity' | 'store'
->
+> & { reviewIds?: string[] }
 
 function expectRecord(value: unknown): Record<string, unknown> {
   assert.ok(value && typeof value === 'object' && !Array.isArray(value))
@@ -69,10 +69,10 @@ async function serviceFixture(
   const endpointPath = path.join(directory, 'service.json')
   const changes: Array<{
     artifact: ReviewArtifact
-    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done'
+    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done' | 'observed'
   }> = []
   const store = new ReviewStore(path.join(directory, 'reviews'), {
-    idFactory: () => 'mko_aaa11111'
+    idFactory: () => options.reviewIds?.shift() || 'mko_aaa11111'
   })
   const identity = createServiceIdentity()
   const service = await startLocalService({
@@ -300,6 +300,36 @@ test('persists PR observations through revise and PR-scoped done', async (t) => 
       reviewIds: [],
       status: 'done'
     }
+  )
+})
+
+test('a received PR observation refreshes every matching stored review', async (t) => {
+  const { changes, endpointPath, store } = await serviceFixture(t, {
+    reviewIds: ['mko_aaa11111', 'mko_bbb22222']
+  })
+  const metadata = {
+    contextSummary: 'Review the shared PR.',
+    git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
+    pullRequest: { number: 123 }
+  }
+  await requestJson(endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata
+  })
+  await requestJson(endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    pullRequestStatus: 'open',
+    metadata
+  })
+
+  const earlier = await store.load('mko_aaa11111')
+  assert.equal(
+    (earlier.review.pullRequest as Record<string, unknown>).status,
+    'open'
+  )
+  assert.deepEqual(
+    changes.map((change) => change.action),
+    ['created', 'created', 'observed']
   )
 })
 

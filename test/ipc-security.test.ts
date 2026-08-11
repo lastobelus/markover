@@ -215,6 +215,15 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
     assertRendererInvokeArguments('review:context-menu:open', [{
       reviewId: 'mko_abcdef'
     }])
+    assertRendererInvokeArguments('review:project-favicon:get', ['mko_abcdef'])
+    assertRendererInvokeArguments('review:pull-request:open', ['mko_abcdef'])
+    assertRendererInvokeResult('review:project-favicon:get', null)
+    assertRendererInvokeResult(
+      'review:project-favicon:get',
+      'data:image/png;base64,iVBORw0KGgo='
+    )
+    assertRendererInvokeResult('review:pull-request:open', undefined)
+    assertMainEventArguments('review:updated', [document])
     assertRendererInvokeArguments('attachment:remove', [{
       reviewId: 'mko_abcdef',
       attachmentId: 'img-1',
@@ -296,6 +305,8 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:create-local',
     'review:initial-document',
     'review:list',
+    'review:project-favicon:get',
+    'review:pull-request:open',
     'review:snapshot-response',
     'review:status-response',
     'settings:get',

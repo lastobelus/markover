@@ -20,6 +20,12 @@
     return index > 0 ? normalized.slice(0, index) : ''
   }
 
+  function repositoryName(value: unknown): string {
+    if (typeof value !== 'string') return ''
+    const normalized = value.trim().replace(/[\\/]+$/, '').replace(/\.git$/i, '')
+    return basename(normalized)
+  }
+
   function projectIdentity(
     document: {
       path?: unknown
@@ -43,7 +49,7 @@
       .replace(/[\\/]+$/, '') || null
     return {
       key: root || 'unassigned',
-      name: basename(root) || 'Other',
+      name: repositoryName(git?.repositoryUrl) || basename(root) || 'Other',
       root
     }
   }
@@ -245,6 +251,18 @@
           session.attentionRequestedAt = session.lifecycleActivityAt
         }
       }
+      return session
+    }
+
+    updateDocument(document: ReviewSessionDocument): ReviewSession | null {
+      const reviewId = document.reviewId || document.tree.review.id
+      if (!reviewId) return null
+      const session = this.get(reviewId)
+      if (!session) return null
+      if (document.tree.review.updatedAt !== undefined) {
+        session.tree.review.updatedAt = document.tree.review.updatedAt
+      }
+      session.tree.review.pullRequest = document.tree.review.pullRequest
       return session
     }
 

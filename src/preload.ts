@@ -155,12 +155,26 @@ const bridge = {
     invoke('review:initial-document')
   ),
   getReviews: () => invoke('review:list'),
+  getProjectFavicon: (reviewId) => (
+    invoke('review:project-favicon:get', reviewId)
+  ),
+  openPullRequest: (reviewId) => (
+    invoke('review:pull-request:open', reviewId)
+  ),
   openReviewContextMenu: (request) => (
     invoke('review:context-menu:open', request)
   ),
   onReviewOpened: (callback) => {
     listen(
       'review:opened',
+      (document: MarkoverDocument) => {
+        void callback(document)
+      }
+    )
+  },
+  onReviewUpdated: (callback) => {
+    listen(
+      'review:updated',
       (document: MarkoverDocument) => {
         void callback(document)
       }

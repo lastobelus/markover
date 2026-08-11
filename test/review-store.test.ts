@@ -274,6 +274,61 @@ test('an omitted PR observation preserves the last successful value', async (t) 
   assert.equal(revised.review.updatedAt, '2026-08-10T02:12:00.000Z')
 })
 
+test('a newer PR observation propagates to matching reviews without lifecycle churn', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222', 'mko_ccc33333']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string,
+    now: () => '2026-08-10T03:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const older = await store.create({
+    tree: tree('# Older\n'),
+    contextSummary: 'Older matching review.',
+    git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
+    pullRequest: {
+      number: 123,
+      status: 'draft',
+      statusObservedAt: '2026-08-10T01:00:00.000Z',
+      statusSource: 'agent'
+    }
+  })
+  const unrelated = await store.create({
+    tree: tree('# Other\n'),
+    contextSummary: 'Same PR number in another repository.',
+    git: { repositoryUrl: 'git@github.com:openai/markover.git' },
+    pullRequest: { number: 123 }
+  })
+  const source = await store.create({
+    tree: tree('# Current\n'),
+    contextSummary: 'Newest matching observation.',
+    git: { repositoryUrl: 'https://github.com/Lastobelus/Markover' },
+    pullRequest: {
+      number: 123,
+      status: 'open',
+      statusObservedAt: '2026-08-10T02:00:00.000Z',
+      statusSource: 'agent'
+    }
+  })
+
+  const propagated = await store.propagatePullRequestObservation(source)
+  assert.deepEqual(propagated.map((review) => review.review.id), [older.review.id])
+  const refreshed = await store.load(older.review.id)
+  assert.equal(refreshed.review.updatedAt, older.review.updatedAt)
+  assert.deepEqual(refreshed.review.pullRequest, {
+    number: 123,
+    url: 'https://github.com/lastobelus/markover/pull/123',
+    status: 'open',
+    statusObservedAt: '2026-08-10T02:00:00.000Z',
+    statusSource: 'agent'
+  })
+  assert.deepEqual((await store.load(unrelated.review.id)).review.pullRequest, {
+    number: 123,
+    url: 'https://github.com/openai/markover/pull/123'
+  })
+  assert.deepEqual(await store.propagatePullRequestObservation(older), [])
+})
+
 test('requires canonical PR identity and complete lifecycle observations', async (t) => {
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111',

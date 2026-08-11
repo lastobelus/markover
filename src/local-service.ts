@@ -52,6 +52,7 @@ export interface LocalServiceOptions {
     | 'list'
     | 'load'
     | 'matchingPullRequestReviews'
+    | 'propagatePullRequestObservation'
     | 'revise'
   >
   beforeAction?: ((
@@ -61,7 +62,7 @@ export interface LocalServiceOptions {
   onActivate?: ((reviewId: string) => Promise<ReviewActivationResult>) | undefined
   onChange?: ((
     artifact: ReviewArtifact,
-    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done'
+    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done' | 'observed'
   ) => void | Promise<void>) | undefined
   onQuit?: (() => void) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
@@ -197,6 +198,11 @@ export async function startLocalService({
     })
   }
 
+  async function propagateObservation(artifact: ReviewArtifact): Promise<void> {
+    const related = await store.propagatePullRequestObservation(artifact)
+    for (const updated of related) await onChange(updated, 'observed')
+  }
+
   async function handleRequest(
     request: IncomingMessage,
     response: ServerResponse
@@ -293,6 +299,7 @@ export async function startLocalService({
           }
           const created = await store.create(createInput)
           await onChange(created, 'created')
+          await propagateObservation(created)
           return created
         })
         sendJson(response, 201, {
@@ -449,6 +456,7 @@ export async function startLocalService({
               throw error
             }
             await onChange(changed, action)
+            if (action !== 'edit') await propagateObservation(changed)
             return changed
           })
         ))

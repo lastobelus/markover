@@ -529,8 +529,13 @@ declare global {
     }>
     getInitialReview: () => Promise<MarkoverDocument | null>
     getReviews: () => Promise<MarkoverDocument[]>
+    getProjectFavicon: (reviewId: string) => Promise<string | null>
+    openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: { reviewId: string }) => Promise<void>
     onReviewOpened: (
+      callback: (document: MarkoverDocument) => void | Promise<void>
+    ) => void
+    onReviewUpdated: (
       callback: (document: MarkoverDocument) => void | Promise<void>
     ) => void
     onReviewTrashed: (callback: (event: { reviewId: string }) => void) => void
@@ -641,6 +646,7 @@ declare global {
       reviewId: string,
       status: ReviewSessionEnvelope['status']
     ): ReviewSession | null
+    updateDocument(document: ReviewSessionDocument): ReviewSession | null
     adjacent(reviewId: string, offset: number): ReviewSession | null
     list(): ReviewSession[]
     recent(limit?: number): ReviewSession[]
