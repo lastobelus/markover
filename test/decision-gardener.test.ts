@@ -541,6 +541,22 @@ test('single-flight acquisition recovers a reused live PID', async (t) => {
   await lease.release()
 })
 
+test('single-flight process identity is stable across caller timezones', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-timezone-lock-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const originalTimezone = process.env.TZ
+  t.after(() => {
+    if (originalTimezone === undefined) delete process.env.TZ
+    else process.env.TZ = originalTimezone
+  })
+  const lock = path.join(root, 'active.lock')
+  process.env.TZ = 'America/Vancouver'
+  const lease = await acquireSingleFlightLock(lock)
+  process.env.TZ = 'Asia/Tokyo'
+  await assert.rejects(acquireSingleFlightLock(lock), /already owns/)
+  await lease.release()
+})
+
 test('adaptive context accepts only reachable Git data within strict bounds', async (t) => {
   const fixture = await createAuditRepository()
   t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))

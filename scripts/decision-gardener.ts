@@ -802,6 +802,18 @@ async function writeExclusive(filePath: string, source: string): Promise<void> {
   }
 }
 
+async function publishExclusiveFile(filePath: string, source: string): Promise<void> {
+  const candidate = `${filePath}.candidate.${crypto.randomUUID()}`
+  try {
+    await writeExclusive(candidate, source)
+    await fs.link(candidate, filePath)
+  } finally {
+    await fs.unlink(candidate).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    })
+  }
+}
+
 export async function writeImmutableAuditBundle({
   bundle,
   destination,
@@ -968,7 +980,7 @@ async function claimDeadSingleFlightLock(
     token: crypto.randomUUID()
   }
   try {
-    await writeExclusive(claimPath, `${JSON.stringify(claim, null, 2)}\n`)
+    await publishExclusiveFile(claimPath, `${JSON.stringify(claim, null, 2)}\n`)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
@@ -1014,7 +1026,8 @@ async function claimDeadSingleFlightLock(
 
 function localProcessStartedAt(pid: number): string | null {
   const result = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
-    encoding: 'utf8'
+    encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C', TZ: 'UTC' }
   })
   if (result.error) throw result.error
   const startedAt = result.stdout.trim().replace(/\s+/g, ' ')
