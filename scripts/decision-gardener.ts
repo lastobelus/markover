@@ -378,26 +378,74 @@ export function discoverCommitRange({
   targetRef?: string
 }): { commits: readonly string[]; target: string } {
   assertCommit(repository, checkpoint, runner, 'Decision checkpoint')
-  const target = resolveCommit(repository, targetRef, runner)
+  const repositoryTarget = resolveCommit(repository, targetRef, runner)
   const ancestry = runner(repository, [
-    'merge-base', '--is-ancestor', checkpoint, target
+    'merge-base', '--is-ancestor', checkpoint, repositoryTarget
   ])
   if (ancestry.status !== 0) {
     throw new Error(
-      `Decision checkpoint ${checkpoint} is not an ancestor of ${targetRef} (${target}).`
+      `Decision checkpoint ${checkpoint} is not an ancestor of ${targetRef} (${repositoryTarget}).`
     )
   }
   const source = gitText(
     runner,
     repository,
-    ['rev-list', '--reverse', `${checkpoint}..${target}`],
+    ['rev-list', '--reverse', `${checkpoint}..${repositoryTarget}`],
     'Discover unaudited commits'
   )
-  const commits = source.length === 0 ? [] : source.split('\n')
-  if (!commits.every((commit) => fullCommitPattern.test(commit))) {
+  const discovered = source.length === 0 ? [] : source.split('\n')
+  if (!discovered.every((commit) => fullCommitPattern.test(commit))) {
     throw new Error('Git returned an invalid commit while discovering the audit range.')
   }
+  const candidateSource = gitText(
+    runner,
+    repository,
+    ['rev-list', '--first-parent', `${checkpoint}..${repositoryTarget}`, '--',
+      'DECISIONS.md'],
+    'Discover decision-checkpoint publications'
+  )
+  const candidates = candidateSource.length === 0
+    ? []
+    : candidateSource.split('\n')
+  if (!candidates.every((commit) => fullCommitPattern.test(commit))) {
+    throw new Error('Git returned an invalid decision-checkpoint publication candidate.')
+  }
+  const publications = new Set(candidates.filter((commit) =>
+    isDecisionCheckpointPublication(repository, commit, runner)
+  ))
+  const commits = discovered.filter((commit) => !publications.has(commit))
+  const target = commits.at(-1) ?? checkpoint
   return { commits, target }
+}
+
+function isDecisionCheckpointPublication(
+  repository: string,
+  commit: string,
+  runner: GitCommandRunner
+): boolean {
+  const ancestry = gitText(
+    runner,
+    repository,
+    ['rev-list', '--parents', '-n', '1', commit],
+    `Read publication ancestry for ${commit}`
+  ).split(' ')
+  const firstParent = ancestry[1]
+  if (ancestry[0] !== commit || firstParent === undefined) return false
+  const changedPaths = parseChangedPaths(requireGit(runner, repository, [
+    'diff-tree', '--root', '--first-parent', '--no-commit-id', '--name-status',
+    '-r', '-z', '--find-renames', commit
+  ], `Read publication paths for ${commit}`))
+  if (
+    changedPaths.length !== 1 || changedPaths[0]?.oldPath !== null ||
+    changedPaths[0].path !== 'DECISIONS.md' || changedPaths[0].status !== 'M'
+  ) return false
+  const decisions = runner(repository, ['show', `${commit}:DECISIONS.md`])
+  if (decisions.status !== 0) return false
+  try {
+    return parseDecisionCheckpoint(decisions.stdout.toString('utf8')) === firstParent
+  } catch {
+    return false
+  }
 }
 
 function parseChangedPaths(source: Buffer): RawChangedPath[] {

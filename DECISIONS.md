@@ -38,6 +38,15 @@ was reconciled through commit `51f175f` before publication. An entry without an
   ChatGPT-managed CI authentication for public repositories. Evidence:
   [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
   and [Codex GitHub Action](https://learn.chatgpt.com/docs/github-action).
+- **Planned — Checkpoint publication is self-identifying.** A gardener
+  publication changes exactly `DECISIONS.md`, and its checkpoint names the
+  publication commit's first parent. The next reconciliation excludes that
+  publication commit from the audit range; if no other commit has landed, the
+  audited target remains the named parent. Any commit that changes another path
+  fails this recognition and is audited normally, preventing checkpoint-only
+  proposals from triggering themselves forever. Issue
+  [#101](https://github.com/lastobelus/markover/issues/101) owns the publisher
+  and validation contract.
 
 ## First-prototype disposition index
 

@@ -158,12 +158,13 @@ test('range discovery catches every commit landed during an offline interval', a
   })
   assert.equal(range.target, fixture.target)
   assert.equal(range.commits.length, 3)
-  assert.deepEqual(
-    range.commits,
-    git(fixture.repository, [
-      'rev-list', '--reverse', `${fixture.checkpoint}..${fixture.target}`
-    ]).split('\n')
-  )
+  assert.deepEqual(range.commits.map((commit) =>
+    git(fixture.repository, ['show', '-s', '--format=%s', commit])
+  ), [
+    'Record audit checkpoint',
+    'Land feature while gardener is offline',
+    'Land tests while gardener is still offline'
+  ])
 
   git(fixture.repository, ['checkout', '--orphan', 'unrelated'])
   await commitFile(fixture.repository, 'unrelated.txt', 'unrelated\n', 'Unrelated')
@@ -172,6 +173,83 @@ test('range discovery catches every commit landed during an offline interval', a
     repository: fixture.repository,
     targetRef: 'unrelated'
   }), /not an ancestor/)
+})
+
+test('checkpoint publication commits cannot trigger another checkpoint-only audit', async (t) => {
+  const fixture = await createAuditRepository()
+  t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
+  const decisionsPath = path.join(fixture.repository, 'DECISIONS.md')
+  const publishCheckpoint = async (target: string): Promise<string> => {
+    const source = await fs.readFile(decisionsPath, 'utf8')
+    return commitFile(
+      fixture.repository,
+      'DECISIONS.md',
+      replaceDecisionCheckpoint(source, target),
+      'Publish decision audit'
+    )
+  }
+
+  await publishCheckpoint(fixture.target)
+  const afterFirstPublication = discoverCommitRange({
+    checkpoint: fixture.target,
+    repository: fixture.repository,
+    targetRef: 'main'
+  })
+  assert.deepEqual(afterFirstPublication, { commits: [], target: fixture.target })
+
+  const productCommit = await commitFile(
+    fixture.repository,
+    'src/later.ts',
+    'export const later = true\n',
+    'Land later product work'
+  )
+  const afterProductWork = discoverCommitRange({
+    checkpoint: fixture.target,
+    repository: fixture.repository,
+    targetRef: 'main'
+  })
+  assert.deepEqual(afterProductWork, {
+    commits: [productCommit],
+    target: productCommit
+  })
+
+  const secondPublication = await publishCheckpoint(productCommit)
+  const afterSecondPublication = discoverCommitRange({
+    checkpoint: productCommit,
+    repository: fixture.repository,
+    targetRef: 'main'
+  })
+  assert.deepEqual(afterSecondPublication, { commits: [], target: productCommit })
+  const bundle = assembleDecisionAuditBundle({
+    ownershipSnapshot: {},
+    repository: fixture.repository,
+    targetRef: 'main'
+  })
+  assert.equal(bundle.target, productCommit)
+  assert.deepEqual(bundle.commits, [])
+  assert.equal(replaceDecisionCheckpoint(bundle.decisions.content, bundle.target),
+    bundle.decisions.content)
+
+  const publicationSource = await fs.readFile(decisionsPath, 'utf8')
+  await fs.writeFile(
+    decisionsPath,
+    replaceDecisionCheckpoint(publicationSource, secondPublication)
+  )
+  git(fixture.repository, ['add', 'DECISIONS.md'])
+  const mixedCommit = await commitFile(
+    fixture.repository,
+    'src/mixed.ts',
+    'export const mixed = true\n',
+    'Publish checkpoint with product work'
+  )
+  assert.deepEqual(discoverCommitRange({
+    checkpoint: productCommit,
+    repository: fixture.repository,
+    targetRef: 'main'
+  }), {
+    commits: [mixedCommit],
+    target: mixedCommit
+  })
 })
 
 test('audit bundles pin commit patches, changed paths, snapshots, and ownership', async (t) => {
