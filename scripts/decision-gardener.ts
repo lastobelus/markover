@@ -509,11 +509,23 @@ function readCommit(
   const committerDate = field(7)
   const subject = field(8)
   const message = field(9)
+  const parentShas = parents.length === 0 ? [] : parents.split(' ')
 
-  const changedPaths = parseChangedPaths(requireGit(runner, repository, [
-    'diff-tree', '--root', '--first-parent', '--no-commit-id', '--name-status',
-    '-r', '-z', '--find-renames', commit
-  ], `Read changed paths for ${commit}`))
+  const changedPathArgs = parentShas[0] === undefined
+    ? [
+        'diff-tree', '--root', '--no-commit-id', '--name-status', '-r', '-z',
+        '--find-renames', commit
+      ]
+    : [
+        'diff-tree', '--no-commit-id', '--name-status', '-r', '-z',
+        '--find-renames', parentShas[0], commit
+      ]
+  const changedPaths = parseChangedPaths(requireGit(
+    runner,
+    repository,
+    changedPathArgs,
+    `Read changed paths for ${commit}`
+  ))
   const patch = contentReader(repository, [
     'show', '--first-parent', '--format=fuller', '--binary', '--find-renames',
     '--no-ext-diff', commit
@@ -527,7 +539,7 @@ function readCommit(
       name: committerName
     },
     message,
-    parents: parents.length === 0 ? [] : parents.split(' '),
+    parents: parentShas,
     patch,
     sha,
     subject

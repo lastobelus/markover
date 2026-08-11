@@ -290,6 +290,44 @@ test('merge-based checkpoint publications exclude both publication commits', asy
   assert.deepEqual(bundle.commits, [])
 })
 
+test('ordinary merge audits inventory paths against the first parent', async (t) => {
+  const fixture = await createAuditRepository()
+  t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
+  git(fixture.repository, ['checkout', '-b', 'ordinary-merge'])
+  await commitFile(
+    fixture.repository,
+    'src/merge-only.ts',
+    'export const merged = true\n',
+    'Land merge-only product work'
+  )
+  git(fixture.repository, ['checkout', 'main'])
+  git(fixture.repository, [
+    'merge', '--no-ff', 'ordinary-merge', '-m', 'Merge ordinary product work'
+  ])
+  const mergeCommit = git(fixture.repository, ['rev-parse', 'HEAD'])
+
+  const bundle = assembleDecisionAuditBundle({
+    ownershipSnapshot: {},
+    repository: fixture.repository,
+    targetRef: 'main'
+  })
+  const auditedMerge = bundle.commits.find(({ sha }) => sha === mergeCommit)
+  assert.ok(auditedMerge)
+  assert.equal(auditedMerge.parents.length, 2)
+  assert.deepEqual(auditedMerge.changedPaths.map(
+    ([status, pathIndex, oldPathIndex]) => {
+      const snapshot = bundle.paths[pathIndex]
+      assert.ok(snapshot)
+      const [prefixIndex, suffix] = snapshot
+      return [
+        status,
+        `${bundle.pathPrefixes[prefixIndex] ?? ''}${suffix}`,
+        oldPathIndex
+      ]
+    }
+  ), [['A', 'src/merge-only.ts', null]])
+})
+
 test('audit bundles pin commit patches, changed paths, snapshots, and ownership', async (t) => {
   const fixture = await createAuditRepository()
   t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))

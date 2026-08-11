@@ -28,9 +28,11 @@ was reconciled through commit `51f175f` before publication. An entry without an
 
 - **Planned — Reconcile from durable Git state.** A gardener compares the last
   successfully audited `main` commit with current `origin/main`, so a later run
-  catches merges missed while its host was offline. Manual local `codex exec`
-  runs are the interim trigger; the future trusted Intel host adds periodic
-  local scheduling, with merge hooks only as optional wakeups. Issue
+  catches merges missed while its host was offline. Commit patches and
+  changed-path inventories both compare merges with their first parent, keeping
+  the audit aligned with each merge's mainline effect. Manual local `codex
+  exec` runs are the interim trigger; the future trusted Intel host adds
+  periodic local scheduling, with merge hooks only as optional wakeups. Issue
   [#101](https://github.com/lastobelus/markover/issues/101) owns the harness,
   isolated worktree, single-flight behavior, subscription authentication, and
   human-reviewed output. GitHub-hosted execution is excluded because the
