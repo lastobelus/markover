@@ -94,6 +94,156 @@ that exact partial publication deliberately before starting another run. The
 gardener never force-pushes or overwrites an existing branch.
 
 Use `--run-store <absolute-path>` only when the trusted host needs a different
-durable private location. Intel-host cadence, notifications, health records,
-and automated recovery belong to the later host-operations slice of issue
-[#101](https://github.com/lastobelus/markover/issues/101).
+durable private location.
+
+## Trusted Intel-host setup
+
+The optional host controller runs the same manual gardener from a dedicated,
+clean checkout on a trusted Intel Mac. It is a user LaunchAgent, not a daemon,
+CI worker, or remote agent. Keep that checkout on `main`, keep it current with
+`origin/main`, and install dependencies and the build before activation:
+
+```sh
+npm ci
+npm run build
+command -v node git gh codex
+```
+
+Create the private config at
+`~/Library/Application Support/Markover/Decision Gardener/host-config.json`.
+Every executable and PATH directory is explicit because LaunchAgents do not
+inherit an interactive shell setup. Do not put tokens, passwords, the Codex
+authentication file, or shell fragments in this file.
+
+```json
+{
+  "auditIntervalMinutes": 60,
+  "codex": "/absolute/path/to/codex",
+  "environmentPath": [
+    "/absolute/directory/containing/node-and-codex",
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin"
+  ],
+  "model": "gpt-5.6-sol",
+  "notifier": {
+    "kind": "notification-center"
+  },
+  "reasoningEffort": "high",
+  "repository": "/absolute/path/to/the/clean/markover-checkout",
+  "runStore": "/Users/your-account/Library/Application Support/Markover/Decision Gardener",
+  "schemaVersion": 1
+}
+```
+
+The default notifier uses macOS Notification Center in the current login
+session. A genuinely headless host should use a reviewed out-of-band command
+instead:
+
+```json
+"notifier": {
+  "kind": "command",
+  "command": ["/absolute/path/to/reviewed-notifier", "fixed-argument"]
+}
+```
+
+The command is spawned directly, never through a shell. It receives only the
+curated process environment plus `MARKOVER_DECISION_GARDENER_EVENT`
+(`test`, `failed`, or `recovered`),
+`MARKOVER_DECISION_GARDENER_SUMMARY`, and
+`MARKOVER_DECISION_GARDENER_RECORD`. Keep the notifier outside the repository
+checkout and make it responsible for its own secret storage.
+
+Make the config private, then validate the complete notification route before
+installing:
+
+```sh
+chmod 600 "$HOME/Library/Application Support/Markover/Decision Gardener/host-config.json"
+npm --silent run decision-gardener:host -- test-notifier
+npm --silent run decision-gardener:host -- install
+npm --silent run decision-gardener:host -- status
+```
+
+`install` repeats the notifier test and refuses to write or load the
+LaunchAgent if it fails. It writes
+`~/Library/LaunchAgents/com.lastobelus.markover.decision-gardener.plist`, then
+uses `launchctl bootstrap` in the current GUI domain. The plist runs once when
+loaded and then asks `launchd` for one lightweight heartbeat every 300 seconds.
+It uses `ProcessType=Background`, a private umask, explicit stdout/stderr logs,
+and the exact Node, controller, config, repository, and PATH values present at
+installation time.
+
+Re-run `install` after moving or upgrading Node, moving the checkout, or moving
+the built controller. Ordinary cadence changes do not require reinstalling:
+edit `auditIntervalMinutes`, validate the file with `status` or
+`test-notifier`, and the next heartbeat reads the new value. The minimum is
+five minutes and the default is sixty.
+
+## Heartbeats and manual wakeups
+
+The five-minute launchd interval is a correctness wakeup, not the audit
+cadence. A heartbeat records itself and exits before Codex when the configured
+audit interval is not due. Once due, the existing runner still stops before
+Codex when no unaudited commit exists or an unresolved gardener pull request
+already owns publication.
+
+Run an immediate, serialized audit without changing the cadence:
+
+```sh
+npm --silent run decision-gardener:host -- run-now
+```
+
+A trusted local merge hook may invoke that same command as an optimization.
+Never make the hook the correctness source: macOS documents that
+`StartInterval` firings can be missed while the machine sleeps or while the job
+is still running. The next due run fetches `origin/main` and audits the complete
+checkpoint-to-tip range, so missed and coalesced wakeups need no replay queue.
+
+The host controller and the audit runner use separate recoverable single-flight
+locks. A simultaneous heartbeat or manual wakeup writes a `busy` attempt and
+does not disturb the active run. A lock whose recorded process is gone, or
+whose PID now belongs to a different process start, is reclaimed atomically.
+
+## Health, logs, and notification recovery
+
+Host state is stored in `host-state.json`. Every invocation creates a private
+record under `host-runs/`, including `not_due` and `busy` outcomes, and appends
+the same lifecycle facts to `host.log`. Full audit evidence remains under
+`runs/<run-id>/`. Launchd stdout and stderr are separate files under `logs/`.
+
+The first successful run establishes healthy state without noise. A transition
+to failure sends one `failed` notification; repeated failures retry every
+five-minute heartbeat without repeating a successfully delivered notification.
+The first later success sends one `recovered` notification. If notification
+delivery itself fails, the failed health remains pending and the next heartbeat
+retries rather than silently marking the host healthy.
+
+For a failure:
+
+1. Run `status` and open the exact record named in the notification or latest
+   `host-runs/` entry.
+2. Inspect `host.log`, the launchd stderr log, and the referenced full audit
+   run. Preserve partial publication artifacts and remote branches.
+3. Repair connectivity, checkout freshness, credentials, config, or notifier
+   outside the audit worktree.
+4. Run `test-notifier` when notification delivery changed, then `run-now`.
+   A successful audit records recovery and emits the one recovery transition.
+
+Changing the config while the agent is loaded is safe only when the replacement
+is complete, valid JSON. Validate a candidate before replacing the active file;
+a malformed active config cannot identify its run store or notifier reliably.
+
+## Disable or move the host
+
+Unload the exact user agent and remove its plist without deleting config,
+state, logs, audit evidence, branches, or reviews:
+
+```sh
+npm --silent run decision-gardener:host -- uninstall
+```
+
+To move the service, uninstall first, update the private config and dedicated
+checkout, rebuild, pass `test-notifier`, and install again. Historical run data
+is evidence: archive it privately or leave it in place rather than deleting it
+as part of routine recovery.
