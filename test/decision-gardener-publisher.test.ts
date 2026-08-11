@@ -121,8 +121,8 @@ test('publisher revalidates one-file output, pushes a dedicated branch, and crea
   const calls: string[][] = []
   const githubRunner: GitHubCommandRunner = (_repository, args) => {
     calls.push([...args])
-    if (args[0] === 'pr' && args[1] === 'list') {
-      return { status: 0, stderr: '', stdout: '[]' }
+    if (args[0] === 'api') {
+      return { status: 0, stderr: '', stdout: '[[]]' }
     }
     if (args[0] === 'pr' && args[1] === 'create') {
       return {
@@ -164,6 +164,11 @@ test('publisher revalidates one-file output, pushes a dedicated branch, and crea
     publication.commit
   )
   const create = calls.find((args) => args[0] === 'pr' && args[1] === 'create')
+  const openPullRequests = calls.find((args) => args[0] === 'api')
+  assert.deepEqual(openPullRequests, [
+    'api', '--paginate', '--slurp',
+    'repos/lastobelus/markover/pulls?state=open&per_page=100'
+  ])
   assert.ok(create?.includes('--draft'))
   assert.ok(create?.includes('--body-file'))
 })
@@ -183,16 +188,36 @@ test('publisher refuses any pre-existing worktree change and any open gardener p
     githubRunner: (_repository, args) => ({
       status: 0,
       stderr: '',
-      stdout: args[1] === 'list'
-        ? JSON.stringify([{
+      stdout: args[0] === 'api'
+        ? JSON.stringify([[], [{
             body: decisionGardenerPublicationMarker,
+            html_url: 'https://github.com/lastobelus/markover/pull/149',
             number: 149,
-            url: 'https://github.com/lastobelus/markover/pull/149'
-          }])
+          }]])
         : ''
     }),
     manifestPath: blocked.manifestPath
   }), /blocked by #149/)
+})
+
+test('publisher refuses publication when origin/main advances after the audit', async (t) => {
+  const fixture = await publicationFixture()
+  t.after(() => fs.rm(path.dirname(fixture.origin), { recursive: true, force: true }))
+  const advancingRepository = path.join(path.dirname(fixture.origin), 'advance')
+  git(path.dirname(fixture.origin), [
+    'clone', '--branch', 'main', fixture.origin, advancingRepository
+  ])
+  git(advancingRepository, ['config', 'user.name', 'Gardener Test'])
+  git(advancingRepository, ['config', 'user.email', 'gardener@example.com'])
+  await fs.writeFile(path.join(advancingRepository, 'advanced.txt'), 'advanced\n')
+  git(advancingRepository, ['add', 'advanced.txt'])
+  git(advancingRepository, ['commit', '-m', 'Advance main'])
+  git(advancingRepository, ['push', 'origin', 'main'])
+
+  await assert.rejects(publishDecisionGardenerProposal({
+    githubRunner: () => ({ status: 0, stderr: '', stdout: '[[]]' }),
+    manifestPath: fixture.manifestPath
+  }), /publication base advanced/)
 })
 
 test('publishable results cross-check ownership and render every report lane', () => {

@@ -369,9 +369,11 @@ function parseCreatedPullRequest(source: string, manifest: DecisionGardenerPubli
 }
 
 function assertNoOpenPublication(source: string): void {
-  const value = parseJson(source, 'Open gardener pull requests')
-  if (!Array.isArray(value)) throw new Error('Open gardener pull requests are invalid.')
-  for (const candidate of value) {
+  const pages = parseJson(source, 'Open gardener pull requests')
+  if (!Array.isArray(pages) || !pages.every(Array.isArray)) {
+    throw new Error('Open gardener pull requests are invalid.')
+  }
+  for (const candidate of pages.flatMap((page) => page as unknown[])) {
     if (!isRecord(candidate)) throw new Error('Open gardener pull-request metadata is invalid.')
     if (
       typeof candidate.body === 'string' &&
@@ -380,7 +382,7 @@ function assertNoOpenPublication(source: string): void {
       const number = Number.isSafeInteger(candidate.number)
         ? `#${String(candidate.number)}`
         : 'an existing pull request'
-      const url = typeof candidate.url === 'string' ? ` (${candidate.url})` : ''
+      const url = typeof candidate.html_url === 'string' ? ` (${candidate.html_url})` : ''
       throw new Error(`Decision-gardener publication is blocked by ${number}${url}.`)
     }
   }
@@ -450,10 +452,27 @@ export async function publishDecisionGardenerProposal({
   assertNoOpenPublication(requireGitHub(
     githubRunner,
     worktree,
-    ['pr', 'list', '--repo', manifest.repository, '--state', 'open', '--limit', '100',
-      '--json', 'number,title,url,body,headRefName'],
+    ['api', '--paginate', '--slurp',
+      `repos/${manifest.repository}/pulls?state=open&per_page=100`],
     'Refresh open decision-gardener pull requests'
   ))
+  requireGit(
+    gitRunner,
+    worktree,
+    ['fetch', '--no-tags', manifest.remote,
+      `+refs/heads/${manifest.base}:refs/remotes/${manifest.remote}/${manifest.base}`],
+    'Refresh the publication base'
+  )
+  const currentBase = resolveCommit(
+    worktree,
+    `${manifest.remote}/${manifest.base}`,
+    gitRunner
+  )
+  if (currentBase !== manifest.baseCommit) {
+    throw new Error(
+      `The publication base advanced to ${currentBase}; expected ${manifest.baseCommit}.`
+    )
+  }
   const decisionsPath = path.join(worktree, 'DECISIONS.md')
   const decisionsStat = await fs.lstat(decisionsPath)
   if (!decisionsStat.isFile() || decisionsStat.isSymbolicLink()) {
