@@ -41,10 +41,12 @@ was reconciled through commit `51f175f` before publication. An entry without an
 - **Planned — Checkpoint publication is self-identifying.** A gardener
   publication changes exactly `DECISIONS.md`, and its checkpoint names the
   publication commit's first parent. The next reconciliation excludes that
-  publication commit from the audit range; if no other commit has landed, the
-  audited target remains the named parent. Any commit that changes another path
-  fails this recognition and is audited normally, preventing checkpoint-only
-  proposals from triggering themselves forever. Issue
+  publication commit from the audit range. Candidate discovery follows full
+  history so both a merge commit and its publication-side commit are excluded;
+  if no other commit has landed, the audited target remains the named parent.
+  Any commit that changes another path fails this recognition and is audited
+  normally, preventing checkpoint-only proposals from triggering themselves
+  forever. Issue
   [#101](https://github.com/lastobelus/markover/issues/101) owns the publisher
   and validation contract.
 

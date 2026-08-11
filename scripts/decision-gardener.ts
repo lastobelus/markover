@@ -400,7 +400,7 @@ export function discoverCommitRange({
   const candidateSource = gitText(
     runner,
     repository,
-    ['rev-list', '--first-parent', `${checkpoint}..${repositoryTarget}`, '--',
+    ['rev-list', '--full-history', `${checkpoint}..${repositoryTarget}`, '--',
       'DECISIONS.md'],
     'Discover decision-checkpoint publications'
   )
@@ -432,8 +432,8 @@ function isDecisionCheckpointPublication(
   const firstParent = ancestry[1]
   if (ancestry[0] !== commit || firstParent === undefined) return false
   const changedPaths = parseChangedPaths(requireGit(runner, repository, [
-    'diff-tree', '--root', '--first-parent', '--no-commit-id', '--name-status',
-    '-r', '-z', '--find-renames', commit
+    'diff-tree', '--no-commit-id', '--name-status', '-r', '-z',
+    '--find-renames', firstParent, commit
   ], `Read publication paths for ${commit}`))
   if (
     changedPaths.length !== 1 || changedPaths[0]?.oldPath !== null ||

@@ -252,6 +252,44 @@ test('checkpoint publication commits cannot trigger another checkpoint-only audi
   })
 })
 
+test('merge-based checkpoint publications exclude both publication commits', async (t) => {
+  const fixture = await createAuditRepository()
+  t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
+  git(fixture.repository, ['checkout', '-b', 'decision-publication'])
+  const decisionsPath = path.join(fixture.repository, 'DECISIONS.md')
+  const source = await fs.readFile(decisionsPath, 'utf8')
+  const publicationCommit = await commitFile(
+    fixture.repository,
+    'DECISIONS.md',
+    replaceDecisionCheckpoint(source, fixture.target),
+    'Publish decision audit'
+  )
+  git(fixture.repository, ['checkout', 'main'])
+  git(fixture.repository, [
+    'merge', '--no-ff', 'decision-publication', '-m', 'Merge decision audit'
+  ])
+  const mergeCommit = git(fixture.repository, ['rev-parse', 'HEAD'])
+  assert.equal(git(fixture.repository, [
+    'rev-list', '--parents', '-n', '1', mergeCommit
+  ]).split(' ').length, 3)
+  assert.deepEqual(git(fixture.repository, [
+    'rev-list', '--reverse', `${fixture.target}..${mergeCommit}`
+  ]).split('\n'), [publicationCommit, mergeCommit])
+
+  assert.deepEqual(discoverCommitRange({
+    checkpoint: fixture.target,
+    repository: fixture.repository,
+    targetRef: 'main'
+  }), { commits: [], target: fixture.target })
+  const bundle = assembleDecisionAuditBundle({
+    ownershipSnapshot: {},
+    repository: fixture.repository,
+    targetRef: 'main'
+  })
+  assert.equal(bundle.target, fixture.target)
+  assert.deepEqual(bundle.commits, [])
+})
+
 test('audit bundles pin commit patches, changed paths, snapshots, and ownership', async (t) => {
   const fixture = await createAuditRepository()
   t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
