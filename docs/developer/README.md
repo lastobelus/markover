@@ -14,6 +14,7 @@ maintenance responsibilities that keep those promises true.
 - [Development setup, checks, packaging, and repository map](./development.md)
 - [Local service security and storage mechanics](./local-service-security.md)
 - [Release, rollback, and withdrawal runbook](./releasing.md)
+- [Local decision-register gardener](./decision-gardener.md)
 - [Architecture and product decisions](../../DECISIONS.md)
 - [Roadmap](../../ROADMAP.md)
 - [Contributing](../../CONTRIBUTING.md)
