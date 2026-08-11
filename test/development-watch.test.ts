@@ -94,6 +94,18 @@ test('development command bootstraps before the first application build', async 
   assert.doesNotMatch(bootstrap, /npm run build/)
 })
 
+test('development watcher marks Electron replacements for inactive startup', async () => {
+  const source = await fs.readFile(
+    path.join(projectDirectory, 'scripts/development-watch.ts'),
+    'utf8'
+  )
+
+  assert.match(
+    source,
+    /environment: \{[\s\S]*\.\.\.process\.env,[\s\S]*\[DEVELOPMENT_WATCH_ENVIRONMENT\]: '1'/
+  )
+})
+
 test('invalid development arguments remain non-retryable bootstrap errors', () => {
   assert.throws(
     () => parseStartArguments(['--instance', 'invalid']),

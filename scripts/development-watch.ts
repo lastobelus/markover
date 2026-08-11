@@ -2,7 +2,10 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { realpathSync, watch, type FSWatcher } from 'node:fs'
 import path from 'node:path'
 
-import { DEVELOPMENT_CONTROL_QUIT } from '../src/development-control'
+import {
+  DEVELOPMENT_CONTROL_QUIT,
+  DEVELOPMENT_WATCH_ENVIRONMENT
+} from '../src/development-control'
 import {
   probeService,
   readEndpoint,
@@ -302,7 +305,14 @@ export class DevelopmentInstanceManager {
       launch = (instance, appArguments) => launchResolvedInstance(
         instance,
         appArguments,
-        { detached: process.platform !== 'win32', ipc: true }
+        {
+          detached: process.platform !== 'win32',
+          environment: {
+            ...process.env,
+            [DEVELOPMENT_WATCH_ENVIRONMENT]: '1'
+          },
+          ipc: true
+        }
       ),
       now = Date.now,
       pollMilliseconds = DEFAULT_POLL_MILLISECONDS,

@@ -101,7 +101,10 @@ normal shutdown lifecycle, waits for its durability barrier to finish, then
 launches the same checkout, state root, name, and icon. It prints `ready` only
 after the replacement publishes its healthy local service. A failed build or
 startup prints a concise diagnostic, leaves the watcher active, and tries again
-after the next relevant edit. Generated output, dependency directories, Git
+after the next relevant edit. Replacement windows appear without activating
+Markover, so rebuilds do not take focus from the application currently in use;
+click Markover when the replacement is ready to resume interactive QA.
+Generated output, dependency directories, Git
 metadata, and instance state do not trigger rebuilds. Keep only one loop per
 instance and use `npm start` for deterministic one-shot work. End the loop with
 Ctrl-C; it asks the addressed instance to quit through the same managed
