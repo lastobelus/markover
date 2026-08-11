@@ -13,7 +13,10 @@
       "items": {
         "type": "object",
         "properties": {
-          "kind": { "type": "string", "enum": ["path", "git_object"] },
+          "kind": {
+            "type": "string",
+            "enum": ["path", "path_at_commit", "git_object"]
+          },
           "value": { "type": "string", "minLength": 1 },
           "reason": { "type": "string", "minLength": 1 }
         },

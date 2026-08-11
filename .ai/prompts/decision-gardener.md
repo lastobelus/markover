@@ -24,7 +24,10 @@ bytes are necessary for classification.
 Return `needs_context` only when a specific repository path or Git object is
 necessary to classify landed behavior. Each request must be minimal and state
 why it is needed. Repository paths must be normalized, relative paths from the
-repository root. Git objects must be full lowercase object IDs already
+repository root. A `path` request reads the audited target. To read a changed
+path at an earlier commit, use `path_at_commit` with
+`<full-commit-sha>:<repository-path>`; this resolves omitted historical evidence
+in one context round. Git objects must be full lowercase object IDs already
 reachable from the audited target. Do not repeat supplied or previously
 requested context.
 

@@ -112,7 +112,7 @@ export interface DecisionAuditBundle {
 }
 
 export interface ContextRequest {
-  kind: 'git_object' | 'path'
+  kind: 'git_object' | 'path' | 'path_at_commit'
   reason: string
   value: string
 }
@@ -160,7 +160,7 @@ export interface SingleFlightLease {
 }
 
 export interface SingleFlightOptions {
-  processAlive?: (pid: number) => boolean
+  processStartedAt?: (pid: number) => string | null
 }
 
 export const runGitCommand: GitCommandRunner = (repository, args) => {
@@ -846,12 +846,17 @@ export async function acquireSingleFlightLock(
   options: SingleFlightOptions = {}
 ): Promise<SingleFlightLease> {
   const token = crypto.randomUUID()
-  const processAlive = options.processAlive ?? localProcessAlive
+  const inspectProcessStart = options.processStartedAt ?? localProcessStartedAt
+  const processStartedAt = inspectProcessStart(process.pid)
+  if (processStartedAt === null) {
+    throw new Error('Could not establish the decision-gardener process identity.')
+  }
   const owner = {
     ...detail,
     acquiredAt: new Date().toISOString(),
     hostname: os.hostname(),
     pid: process.pid,
+    processStartedAt,
     token
   }
   const candidate = `${lockDirectory}.candidate.${token}`
@@ -879,7 +884,7 @@ export async function acquireSingleFlightLock(
           throw readError
         }
         const existing = parseSingleFlightOwner(existingSource, lockDirectory)
-        if (processAlive(existing.pid)) {
+        if (inspectProcessStart(existing.pid) === existing.processStartedAt) {
           throw new Error(
             `A decision-gardener run already owns ${lockDirectory}: ${existingSource.trim()}`,
             { cause: error }
@@ -888,7 +893,8 @@ export async function acquireSingleFlightLock(
         const claimed = await claimDeadSingleFlightLock(
           lockDirectory,
           existing.token,
-          processAlive
+          inspectProcessStart,
+          processStartedAt
         )
         if (!claimed) continue
         const stale = `${lockDirectory}.stale.${crypto.randomUUID()}`
@@ -928,7 +934,7 @@ export async function acquireSingleFlightLock(
 function parseSingleFlightOwner(
   source: string,
   lockDirectory: string
-): { pid: number; token: string } {
+): { pid: number; processStartedAt: string; token: string } {
   let value: unknown
   try {
     value = JSON.parse(source) as unknown
@@ -938,20 +944,27 @@ function parseSingleFlightOwner(
   if (
     !isRecord(value) || !Number.isSafeInteger(value.pid) ||
     Number(value.pid) < 1 || typeof value.token !== 'string' ||
-    value.token.length === 0
+    value.token.length === 0 || typeof value.processStartedAt !== 'string' ||
+    value.processStartedAt.length === 0
   ) throw new Error(`The owner of ${lockDirectory} is malformed.`)
-  return { pid: Number(value.pid), token: value.token }
+  return {
+    pid: Number(value.pid),
+    processStartedAt: value.processStartedAt,
+    token: value.token
+  }
 }
 
 async function claimDeadSingleFlightLock(
   lockDirectory: string,
   expectedOwnerToken: string,
-  processAlive: (pid: number) => boolean
+  inspectProcessStart: (pid: number) => string | null,
+  processStartedAt: string
 ): Promise<boolean> {
   const claimPath = path.join(lockDirectory, '.reaping.json')
   const claim = {
     claimedAt: new Date().toISOString(),
     pid: process.pid,
+    processStartedAt,
     token: crypto.randomUUID()
   }
   try {
@@ -969,7 +982,9 @@ async function claimDeadSingleFlightLock(
     )
     if (existingClaimSource === null) return false
     const existingClaim = parseSingleFlightOwner(existingClaimSource, claimPath)
-    if (processAlive(existingClaim.pid)) {
+    if (
+      inspectProcessStart(existingClaim.pid) === existingClaim.processStartedAt
+    ) {
       throw new Error(`A live recovery already owns ${lockDirectory}.`, {
         cause: error
       })
@@ -979,7 +994,7 @@ async function claimDeadSingleFlightLock(
     })
     return false
   }
-  let currentOwner: { pid: number; token: string }
+  let currentOwner: { pid: number; processStartedAt: string; token: string }
   try {
     currentOwner = parseSingleFlightOwner(
       await fs.readFile(path.join(lockDirectory, 'owner.json'), 'utf8'),
@@ -997,16 +1012,42 @@ async function claimDeadSingleFlightLock(
   return true
 }
 
-function localProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code
-    if (code === 'ESRCH') return false
-    if (code === 'EPERM') return true
-    throw error
+function localProcessStartedAt(pid: number): string | null {
+  const result = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+    encoding: 'utf8'
+  })
+  if (result.error) throw result.error
+  const startedAt = result.stdout.trim().replace(/\s+/g, ' ')
+  if (result.status === 1 && startedAt.length === 0) return null
+  if (result.status !== 0 || startedAt.length === 0) {
+    throw new Error(
+      `Could not inspect process ${String(pid)}: ${result.stderr.trim() || 'ps returned no start time'}`
+    )
   }
+  return startedAt
+}
+
+function validateRepositoryPath(value: string): void {
+  const normalized = path.posix.normalize(value)
+  const segments = value.split('/')
+  if (
+    value.length === 0 || value.startsWith('/') || value.startsWith(':') ||
+    value.includes('\\') || value.includes('\0') || value.length > 4096 ||
+    normalized !== value || segments.includes('.') || segments.includes('..') ||
+    segments[0] === '.git'
+  ) throw new Error(`Unsafe repository-relative context path: ${value}`)
+}
+
+function parsePathAtCommit(value: string): { commit: string; filePath: string } {
+  const commit = value.slice(0, 40)
+  const filePath = value.slice(41)
+  if (value[40] !== ':' || !fullCommitPattern.test(commit)) {
+    throw new Error(
+      'Historical-path context requests must use <full-commit-sha>:<repository-path>.'
+    )
+  }
+  validateRepositoryPath(filePath)
+  return { commit, filePath }
 }
 
 export function validateContextRequest(request: ContextRequest): void {
@@ -1019,18 +1060,11 @@ export function validateContextRequest(request: ContextRequest): void {
     }
     return
   }
-  const normalized = path.posix.normalize(request.value)
-  const segments = request.value.split('/')
-  if (
-    request.value.length === 0 || request.value.startsWith('/') ||
-    request.value.startsWith(':') || request.value.includes('\\') ||
-    request.value.includes('\0') || request.value.length > 4096 ||
-    normalized !== request.value ||
-    segments.includes('.') || segments.includes('..') ||
-    segments[0] === '.git'
-  ) {
-    throw new Error(`Unsafe repository-relative context path: ${request.value}`)
+  if (request.kind === 'path_at_commit') {
+    parsePathAtCommit(request.value)
+    return
   }
+  validateRepositoryPath(request.value)
 }
 
 function reachableObjects(
@@ -1066,7 +1100,9 @@ export function loadRequestedContext({
     throw new Error(`A context round must request between 1 and ${String(maxRequests)} items.`)
   }
   const seen = new Set<string>()
-  const reachable = requests.some(({ kind }) => kind === 'git_object')
+  const reachable = requests.some(({ kind }) =>
+    kind === 'git_object' || kind === 'path_at_commit'
+  )
     ? reachableObjects(repository, target, runner)
     : new Set<string>()
   return requests.map((request) => {
@@ -1084,6 +1120,25 @@ export function loadRequestedContext({
       )
       if (!fullCommitPattern.test(record)) {
         throw new Error(`Requested path ${request.value} did not resolve to a Git object.`)
+      }
+      object = record
+    } else if (request.kind === 'path_at_commit') {
+      const historical = parsePathAtCommit(request.value)
+      if (!reachable.has(historical.commit)) {
+        throw new Error(
+          `Requested commit ${historical.commit} is not reachable from ${target}.`
+        )
+      }
+      const record = gitText(
+        runner,
+        repository,
+        ['rev-parse', '--verify', `${historical.commit}:${historical.filePath}`],
+        `Resolve requested historical path ${request.value}`
+      )
+      if (!fullCommitPattern.test(record)) {
+        throw new Error(
+          `Requested historical path ${request.value} did not resolve to a Git object.`
+        )
       }
       object = record
     } else {
@@ -1225,7 +1280,10 @@ export function validateAuditAgentResult(value: unknown): AuditAgentResult {
   const requests = value.contextRequests.map((request) => {
     if (
       !isRecord(request) ||
-      (request.kind !== 'git_object' && request.kind !== 'path') ||
+      (
+        request.kind !== 'git_object' && request.kind !== 'path' &&
+        request.kind !== 'path_at_commit'
+      ) ||
       typeof request.reason !== 'string' || typeof request.value !== 'string'
     ) throw new Error('Codex returned an invalid context request.')
     const parsed: ContextRequest = {

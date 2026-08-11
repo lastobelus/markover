@@ -487,21 +487,23 @@ test('single-flight acquisition atomically replaces a provably dead owner', asyn
     acquiredAt: '2026-08-10T00:00:00.000Z',
     hostname: 'test-host',
     pid: 4242,
+    processStartedAt: 'dead-owner-start',
     token: 'dead-owner'
   }))
   await fs.writeFile(path.join(lock, '.reaping.json'), JSON.stringify({
     claimedAt: '2026-08-10T00:01:00.000Z',
     pid: 4343,
+    processStartedAt: 'dead-reaper-start',
     token: 'dead-reaper'
   }))
   const inspectedPids: number[] = []
   const lease = await acquireSingleFlightLock(lock, {}, {
-    processAlive: (pid) => {
+    processStartedAt: (pid) => {
       inspectedPids.push(pid)
-      return false
+      return pid === process.pid ? 'current-process-start' : null
     }
   })
-  assert.deepEqual(new Set(inspectedPids), new Set([4242, 4343]))
+  assert.deepEqual(new Set(inspectedPids), new Set([process.pid, 4242, 4343]))
   const owner = JSON.parse(
     await fs.readFile(path.join(lock, 'owner.json'), 'utf8')
   ) as { token: string }
@@ -510,6 +512,32 @@ test('single-flight acquisition atomically replaces a provably dead owner', asyn
     (await fs.readdir(root)).filter((name) => name.includes('.stale.')).length,
     0
   )
+  await lease.release()
+})
+
+test('single-flight acquisition recovers a reused live PID', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-reused-pid-lock-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const lock = path.join(root, 'active.lock')
+  await fs.mkdir(lock)
+  await fs.writeFile(path.join(lock, 'owner.json'), JSON.stringify({
+    acquiredAt: '2026-08-10T00:00:00.000Z',
+    hostname: 'test-host',
+    pid: 4242,
+    processStartedAt: 'former-process-start',
+    token: 'dead-owner'
+  }))
+
+  const lease = await acquireSingleFlightLock(lock, {}, {
+    processStartedAt: (pid) => pid === process.pid
+      ? 'gardener-process-start'
+      : 'reused-process-start'
+  })
+  const owner = JSON.parse(
+    await fs.readFile(path.join(lock, 'owner.json'), 'utf8')
+  ) as { processStartedAt: string; token: string }
+  assert.equal(owner.token, lease.token)
+  assert.equal(owner.processStartedAt, 'gardener-process-start')
   await lease.release()
 })
 
@@ -528,6 +556,27 @@ test('adaptive context accepts only reachable Git data within strict bounds', as
   assert.equal(contexts.length, 2)
   assert.equal(contexts[0]?.content.omitted, false)
   assert.equal(contexts[0].content.value, 'export const feature = true\n')
+  const featureCommit = git(fixture.repository, [
+    'rev-list', '-n', '1', fixture.target, '--', 'src/feature.ts'
+  ])
+  const laterTarget = await commitFile(
+    fixture.repository,
+    'src/feature.ts',
+    'export const feature = false\n',
+    'Replace historical feature evidence'
+  )
+  const historical = loadRequestedContext({
+    repository: fixture.repository,
+    requests: [{
+      kind: 'path_at_commit',
+      reason: 'Read the exact historical implementation',
+      value: `${featureCommit}:src/feature.ts`
+    }],
+    target: laterTarget
+  })
+  assert.equal(historical[0]?.kind, 'path_at_commit')
+  assert.equal(historical[0].content.omitted, false)
+  assert.equal(historical[0].content.value, 'export const feature = true\n')
   assert.throws(() => loadRequestedContext({
     repository: fixture.repository,
     requests: [{ kind: 'path', reason: 'Escape', value: '../secret' }],
@@ -538,6 +587,24 @@ test('adaptive context accepts only reachable Git data within strict bounds', as
     requests: [{ kind: 'path', reason: 'Revision trick', value: ':/feature.ts' }],
     target: fixture.target
   }), /Unsafe/)
+  assert.throws(() => loadRequestedContext({
+    repository: fixture.repository,
+    requests: [{
+      kind: 'path_at_commit',
+      reason: 'Escape historical tree',
+      value: `${featureCommit}:../secret`
+    }],
+    target: laterTarget
+  }), /Unsafe/)
+  assert.throws(() => loadRequestedContext({
+    repository: fixture.repository,
+    requests: [{
+      kind: 'path_at_commit',
+      reason: 'Read unreachable history',
+      value: `${'f'.repeat(40)}:src/feature.ts`
+    }],
+    target: laterTarget
+  }), /not reachable/)
   assert.throws(() => loadRequestedContext({
     maxBytes: 1,
     repository: fixture.repository,

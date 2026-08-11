@@ -35,9 +35,13 @@ was reconciled through commit `51f175f` before publication. An entry without an
   periodic local scheduling, with merge hooks only as optional wakeups. Issue
   [#101](https://github.com/lastobelus/markover/issues/101) owns the harness,
   isolated worktree, single-flight behavior, subscription authentication, and
-  human-reviewed output. GitHub-hosted execution is excluded because the
-  official action expects an API key and official guidance warns against using
-  ChatGPT-managed CI authentication for public repositories. Evidence:
+  human-reviewed output. Historical path requests address one exact reachable
+  commit and path, keeping omitted evidence retrievable in one bounded context
+  round. Single-flight leases compare both PID and process start identity, so a
+  reused PID cannot preserve a dead owner. GitHub-hosted execution is excluded
+  because the official action expects an API key and official guidance warns
+  against using ChatGPT-managed CI authentication for public repositories.
+  Evidence:
   [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
   and [Codex GitHub Action](https://learn.chatgpt.com/docs/github-action).
 - **Planned — Checkpoint publication is self-identifying.** A gardener
