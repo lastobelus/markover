@@ -252,7 +252,7 @@ test('checkpoint publication commits cannot trigger another checkpoint-only audi
   })
 })
 
-test('merge-based checkpoint publications exclude both publication commits', async (t) => {
+test('merge-based checkpoint publications exclude their entire merge closure', async (t) => {
   const fixture = await createAuditRepository()
   t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
   git(fixture.repository, ['checkout', '-b', 'decision-publication'])
@@ -264,6 +264,12 @@ test('merge-based checkpoint publications exclude both publication commits', asy
     replaceDecisionCheckpoint(source, fixture.target),
     'Publish decision audit'
   )
+  const publicationFixup = await commitFile(
+    fixture.repository,
+    'DECISIONS.md',
+    `${await fs.readFile(decisionsPath, 'utf8')}\nPublication review fixup.\n`,
+    'Fix decision publication review'
+  )
   git(fixture.repository, ['checkout', 'main'])
   git(fixture.repository, [
     'merge', '--no-ff', 'decision-publication', '-m', 'Merge decision audit'
@@ -274,7 +280,7 @@ test('merge-based checkpoint publications exclude both publication commits', asy
   ]).split(' ').length, 3)
   assert.deepEqual(git(fixture.repository, [
     'rev-list', '--reverse', `${fixture.target}..${mergeCommit}`
-  ]).split('\n'), [publicationCommit, mergeCommit])
+  ]).split('\n'), [publicationCommit, publicationFixup, mergeCommit])
 
   assert.deepEqual(discoverCommitRange({
     checkpoint: fixture.target,
@@ -367,7 +373,7 @@ test('audit bundles pin commit patches, changed paths, snapshots, and ownership'
   assert.equal(featureContent.value, 'export const feature = true\n')
 })
 
-test('large Git content is capped before it is buffered in memory', async (t) => {
+test('large Git content is hashed without an unbounded buffer or spool', async (t) => {
   const fixture = await createAuditRepository()
   t.after(() => fs.rm(fixture.repository, { recursive: true, force: true }))
   const binaryPath = path.join(fixture.repository, 'large.bin')

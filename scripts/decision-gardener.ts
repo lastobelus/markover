@@ -251,20 +251,33 @@ function encodeContent(
   }
 }
 
-function hashFile(filePath: string): string {
-  const digest = crypto.createHash('sha256')
-  const file = fsSync.openSync(filePath, 'r')
-  const chunk = Buffer.allocUnsafe(64 * 1024)
-  try {
-    for (;;) {
-      const bytesRead = fsSync.readSync(file, chunk, 0, chunk.byteLength, null)
-      if (bytesRead === 0) break
-      digest.update(chunk.subarray(0, bytesRead))
-    }
-  } finally {
-    fsSync.closeSync(file)
+function streamGitSummary(
+  repository: string,
+  args: readonly string[],
+  label: string
+): { bytes: number; sha256: string } {
+  const helper = path.join(__dirname, 'stream-git-summary.js')
+  const result = spawnSync(
+    process.execPath,
+    [helper, repository, JSON.stringify(args)],
+    { encoding: 'utf8', maxBuffer: 256 * 1024 }
+  )
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(`${label} failed: ${result.stderr.trim() || 'git exited non-zero'}`)
   }
-  return digest.digest('hex')
+  let value: unknown
+  try {
+    value = JSON.parse(result.stdout) as unknown
+  } catch (error) {
+    throw new Error(`${label} returned an invalid streaming summary.`, { cause: error })
+  }
+  if (
+    !isRecord(value) || !Number.isSafeInteger(value.bytes) ||
+    Number(value.bytes) < 0 || typeof value.sha256 !== 'string' ||
+    !/^[0-9a-f]{64}$/.test(value.sha256)
+  ) throw new Error(`${label} returned an invalid streaming summary.`)
+  return { bytes: Number(value.bytes), sha256: value.sha256 }
 }
 
 export const readGitContent: GitContentReader = (
@@ -274,43 +287,30 @@ export const readGitContent: GitContentReader = (
   budget,
   maxItemBytes
 ) => {
-  const temporaryDirectory = fsSync.mkdtempSync(
-    path.join(os.tmpdir(), 'markover-decision-git-')
-  )
-  const outputPath = path.join(temporaryDirectory, 'stdout')
-  let output: number | undefined
-  try {
-    output = fsSync.openSync(outputPath, 'w', 0o600)
-    const result = spawnSync('git', [...args], {
-      cwd: repository,
-      encoding: 'buffer',
-      stdio: ['ignore', output, 'pipe']
-    })
-    if (result.error) throw result.error
+  const captureLimit = Math.max(1, Math.min(maxItemBytes, budget.remaining))
+  const result = spawnSync('git', [...args], {
+    cwd: repository,
+    encoding: 'buffer',
+    maxBuffer: captureLimit
+  })
+  if (result.error === undefined) {
     if (result.status !== 0) {
       throw new Error(
         `${label} failed: ${result.stderr.toString('utf8').trim() || 'git exited non-zero'}`
       )
     }
-    fsSync.closeSync(output)
-    output = undefined
-    const bytes = fsSync.statSync(outputPath).size
-    if (bytes <= maxItemBytes && bytes <= budget.remaining) {
-      return encodeContent(fsSync.readFileSync(outputPath), budget, maxItemBytes)
-    }
-    return {
-      bytes,
-      encoding: null,
-      omitted: true,
-      reason: bytes > maxItemBytes ? 'item_limit' : 'aggregate_limit',
-      sha256: hashFile(outputPath)
-    }
-  } finally {
-    try {
-      if (output !== undefined) fsSync.closeSync(output)
-    } finally {
-      fsSync.rmSync(temporaryDirectory, { force: true, recursive: true })
-    }
+    return encodeContent(result.stdout, budget, maxItemBytes)
+  }
+  if ((result.error as NodeJS.ErrnoException).code !== 'ENOBUFS') {
+    throw result.error
+  }
+  const summary = streamGitSummary(repository, args, label)
+  return {
+    bytes: summary.bytes,
+    encoding: null,
+    omitted: true,
+    reason: summary.bytes > maxItemBytes ? 'item_limit' : 'aggregate_limit',
+    sha256: summary.sha256
   }
 }
 
@@ -410,19 +410,38 @@ export function discoverCommitRange({
   if (!candidates.every((commit) => fullCommitPattern.test(commit))) {
     throw new Error('Git returned an invalid decision-checkpoint publication candidate.')
   }
-  const publications = new Set(candidates.filter((commit) =>
-    isDecisionCheckpointPublication(repository, commit, runner)
-  ))
+  const publications = new Set<string>()
+  for (const commit of candidates) {
+    const publication = inspectDecisionCheckpointPublication(
+      repository,
+      commit,
+      runner
+    )
+    if (publication === null) continue
+    publications.add(commit)
+    if (!publication.isMerge) continue
+    const closureSource = gitText(
+      runner,
+      repository,
+      ['rev-list', `${publication.firstParent}..${commit}`],
+      `Discover publication merge closure for ${commit}`
+    )
+    const closure = closureSource.length === 0 ? [] : closureSource.split('\n')
+    if (!closure.every((candidate) => fullCommitPattern.test(candidate))) {
+      throw new Error('Git returned an invalid decision-publication merge commit.')
+    }
+    for (const candidate of closure) publications.add(candidate)
+  }
   const commits = discovered.filter((commit) => !publications.has(commit))
   const target = commits.at(-1) ?? checkpoint
   return { commits, target }
 }
 
-function isDecisionCheckpointPublication(
+function inspectDecisionCheckpointPublication(
   repository: string,
   commit: string,
   runner: GitCommandRunner
-): boolean {
+): { firstParent: string; isMerge: boolean } | null {
   const ancestry = gitText(
     runner,
     repository,
@@ -430,7 +449,7 @@ function isDecisionCheckpointPublication(
     `Read publication ancestry for ${commit}`
   ).split(' ')
   const firstParent = ancestry[1]
-  if (ancestry[0] !== commit || firstParent === undefined) return false
+  if (ancestry[0] !== commit || firstParent === undefined) return null
   const changedPaths = parseChangedPaths(requireGit(runner, repository, [
     'diff-tree', '--no-commit-id', '--name-status', '-r', '-z',
     '--find-renames', firstParent, commit
@@ -438,13 +457,15 @@ function isDecisionCheckpointPublication(
   if (
     changedPaths.length !== 1 || changedPaths[0]?.oldPath !== null ||
     changedPaths[0].path !== 'DECISIONS.md' || changedPaths[0].status !== 'M'
-  ) return false
+  ) return null
   const decisions = runner(repository, ['show', `${commit}:DECISIONS.md`])
-  if (decisions.status !== 0) return false
+  if (decisions.status !== 0) return null
   try {
     return parseDecisionCheckpoint(decisions.stdout.toString('utf8')) === firstParent
+      ? { firstParent, isMerge: ancestry.length > 2 }
+      : null
   } catch {
-    return false
+    return null
   }
 }
 

@@ -41,8 +41,9 @@ was reconciled through commit `51f175f` before publication. An entry without an
   both PID and a timezone-stable process start identity, so a crash or reused
   PID cannot preserve a dead owner. Complete proposals preserve unclassified
   register entries byte-for-byte and identify each changed entry by its exact
-  bold label. GitHub-hosted execution is excluded
-  because the official action expects an API key and official guidance warns
+  bold label. Oversized Git output is counted and hashed as a stream without a
+  full memory buffer or temporary-file spool. GitHub-hosted execution is
+  excluded because the official action expects an API key and guidance warns
   against using ChatGPT-managed CI authentication for public repositories.
   Evidence:
   [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
@@ -51,8 +52,9 @@ was reconciled through commit `51f175f` before publication. An entry without an
   publication changes exactly `DECISIONS.md`, and its checkpoint names the
   publication commit's first parent. The next reconciliation excludes that
   publication commit from the audit range. Candidate discovery follows full
-  history so both a merge commit and its publication-side commit are excluded;
-  if no other commit has landed, the audited target remains the named parent.
+  history; a recognized publication merge excludes its entire
+  first-parent-exclusive closure, including review and fixup commits. If no
+  other commit has landed, the audited target remains the named parent.
   Any commit that changes another path fails this recognition and is audited
   normally, preventing checkpoint-only proposals from triggering themselves
   forever. Issue
