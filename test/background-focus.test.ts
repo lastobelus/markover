@@ -64,6 +64,26 @@ test('native window focus state reaches the renderer without activating Markover
   )
 })
 
+test('development watch replacements appear without activating Markover', () => {
+  const main = read('src/main.ts')
+  const createWindow = main.slice(
+    main.indexOf('function createWindow('),
+    main.indexOf('function currentWindowFocusState(')
+  )
+
+  assert.match(
+    main,
+    /developmentWatchMode = process\.env\[DEVELOPMENT_WATCH_ENVIRONMENT\] === '1'/
+  )
+  assert.match(
+    createWindow,
+    /showWithoutActivating = show && developmentWatchMode/
+  )
+  assert.match(createWindow, /show: show && !showWithoutActivating/)
+  assert.match(createWindow, /if \(showWithoutActivating\) window\.showInactive\(\)/)
+  assert.doesNotMatch(createWindow, /if \(showWithoutActivating\).*window\.show\(\)/)
+})
+
 test('incoming reviews are listed before the activation policy runs', () => {
   const renderer = read('src/renderer.ts')
   const handler = renderer.match(
@@ -186,7 +206,7 @@ test('background startup stays hidden and background notifications repair record
 
   assert.match(
     main,
-    /function createWindow\([\s\S]*show = !backgroundServerMode[\s\S]*\): BrowserWindow \{[\s\S]*new BrowserWindow\(\{[\s\S]*\n {4}show,/
+    /function createWindow\([\s\S]*show = !backgroundServerMode[\s\S]*showWithoutActivating = show && developmentWatchMode[\s\S]*new BrowserWindow\(\{[\s\S]*show: show && !showWithoutActivating/
   )
   assert.match(
     main,

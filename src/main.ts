@@ -24,7 +24,10 @@ import { pathToFileURL } from 'node:url'
 import { aboutPanelOptions } from './about-panel'
 import { applicationMenuTemplate } from './app-menu'
 import { AsyncMutationTracker } from './async-mutation-tracker'
-import { isDevelopmentControlQuit } from './development-control'
+import {
+  DEVELOPMENT_WATCH_ENVIRONMENT,
+  isDevelopmentControlQuit
+} from './development-control'
 import { loadDevelopmentConfig } from './development-config'
 import {
   persistReviewSnapshots,
@@ -165,6 +168,7 @@ const appIconPath = path.isAbsolute(addressedInstance.branding.iconPngPath)
   ? addressedInstance.branding.iconPngPath
   : path.join(projectDirectory, addressedInstance.branding.iconPngPath)
 const smokeMode = process.argv.includes('--smoke')
+const developmentWatchMode = process.env[DEVELOPMENT_WATCH_ENVIRONMENT] === '1'
 const smokeStateDirectory = smokeMode
   ? path.join(os.tmpdir(), `markover-smoke-${String(process.pid)}`)
   : null
@@ -940,6 +944,7 @@ async function createManagedLocalReview(
 function createWindow(
   { show = !backgroundServerMode }: { show?: boolean } = {}
 ): BrowserWindow {
+  const showWithoutActivating = show && developmentWatchMode
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
@@ -948,7 +953,7 @@ function createWindow(
     height: 760,
     minWidth: 760,
     minHeight: 520,
-    show,
+    show: show && !showWithoutActivating,
     focusable: !smokeMode,
     skipTaskbar: smokeMode,
     backgroundColor: windowBackground(
@@ -1060,6 +1065,8 @@ function createWindow(
       rendererIpcEntry = null
     }
   })
+
+  if (showWithoutActivating) window.showInactive()
 
   return window
 }

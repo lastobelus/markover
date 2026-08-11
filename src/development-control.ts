@@ -1,3 +1,5 @@
+export const DEVELOPMENT_WATCH_ENVIRONMENT = 'MARKOVER_DEVELOPMENT_WATCH'
+
 export const DEVELOPMENT_CONTROL_QUIT = {
   action: 'quit',
   type: 'markover-development-control',
