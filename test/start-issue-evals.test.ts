@@ -156,7 +156,10 @@ test('branch-only guidance is progressively disclosed', () => {
 test('root guidance owns the terminal-friendly Markover handoff', () => {
   assert.match(agentsSource, /^`open '<reviewUrl>'`$/m)
   assert.match(agentsSource, /best-effort Markdown link and raw review ID/)
-  assert.match(agentsSource, /T3Code and Codex may strip or decline them/)
+  assert.match(
+    agentsSource,
+    /thread-hosts including T3Code and the Codex app may strip or decline them/
+  )
   for (const fencedBlock of agentsSource.match(/```[\s\S]*?```/g) ?? []) {
     assert.doesNotMatch(fencedBlock, /open '<reviewUrl>'/)
   }

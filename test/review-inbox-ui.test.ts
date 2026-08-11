@@ -36,6 +36,8 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)
   assert.match(renderer, /reviewStatusLabel\(row\.status\)/)
   assert.match(renderer, /row\.status === 'pending-agent'[\s\S]*'with-agent'[\s\S]*`is-\$\{row\.status\}`/)
+  assert.match(renderer, /`is-\$\{row\.pullRequestStatus \|\| 'linked'\}`/)
+  assert.match(renderer, /reported by \$\{source\} \$\{age\}/)
   assert.match(renderer, /const INBOX_HISTORY_PAGE_SIZE = 10/)
   assert.match(renderer, /viewAll\.textContent = 'View all in Projects'/)
 })

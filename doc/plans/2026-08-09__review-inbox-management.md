@@ -4,14 +4,14 @@ Issue: [#97](https://github.com/lastobelus/markover/issues/97)
 
 ## Outcome
 
-Markover gives the reviewer a trustworthy, action-first Inbox for every review needing attention and a complete Projects hierarchy for browsing current and historical work. Historical `With Agent` reviews no longer overwhelm the working queue, collapsed groups cannot conceal actionable work, and each row carries enough project, thread, document, branch, pull-request, provider, and recency context to identify it.
+Markover gives the reviewer a trustworthy, action-first Inbox for every review needing attention and a complete Projects hierarchy for browsing current and historical work. Non-actionable `With Agent`, `Revised`, and `Done` reviews no longer overwhelm the working queue, collapsed groups cannot conceal actionable work, and each row carries enough project, thread, document, branch, pull-request, provider, lifecycle, and recency context to identify it.
 
 The selected direction is Concept A, **Inbox + Projects**. The updated interactive mockup is available at [`tmp/review-inbox-mockups/index.html`](../../tmp/review-inbox-mockups/index.html).
 
 ## Priorities
 
 1. Never miss work: every `Editing` agent review and every active Local review is individually visible in Inbox.
-2. Control noise: `With Agent` reviews are secondary history, with complete history available in Projects and cleanup delegated to #15.
+2. Control noise: `With Agent`, `Revised`, and `Done` reviews are secondary history, with complete history available in Projects and cleanup delegated to #15.
 3. Identify the right review: show recognizable requesting-thread-titles and stable project/document context.
 4. Support both working styles: an activity Inbox and a project-organized hierarchy.
 
@@ -32,24 +32,27 @@ The selected direction is Concept A, **Inbox + Projects**. The updated interacti
 - Sort by `attentionRequestedAt`, newest first. Set it when a review first arrives in `Editing` or returns to `Editing`.
 - Viewing a review, annotation autosaves, thread-title refreshes, and document-tab activation do not reorder Inbox.
 - If real use makes this ordering feel stale, evaluate debounced meaningful `updatedAt` later rather than mixing timestamp semantics now.
-- Put `With Agent` history behind one collapsed secondary section. Initial expansion shows the 10 most recent reviews, supports incremental `Show more`, and offers `View all in Projects`.
+- Put every non-`Editing` lifecycle state—`With Agent`, `Revised`, and `Done`—behind one collapsed History section. Initial expansion shows the 10 most recent reviews, supports incremental `Show more`, and offers `View all in Projects`.
+- Preserve the specific lifecycle label on each historical row. `Revised` and `Done` must not be presented as `With Agent`, and none of those read-only states count as actionable Inbox work.
 - Empty Inbox copy should say that no reviews need attention and leave Projects available for history; it must not imply that historical reviews were deleted.
 
 ## Agent-review row identity
 
 Follow T3 Code’s three-level visual hierarchy:
 
-1. Small: `project · document`, with age or `With Agent` right-aligned.
+1. Small: `project · document`, with age for `Editing` or the exact lifecycle label for historical rows right-aligned.
 2. Prominent: requesting-thread-title, preceded by the provider icon.
 3. Small: branch, with pull request right-aligned when available.
 
 The project favicon leads the row. Missing favicon/provider/branch/PR values use neutral fallbacks without collapsing the document or thread-title identity. Long values truncate independently and expose their full accessible label.
 
+PR identity is color-coded independently from review lifecycle. A timestamped #129 observation uses green for Open, amber for Draft, violet for Merged, and red for Closed. A known PR without an observation uses the same green scanning cue but is explicitly described on hover as **PR-linked, state not observed** rather than mergeable or live. Hover text identifies the observation source and age; a future #126 GitHub observation may supersede the agent report.
+
 ## Projects
 
 - Use the hierarchy project → thread/group → review.
 - At every hierarchy level, groups containing `Editing` descendants sort first by their newest descendant `attentionRequestedAt`.
-- History-only groups follow, sorted by latest lifecycle activity. Within an expanded thread, `Editing` reviews precede `With Agent` history.
+- History-only groups follow, sorted by latest lifecycle activity. Within an expanded thread, `Editing` reviews precede `With Agent`, `Revised`, and `Done` history.
 - Collapsed project and thread rows show descendant Editing count plus latest relevant activity, so collapsed state never hides the existence or age of actionable work.
 - Persist each project and thread’s expanded/collapsed state across launches.
 - New `Editing` arrivals update collapsed rollups without forcing groups open.
@@ -119,14 +122,15 @@ This is pre-MVP0 work. Change the current schema directly; do not add fallback r
 - #102 owns incoming-review activation, arrival notices, and focus policy. #97 preserves that behavior and coordinates the shared settings UI/store.
 - #54 owns global base-text-size controls. #97 validates rows, badges, truncation, hierarchy, and tabs at every supported size bound.
 - #107 owns the manual-open ingestion contract described above.
+- #129, merged on `main`, owns the persisted `Editing`, `Pending Agent`, `Revised`, and `Done` lifecycle plus timestamped agent-reported PR observations. #97 consumes those values for actionability, history labels, ordering, and PR cues without duplicating lifecycle transitions.
 
-Delivery proceeds in three slices:
+Delivery uses three independently reviewable slices:
 
-1. Build only the selected Inbox/Projects UI in the real Markover shell using representative dummy data. This slice is for look-and-feel review: no review-store, IPC, metadata-discovery, persistence, thread-title-refresh, project-matching, status-transition, cleanup, or activation behavior is wired. Keep the fixture path development-only so ordinary review behavior is not replaced by dummy data. #107 is already implementing concurrently, so this slice must avoid `src/main.ts`, `src/preload.ts`, and the renderer's Open Markdown boundary; isolate any presentation fixture code from that flow.
-2. Land #107 as the focused managed-Open-Markdown prerequisite after its stacked dependency #114, preserving the metadata contract this specification requires.
-3. Replace the prototype fixtures with tested #97 projections and production wiring against the unified managed-review model.
+1. Keep the accepted dummy-data Inbox/Projects shell as a development-only look-and-feel fixture; it does not replace ordinary review behavior or mutate review state.
+2. Consume the managed Local-review ingestion that landed through #107/#117 on `main`, without rewriting its Open Markdown boundary.
+3. PR #120 adds tested #97 projections and production wiring against that unified managed-review model, based on `main` after #129 and consuming its lifecycle and PR-observation semantics.
 
-The first slice should exercise the visual edge cases already known to matter: multiple actionable reviews from one thread, a Local review, `With Agent` history, collapsed Projects rollups, long timestamp-prefixed documents, missing optional metadata, closeable document tabs, narrow/wide sidebars, and light/dark appearance. Presentation-only controls may demonstrate selected, expanded, and collapsed states locally, but they do not mutate production review state.
+The visual fixture and production tests exercise the edge cases already known to matter: multiple actionable reviews from one thread, a Local review, `With Agent`, `Revised`, and `Done` history, collapsed Projects rollups, observed and merely linked PRs, long timestamp-prefixed documents, missing optional metadata, closeable document tabs, narrow/wide sidebars, and light/dark appearance. Presentation-only fixture controls may demonstrate selected, expanded, and collapsed states locally, but they do not mutate production review state.
 
 ## Likely implementation touch points
 
@@ -142,6 +146,7 @@ The first slice should exercise the visual edge cases already known to matter: m
 ## Acceptance criteria
 
 - Every actionable review appears exactly once in Inbox, including reviews whose Projects ancestors are collapsed.
+- Only `Editing` reviews are actionable; `Pending Agent`, `Revised`, and `Done` remain individually identifiable, read-only history with their exact lifecycle labels.
 - Inbox ordering changes only when `attentionRequestedAt` changes; unrelated autosaves, viewing, thread-title refreshes, and tab actions do not reorder it.
 - A collapsed Projects row truthfully reports actionable descendant count and recency.
 - Projects ordering, persisted expansion, explicit ancestor reveal, and bounded history behave as specified.
@@ -153,6 +158,7 @@ The first slice should exercise the visual edge cases already known to matter: m
 - Local same-path/same-checksum open deduplicates; changed content creates a preserved new snapshot; source files remain untouched.
 - First launch defaults to Inbox; later launches restore selected mode, Projects expansion, open tabs, and active tab.
 - Keyboard and assistive-technology users can select modes, traverse rows/tree, expand history/groups, activate reviews, and close tabs. Status and recency never rely on color alone.
+- PR cues consume the newest valid #129 observation, expose its source and age, and distinguish an unobserved green PR-linked fallback from a verified state in text.
 - Layout remains usable at the minimum and maximum review-list widths, in light/dark appearances, and at every base text size supported by #54.
 
 ## Validation

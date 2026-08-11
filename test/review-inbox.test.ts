@@ -13,6 +13,9 @@ interface ReviewFixtureOptions {
   createdAt: string
   projectRoot: string
   pullRequestNumber?: number
+  pullRequestStatus?: 'draft' | 'open' | 'merged' | 'closed'
+  pullRequestStatusObservedAt?: string
+  pullRequestStatusSource?: string
   status?: ReviewSessionStatus
 }
 
@@ -26,6 +29,9 @@ function reviewDocument(
     createdAt,
     projectRoot,
     pullRequestNumber,
+    pullRequestStatus,
+    pullRequestStatusObservedAt,
+    pullRequestStatusSource,
     status = 'editing'
   }: ReviewFixtureOptions
 ): ReviewSessionDocument {
@@ -46,7 +52,18 @@ function reviewDocument(
         contextSummary,
         agentThread,
         git: branch ? { repositoryRoot: projectRoot, branch } : { repositoryRoot: projectRoot },
-        pullRequest: pullRequestNumber ? { number: pullRequestNumber } : null
+        pullRequest: pullRequestNumber
+          ? {
+              number: pullRequestNumber,
+              ...(pullRequestStatus
+                ? {
+                    status: pullRequestStatus,
+                    statusObservedAt: pullRequestStatusObservedAt,
+                    statusSource: pullRequestStatusSource
+                  }
+                : {})
+            }
+          : null
       }
     }
   }
@@ -115,6 +132,33 @@ test('Local reviews use document identity and the synthetic Local reviews group'
   assert.equal(projection.projects[0]?.threads[0]?.title, 'Local reviews')
 })
 
+test('PR observations remain distinct from the green PR-linked fallback', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_linked11', 'linked.md', {
+    createdAt: '2026-08-09T10:00:00.000Z',
+    projectRoot: '/projects/markover',
+    pullRequestNumber: 120
+  }))
+  sessions.add(reviewDocument('mko_merged11', 'merged.md', {
+    createdAt: '2026-08-09T11:00:00.000Z',
+    projectRoot: '/projects/markover',
+    pullRequestNumber: 129,
+    pullRequestStatus: 'merged',
+    pullRequestStatusObservedAt: '2026-08-09T11:01:00.000Z',
+    pullRequestStatusSource: 'agent'
+  }))
+
+  const [merged, linked] = projectReviewInbox(sessions.list()).editing
+  assert.ok(merged)
+  assert.ok(linked)
+  assert.equal(merged.pullRequestStatus, 'merged')
+  assert.equal(merged.pullRequestStatusObservedAt, '2026-08-09T11:01:00.000Z')
+  assert.equal(merged.pullRequestStatusSource, 'agent')
+  assert.equal(linked.pullRequestStatus, null)
+  assert.equal(linked.pullRequestStatusObservedAt, null)
+  assert.equal(linked.pullRequestStatusSource, null)
+})
+
 test('Projects put actionable rollups before every non-actionable lifecycle state', () => {
   const sessions = new ReviewSessions()
   sessions.add(reviewDocument('mko_pending1', 'pending.md', {
@@ -146,8 +190,12 @@ test('Projects put actionable rollups before every non-actionable lifecycle stat
     projection.projects.map((project) => project.name),
     ['older-actionable', 'recent-history']
   )
-  assert.equal(projection.projects[0]?.editingCount, 1)
-  assert.equal(projection.projects[1]?.editingCount, 0)
+  const actionableProject = projection.projects[0]
+  const historyProject = projection.projects[1]
+  assert.ok(actionableProject)
+  assert.ok(historyProject)
+  assert.equal(actionableProject.editingCount, 1)
+  assert.equal(historyProject.editingCount, 0)
   assert.deepEqual(
     projection.history.map((review) => [review.reviewId, review.status]),
     [
@@ -156,7 +204,7 @@ test('Projects put actionable rollups before every non-actionable lifecycle stat
       ['mko_pending1', 'pending-agent']
     ]
   )
-  assert.equal(projection.projects[1]?.threads[0]?.editingCount, 0)
+  assert.equal(historyProject.threads[0]?.editingCount, 0)
 })
 
 test('missing optional metadata remains explicit and never invents a requesting-thread-title', () => {

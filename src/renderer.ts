@@ -1932,6 +1932,18 @@ function reviewRowContext(row: ReviewInboxRow): string {
   return row.branch || row.contextPath || 'Branch unavailable'
 }
 
+function reviewRowPullRequestTitle(row: ReviewInboxRow): string {
+  if (!row.pullRequestNumber) return 'No pull request is associated with this review.'
+  if (!row.pullRequestStatus || !row.pullRequestStatusObservedAt) {
+    return `PR #${row.pullRequestNumber} is linked; its current state has not been observed.`
+  }
+  const source = row.pullRequestStatusSource || 'unknown source'
+  const age = MarkoverReviewSessions.formatRelativeTime(
+    Date.parse(row.pullRequestStatusObservedAt)
+  )
+  return `PR #${row.pullRequestNumber}: ${row.pullRequestStatus}; reported by ${source} ${age}.`
+}
+
 function reviewRowTime(row: ReviewInboxRow): string {
   return MarkoverReviewSessions.formatRelativeTime(
     row.status === 'editing'
@@ -2002,7 +2014,14 @@ function createReviewListRow(row: ReviewInboxRow): HTMLButtonElement {
   branch.className = 'review-list-row-context'
   branch.textContent = reviewRowContext(row)
   const pr = document.createElement('span')
+  pr.className = [
+    'review-list-row-pr',
+    row.pullRequestNumber
+      ? `is-${row.pullRequestStatus || 'linked'}`
+      : ''
+  ].filter(Boolean).join(' ')
   pr.textContent = row.pullRequestNumber ? `PR #${row.pullRequestNumber}` : 'PR —'
+  pr.title = reviewRowPullRequestTitle(row)
   bottom.append(branch, pr)
 
   content.append(top, title, bottom)

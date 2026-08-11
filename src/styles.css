@@ -1111,6 +1111,26 @@ p {
   flex: 0 0 auto;
 }
 
+.review-list-row-pr:is(.is-linked, .is-open) {
+  color: #2e7d4f;
+  font-weight: 750;
+}
+
+.review-list-row-pr.is-draft {
+  color: #a66f0f;
+  font-weight: 750;
+}
+
+.review-list-row-pr.is-merged {
+  color: #7652a8;
+  font-weight: 750;
+}
+
+.review-list-row-pr.is-closed {
+  color: var(--source-error);
+  font-weight: 750;
+}
+
 .review-list-row-title {
   display: flex;
   min-width: 0;

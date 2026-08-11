@@ -4,7 +4,7 @@ Review target: [`2026-08-09__review-handoff-format-compatibility.md`](/Users/las
 
 ## Outcome
 
-Changes are requested before v1 is frozen. The compatibility and reader-boundary design is sound, but classifying all of `review.agentThread`, `review.git`, and `review.pullRequest` as intentionally opaque leaves #97 unable to implement stable Inbox identity, project grouping, or PR-state presentation. It also conflicts with #123, which is already adding typed PR lifecycle observations.
+Changes are requested before v1 is frozen. The compatibility and reader-boundary design is sound, but classifying all of `review.agentThread`, `review.git`, and `review.pullRequest` as intentionally opaque leaves #97 unable to implement stable Inbox identity, project grouping, or PR-state presentation. It would also discard the lifecycle and typed PR-observation contract that landed through #123 in [PR #129](https://github.com/lastobelus/markover/pull/129).
 
 The product should distinguish four durable data domains:
 
@@ -19,7 +19,7 @@ Opaque extensions remain an extensibility mechanism inside typed objects, not a 
 
 | Object | Owner | Durable contents | Agent/export visibility | Failure contract |
 | --- | --- | --- | --- | --- |
-| `reviews/<review-id>/review.json` | #99 format; #123 lifecycle/agent PR observations; #126 GitHub authority | Portable source snapshot, review tree, annotations, guidance, typed identity/context, and app-owned lifecycle | Returned by `get` and clipboard export | Incompatible or invalid artifacts fail closed and remain preserved |
+| `reviews/<review-id>/review.json` | #99 format; landed #129 lifecycle/agent PR observations; #126 GitHub authority | Portable source snapshot, review tree, annotations, guidance, typed identity/context, and app-owned lifecycle | Returned by `get` and clipboard export | Incompatible or invalid artifacts fail closed and remain preserved |
 | App-level `workspace.json` | #97 workspace-state child PR stacked on PR #120 | Inbox/Projects mode, hierarchy expansion, open/active review tabs, per-review block/view presentation | Never included in handoff, clipboard, or agent-service responses | Atomic writes; invalid or incompatible state fails soft and resets/rebuilds without hiding a valid review |
 | Existing settings storage | #97 for its new preferences/integrations, coordinated with other settings owners | User preferences, enabled integrations, metadata-location overrides | Never included in review artifacts | Validate fields independently; a settings failure must not invalidate reviews |
 | Candidate app-private enrichment store, potentially combining per-review sidecars with a shared thread index | #131 discovery and later implementation | Machine-local source/repository identity evidence, requesting-thread-title observations, discovery provenance/cache, and other enrichment | Never included in handoff, clipboard, or agent-service responses | Exact storage shape, schema, versioning, rediscovery, corruption, and cleanup semantics must be resolved by #131; failure must not invalidate `review.json` |
@@ -55,7 +55,7 @@ Invariants:
 
 ### 3. Replace wholly opaque containers with typed cores plus extensions
 
-The plan currently makes `agentThread`, `git`, and `pullRequest` opaque required keys. Their **unknown additive properties** may remain opaque, but the fields used by #97 and #123 need v1 guarantees.
+The plan currently makes `agentThread`, `git`, and `pullRequest` opaque required keys. Their **unknown additive properties** may remain opaque, but the fields used by #97 and the landed #129 contract need v1 guarantees.
 
 Here, **thread-host** is the user-facing application that contains and presents the requesting thread, such as T3 Code, LastCode, or the Codex app. It is distinct from a computer, operating-system hostname, DNS/network host, repository, worktree, process, or metadata path. **Provider** is the agent runtime or service executing the thread, such as Codex or Claude. A standalone product may fill both roles—for example, the Codex app as thread-host and Codex as provider—without collapsing the two schema concepts.
 
@@ -73,9 +73,9 @@ The packet is a stateless request snapshot, not evidence of a live connection to
 
 Unknown additive properties may extend each typed core. Provider database paths, log paths, raw thread-host records, and other private adapter evidence should not use those extensions merely to bypass the privacy boundary; they belong in settings or the #131 sidecar. Core consumers must not parse arbitrary producer blobs to recover fields the UI depends upon.
 
-### 4. Include #123 lifecycle and PR-observation domains in v1
+### 4. Adopt the landed #129 lifecycle and PR-observation domains in v1
 
-#123 is adding `revised` and `done` review statuses plus agent-reported PR states. The proposed #99 rule correctly says a new lifecycle value after publication is breaking, so v1 must not freeze before those active domains are reconciled.
+#123 is closed and PR #129 is on `main`. It added `revised` and `done` review statuses plus agent-reported PR states. The proposed #99 rule correctly says a new lifecycle value after publication is breaking, so v1 must include those landed domains rather than treating them as conditional future work.
 
 For an associated PR, v1 should type these fields, whether retained flat or placed under an `observation` object:
 
@@ -167,7 +167,7 @@ Extend #99's representative fixture and shared decoder tests to cover:
 - both origins, including agent-without-thread and Local-with-Git cases;
 - `attentionRequestedAt` timestamp and transition invariants;
 - typed core fields plus unknown additive extensions;
-- `revised` and `done` if #123 lands before v1 publication;
+- all landed lifecycle states, including `revised` and `done`;
 - PR identity without observation and every PR observation state/source;
 - invalid observation-without-association and older-observation replacement;
 - direct-provider `agentThread` data with no duplicate `threadHost.threadId`, a T3-style packet with a distinct `threadHost.threadId`, optional machine snapshots, and rejection of equal duplicate IDs;
@@ -179,12 +179,12 @@ Extend #99's representative fixture and shared decoder tests to cover:
 
 ## Coordination request
 
-#99 should coordinate its executable v1 envelope with #97, #123, #126, and [#131](https://github.com/lastobelus/markover/issues/131) before publishing the fixture or decoder. #97 can derive presentation projections from typed data, but it should not establish a competing artifact schema. #123's active status/PR fields should become the concrete starting point, and #126 should extend their source authority without replacing their identity contract.
+#99 should coordinate its executable v1 envelope with #97, the landed #129 contract, #126, and [#131](https://github.com/lastobelus/markover/issues/131) before publishing the fixture or decoder. #97 can derive presentation projections from typed data, but it should not establish a competing artifact schema. #129's status/PR fields are the concrete starting point, and #126 should extend their source authority without replacing their identity contract.
 
 The proposed delivery ownership is:
 
 1. #99 defines and validates portable `review.json`, including explicit exclusions for private state.
-2. #123 supplies the lifecycle and agent-reported PR observation domains that v1 must reconcile; #126 later adds authoritative GitHub sourcing.
+2. Landed PR #129 supplies the lifecycle and agent-reported PR observation domains that v1 must preserve; #126 later adds authoritative GitHub sourcing.
 3. PR #120 remains #97's accepted UI/projection/presentation slice.
 4. A #97 workspace-state child PR, stacked on PR #120, adds private `workspace.json` persistence and the related settings changes.
 5. #131 performs separate discovery before any per-review private-sidecar implementation is authorized.

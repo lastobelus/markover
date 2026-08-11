@@ -1,3 +1,8 @@
+import {
+  pullRequestObservation,
+  type PullRequestStatus
+} from './pull-request'
+
 export type ReviewTitleSource =
   | 'thread-title'
   | 'context-summary'
@@ -14,6 +19,9 @@ export interface ReviewInboxRow {
   projectName: string
   provider: string | null
   pullRequestNumber: number | null
+  pullRequestStatus: PullRequestStatus | null
+  pullRequestStatusObservedAt: string | null
+  pullRequestStatusSource: string | null
   reviewId: string
   status: ReviewSessionStatus
   threadKey: string
@@ -120,6 +128,7 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
   const title = rowTitle(session, agentThread, local)
   const branch = stringField(review.git, ['branch'])
   const pullRequestNumber = numberField(review.pullRequest, 'number')
+  const pullRequestState = pullRequestObservation(review.pullRequest)
   const threadKey = local
     ? `local:${session.projectKey}`
     : threadId
@@ -137,6 +146,9 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
     projectName: session.projectName,
     provider,
     pullRequestNumber,
+    pullRequestStatus: pullRequestState?.status ?? null,
+    pullRequestStatusObservedAt: pullRequestState?.statusObservedAt ?? null,
+    pullRequestStatusSource: pullRequestState?.statusSource ?? null,
     reviewId: session.reviewId,
     status: review.status,
     threadKey,
