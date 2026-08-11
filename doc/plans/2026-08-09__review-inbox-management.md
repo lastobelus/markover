@@ -61,7 +61,10 @@ The project favicon leads the row. Missing favicon/provider/branch/PR values use
 - **Thread-host** means the user-facing application that contains and presents the requesting thread, such as T3 Code, LastCode, or the Codex app. A thread-host is distinct from a computer, operating-system hostname, DNS/network host, repository, worktree, process, or metadata path.
 - **Provider** means the agent runtime or service that executes the thread, such as Codex or Claude, and may own provider-level thread/session metadata.
 - A standalone product can occupy both roles: for example, the Codex app can be the thread-host while Codex is the provider. The roles remain conceptually distinct even when one product fills both.
-- Persist `agentThread.threadHost` as a stable logical integration identifier such as `t3code`, `lastcode`, or `codex-app`, never as an installation path, machine hostname, version, or mutable display label. It remains optional when no thread-host can be identified.
+- Treat `agentThread` as a stateless snapshot of values the requesting agent can already observe. `agentThread.id` is the provider thread ID. Its `threadHost` object contains nonblank `kind` and `provider`, optional nonblank `machine`, and optional nonblank `threadId`.
+- `threadHost.kind` identifies the concrete thread-host application, such as `t3code`, `lastcode`, or `codex-app`. `threadHost.machine` is the machine string reported for that request, such as `Airy.local`; it is descriptive context rather than durable identity, and a later rename cannot be reconciled from that value alone.
+- Include `threadHost.threadId` only when the thread-host exposes a distinct thread identifier. Omit it when unavailable or equal to `agentThread.id`; consumers fall back to the provider ID without requiring Codex, Claude, OpenCode, or similar thread-hosts to duplicate one identifier under two names.
+- Request packets imply no ongoing connection, refresh, registry, settings, or new thread-host capability. Agents send observable values and omit unavailable fields rather than infer them.
 - A **thread-host-authoritative** thread-title is read from thread-host-owned state or supplied by a thread-host integration, such as T3’s `projection_threads.title` or a future LastCode push. A **provider-authoritative** thread-title comes from the provider’s own API or session metadata, even when the thread-host displays it.
 
 ## Requesting-thread-titles
@@ -102,6 +105,7 @@ The implementation must persist enough structured data to support the behavior w
 - `attentionRequestedAt` independent of ordinary review `updatedAt`;
 - canonical source path and source checksum;
 - normalized repository identity, checkout/common-root evidence, branch, commit, and pull request;
+- portable stateless `agentThread` request metadata, including provider thread ID and the observable thread-host snapshot;
 - app-private requesting-thread-title, authority/provenance, and observation time keyed by stable requesting-thread identity;
 - last-selected Inbox/Projects mode;
 - Projects expansion state;

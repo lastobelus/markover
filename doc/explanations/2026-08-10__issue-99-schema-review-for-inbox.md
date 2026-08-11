@@ -26,7 +26,7 @@ Opaque extensions remain an extensibility mechanism inside typed objects, not a 
 
 `workspace.json` should have its own private format/version, such as `format: "markover-workspace"` and `version: 1`. Its durability promise is restart restoration, not portable interchange: stale review references are pruned, unknown/incompatible state can be preserved for diagnosis and replaced with safe defaults, and loss resets presentation rather than review data.
 
-The private enrichment shape remains a proposal until #131 completes discovery. Keeping per-review data inside the managed review directory would let review Trash move the artifact, attachments, and private enrichment together. Requesting-thread-title is thread-level, however, so #131 should evaluate a shared index keyed by stable thread-host/provider/thread identity rather than duplicate potentially divergent observations into every linked review.
+The private enrichment shape remains a proposal until #131 completes discovery. Keeping per-review data inside the managed review directory would let review Trash move the artifact, attachments, and private enrichment together. Requesting-thread-title is thread-level, however, so #131 should evaluate a shared index keyed by the best available portable thread identity rather than duplicate potentially divergent observations into every linked review.
 
 ## Blocking requests before v1
 
@@ -61,11 +61,17 @@ Here, **thread-host** is the user-facing application that contains and presents 
 
 Minimum typed cores:
 
-- `agentThread`: nullable object with nonblank `provider`, nonblank `id`, and optional nonblank `threadHost`. `threadHost` is a stable logical integration identifier such as `t3code`, `lastcode`, or `codex-app`, never an installation path, machine hostname, version, or mutable display label. `(threadHost, provider, id)` is requesting-thread identity; requesting-thread-title is app-private mutable enrichment and never identity.
+- `agentThread`: nullable object with nonblank `id` and a typed `threadHost` object. `id` is the provider thread ID. `threadHost` contains nonblank `kind`, nonblank `provider`, optional nonblank `machine`, and optional nonblank `threadId`.
+- `agentThread.threadHost.kind`: the concrete thread-host application, such as `t3code`, `lastcode`, or `codex-app`.
+- `agentThread.threadHost.provider`: the provider serving the thread, such as `codex`, `claude`, or `opencode`; together with `agentThread.id`, it defines provider-thread identity.
+- `agentThread.threadHost.machine`: the exact machine string the requesting agent reports at request time, such as `Airy.local`. It is descriptive, may change between packets, and is never durable identity. Markover cannot reconcile a machine rename from this field alone.
+- `agentThread.threadHost.threadId`: an optional distinct thread-host-level thread identifier. Producers include it only when it is observable and differs from `agentThread.id`; consumers otherwise fall back to `agentThread.id`. Direct Codex, Claude, OpenCode, and similar packets therefore carry one identifier rather than duplicate it.
 - `git`: nullable object with nullable sanitized `repositoryUrl`, `branch`, and `commit`. These are hints, but their types and meanings must be stable when present.
 - `pullRequest`: nullable object with required positive integer `number` when present; optional canonical `url`; and the typed observation fields requested below.
 
-Unknown additive properties may extend each typed core. Provider database paths, log paths, raw thread-host records, and other machine-local adapter evidence should not use those extensions merely to bypass the privacy boundary; they belong in settings or the #131 sidecar. Core consumers must not parse arbitrary producer blobs to recover fields the UI depends upon.
+The packet is a stateless request snapshot, not evidence of a live connection to the agent thread. Requesting agents send only values they can already observe and omit unavailable fields rather than infer them. The schema requires no thread-host registry, settings, generated machine identity, rename notification, refresh mechanism, or integration.
+
+Unknown additive properties may extend each typed core. Provider database paths, log paths, raw thread-host records, and other private adapter evidence should not use those extensions merely to bypass the privacy boundary; they belong in settings or the #131 sidecar. Core consumers must not parse arbitrary producer blobs to recover fields the UI depends upon.
 
 ### 4. Include #123 lifecycle and PR-observation domains in v1
 
@@ -96,7 +102,7 @@ The portable artifact should carry only portable Git/PR hints. [#131](https://gi
 - checkout root and common Git directory;
 - locally normalized project key and fallback path identity;
 - project display-name override, favicon selection/cache, and repository-root hover text;
-- requesting-thread-title discovery evidence or cache that contains machine-local thread-host/provider details.
+- requesting-thread-title discovery evidence or cache that contains private thread-host/provider details beyond the explicit request snapshot.
 
 Repository grouping follows these invariants:
 
@@ -113,7 +119,7 @@ Repository grouping follows these invariants:
 
 Keep `review.contextSummary` as the required portable review purpose. The requesting-thread-title is the current user-visible title of the agent thread that requested the review; it is not a review title and is not needed to interpret the handoff.
 
-`review.json` should contain the stable `agentThread` identity core but no requesting-thread-title observation. App-private thread metadata should be keyed by stable thread-host/provider/thread identity and preserve:
+`review.json` should contain the typed `agentThread` request snapshot but no requesting-thread-title observation. App-private thread metadata should use `threadHost.threadId` when distinct and available, otherwise provider plus `agentThread.id`, and preserve:
 
 - nonblank requesting-thread-title value;
 - authority class `thread-host` or `provider`;
@@ -164,7 +170,9 @@ Extend #99's representative fixture and shared decoder tests to cover:
 - `revised` and `done` if #123 lands before v1 publication;
 - PR identity without observation and every PR observation state/source;
 - invalid observation-without-association and older-observation replacement;
-- stable `agentThread` identity without any portable requesting-thread-title observation;
+- direct-provider `agentThread` data with no duplicate `threadHost.threadId`, a T3-style packet with a distinct `threadHost.threadId`, optional machine snapshots, and rejection of equal duplicate IDs;
+- proof that a changed `threadHost.machine` value is a new description rather than evidence of a new or existing durable machine identity;
+- typed `agentThread` identity without any portable requesting-thread-title observation;
 - proof that private requesting-thread-title observations update every linked review projection and retain the last authoritative value after an unavailable refresh;
 - proof that `workspace.json`, settings, and #131 sidecar data are absent from handoff, clipboard, and agent-visible service output;
 - proof that missing or incompatible private state does not invalidate a compatible `review.json`.

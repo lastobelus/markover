@@ -386,6 +386,8 @@ The user-facing application that contains and presents an agent thread, such as 
 
 Use **thread-host** rather than bare *host* or *harness* in prose, and `threadHost` for typed-data and code identifiers. A thread-host is distinct from the provider that executes the thread and from a computer, hostname, network host, repository, worktree, or process.
 
+In agent request packets, `threadHost.kind` names the application and optional `threadHost.threadId` carries a distinct thread-host-level thread identifier. When the thread-host uses the provider thread ID unchanged, the packet omits `threadHost.threadId`.
+
 ## thread-title::
 
 The current user-visible title of an agent thread, including user renames.
