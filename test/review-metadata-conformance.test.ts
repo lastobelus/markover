@@ -156,6 +156,24 @@ test('capture validates raw v1 identity and emits only typed redactions', () => 
   )
 })
 
+test('capture rejects an evidence ID suffix copied from a private identity', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  thread.id = 'deadbeef'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Evidence ID suffix must be independent of private artifact values/
+  )
+})
+
 test('capture rejects retained values whose discovery is unavailable', () => {
   const artifact = fixture()
   agentThread(artifact)
@@ -794,6 +812,29 @@ test('corpus validation requires an exercise path to resolve to a regular file',
   assert.throws(
     () => validateMetadataCorpus(temporaryRoot),
     /exercise must be a regular file/
+  )
+})
+
+test('corpus validation rejects exercise paths escaping through a parent symlink', (t) => {
+  const temporaryRoot = metadataCorpusCopy()
+  t.after(() => {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true })
+  })
+  const directory = path.join(temporaryRoot, 'evals/review-metadata')
+  const matrixPath = path.join(directory, 'matrix.json')
+  const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8')) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  firstEntry.exercise = 'exercises/link/case.md'
+  fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`)
+  const outside = path.join(directory, 'outside')
+  fs.mkdirSync(outside)
+  fs.writeFileSync(path.join(outside, 'case.md'), '# Outside\n')
+  fs.symlinkSync(outside, path.join(directory, 'exercises/link'), 'dir')
+  assert.throws(
+    () => validateMetadataCorpus(temporaryRoot),
+    /exercise must resolve beneath exercises/
   )
 })
 
