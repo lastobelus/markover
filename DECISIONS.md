@@ -196,9 +196,10 @@ each choice from that baseline without duplicating the live decisions below.
    - [x] Preserve the accepted behavior
 7. **Inline Markdown is rendered inside supported blocks.** Bold, italic,
    inline code, link labels, and image labels appear in the left pane. Links
-   remain inert. Image pills open the source image in the same labeled preview
-   modal used for screenshot attachments; relative paths resolve from the
-   reviewed Markdown file.
+   remain inert. Image syntax renders as a labeled preview control, but only an
+   embedded `data:` source can open in the current preview. Relative paths,
+   local file paths, and HTTP(S) sources remain unavailable and are not
+   requested.
 
    **Audit — Retain (Data and parsing 5–7).** Opaque compound blocks, task
    decoration, and inert inline rendering preserve useful review granularity

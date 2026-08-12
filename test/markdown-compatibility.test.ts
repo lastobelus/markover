@@ -6,6 +6,7 @@ import { JSDOM } from 'jsdom'
 import MarkdownIt from 'markdown-it'
 
 const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
+const { sourceUrl } = require('../src/image-preview') as MarkoverImagePreviewApi
 const compatibilityMarkdown = MarkdownIt('commonmark', {
   html: false,
   linkify: false,
@@ -183,6 +184,12 @@ const fixtures: CompatibilityFixture[] = [
         'See [label](https://example.com) and ![diagram](diagram.png).'
       )
       assert.equal(paragraph.raw, paragraph.text)
+      assert.equal(sourceUrl('diagram.png'), null)
+      assert.equal(sourceUrl('https://example.com/diagram.png'), null)
+      assert.equal(
+        sourceUrl('data:image/png;base64,AA=='),
+        'data:image/png;base64,AA=='
+      )
     }
   },
   {

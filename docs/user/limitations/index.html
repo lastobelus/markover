@@ -91,9 +91,9 @@
                 <td>Markers and content stay in the parent block's exact source and render inline; they do not create separate review blocks.</td>
               </tr>
               <tr data-compatibility-id="links-images" data-classification="preserved-inline">
-                <td>Inline links and images</td>
+                <td>Inline links and image syntax</td>
                 <td>Preserved inline content</td>
-                <td>Labels and destinations stay in the parent block. Links remain inert, and an image source opens only through Markover's explicit preview action.</td>
+                <td>Labels and destinations stay in the parent block. Links remain inert. Image syntax renders as a labeled preview control; only an embedded <code>data:</code> source can open in the current preview.</td>
               </tr>
               <tr data-compatibility-id="raw-html" data-classification="visible-uninterpreted">
                 <td>Raw HTML</td>
@@ -122,8 +122,8 @@
       </section>
 
       <section id="links-images">
-        <h2>Links stay inert; remote images require consent</h2>
-        <p>Rendered links do not navigate when clicked in a review. A remote HTTP or HTTPS image starts as an inert preview button. Markover requests it only after you explicitly choose to preview it; the image host then receives ordinary request metadata, including your IP address.</p>
+        <h2>Links stay inert; image sources stay bounded</h2>
+        <p>Rendered links do not navigate when clicked in a review. Inline image syntax becomes a labeled preview control. Only an embedded <code>data:</code> image can open in the current preview. Relative paths, local file paths, and HTTP(S) URLs remain unavailable; choosing their controls makes no network request.</p>
         <p>Local pasted screenshot attachments are stored with the review. Inspect attachments and review content before sharing a handoff.</p>
       </section>
 

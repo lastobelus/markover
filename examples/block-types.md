@@ -2,8 +2,9 @@
 
 This paragraph demonstrates **strong text**, *emphasis*, `inline code`, an
 [inert link](https://example.com), and an
-![image preview](../design/logo-explorations/01-editorial-redline.png). Click
-the image pill to open the source image in the same preview used for annotations.
+![image preview](../design/logo-explorations/01-editorial-redline.png). The image
+syntax becomes a labeled preview control, but this relative source remains
+unavailable; only an embedded `data:` image can open in the current preview.
 
 ## Heading hierarchy
 

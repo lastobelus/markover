@@ -99,9 +99,9 @@
         <p>Ordinary review handling has no telemetry, analytics, cloud synchronization, or automatic upload of review content.</p>
         <ul>
           <li>Installing or updating through the launcher can download packages and release files from npm or GitHub.</li>
-          <li>A remote Markdown image starts as an inert preview button. If you explicitly open it, Markover requests its HTTP or HTTPS URL. The image host receives ordinary request metadata, including your IP address.</li>
+          <li>Inline Markdown image syntax is inert by default. Only an embedded <code>data:</code> image can open through its explicit preview control. Relative paths, local file paths, and HTTP(S) URLs remain unavailable; choosing their controls makes no network request.</li>
         </ul>
-        <p>These user-triggered connections are why Markover does not claim that it never connects to the internet.</p>
+        <p>Launcher installation and updates are user-triggered connections, so Markover does not claim that it never connects to the internet.</p>
       </section>
 
       <section id="retention">
