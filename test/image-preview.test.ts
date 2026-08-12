@@ -19,6 +19,7 @@ test('allows only CSP-safe source image URLs', () => {
   assert.equal(sourceUrl('data:image/png;base64,AA=='), 'data:image/png;base64,AA==')
   assert.equal(sourceUrl('javascript:alert(1)'), null)
   assert.equal(sourceUrl('./image.png'), null)
+  assert.equal(sourceUrl('img-1'), null)
 })
 
 test('labels source images from alt text or their basename', () => {
@@ -42,4 +43,13 @@ test('renderer keeps source images inert until explicit preview', () => {
     renderer,
     /wireSourceImagePreviews[\s\S]*addEventListener\('click'[\s\S]*openSourceImagePreview/
   )
+
+  const sourcePreviewRule = renderer.match(
+    /function openSourceImagePreview[\s\S]*?\n\}/
+  )?.[0] || ''
+  assert.match(
+    sourcePreviewRule,
+    /if \(!url\) \{[\s\S]*showToast\('Preview unavailable in this session'\)[\s\S]*return/
+  )
+  assert.match(sourcePreviewRule, /openImagePreview\(\{[\s\S]*url,/)
 })
