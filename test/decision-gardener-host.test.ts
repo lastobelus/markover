@@ -16,6 +16,7 @@ import {
   parseDecisionGardenerHostCli,
   parseDecisionGardenerHostConfig,
   runDecisionGardenerHostCycle,
+  runHostNotificationCommand,
   sendDecisionGardenerNotification,
   uninstallDecisionGardenerLaunchAgent
 } from '../scripts/decision-gardener-host'
@@ -181,19 +182,25 @@ test('notifier commands have a finite timeout and surface expiration as failure'
   const host = await fixture()
   t.after(() => fs.rm(host.root, { recursive: true, force: true }))
   let timeout: number | undefined
-  assert.throws(() => {
-    sendDecisionGardenerNotification({
-      config: host.config,
-      event: 'test',
-      record: host.configPath,
-      runCommand: (_executable, _args, options) => {
-        timeout = options?.timeout
-        throw new Error('operation timed out')
-      },
-      summary: 'timeout test'
-    })
-  }, /notifier failed: operation timed out/)
+  await assert.rejects(sendDecisionGardenerNotification({
+    config: host.config,
+    event: 'test',
+    record: host.configPath,
+    runCommand: (_executable, _args, options) => {
+      timeout = options?.timeout
+      throw new Error('operation timed out')
+    },
+    summary: 'timeout test'
+  }), /notifier failed: operation timed out/)
   assert.equal(timeout, decisionGardenerNotifierTimeoutMilliseconds)
+})
+
+test('the production notifier runner force-kills a command that ignores termination', async () => {
+  const started = Date.now()
+  await assert.rejects(runHostNotificationCommand('/bin/sh', [
+    '-c', 'trap "" TERM; while :; do sleep 1; done'
+  ], { timeout: 50 }), /timed out after 50 ms/)
+  assert.ok(Date.now() - started < 2_000)
 })
 
 test('a failure record is finalized before the notifier reads it', async (t) => {
@@ -220,6 +227,53 @@ test('a failure record is finalized before the notifier reads it', async (t) => 
     error: 'audit transport failed',
     status: 'failed'
   })
+})
+
+test('a pending failure notification is delivered before recovery', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  let current = new Date('2026-08-11T00:00:00.000Z')
+  let attempt = 0
+  const events: Array<{ event: string; record: string }> = []
+  const dependencies = {
+    now: () => new Date(current),
+    runAudit: () => {
+      attempt += 1
+      if (attempt === 1) return Promise.reject(new Error('initial audit failure'))
+      return Promise.resolve(cleanAudit(host.config.runStore))
+    },
+    runCommand: (
+      _executable: string,
+      _args: readonly string[],
+      options?: { env?: NodeJS.ProcessEnv }
+    ): CommandResult => {
+      events.push({
+        event: options?.env?.MARKOVER_DECISION_GARDENER_EVENT ?? 'missing',
+        record: options?.env?.MARKOVER_DECISION_GARDENER_RECORD ?? 'missing'
+      })
+      if (events.length === 1) {
+        return { status: 1, stderr: 'notification transport unavailable', stdout: '' }
+      }
+      return { status: 0, stderr: '', stdout: '' }
+    }
+  }
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, dependencies), /initial audit failure/)
+  current = new Date('2026-08-11T00:05:00.000Z')
+  const recovered = await runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, dependencies)
+  assert.equal(recovered.status, 'completed')
+  assert.deepEqual(events.map(({ event }) => event), ['failed', 'failed', 'recovered'])
+  assert.equal(events[1]?.record, events[0]?.record)
+  assert.notEqual(events[2]?.record, events[0]?.record)
+  const state = JSON.parse(await fs.readFile(
+    path.join(host.config.runStore, 'host-state.json'),
+    'utf8'
+  )) as { health: string; pendingFailureRecord: string | null }
+  assert.equal(state.health, 'healthy')
+  assert.equal(state.pendingFailureRecord, null)
 })
 
 test('an unreadable host state notifies failure and preserves the invalid evidence', async (t) => {

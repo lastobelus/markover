@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import { constants as fsConstants } from 'node:fs'
 import fs from 'node:fs/promises'
@@ -31,6 +31,12 @@ export type CommandRunner = (
   options?: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number }
 ) => CommandResult
 
+export type NotificationCommandRunner = (
+  executable: string,
+  args: readonly string[],
+  options?: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number }
+) => CommandResult | Promise<CommandResult>
+
 export interface CommandNotifier {
   command: readonly [string, ...string[]]
   kind: 'command'
@@ -59,6 +65,7 @@ export interface DecisionGardenerHostState {
   lastAuditAt: string | null
   lastError: string | null
   lastNotifiedHealth: 'failed' | 'healthy' | null
+  pendingFailureRecord: string | null
   schemaVersion: typeof decisionGardenerHostSchemaVersion
   updatedAt: string
 }
@@ -98,7 +105,7 @@ interface HostCycleDependencies {
   acquireLock?: typeof acquireSingleFlightLock
   now?: () => Date
   runAudit?: (options: DecisionGardenerRunOptions) => Promise<DecisionGardenerRunOutcome>
-  runCommand?: CommandRunner
+  runCommand?: NotificationCommandRunner
 }
 
 interface LaunchAgentDependencies {
@@ -233,6 +240,7 @@ function defaultState(now: Date): DecisionGardenerHostState {
     lastAuditAt: null,
     lastError: null,
     lastNotifiedHealth: null,
+    pendingFailureRecord: null,
     schemaVersion: decisionGardenerHostSchemaVersion,
     updatedAt: now.toISOString()
   }
@@ -244,7 +252,7 @@ function parseHostState(value: unknown): DecisionGardenerHostState {
   }
   exactKeys(value, [
     'health', 'lastAuditAt', 'lastError', 'lastNotifiedHealth',
-    'schemaVersion', 'updatedAt'
+    'pendingFailureRecord', 'schemaVersion', 'updatedAt'
   ], 'Decision-gardener host state')
   for (const key of ['lastAuditAt', 'updatedAt'] as const) {
     const item = value[key]
@@ -263,6 +271,10 @@ function parseHostState(value: unknown): DecisionGardenerHostState {
   if (value.lastError !== null && typeof value.lastError !== 'string') {
     throw new Error('The host state error is invalid.')
   }
+  if (
+    value.pendingFailureRecord !== null &&
+    (typeof value.pendingFailureRecord !== 'string' || !path.isAbsolute(value.pendingFailureRecord))
+  ) throw new Error('The host state pending failure record is invalid.')
   return value as unknown as DecisionGardenerHostState
 }
 
@@ -362,6 +374,90 @@ export const runHostCommand: CommandRunner = (executable, args, options = {}) =>
   }
 }
 
+export const runHostNotificationCommand = (
+  executable: string,
+  args: readonly string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number } = {}
+): Promise<CommandResult> => new Promise((resolve, reject) => {
+  const child = spawn(executable, [...args], {
+    cwd: options.cwd,
+    detached: true,
+    env: options.env,
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  const maxBuffer = 4 * 1024 * 1024
+  const stdout: Buffer[] = []
+  const stderr: Buffer[] = []
+  let stdoutLength = 0
+  let stderrLength = 0
+  let settled = false
+  let timer: NodeJS.Timeout | undefined
+
+  const kill = (): void => {
+    if (child.pid !== undefined) {
+      try {
+        process.kill(-child.pid, 'SIGKILL')
+        return
+      } catch {
+        // Fall back to the direct child when process-group signaling is unavailable.
+      }
+    }
+    try {
+      child.kill('SIGKILL')
+    } catch {
+      // The child may already have exited between the timeout and the kill.
+    }
+  }
+  const fail = (error: Error, terminate = false): void => {
+    if (settled) return
+    settled = true
+    if (timer !== undefined) clearTimeout(timer)
+    if (terminate) kill()
+    child.stdout.destroy()
+    child.stderr.destroy()
+    child.unref()
+    reject(error)
+  }
+
+  child.stdout.on('data', (chunk: Buffer) => {
+    if (settled) return
+    stdoutLength += chunk.length
+    if (stdoutLength > maxBuffer) {
+      fail(new Error('Decision-gardener notifier stdout exceeded four MiB.'), true)
+      return
+    }
+    stdout.push(chunk)
+  })
+  child.stderr.on('data', (chunk: Buffer) => {
+    if (settled) return
+    stderrLength += chunk.length
+    if (stderrLength > maxBuffer) {
+      fail(new Error('Decision-gardener notifier stderr exceeded four MiB.'), true)
+      return
+    }
+    stderr.push(chunk)
+  })
+  child.once('error', (error) => {
+    fail(error)
+  })
+  child.once('close', (status) => {
+    if (settled) return
+    settled = true
+    if (timer !== undefined) clearTimeout(timer)
+    resolve({
+      status: status ?? 1,
+      stderr: Buffer.concat(stderr).toString('utf8'),
+      stdout: Buffer.concat(stdout).toString('utf8')
+    })
+  })
+  if (options.timeout !== undefined) {
+    timer = setTimeout(() => {
+      fail(new Error(`Decision-gardener notifier timed out after ${String(options.timeout)} ms.`), true)
+    }, options.timeout)
+    timer.unref()
+  }
+})
+
 function notificationCenterCommand(event: string, summary: string): readonly [string, ...string[]] {
   return [
     '/usr/bin/osascript',
@@ -373,25 +469,25 @@ function notificationCenterCommand(event: string, summary: string): readonly [st
   ]
 }
 
-export function sendDecisionGardenerNotification({
+export async function sendDecisionGardenerNotification({
   config,
   event,
   record,
-  runCommand = runHostCommand,
+  runCommand = runHostNotificationCommand,
   summary
 }: {
   config: DecisionGardenerHostConfig
   event: 'failed' | 'recovered' | 'test'
   record: string
-  runCommand?: CommandRunner
+  runCommand?: NotificationCommandRunner
   summary: string
-}): void {
+}): Promise<void> {
   const command = config.notifier.kind === 'notification-center'
     ? notificationCenterCommand(event, summary)
     : config.notifier.command
   let result: CommandResult
   try {
-    result = runCommand(command[0], command.slice(1), {
+    result = await runCommand(command[0], command.slice(1), {
       cwd: config.repository,
       env: {
         ...hostEnvironment(config),
@@ -438,7 +534,7 @@ export async function runDecisionGardenerHostCycle({
 }, dependencies: HostCycleDependencies = {}): Promise<DecisionGardenerHostOutcome> {
   const config = await loadDecisionGardenerHostConfig(configPath)
   const now = dependencies.now ?? (() => new Date())
-  const runCommand = dependencies.runCommand ?? runHostCommand
+  const runCommand = dependencies.runCommand ?? runHostNotificationCommand
   const started = now()
   await fs.mkdir(config.runStore, { recursive: true, mode: 0o700 })
   await fs.chmod(config.runStore, 0o700)
@@ -493,7 +589,7 @@ export async function runDecisionGardenerHostCycle({
       let notificationError: string | null = null
       if (state.lastNotifiedHealth !== 'failed') {
         try {
-          sendDecisionGardenerNotification({
+          await sendDecisionGardenerNotification({
             config,
             event: 'failed',
             record: recordPath,
@@ -512,6 +608,9 @@ export async function runDecisionGardenerHostCycle({
           lastAuditAt: state.lastAuditAt,
           lastError: combinedError,
           lastNotifiedHealth: notificationError === null ? 'failed' : state.lastNotifiedHealth,
+          pendingFailureRecord: notificationError === null
+            ? null
+            : (state.pendingFailureRecord ?? recordPath),
           schemaVersion: decisionGardenerHostSchemaVersion,
           updatedAt: finished
         } satisfies DecisionGardenerHostState)
@@ -557,7 +656,7 @@ export async function runDecisionGardenerHostCycle({
       await writePrivateJson(recordPath, provisionalRecord)
       let notificationError: string | null = null
       try {
-        sendDecisionGardenerNotification({
+        await sendDecisionGardenerNotification({
           config,
           event: 'failed',
           record: recordPath,
@@ -574,7 +673,8 @@ export async function runDecisionGardenerHostCycle({
           ...defaultState(failedAt),
           health: 'failed',
           lastError: combinedError,
-          lastNotifiedHealth: notificationError === null ? 'failed' : null
+          lastNotifiedHealth: notificationError === null ? 'failed' : null,
+          pendingFailureRecord: notificationError === null ? null : recordPath
         } satisfies DecisionGardenerHostState)
       }
       const failedRecord: HostAttemptRecord = {
@@ -608,6 +708,7 @@ export async function runDecisionGardenerHostCycle({
       }
     }
     const runAudit = dependencies.runAudit ?? runDecisionGardener
+    let pendingFailureAttempted = false
     try {
       const audit = await withHostPath(config, () => runAudit({
         codex: config.codex,
@@ -625,7 +726,19 @@ export async function runDecisionGardenerHostCycle({
       }
       if (state.health === 'failed') {
         await writePrivateJson(recordPath, completed)
-        sendDecisionGardenerNotification({
+        if (state.lastNotifiedHealth !== 'failed') {
+          pendingFailureAttempted = true
+          await sendDecisionGardenerNotification({
+            config,
+            event: 'failed',
+            record: state.pendingFailureRecord ?? recordPath,
+            runCommand,
+            summary: state.lastError ?? 'The previous gardener attempt failed.'
+          })
+          state.lastNotifiedHealth = 'failed'
+          state.pendingFailureRecord = null
+        }
+        await sendDecisionGardenerNotification({
           config,
           event: 'recovered',
           record: recordPath,
@@ -638,6 +751,7 @@ export async function runDecisionGardenerHostCycle({
         lastAuditAt: finished.toISOString(),
         lastError: null,
         lastNotifiedHealth: 'healthy',
+        pendingFailureRecord: null,
         schemaVersion: decisionGardenerHostSchemaVersion,
         updatedAt: finished.toISOString()
       }
@@ -656,15 +770,19 @@ export async function runDecisionGardenerHostCycle({
       }
       await writePrivateJson(recordPath, provisionalRecord)
       let notificationError: string | null = null
-      if (state.lastNotifiedHealth !== 'failed') {
+      let failureDelivered = state.lastNotifiedHealth === 'failed'
+      if (!failureDelivered && !pendingFailureAttempted) {
         try {
-          sendDecisionGardenerNotification({
+          await sendDecisionGardenerNotification({
             config,
             event: 'failed',
-            record: recordPath,
+            record: state.pendingFailureRecord ?? recordPath,
             runCommand,
-            summary: message
+            summary: state.pendingFailureRecord === null
+              ? message
+              : (state.lastError ?? message)
           })
+          failureDelivered = true
         } catch (notifyError) {
           notificationError = errorMessage(notifyError)
         }
@@ -676,7 +794,10 @@ export async function runDecisionGardenerHostCycle({
         health: 'failed',
         lastAuditAt: state.lastAuditAt,
         lastError: combinedError,
-        lastNotifiedHealth: notificationError === null ? 'failed' : state.lastNotifiedHealth,
+        lastNotifiedHealth: failureDelivered ? 'failed' : state.lastNotifiedHealth,
+        pendingFailureRecord: failureDelivered
+          ? null
+          : (state.pendingFailureRecord ?? recordPath),
         schemaVersion: decisionGardenerHostSchemaVersion,
         updatedAt: failedAt.toISOString()
       }
@@ -799,12 +920,12 @@ function commandSucceeded(result: CommandResult): boolean {
   return result.status === 0
 }
 
-export function testDecisionGardenerNotifier(
+export async function testDecisionGardenerNotifier(
   config: DecisionGardenerHostConfig,
   configPath: string,
-  runCommand: CommandRunner = runHostCommand
-): void {
-  sendDecisionGardenerNotification({
+  runCommand: NotificationCommandRunner = runHostNotificationCommand
+): Promise<void> {
+  await sendDecisionGardenerNotification({
     config,
     event: 'test',
     record: path.resolve(configPath),
@@ -823,7 +944,11 @@ export async function installDecisionGardenerLaunchAgent(
   if (uid === undefined) throw new Error('Could not resolve the current macOS user ID.')
   const runCommand = dependencies.runCommand ?? runHostCommand
   const config = await loadDecisionGardenerHostConfig(configPath)
-  testDecisionGardenerNotifier(config, configPath, runCommand)
+  await testDecisionGardenerNotifier(
+    config,
+    configPath,
+    dependencies.runCommand ?? runHostNotificationCommand
+  )
   const homeDirectory = dependencies.homeDirectory ?? os.homedir()
   const plistPath = decisionGardenerLaunchAgentPath(homeDirectory)
   const nodeExecutable = absolutePath(
@@ -997,7 +1122,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     })
   } else if (options.command === 'test-notifier') {
     const config = await loadDecisionGardenerHostConfig(options.configPath)
-    testDecisionGardenerNotifier(config, options.configPath)
+    await testDecisionGardenerNotifier(config, options.configPath)
     outcome = { status: 'notifier_ok' }
   } else if (options.command === 'install') {
     outcome = await installDecisionGardenerLaunchAgent(options.configPath)

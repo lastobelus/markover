@@ -154,8 +154,8 @@ curated process environment plus `MARKOVER_DECISION_GARDENER_EVENT`
 `MARKOVER_DECISION_GARDENER_SUMMARY`, and
 `MARKOVER_DECISION_GARDENER_RECORD`. Keep the notifier outside the repository
 checkout and make it responsible for its own secret storage. The controller
-terminates a notifier that exceeds thirty seconds and treats that timeout as a
-delivery failure.
+force-kills the notifier process group if it exceeds thirty seconds and treats
+that timeout as a delivery failure.
 
 Make the config private, then validate the complete notification route before
 installing:
@@ -227,9 +227,11 @@ notification and preserves the invalid file under a per-attempt
 The first successful run establishes healthy state without noise. A transition
 to failure sends one `failed` notification; repeated failures retry every
 five-minute heartbeat without repeating a successfully delivered notification.
-The first later success sends one `recovered` notification. If notification
-delivery itself fails, the failed health remains pending and the next heartbeat
-retries rather than silently marking the host healthy.
+The first later success sends one `recovered` notification. If a failed-event
+delivery is still pending when an audit succeeds, that exact failed record is
+delivered before the recovery event. If notification delivery itself fails,
+the failed health remains pending and the next heartbeat retries rather than
+silently marking the host healthy.
 
 For a failure:
 
