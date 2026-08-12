@@ -52,7 +52,8 @@ import {
   type AttachmentRemoveRequest,
   type AttachmentRemoveResult,
   type MainEventChannel,
-  type ReviewContextMenuRequest
+  type ReviewContextMenuRequest,
+  type ReviewContextMenuResult
 } from './ipc-contract'
 import {
   PrivilegedIpc,
@@ -66,6 +67,7 @@ import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
 import { discoverVerifiedReviewProjectRoot } from './review-project-context'
+import { copyCanonicalReviewLink } from './review-link-copy'
 import {
   registerProtocolOnFirstLaunch,
   SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT
@@ -842,17 +844,60 @@ async function removeManagedAttachment(
 
 async function openReviewContextMenu(
   event: IpcMainInvokeEvent,
-  reviewId: string
-): Promise<void> {
-  await requireReviewStore().load(reviewId)
-  const menu = Menu.buildFromTemplate([{
-    label: 'Move Review to Trash…',
-    click: () => {
-      void moveReviewToTrash(reviewId).catch(showReviewOperationError)
+  request: ReviewContextMenuRequest
+): Promise<ReviewContextMenuResult> {
+  await requireReviewStore().load(request.reviewId)
+  let copyOperation: Promise<ReviewContextMenuResult> | null = null
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Copy Review Link',
+      click: () => {
+        copyOperation = copyCanonicalReviewLink(request.reviewId, {
+          writeText: (text) => { clipboard.writeText(text) },
+          chooseAfterFailure: async (failure) => {
+            const options = {
+              type: 'error' as const,
+              buttons: ['Try Again', 'Cancel'],
+              defaultId: 0,
+              cancelId: 1,
+              noLink: true,
+              message: 'Markover could not copy the review link.',
+              detail: `${failure.message}\n\n${failure.url}`
+            }
+            const window = BrowserWindow.fromWebContents(event.sender)
+            const result = window && !window.isDestroyed()
+              ? await dialog.showMessageBox(window, options)
+              : await dialog.showMessageBox(options)
+            return result.response === 0 ? 'retry' : 'cancel'
+          }
+        }).then((outcome) => ({
+          outcome: outcome === 'copied' ? 'copied' : 'copy-cancelled'
+        }))
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Move Review to Trash…',
+      click: () => {
+        void moveReviewToTrash(request.reviewId).catch(showReviewOperationError)
+      }
     }
-  }])
+  ])
   const window = BrowserWindow.fromWebContents(event.sender)
-  menu.popup(window ? { window } : undefined)
+  return await new Promise((resolve, reject) => {
+    menu.popup({
+      ...(window ? { window } : {}),
+      x: request.x,
+      y: request.y,
+      callback: () => {
+        if (!copyOperation) {
+          resolve({ outcome: 'dismissed' })
+          return
+        }
+        copyOperation.then(resolve, reject)
+      }
+    })
+  })
 }
 
 function checksum(source: string): string {
@@ -2052,7 +2097,7 @@ if (!hasSingleInstanceLock) {
     privilegedIpc.handle('review:context-menu:open', (
       event: IpcMainInvokeEvent,
       request: ReviewContextMenuRequest
-    ) => openReviewContextMenu(event, request.reviewId))
+    ) => openReviewContextMenu(event, request))
     privilegedIpc.on('review:snapshot-response', (
       _event: IpcMainEvent,
       response: ReviewSnapshotResponse

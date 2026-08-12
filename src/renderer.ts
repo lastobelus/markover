@@ -27,6 +27,11 @@ import {
 } from './lucide-icons'
 import * as MarkoverNavigation from './navigation'
 import {
+  isReviewContextMenuKey,
+  keyboardContextMenuPoint,
+  pointerContextMenuPoint
+} from './review-context-menu'
+import {
   providerIcon,
   threadHostIcon,
   type ReviewRegistryIcon
@@ -2382,11 +2387,37 @@ function reviewRowTime(row: ReviewInboxRow): string {
   )
 }
 
-function openReviewContextMenu(reviewId: string, event: MouseEvent): void {
+function openReviewContextMenu(
+  reviewId: string,
+  event: MouseEvent | KeyboardEvent,
+  anchor: HTMLElement
+): void {
   event.preventDefault()
+  event.stopPropagation()
+  const point = event instanceof MouseEvent
+    ? pointerContextMenuPoint(event)
+    : keyboardContextMenuPoint(anchor.getBoundingClientRect())
   closeTabOverflow()
-  void bridge.openReviewContextMenu({ reviewId }).catch((error: unknown) => {
-    showToast(error instanceof Error ? error.message : String(error))
+  void bridge.openReviewContextMenu({ reviewId, ...point })
+    .then((result) => {
+      if (result.outcome === 'copied') showToast('Review link copied')
+    })
+    .catch((error: unknown) => {
+      showToast(error instanceof Error ? error.message : String(error))
+    })
+    .finally(() => {
+      if (anchor.isConnected) anchor.focus({ preventScroll: true })
+    })
+}
+
+function bindReviewContextMenuKeyboard(
+  control: HTMLElement,
+  reviewId: string
+): void {
+  control.setAttribute('aria-haspopup', 'menu')
+  control.addEventListener('keydown', (event) => {
+    if (!isReviewContextMenuKey(event)) return
+    openReviewContextMenu(reviewId, event, control)
   })
 }
 
@@ -2464,8 +2495,9 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   button.addEventListener('click', () => {
     void activateReview(row.reviewId)
   })
+  bindReviewContextMenuKeyboard(button, row.reviewId)
   container.addEventListener('contextmenu', (event) => {
-    openReviewContextMenu(row.reviewId, event)
+    openReviewContextMenu(row.reviewId, event, button)
   })
   container.append(button)
   if (pr instanceof HTMLButtonElement) {
@@ -2513,8 +2545,9 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
   button.addEventListener('click', () => {
     void activateReview(row.reviewId)
   })
+  bindReviewContextMenuKeyboard(button, row.reviewId)
   container.addEventListener('contextmenu', (event) => {
-    openReviewContextMenu(row.reviewId, event)
+    openReviewContextMenu(row.reviewId, event, button)
   })
   container.append(button)
   bindReviewHoverCard(container, () => reviewHoverModel(row))
@@ -3239,8 +3272,9 @@ function createDocumentTab(session: ReviewSession): HTMLElement {
   button.addEventListener('click', () => {
     void activateReview(session.reviewId)
   })
+  bindReviewContextMenuKeyboard(button, session.reviewId)
   button.addEventListener('contextmenu', (event) => {
-    openReviewContextMenu(session.reviewId, event)
+    openReviewContextMenu(session.reviewId, event, button)
   })
   button.addEventListener('keydown', (event) => {
     const offset = event.key === 'ArrowLeft'
@@ -3325,14 +3359,9 @@ function renderDocumentTabs(): void {
       item.addEventListener('click', () => {
         void activateReview(session.reviewId)
       })
+      bindReviewContextMenuKeyboard(item, session.reviewId)
       item.addEventListener('contextmenu', (event) => {
-        event.preventDefault()
-        closeTabOverflow()
-        void bridge.openReviewContextMenu({ reviewId: session.reviewId }).catch(
-          (error: unknown) => {
-            showToast(error instanceof Error ? error.message : String(error))
-          }
-        )
+        openReviewContextMenu(session.reviewId, event, item)
       })
       menu.append(item)
     }
