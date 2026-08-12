@@ -612,7 +612,12 @@ async function updateAttempt(
   runStore: string
 ): Promise<void> {
   await writePrivateJson(recordPath, record)
-  await appendHostLog(runStore, record)
+  try {
+    await appendHostLog(runStore, record)
+  } catch {
+    // The attempt JSON is authoritative. The next invocation's initial append
+    // routes a persistent host-log failure through observable health handling.
+  }
 }
 
 export async function runDecisionGardenerHostCycle({
@@ -640,11 +645,19 @@ export async function runDecisionGardenerHostCycle({
     trigger
   }
   await writePrivateJson(recordPath, record, true)
-  await appendHostLog(config.runStore, record)
+  let initialLogError: string | null = null
+  try {
+    await appendHostLog(config.runStore, record)
+  } catch (error) {
+    initialLogError = errorMessage(error)
+  }
   const lockPath = path.join(config.runStore, 'host.lock')
   const acquireLock = dependencies.acquireLock ?? acquireSingleFlightLock
   let lease
   try {
+    if (initialLogError !== null) {
+      throw new Error(`Could not append the decision-gardener host log: ${initialLogError}`)
+    }
     lease = await acquireLock(lockPath, { record: recordPath, trigger })
   } catch (error) {
     const failedAt = now()
@@ -654,7 +667,9 @@ export async function runDecisionGardenerHostCycle({
       let state = defaultState(started)
       let stateEvidence: string | undefined
       let stateWritable = true
-      const details = [`Could not acquire the decision-gardener host lock: ${errorMessage(error)}`]
+      const details = [initialLogError === null
+        ? `Could not acquire the decision-gardener host lock: ${errorMessage(error)}`
+        : errorMessage(error)]
       try {
         state = await readHostState(statePath, started)
       } catch (stateError) {

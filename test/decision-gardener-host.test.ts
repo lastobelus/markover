@@ -127,6 +127,43 @@ test('heartbeat reloads cadence and writes a record even when no audit is due', 
   assert.match(log, /"status":"completed"/)
 })
 
+test('an unwritable host log transitions health and notifies with a terminal record', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  await fs.mkdir(path.join(host.config.runStore, 'host.log'))
+  const events: string[] = []
+  let audited = false
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    now: () => new Date('2026-08-11T00:00:00.000Z'),
+    runAudit: () => {
+      audited = true
+      return Promise.resolve(cleanAudit(host.config.runStore))
+    },
+    runCommand: (_executable, _args, options) => {
+      events.push(options?.env?.MARKOVER_DECISION_GARDENER_EVENT ?? 'missing')
+      return { status: 0, stderr: '', stdout: '' }
+    }
+  }), /Could not append the decision-gardener host log/)
+  assert.equal(audited, false)
+  assert.deepEqual(events, ['failed'])
+  const records = await fs.readdir(path.join(host.config.runStore, 'host-runs'))
+  assert.equal(records.length, 1)
+  const attempt = JSON.parse(await fs.readFile(
+    path.join(host.config.runStore, 'host-runs', records[0] ?? ''),
+    'utf8'
+  )) as { error: string; status: string }
+  assert.equal(attempt.status, 'failed')
+  assert.match(attempt.error, /Could not append the decision-gardener host log/)
+  const state = JSON.parse(await fs.readFile(
+    path.join(host.config.runStore, 'host-state.json'),
+    'utf8'
+  )) as { health: string; lastNotifiedHealth: string }
+  assert.equal(state.health, 'failed')
+  assert.equal(state.lastNotifiedHealth, 'failed')
+})
+
 test('failed heartbeats retry every interval tick and notify only health transitions', async (t) => {
   const host = await fixture()
   t.after(() => fs.rm(host.root, { recursive: true, force: true }))
