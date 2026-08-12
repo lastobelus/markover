@@ -150,7 +150,7 @@ than a lossy projection.
 | CLI `open` to local service | Decode submitted review-tree data before storage. Malformed or incompatible input creates no review. Validate agent-supplied identity when creating the managed envelope. |
 | Managed `review.json` to store | Inspect the header before listing, restoration, activation, handoff, edit, deletion, or cleanup. v1 decodes directly. A recognized released predecessor migrates through the backed-up path. An unknown version is listed as incompatible without rewriting bytes. |
 | Store to service to CLI `get` | Decode before the service response; the CLI independently decodes successful JSON before stdout. Incompatibility exits nonzero, reports on stderr, and emits no handoff JSON on stdout. |
-| Main and renderer IPC | Reuse the shared predicate for review-bearing documents, snapshots, autosaves, attachment operations, and portable exports. IPC envelopes remain separately validated. |
+| Main and renderer IPC | Reuse the shared predicate for review-bearing documents, snapshots, autosaves, attachment operations, and portable exports. Pass an incompatible review only as a separately typed, non-activatable header listing with its compatibility-catalog URL; never pass its body. IPC envelopes remain separately validated. |
 | Agent consumer | Inspect the header before fields. Accept v1, ignore and preserve additive properties, follow both guidance strings, and stop with a clear compatibility report for any other header. |
 
 Error classification is ordered:

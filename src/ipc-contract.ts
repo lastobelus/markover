@@ -105,7 +105,7 @@ export interface RendererInvokeResults {
   'workspace:update': MarkoverWorkspaceState
   'window:focus-state:get': MarkoverWindowFocusState
   'review:initial-document': MarkoverDocument | null
-  'review:list': MarkoverDocument[]
+  'review:list': MarkoverReviewListItem[]
   'review:project-favicon:get': string | null
   'review:pull-request:open': undefined
   'review:context-menu:open': undefined
@@ -253,6 +253,26 @@ function isDocument(value: unknown): value is MarkoverDocument {
     tree.review.id !== value.reviewId
   ) return false
   return true
+}
+
+function isIncompatibleReview(
+  value: unknown
+): value is MarkoverIncompatibleReview {
+  return hasExactKeys(value, [
+    'kind',
+    'reviewId',
+    'format',
+    'version',
+    'compatibilityUrl'
+  ]) &&
+    value.kind === 'incompatible-review' &&
+    isReviewId(value.reviewId) &&
+    typeof value.format === 'string' &&
+    typeof value.version === 'string' &&
+    typeof value.compatibilityUrl === 'string' &&
+    value.compatibilityUrl.startsWith(
+      'https://lastobelus.github.io/markover/compatibility/?'
+    )
 }
 
 function isReviewSessionTree(
@@ -684,7 +704,9 @@ export function assertRendererInvokeResult(
       break
     case 'window:focus-state:get': valid = isWindowFocusState(value); break
     case 'review:list':
-      valid = Array.isArray(value) && value.every(isDocument)
+      valid = Array.isArray(value) && value.every((item) => (
+        isDocument(item) || isIncompatibleReview(item)
+      ))
       break
     case 'review:project-favicon:get':
       valid = value === null || (

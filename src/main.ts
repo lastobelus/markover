@@ -2029,7 +2029,13 @@ if (!hasSingleInstanceLock) {
               : `${warning.reviewId} (${warning.reason})`
           })))
         }
-        return await managedDocuments(result.reviews)
+        return [
+          ...await managedDocuments(result.reviews),
+          ...result.incompatible.map((review) => ({
+            kind: 'incompatible-review' as const,
+            ...review
+          }))
+        ]
       } catch (error) {
         await failStartup('review-storage-access', error)
         throw error

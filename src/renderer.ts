@@ -220,6 +220,7 @@ const state: RendererState = {
 }
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
 const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
+let incompatibleReviews: MarkoverIncompatibleReview[] = []
 const MAX_VISIBLE_TABS = 6
 const INBOX_HISTORY_PAGE_SIZE = 10
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
@@ -755,11 +756,13 @@ function selectNode(id: string, focusPreview = false): void {
 }
 
 function setWorkspaceEmpty(empty: boolean): void {
-  elements.appHeader.classList.toggle('is-empty', empty)
-  elements.emptyWorkspace.hidden = !empty
-  elements.workspace.hidden = empty
+  const incompatibleOnly = empty && incompatibleReviews.length > 0
+  elements.appHeader.classList.toggle('is-empty', empty && !incompatibleOnly)
+  elements.emptyWorkspace.hidden = !empty || incompatibleOnly
+  elements.workspace.hidden = empty && !incompatibleOnly
+  elements.workspace.classList.toggle('is-incompatible-only', incompatibleOnly)
   elements.reviewTabStrip.hidden = empty || !reviewSessions.list().length
-  if (!empty) {
+  if (!empty || incompatibleOnly) {
     requestAnimationFrame(() => {
       applyDocumentsListWidth()
       applyAnnotationPaneWidth()
@@ -2736,29 +2739,81 @@ function setReviewNavigationMode(
   if (persist) persistWorkspaceState()
 }
 
+function renderIncompatibleReviews(): DocumentFragment {
+  const fragment = document.createDocumentFragment()
+  const heading = document.createElement('div')
+  heading.className = 'review-list-section-heading'
+  const label = document.createElement('strong')
+  label.textContent = 'Incompatible'
+  const count = document.createElement('span')
+  count.textContent = String(incompatibleReviews.length)
+  heading.append(label, count)
+  fragment.append(heading)
+
+  const rows = document.createElement('div')
+  rows.className = 'review-list-rows incompatible-review-list'
+  for (const review of incompatibleReviews) {
+    const row = document.createElement('div')
+    row.className = 'review-list-row incompatible-review-row'
+
+    const content = document.createElement('div')
+    content.className = 'incompatible-review-content'
+    const identity = document.createElement('strong')
+    identity.textContent = review.reviewId
+    const requirement = document.createElement('span')
+    requirement.textContent = `Requires support for ${review.format} version ${review.version}`
+    const catalog = document.createElement('code')
+    catalog.textContent = review.compatibilityUrl
+    catalog.title = review.compatibilityUrl
+    const copy = document.createElement('button')
+    copy.type = 'button'
+    copy.className = 'incompatible-review-copy'
+    copy.textContent = 'Copy compatibility link'
+    copy.addEventListener('click', () => {
+      bridge.copyText(review.compatibilityUrl)
+      showToast('Compatibility link copied')
+    })
+    content.append(identity, requirement, catalog, copy)
+    row.append(content)
+    rows.append(row)
+  }
+  fragment.append(rows)
+  return fragment
+}
+
 function renderDocumentsList(): void {
   hideReviewHoverCard()
   const sessions = reviewSessions.list()
+  const hasReviews = sessions.length > 0 || incompatibleReviews.length > 0
   const projection = projectReviewInbox(sessions)
   scheduleDocumentsListClockRefresh(sessions)
-  elements.documentsListSidebar.hidden = sessions.length === 0
-  elements.documentsListOpen.hidden = sessions.length === 0 || !documentsListCollapsed
-  elements.workspace.classList.toggle('has-documents-list', sessions.length > 0)
+  elements.documentsListSidebar.hidden = !hasReviews
+  elements.documentsListCollapse.hidden = sessions.length === 0
+  elements.documentsListOpen.hidden = !hasReviews || !documentsListCollapsed
+  elements.workspace.classList.toggle('has-documents-list', hasReviews)
   elements.reviewTabStrip.hidden = sessions.length === 0
   elements.reviewInboxCount.textContent = String(projection.editing.length)
   elements.reviewInboxCount.hidden = projection.editing.length === 0
   elements.reviewListCount.textContent = reviewNavigationMode === 'inbox'
-    ? `${projection.editing.length} need review`
-    : `${projection.projects.length} projects`
+    ? `${projection.editing.length} need review${incompatibleReviews.length
+      ? ` · ${incompatibleReviews.length} incompatible`
+      : ''}`
+    : `${projection.projects.length} projects${incompatibleReviews.length
+      ? ` · ${incompatibleReviews.length} incompatible`
+      : ''}`
   applyDocumentsListWidth()
   applyAnnotationPaneWidth()
   elements.documentsListTree.replaceChildren()
-  if (!sessions.length) return
-  elements.documentsListTree.append(
-    reviewNavigationMode === 'inbox'
-      ? renderInboxReviews(projection.editing, projection.history)
-      : renderProjects(projection.projects)
-  )
+  if (sessions.length) {
+    elements.documentsListTree.append(
+      reviewNavigationMode === 'inbox'
+        ? renderInboxReviews(projection.editing, projection.history)
+        : renderProjects(projection.projects)
+    )
+  }
+  if (incompatibleReviews.length) {
+    elements.documentsListTree.append(renderIncompatibleReviews())
+  }
 }
 
 function applyDocumentsListWidth(): void {
@@ -3450,6 +3505,15 @@ function configureManagedMode(): void {
   elements.openButton.hidden = true
   elements.annotationGuidance.textContent =
     'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
+}
+
+function captureReviewList(
+  items: MarkoverReviewListItem[]
+): MarkoverDocument[] {
+  incompatibleReviews = items.filter(
+    (item): item is MarkoverIncompatibleReview => 'kind' in item
+  )
+  return items.filter((item): item is MarkoverDocument => !('kind' in item))
 }
 
 async function loadDocument(documentData: MarkoverDocument): Promise<void> {
@@ -4151,10 +4215,11 @@ async function initialize(): Promise<void> {
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)
     if (!session) {
-      const reviews = await bridge.getReviews()
+      const reviews = captureReviewList(await bridge.getReviews())
       for (const document of reviews) {
         addManagedReview(managedReviewDocument(document), false)
       }
+      renderDocumentsList()
       session = reviewSessions.updateStatus(reviewId, status)
     }
     if (!session) {
@@ -4219,15 +4284,16 @@ async function initialize(): Promise<void> {
   })
 
   let reviewDocument: MarkoverDocument | null = null
-  let reviews: MarkoverDocument[] = []
+  let reviewList: MarkoverReviewListItem[] = []
   await rendererStartupPhase(startupInfo, 'restoring-reviews', async () => {
     reviewDocument = await bridge.getInitialReview()
     if (!reviewDocument || reviewDocument.reviewId) {
-      reviews = await bridge.getReviews()
+      reviewList = await bridge.getReviews()
     }
   })
   await rendererStartupPhase(startupInfo, 'restoring-workspace', async () => {
-    if (reviews.length) {
+    const reviews = captureReviewList(reviewList)
+    if (reviewList.length) {
       configureManagedMode()
       for (const document of reviews) {
         addManagedReview(managedReviewDocument(document), false)
@@ -4254,9 +4320,13 @@ async function initialize(): Promise<void> {
     applyAnnotationPaneWidth()
     workspaceStateReady = true
     persistWorkspaceState()
-    if (elements.emptyWorkspace.hidden) elements.previewPane.focus()
-    else elements.emptyOpenButton.focus()
     renderDocumentsList()
+    if (state.reviewId) elements.previewPane.focus()
+    else if (incompatibleReviews.length) {
+      elements.documentsListTree.querySelector<HTMLButtonElement>(
+        '.incompatible-review-copy'
+      )?.focus()
+    } else elements.emptyOpenButton.focus()
   })
 
   const warnings: StartupWarning[] = brandFallbackUsed

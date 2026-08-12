@@ -145,7 +145,7 @@ function assertNoPrivateEvidence(value: unknown): void {
   }
 }
 
-function compatibilityUrl(format: string, version: unknown): string {
+export function reviewCompatibilityUrl(format: string, version: unknown): string {
   const query = new URLSearchParams({ format })
   if (positiveInteger(version)) query.set('version', String(version))
   return `${REVIEW_FORMAT_COMPATIBILITY_URL}?${query.toString()}`
@@ -229,7 +229,7 @@ function assertHeader(value: unknown): asserts value is Record<string, unknown> 
   if (value.format !== REVIEW_FORMAT) {
     throw new ReviewFormatError(
       'UNSUPPORTED_REVIEW_FORMAT',
-      `Unsupported review format ${JSON.stringify(value.format)}; this Markover supports ${REVIEW_FORMAT}. Consult the official compatibility catalog: ${compatibilityUrl(value.format, value.version)}`,
+      `Unsupported review format ${JSON.stringify(value.format)}; this Markover supports ${REVIEW_FORMAT}. Consult the official compatibility catalog: ${reviewCompatibilityUrl(value.format, value.version)}`,
       value.format,
       value.version
     )
@@ -238,7 +238,7 @@ function assertHeader(value: unknown): asserts value is Record<string, unknown> 
   if (value.version !== REVIEW_FORMAT_VERSION) {
     throw new ReviewFormatError(
       'UNSUPPORTED_REVIEW_VERSION',
-      `Unsupported ${REVIEW_FORMAT} version ${String(value.version)}; this Markover supports version ${String(REVIEW_FORMAT_VERSION)}. Consult the official compatibility catalog for the Markover release that supports it: ${compatibilityUrl(value.format, value.version)}`,
+      `Unsupported ${REVIEW_FORMAT} version ${String(value.version)}; this Markover supports version ${String(REVIEW_FORMAT_VERSION)}. Consult the official compatibility catalog for the Markover release that supports it: ${reviewCompatibilityUrl(value.format, value.version)}`,
       value.format,
       value.version
     )

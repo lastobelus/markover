@@ -1247,6 +1247,12 @@ test('unknown versions remain byte-for-byte incompatible and outside cleanup', a
 
   assert.deepEqual(await store.listWithWarnings(), {
     reviews: [],
+    incompatible: [{
+      reviewId: created.review.id,
+      format: 'markover-review',
+      version: '2',
+      compatibilityUrl: 'https://lastobelus.github.io/markover/compatibility/?format=markover-review&version=2'
+    }],
     warnings: [{
       reviewId: created.review.id,
       reason: 'incompatible',

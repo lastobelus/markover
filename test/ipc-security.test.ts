@@ -326,6 +326,24 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
   assert.throws(() => {
     assertRendererInvokeResult('review:list', [futureDocument])
   })
+  assert.doesNotThrow(() => {
+    assertRendererInvokeResult('review:list', [{
+      kind: 'incompatible-review',
+      reviewId: 'mko_abcdef',
+      format: 'markover-review',
+      version: '2',
+      compatibilityUrl: 'https://lastobelus.github.io/markover/compatibility/?format=markover-review&version=2'
+    }])
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:list', [{
+      kind: 'incompatible-review',
+      reviewId: 'mko_abcdef',
+      format: 'markover-review',
+      version: '2',
+      compatibilityUrl: 'https://example.test/compatibility/'
+    }])
+  })
   assert.throws(() => {
     assertMainEventArguments('review:opened', [futureDocument])
   })

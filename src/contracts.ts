@@ -521,6 +521,16 @@ declare global {
     tree?: ReviewTree
   }
 
+  interface MarkoverIncompatibleReview {
+    kind: 'incompatible-review'
+    reviewId: string
+    format: string
+    version: string
+    compatibilityUrl: string
+  }
+
+  type MarkoverReviewListItem = MarkoverDocument | MarkoverIncompatibleReview
+
   interface ReviewStatusRequest {
     requestId: string
     reviewId: string
@@ -612,7 +622,7 @@ declare global {
       outcome: 'cancelled' | 'trashed'
     }>
     getInitialReview: () => Promise<MarkoverDocument | null>
-    getReviews: () => Promise<MarkoverDocument[]>
+    getReviews: () => Promise<MarkoverReviewListItem[]>
     getProjectFavicon: (reviewId: string) => Promise<string | null>
     openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: { reviewId: string }) => Promise<void>

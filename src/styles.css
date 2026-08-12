@@ -904,8 +904,35 @@ p {
   --documents-list-column-width: var(--documents-list-width);
 }
 
+.workspace.is-incompatible-only {
+  grid-template-columns: var(--documents-list-column-width) minmax(0, 1fr);
+}
+
+.workspace.is-incompatible-only::after {
+  display: grid;
+  min-width: 0;
+  color: var(--muted);
+  content: "This review needs a compatible Markover release before it can be opened.";
+  place-items: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.workspace.is-incompatible-only > .preview-pane,
+.workspace.is-incompatible-only > .annotation-pane {
+  display: none;
+}
+
 .workspace:has(.documents-list-sidebar.is-collapsed) {
   --documents-list-column-width: 0px;
+}
+
+.workspace.is-incompatible-only {
+  --documents-list-column-width: var(--documents-list-width);
+}
+
+.workspace.is-incompatible-only > .documents-list-sidebar.is-collapsed {
+  visibility: visible;
 }
 
 .documents-list-sidebar {
@@ -1060,6 +1087,47 @@ p {
 .review-list-row.is-active {
   border-color: var(--selection-line);
   background: var(--accent-soft);
+}
+
+.incompatible-review-row {
+  min-height: 0;
+  border-color: var(--line);
+  background: rgb(var(--surface-rgb) / 44%);
+}
+
+.incompatible-review-row:hover {
+  background: rgb(var(--surface-rgb) / 44%);
+}
+
+.incompatible-review-content {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.incompatible-review-content > strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.incompatible-review-content > code {
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.incompatible-review-copy {
+  justify-self: start;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
 }
 
 .review-project-icon,

@@ -15,6 +15,7 @@ import {
 import {
   decodeReviewArtifact,
   decodeReviewTree,
+  reviewCompatibilityUrl,
   ReviewFormatError
 } from './review-format'
 
@@ -61,7 +62,15 @@ export interface ReviewListWarning {
 
 export interface ReviewListResult {
   reviews: ReviewArtifact[]
+  incompatible: ReviewIncompatibleListing[]
   warnings: ReviewListWarning[]
+}
+
+export interface ReviewIncompatibleListing {
+  reviewId: string
+  format: string
+  version: string
+  compatibilityUrl: string
 }
 
 export type ReviewDeletionPolicy = 'standard' | 'pending-agent'
@@ -100,11 +109,20 @@ function isReviewStatus(value: unknown): value is ReviewStatus {
 
 export class ReviewStoreError extends Error {
   readonly code: string
+  readonly receivedFormat: unknown
+  readonly receivedVersion: unknown
 
-  constructor(code: string, message: string) {
+  constructor(
+    code: string,
+    message: string,
+    receivedFormat?: unknown,
+    receivedVersion?: unknown
+  ) {
     super(message)
     this.name = 'ReviewStoreError'
     this.code = code
+    this.receivedFormat = receivedFormat
+    this.receivedVersion = receivedVersion
   }
 }
 
@@ -128,7 +146,12 @@ export function assertReviewTree(tree: unknown): asserts tree is ReviewTree {
     decodeReviewTree(tree)
   } catch (error) {
     if (error instanceof ReviewFormatError) {
-      throw new ReviewStoreError(error.code, error.message)
+      throw new ReviewStoreError(
+        error.code,
+        error.message,
+        error.receivedFormat,
+        error.receivedVersion
+      )
     }
     throw error
   }
@@ -149,7 +172,12 @@ export function assertReviewArtifact(
     decodeReviewArtifact(artifact, reviewId)
   } catch (error) {
     if (error instanceof ReviewFormatError) {
-      throw new ReviewStoreError(error.code, error.message)
+      throw new ReviewStoreError(
+        error.code,
+        error.message,
+        error.receivedFormat,
+        error.receivedVersion
+      )
     }
     throw error
   }
@@ -442,6 +470,7 @@ export class ReviewStore {
       .map((entry) => entry.name)
 
     const warnings: ReviewListWarning[] = []
+    const incompatible: ReviewIncompatibleListing[] = []
     const reviews = await Promise.all(reviewIds.map(async (reviewId) => {
       try {
         return await this.load(reviewId)
@@ -459,6 +488,20 @@ export class ReviewStore {
           code === 'UNSUPPORTED_REVIEW_FORMAT' ||
           code === 'UNSUPPORTED_REVIEW_VERSION'
         ) {
+          if (error instanceof ReviewStoreError) {
+            const format = typeof error.receivedFormat === 'string'
+              ? error.receivedFormat
+              : 'unknown'
+            incompatible.push({
+              reviewId,
+              format,
+              version: String(error.receivedVersion),
+              compatibilityUrl: reviewCompatibilityUrl(
+                format,
+                error.receivedVersion
+              )
+            })
+          }
           warnings.push({
             reviewId,
             reason: 'incompatible',
@@ -483,8 +526,9 @@ export class ReviewStore {
       left.review.createdAt.localeCompare(right.review.createdAt) ||
       left.review.id.localeCompare(right.review.id)
     ))
+    incompatible.sort((left, right) => left.reviewId.localeCompare(right.reviewId))
     warnings.sort((left, right) => left.reviewId.localeCompare(right.reviewId))
-    return { reviews: sorted, warnings }
+    return { reviews: sorted, incompatible, warnings }
   }
 
   async updateTree(reviewId: string, tree: unknown): Promise<ReviewArtifact> {
