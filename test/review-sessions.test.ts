@@ -110,12 +110,14 @@ test('new sessions apply private default collapse rules without node state', () 
   )
   const tree = {
     ...parsed,
-    review: { id: 'mko_front111', status: 'editing' }
+    review: {
+      ...reviewDocument('mko_front111', 'frontmatter.md').tree.review,
+      id: 'mko_front111'
+    }
   } satisfies ReviewSessionTree
   const frontmatter = tree.root.children[0]
   assert.ok(frontmatter)
   assert.equal(frontmatter.type, 'frontmatter')
-  delete frontmatter.collapsed
 
   const session = new ReviewSessions().add({
     reviewId: 'mko_front111',
