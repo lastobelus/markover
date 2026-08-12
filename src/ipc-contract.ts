@@ -38,6 +38,12 @@ const SETTINGS_KEYS = [
 
 export interface ReviewContextMenuRequest {
   reviewId: string
+  x: number
+  y: number
+}
+
+export interface ReviewContextMenuResult {
+  outcome: 'copied' | 'copy-cancelled' | 'dismissed'
 }
 
 export interface AttachmentRemoveRequest {
@@ -108,7 +114,7 @@ export interface RendererInvokeResults {
   'review:list': MarkoverReviewListItem[]
   'review:project-favicon:get': string | null
   'review:pull-request:open': undefined
-  'review:context-menu:open': undefined
+  'review:context-menu:open': ReviewContextMenuResult
   'attachment:remove': AttachmentRemoveResult
 }
 
@@ -546,7 +552,18 @@ function isActivationResponse(value: unknown): value is ReviewActivationResponse
 }
 
 function isContextMenuRequest(value: unknown): value is ReviewContextMenuRequest {
-  return hasExactKeys(value, ['reviewId']) && isReviewId(value.reviewId)
+  return hasExactKeys(value, ['reviewId', 'x', 'y']) &&
+    isReviewId(value.reviewId) &&
+    typeof value.x === 'number' && Number.isSafeInteger(value.x) && value.x >= 0 &&
+    typeof value.y === 'number' && Number.isSafeInteger(value.y) && value.y >= 0
+}
+
+function isContextMenuResult(value: unknown): value is ReviewContextMenuResult {
+  return hasExactKeys(value, ['outcome']) && (
+    value.outcome === 'copied' ||
+    value.outcome === 'copy-cancelled' ||
+    value.outcome === 'dismissed'
+  )
 }
 
 function isAttachmentRemoveRequest(value: unknown): value is AttachmentRemoveRequest {
@@ -669,10 +686,10 @@ export function assertRendererInvokeResult(
     case 'startup:copy-diagnostic':
     case 'startup:reveal-diagnostic':
     case 'smoke:result':
-    case 'review:context-menu:open':
     case 'review:pull-request:open':
       valid = value === undefined
       break
+    case 'review:context-menu:open': valid = isContextMenuResult(value); break
     case 'startup:renderer-initialized': valid = isStartupReady(value); break
     case 'startup:failure':
       valid = hasExactKeys(value, ['diagnosticAvailable']) &&
