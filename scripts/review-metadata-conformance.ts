@@ -185,7 +185,11 @@ function readJson(filePath: string): unknown {
   return JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown
 }
 
-function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
+function parseDiscovery(
+  value: unknown,
+  label: string,
+  allowed: readonly DiscoveryObservation[]
+): DiscoveryObservation {
   const item = record(value, label)
   assertExactKeys(item, ['source', 'status'], label)
   const observation: DiscoveryObservation = {
@@ -203,19 +207,13 @@ function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
       'unavailable'
     ], `${label}.status`)
   }
-  const valid = observation.source === 'hostname-command'
-    ? observation.status !== 'not-applicable'
-    : (
-        (observation.source === 'not-applicable' && observation.status === 'not-applicable') ||
-        (observation.source === 'not-exposed' && observation.status === 'unavailable') ||
-        (
-          !['not-applicable', 'not-exposed'].includes(observation.source) &&
-          observation.status === 'observed'
-        )
-      )
+  const valid = allowed.some(
+    ({ source, status }) => source === observation.source && status === observation.status
+  )
   if (!valid) {
     throw new Error(
-      `${label} source ${observation.source} contradicts status ${observation.status}.`
+      `${label} source ${observation.source} contradicts status ${observation.status} ` +
+      'or is not permitted for this field.'
     )
   }
   return observation
@@ -304,13 +302,30 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
   ], 'Capture observation discovery')
   return {
     discovery: {
-      hostKind: parseDiscovery(discovery.hostKind, 'discovery.hostKind'),
-      hostProvider: parseDiscovery(discovery.hostProvider, 'discovery.hostProvider'),
-      hostThreadId: parseDiscovery(discovery.hostThreadId, 'discovery.hostThreadId'),
-      machine: parseDiscovery(discovery.machine, 'discovery.machine'),
+      hostKind: parseDiscovery(discovery.hostKind, 'discovery.hostKind', [
+        { source: 'thread-context', status: 'observed' },
+        { source: 'not-applicable', status: 'not-applicable' }
+      ]),
+      hostProvider: parseDiscovery(discovery.hostProvider, 'discovery.hostProvider', [
+        { source: 'thread-context', status: 'observed' },
+        { source: 'not-applicable', status: 'not-applicable' }
+      ]),
+      hostThreadId: parseDiscovery(discovery.hostThreadId, 'discovery.hostThreadId', [
+        { source: 'thread-host-runtime', status: 'observed' },
+        { source: 'not-exposed', status: 'unavailable' },
+        { source: 'not-applicable', status: 'not-applicable' }
+      ]),
+      machine: parseDiscovery(discovery.machine, 'discovery.machine', [
+        { source: 'hostname-command', status: 'observed' },
+        { source: 'hostname-command', status: 'unavailable' }
+      ]),
       providerThreadId: parseDiscovery(
         discovery.providerThreadId,
-        'discovery.providerThreadId'
+        'discovery.providerThreadId',
+        [
+          { source: 'agent-runtime', status: 'observed' },
+          { source: 'not-exposed', status: 'unavailable' }
+        ]
       )
     },
     evidenceId,
@@ -456,16 +471,27 @@ function trueChecks(): ConformanceChecks {
 }
 
 function assertSensitiveLeavesRedacted(
-  values: Array<{ raw: string; sanitized: string | undefined }>,
-  additionalPersistedValues: Array<string | null>
+  values: Array<{ raw: string; sanitized: string | undefined }>
 ): void {
   for (const { raw, sanitized } of values) {
     if (sanitized === raw) {
       throw new Error('Sanitized evidence still contains a raw identity value.')
     }
-    if (additionalPersistedValues.includes(raw)) {
-      throw new Error('Sanitized evidence runtime still contains a raw identity value.')
-    }
+  }
+}
+
+function assertPrivateArtifactValuesAbsentFromRuntime(
+  values: Array<string | null | undefined>,
+  runtime: RuntimeObservation
+): void {
+  const persistedRuntimeValues = [
+    runtime.hostVersion,
+    runtime.providerModel,
+    runtime.providerVersion
+  ]
+  if (values.some((value) => value !== null && value !== undefined &&
+    persistedRuntimeValues.includes(value))) {
+    throw new Error('Sanitized evidence runtime still contains a private artifact value.')
   }
 }
 
@@ -493,6 +519,9 @@ export function buildSanitizedEvidence(
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
   const thread = artifact.review.agentThread
+  if (artifact.review.origin !== 'agent') {
+    throw new Error('Metadata conformance evidence requires an agent-origin review.')
+  }
   const sensitiveLeaves: Array<{ raw: string; sanitized: string | undefined }> = []
   let sanitizedAgentThread: SanitizedEvidence['sanitizedAgentThread'] = null
   let identity: SanitizedEvidence['relationships']['identity'] = 'truthful-null'
@@ -578,11 +607,18 @@ export function buildSanitizedEvidence(
     schemaVersion: evidenceSchemaVersion,
     sourceCommit: observation.sourceCommit
   }
-  assertSensitiveLeavesRedacted(sensitiveLeaves, [
-    evidence.runtime.hostVersion,
-    evidence.runtime.providerModel,
-    evidence.runtime.providerVersion
-  ])
+  assertSensitiveLeavesRedacted(sensitiveLeaves)
+  assertPrivateArtifactValuesAbsentFromRuntime([
+    artifact.sourceDocument.name,
+    artifact.sourceDocument.path,
+    artifact.sourceDocument.checksum,
+    artifact.review.id,
+    artifact.review.git?.repositoryUrl,
+    artifact.review.git?.branch,
+    artifact.review.git?.commit,
+    artifact.review.pullRequest?.url,
+    ...sensitiveLeaves.map(({ raw }) => raw)
+  ], evidence.runtime)
   return evidence
 }
 
