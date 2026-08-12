@@ -160,7 +160,7 @@ test('capture rejects retained values whose discovery is unavailable', () => {
       observation({ discovery }),
       json('evals/review-metadata/matrix.json')
     ),
-    /threadHost.provider is present but was not observed/
+    /hostProvider source not-exposed contradicts status unavailable/
   )
 })
 
@@ -172,6 +172,28 @@ test('capture rejects contradictory discovery source and status pairs', () => {
     () => parseCaptureObservation(value),
     /providerThreadId source not-exposed contradicts status observed/
   )
+})
+
+test('capture enforces field-specific discovery sources', async (t) => {
+  const cases = [
+    ['providerThreadId', 'hostname-command'],
+    ['hostKind', 'agent-runtime'],
+    ['hostProvider', 'thread-host-runtime'],
+    ['hostThreadId', 'thread-context'],
+    ['machine', 'agent-runtime']
+  ] as const
+
+  for (const [field, source] of cases) {
+    await t.test(field, () => {
+      const value = observation()
+      const discovery = value.discovery as Record<string, unknown>
+      discovery[field] = { status: 'observed', source }
+      assert.throws(
+        () => parseCaptureObservation(value),
+        new RegExp(`${field} source ${source} contradicts status observed`)
+      )
+    })
+  }
 })
 
 test('capture rejects the documented source commit placeholder', () => {
@@ -309,7 +331,37 @@ test('capture rejects raw identities copied into persisted runtime values', asyn
           value,
           json('evals/review-metadata/matrix.json')
         ),
-        /runtime still contains a raw identity value/
+        /runtime still contains a private artifact value/
+      )
+    })
+  }
+})
+
+test('capture rejects omitted artifact paths and private IDs in runtime values', async (t) => {
+  const cases = [
+    { field: 'hostVersion', value: '/Users/example/fixture.md' },
+    { field: 'providerVersion', value: 'mko_fixture1' },
+    {
+      field: 'providerModel',
+      value: 'https://github.com/lastobelus/markover.git'
+    }
+  ] as const
+
+  for (const { field, value: privateValue } of cases) {
+    await t.test(field, () => {
+      const artifact = fixture()
+      agentThread(artifact)
+      const observationValue = observation()
+      const runtime = observationValue.runtime as Record<string, unknown>
+      runtime[field] = privateValue
+      runtime[`${field}Source`] = 'runtime-context'
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observationValue,
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
       )
     })
   }
@@ -338,6 +390,34 @@ test('capture rejects observed host fields when recording null evidence', () => 
       matrixValue
     ),
     /threadHost.kind was observed but is absent from null evidence/
+  )
+})
+
+test('capture rejects local reviews as live agent evidence', () => {
+  const artifact = fixture()
+  const review = artifact.review as Record<string, unknown>
+  review.origin = 'local'
+  review.agentThread = null
+  const matrixValue = json(
+    'evals/review-metadata/matrix.json'
+  ) as Record<string, unknown>
+  const entries = matrixValue.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  firstEntry.identityExpectation = 'unavailable-allowed'
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  discovery.hostKind = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
+
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ discovery }),
+      matrixValue
+    ),
+    /requires an agent-origin review/
   )
 })
 
