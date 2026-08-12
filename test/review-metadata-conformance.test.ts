@@ -337,13 +337,35 @@ test('capture rejects raw identities copied into persisted runtime values', asyn
   }
 })
 
-test('capture rejects omitted artifact paths and private IDs in runtime values', async (t) => {
+test('capture rejects path-shaped runtime values', async (t) => {
+  const paths = [
+    '/Users/alice/bin/tool 2.1',
+    'tool /opt/local/bin 2.1',
+    String.raw`C:\Users\alice\tool.exe 2.1`,
+    'file:///Users/alice/bin/tool'
+  ]
+
+  for (const pathValue of paths) {
+    await t.test(pathValue, () => {
+      const value = observation()
+      const runtime = value.runtime as Record<string, unknown>
+      runtime.providerVersion = pathValue
+      runtime.providerVersionSource = 'command'
+      assert.throws(
+        () => parseCaptureObservation(value),
+        /must be a normalized version\/model token without paths or command output/
+      )
+    })
+  }
+})
+
+test('capture rejects omitted private artifact values in runtime tokens', async (t) => {
   const cases = [
-    { field: 'hostVersion', value: '/Users/example/fixture.md' },
+    { field: 'hostVersion', value: 'fixture.md' },
     { field: 'providerVersion', value: 'mko_fixture1' },
     {
       field: 'providerModel',
-      value: 'https://github.com/lastobelus/markover.git'
+      value: '47a951b000000000000000000000000000000000'
     }
   ] as const
 
@@ -365,6 +387,25 @@ test('capture rejects omitted artifact paths and private IDs in runtime values',
       )
     })
   }
+})
+
+test('committed evidence rejects path-shaped runtime values', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const evidence = buildSanitizedEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  )
+  evidence.runtime.providerVersion = '/Users/alice/bin/tool 2.1'
+  evidence.runtime.providerVersionSource = 'command'
+  assert.throws(
+    () => validateSanitizedEvidence(
+      evidence,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /must be a normalized version\/model token without paths or command output/
+  )
 })
 
 test('capture rejects observed host fields when recording null evidence', () => {

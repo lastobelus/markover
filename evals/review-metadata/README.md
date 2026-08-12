@@ -69,6 +69,10 @@ observed in the live run:
 ```
 
 Allowed version sources are `command`, `runtime-context`, and `not-exposed`.
+Non-null runtime values must be normalized version/model tokens: one to five
+space-separated alphanumeric segments using only `.`, `_`, `+`, or `-` within
+segments. Extract that token from command output; never copy paths, URLs, or
+unparsed command output into an observation.
 Allowed discovery sources are `agent-runtime`, `thread-context`,
 `thread-host-runtime`, `hostname-command`, `not-exposed`, and `not-applicable`.
 
