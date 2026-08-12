@@ -127,8 +127,8 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
   const provider = stringField(threadHost, ['provider'])
   const threadHostKind = stringField(threadHost, ['kind'])
   const agentThreadId = stringField(agentThread, ['id'])
-  const requestingThreadId = stringField(threadHost, ['threadId']) ||
-    agentThreadId
+  const threadHostThreadId = stringField(threadHost, ['threadId'])
+  const requestingThreadId = threadHostThreadId || agentThreadId
   const machine = stringField(threadHost, ['machine'])
   const local = review.origin === 'local'
   const title = rowTitle(session, local)
@@ -137,7 +137,9 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
   const pullRequestState = pullRequestObservation(review.pullRequest)
   const threadKey = local
     ? `local:${session.projectKey}`
-    : agentThreadId
+    : threadHostThreadId
+      ? `${threadHostKind || 'thread-host'}:${threadHostThreadId}`
+      : agentThreadId
       ? `${provider || 'agent'}:${agentThreadId}`
       : `review:${session.reviewId}`
 

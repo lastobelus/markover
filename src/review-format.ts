@@ -419,6 +419,7 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
     'discovery',
     'parentThreadId',
     'forkedFromId',
+    'requestingThreadTitle',
     'title',
     'name'
   ]) {
@@ -456,7 +457,12 @@ export function isPortableRepositoryUrl(value: unknown): value is string {
 function assertGit(value: unknown): asserts value is ReviewGitSnapshot | null {
   if (value === null) return
   if (!isRecord(value)) invalid('review.git must be an object or null.')
-  for (const privateField of ['repositoryRoot', 'sources', 'commonGitDirectory']) {
+  for (const privateField of [
+    'repositoryRoot',
+    'projectRoot',
+    'sources',
+    'commonGitDirectory'
+  ]) {
     if (owns(value, privateField)) invalid(`review.git must not contain private ${privateField} evidence.`)
   }
   if (value.repositoryUrl !== undefined && !isPortableRepositoryUrl(value.repositoryUrl)) {

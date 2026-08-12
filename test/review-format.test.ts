@@ -194,15 +194,17 @@ test('portable metadata rejects credentials and known app-private evidence', () 
     'https://token@github.com/lastobelus/markover.git'
   assertFormatCode(() => decodeReviewArtifact(credential), 'INVALID_REVIEW')
 
-  const privateGit = cloneFixture()
-  record(review(privateGit).git).repositoryRoot = '/private/checkout'
-  assertFormatCode(() => decodeReviewArtifact(privateGit), 'INVALID_REVIEW')
+  for (const field of ['repositoryRoot', 'projectRoot']) {
+    const privateGit = cloneFixture()
+    Reflect.set(record(review(privateGit).git), field, '/private/checkout')
+    assertFormatCode(() => decodeReviewArtifact(privateGit), 'INVALID_REVIEW')
+  }
 
   const privateThread = cloneFixture()
   record(review(privateThread).agentThread).logPath = '/private/session.jsonl'
   assertFormatCode(() => decodeReviewArtifact(privateThread), 'INVALID_REVIEW')
 
-  for (const field of ['title', 'name']) {
+  for (const field of ['title', 'name', 'requestingThreadTitle']) {
     const privateThreadTitle = cloneFixture()
     Reflect.set(
       record(review(privateThreadTitle).agentThread),

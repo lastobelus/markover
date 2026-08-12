@@ -156,6 +156,58 @@ test('thread-host packets expose nested provider and thread-host registry keys',
   assert.equal(thread.threadHostKind, 't3code')
   assert.equal(thread.machine, 'Airy.local')
   assert.equal(thread.requestingThreadId, 'host-thread-1')
+  assert.equal(thread.key, 't3code:host-thread-1')
+})
+
+test('distinct host thread IDs own grouping across provider identities', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_hostgrp1', 'first.md', {
+    agentThread: {
+      id: 'provider-thread-shared',
+      threadHost: {
+        kind: 't3code',
+        threadId: 'host-thread-1',
+        provider: 'codex'
+      }
+    },
+    createdAt: '2026-08-09T12:30:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+  sessions.add(reviewDocument('mko_hostgrp2', 'second.md', {
+    agentThread: {
+      id: 'provider-thread-shared',
+      threadHost: {
+        kind: 't3code',
+        threadId: 'host-thread-2',
+        provider: 'codex'
+      }
+    },
+    createdAt: '2026-08-09T12:31:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+  sessions.add(reviewDocument('mko_hostgrp3', 'third.md', {
+    agentThread: {
+      id: 'different-provider-thread',
+      threadHost: {
+        kind: 't3code',
+        threadId: 'host-thread-1',
+        provider: 'claude'
+      }
+    },
+    createdAt: '2026-08-09T12:32:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+
+  const threads = projectReviewInbox(sessions.list()).projects[0]?.threads
+  assert.ok(threads)
+  assert.deepEqual(
+    threads.map((thread) => thread.key),
+    ['t3code:host-thread-1', 't3code:host-thread-2']
+  )
+  assert.deepEqual(
+    threads[0]?.reviews.map((review) => review.reviewId),
+    ['mko_hostgrp3', 'mko_hostgrp1']
+  )
 })
 
 test('a thread group never presents one review purpose as a shared thread title', () => {
