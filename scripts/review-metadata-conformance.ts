@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -5,7 +6,10 @@ import {
   decodeReviewArtifact,
   isCanonicalReviewTimestamp
 } from '../src/review-format'
-import { parseGitHubPullRequestUrl } from '../src/pull-request'
+import {
+  githubRepositoryIdentity,
+  parseGitHubPullRequestUrl
+} from '../src/pull-request'
 
 const evidenceSchemaVersion = 1
 const matrixSchemaVersion = 1
@@ -125,6 +129,14 @@ export interface SanitizedEvidence {
 }
 
 type JsonRecord = Record<string, unknown>
+
+interface GitResult {
+  status: number | null
+  stderr: string
+  stdout: string
+}
+
+type GitRunner = (args: string[], cwd: string) => GitResult
 
 const projectRoot = path.resolve(__dirname, '../..')
 const evaluationDirectory = path.join(projectRoot, 'evals/review-metadata')
@@ -266,6 +278,63 @@ function readJson(filePath: string): unknown {
   const source = fs.readFileSync(filePath, 'utf8')
   assertNoDuplicateJsonKeys(source, filePath)
   return JSON.parse(source) as unknown
+}
+
+function runGit(args: string[], cwd: string): GitResult {
+  const result = spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  return {
+    status: result.status,
+    stderr: result.stderr,
+    stdout: result.stdout
+  }
+}
+
+export function verifySourceCommitPullRequest(
+  observation: CaptureObservation,
+  cwd = projectRoot,
+  git: GitRunner = runGit
+): void {
+  const pullRequest = parseGitHubPullRequestUrl(observation.sourcePullRequest)
+  if (!pullRequest) {
+    throw new Error('Cannot verify non-canonical sourcePullRequest provenance.')
+  }
+  const origin = git(['remote', 'get-url', 'origin'], cwd)
+  if (origin.status !== 0) {
+    throw new Error(`Cannot read origin for sourcePullRequest verification: ${origin.stderr.trim()}`)
+  }
+  if (githubRepositoryIdentity(origin.stdout.trim()) !== pullRequest.repository) {
+    throw new Error(
+      'Capture observation sourcePullRequest repository must match the origin repository.'
+    )
+  }
+  const pullRequestRef = `refs/pull/${String(pullRequest.number)}/head`
+  const fetch = git(
+    ['fetch', '--quiet', '--no-tags', 'origin', pullRequestRef],
+    cwd
+  )
+  if (fetch.status !== 0) {
+    throw new Error(
+      `Cannot fetch sourcePullRequest head for provenance verification: ${fetch.stderr.trim()}`
+    )
+  }
+  const ancestor = git(
+    ['merge-base', '--is-ancestor', observation.sourceCommit, 'FETCH_HEAD'],
+    cwd
+  )
+  if (ancestor.status === 1) {
+    throw new Error(
+      'Capture observation sourceCommit must belong to the sourcePullRequest head history.'
+    )
+  }
+  if (ancestor.status !== 0) {
+    throw new Error(
+      `Cannot verify sourceCommit ancestry in sourcePullRequest: ${ancestor.stderr.trim()}`
+    )
+  }
 }
 
 function parseDiscovery(
@@ -959,9 +1028,11 @@ function main(): void {
     const reviewPath = path.resolve(option(args, '--review'))
     const observationPath = path.resolve(option(args, '--observation'))
     const outputPath = path.resolve(option(args, '--output'))
+    const observation = parseCaptureObservation(readJson(observationPath))
+    verifySourceCommitPullRequest(observation)
     const evidence = buildSanitizedEvidence(
       readJson(reviewPath),
-      readJson(observationPath),
+      observation,
       readJson(matrixPath)
     )
     writeExclusiveJson(outputPath, evidence)
