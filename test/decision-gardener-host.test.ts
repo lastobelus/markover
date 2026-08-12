@@ -311,14 +311,65 @@ test('a lock failure retries an older pending failure record first', async (t) =
     now: () => new Date('2026-08-11T00:05:00.000Z'),
     runCommand
   }), /Could not acquire the decision-gardener host lock/)
-  assert.deepEqual(events.map(({ event }) => event), ['failed', 'failed'])
+  assert.deepEqual(events.map(({ event }) => event), ['failed', 'failed', 'failed'])
   assert.equal(events[1]?.record, events[0]?.record)
+  assert.notEqual(events[2]?.record, events[0]?.record)
   const state = JSON.parse(await fs.readFile(
     path.join(host.config.runStore, 'host-state.json'),
     'utf8'
   )) as { lastNotifiedHealth: string; pendingFailureRecord: string | null }
   assert.equal(state.lastNotifiedHealth, 'failed')
   assert.equal(state.pendingFailureRecord, null)
+})
+
+test('a current lock failure remains pending after its older alert is delivered', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const events: Array<{ event: string; record: string }> = []
+  const runCommand = (
+    _executable: string,
+    _args: readonly string[],
+    options?: { env?: NodeJS.ProcessEnv }
+  ): CommandResult => {
+    events.push({
+      event: options?.env?.MARKOVER_DECISION_GARDENER_EVENT ?? 'missing',
+      record: options?.env?.MARKOVER_DECISION_GARDENER_RECORD ?? 'missing'
+    })
+    if (events.length === 1 || events.length === 3) {
+      return { status: 1, stderr: 'notification transport unavailable', stdout: '' }
+    }
+    return { status: 0, stderr: '', stdout: '' }
+  }
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    now: () => new Date('2026-08-11T00:00:00.000Z'),
+    runAudit: () => Promise.reject(new Error('initial audit failure')),
+    runCommand
+  }), /initial audit failure/)
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    acquireLock: () => Promise.reject(new Error('The lock owner record is not valid JSON.')),
+    now: () => new Date('2026-08-11T00:05:00.000Z'),
+    runCommand
+  }), /Notifier error/)
+  assert.equal(events[1]?.record, events[0]?.record)
+  assert.notEqual(events[2]?.record, events[0]?.record)
+  const pendingState = JSON.parse(await fs.readFile(
+    path.join(host.config.runStore, 'host-state.json'),
+    'utf8'
+  )) as { lastNotifiedHealth: string; pendingFailureRecord: string | null }
+  assert.equal(pendingState.lastNotifiedHealth, 'failed')
+  assert.equal(pendingState.pendingFailureRecord, events[2]?.record)
+
+  await runDecisionGardenerHostCycle({ configPath: host.configPath }, {
+    now: () => new Date('2026-08-11T00:10:00.000Z'),
+    runAudit: () => Promise.resolve(cleanAudit(host.config.runStore)),
+    runCommand
+  })
+  assert.deepEqual(events.slice(3).map(({ event }) => event), ['failed', 'recovered'])
+  assert.equal(events[3]?.record, events[2]?.record)
 })
 
 test('an unreadable host state notifies failure and preserves the invalid evidence', async (t) => {

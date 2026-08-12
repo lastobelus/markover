@@ -586,35 +586,54 @@ export async function runDecisionGardenerHostCycle({
         status: 'failed'
       }
       await writePrivateJson(recordPath, provisionalRecord)
-      let notificationError: string | null = null
-      let failureDelivered = state.lastNotifiedHealth === 'failed'
-      if (!failureDelivered) {
+      const notificationErrors: string[] = []
+      let lastNotifiedHealth = state.lastNotifiedHealth
+      let pendingFailureRecord = state.pendingFailureRecord
+      const pendingFailureWasPresent = pendingFailureRecord !== null
+      if (pendingFailureRecord !== null) {
         try {
           await sendDecisionGardenerNotification({
             config,
             event: 'failed',
-            record: state.pendingFailureRecord ?? recordPath,
+            record: pendingFailureRecord,
             runCommand,
-            summary: state.pendingFailureRecord === null
-              ? provisionalError
-              : (state.lastError ?? provisionalError)
+            summary: state.lastError ?? provisionalError
           })
-          failureDelivered = true
+          lastNotifiedHealth = 'failed'
+          pendingFailureRecord = null
         } catch (notifyError) {
-          notificationError = errorMessage(notifyError)
+          notificationErrors.push(errorMessage(notifyError))
         }
       }
-      if (notificationError !== null) details.push(`Notifier error: ${notificationError}`)
+      if (
+        pendingFailureRecord === null &&
+        (pendingFailureWasPresent || lastNotifiedHealth !== 'failed')
+      ) {
+        try {
+          await sendDecisionGardenerNotification({
+            config,
+            event: 'failed',
+            record: recordPath,
+            runCommand,
+            summary: provisionalError
+          })
+          lastNotifiedHealth = 'failed'
+        } catch (notifyError) {
+          notificationErrors.push(errorMessage(notifyError))
+          pendingFailureRecord = recordPath
+        }
+      }
+      if (notificationErrors.length > 0) {
+        details.push(`Notifier error: ${notificationErrors.join(' ')}`)
+      }
       const combinedError = details.join(' ')
       if (stateWritable) {
         await writePrivateJson(statePath, {
           health: 'failed',
           lastAuditAt: state.lastAuditAt,
           lastError: combinedError,
-          lastNotifiedHealth: failureDelivered ? 'failed' : state.lastNotifiedHealth,
-          pendingFailureRecord: failureDelivered
-            ? null
-            : (state.pendingFailureRecord ?? recordPath),
+          lastNotifiedHealth,
+          pendingFailureRecord,
           schemaVersion: decisionGardenerHostSchemaVersion,
           updatedAt: finished
         } satisfies DecisionGardenerHostState)
@@ -730,7 +749,7 @@ export async function runDecisionGardenerHostCycle({
       }
       if (state.health === 'failed') {
         await writePrivateJson(recordPath, completed)
-        if (state.lastNotifiedHealth !== 'failed') {
+        if (state.pendingFailureRecord !== null || state.lastNotifiedHealth !== 'failed') {
           pendingFailureAttempted = true
           await sendDecisionGardenerNotification({
             config,
@@ -774,7 +793,8 @@ export async function runDecisionGardenerHostCycle({
       }
       await writePrivateJson(recordPath, provisionalRecord)
       let notificationError: string | null = null
-      let failureDelivered = state.lastNotifiedHealth === 'failed'
+      let failureDelivered = state.pendingFailureRecord === null &&
+        state.lastNotifiedHealth === 'failed'
       if (!failureDelivered && !pendingFailureAttempted) {
         try {
           await sendDecisionGardenerNotification({
