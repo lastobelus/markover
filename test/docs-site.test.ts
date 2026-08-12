@@ -234,6 +234,8 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   assert.match(privacy, /no telemetry, analytics, cloud synchronization/)
   assert.match(privacy, /remote Markdown image starts as an inert preview button/)
   assert.match(privacy, /Discover agent thread from local session logs/)
+  assert.match(privacy, /local repository roots stay out of the handoff/)
+  assert.match(privacy, /not a copy or path of the scanned logs/)
   assert.match(privacy, /Quit Markover/)
   assert.match(privacy, /Review → Move Review to Trash/)
   assert.match(privacy, /Review → Clean Up Unused Attachments/)
