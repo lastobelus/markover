@@ -625,7 +625,13 @@ declare global {
     getReviews: () => Promise<MarkoverReviewListItem[]>
     getProjectFavicon: (reviewId: string) => Promise<string | null>
     openPullRequest: (reviewId: string) => Promise<void>
-    openReviewContextMenu: (request: { reviewId: string }) => Promise<void>
+    openReviewContextMenu: (request: {
+      reviewId: string
+      x: number
+      y: number
+    }) => Promise<{
+      outcome: 'copied' | 'copy-cancelled' | 'dismissed'
+    }>
     onReviewOpened: (
       callback: (document: MarkoverDocument) => void | Promise<void>
     ) => void

@@ -245,8 +245,19 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
       outcome: 'deferred'
     }])
     assertRendererInvokeArguments('review:context-menu:open', [{
-      reviewId: 'mko_abcdef'
+      reviewId: 'mko_abcdef',
+      x: 120,
+      y: 240
     }])
+    assertRendererInvokeResult('review:context-menu:open', {
+      outcome: 'copied'
+    })
+    assertRendererInvokeResult('review:context-menu:open', {
+      outcome: 'copy-cancelled'
+    })
+    assertRendererInvokeResult('review:context-menu:open', {
+      outcome: 'dismissed'
+    })
     assertRendererInvokeArguments('review:project-favicon:get', ['mko_abcdef'])
     assertRendererInvokeArguments('review:pull-request:open', ['mko_abcdef'])
     assertRendererInvokeResult('review:project-favicon:get', null)
@@ -280,8 +291,29 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
   assert.throws(() => {
     assertRendererInvokeArguments('review:context-menu:open', [{
       reviewId: 'mko_abcdef',
+      x: 120,
+      y: 240,
       path: '/tmp/private'
     }])
+  })
+  assert.throws(() => {
+    assertRendererInvokeArguments('review:context-menu:open', [{
+      reviewId: 'mko_abcdef',
+      x: -1,
+      y: 240
+    }])
+  })
+  assert.throws(() => {
+    assertRendererInvokeArguments('review:context-menu:open', [{
+      reviewId: 'mko_abcdef',
+      x: Number.MAX_SAFE_INTEGER + 1,
+      y: 240
+    }])
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:context-menu:open', {
+      outcome: 'future-action'
+    })
   })
   assert.throws(() => {
     assertRendererInvokeArguments('attachment:remove', [{
