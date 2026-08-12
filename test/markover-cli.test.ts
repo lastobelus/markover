@@ -271,8 +271,6 @@ test('parses explicit review metadata', () => {
       'Review the plan.',
       '--branch',
       'feature/review-inbox',
-      '--handoff-key',
-      'mko_handoff_0123456789abcdef',
       '--pr',
       '42',
       '--pr-url',
@@ -295,7 +293,7 @@ test('parses explicit review metadata', () => {
       sourcePath: 'plan.md',
       contextSummary: 'Review the plan.',
       branch: 'feature/review-inbox',
-      handoffKey: 'mko_handoff_0123456789abcdef',
+      handoffKey: null,
       pullRequestNumber: 42,
       pullRequestUrl: 'https://github.com/upstream/markover/pull/42',
       pullRequestStatus: 'draft',
@@ -305,6 +303,23 @@ test('parses explicit review metadata', () => {
       threadHostThreadId: 't3-thread-456',
       threadHostMachine: 'Airy.local'
     }
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--thread-id',
+      'provider-thread',
+      '--handoff-key',
+      'mko_handoff_0123456789abcdef',
+      '--thread-host-kind',
+      't3code',
+      '--thread-host-provider',
+      'codex'
+    ]),
+    /thread-id and --handoff-key are alternatives/
   )
   assert.throws(
     () => parseCommandArguments([

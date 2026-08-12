@@ -499,6 +499,12 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       )
     }
   }
+  if (threadId && handoffKey) {
+    throw commandError(
+      '--thread-id and --handoff-key are alternatives; provide only one.',
+      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+    )
+  }
   const hasThreadIdentity = Boolean(threadId || handoffKey)
   const hasThreadHostMetadata = Boolean(
     threadHostKind ||
