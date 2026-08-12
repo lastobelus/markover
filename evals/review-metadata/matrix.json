@@ -17,7 +17,8 @@
       "availability": "available",
       "exercise": "exercises/t3code-codex.md",
       "evidence": [
-        "2026-08-12__t3code-codex__63d3f9fc"
+        "2026-08-12__t3code-codex__63d3f9fc",
+        "2026-08-12__t3code-codex__a5fec04f"
       ]
     },
     {
@@ -32,7 +33,8 @@
       "availability": "available",
       "exercise": "exercises/t3code-claude.md",
       "evidence": [
-        "2026-08-12__t3code-claude__2e5faa61"
+        "2026-08-12__t3code-claude__2e5faa61",
+        "2026-08-12__t3code-claude__a5fec04f"
       ]
     },
     {
@@ -47,7 +49,8 @@
       "availability": "available",
       "exercise": "exercises/claude-code-claude.md",
       "evidence": [
-        "2026-08-12__claude-code-claude__4e2259ed"
+        "2026-08-12__claude-code-claude__4e2259ed",
+        "2026-08-12__claude-code-claude__a5fec04f"
       ]
     }
   ],
