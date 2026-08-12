@@ -315,6 +315,7 @@ function isReviewEnvelope(value: unknown): boolean {
   if (!hasExactKeys(value, ['id', 'status'], [
     'createdAt',
     'updatedAt',
+    'attentionRequestedAt',
     'contextSummary',
     'agentThread',
     'git',
@@ -331,6 +332,7 @@ function isReviewEnvelope(value: unknown): boolean {
     ) &&
     isOptionalString(value.createdAt) &&
     isOptionalString(value.updatedAt) &&
+    isOptionalString(value.attentionRequestedAt) &&
     isOptionalString(value.contextSummary) &&
     (value.agentGuidance === undefined || isAgentGuidance(value.agentGuidance))
 }

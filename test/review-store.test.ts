@@ -133,6 +133,10 @@ test('handoff freezes an idempotent snapshot', async (t) => {
 
   assert.equal(handedOff.review.status, 'pending-agent')
   assert.equal(handedOff.review.updatedAt, '2026-07-30T20:01:00.000Z')
+  assert.equal(
+    handedOff.review.attentionRequestedAt,
+    '2026-07-30T20:00:00.000Z'
+  )
   assert.deepEqual(retry, handedOff)
   assert.deepEqual(await store.load(created.review.id), handedOff)
 })
@@ -159,6 +163,10 @@ test('edit returns a pending review to editing and is idempotent', async (t) => 
 
   assert.equal(editing.review.status, 'editing')
   assert.equal(editing.review.updatedAt, '2026-07-30T20:02:00.000Z')
+  assert.equal(
+    editing.review.attentionRequestedAt,
+    '2026-07-30T20:02:00.000Z'
+  )
   assert.deepEqual(retry, editing)
 })
 
@@ -484,6 +492,10 @@ test('tree updates are allowed only while editing', async (t) => {
   assert.equal(updatedHeading.collapsed, true)
   assert.equal(attachment(updatedHeading).id, 'img-1')
   assert.equal(updated.review.contextSummary, 'Check updates.')
+  assert.equal(
+    updated.review.attentionRequestedAt,
+    created.review.attentionRequestedAt
+  )
 
   await store.handoff(created.review.id)
   await assert.rejects(

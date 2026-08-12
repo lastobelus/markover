@@ -178,6 +178,9 @@
       const lifecycleActivityAt = Number.isFinite(reviewedAt)
         ? reviewedAt
         : this.now()
+      const requestedAt = Date.parse(
+        document.tree.review.attentionRequestedAt || ''
+      )
       const session: ReviewSession = {
         reviewId,
         documentName: document.name || basename(document.path) || 'Untitled',
@@ -187,9 +190,7 @@
         projectKey: project.key,
         projectName: project.name,
         projectRoot: project.root,
-        attentionRequestedAt: document.tree.review.status === 'editing'
-          ? lifecycleActivityAt
-          : 0,
+        attentionRequestedAt: Number.isFinite(requestedAt) ? requestedAt : 0,
         lifecycleActivityAt,
         lastViewedOrder: ++this.viewSequence,
         lastViewedAt: lifecycleActivityAt,
@@ -261,6 +262,12 @@
       if (!session) return null
       if (document.tree.review.updatedAt !== undefined) {
         session.tree.review.updatedAt = document.tree.review.updatedAt
+      }
+      if (document.tree.review.attentionRequestedAt !== undefined) {
+        session.tree.review.attentionRequestedAt =
+          document.tree.review.attentionRequestedAt
+        const requestedAt = Date.parse(document.tree.review.attentionRequestedAt)
+        if (Number.isFinite(requestedAt)) session.attentionRequestedAt = requestedAt
       }
       session.tree.review.pullRequest = document.tree.review.pullRequest
       return session

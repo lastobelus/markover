@@ -27,6 +27,7 @@ export interface ReviewEnvelope {
   status: ReviewStatus
   createdAt: string
   updatedAt: string
+  attentionRequestedAt: string
   contextSummary: string
   agentThread: unknown
   git: unknown
@@ -190,6 +191,12 @@ function assertSourceEdits(node: unknown): void {
   for (const child of node.children) assertSourceEdits(child)
 }
 
+function isCanonicalTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value
+}
+
 export function assertReviewArtifact(
   artifact: unknown,
   reviewId: string
@@ -204,6 +211,7 @@ export function assertReviewArtifact(
   if (
     artifact.review.id !== reviewId ||
     !isReviewStatus(artifact.review.status) ||
+    !isCanonicalTimestamp(artifact.review.attentionRequestedAt) ||
     !isRecord(artifact.review.agentGuidance) ||
     typeof artifact.review.agentGuidance.fixedContract !== 'string' ||
     typeof artifact.review.agentGuidance.interpretationPolicy !== 'string'
@@ -479,6 +487,7 @@ export class ReviewStore {
             status: 'editing',
             createdAt: timestamp,
             updatedAt: timestamp,
+            attentionRequestedAt: timestamp,
             contextSummary,
             agentThread: cloneJson(agentThread),
             git: cloneJson(git),
@@ -948,6 +957,9 @@ export class ReviewStore {
       updated.review.status = status
       const timestamp = this.timestamp()
       updated.review.updatedAt = timestamp
+      if (current.review.status !== 'editing' && status === 'editing') {
+        updated.review.attentionRequestedAt = timestamp
+      }
       updated.review.pullRequest = observedPullRequest(
         current.review.pullRequest,
         pullRequestStatus,

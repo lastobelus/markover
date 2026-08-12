@@ -576,6 +576,7 @@ declare global {
     status: ReviewSessionStatus
     createdAt?: string
     updatedAt?: string
+    attentionRequestedAt?: string
     contextSummary?: string
     agentThread?: unknown
     git?: unknown

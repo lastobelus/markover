@@ -303,6 +303,7 @@ test('persisted review artifacts satisfy the browser session boundary', () => {
       status: 'editing',
       createdAt: '2026-08-03T12:00:00.000Z',
       updatedAt: '2026-08-03T12:00:00.000Z',
+      attentionRequestedAt: '2026-08-03T12:00:00.000Z',
       contextSummary: 'Review the stored document.',
       agentThread: null,
       git: 'legacy metadata',

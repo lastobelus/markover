@@ -1454,6 +1454,7 @@ async function startAndPublishService(): Promise<void> {
         return
       }
       await sendManagedStatus(artifact)
+      sendManagedUpdate(artifact)
     },
     onUnauthorized(event) {
       if (!store.settings.logRejectedApiRequests) return

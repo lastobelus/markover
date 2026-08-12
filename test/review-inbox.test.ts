@@ -8,6 +8,7 @@ const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
 
 interface ReviewFixtureOptions {
   agentThread?: unknown
+  attentionRequestedAt?: string
   branch?: string
   contextSummary?: string
   createdAt: string
@@ -27,6 +28,7 @@ function reviewDocument(
     branch,
     contextSummary = 'Review this document.',
     createdAt,
+    attentionRequestedAt = createdAt,
     projectRoot,
     pullRequestNumber,
     pullRequestStatus,
@@ -49,6 +51,7 @@ function reviewDocument(
         status,
         createdAt,
         updatedAt: createdAt,
+        attentionRequestedAt,
         contextSummary,
         agentThread,
         git: branch ? { repositoryRoot: projectRoot, branch } : { repositoryRoot: projectRoot },
@@ -305,4 +308,24 @@ test('returning to Editing updates attention time while viewing does not', () =>
   sessions.updateStatus(session.reviewId, 'editing')
   assert.equal(session.attentionRequestedAt, now)
   assert.equal(session.lifecycleActivityAt, now)
+})
+
+test('restoring an Editing review preserves attention time across later autosaves', () => {
+  const document = reviewDocument('mko_restore1', 'restore.md', {
+    attentionRequestedAt: '2026-08-09T12:00:00.000Z',
+    createdAt: '2026-08-09T12:00:00.000Z',
+    projectRoot: '/projects/markover'
+  })
+  document.tree.review.updatedAt = '2026-08-09T16:00:00.000Z'
+
+  const restored = new ReviewSessions().add(document)
+
+  assert.equal(
+    restored.attentionRequestedAt,
+    Date.parse('2026-08-09T12:00:00.000Z')
+  )
+  assert.equal(
+    restored.lifecycleActivityAt,
+    Date.parse('2026-08-09T16:00:00.000Z')
+  )
 })
