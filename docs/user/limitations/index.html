@@ -101,9 +101,9 @@
                 <td>HTML interpretation is disabled. Tags remain visible in paragraph content and do not create HTML elements or specialized blocks.</td>
               </tr>
               <tr data-compatibility-id="extension-markers" data-classification="visible-uninterpreted">
-                <td>Strikethrough, definition-list, and footnote syntax</td>
+                <td>Strikethrough, definition-list, and footnote-call syntax</td>
                 <td>Visible uninterpreted text</td>
-                <td>Markers remain literal paragraph content. Markover does not create strikethrough, definition, or footnote nodes.</td>
+                <td>Representative markers remain literal paragraph content. Markover does not create strikethrough, definition, or footnote nodes. Some standalone caret-prefixed definitions follow the source-only row below.</td>
               </tr>
               <tr data-compatibility-id="reference-links" data-classification="visible-uninterpreted">
                 <td>Reference-style link uses</td>
@@ -111,9 +111,9 @@
                 <td>The reference use remains in its parent paragraph. Because a standalone definition is source-only and absent from the paragraph's preview input, markers such as <code>[label][id]</code> remain literal rather than rendering as a link.</td>
               </tr>
               <tr data-compatibility-id="reference-definitions" data-classification="source-only">
-                <td>Standalone reference definitions</td>
+                <td>Standalone reference-shaped definitions</td>
                 <td>Source-only content</td>
-                <td>A valid standalone link definition has no review block or preview representation. It remains only in the exact reviewed source.</td>
+                <td>A valid standalone link definition has no review block or preview representation. This includes a short caret-prefixed form such as <code>[^note]: Note</code>. It remains only in the exact reviewed source.</td>
               </tr>
             </tbody>
           </table>

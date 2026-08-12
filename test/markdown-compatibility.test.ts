@@ -209,25 +209,20 @@ const fixtures: CompatibilityFixture[] = [
   {
     id: 'extension-markers',
     classification: 'visible-uninterpreted',
-    source: '~~deleted~~\n\nTerm\n: definition\n\nCall [^note].\n\n[^note]: Footnote text.\n',
+    source: '~~deleted~~\n\nTerm\n: definition\n\nCall [^note].\n',
     verify(tree) {
       const nodes = tree.root.children
       assert.deepEqual(
         nodes.map((node) => node.type),
-        ['paragraph', 'paragraph', 'paragraph', 'paragraph']
+        ['paragraph', 'paragraph', 'paragraph']
       )
       assert.deepEqual(
         nodes.map((node) => node.text),
-        [
-          '~~deleted~~',
-          'Term\n: definition',
-          'Call [^note].',
-          '[^note]: Footnote text.'
-        ]
+        ['~~deleted~~', 'Term\n: definition', 'Call [^note].']
       )
       assert.deepEqual(
         nodes.map(({ lineStart, lineEnd }) => [lineStart, lineEnd]),
-        [[1, 1], [3, 4], [6, 6], [8, 8]]
+        [[1, 1], [3, 4], [6, 6]]
       )
     }
   },
@@ -249,7 +244,7 @@ const fixtures: CompatibilityFixture[] = [
   {
     id: 'reference-definitions',
     classification: 'source-only',
-    source: '[id]: https://example.com "Title"\n',
+    source: '[id]: https://example.com "Title"\n\n[^note]: Note\n',
     verify(tree) {
       assert.deepEqual(tree.root.children, [])
     }

@@ -69,10 +69,12 @@ Strikethrough markers remain literal: ~~this is not a strikethrough node~~.
 Definition term
 : Definition-list syntax currently remains paragraph text.
 
-A footnote callout [^sample] and its definition do not become footnote nodes.
+A footnote callout [^sample] does not become a footnote node.
 
-[^sample]: This definition may be consumed as a CommonMark reference definition
-    and is still retained in `sourceDocument.content`.
+[^sample]: Note
+
+The short caret-prefixed definition above is consumed as a CommonMark reference
+definition. It has no review block, but remains in `sourceDocument.content`.
 
 <details>
 <summary>Raw HTML remains literal</summary>

@@ -346,6 +346,8 @@ test('Markdown limitations publish the behavior-level compatibility boundary', (
   assert.match(limitations, /Visible uninterpreted text/)
   assert.match(limitations, /Source-only content/)
   assert.match(limitations, /valid standalone link definition has no review block/)
+  assert.match(limitations, /short caret-prefixed form/)
+  assert.match(limitations, /\[\^note\]: Note/)
   assert.match(limitations, /Only an embedded <code>data:<\/code> image can open/)
   assert.match(limitations, /HTTP\(S\) URLs remain unavailable/)
   assert.match(limitations, /makes no network request/)
