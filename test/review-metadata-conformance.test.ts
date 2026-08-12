@@ -68,6 +68,10 @@ function agentThread(value: Record<string, unknown>): void {
 
 test('initial live matrix names three exact combinations without guessing expansion providers', () => {
   const matrix = parseMetadataMatrix(json('evals/review-metadata/matrix.json'))
+  assert.deepEqual(matrix.classification, {
+    authorityIssue: 134,
+    status: 'provisional-evidence'
+  })
   assert.deepEqual(matrix.entries.map(({ id }) => id), [
     't3code-codex',
     't3code-claude',
@@ -362,6 +366,8 @@ test('documentation fixes rerun and schema-defect handling without storing raw e
     'utf8'
   )
   assert.match(readme, /Raw artifacts stay under `tmp\/review-metadata\/`/)
+  assert.match(readme, /Issue #134 owns normative product\nclassification and aliases/)
+  assert.match(readme, /host-only `expansionCandidates`/)
   assert.match(readme, /Rerun an affected row when Markover's metadata guidance/)
   assert.match(rubric, /contract defect descended from issue\n#99/)
   assert.match(rubric, /keep this rubric unchanged/)
