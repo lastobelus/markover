@@ -13,7 +13,8 @@ record live product behavior.
    `npm run eval:metadata:record --` with those two inputs. The command verifies
    that the commit is in that PR's fetched head history and that the running
    recorder inputs match that commit, applies the shared v1 decoder and the
-   rubric, then writes a reduced record.
+   rubric, verifies the immutable review content matches `exercise-source.md`,
+   then writes a reduced record.
 4. Inspect the reduced JSON, add its ID to the matrix row, and run
    `npm run eval:metadata:validate`.
 5. Before declaring the matrix complete, run
@@ -25,6 +26,12 @@ Free-form observation limitations also stay in the ignored observation; the
 committed record retains their structured discovery and runtime facts only.
 The recorder requires a matching GitHub `origin` and read access to the
 declared pull-request head ref so runner provenance cannot point elsewhere.
+If a truthful artifact fails an automatic check, first open or link its contract
+defect descended from #99, then rerun the same record command with
+`--defect-issue NUMBER`. The recorder writes a closed failure record containing
+only corpus identity, provenance, and the defect link; it omits the raw artifact,
+runtime values, discovery details, and error text. A failed record cannot satisfy
+`--require-complete` without at least one passing record for the same matrix row.
 
 ## Classification ownership
 
