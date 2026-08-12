@@ -5,6 +5,7 @@ import {
   decodeReviewArtifact,
   isCanonicalReviewTimestamp
 } from '../src/review-format'
+import { parseGitHubPullRequestUrl } from '../src/pull-request'
 
 const evidenceSchemaVersion = 1
 const matrixSchemaVersion = 1
@@ -83,6 +84,7 @@ export interface CaptureObservation {
   runtime: RuntimeObservation
   schemaVersion: number
   sourceCommit: string
+  sourcePullRequest: string
   truthfulnessAttested: true
 }
 
@@ -119,6 +121,7 @@ export interface SanitizedEvidence {
   }
   schemaVersion: number
   sourceCommit: string
+  sourcePullRequest: string
 }
 
 type JsonRecord = Record<string, unknown>
@@ -192,8 +195,77 @@ function oneOf<T extends string>(
   return value as T
 }
 
+function assertNoDuplicateJsonKeys(source: string, label: string): void {
+  let cursor = 0
+
+  const skipWhitespace = (): void => {
+    while (/\s/.test(source[cursor] ?? '')) cursor += 1
+  }
+  const parseString = (): string => {
+    const start = cursor
+    cursor += 1
+    while (cursor < source.length) {
+      if (source[cursor] === '\\') {
+        cursor += 2
+      } else if (source[cursor] === '"') {
+        cursor += 1
+        return JSON.parse(source.slice(start, cursor)) as string
+      } else {
+        cursor += 1
+      }
+    }
+    throw new Error(`${label} contains an unterminated JSON string.`)
+  }
+  const parseValue = (): void => {
+    skipWhitespace()
+    if (source[cursor] === '{') {
+      cursor += 1
+      const keys = new Set<string>()
+      skipWhitespace()
+      while (source[cursor] !== '}' && cursor < source.length) {
+        if (source[cursor] !== '"') break
+        const key = parseString()
+        if (keys.has(key)) throw new Error(`${label} contains duplicate key: ${key}.`)
+        keys.add(key)
+        skipWhitespace()
+        if (source[cursor] !== ':') break
+        cursor += 1
+        parseValue()
+        skipWhitespace()
+        if (source[cursor] !== ',') break
+        cursor += 1
+        skipWhitespace()
+      }
+      if (source[cursor] === '}') cursor += 1
+      return
+    }
+    if (source[cursor] === '[') {
+      cursor += 1
+      skipWhitespace()
+      while (source[cursor] !== ']' && cursor < source.length) {
+        parseValue()
+        skipWhitespace()
+        if (source[cursor] !== ',') break
+        cursor += 1
+        skipWhitespace()
+      }
+      if (source[cursor] === ']') cursor += 1
+      return
+    }
+    if (source[cursor] === '"') {
+      parseString()
+      return
+    }
+    while (cursor < source.length && !/[\s,\]}]/.test(source[cursor] ?? '')) cursor += 1
+  }
+
+  parseValue()
+}
+
 function readJson(filePath: string): unknown {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown
+  const source = fs.readFileSync(filePath, 'utf8')
+  assertNoDuplicateJsonKeys(source, filePath)
+  return JSON.parse(source) as unknown
 }
 
 function parseDiscovery(
@@ -281,6 +353,7 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     'runtime',
     'schemaVersion',
     'sourceCommit',
+    'sourcePullRequest',
     'truthfulnessAttested'
   ], 'Capture observation')
   if (item.schemaVersion !== evidenceSchemaVersion) {
@@ -299,6 +372,13 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     throw new Error(
       'Capture observation sourceCommit must be a non-placeholder full Git commit.'
     )
+  }
+  const sourcePullRequest = nonblank(
+    item.sourcePullRequest,
+    'Capture observation sourcePullRequest'
+  )
+  if (parseGitHubPullRequestUrl(sourcePullRequest)?.url !== sourcePullRequest) {
+    throw new Error('Capture observation sourcePullRequest must be a canonical GitHub URL.')
   }
   if (item.truthfulnessAttested !== true) {
     throw new Error('Capture observation must attest truthful discovery.')
@@ -346,6 +426,7 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     runtime: parseRuntime(item.runtime, 'Capture observation runtime'),
     schemaVersion: evidenceSchemaVersion,
     sourceCommit,
+    sourcePullRequest,
     truthfulnessAttested: true
   }
 }
@@ -615,7 +696,8 @@ export function buildSanitizedEvidence(
     runtime: observation.runtime,
     sanitizedAgentThread,
     schemaVersion: evidenceSchemaVersion,
-    sourceCommit: observation.sourceCommit
+    sourceCommit: observation.sourceCommit,
+    sourcePullRequest: observation.sourcePullRequest
   }
   assertSensitiveLeavesRedacted(sensitiveLeaves)
   assertPrivateArtifactValuesAbsentFromRuntime([
@@ -666,7 +748,8 @@ export function validateSanitizedEvidence(
     'runtime',
     'sanitizedAgentThread',
     'schemaVersion',
-    'sourceCommit'
+    'sourceCommit',
+    'sourcePullRequest'
   ], 'Sanitized evidence')
   if (item.schemaVersion !== evidenceSchemaVersion) {
     throw new Error(`Sanitized evidence schemaVersion must be ${evidenceSchemaVersion}.`)
@@ -680,6 +763,7 @@ export function validateSanitizedEvidence(
     runtime: item.runtime,
     schemaVersion: item.schemaVersion,
     sourceCommit: item.sourceCommit,
+    sourcePullRequest: item.sourcePullRequest,
     truthfulnessAttested: true
   })
   const matrix = parseMetadataMatrix(matrixValue)
@@ -774,7 +858,8 @@ export function validateSanitizedEvidence(
     runtime: observation.runtime,
     sanitizedAgentThread,
     schemaVersion: evidenceSchemaVersion,
-    sourceCommit: observation.sourceCommit
+    sourceCommit: observation.sourceCommit,
+    sourcePullRequest: observation.sourcePullRequest
   }
 }
 

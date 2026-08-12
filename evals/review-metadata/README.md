@@ -48,6 +48,7 @@ observed in the live run:
   "matrixEntryId": "t3code-codex",
   "exercisedAt": "2026-08-12T12:34:56.789Z",
   "sourceCommit": "REPLACE_WITH_FULL_GIT_COMMIT_SHA",
+  "sourcePullRequest": "https://github.com/OWNER/REPOSITORY/pull/NUMBER",
   "runtime": {
     "hostVersion": null,
     "hostVersionSource": "not-exposed",
@@ -97,6 +98,15 @@ retain runner commit `82df4d6ecd95be511ede2ccb0113e126c46d416d` as history. Each
 same-run raw artifact was re-recorded through hardened runner commit
 `a5fec04fac192db4da3cafb73df38db8f112d626`; both immutable records remain
 referenced by the matrix.
+
+`sourcePullRequest` is the durable provenance root for pre-squash runner
+commits. GitHub retains the pull-request head ref after a squash merge, so a
+clean checkout can inspect a recorded runner with:
+
+```sh
+git fetch origin refs/pull/141/head
+git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
+```
 
 | Combination | Runtime evidence | Result |
 | --- | --- | --- |
