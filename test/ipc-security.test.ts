@@ -19,6 +19,7 @@ import {
 } from '../src/ipc-security'
 import { MARKOVER_RENDERER_ENTRY_URL } from '../src/internal-url'
 import { smokeReviewTree } from '../src/smoke-fixture'
+import { defaultWorkspaceState } from '../src/workspace-state'
 
 const root = path.resolve(__dirname, '../..')
 
@@ -70,6 +71,22 @@ test('settings IPC accepts supported zoom levels only', () => {
     },
     /Invalid renderer-to-main invoke IPC contract for settings:update/
   )
+})
+
+test('workspace IPC accepts only the exact private workspace format', () => {
+  const workspace = defaultWorkspaceState()
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('workspace:get', [])
+    assertRendererInvokeArguments('workspace:update', [workspace])
+    assertRendererInvokeResult('workspace:get', workspace)
+    assertRendererInvokeResult('workspace:update', workspace)
+  })
+  assert.throws(() => {
+    assertRendererInvokeArguments('workspace:update', [{
+      ...workspace,
+      review: { portable: true }
+    }])
+  }, /Invalid renderer-to-main invoke IPC contract for workspace:update/)
 })
 
 test('privileged IPC rejects forged senders, subframes, URLs, and arguments', () => {
@@ -224,6 +241,20 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
     )
     assertRendererInvokeResult('review:pull-request:open', undefined)
     assertMainEventArguments('review:updated', [document])
+    const withoutCollapsed = structuredClone(document)
+    const removeCollapsed = (node: Record<string, unknown>): void => {
+      delete node.collapsed
+      const children = node.children
+      if (Array.isArray(children)) {
+        for (const child of children) {
+          if (child && typeof child === 'object') {
+            removeCollapsed(child as Record<string, unknown>)
+          }
+        }
+      }
+    }
+    removeCollapsed(withoutCollapsed.tree?.root as unknown as Record<string, unknown>)
+    assertRendererInvokeResult('review:create-local', withoutCollapsed)
     assertRendererInvokeArguments('attachment:remove', [{
       reviewId: 'mko_abcdef',
       attachmentId: 'img-1',
@@ -319,6 +350,8 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'startup:quit',
     'startup:renderer-initialized',
     'startup:reveal-diagnostic',
-    'window:focus-state:get'
+    'window:focus-state:get',
+    'workspace:get',
+    'workspace:update'
   ])
 })

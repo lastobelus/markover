@@ -477,7 +477,7 @@ test('tree updates are allowed only while editing', async (t) => {
   const annotated = structuredClone(created)
   const annotatedHeading = child(annotated.root)
   annotatedHeading.feedback = 'Make the title more specific.'
-  annotatedHeading.collapsed = true
+  delete annotatedHeading.collapsed
   annotatedHeading.attachments = [{
     id: 'img-1',
     type: 'image',
@@ -489,7 +489,7 @@ test('tree updates are allowed only while editing', async (t) => {
     updatedHeading.feedback,
     'Make the title more specific.'
   )
-  assert.equal(updatedHeading.collapsed, true)
+  assert.equal(Object.hasOwn(updatedHeading, 'collapsed'), false)
   assert.equal(attachment(updatedHeading).id, 'img-1')
   assert.equal(updated.review.contextSummary, 'Check updates.')
   assert.equal(

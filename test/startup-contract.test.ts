@@ -54,9 +54,11 @@ test('user-facing recovery warnings exclude cosmetic brand fallback', () => {
   assert.deepEqual(userFacingStartupWarnings([
     { category: 'brand-fallback', subject: 'canonical brand assets' },
     { category: 'settings-recovered', subject: 'settings.json' },
+    { category: 'workspace-recovered', subject: 'workspace.json' },
     { category: 'review-skipped', subject: 'broken-review' }
   ]), [
     { category: 'settings-recovered', subject: 'settings.json' },
+    { category: 'workspace-recovered', subject: 'workspace.json' },
     { category: 'review-skipped', subject: 'broken-review' }
   ])
 })

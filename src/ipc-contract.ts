@@ -9,6 +9,7 @@ import type {
   StartupReady,
   StartupWarning
 } from './startup-contract'
+import { isWorkspaceState } from './workspace-state'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 const ATTACHMENT_ID_PATTERN = /^img-[1-9]\d*$/
@@ -85,6 +86,8 @@ export interface RendererInvokeArguments {
   'review:autosave-status:get': []
   'settings:get': []
   'settings:update': [unknown]
+  'workspace:get': []
+  'workspace:update': [MarkoverWorkspaceState]
   'window:focus-state:get': []
   'review:initial-document': []
   'review:list': []
@@ -111,6 +114,8 @@ export interface RendererInvokeResults {
   'review:autosave-status:get': ReviewAutosaveStatus
   'settings:get': MarkoverSettingsEnvelope
   'settings:update': MarkoverSettingsEnvelope
+  'workspace:get': MarkoverWorkspaceState
+  'workspace:update': MarkoverWorkspaceState
   'window:focus-state:get': MarkoverWindowFocusState
   'review:initial-document': MarkoverDocument | null
   'review:list': MarkoverDocument[]
@@ -251,10 +256,9 @@ function isReviewNode(value: unknown): value is ReviewNode {
     'lineStart',
     'lineEnd',
     'feedback',
-    'collapsed',
     'children'
   ]
-  const optional = ['sourceEdit', 'sourceEditable', 'attachments']
+  const optional = ['collapsed', 'sourceEdit', 'sourceEditable', 'attachments']
   if (value.type === 'heading') required.push('level')
   if (value.type === 'code') required.push('language')
   if (value.type === 'frontmatter-entry') required.push('key')
@@ -271,7 +275,7 @@ function isReviewNode(value: unknown): value is ReviewNode {
     !isPositiveInteger(value.lineEnd) ||
     value.lineEnd < value.lineStart ||
     typeof value.feedback !== 'string' ||
-    typeof value.collapsed !== 'boolean' ||
+    (value.collapsed !== undefined && typeof value.collapsed !== 'boolean') ||
     !Array.isArray(value.children) ||
     !value.children.every(isReviewNode) ||
     (value.sourceEdit !== undefined && !isSourceEdit(value.sourceEdit)) ||
@@ -405,7 +409,8 @@ function isStartupWarningValue(value: unknown): value is StartupWarning {
     (
       value.category === 'brand-fallback' ||
       value.category === 'review-skipped' ||
-      value.category === 'settings-recovered'
+      value.category === 'settings-recovered' ||
+      value.category === 'workspace-recovered'
     ) &&
     typeof value.subject === 'string'
 }
@@ -698,6 +703,7 @@ export function assertRendererInvokeArguments(
     case 'clipboard:read-image':
     case 'review:autosave-status:get':
     case 'settings:get':
+    case 'workspace:get':
     case 'window:focus-state:get':
     case 'review:initial-document':
     case 'review:list':
@@ -723,6 +729,7 @@ export function assertRendererInvokeArguments(
         isReviewId(args[1])
       break
     case 'settings:update': valid = singleArgument(args, isSettingsPatch); break
+    case 'workspace:update': valid = singleArgument(args, isWorkspaceState); break
     case 'review:context-menu:open':
       valid = singleArgument(args, isContextMenuRequest)
       break
@@ -805,6 +812,10 @@ export function assertRendererInvokeResult(
     case 'settings:get':
     case 'settings:update':
       valid = isSettingsEnvelope(value)
+      break
+    case 'workspace:get':
+    case 'workspace:update':
+      valid = isWorkspaceState(value)
       break
     case 'window:focus-state:get': valid = isWindowFocusState(value); break
     case 'review:list':

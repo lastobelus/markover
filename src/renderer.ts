@@ -41,6 +41,10 @@ import * as MarkoverReviewSessions from './review-sessions'
 import * as MarkoverSettings from './settings'
 import * as MarkoverSourceEdits from './source-edits'
 import * as MarkoverTree from './tree'
+import {
+  defaultWorkspaceState,
+  reconcileWorkspaceState
+} from './workspace-state'
 
 interface RendererState {
   attachmentPreviewUrls: Map<string, string>
@@ -53,6 +57,7 @@ interface RendererState {
   annotatedOnly: boolean
   annotationView: 'selected' | 'list'
   sourceCollapsed: boolean
+  collapsedBlockIds: Set<string>
   sourceDrafts: Map<string, string>
   sourceEditingId: string | null
   tree: ReviewTree | null
@@ -208,6 +213,7 @@ const state: RendererState = {
   annotatedOnly: false,
   annotationView: 'selected',
   sourceCollapsed: false,
+  collapsedBlockIds: new Set<string>(),
   sourceDrafts: new Map<string, string>(),
   sourceEditingId: null,
   tree: null
@@ -227,7 +233,8 @@ let inboxHistoryLimit = INBOX_HISTORY_PAGE_SIZE
 const projectExpansion = new Map<string, boolean>()
 const threadExpansion = new Map<string, boolean>()
 const projectFaviconLoads = new Map<string, Promise<string | null>>()
-const openReviewIds = new Set<string>()
+let openReviewIds: string[] = []
+let workspaceStateReady = false
 let brandAssetSources: MarkoverBrandAssets | null = null
 let brandAssetLoad: Promise<MarkoverBrandAssets | null> | null = null
 let brandFallbackUsed = false
@@ -248,6 +255,179 @@ let incomingReviewNoticeCount = 0
 let incomingReviewNoticeId: string | null = null
 let incomingReviewNoticePrompts: IncomingReviewPrompt[] = []
 let incomingReviewNoticeSequence: number | null = null
+
+function threadExpansionKey(projectKey: string, threadKey: string): string {
+  return JSON.stringify([projectKey, threadKey])
+}
+
+function openReviewTab(reviewId: string): void {
+  if (!openReviewIds.includes(reviewId)) openReviewIds.push(reviewId)
+}
+
+function closeReviewTab(reviewId: string): void {
+  openReviewIds = openReviewIds.filter((candidate) => candidate !== reviewId)
+}
+
+function reviewBlockIds(root: ReviewNode): string[] {
+  const ids: string[] = []
+  const visit = (node: ReviewNode): void => {
+    for (const child of node.children) {
+      ids.push(child.id)
+      visit(child)
+    }
+  }
+  visit(root)
+  return ids
+}
+
+function workspaceReviewScopes(): Array<{
+  reviewId: string
+  projectKey: string
+  threadKey: string
+  blockIds: string[]
+}> {
+  const sessions = reviewSessions.list()
+  const projection = projectReviewInbox(sessions)
+  const rows = [...projection.editing, ...projection.history]
+  const rowById = new Map(rows.map((row) => [row.reviewId, row]))
+  return sessions.map((session) => ({
+    reviewId: session.reviewId,
+    projectKey: session.projectKey,
+    threadKey: rowById.get(session.reviewId)?.threadKey || `review:${session.reviewId}`,
+    blockIds: reviewBlockIds(session.tree.root)
+  }))
+}
+
+function normalizeSessionWorkspaceState(session: ReviewSession): void {
+  const blockIds = new Set(reviewBlockIds(session.tree.root))
+  if (!session.selectedId || !blockIds.has(session.selectedId)) {
+    session.selectedId = session.tree.root.children[0]?.id || null
+  }
+  session.collapsedBlockIds = new Set(
+    [...session.collapsedBlockIds].filter((blockId) => blockIds.has(blockId))
+  )
+  const filter = MarkoverAnnotations.normalizeFilter(
+    session.tree.root,
+    session.selectedId,
+    session.annotatedOnly
+  )
+  session.selectedId = filter.selectedId
+  session.annotatedOnly = filter.enabled
+  if (!MarkoverAnnotations.annotatedNodes(session.tree.root).length) {
+    session.annotationView = 'selected'
+  }
+}
+
+function workspaceSnapshot(): MarkoverWorkspaceState {
+  captureActiveSession()
+  const sessions = reviewSessions.list()
+  const projection = projectReviewInbox(sessions)
+  const reviews: Record<string, WorkspaceReviewViewState> = {}
+  for (const session of sessions) {
+    reviews[session.reviewId] = {
+      selectedBlockId: session.selectedId,
+      annotatedOnly: session.annotatedOnly,
+      annotationView: session.annotationView,
+      sourceCollapsed: session.sourceCollapsed,
+      collapsedBlockIds: [...session.collapsedBlockIds]
+    }
+  }
+  return {
+    ...defaultWorkspaceState(),
+    initialized: true,
+    navigationMode: reviewNavigationMode,
+    projectExpansion: projection.projects.map((project) => ({
+      projectKey: project.key,
+      expanded: projectExpansion.get(project.key) ?? false
+    })),
+    threadExpansion: projection.projects.flatMap((project) => (
+      project.threads.map((thread) => ({
+        projectKey: project.key,
+        threadKey: thread.key,
+        expanded: threadExpansion.get(
+          threadExpansionKey(project.key, thread.key)
+        ) ?? false
+      }))
+    )),
+    openReviewIds: openReviewIds.filter((reviewId) => (
+      reviewSessions.get(reviewId) !== null
+    )),
+    activeReviewId: state.reviewId && openReviewIds.includes(state.reviewId)
+      ? state.reviewId
+      : null,
+    annotationPaneWidth: annotationPaneWidth === null
+      ? null
+      : Math.round(annotationPaneWidth),
+    reviews
+  }
+}
+
+function persistWorkspaceState(): void {
+  if (!workspaceStateReady) return
+  const snapshot = workspaceSnapshot()
+  void bridge.updateWorkspaceState(snapshot).catch((error: unknown) => {
+    console.error('Failed to save private workspace state', error)
+    showToast('Could not save workspace state')
+  })
+}
+
+function applyWorkspaceState(value: MarkoverWorkspaceState): MarkoverWorkspaceState {
+  const normalized = reconcileWorkspaceState(value, workspaceReviewScopes())
+  const projection = projectReviewInbox(reviewSessions.list())
+  projectExpansion.clear()
+  threadExpansion.clear()
+  for (const item of normalized.projectExpansion) {
+    projectExpansion.set(item.projectKey, item.expanded)
+  }
+  for (const item of normalized.threadExpansion) {
+    threadExpansion.set(
+      threadExpansionKey(item.projectKey, item.threadKey),
+      item.expanded
+    )
+  }
+  if (!normalized.initialized) {
+    for (const project of projection.projects) {
+      projectExpansion.set(project.key, project.editingCount > 0)
+      for (const thread of project.threads) {
+        threadExpansion.set(
+          threadExpansionKey(project.key, thread.key),
+          thread.editingCount > 0
+        )
+      }
+    }
+  }
+  for (const session of reviewSessions.list()) {
+    const view = normalized.reviews[session.reviewId]
+    if (!view) continue
+    session.selectedId = view.selectedBlockId ||
+      session.tree.root.children[0]?.id || null
+    session.annotatedOnly = view.annotatedOnly
+    session.annotationView = view.annotationView
+    session.sourceCollapsed = view.sourceCollapsed
+    session.collapsedBlockIds = new Set(view.collapsedBlockIds)
+    normalizeSessionWorkspaceState(session)
+  }
+  reviewNavigationMode = normalized.navigationMode
+  openReviewIds = [...normalized.openReviewIds]
+  annotationPaneWidth = normalized.annotationPaneWidth
+  return {
+    ...normalized,
+    initialized: true,
+    projectExpansion: projection.projects.map((project) => ({
+      projectKey: project.key,
+      expanded: projectExpansion.get(project.key) ?? false
+    })),
+    threadExpansion: projection.projects.flatMap((project) => (
+      project.threads.map((thread) => ({
+        projectKey: project.key,
+        threadKey: thread.key,
+        expanded: threadExpansion.get(
+          threadExpansionKey(project.key, thread.key)
+        ) ?? false
+      }))
+    ))
+  }
+}
 let incomingReviewNoticeTimer: ReturnType<typeof setTimeout> | null = null
 let incomingReviewWarningCount = 0
 let incomingReviewWarningId: string | null = null
@@ -291,6 +471,7 @@ const BRIDGE_METHODS = [
   'getProjectFavicon',
   'getSettings',
   'getStartupInfo',
+  'getWorkspaceState',
   'getWindowFocusState',
   'onOpenMarkdownRequested',
   'onReviewOpened',
@@ -313,7 +494,8 @@ const BRIDGE_METHODS = [
   'saveAttachment',
   'removeAttachment',
   'quitStartup',
-  'updateSettings'
+  'updateSettings',
+  'updateWorkspaceState'
 ] as const satisfies ReadonlyArray<keyof MarkoverBridge>
 
 function requireBridge(candidate: MarkoverBridge | undefined): MarkoverBridge {
@@ -569,6 +751,7 @@ function selectNode(id: string, focusPreview = false): void {
   const selectedRow = elements.tree.querySelector(`[data-node-id="${id}"]`)
   selectedRow?.scrollIntoView({ block: 'nearest' })
   if (focusPreview) elements.previewPane.focus()
+  persistWorkspaceState()
 }
 
 function setWorkspaceEmpty(empty: boolean): void {
@@ -605,6 +788,7 @@ function setAnnotatedOnly(enabled: boolean): void {
   renderTree()
   const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (selected) renderAnnotation(selected)
+  persistWorkspaceState()
 }
 
 function selectedLocationText(node: ReviewNode): string {
@@ -643,11 +827,12 @@ function scrollToSelectedRow(): void {
   if (elements.selectedLocation.disabled) return
   const revealed = MarkoverAnnotations.revealAnnotation(
     currentTree().root,
-    selectedId
+    selectedId,
+    state.collapsedBlockIds
   )
   if (revealed) {
     renderTree()
-    autosaveReview()
+    persistWorkspaceState()
   }
   requestAnimationFrame(() => {
     elements.tree
@@ -754,14 +939,18 @@ function renderNode(
     disclosure.className = 'disclosure'
     replaceMarkoverIcon(
       disclosure,
-      node.collapsed ? 'chevron-right' : 'chevron-down'
+      state.collapsedBlockIds.has(node.id) ? 'chevron-right' : 'chevron-down'
     )
-    disclosure.title = node.collapsed ? 'Expand block' : 'Collapse block'
+    disclosure.title = state.collapsedBlockIds.has(node.id)
+      ? 'Expand block'
+      : 'Collapse block'
     disclosure.addEventListener('click', (event) => {
       event.stopPropagation()
-      node.collapsed = !node.collapsed
+      if (!state.collapsedBlockIds.delete(node.id)) {
+        state.collapsedBlockIds.add(node.id)
+      }
       renderTree()
-      autosaveReview()
+      persistWorkspaceState()
     })
     row.append(disclosure)
   } else {
@@ -869,9 +1058,11 @@ function renderNode(
   })
   row.addEventListener('dblclick', () => {
     if (!state.annotatedOnly && node.children.length) {
-      node.collapsed = !node.collapsed
+      if (!state.collapsedBlockIds.delete(node.id)) {
+        state.collapsedBlockIds.add(node.id)
+      }
       renderTree()
-      autosaveReview()
+      persistWorkspaceState()
     }
   })
   wrapper.append(row)
@@ -879,7 +1070,9 @@ function renderNode(
   if (entry.children.length) {
     const children = document.createElement('div')
     children.className = `block-children${
-      !state.annotatedOnly && node.collapsed ? ' is-collapsed' : ''
+      !state.annotatedOnly && state.collapsedBlockIds.has(node.id)
+        ? ' is-collapsed'
+        : ''
     }`
     for (const child of entry.children) children.append(renderNode(child, depth + 1))
     wrapper.append(children)
@@ -1075,6 +1268,7 @@ function renderRemovedAttachment(
   if (selectionChanged) {
     const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
     if (selected) renderAnnotation(selected)
+    persistWorkspaceState()
   }
   updateAnnotationCount()
   if (autosave) autosaveReview()
@@ -1337,6 +1531,7 @@ function beginSourceEdit(node: ReviewNode): void {
   if (!finishActiveSourceEdit(node.id)) return
   MarkoverSourceEdits.begin(state, node)
   state.sourceCollapsed = false
+  persistWorkspaceState()
   elements.sourceToggle.setAttribute('aria-expanded', 'true')
   replaceMarkoverIcon(elements.sourceToggleIcon, 'chevron-down')
   renderSourcePanel(node)
@@ -1375,6 +1570,7 @@ function finishActiveSourceEdit(nextId: string | null = null): boolean {
   const result = MarkoverSourceEdits.commit(state, node)
   if (!result.ok) {
     state.selectedId = node.id
+    persistWorkspaceState()
     renderTreePreservingScroll()
     renderAnnotation(node)
     showToast('Proposed source cannot be empty')
@@ -1402,9 +1598,13 @@ function revertSourceEdit(node: ReviewNode): void {
 }
 
 function selectAnnotationFromList(node: RenderedAnnotationNode): void {
-  const revealed = MarkoverAnnotations.revealAnnotation(currentTree().root, node.id)
+  const revealed = MarkoverAnnotations.revealAnnotation(
+    currentTree().root,
+    node.id,
+    state.collapsedBlockIds
+  )
   selectNode(node.id)
-  if (revealed) autosaveReview()
+  if (revealed) persistWorkspaceState()
   focusAnnotationPane()
 }
 
@@ -1488,20 +1688,25 @@ function setAnnotationView(view: 'selected' | 'list'): void {
     )
     if (!nextId) return
     if (!finishActiveSourceEdit(nextId)) return
-    const revealed = MarkoverAnnotations.revealAnnotation(tree.root, nextId)
+    const revealed = MarkoverAnnotations.revealAnnotation(
+      tree.root,
+      nextId,
+      state.collapsedBlockIds
+    )
     state.selectedId = nextId
     state.annotationView = 'list'
     renderTree()
     elements.tree
       .querySelector(`[data-node-id="${nextId}"]`)
       ?.scrollIntoView({ block: 'nearest' })
-    if (revealed) autosaveReview()
+    if (revealed) persistWorkspaceState()
   } else {
     state.annotationView = 'selected'
   }
   const selected = MarkoverTree.findNode(tree.root, state.selectedId)
   if (selected) renderAnnotation(selected)
   focusAnnotationPane()
+  persistWorkspaceState()
 }
 
 function renderAnnotation(node: ReviewNode): void {
@@ -1806,6 +2011,7 @@ function captureActiveSession(): void {
   session.annotatedOnly = state.annotatedOnly
   session.annotationView = state.annotationView
   session.sourceCollapsed = state.sourceCollapsed
+  session.collapsedBlockIds = state.collapsedBlockIds
   session.sourceDrafts = state.sourceDrafts
   session.sourceEditingId = state.sourceEditingId
   session.attachmentPreviewUrls = state.attachmentPreviewUrls
@@ -2270,7 +2476,6 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   content.append(top, title, bottom)
   button.append(icons, content)
   button.addEventListener('click', () => {
-    openReviewIds.add(row.reviewId)
     void activateReview(row.reviewId)
   })
   container.addEventListener('contextmenu', (event) => {
@@ -2320,7 +2525,6 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
 
   button.append(status, title, age)
   button.addEventListener('click', () => {
-    openReviewIds.add(row.reviewId)
     void activateReview(row.reviewId)
   })
   container.addEventListener('contextmenu', (event) => {
@@ -2505,20 +2709,23 @@ function renderProjects(projects: ReviewInboxProject[]): DocumentFragment {
   for (const project of projects) {
     const projectDetails = document.createElement('details')
     projectDetails.className = 'review-project-group'
-    projectDetails.open = projectExpansion.get(project.key) ?? project.editingCount > 0
+    projectDetails.open = projectExpansion.get(project.key) ?? false
     projectDetails.append(projectSummary(project))
     projectDetails.addEventListener('toggle', () => {
       projectExpansion.set(project.key, projectDetails.open)
+      persistWorkspaceState()
     })
     const threads = document.createElement('div')
     threads.className = 'review-thread-groups'
     for (const thread of project.threads) {
       const threadDetails = document.createElement('details')
       threadDetails.className = 'review-thread-group'
-      threadDetails.open = threadExpansion.get(thread.key) ?? thread.editingCount > 0
+      const expansionKey = threadExpansionKey(project.key, thread.key)
+      threadDetails.open = threadExpansion.get(expansionKey) ?? false
       threadDetails.append(threadSummary(thread, project))
       threadDetails.addEventListener('toggle', () => {
-        threadExpansion.set(thread.key, threadDetails.open)
+        threadExpansion.set(expansionKey, threadDetails.open)
+        persistWorkspaceState()
       })
       const rows = document.createElement('div')
       rows.className = 'review-list-rows review-thread-reviews'
@@ -2533,13 +2740,17 @@ function renderProjects(projects: ReviewInboxProject[]): DocumentFragment {
   return fragment
 }
 
-function setReviewNavigationMode(mode: 'inbox' | 'projects'): void {
+function setReviewNavigationMode(
+  mode: 'inbox' | 'projects',
+  persist = true
+): void {
   reviewNavigationMode = mode
   elements.reviewNavigationInbox.classList.toggle('is-active', mode === 'inbox')
   elements.reviewNavigationProjects.classList.toggle('is-active', mode === 'projects')
   elements.reviewNavigationInbox.setAttribute('aria-pressed', String(mode === 'inbox'))
   elements.reviewNavigationProjects.setAttribute('aria-pressed', String(mode === 'projects'))
   renderDocumentsList()
+  if (persist) persistWorkspaceState()
 }
 
 function renderDocumentsList(): void {
@@ -2906,6 +3117,7 @@ function beginAnnotationPaneResize(event: PointerEvent): void {
     if (elements.annotationPaneResizer.hasPointerCapture(pointerId)) {
       elements.annotationPaneResizer.releasePointerCapture(pointerId)
     }
+    persistWorkspaceState()
   }
 
   elements.annotationPaneResizer.addEventListener('pointermove', resize)
@@ -2922,6 +3134,7 @@ function resizeAnnotationPaneFromKeyboard(event: KeyboardEvent): void {
   )
   applyAnnotationPaneWidth()
   schedulePaneResizeLayoutUpdate()
+  persistWorkspaceState()
 }
 
 function closeTabOverflow(): void {
@@ -2931,9 +3144,9 @@ function closeTabOverflow(): void {
 }
 
 function openReviewSessions(): ReviewSession[] {
-  return reviewSessions.recent().filter((session) => (
-    openReviewIds.has(session.reviewId)
-  ))
+  return openReviewIds
+    .map((reviewId) => reviewSessions.get(reviewId))
+    .filter((session): session is ReviewSession => session !== null)
 }
 
 async function closeDocumentTab(reviewId: string): Promise<void> {
@@ -2941,12 +3154,16 @@ async function closeDocumentTab(reviewId: string): Promise<void> {
   if (reviewId === state.reviewId) {
     const next = sessions.find((session) => session.reviewId !== reviewId)
     if (!next) return
-    openReviewIds.delete(reviewId)
-    await activateReview(next.reviewId)
+    const outcome = await activateReview(next.reviewId)
+    if (outcome !== 'activated' && outcome !== 'already-active') return
+    closeReviewTab(reviewId)
+    renderDocumentTabs()
+    persistWorkspaceState()
     return
   }
-  openReviewIds.delete(reviewId)
+  closeReviewTab(reviewId)
   renderDocumentTabs()
+  persistWorkspaceState()
 }
 
 function createDocumentTab(session: ReviewSession): HTMLElement {
@@ -3017,7 +3234,7 @@ function createDocumentTab(session: ReviewSession): HTMLElement {
   close.textContent = '×'
   close.title = `Close ${session.documentName}`
   close.ariaLabel = `Close ${session.documentName}`
-  close.disabled = openReviewIds.size === 1
+  close.disabled = openReviewIds.length === 1
   close.addEventListener('click', (event) => {
     event.stopPropagation()
     void closeDocumentTab(session.reviewId)
@@ -3088,15 +3305,30 @@ function renderDocumentTabs(): void {
   renderDocumentsList()
 }
 
+function expandReviewAncestors(reviewId: string): void {
+  const projection = projectReviewInbox(reviewSessions.list())
+  for (const project of projection.projects) {
+    for (const thread of project.threads) {
+      if (!thread.reviews.some((review) => review.reviewId === reviewId)) continue
+      projectExpansion.set(project.key, true)
+      threadExpansion.set(threadExpansionKey(project.key, thread.key), true)
+      return
+    }
+  }
+}
+
 async function activateReview(
-  reviewId: string
+  reviewId: string,
+  { revealAncestors = true }: { revealAncestors?: boolean } = {}
 ): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
   if (!reviewSessions.get(reviewId)) return 'missing'
-  openReviewIds.add(reviewId)
+  openReviewTab(reviewId)
+  if (revealAncestors) expandReviewAncestors(reviewId)
   if (reviewId === state.reviewId) {
     renderDocumentTabs()
     removeIncomingPrompts(reviewId)
+    persistWorkspaceState()
     return 'already-active'
   }
   state.finishAttachmentLabelEdit?.(true)
@@ -3122,6 +3354,7 @@ async function activateReview(
   state.annotatedOnly = session.annotatedOnly
   state.annotationView = session.annotationView
   state.sourceCollapsed = session.sourceCollapsed
+  state.collapsedBlockIds = session.collapsedBlockIds
   state.sourceDrafts = session.sourceDrafts
   state.sourceEditingId = session.sourceEditingId
   state.attachmentPreviewUrls = session.attachmentPreviewUrls
@@ -3149,12 +3382,13 @@ async function activateReview(
   renderDocumentTabs()
   renderReviewContext()
   removeIncomingPrompts(reviewId)
+  persistWorkspaceState()
   return 'activated'
 }
 
 async function handleReviewTrashed(reviewId: string): Promise<void> {
   removeIncomingPrompts(reviewId)
-  openReviewIds.delete(reviewId)
+  closeReviewTab(reviewId)
   const wasActive = state.reviewId === reviewId
   const removed = reviewSessions.remove(reviewId)
   if (!removed) return
@@ -3165,6 +3399,7 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
 
   if (!wasActive) {
     renderDocumentTabs()
+    persistWorkspaceState()
     return
   }
   state.reviewId = null
@@ -3172,6 +3407,7 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
   state.attachmentPreviewUrls = new Map()
   state.sourceDrafts = new Map()
   state.sourceEditingId = null
+  state.collapsedBlockIds = new Set()
   state.finishAttachmentLabelEdit = null
   closeImagePreview()
   const next = reviewSessions.recent(1)[0]
@@ -3180,6 +3416,7 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
   } else {
     renderDocumentTabs()
     setWorkspaceEmpty(true)
+    persistWorkspaceState()
   }
 }
 
@@ -3308,6 +3545,7 @@ elements.annotationInput.addEventListener('input', () => {
     if (selectionChanged) {
       const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
       if (selected) renderAnnotation(selected)
+      persistWorkspaceState()
     }
   }
   updateAnnotationCount()
@@ -3417,7 +3655,8 @@ async function openMarkdownDocument(): Promise<void> {
       candidate.checksum,
       { name: candidate.name, path: candidate.path }
     )
-    await loadDocument(await bridge.createLocalReview(tree))
+    const reviewDocument = await bridge.createLocalReview(tree)
+    await loadDocument(reviewDocument)
     elements.previewPane.focus()
   } catch (error) {
     showToast(error instanceof Error ? error.message : 'Could not open Markdown')
@@ -3451,6 +3690,7 @@ elements.sourceToggle.addEventListener('click', () => {
   )
   const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) renderSourcePanel(node)
+  persistWorkspaceState()
 })
 
 elements.treeViewAll.addEventListener('click', () => {
@@ -3696,10 +3936,10 @@ document.addEventListener('keydown', (event) => {
     !state.annotatedOnly &&
     direction === 'right' &&
     current?.children.length &&
-    current.collapsed
+    state.collapsedBlockIds.has(current.id)
   ) {
-    current.collapsed = false
-    autosaveReview()
+    state.collapsedBlockIds.delete(current.id)
+    persistWorkspaceState()
   }
   const navigationRoot = state.annotatedOnly
     ? MarkoverAnnotations.navigationRoot(tree.root)
@@ -3907,9 +4147,11 @@ async function initialize(): Promise<void> {
       session = reviewSessions.get(reviewDocument.reviewId || '')
     }
     if (!session) return
+    normalizeSessionWorkspaceState(session)
     renderDocumentsList()
     renderDocumentTabs()
     if (session.reviewId === state.reviewId) renderReviewContext()
+    persistWorkspaceState()
   })
   bridge.onReviewTrashed(({ reviewId }) => {
     void handleReviewTrashed(reviewId).catch((error: unknown) => {
@@ -4002,26 +4244,33 @@ async function initialize(): Promise<void> {
     }
   })
   await rendererStartupPhase(startupInfo, 'restoring-workspace', async () => {
-    if (
-      reviewDocument?.reviewId &&
-      reviewDocument.tree &&
-      isReviewSessionTree(reviewDocument.tree)
-    ) {
+    if (reviews.length) {
       configureManagedMode()
       for (const document of reviews) {
         addManagedReview(managedReviewDocument(document), false)
       }
-      await loadDocument(reviewDocument)
-    } else if (reviews.length) {
-      configureManagedMode()
-      for (const document of reviews) {
-        addManagedReview(managedReviewDocument(document), false)
-      }
-      const latestReview = reviews.at(-1)
-      if (latestReview?.reviewId) await activateReview(latestReview.reviewId)
+    }
+    const restored = applyWorkspaceState(await bridge.getWorkspaceState())
+    setReviewNavigationMode(restored.navigationMode, false)
+    const explicitlyActivatedReviewId = reviewDocument?.reviewId &&
+      reviewSessions.get(reviewDocument.reviewId)
+      ? reviewDocument.reviewId
+      : null
+    const activeReviewId = explicitlyActivatedReviewId ||
+      restored.activeReviewId ||
+      openReviewIds[0] ||
+      reviewSessions.recent(1)[0]?.reviewId ||
+      null
+    if (activeReviewId) {
+      await activateReview(activeReviewId, {
+        revealAncestors: explicitlyActivatedReviewId !== null
+      })
     } else {
       setWorkspaceEmpty(true)
     }
+    applyAnnotationPaneWidth()
+    workspaceStateReady = true
+    persistWorkspaceState()
     if (elements.emptyWorkspace.hidden) elements.previewPane.focus()
     else elements.emptyOpenButton.focus()
     renderDocumentsList()

@@ -64,7 +64,7 @@ test('switching among three reviews preserves independent view and review state'
   first.sourceEditingId = 'block-2'
   first.sourceDrafts.set('block-2', 'A proposed source edit')
   const firstBlock = firstNode(first)
-  firstBlock.collapsed = true
+  first.collapsedBlockIds.add(firstBlock.id)
   firstBlock.feedback = 'First feedback'
   firstBlock.attachments = [{ id: 'img-1' }]
 
@@ -82,12 +82,38 @@ test('switching among three reviews preserves independent view and review state'
   assert.equal(sessions.activate(first.reviewId).annotationView, 'list')
   assert.equal(first.sourceEditingId, 'block-2')
   assert.equal(first.sourceDrafts.get('block-2'), 'A proposed source edit')
-  assert.equal(firstBlock.collapsed, true)
+  assert.equal(first.collapsedBlockIds.has(firstBlock.id), true)
   assert.equal(firstBlock.feedback, 'First feedback')
   assert.deepEqual(firstBlock.attachments, [{ id: 'img-1' }])
   assert.equal(sessions.activate(second.reviewId).selectedId, 'block-3')
   assert.equal(secondBlock.feedback, 'Second feedback')
   assert.equal(sessions.activate(third.reviewId).sourceCollapsed, true)
+})
+
+test('new sessions apply private default collapse rules without node state', () => {
+  const parsed = parseMarkdown(
+    '---\ntitle: Example\n---\n\n# Body\n',
+    'sha256:mko_front111',
+    { name: 'frontmatter.md', path: '/tmp/frontmatter.md' }
+  )
+  const tree = {
+    ...parsed,
+    review: { id: 'mko_front111', status: 'editing' }
+  } satisfies ReviewSessionTree
+  const frontmatter = tree.root.children[0]
+  assert.ok(frontmatter)
+  assert.equal(frontmatter.type, 'frontmatter')
+  delete frontmatter.collapsed
+
+  const session = new ReviewSessions().add({
+    reviewId: 'mko_front111',
+    name: 'frontmatter.md',
+    path: '/tmp/frontmatter.md',
+    checksum: 'sha256:mko_front111',
+    tree
+  })
+
+  assert.equal(session.collapsedBlockIds.has(frontmatter.id), true)
 })
 
 test('unnamed managed documents receive a stable display name', () => {
