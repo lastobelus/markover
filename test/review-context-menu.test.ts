@@ -6,7 +6,8 @@ import test from 'node:test'
 import {
   isReviewContextMenuKey,
   keyboardContextMenuPoint,
-  pointerContextMenuPoint
+  pointerContextMenuPoint,
+  reviewContextMenuFocusKey
 } from '../src/review-context-menu'
 
 const root = path.resolve(__dirname, '../..')
@@ -28,19 +29,30 @@ test('anchors pointer and keyboard menus to bounded integer coordinates', () => 
   })
 })
 
+test('gives each review representation a stable focus identity', () => {
+  assert.equal(
+    reviewContextMenuFocusKey('review-list', 'mko_example'),
+    'review-list:mko_example'
+  )
+  assert.equal(
+    reviewContextMenuFocusKey('document-tab', 'mko_example'),
+    'document-tab:mko_example'
+  )
+})
+
 test('both review representations expose the native menu without activation', () => {
   const renderer = fs.readFileSync(path.join(root, 'src/renderer.ts'), 'utf8')
   assert.match(
     renderer,
-    /function openReviewContextMenu\([\s\S]*bridge\.openReviewContextMenu\(\{ reviewId, \.\.\.point \}\)[\s\S]*result\.outcome === 'copied'[\s\S]*Review link copied[\s\S]*anchor\.focus\(\{ preventScroll: true \}\)/
+    /function openReviewContextMenu\([\s\S]*bridge\.openReviewContextMenu\(\{ reviewId, \.\.\.point \}\)[\s\S]*result\.outcome === 'copied'[\s\S]*Review link copied[\s\S]*data-review-context-menu-focus[\s\S]*focusTarget\?\.focus\(\{ preventScroll: true \}\)/
   )
   assert.match(
     renderer,
-    /function createReviewListRow[\s\S]*bindReviewContextMenuKeyboard\(button, row\.reviewId\)[\s\S]*openReviewContextMenu\(row\.reviewId, event, button\)/
+    /function createReviewListRow[\s\S]*bindReviewContextMenuKeyboard\([\s\S]*row\.reviewId,[\s\S]*'review-list'[\s\S]*openReviewContextMenu\(row\.reviewId, event, button, contextMenuFocusKey\)/
   )
   assert.match(
     renderer,
-    /function createDocumentTab[\s\S]*bindReviewContextMenuKeyboard\(button, session\.reviewId\)[\s\S]*openReviewContextMenu\(session\.reviewId, event, button\)/
+    /function createDocumentTab[\s\S]*bindReviewContextMenuKeyboard\([\s\S]*session\.reviewId,[\s\S]*'document-tab'[\s\S]*openReviewContextMenu\(session\.reviewId, event, button, contextMenuFocusKey\)/
   )
 })
 

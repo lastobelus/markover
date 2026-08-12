@@ -3,6 +3,19 @@ export interface ReviewContextMenuPoint {
   y: number
 }
 
+export type ReviewContextMenuSurface =
+  | 'document-tab'
+  | 'document-tab-overflow'
+  | 'project-review-list'
+  | 'review-list'
+
+export function reviewContextMenuFocusKey(
+  surface: ReviewContextMenuSurface,
+  reviewId: string
+): string {
+  return `${surface}:${reviewId}`
+}
+
 export function isReviewContextMenuKey(
   event: Pick<KeyboardEvent, 'key' | 'shiftKey'>
 ): boolean {
