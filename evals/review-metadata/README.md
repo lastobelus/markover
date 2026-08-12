@@ -111,7 +111,8 @@ and `9e1559d4df4f505d960782f17f64cf8724925520`, the latter binding the actual
 build configuration too. Privacy- and containment-hardened runner commit
 `0fce000ea82942ccdab87e7fc1bd80d9743903b0` produced the next records, followed
 by private-token-segment-hardened runner commit
-`ffbe48d1a3d7121d39c5958c9ba5a7f85c1649e0`. All seven immutable records per
+`ffbe48d1a3d7121d39c5958c9ba5a7f85c1649e0`, then ID-slug-bound runner commit
+`159e8801c67478c9d35b7a7368809484dbc3d6d1`. All eight immutable records per
 combination remain referenced by the matrix.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
