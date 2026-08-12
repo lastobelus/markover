@@ -534,8 +534,6 @@ export function buildSanitizedEvidence(
     throw new Error('Metadata conformance evidence requires an agent-origin review.')
   }
   const sensitiveLeaves: Array<{ raw: string; sanitized: string | undefined }> = []
-  let sanitizedAgentThread: SanitizedEvidence['sanitizedAgentThread'] = null
-  let identity: SanitizedEvidence['relationships']['identity'] = 'truthful-null'
   let threadHostId: SanitizedEvidence['relationships']['threadHostId'] = 'omitted'
 
   if (thread === null) {
@@ -550,60 +548,57 @@ export function buildSanitizedEvidence(
       'A null agentThread cannot verify the selected host/provider combination; ' +
       'do not record passing evidence.'
     )
-  } else {
-    if (
-      thread.threadHost.kind !== entry.threadHost.kind ||
-      thread.threadHost.provider !== entry.threadHost.provider
-    ) {
-      throw new Error(`Captured thread metadata does not match ${entry.id}.`)
-    }
-    assertObserved(observation.discovery.providerThreadId, 'agentThread.id')
-    assertObserved(observation.discovery.hostKind, 'threadHost.kind')
-    assertObserved(observation.discovery.hostProvider, 'threadHost.provider')
-    const sanitizedThreadHost: NonNullable<
-      SanitizedEvidence['sanitizedAgentThread']
-    >['threadHost'] = {
-      kind: thread.threadHost.kind,
-      provider: thread.threadHost.provider
-    }
-    if (thread.threadHost.threadId !== undefined) {
-      assertObserved(observation.discovery.hostThreadId, 'threadHost.threadId')
-      sanitizedThreadHost.threadId = redactedThreadHostThreadId
-      threadHostId = 'distinct'
-    } else if (observation.discovery.hostThreadId.status === 'observed') {
-      throw new Error('Host thread identity was observed but omitted from the artifact.')
-    }
-    if (thread.threadHost.machine !== undefined) {
-      assertObserved(observation.discovery.machine, 'threadHost.machine')
-      sanitizedThreadHost.machine = redactedMachine
-    }
-    identity = 'identified'
-    sanitizedAgentThread = {
-      id: redactedProviderThreadId,
-      threadHost: sanitizedThreadHost
-    }
+  }
+  if (
+    thread.threadHost.kind !== entry.threadHost.kind ||
+    thread.threadHost.provider !== entry.threadHost.provider
+  ) {
+    throw new Error(`Captured thread metadata does not match ${entry.id}.`)
+  }
+  assertObserved(observation.discovery.providerThreadId, 'agentThread.id')
+  assertObserved(observation.discovery.hostKind, 'threadHost.kind')
+  assertObserved(observation.discovery.hostProvider, 'threadHost.provider')
+  const sanitizedThreadHost: NonNullable<
+    SanitizedEvidence['sanitizedAgentThread']
+  >['threadHost'] = {
+    kind: thread.threadHost.kind,
+    provider: thread.threadHost.provider
+  }
+  if (thread.threadHost.threadId !== undefined) {
+    assertObserved(observation.discovery.hostThreadId, 'threadHost.threadId')
+    sanitizedThreadHost.threadId = redactedThreadHostThreadId
+    threadHostId = 'distinct'
+  } else if (observation.discovery.hostThreadId.status === 'observed') {
+    throw new Error('Host thread identity was observed but omitted from the artifact.')
+  }
+  if (thread.threadHost.machine !== undefined) {
+    assertObserved(observation.discovery.machine, 'threadHost.machine')
+    sanitizedThreadHost.machine = redactedMachine
+  }
+  const sanitizedAgentThread: NonNullable<SanitizedEvidence['sanitizedAgentThread']> = {
+    id: redactedProviderThreadId,
+    threadHost: sanitizedThreadHost
+  }
+  sensitiveLeaves.push({
+    raw: thread.id,
+    sanitized: sanitizedAgentThread.id
+  })
+  if (thread.threadHost.threadId !== undefined) {
     sensitiveLeaves.push({
-      raw: thread.id,
-      sanitized: sanitizedAgentThread.id
+      raw: thread.threadHost.threadId,
+      sanitized: sanitizedAgentThread.threadHost.threadId
     })
-    if (thread.threadHost.threadId !== undefined) {
-      sensitiveLeaves.push({
-        raw: thread.threadHost.threadId,
-        sanitized: sanitizedAgentThread.threadHost.threadId
-      })
-    }
-    if (thread.threadHost.machine !== undefined) {
-      sensitiveLeaves.push({
-        raw: thread.threadHost.machine,
-        sanitized: sanitizedAgentThread.threadHost.machine
-      })
-    }
+  }
+  if (thread.threadHost.machine !== undefined) {
+    sensitiveLeaves.push({
+      raw: thread.threadHost.machine,
+      sanitized: sanitizedAgentThread.threadHost.machine
+    })
   }
   if (observation.discovery.machine.source !== 'hostname-command') {
     throw new Error('Machine discovery must record an attempted hostname command.')
   }
   if (
-    thread !== null &&
     thread.threadHost.machine === undefined &&
     observation.discovery.machine.status === 'observed'
   ) {
@@ -616,7 +611,7 @@ export function buildSanitizedEvidence(
     evidenceId: observation.evidenceId,
     exercisedAt: observation.exercisedAt,
     matrixEntryId: observation.matrixEntryId,
-    relationships: { identity, threadHostId },
+    relationships: { identity: 'identified', threadHostId },
     runtime: observation.runtime,
     sanitizedAgentThread,
     schemaVersion: evidenceSchemaVersion,

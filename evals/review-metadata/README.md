@@ -92,8 +92,11 @@ normative classification.
 
 ## Initial evidence
 
-The 2026-08-12 baseline exercises all three initial rows against runner commit
-`82df4d6ecd95be511ede2ccb0113e126c46d416d`:
+The 2026-08-12 baseline exercises all three initial rows. The original records
+retain runner commit `82df4d6ecd95be511ede2ccb0113e126c46d416d` as history. Each
+same-run raw artifact was re-recorded through hardened runner commit
+`a5fec04fac192db4da3cafb73df38db8f112d626`; both immutable records remain
+referenced by the matrix.
 
 | Combination | Runtime evidence | Result |
 | --- | --- | --- |
