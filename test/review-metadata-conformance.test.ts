@@ -174,6 +174,29 @@ test('capture rejects an evidence ID suffix copied from a private identity', () 
   )
 })
 
+test('capture rejects a private identity used as a complete runtime segment', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const runtime = observation().runtime as Record<string, unknown>
+  runtime.providerVersion = 'Agent raw-provider-thread-secret'
+  runtime.providerVersionSource = 'command'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
+  runtime.providerVersion = 'Agent raw-provider-thread-secret-suffix'
+  assert.doesNotThrow(() => buildSanitizedEvidence(
+    artifact,
+    observation({ runtime }),
+    json('evals/review-metadata/matrix.json')
+  ))
+})
+
 test('capture rejects retained values whose discovery is unavailable', () => {
   const artifact = fixture()
   agentThread(artifact)
