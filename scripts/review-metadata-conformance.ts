@@ -682,6 +682,18 @@ function assertSensitiveLeavesRedacted(
   }
 }
 
+function assertEvidenceIdIndependent(
+  evidenceId: string,
+  privateValues: Array<string | null | undefined>
+): void {
+  const suffix = evidenceId.slice(-8)
+  if (privateValues.some((value) => value === suffix)) {
+    throw new Error(
+      'Evidence ID suffix must be independent of private artifact values.'
+    )
+  }
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation
@@ -810,7 +822,7 @@ export function buildSanitizedEvidence(
     sourcePullRequest: observation.sourcePullRequest
   }
   assertSensitiveLeavesRedacted(sensitiveLeaves)
-  assertPrivateArtifactValuesAbsentFromRuntime([
+  const privateArtifactValues = [
     artifact.sourceDocument.name,
     artifact.sourceDocument.path,
     artifact.sourceDocument.checksum,
@@ -820,7 +832,12 @@ export function buildSanitizedEvidence(
     artifact.review.git?.commit,
     artifact.review.pullRequest?.url,
     ...sensitiveLeaves.map(({ raw }) => raw)
-  ], evidence.runtime)
+  ]
+  assertEvidenceIdIndependent(evidence.evidenceId, privateArtifactValues)
+  assertPrivateArtifactValuesAbsentFromRuntime(
+    privateArtifactValues,
+    evidence.runtime
+  )
   return evidence
 }
 
@@ -1008,6 +1025,7 @@ export function validateMetadataCorpus(
     evidenceById.set(evidence.evidenceId, evidence)
   }
   const referencedEvidence = new Set<string>()
+  const realExerciseDirectory = fs.realpathSync(path.join(directory, 'exercises'))
   for (const entry of matrix.entries) {
     const exercisePath = path.join(directory, entry.exercise)
     let exercise: fs.Stats
@@ -1018,6 +1036,17 @@ export function validateMetadataCorpus(
     }
     if (!exercise.isFile()) {
       throw new Error(`${entry.id} exercise must be a regular file: ${entry.exercise}.`)
+    }
+    const realExercisePath = fs.realpathSync(exercisePath)
+    const relativeExercisePath = path.relative(
+      realExerciseDirectory,
+      realExercisePath
+    )
+    if (
+      relativeExercisePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeExercisePath)
+    ) {
+      throw new Error(`${entry.id} exercise must resolve beneath exercises/.`)
     }
     if (requireComplete && entry.evidence.length === 0) {
       throw new Error(`${entry.id} has no committed live evidence.`)
