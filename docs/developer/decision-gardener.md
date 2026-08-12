@@ -153,7 +153,9 @@ curated process environment plus `MARKOVER_DECISION_GARDENER_EVENT`
 (`test`, `failed`, or `recovered`),
 `MARKOVER_DECISION_GARDENER_SUMMARY`, and
 `MARKOVER_DECISION_GARDENER_RECORD`. Keep the notifier outside the repository
-checkout and make it responsible for its own secret storage.
+checkout and make it responsible for its own secret storage. The controller
+terminates a notifier that exceeds thirty seconds and treats that timeout as a
+delivery failure.
 
 Make the config private, then validate the complete notification route before
 installing:
@@ -173,6 +175,13 @@ loaded and then asks `launchd` for one lightweight heartbeat every 300 seconds.
 It uses `ProcessType=Background`, a private umask, explicit stdout/stderr logs,
 and the exact Node, controller, config, repository, and PATH values present at
 installation time.
+
+The `decision-gardener:host` npm script always runs the existing built
+controller; it never rebuilds the shared `build/` directory while an audit may
+be using it. Build only during initial setup or after unloading the agent for a
+deliberate upgrade. If a reinstall cannot bootstrap the replacement, it
+restores the previous plist and reloads the previous agent before reporting
+the failed upgrade.
 
 Re-run `install` after moving or upgrading Node, moving the checkout, or moving
 the built controller. Ordinary cadence changes do not require reinstalling:
@@ -211,6 +220,9 @@ Host state is stored in `host-state.json`. Every invocation creates a private
 record under `host-runs/`, including `not_due` and `busy` outcomes, and appends
 the same lifecycle facts to `host.log`. Full audit evidence remains under
 `runs/<run-id>/`. Launchd stdout and stderr are separate files under `logs/`.
+If host state is malformed or unreadable, the cycle emits a failure
+notification and preserves the invalid file under a per-attempt
+`host-state.invalid.*.json` name before establishing new failed state.
 
 The first successful run establishes healthy state without noise. A transition
 to failure sends one `failed` notification; repeated failures retry every

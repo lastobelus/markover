@@ -35,7 +35,7 @@
     "eval:annotation": "npm run build --silent && node build/scripts/annotation-interpretation-eval.js run",
     "eval:annotation:validate": "npm run build --silent && node build/scripts/annotation-interpretation-eval.js validate",
     "decision-gardener": "npm run build --silent && node build/scripts/decision-gardener-run.js",
-    "decision-gardener:host": "npm run build --silent && node build/scripts/decision-gardener-host.js",
+    "decision-gardener:host": "node build/scripts/decision-gardener-host.js",
     "check": "npm run lint && npm run typecheck && npm run notices:check",
     "ci:local": "npm run build --silent && npm run lint && npm run typecheck && npm run notices:check:built && npm run test:built && npm run smoke:built -- --timeout=10"
   },

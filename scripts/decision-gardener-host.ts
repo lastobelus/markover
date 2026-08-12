@@ -490,6 +490,19 @@ export async function runDecisionGardenerHostCycle({
       } catch (preserveError) {
         preservationError = errorMessage(preserveError)
       }
+      const details = [message]
+      if (preservationError !== null) {
+        details.push(`The invalid state remains at ${statePath}; it could not be moved: ${preservationError}`)
+      }
+      const provisionalError = details.join(' ')
+      const provisionalRecord: HostAttemptRecord = {
+        ...record,
+        error: provisionalError,
+        finishedAt: failedAt.toISOString(),
+        stateEvidence: evidencePath ?? statePath,
+        status: 'failed'
+      }
+      await writePrivateJson(recordPath, provisionalRecord)
       let notificationError: string | null = null
       try {
         sendDecisionGardenerNotification({
@@ -502,10 +515,6 @@ export async function runDecisionGardenerHostCycle({
       } catch (notifyError) {
         notificationError = errorMessage(notifyError)
       }
-      const details = [message]
-      if (preservationError !== null) {
-        details.push(`The invalid state remains at ${statePath}; it could not be moved: ${preservationError}`)
-      }
       if (notificationError !== null) details.push(`Notifier error: ${notificationError}`)
       const combinedError = details.join(' ')
       if (evidencePath !== null) {
@@ -517,11 +526,8 @@ export async function runDecisionGardenerHostCycle({
         } satisfies DecisionGardenerHostState)
       }
       const failedRecord: HostAttemptRecord = {
-        ...record,
-        error: combinedError,
-        finishedAt: failedAt.toISOString(),
-        stateEvidence: evidencePath ?? statePath,
-        status: 'failed'
+        ...provisionalRecord,
+        error: combinedError
       }
       await updateAttempt(recordPath, failedRecord, config.runStore)
       attemptFinalized = true
@@ -559,7 +565,14 @@ export async function runDecisionGardenerHostCycle({
         runStore: config.runStore
       }))
       const finished = now()
+      const completed: HostAttemptRecord = {
+        ...record,
+        audit,
+        finishedAt: finished.toISOString(),
+        status: 'completed'
+      }
       if (state.health === 'failed') {
+        await writePrivateJson(recordPath, completed)
         sendDecisionGardenerNotification({
           config,
           event: 'recovered',
@@ -577,18 +590,19 @@ export async function runDecisionGardenerHostCycle({
         updatedAt: finished.toISOString()
       }
       await writePrivateJson(statePath, healthy)
-      const completed: HostAttemptRecord = {
-        ...record,
-        audit,
-        finishedAt: finished.toISOString(),
-        status: 'completed'
-      }
       await updateAttempt(recordPath, completed, config.runStore)
       attemptFinalized = true
       return { audit, record: recordPath, status: 'completed', trigger }
     } catch (error) {
       const failedAt = now()
       const message = errorMessage(error)
+      const provisionalRecord: HostAttemptRecord = {
+        ...record,
+        error: message,
+        finishedAt: failedAt.toISOString(),
+        status: 'failed'
+      }
+      await writePrivateJson(recordPath, provisionalRecord)
       let notificationError: string | null = null
       if (state.lastNotifiedHealth !== 'failed') {
         try {
@@ -616,10 +630,8 @@ export async function runDecisionGardenerHostCycle({
       }
       await writePrivateJson(statePath, failed)
       const failedRecord: HostAttemptRecord = {
-        ...record,
-        error: combinedError,
-        finishedAt: failedAt.toISOString(),
-        status: 'failed'
+        ...provisionalRecord,
+        error: combinedError
       }
       await updateAttempt(recordPath, failedRecord, config.runStore)
       attemptFinalized = true

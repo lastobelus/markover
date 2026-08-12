@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -195,6 +196,32 @@ test('notifier commands have a finite timeout and surface expiration as failure'
   assert.equal(timeout, decisionGardenerNotifierTimeoutMilliseconds)
 })
 
+test('a failure record is finalized before the notifier reads it', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const notifiedRecords: Array<{ error?: string; status?: string }> = []
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    now: () => new Date('2026-08-11T00:00:00.000Z'),
+    runAudit: () => Promise.reject(new Error('audit transport failed')),
+    runCommand: (_executable, _args, options) => {
+      const recordPath = options?.env?.MARKOVER_DECISION_GARDENER_RECORD
+      assert.ok(recordPath)
+      notifiedRecords.push(JSON.parse(readFileSync(recordPath, 'utf8')) as {
+        error?: string
+        status?: string
+      })
+      return { status: 0, stderr: '', stdout: '' }
+    }
+  }), /audit transport failed/)
+  assert.deepEqual(notifiedRecords[0], {
+    ...notifiedRecords[0],
+    error: 'audit transport failed',
+    status: 'failed'
+  })
+})
+
 test('an unreadable host state notifies failure and preserves the invalid evidence', async (t) => {
   const host = await fixture()
   t.after(() => fs.rm(host.root, { recursive: true, force: true }))
@@ -368,11 +395,15 @@ test('a failed reinstall restores and reloads the previous launch agent', async 
 
 test('package and runbook expose the complete host lifecycle', async () => {
   const packageSource = await fs.readFile(path.resolve('package.json'), 'utf8')
+  const packageContract = JSON.parse(packageSource) as { scripts: Record<string, string> }
   const documentation = await fs.readFile(
     path.resolve('docs/developer/decision-gardener.md'),
     'utf8'
   )
-  assert.match(packageSource, /"decision-gardener:host"/)
+  assert.equal(
+    packageContract.scripts['decision-gardener:host'],
+    'node build/scripts/decision-gardener-host.js'
+  )
   for (const command of [
     'test-notifier', 'install', 'status', 'run-now', 'uninstall'
   ]) assert.match(documentation, new RegExp(`decision-gardener:host -- ${command}`))
