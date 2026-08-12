@@ -75,7 +75,7 @@ classifying products, normalizing aliases, or inventing provider mappings.
 
 ```text
 effectiveThreadId =
-  agentThread.threadHost.threadId  when present and distinct
+  agentThread.threadHost.threadId  when present
   agentThread.id                   otherwise
 
 stableThreadIdentity = [agentThread.threadHost.kind, effectiveThreadId]
@@ -85,6 +85,13 @@ stableThreadIdentity = [agentThread.threadHost.kind, effectiveThreadId]
 not assumed to be provider-owned. Provider, machine, thread-title, product
 aliases, runtime values, and discovery paths never participate in stable
 identity, equality, or the directory key.
+
+`agentThread.id` and `threadHost.threadId` are independently reported
+best-known identifiers and may be equal. #131 does not compare them or require
+one to be omitted. Supplying the equal host ID and omitting it therefore derive
+the same stable identity. #134 owns removing the current portable-reader and
+guidance rule that rejects equality; #131 adds no workaround or compatibility
+path for that temporary upstream restriction.
 
 The canonical digest input is the UTF-8 JSON encoding of the two-element array
 above. Both values must already satisfy the portable v1 nonblank-string
@@ -354,8 +361,9 @@ The pull request does not own:
 
 - Accept exact review/thread v1 fixtures and reject missing, extra, malformed,
   mismatched, and unsupported fields without modifying bytes.
-- Prove the stable key uses `threadHost.kind` plus distinct
-  `threadHost.threadId`, otherwise `agentThread.id`.
+- Prove the stable key uses `threadHost.kind` plus `threadHost.threadId`
+  whenever present, otherwise `agentThread.id`; cover omitted, distinct, and
+  equal duplicated ID cases.
 - Prove provider, machine, title, aliases, and runtime inputs cannot change the
   key and cannot collide through delimiter ambiguity.
 - Validate canonical timestamps, checksums, absolute paths, repository-relative
