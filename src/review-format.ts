@@ -406,6 +406,17 @@ function assertNode(
   }
 }
 
+const PRIVATE_AGENT_THREAD_FIELDS = [
+  'cwd',
+  'logPath',
+  'discovery',
+  'parentThreadId',
+  'forkedFromId',
+  'requestingThreadTitle',
+  'title',
+  'name'
+] as const
+
 function assertAgentThread(value: unknown): asserts value is ReviewAgentThread | null {
   if (value === null) return
   if (!isRecord(value)) invalid('review.agentThread must be an object or null.')
@@ -413,16 +424,7 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
   if (!nonblank(value.id) || !isRecord(value.threadHost)) {
     invalid('review.agentThread requires a provider thread ID and threadHost object.')
   }
-  for (const privateField of [
-    'cwd',
-    'logPath',
-    'discovery',
-    'parentThreadId',
-    'forkedFromId',
-    'requestingThreadTitle',
-    'title',
-    'name'
-  ]) {
+  for (const privateField of PRIVATE_AGENT_THREAD_FIELDS) {
     if (owns(value, privateField)) invalid(`review.agentThread must not contain private ${privateField} evidence.`)
   }
   requireKeys(value.threadHost, ['kind', 'provider'])
@@ -434,7 +436,7 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
       invalid(`review.agentThread.threadHost.${field} must be nonblank when present.`)
     }
   }
-  for (const privateField of ['requestingThreadTitle', 'title', 'name']) {
+  for (const privateField of PRIVATE_AGENT_THREAD_FIELDS) {
     if (owns(value.threadHost, privateField)) {
       invalid(`review.agentThread.threadHost must not contain private ${privateField} evidence.`)
     }

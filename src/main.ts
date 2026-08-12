@@ -1177,10 +1177,11 @@ function flushPendingManagedReviewNotifications(): void {
 }
 
 function sendManagedReview(artifact: ReviewArtifact): void {
-  void projectRootForReview(artifact).then((projectRoot) => {
+  void projectRootForReview(artifact).then(async (projectRoot) => {
+    const latestArtifact = await requireReviewStore().load(artifact.review.id)
     pendingManagedReviewNotifications.set(
       artifact.review.id,
-      managedDocument(artifact, projectRoot)
+      managedDocument(latestArtifact, projectRoot)
     )
     installApplicationMenu()
     if (!mainWindow) createWindow({ show: false })

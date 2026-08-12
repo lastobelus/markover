@@ -204,7 +204,16 @@ test('portable metadata rejects credentials and known app-private evidence', () 
   record(review(privateThread).agentThread).logPath = '/private/session.jsonl'
   assertFormatCode(() => decodeReviewArtifact(privateThread), 'INVALID_REVIEW')
 
-  for (const field of ['title', 'name', 'requestingThreadTitle']) {
+  for (const field of [
+    'cwd',
+    'logPath',
+    'discovery',
+    'parentThreadId',
+    'forkedFromId',
+    'title',
+    'name',
+    'requestingThreadTitle'
+  ]) {
     const privateThreadTitle = cloneFixture()
     Reflect.set(
       record(review(privateThreadTitle).agentThread),
