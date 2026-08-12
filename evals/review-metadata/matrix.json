@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "t3code-codex",
+      "hostProduct": "T3 Code",
+      "providerProduct": "Codex",
+      "threadHost": {
+        "kind": "t3code",
+        "provider": "codex"
+      },
+      "identityExpectation": "required",
+      "availability": "available",
+      "exercise": "exercises/t3code-codex.md",
+      "evidence": []
+    },
+    {
+      "id": "t3code-claude",
+      "hostProduct": "T3 Code",
+      "providerProduct": "Claude",
+      "threadHost": {
+        "kind": "t3code",
+        "provider": "claude"
+      },
+      "identityExpectation": "required",
+      "availability": "available",
+      "exercise": "exercises/t3code-claude.md",
+      "evidence": []
+    },
+    {
+      "id": "claude-code-claude",
+      "hostProduct": "Claude Code",
+      "providerProduct": "Claude",
+      "threadHost": {
+        "kind": "claude-code",
+        "provider": "claude"
+      },
+      "identityExpectation": "required",
+      "availability": "available",
+      "exercise": "exercises/claude-code-claude.md",
+      "evidence": []
+    }
+  ],
+  "expansionCandidates": [
+    {
+      "hostProduct": "LastCode",
+      "providerSelection": "discover-at-exercise",
+      "reason": "No live LastCode thread is available in the initial exercise environment."
+    },
+    {
+      "hostProduct": "Codex",
+      "providerSelection": "discover-at-exercise",
+      "reason": "The initial direct-provider exercise uses Claude Code; add direct Codex from a real direct Codex thread."
+    },
+    {
+      "hostProduct": "OpenCode",
+      "providerSelection": "discover-at-exercise",
+      "reason": "Provider identity depends on the actual OpenCode configuration and must not be guessed."
+    },
+    {
+      "hostProduct": "Cursor",
+      "providerSelection": "discover-at-exercise",
+      "reason": "Provider identity depends on the actual Cursor thread and must not be guessed."
+    }
+  ]
+}
