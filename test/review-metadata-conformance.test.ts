@@ -9,7 +9,8 @@ import {
   parseCaptureObservation,
   parseMetadataMatrix,
   validateMetadataCorpus,
-  validateSanitizedEvidence
+  validateSanitizedEvidence,
+  verifySourceCommitPullRequest
 } from '../scripts/review-metadata-conformance'
 
 const root = path.resolve(__dirname, '../..')
@@ -213,6 +214,64 @@ test('capture requires canonical pull request provenance for runner commits', ()
     })),
     /sourcePullRequest must be a canonical GitHub URL/
   )
+})
+
+test('recording verifies runner commit ancestry in the declared pull request', async (t) => {
+  const parsed = parseCaptureObservation(observation())
+
+  await t.test('accepts a commit in the matching pull request head', () => {
+    const calls: string[][] = []
+    verifySourceCommitPullRequest(parsed, root, (args) => {
+      calls.push(args)
+      if (args[0] === 'remote') {
+        return {
+          status: 0,
+          stderr: '',
+          stdout: 'git@github.com:lastobelus/markover.git\n'
+        }
+      }
+      return { status: 0, stderr: '', stdout: '' }
+    })
+    assert.deepEqual(calls, [
+      ['remote', 'get-url', 'origin'],
+      ['fetch', '--quiet', '--no-tags', 'origin', 'refs/pull/141/head'],
+      ['merge-base', '--is-ancestor', parsed.sourceCommit, 'FETCH_HEAD']
+    ])
+  })
+
+  await t.test('rejects a pull request in another repository', () => {
+    assert.throws(
+      () => {
+        verifySourceCommitPullRequest(
+          parseCaptureObservation(observation({
+            sourcePullRequest: 'https://github.com/another/markover/pull/141'
+          })),
+          root,
+          () => ({
+            status: 0,
+            stderr: '',
+            stdout: 'git@github.com:lastobelus/markover.git\n'
+          })
+        )
+      },
+      /repository must match the origin repository/
+    )
+  })
+
+  await t.test('rejects a commit outside the fetched pull request history', () => {
+    assert.throws(
+      () => {
+        verifySourceCommitPullRequest(parsed, root, (args) => ({
+          status: args[0] === 'merge-base' ? 1 : 0,
+          stderr: '',
+          stdout: args[0] === 'remote'
+            ? 'https://github.com/lastobelus/markover.git\n'
+            : ''
+        }))
+      },
+      /sourceCommit must belong to the sourcePullRequest head history/
+    )
+  })
 })
 
 test('capture rejects incorrect null fallback for a required identity row', () => {

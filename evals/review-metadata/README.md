@@ -9,8 +9,10 @@ record live product behavior.
 
 1. Select an exact host/provider row from `matrix.json` and follow its exercise.
 2. Keep the raw `get` artifact and capture observation under ignored `tmp/`.
-3. Run `npm run eval:metadata:record --` with those two inputs. The command first
-   applies the shared v1 decoder and the rubric, then writes a reduced record.
+3. Push the runner commit to the declared pull request, then run
+   `npm run eval:metadata:record --` with those two inputs. The command verifies
+   that the commit is in that PR's fetched head history, applies the shared v1
+   decoder and the rubric, then writes a reduced record.
 4. Inspect the reduced JSON, add its ID to the matrix row, and run
    `npm run eval:metadata:validate`.
 5. Before declaring the matrix complete, run
@@ -20,6 +22,8 @@ The recorder creates its output exclusively and never overwrites an existing
 file. Raw artifacts stay under `tmp/review-metadata/` and are never promoted.
 Free-form observation limitations also stay in the ignored observation; the
 committed record retains their structured discovery and runtime facts only.
+The recorder requires a matching GitHub `origin` and read access to the
+declared pull-request head ref so runner provenance cannot point elsewhere.
 
 ## Classification ownership
 
