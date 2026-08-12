@@ -4,11 +4,15 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { reviewChecksum } from '../src/review-format'
+
 import {
   buildSanitizedEvidence,
+  recordConformanceEvidence,
   parseCaptureObservation,
   parseMetadataMatrix,
   validateMetadataCorpus,
+  validateSanitizedFailureEvidence,
   validateSanitizedEvidence,
   verifySourceCommitPullRequest
 } from '../scripts/review-metadata-conformance'
@@ -20,9 +24,17 @@ function json(relativePath: string): unknown {
 }
 
 function fixture(): Record<string, unknown> {
-  return structuredClone(
+  const value = structuredClone(
     json('test/fixtures/review-handoff-v1.json')
   ) as Record<string, unknown>
+  const sourceDocument = value.sourceDocument as Record<string, unknown>
+  const content = fs.readFileSync(
+    path.join(root, 'evals/review-metadata/exercise-source.md'),
+    'utf8'
+  )
+  sourceDocument.content = content
+  sourceDocument.checksum = reviewChecksum(content)
+  return value
 }
 
 function metadataCorpusCopy(): string {
@@ -156,6 +168,22 @@ test('capture validates raw v1 identity and emits only typed redactions', () => 
   )
 })
 
+test('capture requires the immutable maintained exercise source', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const sourceDocument = artifact.sourceDocument as Record<string, unknown>
+  sourceDocument.content = '# Another valid review source\n'
+  sourceDocument.checksum = reviewChecksum(sourceDocument.content as string)
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /must use the maintained exercise source/
+  )
+})
+
 test('capture rejects an evidence ID suffix copied from a private identity', () => {
   const artifact = fixture()
   agentThread(artifact)
@@ -204,6 +232,114 @@ test('capture rejects a private identity used as a complete runtime segment', ()
     observation({ runtime }),
     json('evals/review-metadata/matrix.json')
   ))
+
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  thread.id = 'raw provider secret'
+  runtime.providerVersion = 'raw provider secret'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+})
+
+test('failed automatic checks can produce only closed sanitized evidence', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  const host = thread.threadHost as Record<string, unknown>
+  delete host.provider
+
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /--defect-issue NUMBER/
+  )
+
+  const failure = recordConformanceEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json'),
+    999
+  )
+  assert.deepEqual(failure, {
+    evidenceId: '2026-08-12__t3code-codex__1234abcd',
+    exercisedAt: '2026-08-12T12:34:56.789Z',
+    failure: {
+      defectIssue: 999,
+      kind: 'automatic-check-failed'
+    },
+    matrixEntryId: 't3code-codex',
+    outcome: 'failed',
+    schemaVersion: 1,
+    sourceCommit: '903a58abd2720bf82b95df3688dfb40995367e3c',
+    sourcePullRequest: 'https://github.com/lastobelus/markover/pull/141'
+  })
+  assert.deepEqual(
+    validateSanitizedFailureEvidence(
+      failure,
+      json('evals/review-metadata/matrix.json')
+    ),
+    failure
+  )
+  assert.doesNotMatch(JSON.stringify(failure), /raw-provider-thread-secret/)
+})
+
+test('corpus retains failures without letting them satisfy completeness', (t) => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  const host = thread.threadHost as Record<string, unknown>
+  delete host.provider
+  const observationValue = observation({
+    evidenceId: '2026-08-12__t3code-codex__cafebabe'
+  })
+  const matrixValue = json('evals/review-metadata/matrix.json') as Record<string, unknown>
+  const failure = recordConformanceEvidence(
+    artifact,
+    observationValue,
+    matrixValue,
+    999
+  )
+  const temporaryRoot = metadataCorpusCopy()
+  t.after(() => {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true })
+  })
+  const matrixPath = path.join(temporaryRoot, 'evals/review-metadata/matrix.json')
+  const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8')) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  const evidenceIds = firstEntry.evidence as string[]
+  evidenceIds.push(failure.evidenceId)
+  fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`)
+  fs.writeFileSync(
+    path.join(
+      temporaryRoot,
+      `evals/review-metadata/evidence/${failure.evidenceId}.json`
+    ),
+    `${JSON.stringify(failure, null, 2)}\n`
+  )
+  assert.deepEqual(validateMetadataCorpus(temporaryRoot, true), {
+    evidenceCount: 25,
+    matrixEntryCount: 3
+  })
+
+  firstEntry.evidence = [failure.evidenceId]
+  fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`)
+  assert.throws(
+    () => validateMetadataCorpus(temporaryRoot, true),
+    /t3code-codex has no committed live evidence/
+  )
 })
 
 test('capture rejects retained values whose discovery is unavailable', () => {
@@ -296,6 +432,8 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         '--quiet',
         parsed.sourceCommit,
         '--',
+        'evals/review-metadata/exercise-source.md',
+        'evals/review-metadata/matrix.json',
         'package-lock.json',
         'package.json',
         'scripts/review-metadata-conformance.ts',
