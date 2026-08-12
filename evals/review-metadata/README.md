@@ -74,3 +74,18 @@ Expansion candidates name hosts only. Choose their provider from the live thread
 at exercise time, then add an exact matrix row. This keeps LastCode, direct
 provider hosts, OpenCode, Cursor, and future mixed combinations visible without
 inventing provider identity.
+
+## Initial evidence
+
+The 2026-08-12 baseline exercises all three initial rows against runner commit
+`82df4d6ecd95be511ede2ccb0113e126c46d416d`:
+
+| Combination | Runtime evidence | Result |
+| --- | --- | --- |
+| T3 Code × Codex | `gpt-5.6-sol`; T3 Code and provider versions not exposed | Pass |
+| T3 Code × Claude | `claude-sonnet-5`; Claude Agent SDK 0.3.227; T3 Code version not exposed | Pass |
+| Claude Code × Claude | Claude Code 2.1.228; `claude-sonnet-5`; provider service version not exposed | Pass |
+
+Each record retains discovery limitations, ID relationships, and typed redaction
+markers. No raw provider ID, host ID, hostname, session path, or account data is
+committed.

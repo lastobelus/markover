@@ -82,15 +82,13 @@ test('initial live matrix names three exact combinations without guessing expans
   )
 })
 
-test('corpus validation accepts pending rows but completeness requires evidence', () => {
-  assert.deepEqual(validateMetadataCorpus(root), {
-    evidenceCount: 0,
+test('corpus validation requires and finds evidence for every initial row', () => {
+  const expected = {
+    evidenceCount: 3,
     matrixEntryCount: 3
-  })
-  assert.throws(
-    () => validateMetadataCorpus(root, true),
-    /t3code-codex has no committed live evidence/
-  )
+  }
+  assert.deepEqual(validateMetadataCorpus(root), expected)
+  assert.deepEqual(validateMetadataCorpus(root, true), expected)
 })
 
 test('capture validates raw v1 identity and emits only typed redactions', () => {
