@@ -22,6 +22,7 @@ export class WorkspaceStore {
   state: MarkoverWorkspaceState = defaultWorkspaceState()
   private writer: Promise<void> = Promise.resolve()
   private latestWrite: Promise<void> = Promise.resolve()
+  private latestSnapshot: MarkoverWorkspaceState | null = null
   private writeSequence = 0
 
   constructor(filePath: string) {
@@ -64,8 +65,7 @@ export class WorkspaceStore {
     return cloneWorkspaceState(this.state)
   }
 
-  async replace(value: unknown): Promise<MarkoverWorkspaceState> {
-    const snapshot = parseWorkspaceState(value)
+  private enqueueWrite(snapshot: MarkoverWorkspaceState): Promise<void> {
     const sequence = ++this.writeSequence
     const write = this.writer.catch(() => undefined).then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true })
@@ -86,17 +86,27 @@ export class WorkspaceStore {
     })
     this.writer = write.then(() => undefined, () => undefined)
     this.latestWrite = write
+    return write
+  }
+
+  async replace(value: unknown): Promise<MarkoverWorkspaceState> {
+    const snapshot = parseWorkspaceState(value)
+    this.latestSnapshot = cloneWorkspaceState(snapshot)
+    const write = this.enqueueWrite(snapshot)
     await write
     return cloneWorkspaceState(this.state)
   }
 
   async flush(): Promise<void> {
+    let retry: Promise<void> | null = null
     for (;;) {
       const pending = this.latestWrite
       try {
         await pending
       } catch (error) {
-        if (pending === this.latestWrite) throw error
+        if (pending !== this.latestWrite) continue
+        if (pending === retry || !this.latestSnapshot) throw error
+        retry = this.enqueueWrite(this.latestSnapshot)
         continue
       }
       if (pending === this.latestWrite) return

@@ -92,6 +92,12 @@ test('workspace flush reports the latest failed write and later writes recover',
   await assert.rejects(store.flush())
 
   await fs.unlink(blockedParent)
+  await store.flush()
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(filePath, 'utf8')),
+    populatedWorkspace()
+  )
+
   const recovered = {
     ...populatedWorkspace(),
     navigationMode: 'inbox' as const
