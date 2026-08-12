@@ -45,6 +45,7 @@ function observation(
     matrixEntryId: 't3code-codex',
     exercisedAt: '2026-08-12T12:34:56.789Z',
     sourceCommit: '903a58abd2720bf82b95df3688dfb40995367e3c',
+    sourcePullRequest: 'https://github.com/lastobelus/markover/pull/141',
     runtime: {
       hostVersion: null,
       hostVersionSource: 'not-exposed',
@@ -202,6 +203,15 @@ test('capture rejects the documented source commit placeholder', () => {
       sourceCommit: '0000000000000000000000000000000000000000'
     })),
     /sourceCommit must be a non-placeholder full Git commit/
+  )
+})
+
+test('capture requires canonical pull request provenance for runner commits', () => {
+  assert.throws(
+    () => parseCaptureObservation(observation({
+      sourcePullRequest: 'https://github.com/lastobelus/markover/pull/141/files'
+    })),
+    /sourcePullRequest must be a canonical GitHub URL/
   )
 })
 
@@ -665,6 +675,52 @@ test('corpus validation rejects every unexpected evidence directory entry', (t) 
     () => validateMetadataCorpus(temporaryRoot),
     /Evidence directory contains unexpected entry: raw-review/
   )
+})
+
+test('corpus validation rejects duplicate JSON keys before decoding', async (t) => {
+  await t.test('matrix', (t) => {
+    const temporaryRoot = metadataCorpusCopy()
+    t.after(() => {
+      fs.rmSync(temporaryRoot, { force: true, recursive: true })
+    })
+    const matrixPath = path.join(temporaryRoot, 'evals/review-metadata/matrix.json')
+    const source = fs.readFileSync(matrixPath, 'utf8')
+    fs.writeFileSync(
+      matrixPath,
+      source.replace(
+        '"schemaVersion": 1,',
+        '"schemaVersion": 1,\n  "schemaVersion": 1,'
+      )
+    )
+    assert.throws(
+      () => validateMetadataCorpus(temporaryRoot),
+      /matrix\.json contains duplicate key: schemaVersion/
+    )
+  })
+
+  await t.test('evidence with shadowed private value', (t) => {
+    const temporaryRoot = metadataCorpusCopy()
+    t.after(() => {
+      fs.rmSync(temporaryRoot, { force: true, recursive: true })
+    })
+    const evidencePath = path.join(
+      temporaryRoot,
+      'evals/review-metadata/evidence/2026-08-12__t3code-codex__63d3f9fc.json'
+    )
+    const source = fs.readFileSync(evidencePath, 'utf8')
+    fs.writeFileSync(
+      evidencePath,
+      source.replace(
+        '"matrixEntryId": "t3code-codex",',
+        '"matrixEntryId": "raw-provider-thread-secret",\n  ' +
+        '"matrixEntryId": "t3code-codex",'
+      )
+    )
+    assert.throws(
+      () => validateMetadataCorpus(temporaryRoot),
+      /contains duplicate key: matrixEntryId/
+    )
+  })
 })
 
 test('documentation fixes rerun and schema-defect handling without storing raw evidence', () => {
