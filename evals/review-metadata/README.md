@@ -45,7 +45,7 @@ observed in the live run:
   "evidenceId": "2026-08-12__t3code-codex__1234abcd",
   "matrixEntryId": "t3code-codex",
   "exercisedAt": "2026-08-12T12:34:56.789Z",
-  "sourceCommit": "0000000000000000000000000000000000000000",
+  "sourceCommit": "REPLACE_WITH_FULL_GIT_COMMIT_SHA",
   "runtime": {
     "hostVersion": null,
     "hostVersionSource": "not-exposed",
