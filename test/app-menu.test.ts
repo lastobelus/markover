@@ -116,19 +116,23 @@ test('main process applies persisted zoom before and after renderer load', () =>
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
   assert.match(
     main,
-    /window\.webContents\.setZoomFactor\(startupSettings\.zoomPercent \/ 100\)[\s\S]*?window\.loadURL/
+    /applyWindowZoom\(window, startupSettings\.zoomPercent\)[\s\S]*?window\.loadURL/
   )
   assert.match(
     main,
-    /webContents\.on\('did-finish-load',[\s\S]*?webContents\.setZoomFactor\([\s\S]*?settingsStore\?\.settings\.zoomPercent/
+    /webContents\.on\('did-finish-load',[\s\S]*?applyWindowZoom\([\s\S]*?settingsStore\?\.settings\.zoomPercent/
   )
   assert.match(
     main,
-    /function applyMainSettings\([\s\S]*?webContents\.setZoomFactor\(settings\.zoomPercent \/ 100\)/
+    /function applyMainSettings\([\s\S]*?applyWindowZoom\(window, settings\.zoomPercent\)/
   )
   assert.match(
     main,
     /store\.update\(\{ zoomPercent: next \}\)[\s\S]*?installApplicationMenu\(\)/
+  )
+  assert.match(
+    main,
+    /function applyWindowZoom\([\s\S]*setMinimumSize\([\s\S]*setZoomFactor\(zoomPercent \/ 100\)/
   )
 })
 
@@ -155,6 +159,26 @@ test('Help uses the native role and exposes the canonical public commands', () =
     click()
     assert.equal(opened.at(-1), PUBLIC_LINKS[index]?.id)
   }
+})
+
+test('Help places the exact Markdown limitations destination between user and privacy help', () => {
+  assert.deepEqual(PUBLIC_LINKS.slice(0, 3), [
+    {
+      id: 'user-guide',
+      label: 'User Guide',
+      url: 'https://lastobelus.github.io/markover/guide/'
+    },
+    {
+      id: 'markdown-support-and-limitations',
+      label: 'Markdown Support and Limitations',
+      url: 'https://lastobelus.github.io/markover/limitations/'
+    },
+    {
+      id: 'privacy-and-local-data',
+      label: 'Privacy and Local Data',
+      url: 'https://lastobelus.github.io/markover/privacy/'
+    }
+  ])
 })
 
 test('non-macOS Help preserves Settings after the public commands', () => {

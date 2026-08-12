@@ -152,6 +152,16 @@ import * as agentGuidance from './agent-guidance'
     return ZOOM_LEVELS[nextIndex] ?? DEFAULT_SETTINGS.zoomPercent
   }
 
+  function minimumWindowSize(
+    zoomPercent: ZoomPercent
+  ): { width: number; height: number } {
+    const factor = zoomPercent / 100
+    return {
+      width: Math.ceil(760 * factor),
+      height: Math.ceil(520 * factor)
+    }
+  }
+
   function windowBackground(
     settings: unknown,
     resolvedAppearance = 'light'
@@ -232,6 +242,7 @@ import * as agentGuidance from './agent-guidance'
     windowBackground,
     applySettingsToView,
     darkColorization,
+    minimumWindowSize,
     sidebarPreferenceChanged,
     confirmScreenshotRemoval
   } satisfies MarkoverSettingsApi
@@ -243,6 +254,7 @@ export {
   DARK_COLORIZATION,
   DEFAULT_SETTINGS,
   darkColorization,
+  minimumWindowSize,
   normalizeSettings,
   OPTIONS,
   sidebarPreferenceChanged,

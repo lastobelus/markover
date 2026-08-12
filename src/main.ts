@@ -112,6 +112,7 @@ import {
   adjacentZoomPercent,
   darkColorization,
   DEFAULT_SETTINGS,
+  minimumWindowSize,
   windowBackground,
   ZOOM_LEVELS
 } from './settings'
@@ -460,6 +461,26 @@ function loadBrandAssets(): Promise<MarkoverBrandAssets> {
   return brandAssetsPromise
 }
 
+function applyWindowZoom(
+  window: BrowserWindow,
+  zoomPercent: ZoomPercent
+): void {
+  const minimum = minimumWindowSize(zoomPercent)
+  window.setMinimumSize(minimum.width, minimum.height)
+  if (!window.isMaximized() && !window.isFullScreen()) {
+    const size = window.getSize()
+    const width = size[0] ?? minimum.width
+    const height = size[1] ?? minimum.height
+    if (width < minimum.width || height < minimum.height) {
+      window.setSize(
+        Math.max(width, minimum.width),
+        Math.max(height, minimum.height)
+      )
+    }
+  }
+  window.webContents.setZoomFactor(zoomPercent / 100)
+}
+
 function applyMainSettings(
   settings: MarkoverSettings,
   broadcast = true
@@ -471,7 +492,7 @@ function applyMainSettings(
     window.setBackgroundColor(
       windowBackground(settings, envelope.resolvedAppearance)
     )
-    window.webContents.setZoomFactor(settings.zoomPercent / 100)
+    applyWindowZoom(window, settings.zoomPercent)
   }
   if (broadcast && window && !window.isDestroyed()) {
     sendMainEvent(window.webContents, 'settings:changed', envelope)
@@ -1002,11 +1023,12 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
+  const minimumSize = minimumWindowSize(startupSettings.zoomPercent)
   const window = new BrowserWindow({
     width: 1180,
     height: 760,
-    minWidth: 760,
-    minHeight: 520,
+    minWidth: minimumSize.width,
+    minHeight: minimumSize.height,
     show: show && !showWithoutActivating,
     focusable: !smokeMode,
     skipTaskbar: smokeMode,
@@ -1022,7 +1044,7 @@ function createWindow(
     }
   })
   mainWindow = window
-  window.webContents.setZoomFactor(startupSettings.zoomPercent / 100)
+  applyWindowZoom(window, startupSettings.zoomPercent)
   mainWindowBlurredAt = window.isFocused()
     ? null
     : mainWindowBlurredAt ?? Date.now()
@@ -1041,8 +1063,9 @@ function createWindow(
   installRendererSecurityBoundaries(window.webContents)
   void window.loadURL(internalRendererEntryUrl(query))
   window.webContents.on('did-finish-load', () => {
-    window.webContents.setZoomFactor(
-      (settingsStore?.settings.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent) / 100
+    applyWindowZoom(
+      window,
+      settingsStore?.settings.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent
     )
     mainWindow?.setTitle(`${addressedInstance.branding.appName} Inbox`)
   })

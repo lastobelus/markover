@@ -13,6 +13,7 @@ const {
   confirmScreenshotRemoval,
   darkColorization,
   DEFAULT_SETTINGS,
+  minimumWindowSize,
   normalizeSettings,
   sidebarPreferenceChanged,
   updateSettings,
@@ -106,6 +107,13 @@ test('zoom levels advance through the supported bounds only', () => {
   for (const value of [79, 85, 120, 151, '100', null]) {
     assert.equal(normalizeSettings({ zoomPercent: value }).zoomPercent, 100)
   }
+})
+
+test('window minimums preserve the usable CSS viewport at every zoom level', () => {
+  assert.deepEqual(minimumWindowSize(80), { width: 608, height: 416 })
+  assert.deepEqual(minimumWindowSize(100), { width: 760, height: 520 })
+  assert.deepEqual(minimumWindowSize(125), { width: 950, height: 650 })
+  assert.deepEqual(minimumWindowSize(150), { width: 1140, height: 780 })
 })
 
 test('autosave maximum delay accepts only integer values in the safe range', () => {
