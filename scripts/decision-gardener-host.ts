@@ -927,11 +927,12 @@ function commandSucceeded(result: CommandResult): boolean {
 const controllerPayloadFiles = [
   '.ai/prompts/decision-gardener.md',
   '.ai/schemas/decision-gardener-output.schema.json',
-  'scripts/decision-gardener-github.js',
-  'scripts/decision-gardener-host.js',
-  'scripts/decision-gardener-publisher.js',
-  'scripts/decision-gardener-run.js',
-  'scripts/decision-gardener.js'
+  'build/scripts/decision-gardener-github.js',
+  'build/scripts/decision-gardener-host.js',
+  'build/scripts/decision-gardener-publisher.js',
+  'build/scripts/decision-gardener-run.js',
+  'build/scripts/decision-gardener.js',
+  'build/scripts/stream-git-summary.js'
 ] as const
 
 async function controllerPayloadMatches(
@@ -960,7 +961,7 @@ async function installDecisionGardenerControllerPayload(
   const files: Array<{ relative: string; source: Buffer }> = []
   const digest = crypto.createHash('sha256')
   for (const relative of controllerPayloadFiles) {
-    const sourcePath = relative.startsWith('scripts/')
+    const sourcePath = relative.startsWith('build/scripts/')
       ? path.join(builtScriptsDirectory, path.basename(relative))
       : path.join(projectRoot, relative)
     const stats = await fs.lstat(sourcePath)
@@ -975,7 +976,7 @@ async function installDecisionGardenerControllerPayload(
   }
   const payloadRoot = path.join(runStore, 'controller', digest.digest('hex'))
   if (await controllerPayloadMatches(payloadRoot, files)) {
-    return path.join(payloadRoot, 'scripts', 'decision-gardener-host.js')
+    return path.join(payloadRoot, 'build', 'scripts', 'decision-gardener-host.js')
   }
   const stagingRoot = `${payloadRoot}.staging.${crypto.randomUUID()}`
   try {
@@ -991,7 +992,7 @@ async function installDecisionGardenerControllerPayload(
   } finally {
     await fs.rm(stagingRoot, { force: true, recursive: true })
   }
-  return path.join(payloadRoot, 'scripts', 'decision-gardener-host.js')
+  return path.join(payloadRoot, 'build', 'scripts', 'decision-gardener-host.js')
 }
 
 export async function testDecisionGardenerNotifier(

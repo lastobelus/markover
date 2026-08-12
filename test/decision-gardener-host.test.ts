@@ -462,8 +462,20 @@ test('install fails closed on notifier test and loads one fixed heartbeat plist'
   assert.match(plist, /<string>Background<\/string>/)
   assert.match(plist, /decision-gardener-host\.js/)
   assert.match(plist, /host-config\.json/)
-  assert.match(plist, /run-store\/controller\/[0-9a-f]{64}\/scripts\/decision-gardener-host\.js/)
+  const installedScriptPath = plist.match(
+    /<string>([^<]*run-store\/controller\/[0-9a-f]{64}\/build\/scripts\/decision-gardener-host\.js)<\/string>/
+  )?.[1]
+  assert.ok(installedScriptPath)
   assert.equal((await fs.readdir(path.join(host.config.runStore, 'controller'))).length, 1)
+  const installedProjectRoot = path.resolve(path.dirname(installedScriptPath), '../..')
+  assert.equal(
+    await fs.readFile(path.join(installedProjectRoot, '.ai/prompts/decision-gardener.md'), 'utf8'),
+    readFileSync(path.join(process.cwd(), '.ai/prompts/decision-gardener.md'), 'utf8')
+  )
+  assert.equal(
+    await fs.readFile(path.join(path.dirname(installedScriptPath), 'stream-git-summary.js'), 'utf8'),
+    readFileSync(path.join(process.cwd(), 'build/scripts/stream-git-summary.js'), 'utf8')
+  )
   assert.match(plist, new RegExp(
     `<key>WorkingDirectory<\\/key>\\s*<string>${host.config.runStore}<\\/string>`
   ))
