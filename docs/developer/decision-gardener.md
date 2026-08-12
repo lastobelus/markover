@@ -185,9 +185,10 @@ reported through the ordinary failed-health and notification path.
 The `decision-gardener:host` npm script always runs the existing built
 controller; it never rebuilds the shared `build/` directory while an audit may
 be using it. Build only during initial setup or after unloading the agent for a
-deliberate upgrade. If a reinstall cannot bootstrap the replacement, it
-restores the previous plist and reloads the previous agent before reporting
-the failed upgrade.
+deliberate upgrade. Reinstall acquires the host single-flight lock before it
+unloads anything and refuses the replacement while an audit is active. If a
+reinstall cannot bootstrap the replacement, it restores the previous plist and
+reloads the previous agent before reporting the failed upgrade.
 
 Re-run `install` after moving or upgrading Node, moving the checkout, or moving
 the built controller. Ordinary cadence changes do not require reinstalling:
@@ -219,6 +220,10 @@ The host controller and the audit runner use separate recoverable single-flight
 locks. A simultaneous heartbeat or manual wakeup writes a `busy` attempt and
 does not disturb the active run. A lock whose recorded process is gone, or
 whose PID now belongs to a different process start, is reclaimed atomically.
+Each due audit runs in its own process group under a six-hour deadline. If that
+deadline expires, the controller force-kills the complete group, records failed
+health, releases the host lock, and sends the ordinary failure notification;
+durable partial run evidence remains available for recovery.
 
 ## Health, logs, and notification recovery
 

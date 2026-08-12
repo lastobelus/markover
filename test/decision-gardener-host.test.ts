@@ -7,6 +7,7 @@ import test from 'node:test'
 import {
   type CommandResult,
   type DecisionGardenerHostConfig,
+  decisionGardenerAuditTimeoutMilliseconds,
   decisionGardenerHeartbeatSeconds,
   decisionGardenerHostLabel,
   decisionGardenerNotifierTimeoutMilliseconds,
@@ -15,6 +16,7 @@ import {
   installDecisionGardenerLaunchAgent,
   parseDecisionGardenerHostCli,
   parseDecisionGardenerHostConfig,
+  runDecisionGardenerAuditProcess,
   runDecisionGardenerHostCycle,
   runHostNotificationCommand,
   sendDecisionGardenerNotification,
@@ -204,6 +206,25 @@ test('the production notifier runner force-kills a command that ignores terminat
     '-c', 'trap "" TERM; while :; do sleep 1; done'
   ], { timeout: 50 }), /timed out after 50 ms/)
   assert.ok(Date.now() - started < 2_000)
+})
+
+test('the production audit runner force-kills a process tree at its deadline', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const scriptPath = path.join(host.root, 'hanging-audit.js')
+  await fs.writeFile(scriptPath, [
+    "process.on('SIGTERM', () => undefined)",
+    'setInterval(() => undefined, 1_000)',
+    ''
+  ].join('\n'))
+  const started = Date.now()
+  await assert.rejects(runDecisionGardenerAuditProcess(
+    host.config,
+    host.configPath,
+    { scriptPath, timeout: 50 }
+  ), /Decision-gardener audit timed out after 50 ms/)
+  assert.ok(Date.now() - started < 2_000)
+  assert.equal(decisionGardenerAuditTimeoutMilliseconds, 6 * 60 * 60 * 1000)
 })
 
 test('a failure record is finalized before the notifier reads it', async (t) => {
@@ -584,6 +605,30 @@ test('install creates and secures a custom run store before notifier preflight',
     uid: 501
   })
   assert.equal(statSync(freshRunStore).mode & 0o077, 0)
+})
+
+test('install refuses to unload the launch agent while an audit owns the host lock', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const homeDirectory = path.join(host.root, 'home')
+  const nodeExecutable = path.join(host.root, 'bin', 'node')
+  const scriptPath = path.join(host.root, 'bin', 'decision-gardener-host.js')
+  await fs.writeFile(nodeExecutable, '#!/bin/sh\nexit 0\n', { mode: 0o700 })
+  await fs.writeFile(scriptPath, 'void 0\n', { mode: 0o600 })
+  const launchctlCalls: string[][] = []
+  await assert.rejects(installDecisionGardenerLaunchAgent(host.configPath, {
+    acquireLock: () => Promise.reject(new Error('An active audit owns host.lock.')),
+    homeDirectory,
+    nodeExecutable,
+    platform: 'darwin',
+    runCommand: (executable, args) => {
+      if (executable === '/bin/launchctl') launchctlCalls.push([executable, ...args])
+      return { status: 0, stderr: '', stdout: '' }
+    },
+    scriptPath,
+    uid: 501
+  }), /active audit owns host\.lock/)
+  assert.deepEqual(launchctlCalls, [])
 })
 
 test('a failed reinstall restores and reloads the previous launch agent', async (t) => {

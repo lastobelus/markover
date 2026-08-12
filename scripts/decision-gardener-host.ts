@@ -15,6 +15,7 @@ export const decisionGardenerHostSchemaVersion = 1 as const
 export const decisionGardenerHostLabel = 'com.lastobelus.markover.decision-gardener'
 export const decisionGardenerHeartbeatSeconds = 5 * 60
 export const decisionGardenerNotifierTimeoutMilliseconds = 30 * 1000
+export const decisionGardenerAuditTimeoutMilliseconds = 6 * 60 * 60 * 1000
 
 const safeModelPattern = /^[A-Za-z0-9._-]+$/
 const healthValues = new Set(['failed', 'healthy'])
@@ -109,6 +110,7 @@ interface HostCycleDependencies {
 }
 
 interface LaunchAgentDependencies {
+  acquireLock?: typeof acquireSingleFlightLock
   homeDirectory?: string
   nodeExecutable?: string
   platform?: NodeJS.Platform
@@ -374,11 +376,13 @@ export const runHostCommand: CommandRunner = (executable, args, options = {}) =>
   }
 }
 
-export const runHostNotificationCommand = (
+function runDetachedHostCommand(
   executable: string,
   args: readonly string[],
-  options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number } = {}
-): Promise<CommandResult> => new Promise((resolve, reject) => {
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number },
+  subject: string
+): Promise<CommandResult> {
+  return new Promise((resolve, reject) => {
   const child = spawn(executable, [...args], {
     cwd: options.cwd,
     detached: true,
@@ -423,7 +427,7 @@ export const runHostNotificationCommand = (
     if (settled) return
     stdoutLength += chunk.length
     if (stdoutLength > maxBuffer) {
-      fail(new Error('Decision-gardener notifier stdout exceeded four MiB.'), true)
+      fail(new Error(`${subject} stdout exceeded four MiB.`), true)
       return
     }
     stdout.push(chunk)
@@ -432,7 +436,7 @@ export const runHostNotificationCommand = (
     if (settled) return
     stderrLength += chunk.length
     if (stderrLength > maxBuffer) {
-      fail(new Error('Decision-gardener notifier stderr exceeded four MiB.'), true)
+      fail(new Error(`${subject} stderr exceeded four MiB.`), true)
       return
     }
     stderr.push(chunk)
@@ -452,11 +456,55 @@ export const runHostNotificationCommand = (
   })
   if (options.timeout !== undefined) {
     timer = setTimeout(() => {
-      fail(new Error(`Decision-gardener notifier timed out after ${String(options.timeout)} ms.`), true)
+      fail(new Error(`${subject} timed out after ${String(options.timeout)} ms.`), true)
     }, options.timeout)
     timer.unref()
   }
-})
+  })
+}
+
+export const runHostNotificationCommand = (
+  executable: string,
+  args: readonly string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number } = {}
+): Promise<CommandResult> => runDetachedHostCommand(
+  executable,
+  args,
+  options,
+  'Decision-gardener notifier'
+)
+
+function parseAuditProcessOutcome(source: string): DecisionGardenerRunOutcome {
+  const value = parseJson(source, 'Decision-gardener audit output')
+  if (
+    !isRecord(value) ||
+    !['ambiguous', 'blocked', 'no_changes', 'published'].includes(String(value.status)) ||
+    typeof value.runDirectory !== 'string' ||
+    !path.isAbsolute(value.runDirectory)
+  ) throw new Error('Decision-gardener audit output is invalid.')
+  return value as unknown as DecisionGardenerRunOutcome
+}
+
+export async function runDecisionGardenerAuditProcess(
+  config: DecisionGardenerHostConfig,
+  configPath: string,
+  options: { scriptPath?: string; timeout?: number } = {}
+): Promise<DecisionGardenerRunOutcome> {
+  const result = await runDetachedHostCommand(process.execPath, [
+    options.scriptPath ?? __filename,
+    '_audit',
+    '--config',
+    path.resolve(configPath)
+  ], {
+    cwd: config.runStore,
+    env: hostEnvironment(config),
+    timeout: options.timeout ?? decisionGardenerAuditTimeoutMilliseconds
+  }, 'Decision-gardener audit')
+  if (result.status !== 0) {
+    throw new Error(`Decision-gardener audit failed: ${result.stderr.trim() || 'non-zero exit'}`)
+  }
+  return parseAuditProcessOutcome(result.stdout)
+}
 
 function notificationCenterCommand(event: string, summary: string): readonly [string, ...string[]] {
   return [
@@ -730,7 +778,8 @@ export async function runDecisionGardenerHostCycle({
         trigger: 'heartbeat'
       }
     }
-    const runAudit = dependencies.runAudit ?? runDecisionGardener
+    const runAudit = dependencies.runAudit ?? (() =>
+      runDecisionGardenerAuditProcess(config, configPath))
     let pendingFailureAttempted = false
     try {
       const audit = await withHostPath(config, () => runAudit({
@@ -1065,66 +1114,74 @@ export async function installDecisionGardenerLaunchAgent(
     : scriptPath
   await fs.mkdir(path.join(config.runStore, 'logs'), { recursive: true, mode: 0o700 })
   await fs.mkdir(path.dirname(plistPath), { recursive: true })
-  let previousPlist: string | null = null
+  const installLease = await (dependencies.acquireLock ?? acquireSingleFlightLock)(
+    path.join(config.runStore, 'host.lock'),
+    { operation: 'install' }
+  )
   try {
-    previousPlist = await fs.readFile(plistPath, 'utf8')
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-  }
-  const nextPlist = renderDecisionGardenerLaunchAgent({
-    config,
-    configPath,
-    nodeExecutable,
-    scriptPath: installedScriptPath
-  })
-  const target = serviceTarget(uid)
-  const wasLoaded = commandSucceeded(runCommand('/bin/launchctl', ['print', target]))
-  if (wasLoaded) {
-    const removed = runCommand('/bin/launchctl', ['bootout', target])
-    if (!commandSucceeded(removed)) {
-      throw new Error(`Could not unload the existing gardener agent: ${removed.stderr.trim()}`)
-    }
-  }
-  try {
-    await writePrivate(plistPath, nextPlist)
-    const loaded = runCommand('/bin/launchctl', [
-      'bootstrap', domainTarget(uid), plistPath
-    ])
-    if (!commandSucceeded(loaded)) {
-      throw new Error(`Could not load the gardener agent: ${loaded.stderr.trim()}`)
-    }
-  } catch (error) {
-    const rollbackErrors: string[] = []
-    let plistRestored = false
+    let previousPlist: string | null = null
     try {
-      if (previousPlist === null) await fs.rm(plistPath, { force: true })
-      else await writePrivate(plistPath, previousPlist)
-      plistRestored = true
-    } catch (restoreError) {
-      rollbackErrors.push(`Could not restore the previous plist: ${errorMessage(restoreError)}`)
+      previousPlist = await fs.readFile(plistPath, 'utf8')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
+    const nextPlist = renderDecisionGardenerLaunchAgent({
+      config,
+      configPath,
+      nodeExecutable,
+      scriptPath: installedScriptPath
+    })
+    const target = serviceTarget(uid)
+    const wasLoaded = commandSucceeded(runCommand('/bin/launchctl', ['print', target]))
     if (wasLoaded) {
-      if (previousPlist === null) {
-        rollbackErrors.push('The previous service was loaded without a recoverable plist.')
-      } else if (!plistRestored) {
-        rollbackErrors.push('The previous service was not reloaded without its restored plist.')
-      } else {
-        const restored = runCommand('/bin/launchctl', [
-          'bootstrap', domainTarget(uid), plistPath
-        ])
-        if (!commandSucceeded(restored)) {
-          rollbackErrors.push(
-            `Could not reload the previous gardener agent: ${restored.stderr.trim()}`
-          )
-        }
+      const removed = runCommand('/bin/launchctl', ['bootout', target])
+      if (!commandSucceeded(removed)) {
+        throw new Error(`Could not unload the existing gardener agent: ${removed.stderr.trim()}`)
       }
     }
-    const rollback = rollbackErrors.length === 0
-      ? 'The previous installation was restored.'
-      : `Rollback failed: ${rollbackErrors.join(' ')}`
-    throw new Error(`${errorMessage(error)} ${rollback}`, { cause: error })
+    try {
+      await writePrivate(plistPath, nextPlist)
+      const loaded = runCommand('/bin/launchctl', [
+        'bootstrap', domainTarget(uid), plistPath
+      ])
+      if (!commandSucceeded(loaded)) {
+        throw new Error(`Could not load the gardener agent: ${loaded.stderr.trim()}`)
+      }
+    } catch (error) {
+      const rollbackErrors: string[] = []
+      let plistRestored = false
+      try {
+        if (previousPlist === null) await fs.rm(plistPath, { force: true })
+        else await writePrivate(plistPath, previousPlist)
+        plistRestored = true
+      } catch (restoreError) {
+        rollbackErrors.push(`Could not restore the previous plist: ${errorMessage(restoreError)}`)
+      }
+      if (wasLoaded) {
+        if (previousPlist === null) {
+          rollbackErrors.push('The previous service was loaded without a recoverable plist.')
+        } else if (!plistRestored) {
+          rollbackErrors.push('The previous service was not reloaded without its restored plist.')
+        } else {
+          const restored = runCommand('/bin/launchctl', [
+            'bootstrap', domainTarget(uid), plistPath
+          ])
+          if (!commandSucceeded(restored)) {
+            rollbackErrors.push(
+              `Could not reload the previous gardener agent: ${restored.stderr.trim()}`
+            )
+          }
+        }
+      }
+      const rollback = rollbackErrors.length === 0
+        ? 'The previous installation was restored.'
+        : `Rollback failed: ${rollbackErrors.join(' ')}`
+      throw new Error(`${errorMessage(error)} ${rollback}`, { cause: error })
+    }
+    return { label: decisionGardenerHostLabel, plist: plistPath, status: 'installed' }
+  } finally {
+    await installLease.release()
   }
-  return { label: decisionGardenerHostLabel, plist: plistPath, status: 'installed' }
 }
 
 export async function uninstallDecisionGardenerLaunchAgent(
@@ -1211,6 +1268,22 @@ export function parseDecisionGardenerHostCli(args: readonly string[]): HostCliOp
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
+  if (args[0] === '_audit') {
+    if (args.length !== 3 || args[1] !== '--config' || args[2] === undefined) {
+      throw new Error('The internal host audit command is invalid.')
+    }
+    const configPath = absolutePath(args[2], 'The host config path')
+    const config = await loadDecisionGardenerHostConfig(configPath)
+    const audit = await withHostPath(config, () => runDecisionGardener({
+      codex: config.codex,
+      model: config.model,
+      reasoningEffort: config.reasoningEffort,
+      repository: config.repository,
+      runStore: config.runStore
+    }))
+    process.stdout.write(`${JSON.stringify(audit)}\n`)
+    return
+  }
   const options = parseDecisionGardenerHostCli(args)
   let outcome: unknown
   if (options.command === 'heartbeat' || options.command === 'run-now') {
