@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#eee8e0">
     <meta name="description" content="Exact open, get, edit, and interpretation guidance for agents using Markover.">
+    <link rel="canonical" href="https://lastobelus.github.io/markover/agents/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Markover">
+    <meta property="og:title" content="For agents — Markover">
+    <meta property="og:description" content="Open a Markover review, wait for the reviewer, and retrieve one structured handoff.">
+    <meta property="og:url" content="https://lastobelus.github.io/markover/agents/">
+    <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="For agents — Markover">
+    <meta name="twitter:description" content="Open a Markover review, wait for the reviewer, and retrieve one structured handoff.">
+    <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <title>For agents — Markover documentation</title>
     <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../styles.css">
@@ -54,6 +69,7 @@
         <h2>Open one review</h2>
         <p>Run <code>markover help</code> before a pull-request-associated <code>open</code>, <code>get</code>, <code>revise</code>, or <code>done</code>. Its machine-readable <code>pullRequestStatus</code> contract is the source of truth for the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</p>
         <p>Give Markover one Markdown path and a short summary of why the document exists and what feedback would help:</p>
+        <div class="callout"><strong>Use the complete GitHub package URL.</strong> The public npm package named <code>markover</code> is an unrelated Markdown-cleanup tool.</div>
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover open ./DOCUMENT.md \
