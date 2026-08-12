@@ -60,12 +60,12 @@ import {
 } from './ipc-security'
 import { startLocalService, type LocalService } from './local-service'
 import { createLocalReview as persistLocalReview } from './local-review'
-import { discoverRepositoryRoot } from './metadata-discovery'
 import { openPublicLinkCommand } from './public-link-opener'
 import { type PublicLink, type PublicLinkId } from './public-links'
 import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
+import { discoverVerifiedReviewProjectRoot } from './review-project-context'
 import {
   registerProtocolOnFirstLaunch,
   SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT
@@ -235,8 +235,8 @@ let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const pendingActivations = new Map<string, PendingActivation>()
-const pendingManagedReviewNotifications = new Map<string, ReviewArtifact>()
-const projectRoots = new Map<string, Promise<string | null>>()
+const pendingManagedReviewNotifications = new Map<string, MarkoverDocument>()
+const reviewProjectRoots = new Map<string, Promise<string | null>>()
 const projectFavicons = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
 const managedLocalReviewCreations = new AsyncMutationTracker()
@@ -943,7 +943,7 @@ async function createManagedLocalReview(
   const artifact = await persistLocalReview(candidate, tree, reviewStore, {
     interpretationPolicy: settingsStore.settings.agentInterpretationPolicy
   })
-  return managedDocument(artifact)
+  return managedDocument(artifact, await projectRootForReview(artifact))
 }
 
 function createWindow(
@@ -1100,18 +1100,22 @@ function managedDocument(
   }
 }
 
-async function projectFavicon(reviewId: string): Promise<string | null> {
-  const artifact = await requireReviewStore().load(reviewId)
-  const sourcePath = artifact.sourceDocument.path
-  if (!sourcePath) return null
-  const sourceDirectory = path.dirname(path.resolve(sourcePath))
-  if (!projectRoots.has(sourceDirectory)) {
-    projectRoots.set(
-      sourceDirectory,
-      discoverRepositoryRoot(sourcePath).catch(() => null)
+function projectRootForReview(
+  artifact: ReviewArtifact
+): Promise<string | null> {
+  const reviewId = artifact.review.id
+  if (!reviewProjectRoots.has(reviewId)) {
+    reviewProjectRoots.set(
+      reviewId,
+      discoverVerifiedReviewProjectRoot(artifact)
     )
   }
-  const root = await projectRoots.get(sourceDirectory)
+  return reviewProjectRoots.get(reviewId) as Promise<string | null>
+}
+
+async function projectFavicon(reviewId: string): Promise<string | null> {
+  const artifact = await requireReviewStore().load(reviewId)
+  const root = await projectRootForReview(artifact)
   if (!root) return null
   const resolvedRoot = path.resolve(root)
   if (!projectFavicons.has(resolvedRoot)) {
@@ -1142,17 +1146,7 @@ async function managedDocuments(
   artifacts: ReviewArtifact[]
 ): Promise<MarkoverDocument[]> {
   return Promise.all(artifacts.map(async (artifact) => {
-    const sourcePath = artifact.sourceDocument.path
-    if (!sourcePath) return managedDocument(artifact)
-
-    const sourceDirectory = path.dirname(path.resolve(sourcePath))
-    if (!projectRoots.has(sourceDirectory)) {
-      projectRoots.set(
-        sourceDirectory,
-        discoverRepositoryRoot(sourcePath).catch(() => null)
-      )
-    }
-    return managedDocument(artifact, await projectRoots.get(sourceDirectory))
+    return managedDocument(artifact, await projectRootForReview(artifact))
   }))
 }
 
@@ -1165,12 +1159,12 @@ function flushPendingManagedReviewNotifications(): void {
   ) {
     return
   }
-  for (const [reviewId, artifact] of pendingManagedReviewNotifications) {
+  for (const [reviewId, document] of pendingManagedReviewNotifications) {
     try {
       sendMainEvent(
         window.webContents,
         'review:opened',
-        managedDocument(artifact)
+        document
       )
       pendingManagedReviewNotifications.delete(reviewId)
     } catch (error) {
@@ -1183,14 +1177,23 @@ function flushPendingManagedReviewNotifications(): void {
 }
 
 function sendManagedReview(artifact: ReviewArtifact): void {
-  pendingManagedReviewNotifications.set(artifact.review.id, artifact)
-  installApplicationMenu()
-  if (!mainWindow) createWindow({ show: false })
-  if (!mainWindow) throw new Error('Markover window could not be created.')
-  flushPendingManagedReviewNotifications()
+  void projectRootForReview(artifact).then((projectRoot) => {
+    pendingManagedReviewNotifications.set(
+      artifact.review.id,
+      managedDocument(artifact, projectRoot)
+    )
+    installApplicationMenu()
+    if (!mainWindow) createWindow({ show: false })
+    if (!mainWindow) throw new Error('Markover window could not be created.')
+    flushPendingManagedReviewNotifications()
+  }).catch((error: unknown) => {
+    process.stderr.write(
+      `markover review notification ${artifact.review.id}: ${errorMessage(error)}\n`
+    )
+  })
 }
 
-function sendManagedUpdate(artifact: ReviewArtifact): void {
+async function sendManagedUpdate(artifact: ReviewArtifact): Promise<void> {
   if (activeManagedReviewId === artifact.review.id) {
     activeManagedReview = artifact
   }
@@ -1198,7 +1201,7 @@ function sendManagedUpdate(artifact: ReviewArtifact): void {
   sendMainEvent(
     mainWindow.webContents,
     'review:updated',
-    managedDocument(artifact)
+    managedDocument(artifact, await projectRootForReview(artifact))
   )
 }
 
@@ -1332,7 +1335,9 @@ async function activateManagedReview(
   focusMainWindow()
   const outcome = await requestRendererActivation(
     reviewId,
-    artifact ? managedDocument(artifact) : null,
+    artifact
+      ? managedDocument(artifact, await projectRootForReview(artifact))
+      : null,
     focusState
   )
   if (artifact && (outcome === 'activated' || outcome === 'already-active')) {
@@ -1458,11 +1463,11 @@ async function startAndPublishService(): Promise<void> {
         return
       }
       if (action === 'observed') {
-        sendManagedUpdate(artifact)
+        await sendManagedUpdate(artifact)
         return
       }
       await sendManagedStatus(artifact)
-      sendManagedUpdate(artifact)
+      await sendManagedUpdate(artifact)
     },
     onUnauthorized(event) {
       if (!store.settings.logRejectedApiRequests) return
@@ -2006,8 +2011,11 @@ if (!hasSingleInstanceLock) {
       state: MarkoverWorkspaceState
     ) => privateWorkspaceStore.replace(state))
     privilegedIpc.handle('window:focus-state:get', currentWindowFocusState)
-    privilegedIpc.handle('review:initial-document', () => (
-      activeManagedReview && managedDocument(activeManagedReview)
+    privilegedIpc.handle('review:initial-document', async () => (
+      activeManagedReview && managedDocument(
+        activeManagedReview,
+        await projectRootForReview(activeManagedReview)
+      )
     ))
     privilegedIpc.handle('review:list', async () => {
       try {

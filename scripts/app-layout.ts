@@ -29,6 +29,7 @@ export const runtimeModuleNames = [
   'public-links',
   'review-autosave',
   'review-format',
+  'review-project-context',
   'review-store',
   'review-url',
   'review-url-dispatcher',

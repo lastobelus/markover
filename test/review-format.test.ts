@@ -201,6 +201,43 @@ test('portable metadata rejects credentials and known app-private evidence', () 
   const privateThread = cloneFixture()
   record(review(privateThread).agentThread).logPath = '/private/session.jsonl'
   assertFormatCode(() => decodeReviewArtifact(privateThread), 'INVALID_REVIEW')
+
+  for (const repositoryUrl of [
+    '/Users/alice/private/repo.git',
+    '../repo.git',
+    'file:///Users/alice/private/repo.git'
+  ]) {
+    const filesystemRemote = cloneFixture()
+    record(review(filesystemRemote).git).repositoryUrl = repositoryUrl
+    assertFormatCode(
+      () => decodeReviewArtifact(filesystemRemote),
+      'INVALID_REVIEW'
+    )
+  }
+
+  for (const field of [
+    'workspace',
+    'settings',
+    'credentials',
+    'cache',
+    'privateEnrichment'
+  ]) {
+    const privateExtension = cloneFixture()
+    Reflect.set(privateExtension, field, { private: true })
+    assertFormatCode(
+      () => decodeReviewArtifact(privateExtension),
+      'INVALID_REVIEW'
+    )
+  }
+
+  const nestedPrivateExtension = cloneFixture()
+  Reflect.set(nestedPrivateExtension, 'futureOptionalField', {
+    workspace: { activeReviewId: 'mko_private' }
+  })
+  assertFormatCode(
+    () => decodeReviewArtifact(nestedPrivateExtension),
+    'INVALID_REVIEW'
+  )
 })
 
 test('source, node, attachment, and presentation invariants are enforced', () => {

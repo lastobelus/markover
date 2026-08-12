@@ -31,6 +31,30 @@ const REVIEW_STATUSES = new Set<ReviewStatus>([
   'revised',
   'done'
 ])
+const PRIVATE_EXTENSION_NAMESPACES = new Set([
+  'appPrivate',
+  'cache',
+  'caches',
+  'credential',
+  'credentials',
+  'enrichment',
+  'privateEnrichment',
+  'settings',
+  'workspace'
+])
+const PRIVATE_TOP_LEVEL_FIELDS = new Set([
+  'commonGitDirectory',
+  'cwd',
+  'discovery',
+  'forkedFromId',
+  'logPath',
+  'parentThreadId',
+  'projectRoot',
+  'repositoryRoot',
+  'requestingThreadTitle',
+  'sources'
+])
+const SCP_REPOSITORY_URL_PATTERN = /^(?:[^@/\\:\s]+@)?[^/\\:\s]+:[^\\\s]+$/
 const SHA256_INITIAL = new Uint32Array([
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
   0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
@@ -102,6 +126,20 @@ function nonblank(value: unknown): value is string {
 
 function positiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+}
+
+function assertNoPrivateExtensionNamespaces(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) assertNoPrivateExtensionNamespaces(entry)
+    return
+  }
+  if (!isRecord(value)) return
+  for (const [field, nested] of Object.entries(value)) {
+    if (PRIVATE_EXTENSION_NAMESPACES.has(field)) {
+      invalid(`Portable review data must not contain private ${field} evidence.`)
+    }
+    assertNoPrivateExtensionNamespaces(nested)
+  }
 }
 
 function compatibilityUrl(format: string, version: unknown): string {
@@ -392,12 +430,13 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
   }
 }
 
-function sanitizedRepositoryUrl(value: unknown): value is string {
+export function isPortableRepositoryUrl(value: unknown): value is string {
   if (!nonblank(value)) return false
-  if (!value.includes('://')) return !/[?#]/.test(value)
+  if (!value.includes('://')) return SCP_REPOSITORY_URL_PATTERN.test(value)
   try {
     const parsed = new URL(value)
-    return !parsed.username && !parsed.password && !parsed.search && !parsed.hash
+    return Boolean(parsed.hostname) && parsed.protocol !== 'file:' &&
+      !parsed.username && !parsed.password && !parsed.search && !parsed.hash
   } catch {
     return false
   }
@@ -409,7 +448,7 @@ function assertGit(value: unknown): asserts value is ReviewGitSnapshot | null {
   for (const privateField of ['repositoryRoot', 'sources', 'commonGitDirectory']) {
     if (owns(value, privateField)) invalid(`review.git must not contain private ${privateField} evidence.`)
   }
-  if (value.repositoryUrl !== undefined && !sanitizedRepositoryUrl(value.repositoryUrl)) {
+  if (value.repositoryUrl !== undefined && !isPortableRepositoryUrl(value.repositoryUrl)) {
     invalid('review.git.repositoryUrl must be a sanitized nonblank URL.')
   }
   for (const field of ['branch', 'commit'] as const) {
@@ -498,6 +537,12 @@ function assertEnvelope(
 }
 
 function assertV1Body(value: Record<string, unknown>): void {
+  assertNoPrivateExtensionNamespaces(value)
+  for (const field of PRIVATE_TOP_LEVEL_FIELDS) {
+    if (owns(value, field)) {
+      invalid(`Portable review data must not contain top-level private ${field} evidence.`)
+    }
+  }
   requireKeys(value, ['sourceDocument', 'unsupported', 'root'])
   assertSourceDocument(value.sourceDocument)
   assertUnsupported(value.unsupported)

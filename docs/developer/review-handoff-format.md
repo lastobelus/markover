@@ -53,10 +53,10 @@ makes a property invalid. Known properties have this contract.
 | `review.agentThread.threadHost` | Requires nonblank open-string `kind` and `provider`. They are separate dimensions but may have the same value. |
 | `review.agentThread.threadHost.threadId` | Optional nonblank thread-host identifier. Include it only when it differs from `agentThread.id`; omission means consumers fall back to `agentThread.id`. |
 | `review.agentThread.threadHost.machine` | Optional nonblank agent-reported hostname snapshot, normally obtained from local `hostname` when available. It is descriptive and never stable or identity-bearing. |
-| `review.git` | Required nullable opening-time snapshot. When non-null, known optional fields are sanitized nonblank `repositoryUrl`, nonblank `branch`, and nonblank `commit`. These hints are immutable, may become stale, and are not current Git truth, identity, or grouping keys. Credentials and local roots are forbidden. |
+| `review.git` | Required nullable opening-time snapshot. When non-null, known optional fields are sanitized nonblank network/scp-like `repositoryUrl`, nonblank `branch`, and nonblank `commit`. These hints are immutable, may become stale, and are not current Git truth, identity, or grouping keys. Credentials, `file:` URLs, and absolute or relative filesystem remotes are forbidden. |
 | `review.pullRequest` | Required nullable association. When non-null it requires a canonical GitHub `url` and matching positive integer `number`. Its optional observation tuple is all-or-none: `status` is `draft`, `open`, `merged`, or `closed`; `statusObservedAt` is canonical UTC; and `statusSource` is a nonblank open string. The latest successful observation is retained when a refresh fails. |
 | `review.agentGuidance` | Required object with string `fixedContract` and `interpretationPolicy`. Agents follow both snapshotted strings before acting. |
-| Unknown properties | Additive extension data. Readers ignore unknown properties and preserve them unchanged, including inside typed metadata containers. Unknown fields do not bypass privacy boundaries or override known-field invariants. |
+| Unknown properties | Additive extension data. Readers ignore unknown properties and preserve them unchanged, including inside typed metadata containers. Unknown fields do not bypass privacy boundaries or override known-field invariants. Reserved private namespaces are rejected at any depth: `workspace`, `settings`, `credential`/`credentials`, `cache`/`caches`, `enrichment`, `privateEnrichment`, and `appPrivate`. Top-level or typed-container checks separately reject known local evidence such as requesting-thread-title, project/repository roots, Git discovery records, and session paths or ancestry. |
 
 Canonical UTC instants use JavaScript's canonical millisecond ISO form:
 `new Date(value).toISOString() === value`. Creation sets `createdAt`,
@@ -73,6 +73,12 @@ Portable metadata records what the requester reported at opening time. Current
 machine-local knowledge belongs in app-private state. This includes canonical
 source and repository evidence, grouping keys, discovery records, credentials,
 integration state, and requesting-thread-title observations.
+
+Before deriving an app-private project root or favicon from a portable
+`sourceDocument.path`, Markover must read the live file and verify it against
+the snapshot checksum. A missing or changed file yields no live repository
+evidence. Newly created and restored reviews use the same verified private
+project-root path before their first renderer publication.
 
 `workspace.json` is the separate private `markover-workspace` family. It owns
 navigation and presentation state, including collapsed block IDs. Missing,

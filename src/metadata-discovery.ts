@@ -6,6 +6,8 @@ import path from 'node:path'
 import { createInterface } from 'node:readline'
 import { promisify } from 'node:util'
 
+import { isPortableRepositoryUrl } from './review-format'
+
 const execFileAsync = promisify(execFile)
 const HANDOFF_KEY_PATTERN = /^mko_handoff_[a-zA-Z0-9]{16,64}$/
 
@@ -133,14 +135,19 @@ export async function discoverGitMetadata(
 export function sanitizeRemoteUrl(
   remoteUrl: string | null | undefined
 ): string | null {
-  if (!remoteUrl?.includes('://')) return remoteUrl || null
+  const candidate = remoteUrl?.trim()
+  if (!candidate) return null
+  if (!candidate.includes('://')) {
+    return isPortableRepositoryUrl(candidate) ? candidate : null
+  }
   try {
-    const parsed = new URL(remoteUrl)
+    const parsed = new URL(candidate)
     parsed.username = ''
     parsed.password = ''
     parsed.search = ''
     parsed.hash = ''
-    return parsed.toString()
+    const sanitized = parsed.toString()
+    return isPortableRepositoryUrl(sanitized) ? sanitized : null
   } catch {
     return null
   }

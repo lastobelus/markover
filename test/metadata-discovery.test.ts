@@ -71,6 +71,15 @@ test('redacts credentials from HTTPS Git remotes', () => {
     sanitizeRemoteUrl('git@example.com:org/repo.git'),
     'git@example.com:org/repo.git'
   )
+  for (const localRemote of [
+    '/Users/alice/private/repo.git',
+    '../repo.git',
+    './repo.git',
+    'file:///Users/alice/private/repo.git',
+    String.raw`C:\private\repo.git`
+  ]) {
+    assert.equal(sanitizeRemoteUrl(localRemote), null)
+  }
 })
 
 test('finds a Codex session by an exact handoff key', async (t) => {
