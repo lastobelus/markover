@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
@@ -21,6 +22,18 @@ function fixture(): Record<string, unknown> {
   return structuredClone(
     json('test/fixtures/review-handoff-v1.json')
   ) as Record<string, unknown>
+}
+
+function metadataCorpusCopy(): string {
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'markover-review-metadata-')
+  )
+  fs.cpSync(
+    path.join(root, 'evals/review-metadata'),
+    path.join(temporaryRoot, 'evals/review-metadata'),
+    { recursive: true }
+  )
+  return temporaryRoot
 }
 
 function observation(
@@ -157,6 +170,15 @@ test('capture rejects contradictory discovery source and status pairs', () => {
   assert.throws(
     () => parseCaptureObservation(value),
     /providerThreadId source not-exposed contradicts status observed/
+  )
+})
+
+test('capture rejects the documented source commit placeholder', () => {
+  assert.throws(
+    () => parseCaptureObservation(observation({
+      sourceCommit: '0000000000000000000000000000000000000000'
+    })),
+    /sourceCommit must be a non-placeholder full Git commit/
   )
 })
 
@@ -353,6 +375,30 @@ test('metadata matrix rejects unrecognized fields at every privacy boundary', ()
   assert.throws(
     () => parseMetadataMatrix(matrix),
     /expansionCandidates\[0\] contains unrecognized fields: rawMachine/
+  )
+})
+
+test('corpus validation rejects every unexpected evidence directory entry', (t) => {
+  const temporaryRoot = metadataCorpusCopy()
+  t.after(() => {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true })
+  })
+  const evidenceDirectory = path.join(
+    temporaryRoot,
+    'evals/review-metadata/evidence'
+  )
+  const backup = path.join(evidenceDirectory, 'raw-review.json.bak')
+  fs.writeFileSync(backup, '{"private":"raw-provider-thread-secret"}\n')
+  assert.throws(
+    () => validateMetadataCorpus(temporaryRoot),
+    /Evidence directory contains unexpected entry: raw-review.json.bak/
+  )
+
+  fs.unlinkSync(backup)
+  fs.mkdirSync(path.join(evidenceDirectory, 'raw-review'))
+  assert.throws(
+    () => validateMetadataCorpus(temporaryRoot),
+    /Evidence directory contains unexpected entry: raw-review/
   )
 })
 

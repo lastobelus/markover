@@ -9,7 +9,7 @@ import {
 const evidenceSchemaVersion = 1
 const matrixSchemaVersion = 1
 const evidenceIdPattern = /^\d{4}-\d{2}-\d{2}__[a-z0-9]+(?:-[a-z0-9]+)*__[a-z0-9]{8}$/
-const fullCommitPattern = /^[0-9a-f]{40}$/
+const fullCommitPattern = /^(?!0{40}$)[0-9a-f]{40}$/
 const redactedProviderThreadId = '<redacted-provider-thread-id>'
 const redactedThreadHostThreadId = '<redacted-thread-host-thread-id>'
 const redactedMachine = '<redacted-machine>'
@@ -288,7 +288,9 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
   }
   const sourceCommit = nonblank(item.sourceCommit, 'Capture observation sourceCommit')
   if (!fullCommitPattern.test(sourceCommit)) {
-    throw new Error('Capture observation sourceCommit must be a full Git commit.')
+    throw new Error(
+      'Capture observation sourceCommit must be a non-placeholder full Git commit.'
+    )
   }
   if (item.truthfulnessAttested !== true) {
     throw new Error('Capture observation must attest truthful discovery.')
@@ -732,8 +734,16 @@ export function validateMetadataCorpus(
   const evidenceFolder = path.join(directory, 'evidence')
   const matrixValue = readJson(matrixFile)
   const matrix = parseMetadataMatrix(matrixValue)
-  const evidenceFiles = fs.readdirSync(evidenceFolder)
-    .filter((name) => name.endsWith('.json'))
+  const evidenceEntries = fs.readdirSync(evidenceFolder, { withFileTypes: true })
+  for (const entry of evidenceEntries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) {
+      throw new Error(
+        `Evidence directory contains unexpected entry: ${entry.name}.`
+      )
+    }
+  }
+  const evidenceFiles = evidenceEntries
+    .map(({ name }) => name)
     .sort()
   const evidenceById = new Map<string, SanitizedEvidence>()
   for (const name of evidenceFiles) {
