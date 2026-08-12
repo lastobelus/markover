@@ -1,6 +1,6 @@
 # App-private review enrichment storage
 
-Issue: [#131](https://github.com/lastobelus/markover/issues/131)  
+Issue: [#131](https://github.com/lastobelus/markover/issues/131)
 Coordinates with: [#97](https://github.com/lastobelus/markover/issues/97), [#126](https://github.com/lastobelus/markover/issues/126), [#132](https://github.com/lastobelus/markover/issues/132), [#134](https://github.com/lastobelus/markover/issues/134)
 Portable-format boundary: merged [PR #139](https://github.com/lastobelus/markover/pull/139)
 
