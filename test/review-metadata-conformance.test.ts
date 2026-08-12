@@ -174,6 +174,15 @@ test('capture rejects an evidence ID suffix copied from a private identity', () 
   )
 })
 
+test('capture binds the evidence ID slug to the selected matrix entry', () => {
+  assert.throws(
+    () => parseCaptureObservation(observation({
+      evidenceId: '2026-08-12__raw-provider-thread-secret__1234abcd'
+    })),
+    /evidenceId slug must equal matrixEntryId/
+  )
+})
+
 test('capture rejects a private identity used as a complete runtime segment', () => {
   const artifact = fixture()
   agentThread(artifact)
