@@ -20,6 +20,8 @@ const redactedProviderThreadId = '<redacted-provider-thread-id>'
 const redactedThreadHostThreadId = '<redacted-thread-host-thread-id>'
 const redactedMachine = '<redacted-machine>'
 const runnerSourcePaths = [
+  'evals/review-metadata/exercise-source.md',
+  'evals/review-metadata/matrix.json',
   'package-lock.json',
   'package.json',
   'scripts/review-metadata-conformance.ts',
@@ -137,6 +139,22 @@ export interface SanitizedEvidence {
   sourceCommit: string
   sourcePullRequest: string
 }
+
+export interface SanitizedFailureEvidence {
+  evidenceId: string
+  exercisedAt: string
+  failure: {
+    defectIssue: number
+    kind: 'automatic-check-failed'
+  }
+  matrixEntryId: string
+  outcome: 'failed'
+  schemaVersion: number
+  sourceCommit: string
+  sourcePullRequest: string
+}
+
+type CorpusEvidence = SanitizedEvidence | SanitizedFailureEvidence
 
 type JsonRecord = Record<string, unknown>
 
@@ -716,7 +734,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     value === null ? [] : value.split(/\s+/)
   ))
   if (values.some((value) => value !== null && value !== undefined &&
-    persistedRuntimeSegments.includes(value))) {
+    (persistedRuntimeValues.includes(value) || persistedRuntimeSegments.includes(value)))) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')
   }
 }
@@ -745,6 +763,15 @@ export function buildSanitizedEvidence(
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
   const thread = artifact.review.agentThread
+  const exerciseSource = fs.readFileSync(
+    path.join(evaluationDirectory, 'exercise-source.md'),
+    'utf8'
+  )
+  if (artifact.sourceDocument.content !== exerciseSource) {
+    throw new Error(
+      'Metadata conformance evidence must use the maintained exercise source.'
+    )
+  }
   if (artifact.review.origin !== 'agent') {
     throw new Error('Metadata conformance evidence requires an agent-origin review.')
   }
@@ -851,6 +878,71 @@ export function buildSanitizedEvidence(
     evidence.runtime
   )
   return evidence
+}
+
+export function buildSanitizedFailureEvidence(
+  observationValue: unknown,
+  matrixValue: unknown,
+  defectIssue: number
+): SanitizedFailureEvidence {
+  const observation = parseCaptureObservation(observationValue)
+  const matrix = parseMetadataMatrix(matrixValue)
+  matrixEntry(matrix, observation.matrixEntryId)
+  if (!Number.isSafeInteger(defectIssue) || defectIssue < 1) {
+    throw new Error('Failure evidence defectIssue must be a positive issue number.')
+  }
+  return {
+    evidenceId: observation.evidenceId,
+    exercisedAt: observation.exercisedAt,
+    failure: {
+      defectIssue,
+      kind: 'automatic-check-failed'
+    },
+    matrixEntryId: observation.matrixEntryId,
+    outcome: 'failed',
+    schemaVersion: evidenceSchemaVersion,
+    sourceCommit: observation.sourceCommit,
+    sourcePullRequest: observation.sourcePullRequest
+  }
+}
+
+export function recordConformanceEvidence(
+  artifactValue: unknown,
+  observationValue: unknown,
+  matrixValue: unknown,
+  defectIssue?: number
+): CorpusEvidence {
+  parseCaptureObservation(observationValue)
+  parseMetadataMatrix(matrixValue)
+  try {
+    return buildSanitizedEvidence(artifactValue, observationValue, matrixValue)
+  } catch (error) {
+    if (defectIssue === undefined) {
+      throw new Error(
+        'Automatic conformance check failed; link a contract defect and rerun ' +
+        'record with --defect-issue NUMBER to retain sanitized failure evidence.',
+        { cause: error }
+      )
+    }
+    const suffix = parseCaptureObservation(observationValue).evidenceId.slice(-8)
+    const rawContainsSuffix = (value: unknown): boolean => {
+      if (typeof value === 'string') return value === suffix
+      if (Array.isArray(value)) return value.some(rawContainsSuffix)
+      if (isRecord(value)) return Object.values(value).some(rawContainsSuffix)
+      return false
+    }
+    if (rawContainsSuffix(artifactValue)) {
+      throw new Error(
+        'Failure evidence ID suffix must be independent of every raw artifact value.',
+        { cause: error }
+      )
+    }
+    return buildSanitizedFailureEvidence(
+      observationValue,
+      matrixValue,
+      defectIssue
+    )
+  }
 }
 
 function assertTrueChecks(value: unknown): ConformanceChecks {
@@ -1002,6 +1094,73 @@ export function validateSanitizedEvidence(
   }
 }
 
+export function validateSanitizedFailureEvidence(
+  value: unknown,
+  matrixValue: unknown
+): SanitizedFailureEvidence {
+  const item = record(value, 'Sanitized failure evidence')
+  assertExactKeys(item, [
+    'evidenceId',
+    'exercisedAt',
+    'failure',
+    'matrixEntryId',
+    'outcome',
+    'schemaVersion',
+    'sourceCommit',
+    'sourcePullRequest'
+  ], 'Sanitized failure evidence')
+  if (item.schemaVersion !== evidenceSchemaVersion || item.outcome !== 'failed') {
+    throw new Error('Sanitized failure evidence has an invalid schema or outcome.')
+  }
+  const evidenceId = nonblank(item.evidenceId, 'Failure evidence evidenceId')
+  const matrixEntryId = nonblank(
+    item.matrixEntryId,
+    'Failure evidence matrixEntryId'
+  )
+  if (!evidenceIdPattern.test(evidenceId) || evidenceId.split('__')[1] !== matrixEntryId) {
+    throw new Error('Failure evidence ID must use the selected matrix entry slug.')
+  }
+  const exercisedAt = nonblank(item.exercisedAt, 'Failure evidence exercisedAt')
+  if (!isCanonicalReviewTimestamp(exercisedAt)) {
+    throw new Error('Failure evidence exercisedAt must be a canonical UTC timestamp.')
+  }
+  const sourceCommit = nonblank(item.sourceCommit, 'Failure evidence sourceCommit')
+  if (!fullCommitPattern.test(sourceCommit)) {
+    throw new Error('Failure evidence sourceCommit must be a full Git commit.')
+  }
+  const sourcePullRequest = nonblank(
+    item.sourcePullRequest,
+    'Failure evidence sourcePullRequest'
+  )
+  if (parseGitHubPullRequestUrl(sourcePullRequest)?.url !== sourcePullRequest) {
+    throw new Error('Failure evidence sourcePullRequest must be canonical.')
+  }
+  const failure = record(item.failure, 'Failure evidence failure')
+  assertExactKeys(failure, ['defectIssue', 'kind'], 'Failure evidence failure')
+  if (
+    failure.kind !== 'automatic-check-failed' ||
+    !Number.isSafeInteger(failure.defectIssue) ||
+    (failure.defectIssue as number) < 1
+  ) {
+    throw new Error('Failure evidence must link an automatic-check contract defect.')
+  }
+  const matrix = parseMetadataMatrix(matrixValue)
+  matrixEntry(matrix, matrixEntryId)
+  return {
+    evidenceId,
+    exercisedAt,
+    failure: {
+      defectIssue: failure.defectIssue as number,
+      kind: 'automatic-check-failed'
+    },
+    matrixEntryId,
+    outcome: 'failed',
+    schemaVersion: evidenceSchemaVersion,
+    sourceCommit,
+    sourcePullRequest
+  }
+}
+
 export function validateMetadataCorpus(
   root = projectRoot,
   requireComplete = false
@@ -1022,12 +1181,12 @@ export function validateMetadataCorpus(
   const evidenceFiles = evidenceEntries
     .map(({ name }) => name)
     .sort()
-  const evidenceById = new Map<string, SanitizedEvidence>()
+  const evidenceById = new Map<string, CorpusEvidence>()
   for (const name of evidenceFiles) {
-    const evidence = validateSanitizedEvidence(
-      readJson(path.join(evidenceFolder, name)),
-      matrixValue
-    )
+    const value = readJson(path.join(evidenceFolder, name))
+    const evidence = isRecord(value) && value.outcome === 'failed'
+      ? validateSanitizedFailureEvidence(value, matrixValue)
+      : validateSanitizedEvidence(value, matrixValue)
     if (name !== `${evidence.evidenceId}.json`) {
       throw new Error(`Evidence filename does not match ${evidence.evidenceId}.`)
     }
@@ -1060,7 +1219,13 @@ export function validateMetadataCorpus(
     ) {
       throw new Error(`${entry.id} exercise must resolve beneath exercises/.`)
     }
-    if (requireComplete && entry.evidence.length === 0) {
+    if (
+      requireComplete &&
+      !entry.evidence.some((evidenceId) => {
+        const evidence = evidenceById.get(evidenceId)
+        return evidence !== undefined && !('outcome' in evidence)
+      })
+    ) {
       throw new Error(`${entry.id} has no committed live evidence.`)
     }
     for (const evidenceId of entry.evidence) {
@@ -1094,6 +1259,18 @@ function option(args: string[], name: string): string {
   return value
 }
 
+function optionalPositiveIntegerOption(
+  args: string[],
+  name: string
+): number | undefined {
+  if (!args.includes(name)) return undefined
+  const value = Number(option(args, name))
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer.`)
+  }
+  return value
+}
+
 function writeExclusiveJson(filePath: string, value: unknown): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, {
@@ -1118,10 +1295,11 @@ function main(): void {
     const outputPath = path.resolve(option(args, '--output'))
     const observation = parseCaptureObservation(readJson(observationPath))
     verifySourceCommitPullRequest(observation)
-    const evidence = buildSanitizedEvidence(
+    const evidence = recordConformanceEvidence(
       readJson(reviewPath),
       observation,
-      readJson(matrixPath)
+      readJson(matrixPath),
+      optionalPositiveIntegerOption(args, '--defect-issue')
     )
     writeExclusiveJson(outputPath, evidence)
     process.stdout.write(`${JSON.stringify({
@@ -1132,7 +1310,7 @@ function main(): void {
     return
   }
   throw new Error(
-    'Usage: review-metadata-conformance <validate [--require-complete] | record --review PATH --observation PATH --output PATH>'
+    'Usage: review-metadata-conformance <validate [--require-complete] | record --review PATH --observation PATH --output PATH [--defect-issue NUMBER]>'
   )
 }
 
