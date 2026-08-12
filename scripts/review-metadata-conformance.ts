@@ -703,8 +703,11 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     runtime.providerModel,
     runtime.providerVersion
   ]
+  const persistedRuntimeSegments = persistedRuntimeValues.flatMap((value) => (
+    value === null ? [] : value.split(/\s+/)
+  ))
   if (values.some((value) => value !== null && value !== undefined &&
-    persistedRuntimeValues.includes(value))) {
+    persistedRuntimeSegments.includes(value))) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')
   }
 }
