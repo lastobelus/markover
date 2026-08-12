@@ -159,18 +159,18 @@ test('failed heartbeats retry every interval tick and notify only health transit
   await assert.rejects(runDecisionGardenerHostCycle({
     configPath: host.configPath
   }, dependencies), /network unavailable/)
-  assert.deepEqual(events, ['failed', 'failed'])
+  assert.deepEqual(events, ['failed', 'failed', 'failed'])
   current = new Date('2026-08-11T00:10:00.000Z')
   await assert.rejects(runDecisionGardenerHostCycle({
     configPath: host.configPath
   }, dependencies), /network unavailable/)
-  assert.deepEqual(events, ['failed', 'failed'])
+  assert.deepEqual(events, ['failed', 'failed', 'failed'])
   current = new Date('2026-08-11T00:15:00.000Z')
   const recovered = await runDecisionGardenerHostCycle({
     configPath: host.configPath
   }, dependencies)
   assert.equal(recovered.status, 'completed')
-  assert.deepEqual(events, ['failed', 'failed', 'recovered'])
+  assert.deepEqual(events, ['failed', 'failed', 'failed', 'recovered'])
   const state = JSON.parse(
     await fs.readFile(path.join(host.config.runStore, 'host-state.json'), 'utf8')
   ) as { health: string; lastNotifiedHealth: string }
@@ -313,9 +313,9 @@ test('a pending failure notification is delivered before recovery', async (t) =>
   const state = JSON.parse(await fs.readFile(
     path.join(host.config.runStore, 'host-state.json'),
     'utf8'
-  )) as { health: string; pendingFailureRecord: string | null }
+  )) as { health: string; pendingFailureRecords: string[] }
   assert.equal(state.health, 'healthy')
-  assert.equal(state.pendingFailureRecord, null)
+  assert.deepEqual(state.pendingFailureRecords, [])
 })
 
 test('a lock failure retries an older pending failure record first', async (t) => {
@@ -356,9 +356,9 @@ test('a lock failure retries an older pending failure record first', async (t) =
   const state = JSON.parse(await fs.readFile(
     path.join(host.config.runStore, 'host-state.json'),
     'utf8'
-  )) as { lastNotifiedHealth: string; pendingFailureRecord: string | null }
+  )) as { lastNotifiedHealth: string; pendingFailureRecords: string[] }
   assert.equal(state.lastNotifiedHealth, 'failed')
-  assert.equal(state.pendingFailureRecord, null)
+  assert.deepEqual(state.pendingFailureRecords, [])
 })
 
 test('a current lock failure remains pending after its older alert is delivered', async (t) => {
@@ -398,9 +398,9 @@ test('a current lock failure remains pending after its older alert is delivered'
   const pendingState = JSON.parse(await fs.readFile(
     path.join(host.config.runStore, 'host-state.json'),
     'utf8'
-  )) as { lastNotifiedHealth: string; pendingFailureRecord: string | null }
+  )) as { lastNotifiedHealth: string; pendingFailureRecords: string[] }
   assert.equal(pendingState.lastNotifiedHealth, 'failed')
-  assert.equal(pendingState.pendingFailureRecord, events[2]?.record)
+  assert.deepEqual(pendingState.pendingFailureRecords, [events[2]?.record])
 
   await runDecisionGardenerHostCycle({ configPath: host.configPath }, {
     now: () => new Date('2026-08-11T00:10:00.000Z'),
@@ -409,6 +409,56 @@ test('a current lock failure remains pending after its older alert is delivered'
   })
   assert.deepEqual(events.slice(3).map(({ event }) => event), ['failed', 'recovered'])
   assert.equal(events[3]?.record, events[2]?.record)
+})
+
+test('a newer lock failure queues behind an older alert while delivery remains down', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const events: Array<{ event: string; record: string }> = []
+  const runCommand = (
+    _executable: string,
+    _args: readonly string[],
+    options?: { env?: NodeJS.ProcessEnv }
+  ): CommandResult => {
+    events.push({
+      event: options?.env?.MARKOVER_DECISION_GARDENER_EVENT ?? 'missing',
+      record: options?.env?.MARKOVER_DECISION_GARDENER_RECORD ?? 'missing'
+    })
+    return events.length <= 2
+      ? { status: 1, stderr: 'notification transport unavailable', stdout: '' }
+      : { status: 0, stderr: '', stdout: '' }
+  }
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    now: () => new Date('2026-08-11T00:00:00.000Z'),
+    runAudit: () => Promise.reject(new Error('initial audit failure')),
+    runCommand
+  }), /initial audit failure/)
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    acquireLock: () => Promise.reject(new Error('The lock owner record is not valid JSON.')),
+    now: () => new Date('2026-08-11T00:05:00.000Z'),
+    runCommand
+  }), /Notifier error/)
+  const queuedState = JSON.parse(await fs.readFile(
+    path.join(host.config.runStore, 'host-state.json'),
+    'utf8'
+  )) as { pendingFailureRecords: string[] }
+  assert.equal(queuedState.pendingFailureRecords[0], events[0]?.record)
+  assert.notEqual(queuedState.pendingFailureRecords[1], events[0]?.record)
+
+  await runDecisionGardenerHostCycle({ configPath: host.configPath }, {
+    now: () => new Date('2026-08-11T00:10:00.000Z'),
+    runAudit: () => Promise.resolve(cleanAudit(host.config.runStore)),
+    runCommand
+  })
+  assert.deepEqual(events.slice(2).map(({ event }) => event), [
+    'failed', 'failed', 'recovered'
+  ])
+  assert.equal(events[2]?.record, events[0]?.record)
+  assert.equal(events[3]?.record, queuedState.pendingFailureRecords[1])
 })
 
 test('an unreadable host state notifies failure and preserves the invalid evidence', async (t) => {

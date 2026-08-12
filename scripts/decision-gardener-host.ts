@@ -66,7 +66,7 @@ export interface DecisionGardenerHostState {
   lastAuditAt: string | null
   lastError: string | null
   lastNotifiedHealth: 'failed' | 'healthy' | null
-  pendingFailureRecord: string | null
+  pendingFailureRecords: readonly string[]
   schemaVersion: typeof decisionGardenerHostSchemaVersion
   updatedAt: string
 }
@@ -242,7 +242,7 @@ function defaultState(now: Date): DecisionGardenerHostState {
     lastAuditAt: null,
     lastError: null,
     lastNotifiedHealth: null,
-    pendingFailureRecord: null,
+    pendingFailureRecords: [],
     schemaVersion: decisionGardenerHostSchemaVersion,
     updatedAt: now.toISOString()
   }
@@ -254,7 +254,7 @@ function parseHostState(value: unknown): DecisionGardenerHostState {
   }
   exactKeys(value, [
     'health', 'lastAuditAt', 'lastError', 'lastNotifiedHealth',
-    'pendingFailureRecord', 'schemaVersion', 'updatedAt'
+    'pendingFailureRecords', 'schemaVersion', 'updatedAt'
   ], 'Decision-gardener host state')
   for (const key of ['lastAuditAt', 'updatedAt'] as const) {
     const item = value[key]
@@ -274,9 +274,10 @@ function parseHostState(value: unknown): DecisionGardenerHostState {
     throw new Error('The host state error is invalid.')
   }
   if (
-    value.pendingFailureRecord !== null &&
-    (typeof value.pendingFailureRecord !== 'string' || !path.isAbsolute(value.pendingFailureRecord))
-  ) throw new Error('The host state pending failure record is invalid.')
+    !Array.isArray(value.pendingFailureRecords) ||
+    !value.pendingFailureRecords.every((record) =>
+      typeof record === 'string' && path.isAbsolute(record))
+  ) throw new Error('The host state pending failure records are invalid.')
   return value as unknown as DecisionGardenerHostState
 }
 
@@ -553,6 +554,49 @@ export async function sendDecisionGardenerNotification({
   }
 }
 
+async function failureRecordSummary(recordPath: string, fallback: string): Promise<string> {
+  try {
+    const value = parseJson(await fs.readFile(recordPath, 'utf8'), 'Host attempt record')
+    if (isRecord(value) && typeof value.error === 'string') return value.error
+  } catch {
+    // The durable record path remains the primary notification evidence.
+  }
+  return fallback
+}
+
+async function deliverFailureRecords({
+  config,
+  fallbackSummary,
+  records,
+  runCommand
+}: {
+  config: DecisionGardenerHostConfig
+  fallbackSummary: string
+  records: readonly string[]
+  runCommand: NotificationCommandRunner
+}): Promise<{ delivered: boolean; error: string | null; remaining: string[] }> {
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index]
+    if (record === undefined) continue
+    try {
+      await sendDecisionGardenerNotification({
+        config,
+        event: 'failed',
+        record,
+        runCommand,
+        summary: await failureRecordSummary(record, fallbackSummary)
+      })
+    } catch (error) {
+      return {
+        delivered: index > 0,
+        error: errorMessage(error),
+        remaining: records.slice(index)
+      }
+    }
+  }
+  return { delivered: records.length > 0, error: null, remaining: [] }
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -636,40 +680,36 @@ export async function runDecisionGardenerHostCycle({
       await writePrivateJson(recordPath, provisionalRecord)
       const notificationErrors: string[] = []
       let lastNotifiedHealth = state.lastNotifiedHealth
-      let pendingFailureRecord = state.pendingFailureRecord
-      const pendingFailureWasPresent = pendingFailureRecord !== null
-      if (pendingFailureRecord !== null) {
-        try {
-          await sendDecisionGardenerNotification({
-            config,
-            event: 'failed',
-            record: pendingFailureRecord,
-            runCommand,
-            summary: state.lastError ?? provisionalError
-          })
-          lastNotifiedHealth = 'failed'
-          pendingFailureRecord = null
-        } catch (notifyError) {
-          notificationErrors.push(errorMessage(notifyError))
-        }
+      let pendingFailureRecords = [...state.pendingFailureRecords]
+      const pendingFailureWasPresent = pendingFailureRecords.length > 0
+      const pendingDelivery = await deliverFailureRecords({
+        config,
+        fallbackSummary: state.lastError ?? provisionalError,
+        records: pendingFailureRecords,
+        runCommand
+      })
+      pendingFailureRecords = pendingDelivery.remaining
+      if (pendingDelivery.delivered) lastNotifiedHealth = 'failed'
+      if (pendingDelivery.error !== null) {
+        notificationErrors.push(pendingDelivery.error)
       }
       if (
-        pendingFailureRecord === null &&
+        pendingFailureRecords.length === 0 &&
         (pendingFailureWasPresent || lastNotifiedHealth !== 'failed')
       ) {
-        try {
-          await sendDecisionGardenerNotification({
-            config,
-            event: 'failed',
-            record: recordPath,
-            runCommand,
-            summary: provisionalError
-          })
-          lastNotifiedHealth = 'failed'
-        } catch (notifyError) {
-          notificationErrors.push(errorMessage(notifyError))
-          pendingFailureRecord = recordPath
+        const currentDelivery = await deliverFailureRecords({
+          config,
+          fallbackSummary: provisionalError,
+          records: [recordPath],
+          runCommand
+        })
+        pendingFailureRecords = currentDelivery.remaining
+        if (currentDelivery.delivered) lastNotifiedHealth = 'failed'
+        if (currentDelivery.error !== null) {
+          notificationErrors.push(currentDelivery.error)
         }
+      } else if (pendingFailureRecords.length > 0) {
+        pendingFailureRecords.push(recordPath)
       }
       if (notificationErrors.length > 0) {
         details.push(`Notifier error: ${notificationErrors.join(' ')}`)
@@ -681,7 +721,7 @@ export async function runDecisionGardenerHostCycle({
           lastAuditAt: state.lastAuditAt,
           lastError: combinedError,
           lastNotifiedHealth,
-          pendingFailureRecord,
+          pendingFailureRecords,
           schemaVersion: decisionGardenerHostSchemaVersion,
           updatedAt: finished
         } satisfies DecisionGardenerHostState)
@@ -745,7 +785,7 @@ export async function runDecisionGardenerHostCycle({
           health: 'failed',
           lastError: combinedError,
           lastNotifiedHealth: notificationError === null ? 'failed' : null,
-          pendingFailureRecord: notificationError === null ? null : recordPath
+          pendingFailureRecords: notificationError === null ? [] : [recordPath]
         } satisfies DecisionGardenerHostState)
       }
       const failedRecord: HostAttemptRecord = {
@@ -781,6 +821,8 @@ export async function runDecisionGardenerHostCycle({
     const runAudit = dependencies.runAudit ?? (() =>
       runDecisionGardenerAuditProcess(config, configPath))
     let pendingFailureAttempted = false
+    let pendingFailureRecords = [...state.pendingFailureRecords]
+    let lastNotifiedHealth = state.lastNotifiedHealth
     try {
       const audit = await withHostPath(config, () => runAudit({
         codex: config.codex,
@@ -798,17 +840,17 @@ export async function runDecisionGardenerHostCycle({
       }
       if (state.health === 'failed') {
         await writePrivateJson(recordPath, completed)
-        if (state.pendingFailureRecord !== null || state.lastNotifiedHealth !== 'failed') {
+        if (pendingFailureRecords.length > 0) {
           pendingFailureAttempted = true
-          await sendDecisionGardenerNotification({
+          const pendingDelivery = await deliverFailureRecords({
             config,
-            event: 'failed',
-            record: state.pendingFailureRecord ?? recordPath,
+            fallbackSummary: state.lastError ?? 'The previous gardener attempt failed.',
+            records: pendingFailureRecords,
             runCommand,
-            summary: state.lastError ?? 'The previous gardener attempt failed.'
           })
-          state.lastNotifiedHealth = 'failed'
-          state.pendingFailureRecord = null
+          pendingFailureRecords = pendingDelivery.remaining
+          if (pendingDelivery.delivered) lastNotifiedHealth = 'failed'
+          if (pendingDelivery.error !== null) throw new Error(pendingDelivery.error)
         }
         await sendDecisionGardenerNotification({
           config,
@@ -823,7 +865,7 @@ export async function runDecisionGardenerHostCycle({
         lastAuditAt: finished.toISOString(),
         lastError: null,
         lastNotifiedHealth: 'healthy',
-        pendingFailureRecord: null,
+        pendingFailureRecords: [],
         schemaVersion: decisionGardenerHostSchemaVersion,
         updatedAt: finished.toISOString()
       }
@@ -842,23 +884,35 @@ export async function runDecisionGardenerHostCycle({
       }
       await writePrivateJson(recordPath, provisionalRecord)
       let notificationError: string | null = null
-      let failureDelivered = state.pendingFailureRecord === null &&
-        state.lastNotifiedHealth === 'failed'
-      if (!failureDelivered && !pendingFailureAttempted) {
-        try {
-          await sendDecisionGardenerNotification({
+      if (!pendingFailureAttempted) {
+        const pendingFailureWasPresent = pendingFailureRecords.length > 0
+        const pendingDelivery = await deliverFailureRecords({
+          config,
+          fallbackSummary: state.lastError ?? message,
+          records: pendingFailureRecords,
+          runCommand
+        })
+        pendingFailureRecords = pendingDelivery.remaining
+        if (pendingDelivery.delivered) lastNotifiedHealth = 'failed'
+        notificationError = pendingDelivery.error
+        if (
+          pendingFailureRecords.length === 0 &&
+          (pendingFailureWasPresent || lastNotifiedHealth !== 'failed')
+        ) {
+          const currentDelivery = await deliverFailureRecords({
             config,
-            event: 'failed',
-            record: state.pendingFailureRecord ?? recordPath,
+            fallbackSummary: message,
+            records: [recordPath],
             runCommand,
-            summary: state.pendingFailureRecord === null
-              ? message
-              : (state.lastError ?? message)
           })
-          failureDelivered = true
-        } catch (notifyError) {
-          notificationError = errorMessage(notifyError)
+          pendingFailureRecords = currentDelivery.remaining
+          if (currentDelivery.delivered) lastNotifiedHealth = 'failed'
+          notificationError = currentDelivery.error
+        } else if (pendingFailureRecords.length > 0) {
+          pendingFailureRecords.push(recordPath)
         }
+      } else {
+        pendingFailureRecords.push(recordPath)
       }
       const combinedError = notificationError === null
         ? message
@@ -867,10 +921,8 @@ export async function runDecisionGardenerHostCycle({
         health: 'failed',
         lastAuditAt: state.lastAuditAt,
         lastError: combinedError,
-        lastNotifiedHealth: failureDelivered ? 'failed' : state.lastNotifiedHealth,
-        pendingFailureRecord: failureDelivered
-          ? null
-          : (state.pendingFailureRecord ?? recordPath),
+        lastNotifiedHealth,
+        pendingFailureRecords,
         schemaVersion: decisionGardenerHostSchemaVersion,
         updatedAt: failedAt.toISOString()
       }

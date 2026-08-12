@@ -240,10 +240,11 @@ to failure sends one `failed` notification; repeated failures retry every
 five-minute heartbeat without repeating a successfully delivered notification.
 The first later success sends one `recovered` notification. If a failed-event
 delivery is still pending when an audit succeeds, that exact failed record is
-delivered before the recovery event. Lock-acquisition failures preserve and
-retry that same older record before reporting the newer lock failure. If
-notification delivery itself fails, the failed health remains pending and the
-next heartbeat retries rather than silently marking the host healthy.
+delivered before the recovery event. Pending failure records form an ordered
+queue: lock-acquisition failures preserve and retry every older record before
+reporting the newer lock failure. If notification delivery itself fails, the
+failed health and every queued record remain pending, and the next heartbeat
+retries them rather than silently marking the host healthy.
 
 For a failure:
 
