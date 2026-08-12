@@ -101,7 +101,6 @@ export interface SanitizedEvidence {
   discovery: CaptureObservation['discovery']
   evidenceId: string
   exercisedAt: string
-  limitations: string[]
   matrixEntryId: string
   relationships: {
     identity: 'identified' | 'truthful-null'
@@ -540,7 +539,11 @@ export function buildSanitizedEvidence(
   if (observation.discovery.machine.source !== 'hostname-command') {
     throw new Error('Machine discovery must record an attempted hostname command.')
   }
-  if (thread?.threadHost.machine === undefined && observation.discovery.machine.status === 'observed') {
+  if (
+    thread !== null &&
+    thread.threadHost.machine === undefined &&
+    observation.discovery.machine.status === 'observed'
+  ) {
     throw new Error('An observed machine value must be present in the artifact.')
   }
 
@@ -549,7 +552,6 @@ export function buildSanitizedEvidence(
     discovery: observation.discovery,
     evidenceId: observation.evidenceId,
     exercisedAt: observation.exercisedAt,
-    limitations: observation.limitations,
     matrixEntryId: observation.matrixEntryId,
     relationships: { identity, threadHostId },
     runtime: observation.runtime,
@@ -590,7 +592,6 @@ export function validateSanitizedEvidence(
     'discovery',
     'evidenceId',
     'exercisedAt',
-    'limitations',
     'matrixEntryId',
     'relationships',
     'runtime',
@@ -605,7 +606,7 @@ export function validateSanitizedEvidence(
     discovery: item.discovery,
     evidenceId: item.evidenceId,
     exercisedAt: item.exercisedAt,
-    limitations: item.limitations,
+    limitations: [],
     matrixEntryId: item.matrixEntryId,
     runtime: item.runtime,
     schemaVersion: item.schemaVersion,
@@ -640,8 +641,7 @@ export function validateSanitizedEvidence(
     for (const [field, discovery] of [
       ['threadHost.kind', observation.discovery.hostKind],
       ['threadHost.provider', observation.discovery.hostProvider],
-      ['threadHost.threadId', observation.discovery.hostThreadId],
-      ['threadHost.machine', observation.discovery.machine]
+      ['threadHost.threadId', observation.discovery.hostThreadId]
     ] as const) {
       if (discovery.status === 'observed') {
         throw new Error(`${field} was observed but is absent from null evidence.`)
@@ -715,7 +715,6 @@ export function validateSanitizedEvidence(
     discovery: observation.discovery,
     evidenceId: observation.evidenceId,
     exercisedAt: observation.exercisedAt,
-    limitations: observation.limitations,
     matrixEntryId: observation.matrixEntryId,
     relationships: { identity, threadHostId },
     runtime: observation.runtime,
