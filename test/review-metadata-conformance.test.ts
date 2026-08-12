@@ -224,7 +224,7 @@ test('capture rejects incorrect null fallback for a required identity row', () =
   )
 })
 
-test('truthful-null evidence permits an independently observed hostname', () => {
+test('truthful-null capture fails closed without verifiable combination metadata', () => {
   const artifact = fixture()
   const review = artifact.review as Record<string, unknown>
   review.agentThread = null
@@ -240,14 +240,14 @@ test('truthful-null evidence permits an independently observed hostname', () => 
   discovery.hostKind = { status: 'not-applicable', source: 'not-applicable' }
   discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
   discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
-  const evidence = buildSanitizedEvidence(
-    artifact,
-    observation({ discovery }),
-    matrixValue
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ discovery }),
+      matrixValue
+    ),
+    /cannot verify the selected host\/provider combination/
   )
-  assert.equal(evidence.sanitizedAgentThread, null)
-  assert.equal(evidence.discovery.machine.status, 'observed')
-  assert.deepEqual(validateSanitizedEvidence(evidence, matrixValue), evidence)
 })
 
 test('capture rejects duplicated provider and host IDs through the v1 decoder', () => {
@@ -459,6 +459,48 @@ test('capture rejects local reviews as live agent evidence', () => {
       matrixValue
     ),
     /requires an agent-origin review/
+  )
+})
+
+test('committed null evidence cannot claim a supported combination', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const matrixValue = json(
+    'evals/review-metadata/matrix.json'
+  ) as Record<string, unknown>
+  const entries = matrixValue.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  firstEntry.identityExpectation = 'unavailable-allowed'
+  const evidence = buildSanitizedEvidence(
+    artifact,
+    observation(),
+    matrixValue
+  )
+  evidence.sanitizedAgentThread = null
+  evidence.relationships = {
+    identity: 'truthful-null',
+    threadHostId: 'omitted'
+  }
+  evidence.discovery.providerThreadId = {
+    status: 'unavailable',
+    source: 'not-exposed'
+  }
+  evidence.discovery.hostKind = {
+    status: 'not-applicable',
+    source: 'not-applicable'
+  }
+  evidence.discovery.hostProvider = {
+    status: 'not-applicable',
+    source: 'not-applicable'
+  }
+  evidence.discovery.hostThreadId = {
+    status: 'not-applicable',
+    source: 'not-applicable'
+  }
+  assert.throws(
+    () => validateSanitizedEvidence(evidence, matrixValue),
+    /cannot verify a host\/provider combination with null agentThread metadata/
   )
 })
 
