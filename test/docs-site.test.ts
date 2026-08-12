@@ -341,6 +341,9 @@ test('Markdown limitations publish the behavior-level compatibility boundary', (
     assert.match(limitations, new RegExp(`id="${section}"`))
   }
   assert.match(limitations, /not a claim of blanket CommonMark/)
+  assert.match(limitations, /Source precision/)
+  assert.match(limitations, /compact raw text uses <code>\\n<\/code> line separators/)
+  assert.match(limitations, /CRLF or CR separators/)
   assert.match(limitations, /YAML frontmatter/)
   assert.match(limitations, /Opaque single block/)
   assert.match(limitations, /Visible uninterpreted text/)

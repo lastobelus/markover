@@ -43,6 +43,7 @@
       <section id="matrix">
         <h2>Behavior-level compatibility matrix</h2>
         <p><strong>Structured blocks</strong> become navigable review-tree nodes. <strong>Opaque single blocks</strong> are selectable as a whole without child nodes. <strong>Preserved inline content</strong> stays inside its parent block rather than becoming structure. <strong>Visible uninterpreted text</strong> keeps its markers visible without extension-specific meaning. <strong>Source-only content</strong> remains in the exact reviewed source but has no review block or preview representation.</p>
+        <p><strong>Source precision.</strong> “Exact reviewed source” means the stored document and its checksum. A review block keeps its selected content and document line range, but its compact raw text uses <code>\n</code> line separators even when the reviewed document uses CRLF or CR separators.</p>
         <div class="docs-table-wrap">
           <table class="docs-table markdown-compatibility">
             <caption>Current Markdown parsing and review behavior</caption>
@@ -63,7 +64,7 @@
               <tr data-compatibility-id="lists-tasks" data-classification="structured">
                 <td>Ordered and unordered lists; task markers</td>
                 <td>Structured block</td>
-                <td>Each item is selectable, and nested lists become child items. A leading <code>[ ]</code>, <code>[x]</code>, or <code>[X]</code> records task state while remaining in the exact raw source.</td>
+                <td>Each item is selectable, and nested lists become child items. A leading <code>[ ]</code>, <code>[x]</code>, or <code>[X]</code> records task state while remaining in the item's raw block text.</td>
               </tr>
               <tr data-compatibility-id="code-blocks" data-classification="structured">
                 <td>Fenced and indented code</td>
@@ -88,7 +89,7 @@
               <tr data-compatibility-id="inline-formatting" data-classification="preserved-inline">
                 <td>Emphasis, strong text, and inline code</td>
                 <td>Preserved inline content</td>
-                <td>Markers and content stay in the parent block's exact source and render inline; they do not create separate review blocks.</td>
+                <td>Markers and content stay in the parent block's raw text and render inline; they do not create separate review blocks.</td>
               </tr>
               <tr data-compatibility-id="links-images" data-classification="preserved-inline">
                 <td>Inline links and image syntax</td>

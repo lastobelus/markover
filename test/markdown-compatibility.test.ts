@@ -80,7 +80,7 @@ const fixtures: CompatibilityFixture[] = [
   {
     id: 'lists-tasks',
     classification: 'structured',
-    source: '3. First\n4. [x] Done\n   - Nested\n',
+    source: '3. First\r\n4. [x] Done\r\n   continued\r\n   - Nested\r\n',
     verify(tree) {
       const nodes = flattenedNodes(tree.root)
       assert.deepEqual(nodes.map((node) => node.type), [
@@ -93,10 +93,10 @@ const fixtures: CompatibilityFixture[] = [
       assert.equal(task.marker, '4.')
       assert.equal(task.task, true)
       assert.equal(task.checked, true)
-      assert.equal(task.raw, '4. [x] Done')
+      assert.equal(task.raw, '4. [x] Done\n   continued')
       assert.deepEqual(
         nodes.map(({ lineStart, lineEnd }) => [lineStart, lineEnd]),
-        [[1, 1], [2, 2], [3, 3]]
+        [[1, 1], [2, 3], [4, 4]]
       )
     }
   },
