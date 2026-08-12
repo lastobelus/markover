@@ -121,7 +121,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 24,
+    evidenceCount: 27,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -330,7 +330,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
     `${JSON.stringify(failure, null, 2)}\n`
   )
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true), {
-    evidenceCount: 25,
+    evidenceCount: 28,
     matrixEntryCount: 3
   })
 
