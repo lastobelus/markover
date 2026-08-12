@@ -105,10 +105,10 @@
                 <td>Visible uninterpreted text</td>
                 <td>Markers remain literal paragraph content. Markover does not create strikethrough, definition, or footnote nodes.</td>
               </tr>
-              <tr data-compatibility-id="reference-links" data-classification="preserved-inline">
+              <tr data-compatibility-id="reference-links" data-classification="visible-uninterpreted">
                 <td>Reference-style link uses</td>
-                <td>Preserved inline content</td>
-                <td>The reference use remains in its parent paragraph and renders its inert label when a valid definition resolves it.</td>
+                <td>Visible uninterpreted text</td>
+                <td>The reference use remains in its parent paragraph. Because a standalone definition is source-only and absent from the paragraph's preview input, markers such as <code>[label][id]</code> remain literal rather than rendering as a link.</td>
               </tr>
               <tr data-compatibility-id="reference-definitions" data-classification="source-only">
                 <td>Standalone reference definitions</td>

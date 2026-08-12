@@ -3,8 +3,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { JSDOM } from 'jsdom'
+import MarkdownIt from 'markdown-it'
 
 const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
+const compatibilityMarkdown = MarkdownIt('commonmark', {
+  html: false,
+  linkify: false,
+  typographer: false
+})
+compatibilityMarkdown.enable('table')
 
 type Classification =
   | 'structured'
@@ -219,13 +226,17 @@ const fixtures: CompatibilityFixture[] = [
   },
   {
     id: 'reference-links',
-    classification: 'preserved-inline',
+    classification: 'visible-uninterpreted',
     source: 'A [label][id].\n\n[id]: https://example.com "Title"\n',
     verify(tree) {
       const paragraph = onlyNode(tree)
       assert.equal(paragraph.type, 'paragraph')
       assert.equal(paragraph.text, 'A [label][id].')
       assert.deepEqual([paragraph.lineStart, paragraph.lineEnd], [1, 1])
+      assert.equal(
+        compatibilityMarkdown.renderInline(paragraph.text),
+        'A [label][id].'
+      )
     }
   },
   {

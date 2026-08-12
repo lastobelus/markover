@@ -208,8 +208,10 @@ each choice from that baseline without duplicating the live decisions below.
 8. **Unrecognized extensions degrade through CommonMark.** With raw HTML and
    extensions disabled, definition-list, footnote, strikethrough, and HTML
    syntax remains visible uninterpreted paragraph content. Reference-style link
-   definitions may be absent from the block tree, while their uses remain in
-   paragraphs. The exact input always remains in `sourceDocument.content`.
+   definitions may be absent from the block tree; their uses remain in
+   paragraphs but render literally because the separate definitions are not in
+   the paragraph preview input. The exact input always remains in
+   `sourceDocument.content`.
 
    **Audit — Retain with a published boundary.** The public
    [behavior-level compatibility matrix](docs/user/limitations/index.html)
