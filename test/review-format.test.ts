@@ -223,6 +223,19 @@ test('portable metadata rejects credentials and known app-private evidence', () 
     'name',
     'requestingThreadTitle'
   ]) {
+    if (field !== 'title' && field !== 'name') {
+      const privateAdditiveContainer = cloneFixture()
+      Reflect.set(
+        record(review(privateAdditiveContainer).pullRequest),
+        field,
+        'Relocated private evidence'
+      )
+      assertFormatCode(
+        () => decodeReviewArtifact(privateAdditiveContainer),
+        'INVALID_REVIEW'
+      )
+    }
+
     const privateEnvelope = cloneFixture()
     Reflect.set(review(privateEnvelope), field, 'Private session evidence')
     assertFormatCode(() => decodeReviewArtifact(privateEnvelope), 'INVALID_REVIEW')

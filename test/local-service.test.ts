@@ -241,7 +241,7 @@ test('persists PR observations through revise and PR-scoped done', async (t) => 
         git: {
           repositoryUrl: 'git@github.com:lastobelus/markover.git'
         },
-        pullRequest: { number: 123, discovery: 'explicit' }
+        pullRequest: { number: 123, fixtureExtension: 'preserve me' }
       }
     }),
     { reviewId: 'mko_aaa11111', status: 'editing' }
@@ -283,7 +283,7 @@ test('persists PR observations through revise and PR-scoped done', async (t) => 
   assert.equal(completed.review.status, 'done')
   assert.deepEqual(completed.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'merged',
     statusObservedAt: completed.review.updatedAt,

@@ -257,12 +257,12 @@ test('stores successful agent PR observations with transition receipt time', asy
     tree: tree(),
     contextSummary: 'Check PR observations.',
     git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
-    pullRequest: { number: 123, discovery: 'explicit' },
+    pullRequest: { number: 123, fixtureExtension: 'preserve me' },
     pullRequestStatus: 'draft'
   })
   assert.deepEqual(created.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'draft',
     statusObservedAt: '2026-08-10T02:00:00.000Z',
@@ -272,7 +272,7 @@ test('stores successful agent PR observations with transition receipt time', asy
   const handedOff = await store.handoff(created.review.id, 'open')
   assert.deepEqual(handedOff.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'open',
     statusObservedAt: '2026-08-10T02:01:00.000Z',
@@ -282,7 +282,7 @@ test('stores successful agent PR observations with transition receipt time', asy
   assert.equal(revised.review.status, 'revised')
   assert.deepEqual(revised.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'open',
     statusObservedAt: '2026-08-10T02:02:00.000Z',

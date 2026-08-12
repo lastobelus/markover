@@ -128,9 +128,9 @@ function positiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
-function assertNoPrivateExtensionNamespaces(value: unknown): void {
+function assertNoPrivateEvidence(value: unknown): void {
   if (Array.isArray(value)) {
-    for (const entry of value) assertNoPrivateExtensionNamespaces(entry)
+    for (const entry of value) assertNoPrivateEvidence(entry)
     return
   }
   if (!isRecord(value)) return
@@ -138,7 +138,10 @@ function assertNoPrivateExtensionNamespaces(value: unknown): void {
     if (PRIVATE_EXTENSION_NAMESPACES.has(field)) {
       invalid(`Portable review data must not contain private ${field} evidence.`)
     }
-    assertNoPrivateExtensionNamespaces(nested)
+    if (PRIVATE_TOP_LEVEL_FIELDS.has(field)) {
+      invalid(`Portable review data must not contain local ${field} evidence.`)
+    }
+    assertNoPrivateEvidence(nested)
   }
 }
 
@@ -571,7 +574,7 @@ function assertEnvelope(
 }
 
 function assertV1Body(value: Record<string, unknown>): void {
-  assertNoPrivateExtensionNamespaces(value)
+  assertNoPrivateEvidence(value)
   for (const field of PRIVATE_TOP_LEVEL_FIELDS) {
     if (owns(value, field)) {
       invalid(`Portable review data must not contain top-level private ${field} evidence.`)
