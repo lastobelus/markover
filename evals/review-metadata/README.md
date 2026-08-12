@@ -105,8 +105,9 @@ retain runner commit `82df4d6ecd95be511ede2ccb0113e126c46d416d` as history. Each
 same-run raw artifact was re-recorded through hardened runner commit
 `a5fec04fac192db4da3cafb73df38db8f112d626`, then through duplicate-aware,
 PR-provenance-verifying runner commit
-`1c56bdf7019c0573afe7ae0c0605a9938e336a98`. All three immutable records per
-combination remain referenced by the matrix.
+`1c56bdf7019c0573afe7ae0c0605a9938e336a98`, and finally through source-bound,
+closed-corpus runner commit `e562535075a434f9554c535be835591f17025a7b`.
+All four immutable records per combination remain referenced by the matrix.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
