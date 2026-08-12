@@ -546,6 +546,10 @@ export function buildSanitizedEvidence(
       throw new Error('A null agentThread requires provider identity to be unavailable.')
     }
     assertNullThreadHostNotObserved(observation.discovery)
+    throw new Error(
+      'A null agentThread cannot verify the selected host/provider combination; ' +
+      'do not record passing evidence.'
+    )
   } else {
     if (
       thread.threadHost.kind !== entry.threadHost.kind ||
@@ -699,17 +703,10 @@ export function validateSanitizedEvidence(
   ], 'Evidence relationships.threadHostId')
   let sanitizedAgentThread: SanitizedEvidence['sanitizedAgentThread']
   if (item.sanitizedAgentThread === null) {
-    if (entry.identityExpectation === 'required' || identity !== 'truthful-null') {
-      throw new Error(`${entry.id} evidence requires identified agentThread metadata.`)
-    }
-    if (threadHostId !== 'omitted') {
-      throw new Error('Null evidence cannot record a distinct host thread ID.')
-    }
-    if (observation.discovery.providerThreadId.status !== 'unavailable') {
-      throw new Error('Null evidence requires provider identity to be unavailable.')
-    }
-    assertNullThreadHostNotObserved(observation.discovery)
-    sanitizedAgentThread = null
+    throw new Error(
+      `${entry.id} evidence cannot verify a host/provider combination with null ` +
+      'agentThread metadata.'
+    )
   } else {
     const thread = record(item.sanitizedAgentThread, 'Evidence sanitizedAgentThread')
     assertExactKeys(

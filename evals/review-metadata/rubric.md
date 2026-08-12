@@ -16,8 +16,9 @@ contract.
   provider ID; omission records either an unavailable or inapplicable host ID.
 - `machineAttempted` — the exercise records a real `hostname` attempt and keeps
   the value only when observed.
-- `nullFallbackTruthful` — `agentThread: null` is accepted only for a matrix row
-  that permits unavailable identity and records the provider ID as unavailable.
+- `nullFallbackTruthful` — a non-null snapshot passes. A null snapshot may be
+  truthful about unavailable identity, but this harness fails it closed because
+  it cannot independently verify the selected host/provider combination.
 - `guessedValuesAbsent` — every retained identity value has an observed discovery
   source; unavailable values are omitted.
 - `sanitized` — provider ID, host ID, and hostname are absent from the reduced
