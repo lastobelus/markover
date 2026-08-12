@@ -65,5 +65,8 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.65.0",
     "yaml": "^2.9.0"
+  },
+  "dependencies": {
+    "lucide": "0.564.0"
   }
 }

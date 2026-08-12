@@ -980,6 +980,11 @@ p {
   background: rgb(var(--surface-rgb) / 78%);
 }
 
+.documents-list-disclosure .lucide-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .documents-list-tree {
   min-width: 0;
   min-height: 0;
@@ -1069,17 +1074,47 @@ p {
 }
 
 .review-project-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
   color: var(--accent-deep);
+  background: transparent;
   font-size: 10px;
 }
 
 .review-project-icon img {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
+}
+
+.review-row-icon-stack {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 24px;
+}
+
+.review-row-icon-stack > .review-project-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.review-row-icon-stack > :is(.review-provider-icon, .review-provider-icon-stack) {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.review-row-icon-stack .review-provider-icon :is(svg, img) {
+  width: 11px;
+  height: 11px;
 }
 
 .review-provider-icon {
@@ -1094,6 +1129,49 @@ p {
 .review-provider-icon svg {
   width: 14px;
   height: 14px;
+}
+
+.review-provider-icon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.review-provider-icon-stack {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 5px;
+  outline: none;
+}
+
+.review-provider-icon-stack > .review-provider-icon {
+  grid-area: 1 / 1;
+  transition: opacity 100ms ease, transform 100ms ease;
+}
+
+.review-provider-icon-stack > .is-thread-host {
+  opacity: 0;
+  transform: scale(.82);
+}
+
+.review-provider-icon-stack.has-thread-host:hover > .is-provider,
+.review-provider-icon-stack.has-thread-host:focus-visible > .is-provider {
+  opacity: 0;
+  transform: scale(.82);
+}
+
+.review-provider-icon-stack.has-thread-host:hover > .is-thread-host,
+.review-provider-icon-stack.has-thread-host:focus-visible > .is-thread-host {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.review-provider-icon-stack:focus-visible {
+  outline: 1px solid var(--accent-deep);
+  outline-offset: 2px;
 }
 
 .review-provider-icon.provider-local {
@@ -1132,6 +1210,23 @@ p {
 .review-list-row-time,
 .review-list-row-meta > span:last-child {
   flex: 0 0 auto;
+}
+
+.review-status-badge {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgb(var(--surface-rgb) / 76%);
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.review-status-badge.is-pending-agent {
+  border-color: var(--selection-line);
+  color: var(--accent-deep);
+  background: var(--accent-soft);
 }
 
 .review-list-row-pr:is(.is-linked, .is-open) {
@@ -1208,6 +1303,33 @@ button.review-list-row-pr:hover {
   display: none;
 }
 
+.review-details-disclosure {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+  color: var(--muted);
+}
+
+.review-details-disclosure .lucide-icon {
+  width: 16px;
+  height: 16px;
+  grid-area: 1 / 1;
+  stroke-width: 2;
+}
+
+.review-details-disclosure .is-open,
+.review-project-group[open] > summary .review-details-disclosure .is-closed,
+.review-thread-group[open] > summary .review-details-disclosure .is-closed {
+  display: none;
+}
+
+.review-project-group[open] > summary .review-details-disclosure .is-open,
+.review-thread-group[open] > summary .review-details-disclosure .is-open {
+  display: block;
+}
+
 .review-history-group > summary {
   min-height: 38px;
   padding: 0 14px;
@@ -1250,16 +1372,17 @@ button.review-list-row-pr:hover {
 
 .review-project-group > summary {
   min-height: 34px;
-  padding: 0 10px;
+  padding: 0 10px 0 4px;
 }
 
 .review-thread-group > summary {
   min-height: 32px;
-  padding: 0 10px 0 22px;
+  padding: 0 10px 0 14px;
 }
 
 .review-group-label {
   display: flex;
+  flex: 1 1 auto;
   min-width: 0;
   align-items: center;
   gap: 7px;
@@ -1269,6 +1392,14 @@ button.review-list-row-pr:hover {
 
 .review-thread-label {
   font-size: 10px;
+}
+
+.review-thread-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: var(--muted);
+  stroke-width: 1.8;
 }
 
 .review-count-badge {
@@ -1289,7 +1420,84 @@ button.review-list-row-pr:hover {
 }
 
 .review-thread-reviews {
-  padding-left: 14px;
+  padding-left: 46px;
+}
+
+.review-project-leaf {
+  min-width: 0;
+  margin-right: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.review-project-leaf:hover {
+  background: rgb(var(--surface-rgb) / 68%);
+}
+
+.review-project-leaf.is-active {
+  margin-left: -24px;
+  border-color: var(--selection-line);
+  background: var(--accent-soft);
+}
+
+.review-project-leaf-open {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 25px;
+  padding: 2px 6px 2px 2px;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: inherit;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.review-project-leaf.is-active .review-project-leaf-open {
+  padding-left: 26px;
+}
+
+.review-project-leaf-status {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--status-outline);
+  border-radius: 50%;
+  background: var(--status-other);
+}
+
+.review-project-leaf.is-editing .review-project-leaf-status {
+  background: var(--status-editing);
+}
+
+.review-project-leaf.is-pending-agent .review-project-leaf-status {
+  background: var(--status-pending);
+}
+
+.review-project-leaf.is-revised .review-project-leaf-status {
+  background: var(--status-revised);
+}
+
+.review-project-leaf.is-done .review-project-leaf-status {
+  background: var(--status-done);
+}
+
+.review-project-leaf-title {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-project-leaf-age {
+  color: var(--muted);
+  font-size: 9px;
+  white-space: nowrap;
 }
 
 .documents-list-resizer {
@@ -1636,8 +1844,12 @@ button.review-list-row-pr:hover {
   color: var(--muted);
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
   margin-left: var(--depth-indent);
+}
+
+.disclosure .lucide-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .disclosure:hover {
@@ -1814,6 +2026,74 @@ button.review-list-row-pr:hover {
   background: var(--surface);
   box-shadow: 0 14px 34px var(--shadow);
   pointer-events: none;
+}
+
+.review-hover-card {
+  position: fixed;
+  z-index: 94;
+  width: min(340px, calc(100vw - 20px));
+  max-height: min(360px, calc(100vh - 20px));
+  overflow: hidden;
+  padding: 11px 12px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 14px 34px var(--shadow);
+  pointer-events: none;
+}
+
+.review-hover-title {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-hover-entries {
+  display: grid;
+  gap: 6px;
+}
+
+.review-hover-entry {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.review-hover-entry > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-hover-entry-icon {
+  width: 16px;
+  height: 16px;
+  justify-self: center;
+}
+
+.review-hover-entry-icon.review-project-icon,
+.review-hover-entry-icon.review-provider-icon,
+.review-hover-entry-icon.review-provider-icon-stack {
+  width: 16px;
+  height: 16px;
+}
+
+.review-hover-entry-icon.review-project-icon img,
+.review-hover-entry-icon.review-provider-icon :is(svg, img) {
+  width: 14px;
+  height: 14px;
 }
 
 .source-error-tooltip {
@@ -2346,7 +2626,15 @@ kbd {
 }
 
 .source-toggle-icon {
-  font-size: 8px;
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+}
+
+.source-toggle-icon .lucide-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .source-header-actions {

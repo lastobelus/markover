@@ -305,7 +305,9 @@ export function renderNotices(
     lines.push(
       '## Source-derived assets',
       '',
-      'The Codex/OpenAI and Claude provider SVG path data is derived from LastCode.',
+      'The Codex/OpenAI and Claude provider SVG path data and the T3 Code ' +
+      'thread-host favicon are derived from T3 Code sources inspected in the ' +
+      'LastCode fork.',
       '',
       sourceAssetLicense.trimEnd(),
       ''
@@ -316,7 +318,7 @@ export function renderNotices(
 
 export function generatedNotices(rootDirectory = projectDirectory): string {
   const sourceAssetLicense = fs.readFileSync(
-    path.join(rootDirectory, 'third_party/lastcode-provider-icons.LICENSE'),
+    path.join(rootDirectory, 'third_party/t3code-source-assets.LICENSE'),
     'utf8'
   )
   return renderNotices(shippedPackages(rootDirectory), sourceAssetLicense)

@@ -364,7 +364,7 @@
             title="Collapse documents list sidebar"
             aria-label="Collapse documents list sidebar"
             aria-expanded="true"
-          >‹</button>
+          ></button>
         </header>
         <div id="documents-list-tree" class="documents-list-tree"></div>
         <div
@@ -387,7 +387,7 @@
               aria-label="Expand documents list sidebar"
               aria-expanded="false"
               hidden
-            >›</button>
+            ></button>
             <span class="eyebrow">Document tree</span>
           </div>
           <div class="document-tree-header-actions">
@@ -465,7 +465,7 @@
               aria-controls="source-content"
             >
               <span>Source</span>
-              <span id="source-toggle-icon" class="source-toggle-icon">▼</span>
+              <span id="source-toggle-icon" class="source-toggle-icon"></span>
             </button>
             <div class="source-header-actions">
               <span id="source-diff-stats" class="source-diff-stats" hidden></span>
@@ -565,6 +565,12 @@
       <dl id="review-context-fields" class="review-context-fields"></dl>
     </aside>
     <div id="annotation-sneak-peek" class="annotation-sneak-peek" hidden></div>
+    <div
+      id="review-hover-card"
+      class="review-hover-card"
+      role="tooltip"
+      hidden
+    ></div>
     <div
       id="source-error-tooltip"
       class="source-error-tooltip"

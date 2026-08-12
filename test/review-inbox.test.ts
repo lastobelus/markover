@@ -110,6 +110,61 @@ test('Inbox exposes every Editing review in attention order without thread group
   assert.equal(projection.projects[0]?.threads[0]?.editingCount, 2)
 })
 
+test('thread-host packets expose nested provider and thread-host registry keys', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_host1111', 'host.md', {
+    agentThread: {
+      id: 'provider-thread-1',
+      threadHost: {
+        kind: 't3code',
+        machine: 'Airy.local',
+        threadId: 'host-thread-1',
+        provider: 'codex'
+      }
+    },
+    createdAt: '2026-08-09T12:30:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+
+  const projection = projectReviewInbox(sessions.list())
+  const row = projection.editing[0]
+  const thread = projection.projects[0]?.threads[0]
+  assert.ok(row)
+  assert.ok(thread)
+  assert.equal(row.provider, 'codex')
+  assert.equal(row.threadHostKind, 't3code')
+  assert.equal(row.machine, 'Airy.local')
+  assert.equal(row.requestingThreadId, 'host-thread-1')
+  assert.equal(thread.provider, 'codex')
+  assert.equal(thread.threadHostKind, 't3code')
+  assert.equal(thread.machine, 'Airy.local')
+  assert.equal(thread.requestingThreadId, 'host-thread-1')
+})
+
+test('a thread group never presents one review purpose as a shared thread title', () => {
+  const sessions = new ReviewSessions()
+  for (const [reviewId, contextSummary, createdAt] of [
+    ['mko_purpose1', 'Review the schema.', '2026-08-09T12:30:00.000Z'],
+    ['mko_purpose2', 'Approve the UI.', '2026-08-09T12:31:00.000Z']
+  ] as const) {
+    sessions.add(reviewDocument(reviewId, `${reviewId}.md`, {
+      agentThread: { provider: 'codex', id: 'shared-thread' },
+      contextSummary,
+      createdAt,
+      projectRoot: '/projects/markover'
+    }))
+  }
+
+  const thread = projectReviewInbox(sessions.list()).projects[0]?.threads[0]
+  assert.ok(thread)
+  assert.equal(thread.title, 'shared-thread')
+  assert.equal(thread.titleSource, 'thread-id')
+  assert.deepEqual(
+    thread.reviews.map((review) => review.title),
+    ['Approve the UI.', 'Review the schema.']
+  )
+})
+
 test('Local reviews use document identity and the synthetic Local reviews group', () => {
   const sessions = new ReviewSessions()
   sessions.add(reviewDocument('mko_local111', 'product-notes.md', {

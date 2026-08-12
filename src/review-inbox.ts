@@ -5,6 +5,7 @@ import {
 
 export type ReviewTitleSource =
   | 'thread-title'
+  | 'thread-id'
   | 'context-summary'
   | 'document-name'
 
@@ -15,6 +16,7 @@ export interface ReviewInboxRow {
   documentName: string
   lifecycleActivityAt: number
   local: boolean
+  machine: string | null
   projectKey: string
   projectName: string
   projectRoot: string | null
@@ -24,8 +26,10 @@ export interface ReviewInboxRow {
   pullRequestStatusObservedAt: string | null
   pullRequestStatusSource: string | null
   reviewId: string
+  requestingThreadId: string | null
   status: ReviewSessionStatus
   threadKey: string
+  threadHostKind: string | null
   title: string
   titleSource: ReviewTitleSource
 }
@@ -36,7 +40,10 @@ export interface ReviewInboxThread {
   latestActivityAt: number
   latestAttentionAt: number
   local: boolean
+  machine: string | null
   provider: string | null
+  requestingThreadId: string | null
+  threadHostKind: string | null
   reviews: ReviewInboxRow[]
   title: string
   titleSource: ReviewTitleSource
@@ -119,8 +126,16 @@ function rowTitle(
 function rowFromSession(session: ReviewSession): ReviewInboxRow {
   const review = session.tree.review
   const agentThread = review.agentThread
-  const provider = stringField(agentThread, ['provider'])
-  const threadId = stringField(agentThread, ['id', 'threadId'])
+  const threadHost = isRecord(agentThread) && isRecord(agentThread.threadHost)
+    ? agentThread.threadHost
+    : null
+  const provider = stringField(agentThread, ['provider']) ||
+    stringField(threadHost, ['provider'])
+  const threadHostKind = stringField(threadHost, ['kind'])
+  const agentThreadId = stringField(agentThread, ['id', 'threadId'])
+  const requestingThreadId = stringField(threadHost, ['threadId']) ||
+    agentThreadId
+  const machine = stringField(threadHost, ['machine'])
   const contextSummary = review.contextSummary?.trim() || ''
   const local = !provider && (
     contextSummary === 'Opened locally in Markover.' ||
@@ -132,8 +147,8 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
   const pullRequestState = pullRequestObservation(review.pullRequest)
   const threadKey = local
     ? `local:${session.projectKey}`
-    : threadId
-      ? `${provider || 'agent'}:${threadId}`
+    : agentThreadId
+      ? `${provider || 'agent'}:${agentThreadId}`
       : `review:${session.reviewId}`
 
   return {
@@ -143,6 +158,7 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
     documentName: session.documentName,
     lifecycleActivityAt: session.lifecycleActivityAt,
     local,
+    machine,
     projectKey: session.projectKey,
     projectName: session.projectName,
     projectRoot: session.projectRoot,
@@ -152,8 +168,10 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
     pullRequestStatusObservedAt: pullRequestState?.statusObservedAt ?? null,
     pullRequestStatusSource: pullRequestState?.statusSource ?? null,
     reviewId: session.reviewId,
+    requestingThreadId,
     status: review.status,
     threadKey,
+    threadHostKind,
     ...title
   }
 }
@@ -191,6 +209,7 @@ function threadProjection(
   const first = ordered[0]
   if (!first) throw new Error(`Review thread ${key} cannot be empty.`)
   const editing = ordered.filter((review) => review.status === 'editing')
+  const titledReview = ordered.find((review) => review.titleSource === 'thread-title')
   return {
     editingCount: editing.length,
     key,
@@ -199,10 +218,19 @@ function threadProjection(
       ? Math.max(...editing.map((review) => review.attentionRequestedAt))
       : 0,
     local: first.local,
+    machine: first.machine,
     provider: first.provider,
+    requestingThreadId: first.requestingThreadId,
+    threadHostKind: first.threadHostKind,
     reviews: ordered,
-    title: first.local ? 'Local reviews' : first.title,
-    titleSource: first.local ? 'document-name' : first.titleSource
+    title: first.local
+      ? 'Local reviews'
+      : titledReview?.title || first.requestingThreadId || 'Thread title unavailable',
+    titleSource: first.local
+      ? 'document-name'
+      : titledReview?.titleSource || (
+          first.requestingThreadId ? 'thread-id' : 'document-name'
+        )
   }
 }
 

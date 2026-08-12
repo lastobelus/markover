@@ -31,6 +31,7 @@
 | `hast-util-whitespace` | `3.0.0` | `MIT` |
 | `html-void-elements` | `3.0.0` | `MIT` |
 | `linkify-it` | `5.0.2` | `MIT` |
+| `lucide` | `0.564.0` | `ISC` |
 | `markdown-it` | `14.3.0` | `MIT` |
 | `mdurl` | `2.1.0` | `MIT` |
 | `oniguruma-parser` | `0.12.2` | `MIT` |
@@ -500,7 +501,53 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 11: MIT
+### License 11: ISC
+
+Applies to: `lucide@0.564.0`
+
+ISC License
+
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2026 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2026.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+---
+
+The MIT License (MIT) (for portions derived from Feather)
+
+Copyright (c) 2013-2026 Cole Bemis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+### License 12: MIT
 
 Applies to: `markdown-it@14.3.0`
 
@@ -529,7 +576,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 12: MIT
+### License 13: MIT
 
 Applies to: `mdurl@2.1.0`
 
@@ -581,7 +628,7 @@ IN THE SOFTWARE.
 
 ---
 
-### License 13: MIT
+### License 14: MIT
 
 Applies to: `oniguruma-parser@0.12.2`
 
@@ -609,7 +656,7 @@ SOFTWARE.
 
 ---
 
-### License 14: MIT
+### License 15: MIT
 
 Applies to: `oniguruma-to-es@4.3.6`
 
@@ -637,7 +684,7 @@ SOFTWARE.
 
 ---
 
-### License 15: MIT
+### License 16: MIT
 
 Applies to: `property-information@7.2.0`
 
@@ -666,7 +713,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 16: MIT
+### License 17: MIT
 
 Applies to: `punycode.js@2.3.1`, `uc.micro@2.1.0`
 
@@ -693,7 +740,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 17: MIT
+### License 18: MIT
 
 Applies to: `regex-recursion@6.0.2`, `regex@6.1.0`
 
@@ -721,7 +768,7 @@ SOFTWARE.
 
 ---
 
-### License 18: MIT
+### License 19: MIT
 
 Applies to: `regex-utilities@2.3.0`
 
@@ -749,7 +796,7 @@ SOFTWARE.
 
 ---
 
-### License 19: MIT
+### License 20: MIT
 
 Applies to: `stringify-entities@4.0.4`
 
@@ -778,7 +825,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-### License 20: ISC
+### License 21: ISC
 
 Applies to: `yaml@2.9.0`
 
@@ -800,7 +847,7 @@ THIS SOFTWARE.
 
 ## Source-derived assets
 
-The Codex/OpenAI and Claude provider SVG path data is derived from LastCode.
+The Codex/OpenAI and Claude provider SVG path data and the T3 Code thread-host favicon are derived from T3 Code sources inspected in the LastCode fork.
 
 MIT License
 

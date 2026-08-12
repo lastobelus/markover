@@ -20,7 +20,17 @@ import {
 } from './incoming-review-policy'
 import * as MarkoverImagePreview from './image-preview'
 import { internalAttachmentUrl } from './internal-url'
+import {
+  markoverIcon,
+  replaceMarkoverIcon,
+  type MarkoverIconName
+} from './lucide-icons'
 import * as MarkoverNavigation from './navigation'
+import {
+  providerIcon,
+  threadHostIcon,
+  type ReviewRegistryIcon
+} from './review-icon-registry'
 import {
   projectReviewInbox,
   type ReviewInboxProject,
@@ -159,6 +169,7 @@ const elements = {
   reviewContextFields: requiredElement('#review-context-fields'),
   reviewContextSummary: requiredElement('#review-context-summary'),
   reviewContextTitle: requiredElement('#review-context-title'),
+  reviewHoverCard: requiredElement('#review-hover-card'),
   documentsListCollapse: requiredElement<HTMLButtonElement>('#documents-list-collapse'),
   documentsListOpen: requiredElement<HTMLButtonElement>('#documents-list-open'),
   documentsListResizer: requiredElement('#documents-list-resizer'),
@@ -183,6 +194,9 @@ const elements = {
   workspace: requiredElement('#workspace')
 }
 
+replaceMarkoverIcon(elements.documentsListCollapse, 'panel-left-close')
+replaceMarkoverIcon(elements.documentsListOpen, 'panel-left')
+
 const state: RendererState = {
   attachmentPreviewUrls: new Map<string, string>(),
   documentName: 'sample.md',
@@ -203,6 +217,7 @@ const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
 const MAX_VISIBLE_TABS = 6
 const INBOX_HISTORY_PAGE_SIZE = 10
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
+let reviewHoverTimer: ReturnType<typeof setTimeout> | null = null
 let documentsListCollapsed = false
 let localOpenInProgress = false
 let documentsListWidth = 390
@@ -737,7 +752,10 @@ function renderNode(
   if (entry.children.length && !state.annotatedOnly) {
     const disclosure = document.createElement('button')
     disclosure.className = 'disclosure'
-    disclosure.textContent = node.collapsed ? '▶' : '▼'
+    replaceMarkoverIcon(
+      disclosure,
+      node.collapsed ? 'chevron-right' : 'chevron-down'
+    )
     disclosure.title = node.collapsed ? 'Expand block' : 'Collapse block'
     disclosure.addEventListener('click', (event) => {
       event.stopPropagation()
@@ -1320,7 +1338,7 @@ function beginSourceEdit(node: ReviewNode): void {
   MarkoverSourceEdits.begin(state, node)
   state.sourceCollapsed = false
   elements.sourceToggle.setAttribute('aria-expanded', 'true')
-  elements.sourceToggleIcon.textContent = '▼'
+  replaceMarkoverIcon(elements.sourceToggleIcon, 'chevron-down')
   renderSourcePanel(node)
   requestAnimationFrame(() => {
     elements.sourceEditor.focus()
@@ -1923,38 +1941,77 @@ function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
   }, delay)
 }
 
-const OPENAI_ICON_PATH = 'M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Zm-97.56 136.338a48.397 48.397 0 0 1-31.105-11.255l1.535-.87 51.67-29.825a8.595 8.595 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.545-48.601 48.601Zm-104.466-44.61a48.345 48.345 0 0 1-5.781-32.589l1.534.921 51.722 29.826a8.339 8.339 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803ZM23.549 85.38a48.499 48.499 0 0 1 25.58-21.333v61.39a8.288 8.288 0 0 0 4.195 7.316l62.874 36.272-21.845 12.636a.819.819 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405v.256Zm179.466 41.695-63.08-36.63L161.73 77.86a.819.819 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.544 8.544 0 0 0-4.4-7.213Zm21.742-32.69-1.535-.922-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.716.716 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391v.205ZM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87-51.67 29.825a8.595 8.595 0 0 0-4.246 7.367l-.051 72.697Zm11.868-25.58 28.138-16.217 28.188 16.218v32.434l-28.086 16.218-28.188-16.218-.052-32.434Z'
-const CLAUDE_ICON_PATH = 'm50.228 170.321 50.357-28.257.843-2.463-.843-1.361h-2.462l-8.426-.518-28.775-.778-24.952-1.037-24.175-1.296-6.092-1.297L0 125.796l.583-3.759 5.12-3.434 7.324.648 16.202 1.101 24.304 1.685 17.629 1.037 26.118 2.722h4.148l.583-1.685-1.426-1.037-1.101-1.037-25.147-17.045-27.22-18.017-14.258-10.37-7.713-5.25-3.888-4.925-1.685-10.758 7-7.713 9.397.649 2.398.648 9.527 7.323 20.35 15.75L94.817 91.9l3.889 3.24 1.555-1.102.195-.777-1.75-2.917-14.453-26.118-15.425-26.572-6.87-11.018-1.814-6.61c-.648-2.723-1.102-4.991-1.102-7.778l7.972-10.823L71.42 0 82.05 1.426l4.472 3.888 6.61 15.101 10.694 23.786 16.591 32.34 4.861 9.592 2.592 8.879.973 2.722h1.685v-1.556l1.36-18.211 2.528-22.36 2.463-28.776.843-8.1 4.018-9.722 7.971-5.25 6.222 2.981 5.12 7.324-.713 4.73-3.046 19.768-5.962 30.98-3.889 20.739h2.268l2.593-2.593 10.499-13.934 17.628-22.036 7.778-8.749 9.073-9.657 5.833-4.601h11.018l8.1 12.055-3.628 12.443-11.342 14.388-9.398 12.184-13.48 18.147-8.426 14.518.778 1.166 2.01-.194 30.46-6.481 16.462-2.982 19.637-3.37 8.88 4.148.971 4.213-3.5 8.62-20.998 5.184-24.628 4.926-36.682 8.685-.454.324.519.648 16.526 1.555 7.065.389h17.304l32.21 2.398 8.426 5.574 5.055 6.805-.843 5.184-12.962 6.611-17.498-4.148-40.83-9.721-14-3.5h-1.944v1.167l11.666 11.406 21.387 19.314 26.767 24.887 1.36 6.157-3.434 4.86-3.63-.518-23.526-17.693-9.073-7.972-20.545-17.304h-1.36v1.814l4.73 6.935 25.017 37.59 1.296 11.536-1.814 3.76-6.481 2.268-7.13-1.297-14.647-20.544-15.1-23.138-12.185-20.739-1.49.843-7.194 77.448-3.37 3.953-7.778 2.981-6.48-4.925-3.436-7.972 3.435-15.749 4.148-20.544 3.37-16.333 3.046-20.285 1.815-6.74-.13-.454-1.49.194-15.295 20.999-23.267 31.433-18.406 19.702-4.407 1.75-7.648-3.954.713-7.064 4.277-6.286 25.47-32.405 15.36-20.092 9.917-11.6-.065-1.686h-.583L44.07 198.125l-12.055 1.555-5.185-4.86.648-7.972 2.463-2.593 20.35-13.999-.064.065Z'
 
-function createProviderIcon(
-  row: Pick<ReviewInboxRow, 'local' | 'provider'>
+function createRegisteredIcon(
+  definition: ReviewRegistryIcon,
+  className: string
 ): HTMLElement {
   const icon = document.createElement('span')
-  const provider = row.provider?.toLowerCase() || ''
-  icon.className = `review-provider-icon provider-${row.local ? 'local' : provider || 'unknown'}`
-  icon.title = row.local ? 'Local Markdown' : row.provider || 'Agent'
-  if (row.local) {
-    icon.textContent = 'md'
-    return icon
-  }
-  const iconPath = provider.includes('claude')
-    ? { viewBox: '0 0 256 257', path: CLAUDE_ICON_PATH, fill: '#d97757' }
-    : provider.includes('codex') || provider.includes('openai')
-      ? { viewBox: '0 0 256 260', path: OPENAI_ICON_PATH, fill: 'currentColor' }
-      : null
-  if (!iconPath) {
-    icon.textContent = provider ? provider.slice(0, 2).toUpperCase() : '·'
+  icon.className = `review-provider-icon ${className}`
+  if (definition.kind === 'image') {
+    const image = document.createElement('img')
+    image.src = definition.source
+    image.alt = ''
+    icon.append(image)
     return icon
   }
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-  svg.setAttribute('viewBox', iconPath.viewBox)
+  svg.setAttribute('viewBox', definition.viewBox)
   svg.setAttribute('aria-hidden', 'true')
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-  path.setAttribute('d', iconPath.path)
-  path.setAttribute('fill', iconPath.fill)
-  svg.append(path)
+  for (const registeredPath of definition.paths) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute('d', registeredPath.d)
+    path.setAttribute('fill', registeredPath.fill)
+    svg.append(path)
+  }
   icon.append(svg)
   return icon
+}
+
+function createProviderIcon(
+  row: Pick<ReviewInboxRow, 'local' | 'provider' | 'threadHostKind'>
+): HTMLElement {
+  if (row.local) {
+    const icon = document.createElement('span')
+    icon.className = 'review-provider-icon provider-local'
+    icon.textContent = 'md'
+    icon.title = 'Local Markdown'
+    return icon
+  }
+  const providerDefinition = providerIcon(row.provider)
+  const providerClass = (row.provider || 'unknown').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+  const primary = providerDefinition
+    ? createRegisteredIcon(providerDefinition, `provider-${providerClass}`)
+    : document.createElement('span')
+  if (!providerDefinition) {
+    primary.className = `review-provider-icon provider-${providerClass}`
+    primary.textContent = row.provider
+      ? row.provider.slice(0, 2).toUpperCase()
+      : '·'
+  }
+  const providerLabel = providerDefinition?.label || row.provider || 'Agent'
+  const threadHostDefinition = threadHostIcon(row.threadHostKind)
+  if (!threadHostDefinition) {
+    primary.title = providerLabel
+    return primary
+  }
+
+  const stack = document.createElement('span')
+  stack.className = 'review-provider-icon-stack has-thread-host'
+  stack.tabIndex = 0
+  stack.title = `${providerLabel} provider · hover to see ${threadHostDefinition.label} thread-host`
+  stack.setAttribute(
+    'aria-label',
+    `${providerLabel} provider; ${threadHostDefinition.label} thread-host`
+  )
+  primary.classList.add('is-provider')
+  const threadHost = createRegisteredIcon(
+    threadHostDefinition,
+    'is-thread-host'
+  )
+  stack.append(primary, threadHost)
+  return stack
 }
 
 function createProjectIcon(
@@ -1979,6 +2036,133 @@ function createProjectIcon(
     icon.replaceChildren(image)
   }).catch(() => {})
   return icon
+}
+
+interface ReviewHoverEntry {
+  icon?: MarkoverIconName
+  text: string
+  visual?: Element
+}
+
+interface ReviewHoverModel {
+  entries: ReviewHoverEntry[]
+  title: string
+}
+
+function hideReviewHoverCard(): void {
+  if (reviewHoverTimer) clearTimeout(reviewHoverTimer)
+  reviewHoverTimer = null
+  elements.reviewHoverCard.hidden = true
+  elements.reviewHoverCard.replaceChildren()
+}
+
+function showReviewHoverCard(
+  anchor: HTMLElement,
+  model: ReviewHoverModel
+): void {
+  if (!anchor.isConnected) return
+  const title = document.createElement('strong')
+  title.className = 'review-hover-title'
+  title.textContent = model.title
+  const entries = document.createElement('div')
+  entries.className = 'review-hover-entries'
+  for (const entry of model.entries) {
+    const row = document.createElement('div')
+    row.className = 'review-hover-entry'
+    const visual = entry.visual || markoverIcon(entry.icon || 'message-square')
+    visual.classList.add('review-hover-entry-icon')
+    const value = document.createElement('span')
+    value.textContent = entry.text
+    row.append(visual, value)
+    entries.append(row)
+  }
+  elements.reviewHoverCard.replaceChildren(title, entries)
+  elements.reviewHoverCard.hidden = false
+  const anchorRect = anchor.getBoundingClientRect()
+  const hoverRect = elements.reviewHoverCard.getBoundingClientRect()
+  const position = MarkoverAnnotationBlock.popoverPosition(
+    anchorRect,
+    hoverRect,
+    { width: window.innerWidth, height: window.innerHeight }
+  )
+  elements.reviewHoverCard.style.left = `${position.x}px`
+  elements.reviewHoverCard.style.top = `${position.y}px`
+}
+
+function bindReviewHoverCard(
+  anchor: HTMLElement,
+  model: () => ReviewHoverModel
+): void {
+  anchor.setAttribute('aria-describedby', 'review-hover-card')
+  anchor.addEventListener('mouseenter', () => {
+    if (reviewHoverTimer) clearTimeout(reviewHoverTimer)
+    reviewHoverTimer = setTimeout(() => {
+      reviewHoverTimer = null
+      showReviewHoverCard(anchor, model())
+    }, 280)
+  })
+  anchor.addEventListener('mouseleave', hideReviewHoverCard)
+  anchor.addEventListener('focusin', () => {
+    hideReviewHoverCard()
+    showReviewHoverCard(anchor, model())
+  })
+  anchor.addEventListener('focusout', (event) => {
+    if (!(event.relatedTarget instanceof Node) || !anchor.contains(event.relatedTarget)) {
+      hideReviewHoverCard()
+    }
+  })
+}
+
+function hoverProviderVisual(
+  row: Pick<ReviewInboxRow, 'local' | 'provider' | 'threadHostKind'>
+): HTMLElement {
+  const visual = createProviderIcon(row)
+  visual.removeAttribute('title')
+  visual.removeAttribute('tabindex')
+  return visual
+}
+
+function providerDescription(
+  provider: string | null,
+  threadHostKind: string | null
+): string {
+  const providerLabel = provider || 'Provider unavailable'
+  return threadHostKind
+    ? `${providerLabel} via ${threadHostKind}`
+    : providerLabel
+}
+
+function reviewHoverModel(row: ReviewInboxRow): ReviewHoverModel {
+  const entries: ReviewHoverEntry[] = [
+    {
+      text: row.projectName,
+      visual: createProjectIcon(row.projectKey, row.projectName, row.reviewId)
+    }
+  ]
+  if (row.machine) entries.push({ icon: 'server', text: row.machine })
+  if (row.branch) entries.push({ icon: 'git-branch', text: row.branch })
+  entries.push({
+    text: providerDescription(row.provider, row.threadHostKind),
+    visual: hoverProviderVisual(row)
+  })
+  entries.push({
+    icon: 'file-text',
+    text: row.contextPath || row.documentName
+  })
+  if (row.pullRequestNumber) {
+    const observation = row.pullRequestStatus
+      ? ` · ${row.pullRequestStatus}${row.pullRequestStatusSource ? ` via ${row.pullRequestStatusSource}` : ''}`
+      : ' · linked'
+    entries.push({
+      icon: 'git-pull-request',
+      text: `PR #${row.pullRequestNumber}${observation}`
+    })
+  }
+  entries.push({
+    icon: 'clock',
+    text: `${reviewStatusLabel(row.status)} · ${reviewRowTime(row)}`
+  })
+  return { entries, title: row.title }
 }
 
 function reviewRowContext(row: ReviewInboxRow): string {
@@ -2026,14 +2210,15 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
         : `is-${row.status}`
   ].filter(Boolean).join(' ')
   container.dataset.reviewId = row.reviewId
-  container.title = [row.contextPath || row.documentName, row.projectRoot]
-    .filter(Boolean).join('\n')
 
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'review-list-row-open'
 
   const favicon = createProjectIcon(row.projectKey, row.projectName, row.reviewId)
+  const icons = document.createElement('span')
+  icons.className = 'review-row-icon-stack'
+  icons.append(favicon, createProviderIcon(row))
 
   const content = document.createElement('span')
   content.className = 'review-list-row-content'
@@ -2044,7 +2229,12 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   identity.className = 'review-list-row-identity'
   identity.textContent = `${row.projectName} · ${row.local ? 'Local review' : row.documentName}`
   const time = document.createElement('span')
-  time.className = 'review-list-row-time'
+  time.className = [
+    'review-list-row-time',
+    row.status === 'editing'
+      ? ''
+      : `review-status-badge is-${row.status}`
+  ].filter(Boolean).join(' ')
   time.textContent = row.status === 'editing'
     ? reviewRowTime(row)
     : reviewStatusLabel(row.status)
@@ -2055,10 +2245,9 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
 
   const title = document.createElement('span')
   title.className = 'review-list-row-title'
-  const provider = createProviderIcon(row)
   const titleText = document.createElement('span')
   titleText.textContent = row.title
-  title.append(provider, titleText)
+  title.append(titleText)
 
   const bottom = document.createElement('span')
   bottom.className = 'review-list-row-line review-list-row-meta'
@@ -2079,7 +2268,7 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   if (!(pr instanceof HTMLButtonElement)) bottom.append(pr)
 
   content.append(top, title, bottom)
-  button.append(favicon, content)
+  button.append(icons, content)
   button.addEventListener('click', () => {
     openReviewIds.add(row.reviewId)
     void activateReview(row.reviewId)
@@ -2097,6 +2286,48 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
       })
     })
   }
+  bindReviewHoverCard(container, () => reviewHoverModel(row))
+  return container
+}
+
+function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
+  const container = document.createElement('div')
+  container.className = [
+    'review-project-leaf',
+    `is-${row.status}`,
+    row.reviewId === state.reviewId ? 'is-active' : ''
+  ].filter(Boolean).join(' ')
+  container.dataset.reviewId = row.reviewId
+
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'review-project-leaf-open'
+
+  const status = document.createElement('span')
+  status.className = 'review-project-leaf-status'
+  status.ariaHidden = 'true'
+
+  const title = document.createElement('span')
+  title.className = 'review-project-leaf-title'
+  title.textContent = row.title
+
+  const age = document.createElement('span')
+  age.className = 'review-project-leaf-age'
+  age.textContent = reviewRowTime(row)
+  age.title = new Date(
+    row.status === 'editing' ? row.attentionRequestedAt : row.lifecycleActivityAt
+  ).toLocaleString()
+
+  button.append(status, title, age)
+  button.addEventListener('click', () => {
+    openReviewIds.add(row.reviewId)
+    void activateReview(row.reviewId)
+  })
+  container.addEventListener('contextmenu', (event) => {
+    openReviewContextMenu(row.reviewId, event)
+  })
+  container.append(button)
+  bindReviewHoverCard(container, () => reviewHoverModel(row))
   return container
 }
 
@@ -2165,6 +2396,7 @@ function renderInboxReviews(
 
 function projectSummary(project: ReviewInboxProject): HTMLElement {
   const summary = document.createElement('summary')
+  summary.append(createDetailsDisclosure())
   const label = document.createElement('span')
   label.className = 'review-group-label'
   const iconReviewId = project.threads[0]?.reviews[0]?.reviewId || ''
@@ -2178,23 +2410,87 @@ function projectSummary(project: ReviewInboxProject): HTMLElement {
     ? `${project.editingCount} need review`
     : MarkoverReviewSessions.formatRelativeTime(project.latestActivityAt)
   summary.append(label, rollup)
+  bindReviewHoverCard(summary, () => projectHoverModel(project))
   return summary
 }
 
-function threadSummary(thread: ReviewInboxThread): HTMLElement {
+function projectHoverModel(project: ReviewInboxProject): ReviewHoverModel {
+  const reviewCount = project.threads.reduce(
+    (count, thread) => count + thread.reviews.length,
+    0
+  )
+  const entries: ReviewHoverEntry[] = []
+  if (project.root) entries.push({ icon: 'folder', text: project.root })
+  entries.push({
+    icon: 'list-tree',
+    text: `${project.threads.length} thread${project.threads.length === 1 ? '' : 's'} · ${reviewCount} review${reviewCount === 1 ? '' : 's'}`
+  })
+  entries.push({
+    icon: 'clock',
+    text: `${project.editingCount} need review · latest ${MarkoverReviewSessions.formatRelativeTime(project.latestActivityAt)}`
+  })
+  return { entries, title: project.name }
+}
+
+function createDetailsDisclosure(): HTMLElement {
+  const disclosure = document.createElement('span')
+  disclosure.className = 'review-details-disclosure'
+  disclosure.append(
+    markoverIcon('chevron-right', 'is-closed'),
+    markoverIcon('chevron-down', 'is-open')
+  )
+  return disclosure
+}
+
+function threadHoverModel(
+  thread: ReviewInboxThread,
+  project: ReviewInboxProject
+): ReviewHoverModel {
+  const iconReviewId = thread.reviews[0]?.reviewId || ''
+  const entries: ReviewHoverEntry[] = [
+    {
+      text: project.name,
+      visual: createProjectIcon(project.key, project.name, iconReviewId)
+    }
+  ]
+  if (thread.requestingThreadId) {
+    entries.push({ icon: 'message-square', text: thread.requestingThreadId })
+  }
+  if (thread.machine) entries.push({ icon: 'server', text: thread.machine })
+  entries.push({
+    text: providerDescription(thread.provider, thread.threadHostKind),
+    visual: hoverProviderVisual(thread)
+  })
+  entries.push({
+    icon: 'list-tree',
+    text: `${thread.reviews.length} review${thread.reviews.length === 1 ? '' : 's'} · ${thread.editingCount} need review`
+  })
+  entries.push({
+    icon: 'clock',
+    text: `Latest activity ${MarkoverReviewSessions.formatRelativeTime(thread.latestActivityAt)}`
+  })
+  return { entries, title: thread.title }
+}
+
+function threadSummary(
+  thread: ReviewInboxThread,
+  project: ReviewInboxProject
+): HTMLElement {
   const summary = document.createElement('summary')
+  summary.append(createDetailsDisclosure())
   const label = document.createElement('span')
   label.className = 'review-group-label review-thread-label'
-  const provider = createProviderIcon({ local: thread.local, provider: thread.provider })
+  const icon = markoverIcon('messages-square', 'review-thread-icon')
   const title = document.createElement('strong')
   title.textContent = thread.title
-  label.append(provider, title)
+  label.append(icon, title)
   const rollup = document.createElement('span')
   rollup.className = thread.editingCount ? 'review-count-badge' : 'review-group-age'
   rollup.textContent = thread.editingCount
     ? `${thread.editingCount}`
     : MarkoverReviewSessions.formatRelativeTime(thread.latestActivityAt)
   summary.append(label, rollup)
+  bindReviewHoverCard(summary, () => threadHoverModel(thread, project))
   return summary
 }
 
@@ -2220,13 +2516,13 @@ function renderProjects(projects: ReviewInboxProject[]): DocumentFragment {
       const threadDetails = document.createElement('details')
       threadDetails.className = 'review-thread-group'
       threadDetails.open = threadExpansion.get(thread.key) ?? thread.editingCount > 0
-      threadDetails.append(threadSummary(thread))
+      threadDetails.append(threadSummary(thread, project))
       threadDetails.addEventListener('toggle', () => {
         threadExpansion.set(thread.key, threadDetails.open)
       })
       const rows = document.createElement('div')
       rows.className = 'review-list-rows review-thread-reviews'
-      rows.append(...thread.reviews.map(createReviewListRow))
+      rows.append(...thread.reviews.map(createProjectReviewRow))
       threadDetails.append(rows)
       threads.append(threadDetails)
     }
@@ -2247,6 +2543,7 @@ function setReviewNavigationMode(mode: 'inbox' | 'projects'): void {
 }
 
 function renderDocumentsList(): void {
+  hideReviewHoverCard()
   const sessions = reviewSessions.list()
   const projection = projectReviewInbox(sessions)
   scheduleDocumentsListClockRefresh(sessions)
@@ -2839,7 +3136,10 @@ async function activateReview(
     'aria-expanded',
     String(!state.sourceCollapsed)
   )
-  elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
+  replaceMarkoverIcon(
+    elements.sourceToggleIcon,
+    state.sourceCollapsed ? 'chevron-right' : 'chevron-down'
+  )
   elements.sourceContent.hidden = state.sourceCollapsed
   closeImagePreview()
   renderTree()
@@ -3145,7 +3445,10 @@ elements.sourceToggle.addEventListener('click', () => {
     'aria-expanded',
     String(!state.sourceCollapsed)
   )
-  elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
+  replaceMarkoverIcon(
+    elements.sourceToggleIcon,
+    state.sourceCollapsed ? 'chevron-right' : 'chevron-down'
+  )
   const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) renderSourcePanel(node)
 })
@@ -3257,6 +3560,7 @@ elements.documentsListResizer.addEventListener(
   'pointerdown',
   beginDocumentsListResize
 )
+elements.documentsListTree.addEventListener('scroll', hideReviewHoverCard)
 elements.annotationPaneResizer.addEventListener(
   'pointerdown',
   beginAnnotationPaneResize
@@ -3272,6 +3576,7 @@ MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
 })
 window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
+  hideReviewHoverCard()
   if (!elements.sourceErrorTooltip.hidden) showSourceErrorTooltip()
   applyDocumentsListWidth()
   applyAnnotationPaneWidth()
