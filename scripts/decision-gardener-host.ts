@@ -1185,25 +1185,35 @@ export async function installDecisionGardenerLaunchAgent(
 }
 
 export async function uninstallDecisionGardenerLaunchAgent(
+  configPath: string,
   dependencies: LaunchAgentDependencies = {}
 ): Promise<{ label: string; plist: string; status: 'uninstalled' }> {
   const platform = dependencies.platform ?? process.platform
   requireMac(platform)
   const uid = dependencies.uid ?? process.getuid?.()
   if (uid === undefined) throw new Error('Could not resolve the current macOS user ID.')
-  const runCommand = dependencies.runCommand ?? runHostCommand
-  const target = serviceTarget(uid)
-  if (commandSucceeded(runCommand('/bin/launchctl', ['print', target]))) {
-    const removed = runCommand('/bin/launchctl', ['bootout', target])
-    if (!commandSucceeded(removed)) {
-      throw new Error(`Could not unload the gardener agent: ${removed.stderr.trim()}`)
-    }
-  }
-  const plistPath = decisionGardenerLaunchAgentPath(
-    dependencies.homeDirectory ?? os.homedir()
+  const config = await loadDecisionGardenerHostConfig(configPath)
+  const uninstallLease = await (dependencies.acquireLock ?? acquireSingleFlightLock)(
+    path.join(config.runStore, 'host.lock'),
+    { operation: 'uninstall' }
   )
-  await fs.rm(plistPath, { force: true })
-  return { label: decisionGardenerHostLabel, plist: plistPath, status: 'uninstalled' }
+  const runCommand = dependencies.runCommand ?? runHostCommand
+  try {
+    const target = serviceTarget(uid)
+    if (commandSucceeded(runCommand('/bin/launchctl', ['print', target]))) {
+      const removed = runCommand('/bin/launchctl', ['bootout', target])
+      if (!commandSucceeded(removed)) {
+        throw new Error(`Could not unload the gardener agent: ${removed.stderr.trim()}`)
+      }
+    }
+    const plistPath = decisionGardenerLaunchAgentPath(
+      dependencies.homeDirectory ?? os.homedir()
+    )
+    await fs.rm(plistPath, { force: true })
+    return { label: decisionGardenerHostLabel, plist: plistPath, status: 'uninstalled' }
+  } finally {
+    await uninstallLease.release()
+  }
 }
 
 export async function decisionGardenerHostStatus(
@@ -1299,7 +1309,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   } else if (options.command === 'install') {
     outcome = await installDecisionGardenerLaunchAgent(options.configPath)
   } else if (options.command === 'uninstall') {
-    outcome = await uninstallDecisionGardenerLaunchAgent()
+    outcome = await uninstallDecisionGardenerLaunchAgent(options.configPath)
   } else {
     outcome = await decisionGardenerHostStatus(options.configPath)
   }

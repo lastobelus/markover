@@ -564,7 +564,7 @@ test('install fails closed on notifier test and loads one fixed heartbeat plist'
     uid: 501
   })
   assert.equal(status.loaded, true)
-  const removed = await uninstallDecisionGardenerLaunchAgent({
+  const removed = await uninstallDecisionGardenerLaunchAgent(host.configPath, {
     homeDirectory,
     platform: 'darwin',
     runCommand: () => ({ status: 0, stderr: '', stdout: '' }),
@@ -574,6 +574,23 @@ test('install fails closed on notifier test and loads one fixed heartbeat plist'
   await assert.rejects(fs.stat(plistPath), /ENOENT/)
   assert.equal((await fs.stat(host.configPath)).isFile(), true)
   assert.equal(decisionGardenerHostLabel, 'com.lastobelus.markover.decision-gardener')
+})
+
+test('uninstall refuses to unload the launch agent while an audit owns the host lock', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const launchctlCalls: string[][] = []
+  await assert.rejects(uninstallDecisionGardenerLaunchAgent(host.configPath, {
+    acquireLock: () => Promise.reject(new Error('An active audit owns host.lock.')),
+    homeDirectory: path.join(host.root, 'home'),
+    platform: 'darwin',
+    runCommand: (executable, args) => {
+      if (executable === '/bin/launchctl') launchctlCalls.push([executable, ...args])
+      return { status: 0, stderr: '', stdout: '' }
+    },
+    uid: 501
+  }), /active audit owns host\.lock/)
+  assert.deepEqual(launchctlCalls, [])
 })
 
 test('install creates and secures a custom run store before notifier preflight', async (t) => {

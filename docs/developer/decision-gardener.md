@@ -263,7 +263,8 @@ a malformed active config cannot identify its run store or notifier reliably.
 ## Disable or move the host
 
 Unload the exact user agent and remove its plist without deleting config,
-state, logs, audit evidence, branches, or reviews:
+state, logs, audit evidence, branches, or reviews. Uninstall acquires the host
+lock and refuses to unload the controller while an audit is active:
 
 ```sh
 npm --silent run decision-gardener:host -- uninstall
