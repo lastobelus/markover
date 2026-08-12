@@ -114,7 +114,7 @@ test('capture validates raw v1 identity and emits only typed redactions', () => 
   agentThread(artifact)
   const evidence = buildSanitizedEvidence(
     artifact,
-    observation(),
+    observation({ limitations: ['raw-provider-thread-secret'] }),
     json('evals/review-metadata/matrix.json')
   )
   assert.deepEqual(evidence.sanitizedAgentThread, {
@@ -131,6 +131,7 @@ test('capture validates raw v1 identity and emits only typed redactions', () => 
     threadHostId: 'distinct'
   })
   assert.equal(Object.values(evidence.checks).every(Boolean), true)
+  assert.equal('limitations' in evidence, false)
   const source = JSON.stringify(evidence)
   for (const secret of [
     'raw-provider-thread-secret',
@@ -199,6 +200,32 @@ test('capture rejects incorrect null fallback for a required identity row', () =
     ),
     /t3code-codex requires reliable provider thread identity/
   )
+})
+
+test('truthful-null evidence permits an independently observed hostname', () => {
+  const artifact = fixture()
+  const review = artifact.review as Record<string, unknown>
+  review.agentThread = null
+  const matrixValue = json(
+    'evals/review-metadata/matrix.json'
+  ) as Record<string, unknown>
+  const entries = matrixValue.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  firstEntry.identityExpectation = 'unavailable-allowed'
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  discovery.hostKind = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
+  const evidence = buildSanitizedEvidence(
+    artifact,
+    observation({ discovery }),
+    matrixValue
+  )
+  assert.equal(evidence.sanitizedAgentThread, null)
+  assert.equal(evidence.discovery.machine.status, 'observed')
+  assert.deepEqual(validateSanitizedEvidence(evidence, matrixValue), evidence)
 })
 
 test('capture rejects duplicated provider and host IDs through the v1 decoder', () => {
@@ -286,6 +313,16 @@ test('committed evidence rejects unrecognized fields at every privacy boundary',
   )
 
   delete evidence.rawProviderThreadId
+  evidence.limitations = ['raw-provider-thread-secret']
+  assert.throws(
+    () => validateSanitizedEvidence(
+      evidence,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Sanitized evidence contains unrecognized fields: limitations/
+  )
+
+  delete evidence.limitations
   const discovery = evidence.discovery as Record<string, unknown>
   discovery.rawHostThreadId = 'raw-host-thread-secret'
   assert.throws(
