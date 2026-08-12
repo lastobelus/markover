@@ -333,7 +333,8 @@ test('restoring an Editing review preserves attention time across later autosave
   })
   document.tree.review.updatedAt = '2026-08-09T16:00:00.000Z'
 
-  const restored = new ReviewSessions().add(document)
+  const sessions = new ReviewSessions()
+  const restored = sessions.add(document)
 
   assert.equal(
     restored.attentionRequestedAt,
@@ -342,5 +343,17 @@ test('restoring an Editing review preserves attention time across later autosave
   assert.equal(
     restored.lifecycleActivityAt,
     Date.parse('2026-08-09T16:00:00.000Z')
+  )
+
+  document.tree.review.updatedAt = '2026-08-09T17:00:00.000Z'
+  const refreshed = sessions.updateDocument(document)
+  assert.ok(refreshed)
+  assert.equal(
+    refreshed.lifecycleActivityAt,
+    Date.parse('2026-08-09T17:00:00.000Z')
+  )
+  assert.equal(
+    refreshed.attentionRequestedAt,
+    Date.parse('2026-08-09T12:00:00.000Z')
   )
 })

@@ -272,6 +272,8 @@
       session.tree.review.updatedAt = document.tree.review.updatedAt
       session.tree.review.attentionRequestedAt =
         document.tree.review.attentionRequestedAt
+      const updatedAt = Date.parse(document.tree.review.updatedAt)
+      if (Number.isFinite(updatedAt)) session.lifecycleActivityAt = updatedAt
       const requestedAt = Date.parse(document.tree.review.attentionRequestedAt)
       if (Number.isFinite(requestedAt)) session.attentionRequestedAt = requestedAt
       session.tree.review.pullRequest = document.tree.review.pullRequest

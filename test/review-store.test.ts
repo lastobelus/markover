@@ -175,6 +175,35 @@ test('edit returns a pending review to editing and is idempotent', async (t) => 
   assert.deepEqual(retry, editing)
 })
 
+test('mutations preserve lifecycle ordering when the system clock moves backward', async (t) => {
+  let now = '2026-07-30T20:00:00.000Z'
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => now
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Keep lifecycle timestamps monotonic.'
+  })
+  now = '2026-07-30T19:00:00.000Z'
+  const annotated = structuredClone(created)
+  child(annotated.root).feedback = 'Clock rollback feedback.'
+  const updated = await store.updateTree(created.review.id, annotated)
+  const handedOff = await store.handoff(created.review.id)
+  const editing = await store.edit(created.review.id)
+
+  for (const artifact of [updated, handedOff, editing]) {
+    assert.equal(artifact.review.updatedAt, created.review.updatedAt)
+    assert.equal(
+      artifact.review.attentionRequestedAt,
+      created.review.attentionRequestedAt
+    )
+  }
+  assert.deepEqual(await store.load(created.review.id), editing)
+})
+
 test('revise completes a handoff and rejects backward transitions', async (t) => {
   const timestamps = [
     '2026-08-10T01:00:00.000Z',
@@ -293,7 +322,7 @@ test('a newer PR observation propagates to matching reviews without lifecycle ch
     '2026-08-10T03:00:00.000Z',
     '2026-08-10T03:01:00.000Z',
     '2026-08-10T03:02:00.000Z',
-    '2026-08-10T03:03:00.000Z'
+    '2026-08-10T02:59:00.000Z'
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => ids.shift() as string,
@@ -333,7 +362,7 @@ test('a newer PR observation propagates to matching reviews without lifecycle ch
   const propagated = await store.propagatePullRequestObservation(source)
   assert.deepEqual(propagated.map((review) => review.review.id), [older.review.id])
   const refreshed = await store.load(older.review.id)
-  assert.equal(refreshed.review.updatedAt, '2026-08-10T03:03:00.000Z')
+  assert.equal(refreshed.review.updatedAt, '2026-08-10T03:00:00.000Z')
   assert.equal(
     refreshed.review.attentionRequestedAt,
     older.review.attentionRequestedAt

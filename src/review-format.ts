@@ -440,8 +440,8 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
 
 export function isPortableRepositoryUrl(value: unknown): value is string {
   if (!nonblank(value)) return false
+  if (/^[a-zA-Z]:/.test(value)) return false
   if (!value.includes('://')) {
-    if (/^[a-zA-Z]:/.test(value)) return false
     return SCP_REPOSITORY_URL_PATTERN.test(value)
   }
   try {

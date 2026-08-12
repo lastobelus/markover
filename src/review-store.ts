@@ -499,7 +499,7 @@ export class ReviewStore {
         ...treeFields(tree),
         review: {
           ...current.review,
-          updatedAt: this.timestamp()
+          updatedAt: this.mutationTimestamp(current.review)
         }
       }
       await this.write(reviewId, updated)
@@ -594,7 +594,7 @@ export class ReviewStore {
         ...treeFields(tree),
         review: {
           ...current.review,
-          updatedAt: this.timestamp()
+          updatedAt: this.mutationTimestamp(current.review)
         }
       }
       const attachmentsDirectory = path.join(
@@ -815,7 +815,7 @@ export class ReviewStore {
         ) return null
 
         const next = cloneJson(current)
-        next.review.updatedAt = this.timestamp()
+        next.review.updatedAt = this.mutationTimestamp(current.review)
         next.review.pullRequest = {
           ...(isRecord(next.review.pullRequest) ? next.review.pullRequest : {}),
           number: identity.number,
@@ -857,7 +857,7 @@ export class ReviewStore {
 
       const updated = cloneJson(current)
       updated.review.status = status
-      const timestamp = this.timestamp()
+      const timestamp = this.mutationTimestamp(current.review)
       updated.review.updatedAt = timestamp
       if (current.review.status !== 'editing' && status === 'editing') {
         updated.review.attentionRequestedAt = timestamp
@@ -892,7 +892,7 @@ export class ReviewStore {
         current.review.pullRequest.status === 'merged'
       ) return cloneJson(current)
 
-      const timestamp = this.timestamp()
+      const timestamp = this.mutationTimestamp(current.review)
       const updated = cloneJson(current)
       updated.review.status = 'done'
       updated.review.updatedAt = timestamp
@@ -909,6 +909,15 @@ export class ReviewStore {
 
   timestamp(): string {
     return new Date(this.now()).toISOString()
+  }
+
+  private mutationTimestamp(review: ReviewEnvelope): string {
+    return [
+      this.timestamp(),
+      review.createdAt,
+      review.attentionRequestedAt,
+      review.updatedAt
+    ].sort().at(-1) as string
   }
 
   async read(reviewId: string): Promise<ReviewArtifact> {
