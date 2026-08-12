@@ -459,16 +459,68 @@ export async function runDecisionGardenerHostCycle({
   try {
     lease = await acquireLock(lockPath, { record: recordPath, trigger })
   } catch (error) {
-    const finished = now().toISOString()
+    const failedAt = now()
+    const finished = failedAt.toISOString()
     if (!lockIsBusy(error, lockPath)) {
-      const failed: HostAttemptRecord = {
+      const statePath = path.join(config.runStore, 'host-state.json')
+      let state = defaultState(started)
+      let stateEvidence: string | undefined
+      let stateWritable = true
+      const details = [`Could not acquire the decision-gardener host lock: ${errorMessage(error)}`]
+      try {
+        state = await readHostState(statePath, started)
+      } catch (stateError) {
+        details.push(`Could not read decision-gardener host state: ${errorMessage(stateError)}`)
+        try {
+          stateEvidence = await preserveUnreadableHostState(statePath, recordPath)
+        } catch (preserveError) {
+          stateEvidence = statePath
+          stateWritable = false
+          details.push(
+            `The invalid state could not be moved and remains at ${statePath}: ${errorMessage(preserveError)}`
+          )
+        }
+      }
+      const provisionalError = details.join(' ')
+      const provisionalRecord: HostAttemptRecord = {
         ...record,
-        error: errorMessage(error),
+        error: provisionalError,
         finishedAt: finished,
+        ...(stateEvidence === undefined ? {} : { stateEvidence }),
         status: 'failed'
       }
-      await updateAttempt(recordPath, failed, config.runStore)
-      throw error
+      await writePrivateJson(recordPath, provisionalRecord)
+      let notificationError: string | null = null
+      if (state.lastNotifiedHealth !== 'failed') {
+        try {
+          sendDecisionGardenerNotification({
+            config,
+            event: 'failed',
+            record: recordPath,
+            runCommand,
+            summary: provisionalError
+          })
+        } catch (notifyError) {
+          notificationError = errorMessage(notifyError)
+        }
+      }
+      if (notificationError !== null) details.push(`Notifier error: ${notificationError}`)
+      const combinedError = details.join(' ')
+      if (stateWritable) {
+        await writePrivateJson(statePath, {
+          health: 'failed',
+          lastAuditAt: state.lastAuditAt,
+          lastError: combinedError,
+          lastNotifiedHealth: notificationError === null ? 'failed' : state.lastNotifiedHealth,
+          schemaVersion: decisionGardenerHostSchemaVersion,
+          updatedAt: finished
+        } satisfies DecisionGardenerHostState)
+      }
+      await updateAttempt(recordPath, {
+        ...provisionalRecord,
+        error: combinedError
+      }, config.runStore)
+      throw new Error(combinedError, { cause: error })
     }
     const busy: HostAttemptRecord = { ...record, finishedAt: finished, status: 'busy' }
     await updateAttempt(recordPath, busy, config.runStore)

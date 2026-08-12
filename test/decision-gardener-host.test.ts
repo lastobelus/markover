@@ -288,6 +288,36 @@ test('a concurrent wakeup records busy without disturbing health or running Code
   assert.equal(record.status, 'busy')
 })
 
+test('a non-contention host-lock failure transitions health and notifies', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const events: string[] = []
+  let audited = false
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    acquireLock: () => Promise.reject(new Error('The lock owner record is not valid JSON.')),
+    now: () => new Date('2026-08-11T00:00:00.000Z'),
+    runAudit: () => {
+      audited = true
+      return Promise.resolve(cleanAudit(host.config.runStore))
+    },
+    runCommand: (_executable, _args, options) => {
+      events.push(options?.env?.MARKOVER_DECISION_GARDENER_EVENT ?? 'missing')
+      return { status: 0, stderr: '', stdout: '' }
+    }
+  }), /Could not acquire the decision-gardener host lock.*not valid JSON/)
+  assert.equal(audited, false)
+  assert.deepEqual(events, ['failed'])
+  const state = JSON.parse(await fs.readFile(
+    path.join(host.config.runStore, 'host-state.json'),
+    'utf8'
+  )) as { health: string; lastError: string; lastNotifiedHealth: string }
+  assert.equal(state.health, 'failed')
+  assert.match(state.lastError, /lock owner record is not valid JSON/)
+  assert.equal(state.lastNotifiedHealth, 'failed')
+})
+
 test('install fails closed on notifier test and loads one fixed heartbeat plist', async (t) => {
   const host = await fixture()
   t.after(() => fs.rm(host.root, { recursive: true, force: true }))
