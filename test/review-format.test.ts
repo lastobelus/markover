@@ -218,7 +218,9 @@ test('portable metadata rejects credentials and known app-private evidence', () 
   for (const repositoryUrl of [
     '/Users/alice/private/repo.git',
     '../repo.git',
-    'file:///Users/alice/private/repo.git'
+    'file:///Users/alice/private/repo.git',
+    'C:/Users/alice/private/repo.git',
+    'C:private/repo.git'
   ]) {
     const filesystemRemote = cloneFixture()
     record(review(filesystemRemote).git).repositoryUrl = repositoryUrl
