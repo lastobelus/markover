@@ -5,6 +5,7 @@ import test from 'node:test'
 
 import {
   buildSanitizedEvidence,
+  parseCaptureObservation,
   parseMetadataMatrix,
   validateMetadataCorpus,
   validateSanitizedEvidence
@@ -145,6 +146,16 @@ test('capture rejects retained values whose discovery is unavailable', () => {
   )
 })
 
+test('capture rejects contradictory discovery source and status pairs', () => {
+  const value = observation()
+  const discovery = value.discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'observed', source: 'not-exposed' }
+  assert.throws(
+    () => parseCaptureObservation(value),
+    /providerThreadId source not-exposed contradicts status observed/
+  )
+})
+
 test('capture rejects incorrect null fallback for a required identity row', () => {
   const artifact = fixture()
   const review = artifact.review as Record<string, unknown>
@@ -196,6 +207,20 @@ test('capture rejects missing required host fields through the v1 decoder', () =
     ),
     /missing required fields: provider/
   )
+})
+
+test('capture compares raw identities only with their sensitive output leaves', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  const host = thread.threadHost as Record<string, unknown>
+  host.machine = 'codex'
+  assert.doesNotThrow(() => buildSanitizedEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  ))
 })
 
 test('committed evidence rejects raw identifiers in place of redaction markers', () => {
@@ -287,6 +312,43 @@ test('committed evidence recomputes discovery and redaction relationships', () =
       json('evals/review-metadata/matrix.json')
     ),
     /agentThread.id is present but was not observed/
+  )
+})
+
+test('metadata matrix rejects unrecognized fields at every privacy boundary', () => {
+  const matrix = json('evals/review-metadata/matrix.json') as Record<string, unknown>
+  matrix.rawProviderThreadId = 'raw-provider-thread-secret'
+  assert.throws(
+    () => parseMetadataMatrix(matrix),
+    /Metadata matrix contains unrecognized fields: rawProviderThreadId/
+  )
+
+  delete matrix.rawProviderThreadId
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  firstEntry.rawProviderThreadId = 'raw-provider-thread-secret'
+  assert.throws(
+    () => parseMetadataMatrix(matrix),
+    /entries\[0\] contains unrecognized fields: rawProviderThreadId/
+  )
+
+  delete firstEntry.rawProviderThreadId
+  const threadHost = firstEntry.threadHost as Record<string, unknown>
+  threadHost.rawHostThreadId = 'raw-host-thread-secret'
+  assert.throws(
+    () => parseMetadataMatrix(matrix),
+    /threadHost contains unrecognized fields: rawHostThreadId/
+  )
+
+  delete threadHost.rawHostThreadId
+  const candidates = matrix.expansionCandidates as Array<Record<string, unknown>>
+  const firstCandidate = candidates[0]
+  assert.ok(firstCandidate)
+  firstCandidate.rawMachine = 'raw-machine-secret.local'
+  assert.throws(
+    () => parseMetadataMatrix(matrix),
+    /expansionCandidates\[0\] contains unrecognized fields: rawMachine/
   )
 })
 
