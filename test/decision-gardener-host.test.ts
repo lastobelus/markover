@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -279,6 +279,48 @@ test('a pending failure notification is delivered before recovery', async (t) =>
   assert.equal(state.pendingFailureRecord, null)
 })
 
+test('a lock failure retries an older pending failure record first', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const events: Array<{ event: string; record: string }> = []
+  const runCommand = (
+    _executable: string,
+    _args: readonly string[],
+    options?: { env?: NodeJS.ProcessEnv }
+  ): CommandResult => {
+    events.push({
+      event: options?.env?.MARKOVER_DECISION_GARDENER_EVENT ?? 'missing',
+      record: options?.env?.MARKOVER_DECISION_GARDENER_RECORD ?? 'missing'
+    })
+    if (events.length === 1) {
+      return { status: 1, stderr: 'notification transport unavailable', stdout: '' }
+    }
+    return { status: 0, stderr: '', stdout: '' }
+  }
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    now: () => new Date('2026-08-11T00:00:00.000Z'),
+    runAudit: () => Promise.reject(new Error('initial audit failure')),
+    runCommand
+  }), /initial audit failure/)
+  await assert.rejects(runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    acquireLock: () => Promise.reject(new Error('The lock owner record is not valid JSON.')),
+    now: () => new Date('2026-08-11T00:05:00.000Z'),
+    runCommand
+  }), /Could not acquire the decision-gardener host lock/)
+  assert.deepEqual(events.map(({ event }) => event), ['failed', 'failed'])
+  assert.equal(events[1]?.record, events[0]?.record)
+  const state = JSON.parse(await fs.readFile(
+    path.join(host.config.runStore, 'host-state.json'),
+    'utf8'
+  )) as { lastNotifiedHealth: string; pendingFailureRecord: string | null }
+  assert.equal(state.lastNotifiedHealth, 'failed')
+  assert.equal(state.pendingFailureRecord, null)
+})
+
 test('an unreadable host state notifies failure and preserves the invalid evidence', async (t) => {
   const host = await fixture()
   t.after(() => fs.rm(host.root, { recursive: true, force: true }))
@@ -411,7 +453,6 @@ test('install fails closed on notifier test and loads one fixed heartbeat plist'
       }
       return { status: 0, stderr: '', stdout: '' }
     },
-    scriptPath,
     uid: 501
   })
   assert.equal(installed.status, 'installed')
@@ -421,6 +462,8 @@ test('install fails closed on notifier test and loads one fixed heartbeat plist'
   assert.match(plist, /<string>Background<\/string>/)
   assert.match(plist, /decision-gardener-host\.js/)
   assert.match(plist, /host-config\.json/)
+  assert.match(plist, /run-store\/controller\/[0-9a-f]{64}\/scripts\/decision-gardener-host\.js/)
+  assert.equal((await fs.readdir(path.join(host.config.runStore, 'controller'))).length, 1)
   assert.match(plist, new RegExp(
     `<key>WorkingDirectory<\\/key>\\s*<string>${host.config.runStore}<\\/string>`
   ))
@@ -447,6 +490,37 @@ test('install fails closed on notifier test and loads one fixed heartbeat plist'
   await assert.rejects(fs.stat(plistPath), /ENOENT/)
   assert.equal((await fs.stat(host.configPath)).isFile(), true)
   assert.equal(decisionGardenerHostLabel, 'com.lastobelus.markover.decision-gardener')
+})
+
+test('install creates and secures a custom run store before notifier preflight', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const freshRunStore = path.join(host.root, 'fresh-run-store')
+  const custom = { ...host.config, runStore: freshRunStore }
+  await fs.writeFile(host.configPath, `${JSON.stringify(custom, null, 2)}\n`, { mode: 0o600 })
+  const homeDirectory = path.join(host.root, 'home')
+  const nodeExecutable = path.join(host.root, 'bin', 'node')
+  const scriptPath = path.join(host.root, 'bin', 'decision-gardener-host.js')
+  await fs.writeFile(nodeExecutable, '#!/bin/sh\nexit 0\n', { mode: 0o700 })
+  await fs.writeFile(scriptPath, 'void 0\n', { mode: 0o600 })
+  await installDecisionGardenerLaunchAgent(host.configPath, {
+    homeDirectory,
+    nodeExecutable,
+    platform: 'darwin',
+    runCommand: (executable, args, options) => {
+      if (executable !== '/bin/launchctl') {
+        assert.equal(options?.cwd, freshRunStore)
+        assert.equal(statSync(freshRunStore).mode & 0o077, 0)
+      }
+      if (executable === '/bin/launchctl' && args[0] === 'print') {
+        return { status: 1, stderr: 'not found', stdout: '' }
+      }
+      return { status: 0, stderr: '', stdout: '' }
+    },
+    scriptPath,
+    uid: 501
+  })
+  assert.equal(statSync(freshRunStore).mode & 0o077, 0)
 })
 
 test('a failed reinstall restores and reloads the previous launch agent', async (t) => {

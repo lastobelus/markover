@@ -587,15 +587,19 @@ export async function runDecisionGardenerHostCycle({
       }
       await writePrivateJson(recordPath, provisionalRecord)
       let notificationError: string | null = null
-      if (state.lastNotifiedHealth !== 'failed') {
+      let failureDelivered = state.lastNotifiedHealth === 'failed'
+      if (!failureDelivered) {
         try {
           await sendDecisionGardenerNotification({
             config,
             event: 'failed',
-            record: recordPath,
+            record: state.pendingFailureRecord ?? recordPath,
             runCommand,
-            summary: provisionalError
+            summary: state.pendingFailureRecord === null
+              ? provisionalError
+              : (state.lastError ?? provisionalError)
           })
+          failureDelivered = true
         } catch (notifyError) {
           notificationError = errorMessage(notifyError)
         }
@@ -607,8 +611,8 @@ export async function runDecisionGardenerHostCycle({
           health: 'failed',
           lastAuditAt: state.lastAuditAt,
           lastError: combinedError,
-          lastNotifiedHealth: notificationError === null ? 'failed' : state.lastNotifiedHealth,
-          pendingFailureRecord: notificationError === null
+          lastNotifiedHealth: failureDelivered ? 'failed' : state.lastNotifiedHealth,
+          pendingFailureRecord: failureDelivered
             ? null
             : (state.pendingFailureRecord ?? recordPath),
           schemaVersion: decisionGardenerHostSchemaVersion,
@@ -920,6 +924,76 @@ function commandSucceeded(result: CommandResult): boolean {
   return result.status === 0
 }
 
+const controllerPayloadFiles = [
+  '.ai/prompts/decision-gardener.md',
+  '.ai/schemas/decision-gardener-output.schema.json',
+  'scripts/decision-gardener-github.js',
+  'scripts/decision-gardener-host.js',
+  'scripts/decision-gardener-publisher.js',
+  'scripts/decision-gardener-run.js',
+  'scripts/decision-gardener.js'
+] as const
+
+async function controllerPayloadMatches(
+  targetRoot: string,
+  files: ReadonlyArray<{ relative: string; source: Buffer }>
+): Promise<boolean> {
+  try {
+    for (const file of files) {
+      const target = path.join(targetRoot, file.relative)
+      const stats = await fs.lstat(target)
+      if (!stats.isFile() || stats.isSymbolicLink()) return false
+      if (!(await fs.readFile(target)).equals(file.source)) return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function installDecisionGardenerControllerPayload(
+  runStore: string,
+  builtScriptPath: string
+): Promise<string> {
+  const builtScriptsDirectory = path.dirname(builtScriptPath)
+  const projectRoot = path.resolve(builtScriptsDirectory, '../..')
+  const files: Array<{ relative: string; source: Buffer }> = []
+  const digest = crypto.createHash('sha256')
+  for (const relative of controllerPayloadFiles) {
+    const sourcePath = relative.startsWith('scripts/')
+      ? path.join(builtScriptsDirectory, path.basename(relative))
+      : path.join(projectRoot, relative)
+    const stats = await fs.lstat(sourcePath)
+    if (!stats.isFile() || stats.isSymbolicLink()) {
+      throw new Error(`The controller payload source must be a regular file: ${sourcePath}`)
+    }
+    const source = await fs.readFile(sourcePath)
+    files.push({ relative, source })
+    digest.update(relative)
+    digest.update('\0')
+    digest.update(source)
+  }
+  const payloadRoot = path.join(runStore, 'controller', digest.digest('hex'))
+  if (await controllerPayloadMatches(payloadRoot, files)) {
+    return path.join(payloadRoot, 'scripts', 'decision-gardener-host.js')
+  }
+  const stagingRoot = `${payloadRoot}.staging.${crypto.randomUUID()}`
+  try {
+    for (const file of files) {
+      await writePrivate(path.join(stagingRoot, file.relative), file.source.toString('utf8'))
+    }
+    await fs.rename(stagingRoot, payloadRoot)
+  } catch (error) {
+    if (
+      !['EEXIST', 'ENOTEMPTY'].includes(String((error as NodeJS.ErrnoException).code)) ||
+      !await controllerPayloadMatches(payloadRoot, files)
+    ) throw error
+  } finally {
+    await fs.rm(stagingRoot, { force: true, recursive: true })
+  }
+  return path.join(payloadRoot, 'scripts', 'decision-gardener-host.js')
+}
+
 export async function testDecisionGardenerNotifier(
   config: DecisionGardenerHostConfig,
   configPath: string,
@@ -944,6 +1018,8 @@ export async function installDecisionGardenerLaunchAgent(
   if (uid === undefined) throw new Error('Could not resolve the current macOS user ID.')
   const runCommand = dependencies.runCommand ?? runHostCommand
   const config = await loadDecisionGardenerHostConfig(configPath)
+  await fs.mkdir(config.runStore, { recursive: true, mode: 0o700 })
+  await fs.chmod(config.runStore, 0o700)
   await testDecisionGardenerNotifier(
     config,
     configPath,
@@ -963,8 +1039,10 @@ export async function installDecisionGardenerLaunchAgent(
   await requireFile(config.codex, 'The Codex executable', fsConstants.X_OK)
   await requireFile(nodeExecutable, 'The Node executable', fsConstants.X_OK)
   await requireFile(scriptPath, 'The host-controller script', fsConstants.R_OK)
+  const installedScriptPath = dependencies.scriptPath === undefined
+    ? await installDecisionGardenerControllerPayload(config.runStore, scriptPath)
+    : scriptPath
   await fs.mkdir(path.join(config.runStore, 'logs'), { recursive: true, mode: 0o700 })
-  await fs.chmod(config.runStore, 0o700)
   await fs.mkdir(path.dirname(plistPath), { recursive: true })
   let previousPlist: string | null = null
   try {
@@ -976,7 +1054,7 @@ export async function installDecisionGardenerLaunchAgent(
     config,
     configPath,
     nodeExecutable,
-    scriptPath
+    scriptPath: installedScriptPath
   })
   const target = serviceTarget(uid)
   const wasLoaded = commandSucceeded(runCommand('/bin/launchctl', ['print', target]))

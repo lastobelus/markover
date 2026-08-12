@@ -168,14 +168,18 @@ npm --silent run decision-gardener:host -- status
 ```
 
 `install` repeats the notifier test and refuses to write or load the
-LaunchAgent if it fails. It writes
+LaunchAgent if it fails. It first creates the configured run store with private
+permissions so notifier preflight has the same working directory as scheduled
+delivery. It writes
 `~/Library/LaunchAgents/com.lastobelus.markover.decision-gardener.plist`, then
 uses `launchctl bootstrap` in the current GUI domain. The plist runs once when
 loaded and then asks `launchd` for one lightweight heartbeat every 300 seconds.
 It uses `ProcessType=Background`, a private umask, explicit stdout/stderr logs,
 and the exact Node, controller, config, run-store working directory, and PATH
-values present at installation time. The controller starts from the stable
-private run store rather than the audited checkout, so a missing checkout is
+values present at installation time. Installation copies a content-addressed
+controller payload and its runtime assets to `runStore/controller/<sha256>/`
+and points the plist at that immutable private copy. The controller therefore
+starts independently of the audited checkout, so a missing checkout is
 reported through the ordinary failed-health and notification path.
 
 The `decision-gardener:host` npm script always runs the existing built
@@ -231,9 +235,10 @@ to failure sends one `failed` notification; repeated failures retry every
 five-minute heartbeat without repeating a successfully delivered notification.
 The first later success sends one `recovered` notification. If a failed-event
 delivery is still pending when an audit succeeds, that exact failed record is
-delivered before the recovery event. If notification delivery itself fails,
-the failed health remains pending and the next heartbeat retries rather than
-silently marking the host healthy.
+delivered before the recovery event. Lock-acquisition failures preserve and
+retry that same older record before reporting the newer lock failure. If
+notification delivery itself fails, the failed health remains pending and the
+next heartbeat retries rather than silently marking the host healthy.
 
 For a failure:
 
