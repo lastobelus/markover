@@ -132,6 +132,20 @@ function record(value: unknown, label: string): JsonRecord {
   return value
 }
 
+function assertExactKeys(
+  value: JsonRecord,
+  allowed: readonly string[],
+  label: string
+): void {
+  const allowedKeys = new Set(allowed)
+  const unrecognized = Object.keys(value).filter((key) => !allowedKeys.has(key))
+  if (unrecognized.length > 0) {
+    throw new Error(
+      `${label} contains unrecognized fields: ${unrecognized.sort().join(', ')}.`
+    )
+  }
+}
+
 function nonblank(value: unknown, label: string): string {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(`${label} must be a nonblank string.`)
@@ -170,6 +184,7 @@ function readJson(filePath: string): unknown {
 
 function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
   const item = record(value, label)
+  assertExactKeys(item, ['source', 'status'], label)
   return {
     source: oneOf(item.source, [
       'agent-runtime',
@@ -189,6 +204,14 @@ function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
 
 function parseRuntime(value: unknown, label: string): RuntimeObservation {
   const item = record(value, label)
+  assertExactKeys(item, [
+    'hostVersion',
+    'hostVersionSource',
+    'providerModel',
+    'providerModelSource',
+    'providerVersion',
+    'providerVersionSource'
+  ], label)
   const runtime: RuntimeObservation = {
     hostVersion: nullableNonblank(item.hostVersion, `${label}.hostVersion`),
     hostVersionSource: oneOf(item.hostVersionSource, [
@@ -221,6 +244,17 @@ function parseRuntime(value: unknown, label: string): RuntimeObservation {
 
 export function parseCaptureObservation(value: unknown): CaptureObservation {
   const item = record(value, 'Capture observation')
+  assertExactKeys(item, [
+    'discovery',
+    'evidenceId',
+    'exercisedAt',
+    'limitations',
+    'matrixEntryId',
+    'runtime',
+    'schemaVersion',
+    'sourceCommit',
+    'truthfulnessAttested'
+  ], 'Capture observation')
   if (item.schemaVersion !== evidenceSchemaVersion) {
     throw new Error(`Capture observation schemaVersion must be ${evidenceSchemaVersion}.`)
   }
@@ -240,6 +274,13 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     throw new Error('Capture observation must attest truthful discovery.')
   }
   const discovery = record(item.discovery, 'Capture observation discovery')
+  assertExactKeys(discovery, [
+    'hostKind',
+    'hostProvider',
+    'hostThreadId',
+    'machine',
+    'providerThreadId'
+  ], 'Capture observation discovery')
   return {
     discovery: {
       hostKind: parseDiscovery(discovery.hostKind, 'discovery.hostKind'),
@@ -443,7 +484,7 @@ export function buildSanitizedEvidence(
 
 function assertTrueChecks(value: unknown): ConformanceChecks {
   const checks = record(value, 'Evidence checks')
-  for (const field of [
+  const fields = [
     'distinctThreadHostId',
     'guessedValuesAbsent',
     'machineAttempted',
@@ -452,7 +493,9 @@ function assertTrueChecks(value: unknown): ConformanceChecks {
     'requiredFieldsObserved',
     'sanitized',
     'supportedCombination'
-  ] as const) {
+  ] as const
+  assertExactKeys(checks, fields, 'Evidence checks')
+  for (const field of fields) {
     if (checks[field] !== true) throw new Error(`Evidence check ${field} must pass.`)
   }
   return trueChecks()
@@ -463,16 +506,41 @@ export function validateSanitizedEvidence(
   matrixValue: unknown
 ): SanitizedEvidence {
   const item = record(value, 'Sanitized evidence')
+  assertExactKeys(item, [
+    'checks',
+    'discovery',
+    'evidenceId',
+    'exercisedAt',
+    'limitations',
+    'matrixEntryId',
+    'relationships',
+    'runtime',
+    'sanitizedAgentThread',
+    'schemaVersion',
+    'sourceCommit'
+  ], 'Sanitized evidence')
   if (item.schemaVersion !== evidenceSchemaVersion) {
     throw new Error(`Sanitized evidence schemaVersion must be ${evidenceSchemaVersion}.`)
   }
   const observation = parseCaptureObservation({
-    ...item,
+    discovery: item.discovery,
+    evidenceId: item.evidenceId,
+    exercisedAt: item.exercisedAt,
+    limitations: item.limitations,
+    matrixEntryId: item.matrixEntryId,
+    runtime: item.runtime,
+    schemaVersion: item.schemaVersion,
+    sourceCommit: item.sourceCommit,
     truthfulnessAttested: true
   })
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
   const relationships = record(item.relationships, 'Evidence relationships')
+  assertExactKeys(
+    relationships,
+    ['identity', 'threadHostId'],
+    'Evidence relationships'
+  )
   const identity = oneOf(relationships.identity, [
     'identified', 'truthful-null'
   ], 'Evidence relationships.identity')
@@ -484,10 +552,36 @@ export function validateSanitizedEvidence(
     if (entry.identityExpectation === 'required' || identity !== 'truthful-null') {
       throw new Error(`${entry.id} evidence requires identified agentThread metadata.`)
     }
+    if (threadHostId !== 'omitted') {
+      throw new Error('Null evidence cannot record a distinct host thread ID.')
+    }
+    if (observation.discovery.providerThreadId.status !== 'unavailable') {
+      throw new Error('Null evidence requires provider identity to be unavailable.')
+    }
+    for (const [field, discovery] of [
+      ['threadHost.kind', observation.discovery.hostKind],
+      ['threadHost.provider', observation.discovery.hostProvider],
+      ['threadHost.threadId', observation.discovery.hostThreadId],
+      ['threadHost.machine', observation.discovery.machine]
+    ] as const) {
+      if (discovery.status === 'observed') {
+        throw new Error(`${field} was observed but is absent from null evidence.`)
+      }
+    }
     sanitizedAgentThread = null
   } else {
     const thread = record(item.sanitizedAgentThread, 'Evidence sanitizedAgentThread')
+    assertExactKeys(
+      thread,
+      ['id', 'threadHost'],
+      'Evidence sanitizedAgentThread'
+    )
     const host = record(thread.threadHost, 'Evidence sanitizedAgentThread.threadHost')
+    assertExactKeys(
+      host,
+      ['kind', 'machine', 'provider', 'threadId'],
+      'Evidence sanitizedAgentThread.threadHost'
+    )
     if (thread.id !== redactedProviderThreadId) {
       throw new Error('Evidence provider thread ID must use the redaction marker.')
     }
@@ -500,19 +594,31 @@ export function validateSanitizedEvidence(
       kind: entry.threadHost.kind,
       provider: entry.threadHost.provider
     }
+    assertObserved(observation.discovery.providerThreadId, 'agentThread.id')
+    assertObserved(observation.discovery.hostKind, 'threadHost.kind')
+    assertObserved(observation.discovery.hostProvider, 'threadHost.provider')
     if (host.threadId !== undefined) {
+      assertObserved(observation.discovery.hostThreadId, 'threadHost.threadId')
       if (host.threadId !== redactedThreadHostThreadId || threadHostId !== 'distinct') {
         throw new Error('Evidence host thread ID must be distinct and redacted.')
       }
       sanitizedHost.threadId = redactedThreadHostThreadId
-    } else if (threadHostId !== 'omitted') {
-      throw new Error('Evidence relationship requires a redacted host thread ID.')
+    } else {
+      if (threadHostId !== 'omitted') {
+        throw new Error('Evidence relationship requires a redacted host thread ID.')
+      }
+      if (observation.discovery.hostThreadId.status === 'observed') {
+        throw new Error('Observed host thread identity is absent from evidence.')
+      }
     }
     if (host.machine !== undefined) {
+      assertObserved(observation.discovery.machine, 'threadHost.machine')
       if (host.machine !== redactedMachine) {
         throw new Error('Evidence machine must use the redaction marker.')
       }
       sanitizedHost.machine = redactedMachine
+    } else if (observation.discovery.machine.status === 'observed') {
+      throw new Error('Observed machine value is absent from evidence.')
     }
     if (identity !== 'identified') {
       throw new Error('Non-null evidence must record identified identity.')
@@ -521,6 +627,9 @@ export function validateSanitizedEvidence(
       id: redactedProviderThreadId,
       threadHost: sanitizedHost
     }
+  }
+  if (observation.discovery.machine.source !== 'hostname-command') {
+    throw new Error('Evidence must record an attempted hostname command.')
   }
   return {
     checks: assertTrueChecks(item.checks),

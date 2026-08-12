@@ -217,6 +217,79 @@ test('committed evidence rejects raw identifiers in place of redaction markers',
   )
 })
 
+test('committed evidence rejects unrecognized fields at every privacy boundary', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const evidence = buildSanitizedEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  ) as unknown as Record<string, unknown>
+  evidence.rawProviderThreadId = 'raw-provider-thread-secret'
+  assert.throws(
+    () => validateSanitizedEvidence(
+      evidence,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Sanitized evidence contains unrecognized fields: rawProviderThreadId/
+  )
+
+  delete evidence.rawProviderThreadId
+  const discovery = evidence.discovery as Record<string, unknown>
+  discovery.rawHostThreadId = 'raw-host-thread-secret'
+  assert.throws(
+    () => validateSanitizedEvidence(
+      evidence,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /discovery contains unrecognized fields: rawHostThreadId/
+  )
+
+  delete discovery.rawHostThreadId
+  const thread = evidence.sanitizedAgentThread as Record<string, unknown>
+  const host = thread.threadHost as Record<string, unknown>
+  host.rawMachine = 'raw-machine-secret.local'
+  assert.throws(
+    () => validateSanitizedEvidence(
+      evidence,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /threadHost contains unrecognized fields: rawMachine/
+  )
+})
+
+test('committed evidence recomputes discovery and redaction relationships', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const evidence = buildSanitizedEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  )
+  const missingMachine = structuredClone(evidence)
+  delete missingMachine.sanitizedAgentThread?.threadHost.machine
+  assert.throws(
+    () => validateSanitizedEvidence(
+      missingMachine,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Observed machine value is absent from evidence/
+  )
+
+  const unavailableIdentity = structuredClone(evidence)
+  unavailableIdentity.discovery.providerThreadId = {
+    status: 'unavailable',
+    source: 'not-exposed'
+  }
+  assert.throws(
+    () => validateSanitizedEvidence(
+      unavailableIdentity,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /agentThread.id is present but was not observed/
+  )
+})
+
 test('documentation fixes rerun and schema-defect handling without storing raw evidence', () => {
   const readme = fs.readFileSync(
     path.join(root, 'evals/review-metadata/README.md'),
