@@ -61,22 +61,22 @@
     {
       "hostProduct": "LastCode",
       "providerSelection": "discover-at-exercise",
-      "reason": "No live LastCode thread is available in the initial exercise environment."
+      "reasonCode": "no-live-thread"
     },
     {
       "hostProduct": "Codex",
       "providerSelection": "discover-at-exercise",
-      "reason": "The initial direct-provider exercise uses Claude Code; add direct Codex from a real direct Codex thread."
+      "reasonCode": "no-live-thread"
     },
     {
       "hostProduct": "OpenCode",
       "providerSelection": "discover-at-exercise",
-      "reason": "Provider identity depends on the actual OpenCode configuration and must not be guessed."
+      "reasonCode": "provider-not-observed"
     },
     {
       "hostProduct": "Cursor",
       "providerSelection": "discover-at-exercise",
-      "reason": "Provider identity depends on the actual Cursor thread and must not be guessed."
+      "reasonCode": "provider-not-observed"
     }
   ]
 }

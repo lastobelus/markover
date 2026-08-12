@@ -11,8 +11,9 @@ record live product behavior.
 2. Keep the raw `get` artifact and capture observation under ignored `tmp/`.
 3. Push the runner commit to the declared pull request, then run
    `npm run eval:metadata:record --` with those two inputs. The command verifies
-   that the commit is in that PR's fetched head history, applies the shared v1
-   decoder and the rubric, then writes a reduced record.
+   that the commit is in that PR's fetched head history and that the running
+   recorder inputs match that commit, applies the shared v1 decoder and the
+   rubric, then writes a reduced record.
 4. Inspect the reduced JSON, add its ID to the matrix row, and run
    `npm run eval:metadata:validate`.
 5. Before declaring the matrix complete, run
@@ -93,7 +94,9 @@ Expansion candidates name hosts only. Choose their provider from the live thread
 at exercise time, then add an exact matrix row. This keeps LastCode, direct
 provider hosts, OpenCode, Cursor, and future mixed combinations visible without
 inventing provider identity. Revisit affected rows after #134 publishes its
-normative classification.
+normative classification. Candidate context uses only the closed reason codes
+`no-live-thread` and `provider-not-observed`; keep free-form notes outside the
+committed corpus.
 
 ## Initial evidence
 
