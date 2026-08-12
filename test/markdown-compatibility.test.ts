@@ -11,6 +11,7 @@ type Classification =
   | 'opaque'
   | 'preserved-inline'
   | 'visible-uninterpreted'
+  | 'source-only'
 
 interface CompatibilityFixture {
   id: string
@@ -217,14 +218,22 @@ const fixtures: CompatibilityFixture[] = [
     }
   },
   {
-    id: 'reference-definitions',
-    classification: 'visible-uninterpreted',
+    id: 'reference-links',
+    classification: 'preserved-inline',
     source: 'A [label][id].\n\n[id]: https://example.com "Title"\n',
     verify(tree) {
       const paragraph = onlyNode(tree)
       assert.equal(paragraph.type, 'paragraph')
       assert.equal(paragraph.text, 'A [label][id].')
       assert.deepEqual([paragraph.lineStart, paragraph.lineEnd], [1, 1])
+    }
+  },
+  {
+    id: 'reference-definitions',
+    classification: 'source-only',
+    source: '[id]: https://example.com "Title"\n',
+    verify(tree) {
+      assert.deepEqual(tree.root.children, [])
     }
   }
 ]

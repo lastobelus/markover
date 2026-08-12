@@ -214,9 +214,10 @@ each choice from that baseline without duplicating the live decisions below.
    **Audit — Retain with a published boundary.** The public
    [behavior-level compatibility matrix](docs/user/limitations/index.html)
    classifies structured blocks, opaque single blocks, preserved inline
-   content, and visible uninterpreted text without claiming blanket CommonMark
-   compatibility. Executable matrix fixtures protect node shape, exact source,
-   and line-range behavior. Evidence:
+   content, visible uninterpreted text, and source-only content without claiming
+   blanket CommonMark compatibility. Executable matrix fixtures protect node
+   shape, exact source, line-range behavior, and the zero-node boundary for
+   valid standalone reference definitions. Evidence:
    [Markdown compatibility tests](test/markdown-compatibility.test.ts).
 
 ## Interaction

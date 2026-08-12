@@ -60,7 +60,8 @@ function greet(name) {
 
 The following examples intentionally have no specialized review node. The
 public Markdown compatibility matrix records whether each construct remains
-visible uninterpreted text or is preserved only in the exact reviewed source.
+visible uninterpreted text or becomes source-only content preserved in the
+exact reviewed source.
 
 Strikethrough markers remain literal: ~~this is not a strikethrough node~~.
 

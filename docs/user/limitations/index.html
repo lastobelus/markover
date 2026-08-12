@@ -42,7 +42,7 @@
 
       <section id="matrix">
         <h2>Behavior-level compatibility matrix</h2>
-        <p><strong>Structured blocks</strong> become navigable review-tree nodes. <strong>Opaque single blocks</strong> are selectable as a whole without child nodes. <strong>Preserved inline content</strong> stays inside its parent block rather than becoming structure. <strong>Visible uninterpreted text</strong> keeps its markers visible without extension-specific meaning.</p>
+        <p><strong>Structured blocks</strong> become navigable review-tree nodes. <strong>Opaque single blocks</strong> are selectable as a whole without child nodes. <strong>Preserved inline content</strong> stays inside its parent block rather than becoming structure. <strong>Visible uninterpreted text</strong> keeps its markers visible without extension-specific meaning. <strong>Source-only content</strong> remains in the exact reviewed source but has no review block or preview representation.</p>
         <div class="docs-table-wrap">
           <table class="docs-table markdown-compatibility">
             <caption>Current Markdown parsing and review behavior</caption>
@@ -105,10 +105,15 @@
                 <td>Visible uninterpreted text</td>
                 <td>Markers remain literal paragraph content. Markover does not create strikethrough, definition, or footnote nodes.</td>
               </tr>
-              <tr data-compatibility-id="reference-definitions" data-classification="visible-uninterpreted">
-                <td>Reference-style links and definitions</td>
-                <td>Visible uninterpreted text</td>
-                <td>The reference use remains in its paragraph. A standalone link definition may have no review block, but both the use and definition remain in the exact reviewed source.</td>
+              <tr data-compatibility-id="reference-links" data-classification="preserved-inline">
+                <td>Reference-style link uses</td>
+                <td>Preserved inline content</td>
+                <td>The reference use remains in its parent paragraph and renders its inert label when a valid definition resolves it.</td>
+              </tr>
+              <tr data-compatibility-id="reference-definitions" data-classification="source-only">
+                <td>Standalone reference definitions</td>
+                <td>Source-only content</td>
+                <td>A valid standalone link definition has no review block or preview representation. It remains only in the exact reviewed source.</td>
               </tr>
             </tbody>
           </table>
