@@ -215,6 +215,17 @@ test('portable metadata rejects credentials and known app-private evidence', () 
       () => decodeReviewArtifact(privateThreadTitle),
       'INVALID_REVIEW'
     )
+
+    const privateHostTitle = cloneFixture()
+    Reflect.set(
+      record(record(review(privateHostTitle).agentThread).threadHost),
+      field,
+      'Private requesting thread title'
+    )
+    assertFormatCode(
+      () => decodeReviewArtifact(privateHostTitle),
+      'INVALID_REVIEW'
+    )
   }
 
   for (const repositoryUrl of [

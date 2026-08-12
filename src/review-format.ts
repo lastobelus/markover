@@ -434,6 +434,11 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
       invalid(`review.agentThread.threadHost.${field} must be nonblank when present.`)
     }
   }
+  for (const privateField of ['requestingThreadTitle', 'title', 'name']) {
+    if (owns(value.threadHost, privateField)) {
+      invalid(`review.agentThread.threadHost must not contain private ${privateField} evidence.`)
+    }
+  }
   if (value.threadHost.threadId === value.id) {
     invalid('threadHost.threadId must be omitted when it duplicates agentThread.id.')
   }

@@ -809,13 +809,20 @@ export class ReviewStore {
         if (
           currentIdentity?.repository !== identity.repository ||
           currentIdentity.number !== identity.number ||
-          currentObservation?.statusObservedAt &&
-            currentObservation.statusObservedAt >= observation.statusObservedAt ||
+          currentObservation && (
+            currentObservation.statusObservedAt > observation.statusObservedAt ||
+            currentObservation.statusObservedAt === observation.statusObservedAt &&
+              currentObservation.status === observation.status &&
+              currentObservation.statusSource === observation.statusSource
+          ) ||
           current.review.status === 'done' && observation.status !== 'merged'
         ) return null
 
         const next = cloneJson(current)
-        next.review.updatedAt = this.mutationTimestamp(current.review)
+        next.review.updatedAt = this.mutationTimestamp(
+          current.review,
+          observation.statusObservedAt
+        )
         next.review.pullRequest = {
           ...(isRecord(next.review.pullRequest) ? next.review.pullRequest : {}),
           number: identity.number,
@@ -911,12 +918,16 @@ export class ReviewStore {
     return new Date(this.now()).toISOString()
   }
 
-  private mutationTimestamp(review: ReviewEnvelope): string {
+  private mutationTimestamp(
+    review: ReviewEnvelope,
+    ...portableActivity: string[]
+  ): string {
     return [
       this.timestamp(),
       review.createdAt,
       review.attentionRequestedAt,
-      review.updatedAt
+      review.updatedAt,
+      ...portableActivity
     ].sort().at(-1) as string
   }
 
