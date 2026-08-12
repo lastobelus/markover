@@ -67,6 +67,7 @@ import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
 import { discoverVerifiedReviewProjectRoot } from './review-project-context'
+import { nativeContextMenuPoint } from './review-context-menu'
 import { copyCanonicalReviewLink } from './review-link-copy'
 import {
   registerProtocolOnFirstLaunch,
@@ -884,11 +885,14 @@ async function openReviewContextMenu(
     }
   ])
   const window = BrowserWindow.fromWebContents(event.sender)
+  const nativePoint = nativeContextMenuPoint(
+    request,
+    event.sender.getZoomFactor()
+  )
   return await new Promise((resolve, reject) => {
     menu.popup({
       ...(window ? { window } : {}),
-      x: request.x,
-      y: request.y,
+      ...nativePoint,
       callback: () => {
         if (!copyOperation) {
           resolve({ outcome: 'dismissed' })

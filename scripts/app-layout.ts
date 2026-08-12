@@ -28,6 +28,7 @@ export const runtimeModuleNames = [
   'public-link-opener',
   'public-links',
   'review-autosave',
+  'review-context-menu',
   'review-format',
   'review-link-copy',
   'review-project-context',

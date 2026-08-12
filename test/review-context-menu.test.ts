@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
   isReviewContextMenuKey,
   keyboardContextMenuPoint,
+  nativeContextMenuPoint,
   pointerContextMenuPoint,
   reviewContextMenuFocusKey
 } from '../src/review-context-menu'
@@ -26,6 +27,21 @@ test('anchors pointer and keyboard menus to bounded integer coordinates', () => 
   assert.deepEqual(keyboardContextMenuPoint({ left: -4, bottom: 92.8 }), {
     x: 0,
     y: 93
+  })
+})
+
+test('scales renderer coordinates into native menu coordinates', () => {
+  assert.deepEqual(nativeContextMenuPoint({ x: 24, y: 31 }, 0.8), {
+    x: 19,
+    y: 25
+  })
+  assert.deepEqual(nativeContextMenuPoint({ x: 24, y: 31 }, 1.25), {
+    x: 30,
+    y: 39
+  })
+  assert.deepEqual(nativeContextMenuPoint({ x: 24, y: 31 }, 1.5), {
+    x: 36,
+    y: 47
   })
 })
 
@@ -58,6 +74,10 @@ test('both review representations expose the native menu without activation', ()
 
 test('native menu keeps copying separate from destructive review removal', () => {
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+  assert.match(
+    main,
+    /nativeContextMenuPoint\([\s\S]*event\.sender\.getZoomFactor\(\)[\s\S]*menu\.popup\(\{[\s\S]*\.\.\.nativePoint/
+  )
   assert.match(
     main,
     /label: 'Copy Review Link'[\s\S]*\{ type: 'separator' \}[\s\S]*label: 'Move Review to Trash…'/

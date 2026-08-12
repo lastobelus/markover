@@ -16,6 +16,16 @@ export function reviewContextMenuFocusKey(
   return `${surface}:${reviewId}`
 }
 
+export function nativeContextMenuPoint(
+  point: ReviewContextMenuPoint,
+  zoomFactor: number
+): ReviewContextMenuPoint {
+  return {
+    x: Math.max(0, Math.round(point.x * zoomFactor)),
+    y: Math.max(0, Math.round(point.y * zoomFactor))
+  }
+}
+
 export function isReviewContextMenuKey(
   event: Pick<KeyboardEvent, 'key' | 'shiftKey'>
 ): boolean {
