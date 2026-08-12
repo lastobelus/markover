@@ -2024,7 +2024,9 @@ if (!hasSingleInstanceLock) {
         if (result.warnings.length) {
           await recordStartupWarnings(result.warnings.map((warning) => ({
             category: 'review-skipped',
-            subject: `${warning.reviewId} (${warning.reason})`
+            subject: warning.detail
+              ? `${warning.reviewId} (${warning.reason}): ${warning.detail}`
+              : `${warning.reviewId} (${warning.reason})`
           })))
         }
         return await managedDocuments(result.reviews)

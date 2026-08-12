@@ -156,6 +156,11 @@ test('lifecycle, timestamp, and pull-request invariants reject invalid envelopes
   review(noncanonicalTime).updatedAt = '2026-08-11T12:05:00Z'
   assertFormatCode(() => decodeReviewArtifact(noncanonicalTime), 'INVALID_REVIEW')
 
+  const futureObservation = cloneFixture()
+  record(review(futureObservation).pullRequest).statusObservedAt =
+    '2026-08-11T12:06:00.000Z'
+  assertFormatCode(() => decodeReviewArtifact(futureObservation), 'INVALID_REVIEW')
+
   const partialObservation = cloneFixture()
   delete record(review(partialObservation).pullRequest).statusSource
   assertFormatCode(() => decodeReviewArtifact(partialObservation), 'INVALID_REVIEW')
@@ -210,10 +215,18 @@ test('portable metadata rejects credentials and known app-private evidence', () 
     'discovery',
     'parentThreadId',
     'forkedFromId',
+    'repositoryRoot',
+    'projectRoot',
+    'sources',
+    'commonGitDirectory',
     'title',
     'name',
     'requestingThreadTitle'
   ]) {
+    const privateEnvelope = cloneFixture()
+    Reflect.set(review(privateEnvelope), field, 'Private session evidence')
+    assertFormatCode(() => decodeReviewArtifact(privateEnvelope), 'INVALID_REVIEW')
+
     const privateThreadTitle = cloneFixture()
     Reflect.set(
       record(review(privateThreadTitle).agentThread),
@@ -241,6 +254,8 @@ test('portable metadata rejects credentials and known app-private evidence', () 
     '/Users/alice/private/repo.git',
     '../repo.git',
     'file:///Users/alice/private/repo.git',
+    'file:/Users/alice/private/repo.git',
+    'file:../repo.git',
     'C:/Users/alice/private/repo.git',
     'C://Users/alice/private/repo.git',
     'C:private/repo.git'

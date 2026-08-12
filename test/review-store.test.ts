@@ -319,10 +319,10 @@ test('an omitted PR observation preserves the last successful value', async (t) 
 test('a changed equal-time PR observation propagates without lifecycle churn', async (t) => {
   const ids = ['mko_aaa11111', 'mko_bbb22222', 'mko_ccc33333']
   const timestamps = [
-    '2026-08-10T03:00:00.000Z',
-    '2026-08-10T03:01:00.000Z',
-    '2026-08-10T03:02:00.000Z',
-    '2026-08-10T02:59:00.000Z'
+    '2026-08-10T04:00:00.000Z',
+    '2026-08-10T04:01:00.000Z',
+    '2026-08-10T04:02:00.000Z',
+    '2026-08-10T03:59:00.000Z'
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => ids.shift() as string,
@@ -1247,7 +1247,11 @@ test('unknown versions remain byte-for-byte incompatible and outside cleanup', a
 
   assert.deepEqual(await store.listWithWarnings(), {
     reviews: [],
-    warnings: [{ reviewId: created.review.id, reason: 'incompatible' }]
+    warnings: [{
+      reviewId: created.review.id,
+      reason: 'incompatible',
+      detail: 'Unsupported markover-review version 2; this Markover supports version 1. Consult the official compatibility catalog for the Markover release that supports it: https://lastobelus.github.io/markover/compatibility/?format=markover-review&version=2'
+    }]
   })
   await assert.rejects(
     store.load(created.review.id),
@@ -1261,7 +1265,8 @@ test('unknown versions remain byte-for-byte incompatible and outside cleanup', a
   assert.deepEqual(scan.candidates, [])
   assert.deepEqual(scan.warnings, [{
     reviewId: created.review.id,
-    reason: 'incompatible'
+    reason: 'incompatible',
+    detail: 'Unsupported markover-review version 2; this Markover supports version 1. Consult the official compatibility catalog for the Markover release that supports it: https://lastobelus.github.io/markover/compatibility/?format=markover-review&version=2'
   }])
   assert.equal(await fs.readFile(store.reviewPath(created.review.id), 'utf8'), futureBytes)
   assert.deepEqual(await fs.readFile(attachmentPath), attachmentBytes)

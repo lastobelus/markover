@@ -76,6 +76,8 @@ test('redacts credentials from HTTPS Git remotes', () => {
     '../repo.git',
     './repo.git',
     'file:///Users/alice/private/repo.git',
+    'file:/Users/alice/private/repo.git',
+    'file:../repo.git',
     String.raw`C:\private\repo.git`,
     'C:/private/repo.git',
     'C://private/repo.git',

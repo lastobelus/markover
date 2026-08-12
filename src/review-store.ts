@@ -56,6 +56,7 @@ export interface ReviewStoreOptions {
 export interface ReviewListWarning {
   reviewId: string
   reason: 'incomplete' | 'incompatible' | 'invalid' | 'legacy' | 'unreadable'
+  detail?: string
 }
 
 export interface ReviewListResult {
@@ -458,7 +459,11 @@ export class ReviewStore {
           code === 'UNSUPPORTED_REVIEW_FORMAT' ||
           code === 'UNSUPPORTED_REVIEW_VERSION'
         ) {
-          warnings.push({ reviewId, reason: 'incompatible' })
+          warnings.push({
+            reviewId,
+            reason: 'incompatible',
+            ...(error instanceof Error ? { detail: error.message } : {})
+          })
           return null
         }
         if (code === 'INVALID_REVIEW' || error instanceof SyntaxError) {

@@ -406,16 +406,11 @@ function assertNode(
   }
 }
 
-const PRIVATE_AGENT_THREAD_FIELDS = [
-  'cwd',
-  'logPath',
-  'discovery',
-  'parentThreadId',
-  'forkedFromId',
-  'requestingThreadTitle',
+const PRIVATE_THREAD_AND_ENVELOPE_FIELDS = new Set([
+  ...PRIVATE_TOP_LEVEL_FIELDS,
   'title',
   'name'
-] as const
+])
 
 function assertAgentThread(value: unknown): asserts value is ReviewAgentThread | null {
   if (value === null) return
@@ -424,7 +419,7 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
   if (!nonblank(value.id) || !isRecord(value.threadHost)) {
     invalid('review.agentThread requires a provider thread ID and threadHost object.')
   }
-  for (const privateField of PRIVATE_AGENT_THREAD_FIELDS) {
+  for (const privateField of PRIVATE_THREAD_AND_ENVELOPE_FIELDS) {
     if (owns(value, privateField)) invalid(`review.agentThread must not contain private ${privateField} evidence.`)
   }
   requireKeys(value.threadHost, ['kind', 'provider'])
@@ -436,7 +431,7 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
       invalid(`review.agentThread.threadHost.${field} must be nonblank when present.`)
     }
   }
-  for (const privateField of PRIVATE_AGENT_THREAD_FIELDS) {
+  for (const privateField of PRIVATE_THREAD_AND_ENVELOPE_FIELDS) {
     if (owns(value.threadHost, privateField)) {
       invalid(`review.agentThread.threadHost must not contain private ${privateField} evidence.`)
     }
@@ -448,6 +443,7 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
 
 export function isPortableRepositoryUrl(value: unknown): value is string {
   if (!nonblank(value)) return false
+  if (/^file:/i.test(value)) return false
   if (/^[a-zA-Z]:/.test(value)) return false
   if (!value.includes('://')) {
     return SCP_REPOSITORY_URL_PATTERN.test(value)
@@ -515,6 +511,11 @@ function assertEnvelope(
   expectedReviewId?: string
 ): asserts value is ReviewEnvelope {
   if (!isRecord(value)) invalid('review must be an object.')
+  for (const privateField of PRIVATE_THREAD_AND_ENVELOPE_FIELDS) {
+    if (owns(value, privateField)) {
+      invalid(`review must not contain private ${privateField} evidence.`)
+    }
+  }
   requireKeys(value, [
     'id',
     'status',
@@ -555,6 +556,10 @@ function assertEnvelope(
   }
   assertGit(value.git)
   assertPullRequest(value.pullRequest, value.status as ReviewStatus)
+  const observation = pullRequestObservation(value.pullRequest)
+  if (observation && observation.statusObservedAt > value.updatedAt) {
+    invalid('Pull request observations must not be newer than review.updatedAt.')
+  }
   if (!isRecord(value.agentGuidance)) invalid('review.agentGuidance must be an object.')
   requireKeys(value.agentGuidance, ['fixedContract', 'interpretationPolicy'])
   if (
