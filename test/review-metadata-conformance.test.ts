@@ -251,6 +251,7 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         'scripts/review-metadata-conformance.ts',
         'src/pull-request.ts',
         'src/review-format.ts',
+        'tsconfig.build.json',
         'tsconfig.json'
       ]
     ])
