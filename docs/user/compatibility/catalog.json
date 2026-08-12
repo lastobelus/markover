@@ -1,0 +1,18 @@
+{
+  "format": "markover-review-compatibility",
+  "version": 1,
+  "updatedAt": "2026-08-11",
+  "artifactFormats": [
+    {
+      "format": "markover-review",
+      "versions": [
+        {
+          "version": 1,
+          "state": "development",
+          "firstMarkoverRelease": null,
+          "recommendation": "No released Markover build claims the portable v1 contract yet. Use the current development build only while issue #99 is active; this entry must name the first compatible release before publication."
+        }
+      ]
+    }
+  ]
+}

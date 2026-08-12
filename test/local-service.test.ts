@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import test, { type TestContext } from 'node:test'
 
+import { reviewChecksum } from '../src/review-format'
+
 import {
   LocalServiceError,
   readServiceConnection,
@@ -156,7 +158,8 @@ function assertUnauthorized(
 }
 
 function tree(): ReviewTree {
-  return parseMarkdown('# Review\n', 'sha256:test', {
+  const source = '# Review\n'
+  return parseMarkdown(source, reviewChecksum(source), {
     name: 'review.md',
     path: '/tmp/review.md'
   })
@@ -238,7 +241,7 @@ test('persists PR observations through revise and PR-scoped done', async (t) => 
         git: {
           repositoryUrl: 'git@github.com:lastobelus/markover.git'
         },
-        pullRequest: { number: 123, discovery: 'explicit' }
+        pullRequest: { number: 123, fixtureExtension: 'preserve me' }
       }
     }),
     { reviewId: 'mko_aaa11111', status: 'editing' }
@@ -280,7 +283,7 @@ test('persists PR observations through revise and PR-scoped done', async (t) => 
   assert.equal(completed.review.status, 'done')
   assert.deepEqual(completed.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'merged',
     statusObservedAt: completed.review.updatedAt,
@@ -957,6 +960,32 @@ test('returns structured errors to the client', async (t) => {
     }),
     (error: unknown) => hasServiceError(error, 'INVALID_REVIEW', 400)
   )
+})
+
+test('unknown review versions cross the service as conflict errors without rewriting', async (t) => {
+  const { endpointPath, store } = await serviceFixture(t)
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Preserve future service data.'
+  })
+  const future = structuredClone(created) as unknown as Record<string, unknown>
+  future.version = 2
+  const bytes = `${JSON.stringify(future, null, 2)}\n`
+  await fs.writeFile(store.reviewPath(created.review.id), bytes, 'utf8')
+
+  await assert.rejects(
+    requestJson(
+      endpointPath,
+      'POST',
+      `/reviews/${created.review.id}/handoff`
+    ),
+    (error: unknown) => hasServiceError(
+      error,
+      'UNSUPPORTED_REVIEW_VERSION',
+      409
+    )
+  )
+  assert.equal(await fs.readFile(store.reviewPath(created.review.id), 'utf8'), bytes)
 })
 
 test('handoff waits for the latest renderer snapshot barrier', async (t) => {

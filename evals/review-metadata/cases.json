@@ -1,0 +1,77 @@
+[
+  {
+    "id": "direct-codex-one-provider-id",
+    "expectedValid": true,
+    "agentThread": {
+      "id": "provider-thread-1",
+      "threadHost": {
+        "kind": "codex",
+        "provider": "codex",
+        "machine": "Airy.local"
+      }
+    }
+  },
+  {
+    "id": "t3code-distinct-thread-host-id",
+    "expectedValid": true,
+    "agentThread": {
+      "id": "provider-thread-2",
+      "threadHost": {
+        "kind": "t3code",
+        "provider": "codex",
+        "threadId": "t3-thread-2",
+        "machine": "Airy.local"
+      }
+    }
+  },
+  {
+    "id": "mixed-thread-host-provider",
+    "expectedValid": true,
+    "agentThread": {
+      "id": "provider-thread-3",
+      "threadHost": {
+        "kind": "claude",
+        "provider": "codex"
+      }
+    }
+  },
+  {
+    "id": "truthful-unavailable-fallback",
+    "expectedValid": true,
+    "agentThread": null
+  },
+  {
+    "id": "duplicated-provider-thread-id",
+    "expectedValid": false,
+    "agentThread": {
+      "id": "same-thread",
+      "threadHost": {
+        "kind": "codex",
+        "provider": "codex",
+        "threadId": "same-thread"
+      }
+    }
+  },
+  {
+    "id": "missing-provider",
+    "expectedValid": false,
+    "agentThread": {
+      "id": "provider-thread-4",
+      "threadHost": {
+        "kind": "opencode"
+      }
+    }
+  },
+  {
+    "id": "private-discovery-evidence",
+    "expectedValid": false,
+    "agentThread": {
+      "id": "provider-thread-5",
+      "threadHost": {
+        "kind": "t3code",
+        "provider": "codex"
+      },
+      "logPath": "/private/provider/session.jsonl"
+    }
+  }
+]

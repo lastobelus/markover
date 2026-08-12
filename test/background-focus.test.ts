@@ -17,7 +17,7 @@ test('agent review events update the renderer without showing or focusing it', (
 
   assert.match(
     managedReview,
-    /pendingManagedReviewNotifications\.set\(artifact\.review\.id, artifact\)/
+    /projectRootForReview\(artifact\)\.then\(async \(projectRoot\) => \{[\s\S]*requireReviewStore\(\)\.load\(artifact\.review\.id\)[\s\S]*pendingManagedReviewNotifications\.set\([\s\S]*managedDocument\(latestArtifact, projectRoot\)/
   )
   assert.match(managedReview, /createWindow\(\{ show: false \}\)/)
   assert.match(managedReview, /flushPendingManagedReviewNotifications\(\)/)
@@ -285,7 +285,7 @@ test('native startup failure dialogs survive diagnostic write failures', () => {
   )?.[0] || ''
   const createWindow = main.slice(
     main.indexOf('function createWindow('),
-    main.indexOf('function repositoryRoot(')
+    main.indexOf('function managedDocument(')
   )
 
   assert.match(

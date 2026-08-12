@@ -63,6 +63,14 @@ test('user-facing recovery warnings exclude cosmetic brand fallback', () => {
   ])
 })
 
+test('incompatible review startup warnings retain compatibility guidance', async () => {
+  const main = await fs.readFile(path.resolve(__dirname, '../../src/main.ts'), 'utf8')
+  assert.match(
+    main,
+    /subject: warning\.detail[\s\S]*warning\.reviewId[\s\S]*warning\.reason[\s\S]*warning\.detail/
+  )
+})
+
 test('startup recovery toast supports pointer and keyboard activation', async () => {
   const [renderer, styles] = await Promise.all([
     fs.readFile(path.resolve(__dirname, '../../src/renderer.ts'), 'utf8'),

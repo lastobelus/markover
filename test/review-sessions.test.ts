@@ -22,7 +22,7 @@ function sessionTreeFromArtifact(tree: ReviewArtifact): ReviewSessionTree {
 function reviewDocument(
   reviewId: string,
   name: string,
-  repositoryRoot: string | null = null
+  projectRoot: string | null = null
 ): ReviewSessionDocument {
   const parsed = parseMarkdown(`# ${name}\n\n- One\n- Two\n`, `sha256:${reviewId}`, {
     name,
@@ -33,7 +33,18 @@ function reviewDocument(
     review: {
       id: reviewId,
       status: 'editing',
-      git: repositoryRoot ? { repositoryRoot } : null
+      origin: 'agent',
+      createdAt: '2026-08-03T12:00:00.000Z',
+      updatedAt: '2026-08-03T12:00:00.000Z',
+      attentionRequestedAt: '2026-08-03T12:00:00.000Z',
+      contextSummary: `Review ${name}.`,
+      agentThread: null,
+      git: null,
+      pullRequest: null,
+      agentGuidance: {
+        fixedContract: 'Interpret feedback by intent.',
+        interpretationPolicy: 'Use your judgment.'
+      }
     }
   } satisfies ReviewSessionTree
   return {
@@ -41,7 +52,8 @@ function reviewDocument(
     name,
     path: `/tmp/${name}`,
     checksum: `sha256:${reviewId}`,
-    tree
+    tree,
+    projectRoot
   }
 }
 
@@ -98,12 +110,14 @@ test('new sessions apply private default collapse rules without node state', () 
   )
   const tree = {
     ...parsed,
-    review: { id: 'mko_front111', status: 'editing' }
+    review: {
+      ...reviewDocument('mko_front111', 'frontmatter.md').tree.review,
+      id: 'mko_front111'
+    }
   } satisfies ReviewSessionTree
   const frontmatter = tree.root.children[0]
   assert.ok(frontmatter)
   assert.equal(frontmatter.type, 'frontmatter')
-  delete frontmatter.collapsed
 
   const session = new ReviewSessions().add({
     reviewId: 'mko_front111',
@@ -121,7 +135,10 @@ test('unnamed managed documents receive a stable display name', () => {
   const parsed = parseMarkdown('# Untitled', 'sha256:mko_unnamed1')
   const tree = {
     ...parsed,
-    review: { id: 'mko_unnamed1', status: 'editing' }
+    review: {
+      ...reviewDocument('mko_unnamed1', 'Untitled').tree.review,
+      id: 'mko_unnamed1'
+    }
   } satisfies ReviewSessionTree
 
   const session = sessions.add({
@@ -301,6 +318,15 @@ test('project identity falls back to the source directory and then Other', () =>
   )
   assert.deepEqual(
     projectIdentity({
+      reviewId: 'mko_stale01',
+      path: '/tmp/stale-checkout/notes.md',
+      projectRoot: null,
+      tree: { review: { git: null } }
+    }),
+    { key: 'unassigned', name: 'Other', root: null }
+  )
+  assert.deepEqual(
+    projectIdentity({
       path: '/tmp/project/notes.md',
       tree: { review: { git: 'legacy metadata' } }
     }),
@@ -327,12 +353,13 @@ test('persisted review artifacts satisfy the browser session boundary', () => {
     review: {
       ...source.review,
       status: 'editing',
+      origin: 'agent',
       createdAt: '2026-08-03T12:00:00.000Z',
       updatedAt: '2026-08-03T12:00:00.000Z',
       attentionRequestedAt: '2026-08-03T12:00:00.000Z',
       contextSummary: 'Review the stored document.',
       agentThread: null,
-      git: 'legacy metadata',
+      git: { branch: 'feature/session' },
       pullRequest: null,
       agentGuidance: {
         fixedContract: 'Interpret feedback by intent.',

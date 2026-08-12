@@ -48,6 +48,7 @@ export async function createLocalReview(
   return store.create({
     tree,
     contextSummary: LOCAL_REVIEW_CONTEXT_SUMMARY,
+    origin: 'local',
     git,
     interpretationPolicy
   })

@@ -74,8 +74,8 @@
 
       <section id="discovery">
         <h2>Local provenance discovery</h2>
-        <p>Markover may run read-only Git commands beside the reviewed source to record repository root, sanitized remote URL, branch, and commit. URL credentials, query strings, and fragments are removed before a URL-style remote is retained.</p>
-        <p>If an agent supplies a unique handoff key but no explicit thread ID, Markover can search a bounded set of recent local Codex session records for an exact match. It stores selected provenance from one unambiguous match, not a copy of the scanned logs.</p>
+        <p>Markover may run read-only Git commands beside the reviewed source. The portable review retains the sanitized remote URL, branch, and commit reported at opening time; URL credentials, query strings, fragments, and local repository roots stay out of the handoff. App-private workspace state may retain a local project-grouping key.</p>
+        <p>If an agent supplies a unique handoff key but no explicit thread ID, Markover can search a bounded set of recent local Codex session records for an exact match. It retains the matched provider thread ID with the thread-host metadata the agent supplied, not a copy or path of the scanned logs.</p>
         <p>This search is enabled by default. Turn off <strong>Discover agent thread from local session logs</strong> in Markover's Privacy settings to skip it on subsequent <code>open</code> commands. Explicit thread IDs and Git provenance remain available.</p>
       </section>
 
@@ -147,8 +147,9 @@
 
       <section id="compatibility">
         <h2>Backups and early-preview compatibility</h2>
-        <p>Early-preview review formats may change without migration guarantees. Markover preserves historical review JSON and attachments, but a newer app may not open every review created by an older version. An older app version may be needed for occasional viewing.</p>
-        <p>Before changing versions, rolling back, or manually deleting data, quit Markover and copy the complete <code>~/Library/Application Support/Markover/</code> directory to a safe location. A rollback is useful only when the chosen version understands the stored review format.</p>
+        <p>Unreleased prototype review shapes may change without compatibility support. Once a review schema ships in a release, a later breaking release converts supported older schemas automatically on load. Before conversion, Markover preserves a byte-for-byte backup of the original review directory and replaces the active copy only after the converted review validates.</p>
+        <p>An app that encounters an unknown future version leaves its JSON and attachments untouched and points to the <a href="../compatibility/">official compatibility catalog</a> for a release that can open it.</p>
+        <p>Before changing versions, rolling back, or manually deleting data, quit Markover and copy the complete <code>~/Library/Application Support/Markover/</code> directory to a safe location. Keep Markover's migration backup if you may need to downgrade.</p>
       </section>
 
       <section id="support">

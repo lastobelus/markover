@@ -137,11 +137,12 @@ each choice from that baseline without duplicating the live decisions below.
 - **P-X6c — Planned.** Developer ID signing and notarization are owned by issue
   [#13](https://github.com/lastobelus/markover/issues/13). App Sandbox and
   auto-update are assessed with the later release decisions in this register.
-- **P-X7 — Revise.** The handoff tree declares format `markover-review` version
-  1, but no owned compatibility policy says what agents or future Markover
-  versions may rely on. Issue
-  [#99](https://github.com/lastobelus/markover/issues/99) owns the broad-launch
-  contract without adding speculative migration machinery.
+- **P-X7 — Planned.** The accepted `markover-review` v1 contract covers the
+  complete portable artifact, preserves additive fields, and fails closed for
+  unknown headers. Issue
+  [#99](https://github.com/lastobelus/markover/issues/99) is implementing it on
+  draft workspace-state PR #138. Compatibility converters begin only with
+  released schema versions and preserve the original review directory first.
 
 ## Data and parsing
 
@@ -912,10 +913,18 @@ each choice from that baseline without duplicating the live decisions below.
   capability and update-integrity design rather than being implied by signing.
   Evidence: [macOS packaging tests](test/macos-package.test.ts) and the
   [release runbook](docs/developer/releasing.md).
-- **Planned — Handoff format compatibility.** Issue
-  [#99](https://github.com/lastobelus/markover/issues/99) owns the versioning and
-  reader contract for `markover-review` without speculative compatibility
-  layers or historical-data migration.
+- **Planned — Portable handoff v1 and released-version compatibility.** Issue
+  [#99](https://github.com/lastobelus/markover/issues/99) owns one lossless
+  decoder for the complete `markover-review` v1 artifact at storage, service,
+  CLI, IPC, and agent boundaries. Unknown additive fields round-trip unchanged;
+  private workspace and enrichment state remain outside portable JSON; unknown
+  headers fail closed without rewriting bytes and point to the official
+  compatibility catalog. Unreleased prototype shapes receive no fallback
+  reader or migration. After a schema version ships, a breaking successor must
+  automatically convert supported released predecessors on load only after
+  preserving a byte-for-byte original backup and validating a separate working
+  copy. Evidence when landed: [handoff format contract](docs/developer/review-handoff-format.md)
+  and [decoder tests](test/review-format.test.ts).
 
 ## Broad-announcement conclusion
 

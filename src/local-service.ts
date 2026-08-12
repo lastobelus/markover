@@ -122,6 +122,10 @@ function errorStatus(error: unknown): number {
   if (code === 'ACTIVATION_TIMEOUT') return 504
   if (code === 'NOT_FOUND') return 404
   if (
+    code === 'UNSUPPORTED_REVIEW_FORMAT' ||
+    code === 'UNSUPPORTED_REVIEW_VERSION'
+  ) return 409
+  if (
     code === 'INVALID_ID' ||
     code === 'INVALID_JSON' ||
     code === 'INVALID_PULL_REQUEST' ||
@@ -291,6 +295,7 @@ export async function startLocalService({
           const createInput: ReviewCreateInput = {
             tree: record.tree,
             contextSummary: metadata.contextSummary,
+            origin: 'agent',
             agentThread: metadata.agentThread,
             git: metadata.git,
             pullRequest: metadata.pullRequest,

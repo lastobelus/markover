@@ -12,9 +12,14 @@ import {
   type GitHubPullRequestIdentity,
   type PullRequestStatus
 } from './pull-request'
+import {
+  decodeReviewArtifact,
+  decodeReviewTree,
+  reviewCompatibilityUrl,
+  ReviewFormatError
+} from './review-format'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
-export type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
 const REVIEW_STATUSES = new Set<ReviewStatus>([
   'editing',
   'pending-agent',
@@ -22,19 +27,7 @@ const REVIEW_STATUSES = new Set<ReviewStatus>([
   'done'
 ])
 
-export interface ReviewEnvelope {
-  id: string
-  status: ReviewStatus
-  createdAt: string
-  updatedAt: string
-  attentionRequestedAt: string
-  contextSummary: string
-  agentThread: unknown
-  git: unknown
-  pullRequest: unknown
-  agentGuidance: AgentGuidance
-}
-
+export type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
 export type ReviewArtifact = Omit<ReviewTree, 'review'> & {
   review: ReviewEnvelope
 }
@@ -42,6 +35,7 @@ export type ReviewArtifact = Omit<ReviewTree, 'review'> & {
 export interface ReviewCreateInput {
   tree: unknown
   contextSummary: unknown
+  origin?: unknown
   agentThread?: unknown
   git?: unknown
   pullRequest?: unknown
@@ -62,12 +56,21 @@ export interface ReviewStoreOptions {
 
 export interface ReviewListWarning {
   reviewId: string
-  reason: 'incomplete' | 'invalid' | 'legacy' | 'unreadable'
+  reason: 'incomplete' | 'incompatible' | 'invalid' | 'legacy' | 'unreadable'
+  detail?: string
 }
 
 export interface ReviewListResult {
   reviews: ReviewArtifact[]
+  incompatible: ReviewIncompatibleListing[]
   warnings: ReviewListWarning[]
+}
+
+export interface ReviewIncompatibleListing {
+  reviewId: string
+  format: string
+  version: string
+  compatibilityUrl: string
 }
 
 export type ReviewDeletionPolicy = 'standard' | 'pending-agent'
@@ -106,11 +109,20 @@ function isReviewStatus(value: unknown): value is ReviewStatus {
 
 export class ReviewStoreError extends Error {
   readonly code: string
+  readonly receivedFormat: unknown
+  readonly receivedVersion: unknown
 
-  constructor(code: string, message: string) {
+  constructor(
+    code: string,
+    message: string,
+    receivedFormat?: unknown,
+    receivedVersion?: unknown
+  ) {
     super(message)
     this.name = 'ReviewStoreError'
     this.code = code
+    this.receivedFormat = receivedFormat
+    this.receivedVersion = receivedVersion
   }
 }
 
@@ -130,71 +142,19 @@ function assertReviewId(reviewId: string): void {
 }
 
 export function assertReviewTree(tree: unknown): asserts tree is ReviewTree {
-  if (
-    !isRecord(tree) ||
-    tree.format !== 'markover-review' ||
-    tree.version !== 1 ||
-    !tree.sourceDocument ||
-    !Array.isArray(tree.unsupported) ||
-    !tree.root
-  ) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Expected a markover-review version 1 tree.'
-    )
-  }
-
-  assertSourceEdits(tree.root)
-}
-
-function assertSourceEdits(node: unknown): void {
-  if (!isRecord(node)) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Expected every review block to be an object.'
-    )
-  }
-  if (!Array.isArray(node.children)) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Expected every review block to have a children array.'
-    )
-  }
-  if (Object.prototype.hasOwnProperty.call(node, 'sourceEdit')) {
-    const sourceEdit = node.sourceEdit
-    const fields = sourceEdit && typeof sourceEdit === 'object'
-      ? Object.keys(sourceEdit).sort()
-      : []
-    if (
-      !sourceEdit ||
-      node.sourceEditable === false ||
-      !isRecord(sourceEdit) ||
-      fields.length !== 2 ||
-      fields[0] !== 'current' ||
-      fields[1] !== 'original' ||
-      typeof sourceEdit.original !== 'string' ||
-      sourceEdit.original !== node.raw ||
-      typeof sourceEdit.current !== 'string' ||
-      !sourceEdit.current.trim() ||
-      sourceEdit.current === sourceEdit.original
-    ) {
-      const nodeId = typeof node.id === 'string' && node.id
-        ? node.id
-        : '<unknown>'
+  try {
+    decodeReviewTree(tree)
+  } catch (error) {
+    if (error instanceof ReviewFormatError) {
       throw new ReviewStoreError(
-        'INVALID_REVIEW',
-        `Block ${nodeId} has an invalid source edit.`
+        error.code,
+        error.message,
+        error.receivedFormat,
+        error.receivedVersion
       )
     }
+    throw error
   }
-
-  for (const child of node.children) assertSourceEdits(child)
-}
-
-function isCanonicalTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string') return false
-  const parsed = Date.parse(value)
-  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value
 }
 
 export function assertReviewArtifact(
@@ -208,71 +168,26 @@ export function assertReviewArtifact(
       `Review ${reviewId} predates the managed review envelope.`
     )
   }
-  if (
-    artifact.review.id !== reviewId ||
-    !isReviewStatus(artifact.review.status) ||
-    !isCanonicalTimestamp(artifact.review.attentionRequestedAt) ||
-    !isRecord(artifact.review.agentGuidance) ||
-    typeof artifact.review.agentGuidance.fixedContract !== 'string' ||
-    typeof artifact.review.agentGuidance.interpretationPolicy !== 'string'
-  ) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      `Review ${reviewId} has an invalid envelope.`
-    )
-  }
-  assertPullRequestEnvelope(
-    artifact.review.pullRequest,
-    artifact.review.status
-  )
-}
-
-function assertPullRequestEnvelope(
-  pullRequest: unknown,
-  reviewStatus: ReviewStatus
-): void {
-  if (pullRequest === null) {
-    if (reviewStatus === 'done') {
+  try {
+    decodeReviewArtifact(artifact, reviewId)
+  } catch (error) {
+    if (error instanceof ReviewFormatError) {
       throw new ReviewStoreError(
-        'INVALID_REVIEW',
-        'A Done review requires an associated merged pull request.'
+        error.code,
+        error.message,
+        error.receivedFormat,
+        error.receivedVersion
       )
     }
-    return
-  }
-  if (
-    !isRecord(pullRequest) ||
-    !canonicalPullRequestMetadata(pullRequest, null)
-  ) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'An associated pull request requires a canonical GitHub URL and matching positive number.'
-    )
-  }
-  const observation = pullRequestObservation(pullRequest)
-  if (hasPullRequestObservationFields(pullRequest) && !observation) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Pull request observations require status, statusObservedAt, and statusSource together.'
-    )
-  }
-  if (reviewStatus === 'done' && observation?.status !== 'merged') {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'A Done review requires a merged pull request observation.'
-    )
+    throw error
   }
 }
 
 function treeFields(tree: unknown): Omit<ReviewTree, 'review'> {
   assertReviewTree(tree)
-  return {
-    format: tree.format,
-    version: tree.version,
-    sourceDocument: cloneJson(tree.sourceDocument),
-    unsupported: cloneJson(tree.unsupported),
-    root: cloneJson(tree.root)
-  }
+  const fields = cloneJson(tree)
+  delete fields.review
+  return fields
 }
 
 function immutableNode(node: ReviewNode): Record<string, unknown> {
@@ -280,7 +195,6 @@ function immutableNode(node: ReviewNode): Record<string, unknown> {
   const properties: Record<string, unknown> = { ...node }
   delete properties.children
   delete properties.feedback
-  delete properties.collapsed
   delete properties.attachments
   delete properties.sourceEdit
   return {
@@ -427,6 +341,7 @@ export class ReviewStore {
   async create({
     tree,
     contextSummary,
+    origin = 'agent',
     agentThread = null,
     git = null,
     pullRequest = null,
@@ -438,6 +353,12 @@ export class ReviewStore {
       throw new ReviewStoreError(
         'INVALID_REVIEW',
         'A non-empty context summary is required.'
+      )
+    }
+    if (typeof origin !== 'string' || !origin.trim()) {
+      throw new ReviewStoreError(
+        'INVALID_REVIEW',
+        'A non-empty review origin is required.'
       )
     }
     const canonicalPullRequest = pullRequest === null || pullRequest === undefined
@@ -480,11 +401,12 @@ export class ReviewStore {
         }
 
         const timestamp = this.timestamp()
-        const artifact: ReviewArtifact = {
+        const artifact: unknown = {
           ...treeFields(tree),
           review: {
             id: reviewId,
             status: 'editing',
+            origin,
             createdAt: timestamp,
             updatedAt: timestamp,
             attentionRequestedAt: timestamp,
@@ -499,6 +421,7 @@ export class ReviewStore {
             agentGuidance: guidance(interpretationPolicy)
           }
         }
+        assertReviewArtifact(artifact, reviewId)
 
         await fs.mkdir(stagingDirectory)
         try {
@@ -547,6 +470,7 @@ export class ReviewStore {
       .map((entry) => entry.name)
 
     const warnings: ReviewListWarning[] = []
+    const incompatible: ReviewIncompatibleListing[] = []
     const reviews = await Promise.all(reviewIds.map(async (reviewId) => {
       try {
         return await this.load(reviewId)
@@ -558,6 +482,31 @@ export class ReviewStore {
         }
         if (code === 'UNMANAGED_REVIEW') {
           warnings.push({ reviewId, reason: 'legacy' })
+          return null
+        }
+        if (
+          code === 'UNSUPPORTED_REVIEW_FORMAT' ||
+          code === 'UNSUPPORTED_REVIEW_VERSION'
+        ) {
+          if (error instanceof ReviewStoreError) {
+            const format = typeof error.receivedFormat === 'string'
+              ? error.receivedFormat
+              : 'unknown'
+            incompatible.push({
+              reviewId,
+              format,
+              version: String(error.receivedVersion),
+              compatibilityUrl: reviewCompatibilityUrl(
+                format,
+                error.receivedVersion
+              )
+            })
+          }
+          warnings.push({
+            reviewId,
+            reason: 'incompatible',
+            ...(error instanceof Error ? { detail: error.message } : {})
+          })
           return null
         }
         if (code === 'INVALID_REVIEW' || error instanceof SyntaxError) {
@@ -577,8 +526,9 @@ export class ReviewStore {
       left.review.createdAt.localeCompare(right.review.createdAt) ||
       left.review.id.localeCompare(right.review.id)
     ))
+    incompatible.sort((left, right) => left.reviewId.localeCompare(right.reviewId))
     warnings.sort((left, right) => left.reviewId.localeCompare(right.reviewId))
-    return { reviews: sorted, warnings }
+    return { reviews: sorted, incompatible, warnings }
   }
 
   async updateTree(reviewId: string, tree: unknown): Promise<ReviewArtifact> {
@@ -598,7 +548,7 @@ export class ReviewStore {
         ...treeFields(tree),
         review: {
           ...current.review,
-          updatedAt: this.timestamp()
+          updatedAt: this.mutationTimestamp(current.review)
         }
       }
       await this.write(reviewId, updated)
@@ -693,7 +643,7 @@ export class ReviewStore {
         ...treeFields(tree),
         review: {
           ...current.review,
-          updatedAt: this.timestamp()
+          updatedAt: this.mutationTimestamp(current.review)
         }
       }
       const attachmentsDirectory = path.join(
@@ -908,12 +858,20 @@ export class ReviewStore {
         if (
           currentIdentity?.repository !== identity.repository ||
           currentIdentity.number !== identity.number ||
-          currentObservation?.statusObservedAt &&
-            currentObservation.statusObservedAt >= observation.statusObservedAt ||
+          currentObservation && (
+            currentObservation.statusObservedAt > observation.statusObservedAt ||
+            currentObservation.statusObservedAt === observation.statusObservedAt &&
+              currentObservation.status === observation.status &&
+              currentObservation.statusSource === observation.statusSource
+          ) ||
           current.review.status === 'done' && observation.status !== 'merged'
         ) return null
 
         const next = cloneJson(current)
+        next.review.updatedAt = this.mutationTimestamp(
+          current.review,
+          observation.statusObservedAt
+        )
         next.review.pullRequest = {
           ...(isRecord(next.review.pullRequest) ? next.review.pullRequest : {}),
           number: identity.number,
@@ -955,7 +913,7 @@ export class ReviewStore {
 
       const updated = cloneJson(current)
       updated.review.status = status
-      const timestamp = this.timestamp()
+      const timestamp = this.mutationTimestamp(current.review)
       updated.review.updatedAt = timestamp
       if (current.review.status !== 'editing' && status === 'editing') {
         updated.review.attentionRequestedAt = timestamp
@@ -964,7 +922,7 @@ export class ReviewStore {
         current.review.pullRequest,
         pullRequestStatus,
         timestamp
-      )
+      ) as ReviewPullRequest | null
       await this.write(reviewId, updated)
       return cloneJson(updated)
     })
@@ -990,7 +948,7 @@ export class ReviewStore {
         current.review.pullRequest.status === 'merged'
       ) return cloneJson(current)
 
-      const timestamp = this.timestamp()
+      const timestamp = this.mutationTimestamp(current.review)
       const updated = cloneJson(current)
       updated.review.status = 'done'
       updated.review.updatedAt = timestamp
@@ -999,7 +957,7 @@ export class ReviewStore {
         'merged',
         timestamp,
         identity.url
-      )
+      ) as ReviewPullRequest | null
       await this.write(reviewId, updated)
       return cloneJson(updated)
     })
@@ -1007,6 +965,19 @@ export class ReviewStore {
 
   timestamp(): string {
     return new Date(this.now()).toISOString()
+  }
+
+  private mutationTimestamp(
+    review: ReviewEnvelope,
+    ...portableActivity: string[]
+  ): string {
+    return [
+      this.timestamp(),
+      review.createdAt,
+      review.attentionRequestedAt,
+      review.updatedAt,
+      ...portableActivity
+    ].sort().at(-1) as string
   }
 
   async read(reviewId: string): Promise<ReviewArtifact> {

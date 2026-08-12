@@ -239,7 +239,6 @@ declare global {
     lineStart: number
     lineEnd: number
     feedback: string
-    collapsed?: boolean
     children: ReviewNode[]
     sourceEditable?: boolean
     attachments?: ReviewAttachment[]
@@ -305,6 +304,57 @@ declare global {
     unsupported: UnsupportedSourceLine[]
     root: DocumentNode
     review?: unknown
+  }
+
+  type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
+
+  interface ReviewThreadHost {
+    [key: string]: unknown
+    kind: string
+    provider: string
+    threadId?: string
+    machine?: string
+  }
+
+  interface ReviewAgentThread {
+    [key: string]: unknown
+    id: string
+    threadHost: ReviewThreadHost
+  }
+
+  interface ReviewGitSnapshot {
+    [key: string]: unknown
+    repositoryUrl?: string
+    branch?: string
+    commit?: string
+  }
+
+  interface ReviewPullRequest {
+    [key: string]: unknown
+    number: number
+    url: string
+    status?: 'draft' | 'open' | 'merged' | 'closed'
+    statusObservedAt?: string
+    statusSource?: string
+  }
+
+  interface ReviewEnvelope {
+    [key: string]: unknown
+    id: string
+    status: ReviewStatus
+    origin: string
+    createdAt: string
+    updatedAt: string
+    attentionRequestedAt: string
+    contextSummary: string
+    agentThread: ReviewAgentThread | null
+    git: ReviewGitSnapshot | null
+    pullRequest: ReviewPullRequest | null
+    agentGuidance: AgentGuidance
+  }
+
+  type ReviewArtifact = Omit<ReviewTree, 'review'> & {
+    review: ReviewEnvelope
   }
 
   interface ReviewDocumentInput {
@@ -471,6 +521,16 @@ declare global {
     tree?: ReviewTree
   }
 
+  interface MarkoverIncompatibleReview {
+    kind: 'incompatible-review'
+    reviewId: string
+    format: string
+    version: string
+    compatibilityUrl: string
+  }
+
+  type MarkoverReviewListItem = MarkoverDocument | MarkoverIncompatibleReview
+
   interface ReviewStatusRequest {
     requestId: string
     reviewId: string
@@ -562,7 +622,7 @@ declare global {
       outcome: 'cancelled' | 'trashed'
     }>
     getInitialReview: () => Promise<MarkoverDocument | null>
-    getReviews: () => Promise<MarkoverDocument[]>
+    getReviews: () => Promise<MarkoverReviewListItem[]>
     getProjectFavicon: (reviewId: string) => Promise<string | null>
     openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: { reviewId: string }) => Promise<void>
@@ -610,15 +670,18 @@ declare global {
   }
 
   interface ReviewSessionEnvelope {
+    [key: string]: unknown
     id: string
     status: ReviewSessionStatus
-    createdAt?: string
-    updatedAt?: string
-    attentionRequestedAt?: string
-    contextSummary?: string
-    agentThread?: unknown
-    git?: unknown
-    pullRequest?: unknown
+    origin: string
+    createdAt: string
+    updatedAt: string
+    attentionRequestedAt: string
+    contextSummary: string
+    agentThread: ReviewAgentThread | null
+    git: ReviewGitSnapshot | null
+    pullRequest: ReviewPullRequest | null
+    agentGuidance: AgentGuidance
   }
 
   type ReviewSessionTree = Omit<ReviewTree, 'review'> & {
@@ -798,6 +861,7 @@ declare global {
     projectIdentity: (document: {
       path?: unknown
       projectRoot?: unknown
+      reviewId?: unknown
       tree?: unknown
     }) => ProjectIdentity
     relativeTimeRefreshDelay: (

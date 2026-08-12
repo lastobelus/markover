@@ -85,6 +85,7 @@ function artifact(reviewId: string, snapshot: ReviewTree): ReviewArtifact {
     review: {
       id: reviewId,
       status: 'editing',
+      origin: 'agent',
       createdAt: '2026-08-05T00:00:00.000Z',
       updatedAt: '2026-08-05T00:00:00.000Z',
       attentionRequestedAt: '2026-08-05T00:00:00.000Z',

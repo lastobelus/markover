@@ -4,6 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { reviewChecksum } from '../src/review-format'
+
 import {
   assertReviewTree,
   reviewDeletionPolicy,
@@ -45,7 +47,7 @@ async function temporaryStore(options: ReviewStoreOptions = {}) {
 }
 
 function tree(source = '# Review\n'): ReviewTree {
-  return parseMarkdown(source, 'sha256:test', {
+  return parseMarkdown(source, reviewChecksum(source), {
     name: 'review.md',
     path: '/tmp/review.md'
   })
@@ -62,7 +64,10 @@ test('creates distinct sessions with exact source and metadata', async (t) => {
   const first = await store.create({
     tree: tree('# First\r\n'),
     contextSummary: 'Review the first document.',
-    agentThread: { provider: 'codex', id: 'thread-1' },
+    agentThread: {
+      id: 'thread-1',
+      threadHost: { kind: 'codex', provider: 'codex' }
+    },
     git: { branch: 'feature/reviews' }
   })
   const second = await store.create({
@@ -75,8 +80,8 @@ test('creates distinct sessions with exact source and metadata', async (t) => {
   assert.equal(first.review.status, 'editing')
   assert.equal(first.review.contextSummary, 'Review the first document.')
   assert.deepEqual(first.review.agentThread, {
-    provider: 'codex',
-    id: 'thread-1'
+    id: 'thread-1',
+    threadHost: { kind: 'codex', provider: 'codex' }
   })
   assert.deepEqual(first.review.git, { branch: 'feature/reviews' })
   assert.deepEqual(first.review.agentGuidance, {
@@ -170,6 +175,35 @@ test('edit returns a pending review to editing and is idempotent', async (t) => 
   assert.deepEqual(retry, editing)
 })
 
+test('mutations preserve lifecycle ordering when the system clock moves backward', async (t) => {
+  let now = '2026-07-30T20:00:00.000Z'
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => now
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Keep lifecycle timestamps monotonic.'
+  })
+  now = '2026-07-30T19:00:00.000Z'
+  const annotated = structuredClone(created)
+  child(annotated.root).feedback = 'Clock rollback feedback.'
+  const updated = await store.updateTree(created.review.id, annotated)
+  const handedOff = await store.handoff(created.review.id)
+  const editing = await store.edit(created.review.id)
+
+  for (const artifact of [updated, handedOff, editing]) {
+    assert.equal(artifact.review.updatedAt, created.review.updatedAt)
+    assert.equal(
+      artifact.review.attentionRequestedAt,
+      created.review.attentionRequestedAt
+    )
+  }
+  assert.deepEqual(await store.load(created.review.id), editing)
+})
+
 test('revise completes a handoff and rejects backward transitions', async (t) => {
   const timestamps = [
     '2026-08-10T01:00:00.000Z',
@@ -223,12 +257,12 @@ test('stores successful agent PR observations with transition receipt time', asy
     tree: tree(),
     contextSummary: 'Check PR observations.',
     git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
-    pullRequest: { number: 123, discovery: 'explicit' },
+    pullRequest: { number: 123, fixtureExtension: 'preserve me' },
     pullRequestStatus: 'draft'
   })
   assert.deepEqual(created.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'draft',
     statusObservedAt: '2026-08-10T02:00:00.000Z',
@@ -238,7 +272,7 @@ test('stores successful agent PR observations with transition receipt time', asy
   const handedOff = await store.handoff(created.review.id, 'open')
   assert.deepEqual(handedOff.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'open',
     statusObservedAt: '2026-08-10T02:01:00.000Z',
@@ -248,7 +282,7 @@ test('stores successful agent PR observations with transition receipt time', asy
   assert.equal(revised.review.status, 'revised')
   assert.deepEqual(revised.review.pullRequest, {
     number: 123,
-    discovery: 'explicit',
+    fixtureExtension: 'preserve me',
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'open',
     statusObservedAt: '2026-08-10T02:02:00.000Z',
@@ -282,11 +316,17 @@ test('an omitted PR observation preserves the last successful value', async (t) 
   assert.equal(revised.review.updatedAt, '2026-08-10T02:12:00.000Z')
 })
 
-test('a newer PR observation propagates to matching reviews without lifecycle churn', async (t) => {
+test('a changed equal-time PR observation propagates without lifecycle churn', async (t) => {
   const ids = ['mko_aaa11111', 'mko_bbb22222', 'mko_ccc33333']
+  const timestamps = [
+    '2026-08-10T04:00:00.000Z',
+    '2026-08-10T04:01:00.000Z',
+    '2026-08-10T04:02:00.000Z',
+    '2026-08-10T03:59:00.000Z'
+  ]
   const { directory, store } = await temporaryStore({
     idFactory: () => ids.shift() as string,
-    now: () => '2026-08-10T03:00:00.000Z'
+    now: () => timestamps.shift() as string
   })
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
 
@@ -297,7 +337,7 @@ test('a newer PR observation propagates to matching reviews without lifecycle ch
     pullRequest: {
       number: 123,
       status: 'draft',
-      statusObservedAt: '2026-08-10T01:00:00.000Z',
+      statusObservedAt: '2026-08-10T04:00:00.000Z',
       statusSource: 'agent'
     }
   })
@@ -314,7 +354,7 @@ test('a newer PR observation propagates to matching reviews without lifecycle ch
     pullRequest: {
       number: 123,
       status: 'open',
-      statusObservedAt: '2026-08-10T02:00:00.000Z',
+      statusObservedAt: '2026-08-10T04:00:00.000Z',
       statusSource: 'agent'
     }
   })
@@ -322,19 +362,23 @@ test('a newer PR observation propagates to matching reviews without lifecycle ch
   const propagated = await store.propagatePullRequestObservation(source)
   assert.deepEqual(propagated.map((review) => review.review.id), [older.review.id])
   const refreshed = await store.load(older.review.id)
-  assert.equal(refreshed.review.updatedAt, older.review.updatedAt)
+  assert.equal(refreshed.review.updatedAt, '2026-08-10T04:00:00.000Z')
+  assert.equal(
+    refreshed.review.attentionRequestedAt,
+    older.review.attentionRequestedAt
+  )
   assert.deepEqual(refreshed.review.pullRequest, {
     number: 123,
     url: 'https://github.com/lastobelus/markover/pull/123',
     status: 'open',
-    statusObservedAt: '2026-08-10T02:00:00.000Z',
+    statusObservedAt: '2026-08-10T04:00:00.000Z',
     statusSource: 'agent'
   })
   assert.deepEqual((await store.load(unrelated.review.id)).review.pullRequest, {
     number: 123,
     url: 'https://github.com/openai/markover/pull/123'
   })
-  assert.deepEqual(await store.propagatePullRequestObservation(older), [])
+  assert.deepEqual(await store.propagatePullRequestObservation(refreshed), [])
 })
 
 test('requires canonical PR identity and complete lifecycle observations', async (t) => {
@@ -477,7 +521,6 @@ test('tree updates are allowed only while editing', async (t) => {
   const annotated = structuredClone(created)
   const annotatedHeading = child(annotated.root)
   annotatedHeading.feedback = 'Make the title more specific.'
-  delete annotatedHeading.collapsed
   annotatedHeading.attachments = [{
     id: 'img-1',
     type: 'image',
@@ -505,6 +548,86 @@ test('tree updates are allowed only while editing', async (t) => {
   assert.equal(
     (await store.load(created.review.id)).sourceDocument.content,
     '# Review\n'
+  )
+})
+
+test('additive v1 fields survive store loads and owned mutations', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => '2026-08-11T20:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree('# Review\n\nOriginal paragraph.\n'),
+    contextSummary: 'Preserve additive fields.',
+    agentThread: {
+      id: 'provider-thread',
+      threadHost: { kind: 't3code', provider: 'codex' }
+    },
+    git: {
+      repositoryUrl: 'https://github.com/lastobelus/markover.git',
+      branch: 'feature/extensions'
+    },
+    pullRequest: {
+      number: 99,
+      url: 'https://github.com/lastobelus/markover/pull/99'
+    }
+  })
+  const extended = structuredClone(created)
+  Reflect.set(extended, 'fixtureTopLevelExtension', { preserved: true })
+  Reflect.set(extended.sourceDocument, 'fixtureSourceExtension', 'source')
+  Reflect.set(extended.root, 'fixtureNodeExtension', 'root')
+  Reflect.set(extended.review, 'fixtureEnvelopeExtension', 'envelope')
+  Reflect.set(extended.review.agentGuidance, 'fixtureGuidanceExtension', 'guidance')
+  assert.ok(extended.review.agentThread)
+  assert.ok(extended.review.git)
+  assert.ok(extended.review.pullRequest)
+  Reflect.set(extended.review.agentThread, 'fixtureThreadExtension', 'thread')
+  Reflect.set(extended.review.git, 'fixtureGitExtension', 'git')
+  Reflect.set(extended.review.pullRequest, 'fixturePullRequestExtension', 'pr')
+  const paragraph = child(child(extended.root))
+  paragraph.sourceEdit = {
+    original: paragraph.raw,
+    current: 'Revised paragraph.'
+  }
+  Reflect.set(paragraph.sourceEdit, 'fixtureProposalExtension', 'proposal')
+  paragraph.attachments = [{ id: 'img-1' }]
+  const addedAttachment = paragraph.attachments[0]
+  assert.ok(addedAttachment)
+  Reflect.set(addedAttachment, 'fixtureAttachmentExtension', 'attachment')
+  await store.write(created.review.id, extended)
+
+  const update = await store.load(created.review.id)
+  child(child(update.root)).feedback = 'Persist this annotation.'
+  const handedOff = await store.handoff(
+    (await store.updateTree(created.review.id, update)).review.id
+  )
+
+  assert.deepEqual(Reflect.get(handedOff, 'fixtureTopLevelExtension'), {
+    preserved: true
+  })
+  assert.equal(Reflect.get(handedOff.sourceDocument, 'fixtureSourceExtension'), 'source')
+  assert.equal(Reflect.get(handedOff.root, 'fixtureNodeExtension'), 'root')
+  assert.equal(Reflect.get(handedOff.review, 'fixtureEnvelopeExtension'), 'envelope')
+  assert.equal(
+    Reflect.get(handedOff.review.agentGuidance, 'fixtureGuidanceExtension'),
+    'guidance'
+  )
+  assert.ok(handedOff.review.agentThread)
+  assert.ok(handedOff.review.git)
+  assert.ok(handedOff.review.pullRequest)
+  assert.equal(Reflect.get(handedOff.review.agentThread, 'fixtureThreadExtension'), 'thread')
+  assert.equal(Reflect.get(handedOff.review.git, 'fixtureGitExtension'), 'git')
+  assert.equal(Reflect.get(handedOff.review.pullRequest, 'fixturePullRequestExtension'), 'pr')
+  const handedOffParagraph = child(child(handedOff.root))
+  assert.ok(handedOffParagraph.sourceEdit)
+  assert.equal(Reflect.get(handedOffParagraph.sourceEdit, 'fixtureProposalExtension'), 'proposal')
+  const handedOffAttachment = handedOffParagraph.attachments?.[0]
+  assert.ok(handedOffAttachment)
+  assert.equal(
+    Reflect.get(handedOffAttachment, 'fixtureAttachmentExtension'),
+    'attachment'
   )
 })
 
@@ -603,12 +726,7 @@ test('rejects malformed source edit proposals without changing the review', asyn
     { original: paragraph.raw, current: paragraph.raw },
     { original: paragraph.raw, current: 42 },
     { original: 'Different original.', current: 'Revised paragraph.' },
-    { current: 'Revised paragraph.' },
-    {
-      original: paragraph.raw,
-      current: 'Revised paragraph.',
-      metadata: 'not part of the schema'
-    }
+    { current: 'Revised paragraph.' }
   ]
 
   for (const sourceEdit of malformed) {
@@ -1101,6 +1219,63 @@ test('listing isolates malformed reviews and reports preserved warnings', async 
     reason: 'invalid'
   }])
   assert.equal(await fs.readFile(malformedPath, 'utf8'), '{not json')
+})
+
+test('unknown versions remain byte-for-byte incompatible and outside cleanup', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_future11',
+    now: () => '2026-08-11T20:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Preserve an unknown future version.'
+  })
+  const future = structuredClone(created) as unknown as Record<string, unknown>
+  future.version = 2
+  future.futureBody = { invalidForV1: true }
+  const futureBytes = `${JSON.stringify(future, null, 2)}\n`
+  await fs.writeFile(store.reviewPath(created.review.id), futureBytes, 'utf8')
+  const attachmentDirectory = path.join(
+    store.reviewDirectory(created.review.id),
+    'attachments'
+  )
+  await fs.mkdir(attachmentDirectory)
+  const attachmentPath = path.join(attachmentDirectory, 'img-1.png')
+  const attachmentBytes = Buffer.from('future attachment')
+  await fs.writeFile(attachmentPath, attachmentBytes)
+
+  assert.deepEqual(await store.listWithWarnings(), {
+    reviews: [],
+    incompatible: [{
+      reviewId: created.review.id,
+      format: 'markover-review',
+      version: '2',
+      compatibilityUrl: 'https://lastobelus.github.io/markover/compatibility/?format=markover-review&version=2'
+    }],
+    warnings: [{
+      reviewId: created.review.id,
+      reason: 'incompatible',
+      detail: 'Unsupported markover-review version 2; this Markover supports version 1. Consult the official compatibility catalog for the Markover release that supports it: https://lastobelus.github.io/markover/compatibility/?format=markover-review&version=2'
+    }]
+  })
+  await assert.rejects(
+    store.load(created.review.id),
+    (error: unknown) => hasErrorCode(error, 'UNSUPPORTED_REVIEW_VERSION')
+  )
+  await assert.rejects(
+    store.trashReview(created.review.id, () => Promise.resolve()),
+    (error: unknown) => hasErrorCode(error, 'UNSUPPORTED_REVIEW_VERSION')
+  )
+  const scan = await store.scanUnusedAttachments()
+  assert.deepEqual(scan.candidates, [])
+  assert.deepEqual(scan.warnings, [{
+    reviewId: created.review.id,
+    reason: 'incompatible',
+    detail: 'Unsupported markover-review version 2; this Markover supports version 1. Consult the official compatibility catalog for the Markover release that supports it: https://lastobelus.github.io/markover/compatibility/?format=markover-review&version=2'
+  }])
+  assert.equal(await fs.readFile(store.reviewPath(created.review.id), 'utf8'), futureBytes)
+  assert.deepEqual(await fs.readFile(attachmentPath), attachmentBytes)
 })
 
 test('retries an ID collision without disturbing the existing review', async (t) => {

@@ -22,6 +22,12 @@ recovery guidance:
 npm --silent run markover -- help
 ```
 
+Before changing a portable review reader, writer, validator, persisted field,
+or agent consumer, read
+`docs/developer/review-handoff-format.md`. It is the source of truth for the
+`markover-review` schema, additive-field preservation, private-data boundary,
+version bumps, migration, and fail-closed behavior.
+
 Before `open`, `get`, `revise`, or `done` for a pull-request-associated review,
 follow the help payload's `pullRequestStatus` contract. That contract is the
 source of truth for the live `gh pr view` lookup, status mapping, command flags,
@@ -69,7 +75,13 @@ Markdown artifact:
    `npm --silent run markover -- open <path> --summary "<why this review is useful>"`
    unless the user says not to. Pass an explicit `--thread-id` when available;
    otherwise include a unique high-entropy
-   `--handoff-key mko_handoff_<16-to-64-alphanumeric-characters>`.
+   `--handoff-key mko_handoff_<16-to-64-alphanumeric-characters>`. With either
+   identity, pass truthful `--thread-host-kind` and
+   `--thread-host-provider`; they name separate dimensions but may have the
+   same value. Pass `--thread-host-thread-id` only for a distinct host-owned
+   identifier, never a duplicate provider ID. Run `hostname` when available
+   and pass its output as `--thread-host-machine`. Omit optional values rather
+   than guessing.
 5. Report a best-effort Markdown link using the returned `reviewUrl`, the raw
    review ID, the standalone Terminal command required above, and the persisted
    review path
@@ -92,17 +104,18 @@ restarts.
 
 ## Pre-preview compatibility and restart policy
 
-Markover has no external user base yet. During pre-MVP0 development, make clean
-protocol, storage, and architecture changes directly. Do not add fallback
-readers, dual writers, migrations, or other compatibility machinery unless
-there is concrete evidence that changed behavior is already in active external
-use; ask the maintainer before adding any such layer.
+During pre-MVP0 development, make clean protocol, storage, and architecture
+changes directly for unreleased prototype shapes. Do not add fallback readers,
+dual writers, migrations, or aliases for those prototypes.
 
-Preserve historical review JSON and attachments unless a task explicitly owns
-their deletion. The latest Markover version does not need to open every older
-artifact: historical JSON can remain available for direct analysis, and an
-older application version may be used for occasional viewing. Do not build a
-migration solely to make old reviews viewable in the latest app.
+Once a portable review schema ships in a release, a breaking successor must
+migrate supported released predecessors automatically on load. Preserve a
+byte-for-byte backup of the original review directory first, convert and
+validate a separate working copy, and replace the active artifact only after
+validation succeeds. Preserve historical review JSON, attachments, and
+migration backups unless a task explicitly owns their deletion. Unknown future
+versions fail closed, remain untouched, and point to the official compatibility
+catalog for a compatible Markover release.
 
 Do not require agents to drain or hand off inflight reviews before restarting
 Markover. For a planned restart, give the user a chance to warn agents or let an

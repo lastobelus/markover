@@ -1,0 +1,216 @@
+{
+  "format": "markover-review",
+  "version": 1,
+  "sourceDocument": {
+    "name": "fixture.md",
+    "path": "/Users/example/fixture.md",
+    "content": "---\ntitle: Compatibility fixture\ndraft: false\n---\n\n# Review handoff v1\n\nA paragraph for a source proposal.\n\n> Opaque blockquote.\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n---\n\n1. Ordered item\n\n- [x] Task item\n\n```ts\nconst value = 1\n```\n",
+    "checksum": "sha256:b7fa33ef259b3659f36b0692c2694a00cc71eb3186cebf3f36af1bc1333cb539",
+    "fixtureSourceExtension": "preserve me"
+  },
+  "unsupported": [],
+  "root": {
+    "id": "document",
+    "type": "document",
+    "text": "Document",
+    "raw": "---\ntitle: Compatibility fixture\ndraft: false\n---\n\n# Review handoff v1\n\nA paragraph for a source proposal.\n\n> Opaque blockquote.\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n---\n\n1. Ordered item\n\n- [x] Task item\n\n```ts\nconst value = 1\n```\n",
+    "lineStart": 1,
+    "lineEnd": 25,
+    "feedback": "",
+    "children": [
+      {
+        "id": "block-1",
+        "feedback": "",
+        "children": [
+          {
+            "id": "block-2",
+            "feedback": "",
+            "children": [],
+            "type": "frontmatter-entry",
+            "text": "title: Compatibility fixture",
+            "raw": "title: Compatibility fixture",
+            "key": "title",
+            "lineStart": 2,
+            "lineEnd": 2
+          },
+          {
+            "id": "block-3",
+            "feedback": "",
+            "children": [],
+            "type": "frontmatter-entry",
+            "text": "draft: false",
+            "raw": "draft: false",
+            "key": "draft",
+            "lineStart": 3,
+            "lineEnd": 3
+          }
+        ],
+        "type": "frontmatter",
+        "text": "YAML Frontmatter",
+        "raw": "---\ntitle: Compatibility fixture\ndraft: false\n---",
+        "lineStart": 1,
+        "lineEnd": 4,
+        "sourceEditable": false
+      },
+      {
+        "id": "block-4",
+        "feedback": "Clarify the heading.",
+        "children": [
+          {
+            "id": "block-5",
+            "feedback": "Would this example also cover Local reviews?",
+            "children": [],
+            "type": "paragraph",
+            "text": "A paragraph for a source proposal.",
+            "raw": "A paragraph for a source proposal.",
+            "lineStart": 8,
+            "lineEnd": 8,
+            "sourceEdit": {
+              "original": "A paragraph for a source proposal.",
+              "current": "A revised paragraph for a source proposal.",
+              "fixtureProposalExtension": "preserve me"
+            }
+          },
+          {
+            "id": "block-6",
+            "feedback": "",
+            "children": [],
+            "type": "blockquote",
+            "text": "> Opaque blockquote.",
+            "raw": "> Opaque blockquote.",
+            "lineStart": 10,
+            "lineEnd": 10
+          },
+          {
+            "id": "block-7",
+            "feedback": "",
+            "children": [],
+            "type": "table",
+            "text": "| A | B |\n| - | - |\n| 1 | 2 |",
+            "raw": "| A | B |\n| - | - |\n| 1 | 2 |",
+            "lineStart": 12,
+            "lineEnd": 14
+          },
+          {
+            "id": "block-8",
+            "feedback": "",
+            "children": [],
+            "type": "thematic-break",
+            "text": "---",
+            "raw": "---",
+            "lineStart": 16,
+            "lineEnd": 16
+          },
+          {
+            "id": "block-9",
+            "feedback": "",
+            "children": [],
+            "type": "ordered-item",
+            "marker": "1.",
+            "listId": "list-1",
+            "listPosition": 1,
+            "listLength": 1,
+            "text": "Ordered item",
+            "raw": "1. Ordered item",
+            "lineStart": 18,
+            "lineEnd": 18
+          },
+          {
+            "id": "block-10",
+            "feedback": "",
+            "children": [],
+            "type": "unordered-item",
+            "marker": "-",
+            "listId": "list-2",
+            "listPosition": 1,
+            "listLength": 1,
+            "text": "Task item",
+            "raw": "- [x] Task item",
+            "lineStart": 20,
+            "lineEnd": 20,
+            "task": true,
+            "checked": true
+          },
+          {
+            "id": "block-11",
+            "feedback": "",
+            "children": [],
+            "type": "code",
+            "text": "const value = 1",
+            "raw": "```ts\nconst value = 1\n```",
+            "language": "ts",
+            "lineStart": 22,
+            "lineEnd": 24
+          }
+        ],
+        "type": "heading",
+        "level": 1,
+        "text": "Review handoff v1",
+        "raw": "# Review handoff v1",
+        "lineStart": 6,
+        "lineEnd": 6,
+        "attachments": [
+          {
+            "id": "img-1",
+            "type": "image",
+            "label": "Reference image",
+            "path": "attachments/img-1.png",
+            "mimeType": "image/png",
+            "checksum": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "width": 640,
+            "height": 480,
+            "fixtureAttachmentExtension": {
+              "preserved": true
+            }
+          }
+        ]
+      }
+    ],
+    "fixtureNodeExtension": [1, 2, 3]
+  },
+  "fixtureTopLevelExtension": {
+    "preserved": true
+  },
+  "review": {
+    "id": "mko_fixture1",
+    "status": "pending-agent",
+    "origin": "agent",
+    "createdAt": "2026-08-11T12:00:00.000Z",
+    "updatedAt": "2026-08-11T12:05:00.000Z",
+    "attentionRequestedAt": "2026-08-11T12:00:00.000Z",
+    "contextSummary": "Exercise every portable v1 field and node variant.",
+    "agentThread": {
+      "id": "provider-thread-123",
+      "threadHost": {
+        "kind": "t3code",
+        "provider": "codex",
+        "threadId": "t3-thread-456",
+        "machine": "Airy.local",
+        "fixtureThreadHostExtension": "preserve me"
+      },
+      "fixtureThreadExtension": true
+    },
+    "git": {
+      "repositoryUrl": "https://github.com/lastobelus/markover.git",
+      "branch": "t3code/schema-reader-boundaries",
+      "commit": "47a951b000000000000000000000000000000000",
+      "fixtureGitExtension": "preserve me"
+    },
+    "pullRequest": {
+      "number": 99,
+      "url": "https://github.com/lastobelus/markover/pull/99",
+      "status": "open",
+      "statusObservedAt": "2026-08-11T12:05:00.000Z",
+      "statusSource": "agent",
+      "fixturePullRequestExtension": "preserve me"
+    },
+    "agentGuidance": {
+      "fixedContract": "Address every part of the returned feedback by intent.",
+      "interpretationPolicy": "Acknowledge questions and use source edits as proposals.",
+      "fixtureGuidanceExtension": "preserve me"
+    },
+    "fixtureEnvelopeExtension": {
+      "preserved": true
+    }
+  }
+}

@@ -46,10 +46,10 @@ tree and returning block-level feedback to an agent.
   notarized. macOS is expected to block the first launch.
 - Ordinary review work stays in your macOS account. Markover has no telemetry,
   analytics, cloud sync, or automatic review upload.
-- Early-preview review formats may change without migration guarantees.
-  Historical review JSON and attachments are preserved, but a newer Markover
-  version may not open every older review. Back up important review data before
-  changing versions.
+- Unreleased prototype formats may change directly. Released review schemas
+  are converted automatically with an original backup; unknown future
+  versions remain untouched until a compatible Markover release opens them.
+  Back up important review data before changing versions.
 
 Read [Privacy, storage, and recovery](https://lastobelus.github.io/markover/privacy/)
 for local-data and cleanup consequences, and [Markdown support and preview

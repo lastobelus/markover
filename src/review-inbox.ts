@@ -106,14 +106,9 @@ function relativeDocumentPath(session: ReviewSession): string | null {
 
 function rowTitle(
   session: ReviewSession,
-  agentThread: unknown,
   local: boolean
 ): Pick<ReviewInboxRow, 'title' | 'titleSource'> {
-  const requestingThreadTitle = stringField(agentThread, ['title', 'name'])
-  if (requestingThreadTitle) {
-    return { title: requestingThreadTitle, titleSource: 'thread-title' }
-  }
-  const contextSummary = session.tree.review.contextSummary?.trim()
+  const contextSummary = session.tree.review.contextSummary.trim()
   if (contextSummary && !local) {
     return { title: contextSummary, titleSource: 'context-summary' }
   }
@@ -129,25 +124,22 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
   const threadHost = isRecord(agentThread) && isRecord(agentThread.threadHost)
     ? agentThread.threadHost
     : null
-  const provider = stringField(agentThread, ['provider']) ||
-    stringField(threadHost, ['provider'])
+  const provider = stringField(threadHost, ['provider'])
   const threadHostKind = stringField(threadHost, ['kind'])
-  const agentThreadId = stringField(agentThread, ['id', 'threadId'])
-  const requestingThreadId = stringField(threadHost, ['threadId']) ||
-    agentThreadId
+  const agentThreadId = stringField(agentThread, ['id'])
+  const threadHostThreadId = stringField(threadHost, ['threadId'])
+  const requestingThreadId = threadHostThreadId || agentThreadId
   const machine = stringField(threadHost, ['machine'])
-  const contextSummary = review.contextSummary?.trim() || ''
-  const local = !provider && (
-    contextSummary === 'Opened locally in Markover.' ||
-    contextSummary === 'Opened in Markover from a local Markdown file.'
-  )
-  const title = rowTitle(session, agentThread, local)
+  const local = review.origin === 'local'
+  const title = rowTitle(session, local)
   const branch = stringField(review.git, ['branch'])
   const pullRequestNumber = numberField(review.pullRequest, 'number')
   const pullRequestState = pullRequestObservation(review.pullRequest)
   const threadKey = local
     ? `local:${session.projectKey}`
-    : agentThreadId
+    : threadHostThreadId
+      ? `${threadHostKind || 'thread-host'}:${threadHostThreadId}`
+      : agentThreadId
       ? `${provider || 'agent'}:${agentThreadId}`
       : `review:${session.reviewId}`
 

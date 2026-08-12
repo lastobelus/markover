@@ -28,7 +28,7 @@ test('discovers a repository root with one Git query', async () => {
   }])
 })
 
-test('discovers Git metadata and records each source', async () => {
+test('discovers a portable opening-time Git snapshot', async () => {
   const answers = new Map([
     ['rev-parse --show-toplevel', '/repo'],
     ['symbolic-ref --quiet --short HEAD', 'feature/discovery'],
@@ -43,16 +43,9 @@ test('discovers Git metadata and records each source', async () => {
   })
 
   assert.deepEqual(metadata, {
-    repositoryRoot: '/repo',
     repositoryUrl: 'git@example.com:repo.git',
     branch: 'feature/discovery',
-    commit: 'abc123',
-    sources: {
-      repositoryRoot: 'git-cli',
-      repositoryUrl: 'git-cli',
-      branch: 'git-cli',
-      commit: 'git-cli'
-    }
+    commit: 'abc123'
   })
 })
 
@@ -78,6 +71,20 @@ test('redacts credentials from HTTPS Git remotes', () => {
     sanitizeRemoteUrl('git@example.com:org/repo.git'),
     'git@example.com:org/repo.git'
   )
+  for (const localRemote of [
+    '/Users/alice/private/repo.git',
+    '../repo.git',
+    './repo.git',
+    'file:///Users/alice/private/repo.git',
+    'file:/Users/alice/private/repo.git',
+    'file:../repo.git',
+    String.raw`C:\private\repo.git`,
+    'C:/private/repo.git',
+    'C://private/repo.git',
+    'C:private/repo.git'
+  ]) {
+    assert.equal(sanitizeRemoteUrl(localRemote), null)
+  }
 })
 
 test('finds a Codex session by an exact handoff key', async (t) => {
@@ -164,6 +171,9 @@ test('explicit metadata overrides discovered values', async () => {
     pullRequestNumber: 7,
     pullRequestUrl: 'https://github.com/upstream/markover/pull/7',
     threadId: 'explicit-thread',
+    threadHostKind: 't3code',
+    threadHostProvider: 'codex',
+    threadHostMachine: 'Airy.local',
     handoffKey: 'mko_handoff_0123456789abcdef'
   }, {
     git: {
@@ -182,16 +192,17 @@ test('explicit metadata overrides discovered values', async () => {
 
   assert.ok(metadata.git)
   assert.equal(metadata.git.branch, 'explicit-branch')
-  assert.equal(metadata.git.sources.branch, 'explicit')
   assert.equal(metadata.git.commit, 'abc123')
   assert.deepEqual(metadata.agentThread, {
-    provider: 'codex',
     id: 'explicit-thread',
-    discovery: 'explicit'
+    threadHost: {
+      kind: 't3code',
+      provider: 'codex',
+      machine: 'Airy.local'
+    }
   })
   assert.deepEqual(metadata.pullRequest, {
     number: 7,
-    url: 'https://github.com/upstream/markover/pull/7',
-    discovery: 'explicit'
+    url: 'https://github.com/upstream/markover/pull/7'
   })
 })

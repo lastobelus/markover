@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -29,7 +30,7 @@ function reviewArtifact(reviewId: string): ReviewArtifact {
       name: 'markover-packaged-smoke.md',
       path: '/tmp/markover-packaged-smoke.md',
       content: smokeSource,
-      checksum: 'sha256:smoke'
+      checksum: `sha256:${createHash('sha256').update(smokeSource).digest('hex')}`
     },
     unsupported: [],
     root: {
@@ -40,12 +41,12 @@ function reviewArtifact(reviewId: string): ReviewArtifact {
       lineStart: 1,
       lineEnd: 4,
       feedback: '',
-      collapsed: false,
       children: []
     },
     review: {
       id: reviewId,
       status: 'editing',
+      origin: 'agent',
       createdAt: '2026-08-06T12:00:00.000Z',
       updatedAt: '2026-08-06T12:00:00.000Z',
       attentionRequestedAt: '2026-08-06T12:00:00.000Z',

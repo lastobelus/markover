@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#eee8e0">
+    <meta name="description" content="Official mapping from Markover review format versions to compatible application releases.">
+    <title>Review format compatibility — Markover documentation</title>
+    <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body class="docs-page">
+    <aside class="docs-sidebar">
+      <a class="docs-brand brand-lockup brand-lockup-vertical" href="../" aria-label="Markover home">
+        <img class="brand-lockup-logo" src="../assets/markover-lockup.svg" alt="Markover">
+        <span class="brand-lockup-tagline">Structured review for Markdown.</span>
+      </a>
+      <nav class="docs-nav" aria-label="Documentation">
+        <p>Guide</p>
+        <a href="../guide/">Getting started</a>
+        <p>Agents</p>
+        <a href="../agents/">Agent workflow</a>
+        <p>Reference</p>
+        <a href="#overview" aria-current="page">Format compatibility</a>
+        <a href="../privacy/">Privacy and local data</a>
+        <a href="../limitations/">Markdown and limitations</a>
+        <a href="https://github.com/lastobelus/markover/discussions">Support</a>
+      </nav>
+      <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
+    </aside>
+
+    <header class="docs-mobile-header">
+      <a href="../"><img src="../assets/markover-mark.svg" alt=""><span>Markover docs</span></a>
+      <a href="../guide/">User guide</a>
+    </header>
+
+    <main class="docs-content">
+      <p class="eyebrow">Reference</p>
+      <h1 id="overview">Review format compatibility</h1>
+      <p class="docs-lede">This is Markover's official mapping from a review artifact's <code>format</code> and <code>version</code> header to the application release that understands it.</p>
+
+      <section id="catalog">
+        <h2>Current catalog</h2>
+        <table>
+          <thead><tr><th>Artifact</th><th>Version</th><th>First compatible release</th></tr></thead>
+          <tbody><tr><td><code>markover-review</code></td><td><code>1</code></td><td>Not yet assigned; development under issue #99</td></tr></tbody>
+        </table>
+        <p>The first release carrying portable v1 must replace the pending entry before publication. Later releases update this table whenever they introduce a review-format version.</p>
+        <p>Tools can read the same information from the <a href="./catalog.json">machine-readable catalog</a>.</p>
+      </section>
+
+      <section id="unknown">
+        <h2>If your Markover reports an unknown version</h2>
+        <p>Do not edit or reinterpret the review JSON. Match its header to this catalog and install the listed Markover release. If no entry exists, update Markover and keep the artifact untouched while asking for support.</p>
+        <p>Markover keeps incompatible review JSON and attachments in place. A future-version diagnostic uses only the header and does not guess at the body.</p>
+      </section>
+
+      <section id="migration">
+        <h2>Older released versions</h2>
+        <p>When a released review schema needs conversion, a supporting Markover release migrates it automatically on load. It first preserves a byte-for-byte backup of the original review directory, validates a separate converted copy, and replaces the active artifact only after validation succeeds.</p>
+        <p>Unreleased prototype shapes are not compatibility targets.</p>
+      </section>
+
+      <nav class="docs-next" aria-label="Next page">
+        <span>Understand local data and backups</span>
+        <a href="../privacy/">Privacy, storage, and recovery →</a>
+      </nav>
+    </main>
+  </body>
+</html>

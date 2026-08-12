@@ -33,9 +33,9 @@ import * as YAML from 'yaml'
     | { ordered: true; nextIndex: number }
     | { ordered: false; nextIndex: null }
   )
-  type NodeDefaults = 'id' | 'feedback' | 'collapsed' | 'children'
+  type NodeDefaults = 'id' | 'feedback' | 'children'
   type NewNode<T extends ReviewNode> = Omit<T, NodeDefaults> &
-    Partial<Pick<T, 'children'>> & { collapsed?: boolean }
+    Partial<Pick<T, 'children'>>
 
   const markdown = MarkdownIt('commonmark', {
     html: false,
@@ -142,7 +142,6 @@ import * as YAML from 'yaml'
       lineStart: 1,
       lineEnd: lines.length,
       feedback: '',
-      collapsed: false,
       children: []
     }
 
@@ -171,7 +170,6 @@ import * as YAML from 'yaml'
       return {
         id: `block-${String(sequence)}`,
         feedback: '',
-        collapsed: false,
         children: [],
         ...properties
       } as unknown as T
@@ -239,7 +237,6 @@ import * as YAML from 'yaml'
         raw: lines.slice(0, frontmatter.closingIndex + 1).join('\n'),
         lineStart: 1,
         lineEnd: frontmatter.closingIndex + 1,
-        collapsed: true,
         sourceEditable: false
       })
       for (const entry of frontmatter.entries) {
