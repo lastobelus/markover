@@ -232,7 +232,9 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   }
   assert.doesNotMatch(privacy, /0700|0600|service\.token|256-bit/)
   assert.match(privacy, /no telemetry, analytics, cloud synchronization/)
-  assert.match(privacy, /remote Markdown image starts as an inert preview button/)
+  assert.match(privacy, /Only an embedded <code>data:<\/code> image can open/)
+  assert.match(privacy, /HTTP\(S\) URLs remain unavailable/)
+  assert.match(privacy, /makes no network request/)
   assert.match(privacy, /Discover agent thread from local session logs/)
   assert.match(privacy, /local repository roots stay out of the handoff/)
   assert.match(privacy, /not a copy or path of the scanned logs/)
@@ -275,6 +277,9 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(developerSecurity, /POSIX mode `0700`/)
   assert.match(developerSecurity, /`service\.json` and `service\.token`/)
   assert.match(developerSecurity, /Authorization is checked before URL route handling/)
+  assert.match(developerSecurity, /Only an embedded `data:` image can open/)
+  assert.match(developerSecurity, /HTTP\(S\) URLs, and malformed\s+sources remain unavailable/)
+  assert.match(developerSecurity, /makes no network request/)
   assert.match(developerSecurity, /1,500 milliseconds apart/)
   assert.match(developerSecurity, /exponential\s+backoff capped at 30 seconds/)
   assert.match(developerSecurity, /Retry\s+Quit, Cancel Quit, or Quit Anyway/)
@@ -328,11 +333,9 @@ test('the compatibility catalog maps released schemas without guessing', () => {
   assert.match(JSON.stringify(compatibilityCatalog), /firstMarkoverRelease/)
 })
 
-test('Markdown limitations distinguish selectable, whole-block, and extension behavior', () => {
+test('Markdown limitations publish the behavior-level compatibility boundary', () => {
   for (const section of [
-    'structured',
-    'whole-blocks',
-    'extensions',
+    'matrix',
     'links-images',
     'source-preservation',
     'preview-boundary',
@@ -340,10 +343,21 @@ test('Markdown limitations distinguish selectable, whole-block, and extension be
   ]) {
     assert.match(limitations, new RegExp(`id="${section}"`))
   }
+  assert.match(limitations, /not a claim of blanket CommonMark/)
+  assert.match(limitations, /Source precision/)
+  assert.match(limitations, /compact raw text uses <code>\\n<\/code> line separators/)
+  assert.match(limitations, /CRLF or CR separators/)
   assert.match(limitations, /YAML frontmatter/)
-  assert.match(limitations, /internal rows, cells, and quoted children do not become separately selectable/)
-  assert.match(limitations, /Footnotes, definition lists, strikethrough, raw HTML/)
-  assert.match(limitations, /original Markdown/)
+  assert.match(limitations, /Opaque single block/)
+  assert.match(limitations, /Visible uninterpreted text/)
+  assert.match(limitations, /Source-only content/)
+  assert.match(limitations, /valid standalone link definition has no review block/)
+  assert.match(limitations, /short caret-prefixed form/)
+  assert.match(limitations, /\[\^note\]: Note/)
+  assert.match(limitations, /Only an embedded <code>data:<\/code> image can open/)
+  assert.match(limitations, /HTTP\(S\) URLs remain unavailable/)
+  assert.match(limitations, /makes no network request/)
+  assert.match(limitations, /exact reviewed Markdown/)
   assert.match(limitations, /Managed reviews and their unused attachments can be moved to the macOS Trash from Markover/)
   assert.doesNotMatch(limitations, /Review deletion and cache management currently use the manual procedures/)
   assert.doesNotMatch(limitations, /markdown-it|token mapping|node contract/)

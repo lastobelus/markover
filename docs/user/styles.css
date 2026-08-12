@@ -164,7 +164,9 @@ a { color: inherit; text-underline-offset: .18em; }
 .docs-content section ul, .docs-content section ol { padding-left: 1.45rem; color: #554d48; }
 .docs-content section li { margin: 8px 0; line-height: 1.65; }
 .docs-content code { font-size: .92em; }
+.docs-table-wrap { overflow-x: auto; }
 .docs-table { width: 100%; border-collapse: collapse; color: #554d48; font-size: 14px; line-height: 1.5; }
+.docs-table caption { padding: 0 0 12px; color: var(--muted); font-size: 13px; text-align: left; }
 .docs-table th, .docs-table td { padding: 12px 14px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
 .docs-table th { color: var(--brand-burgundy); background: var(--brand-soft); font-size: 12px; letter-spacing: .03em; }
 .docs-table td:first-child { width: 35%; color: var(--ink); font-weight: 700; }

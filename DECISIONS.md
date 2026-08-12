@@ -196,9 +196,10 @@ each choice from that baseline without duplicating the live decisions below.
    - [x] Preserve the accepted behavior
 7. **Inline Markdown is rendered inside supported blocks.** Bold, italic,
    inline code, link labels, and image labels appear in the left pane. Links
-   remain inert. Image pills open the source image in the same labeled preview
-   modal used for screenshot attachments; relative paths resolve from the
-   reviewed Markdown file.
+   remain inert. Image syntax renders as a labeled preview control, but only an
+   embedded `data:` source can open in the current preview. Relative paths,
+   local file paths, and HTTP(S) sources remain unavailable and are not
+   requested.
 
    **Audit — Retain (Data and parsing 5–7).** Opaque compound blocks, task
    decoration, and inert inline rendering preserve useful review granularity
@@ -206,17 +207,23 @@ each choice from that baseline without duplicating the live decisions below.
    [tree tests](test/tree.test.ts) and
    [image-preview tests](test/image-preview.test.ts).
 8. **Unrecognized extensions degrade through CommonMark.** With raw HTML and
-   extensions disabled, syntax such as definition lists, footnotes,
-   strikethrough, and HTML may appear as literal paragraph content, resolve as
-   ordinary reference syntax, or have definition lines absent from the block
-   tree. The exact input remains in `sourceDocument.content`; the sampler keeps
-   these cases visible for a later unsupported-syntax design.
+   extensions disabled, representative definition-list, footnote-call,
+   strikethrough, and HTML syntax remains visible uninterpreted paragraph
+   content. Valid CommonMark link-reference definitions may be absent from the
+   block tree, including short caret-prefixed forms such as `[^note]: Note`;
+   their uses remain in paragraphs but render literally because the separate
+   definitions are not in the paragraph preview input. The exact input always
+   remains in `sourceDocument.content`.
 
-   **Audit — Retain current behavior; planned public boundary.** Exact source
-   preservation makes degradation non-destructive, while issue
-   [#15](https://github.com/lastobelus/markover/issues/15) owns the compatibility
-   matrix and regression coverage required before broad announcement. Evidence:
-   [extension-degradation tests](test/tree.test.ts).
+   **Audit — Retain with a published boundary.** The public
+   [behavior-level compatibility matrix](docs/user/limitations/index.html)
+   classifies structured blocks, opaque single blocks, preserved inline
+   content, visible uninterpreted text, and source-only content without claiming
+   blanket CommonMark compatibility. Executable matrix fixtures protect node
+   shape, exact source, line-range behavior, and the zero-node boundary for
+   valid standalone reference definitions, including caret-prefixed forms.
+   Evidence:
+   [Markdown compatibility tests](test/markdown-compatibility.test.ts).
 
 ## Interaction
 

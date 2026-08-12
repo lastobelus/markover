@@ -127,9 +127,10 @@ approval.
 
 Ordinary review handling has no telemetry, analytics, cloud synchronization,
 or automatic review upload. Deliberate installation or update actions may
-download release material from npm or GitHub. Remote Markdown images remain
-inert until the user explicitly previews one, at which point the image host
-receives an ordinary HTTP or HTTPS request.
+download release material from npm or GitHub. Inline Markdown image syntax is
+inert by default. Only an embedded `data:` image can open through its explicit
+preview control. Relative paths, local file paths, HTTP(S) URLs, and malformed
+sources remain unavailable; choosing their controls makes no network request.
 
 An authenticated `get` returns review content to the requesting local agent.
 Markover does not upload that handoff, but the receiving tool's storage,
