@@ -21,6 +21,7 @@ export class WorkspaceStore {
   lastRecoveryWarning: string | null = null
   state: MarkoverWorkspaceState = defaultWorkspaceState()
   private writer: Promise<void> = Promise.resolve()
+  private latestWrite: Promise<void> = Promise.resolve()
   private writeSequence = 0
 
   constructor(filePath: string) {
@@ -84,15 +85,21 @@ export class WorkspaceStore {
       }
     })
     this.writer = write.then(() => undefined, () => undefined)
+    this.latestWrite = write
     await write
     return cloneWorkspaceState(this.state)
   }
 
   async flush(): Promise<void> {
     for (;;) {
-      const pending = this.writer
-      await pending
-      if (pending === this.writer) return
+      const pending = this.latestWrite
+      try {
+        await pending
+      } catch (error) {
+        if (pending === this.latestWrite) throw error
+        continue
+      }
+      if (pending === this.latestWrite) return
     }
   }
 }

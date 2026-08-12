@@ -181,6 +181,16 @@
       const requestedAt = Date.parse(
         document.tree.review.attentionRequestedAt || ''
       )
+      const collapsedBlockIds = new Set<string>()
+      const collectInitialCollapse = (node: ReviewNode): void => {
+        for (const child of node.children) {
+          if (child.type === 'frontmatter' && child.children.length) {
+            collapsedBlockIds.add(child.id)
+          }
+          collectInitialCollapse(child)
+        }
+      }
+      collectInitialCollapse(document.tree.root)
       const session: ReviewSession = {
         reviewId,
         documentName: document.name || basename(document.path) || 'Untitled',
@@ -198,7 +208,7 @@
         annotatedOnly: false,
         annotationView: 'selected',
         sourceCollapsed: false,
-        collapsedBlockIds: new Set(),
+        collapsedBlockIds,
         sourceDrafts: new Map(),
         sourceEditingId: null,
         attachmentPreviewUrls: new Map()

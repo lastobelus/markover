@@ -80,6 +80,27 @@ test('workspace store persists serialized atomic replacements', async (t) => {
   }
 })
 
+test('workspace flush reports the latest failed write and later writes recover', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-workspace-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const blockedParent = path.join(directory, 'blocked')
+  const filePath = path.join(blockedParent, 'workspace.json')
+  await fs.writeFile(blockedParent, 'not a directory', 'utf8')
+  const store = new WorkspaceStore(filePath)
+
+  await assert.rejects(store.replace(populatedWorkspace()))
+  await assert.rejects(store.flush())
+
+  await fs.unlink(blockedParent)
+  const recovered = {
+    ...populatedWorkspace(),
+    navigationMode: 'inbox' as const
+  }
+  await store.replace(recovered)
+  await store.flush()
+  assert.deepEqual(JSON.parse(await fs.readFile(filePath, 'utf8')), recovered)
+})
+
 test('missing, malformed, or incompatible private state never affects reviews', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-workspace-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
