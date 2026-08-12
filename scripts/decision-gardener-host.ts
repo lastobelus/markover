@@ -14,6 +14,7 @@ import { acquireSingleFlightLock } from './decision-gardener'
 export const decisionGardenerHostSchemaVersion = 1 as const
 export const decisionGardenerHostLabel = 'com.lastobelus.markover.decision-gardener'
 export const decisionGardenerHeartbeatSeconds = 5 * 60
+export const decisionGardenerNotifierTimeoutMilliseconds = 30 * 1000
 
 const safeModelPattern = /^[A-Za-z0-9._-]+$/
 const healthValues = new Set(['failed', 'healthy'])
@@ -27,7 +28,7 @@ export interface CommandResult {
 export type CommandRunner = (
   executable: string,
   args: readonly string[],
-  options?: { cwd?: string; env?: NodeJS.ProcessEnv }
+  options?: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number }
 ) => CommandResult
 
 export interface CommandNotifier {
@@ -88,6 +89,7 @@ interface HostAttemptRecord {
   nextAuditAt?: string
   schemaVersion: typeof decisionGardenerHostSchemaVersion
   startedAt: string
+  stateEvidence?: string
   status: 'busy' | 'completed' | 'failed' | 'not_due' | 'running'
   trigger: 'heartbeat' | 'run-now'
 }
@@ -273,6 +275,17 @@ async function readHostState(filePath: string, now: Date): Promise<DecisionGarde
   }
 }
 
+async function preserveUnreadableHostState(
+  statePath: string,
+  recordPath: string
+): Promise<string> {
+  const attempt = path.basename(recordPath, path.extname(recordPath))
+  const evidencePath = path.join(path.dirname(statePath), `host-state.invalid.${attempt}.json`)
+  await fs.rename(statePath, evidencePath)
+  await fs.chmod(evidencePath, 0o600)
+  return evidencePath
+}
+
 async function writePrivate(filePath: string, source: string, exclusive = false): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 })
   if (exclusive) {
@@ -338,7 +351,8 @@ export const runHostCommand: CommandRunner = (executable, args, options = {}) =>
     cwd: options.cwd,
     encoding: 'utf8',
     env: options.env,
-    maxBuffer: 4 * 1024 * 1024
+    maxBuffer: 4 * 1024 * 1024,
+    timeout: options.timeout
   })
   if (result.error) throw result.error
   return {
@@ -375,15 +389,21 @@ export function sendDecisionGardenerNotification({
   const command = config.notifier.kind === 'notification-center'
     ? notificationCenterCommand(event, summary)
     : config.notifier.command
-  const result = runCommand(command[0], command.slice(1), {
-    cwd: config.repository,
-    env: {
-      ...hostEnvironment(config),
-      MARKOVER_DECISION_GARDENER_EVENT: event,
-      MARKOVER_DECISION_GARDENER_RECORD: record,
-      MARKOVER_DECISION_GARDENER_SUMMARY: summary
-    }
-  })
+  let result: CommandResult
+  try {
+    result = runCommand(command[0], command.slice(1), {
+      cwd: config.repository,
+      env: {
+        ...hostEnvironment(config),
+        MARKOVER_DECISION_GARDENER_EVENT: event,
+        MARKOVER_DECISION_GARDENER_RECORD: record,
+        MARKOVER_DECISION_GARDENER_SUMMARY: summary
+      },
+      timeout: decisionGardenerNotifierTimeoutMilliseconds
+    })
+  } catch (error) {
+    throw new Error(`Decision-gardener notifier failed: ${errorMessage(error)}`, { cause: error })
+  }
   if (result.status !== 0) {
     throw new Error(`Decision-gardener notifier failed: ${result.stderr.trim() || 'non-zero exit'}`)
   }
@@ -457,7 +477,56 @@ export async function runDecisionGardenerHostCycle({
   let attemptFinalized = false
   try {
     const statePath = path.join(config.runStore, 'host-state.json')
-    const state = await readHostState(statePath, started)
+    let state: DecisionGardenerHostState
+    try {
+      state = await readHostState(statePath, started)
+    } catch (error) {
+      const failedAt = now()
+      const message = `Could not read decision-gardener host state: ${errorMessage(error)}`
+      let evidencePath: string | null = null
+      let preservationError: string | null = null
+      try {
+        evidencePath = await preserveUnreadableHostState(statePath, recordPath)
+      } catch (preserveError) {
+        preservationError = errorMessage(preserveError)
+      }
+      let notificationError: string | null = null
+      try {
+        sendDecisionGardenerNotification({
+          config,
+          event: 'failed',
+          record: recordPath,
+          runCommand,
+          summary: message
+        })
+      } catch (notifyError) {
+        notificationError = errorMessage(notifyError)
+      }
+      const details = [message]
+      if (preservationError !== null) {
+        details.push(`The invalid state remains at ${statePath}; it could not be moved: ${preservationError}`)
+      }
+      if (notificationError !== null) details.push(`Notifier error: ${notificationError}`)
+      const combinedError = details.join(' ')
+      if (evidencePath !== null) {
+        await writePrivateJson(statePath, {
+          ...defaultState(failedAt),
+          health: 'failed',
+          lastError: combinedError,
+          lastNotifiedHealth: notificationError === null ? 'failed' : null
+        } satisfies DecisionGardenerHostState)
+      }
+      const failedRecord: HostAttemptRecord = {
+        ...record,
+        error: combinedError,
+        finishedAt: failedAt.toISOString(),
+        stateEvidence: evidencePath ?? statePath,
+        status: 'failed'
+      }
+      await updateAttempt(recordPath, failedRecord, config.runStore)
+      attemptFinalized = true
+      throw new Error(combinedError, { cause: error })
+    }
     const intervalMilliseconds = config.auditIntervalMinutes * 60 * 1000
     const lastAudit = state.lastAuditAt === null ? null : new Date(state.lastAuditAt)
     const nextAudit = lastAudit === null
@@ -708,24 +777,64 @@ export async function installDecisionGardenerLaunchAgent(
   await fs.mkdir(path.join(config.runStore, 'logs'), { recursive: true, mode: 0o700 })
   await fs.chmod(config.runStore, 0o700)
   await fs.mkdir(path.dirname(plistPath), { recursive: true })
-  await writePrivate(plistPath, renderDecisionGardenerLaunchAgent({
+  let previousPlist: string | null = null
+  try {
+    previousPlist = await fs.readFile(plistPath, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  const nextPlist = renderDecisionGardenerLaunchAgent({
     config,
     configPath,
     nodeExecutable,
     scriptPath
-  }))
+  })
   const target = serviceTarget(uid)
-  if (commandSucceeded(runCommand('/bin/launchctl', ['print', target]))) {
+  const wasLoaded = commandSucceeded(runCommand('/bin/launchctl', ['print', target]))
+  if (wasLoaded) {
     const removed = runCommand('/bin/launchctl', ['bootout', target])
     if (!commandSucceeded(removed)) {
       throw new Error(`Could not unload the existing gardener agent: ${removed.stderr.trim()}`)
     }
   }
-  const loaded = runCommand('/bin/launchctl', [
-    'bootstrap', domainTarget(uid), plistPath
-  ])
-  if (!commandSucceeded(loaded)) {
-    throw new Error(`Could not load the gardener agent: ${loaded.stderr.trim()}`)
+  try {
+    await writePrivate(plistPath, nextPlist)
+    const loaded = runCommand('/bin/launchctl', [
+      'bootstrap', domainTarget(uid), plistPath
+    ])
+    if (!commandSucceeded(loaded)) {
+      throw new Error(`Could not load the gardener agent: ${loaded.stderr.trim()}`)
+    }
+  } catch (error) {
+    const rollbackErrors: string[] = []
+    let plistRestored = false
+    try {
+      if (previousPlist === null) await fs.rm(plistPath, { force: true })
+      else await writePrivate(plistPath, previousPlist)
+      plistRestored = true
+    } catch (restoreError) {
+      rollbackErrors.push(`Could not restore the previous plist: ${errorMessage(restoreError)}`)
+    }
+    if (wasLoaded) {
+      if (previousPlist === null) {
+        rollbackErrors.push('The previous service was loaded without a recoverable plist.')
+      } else if (!plistRestored) {
+        rollbackErrors.push('The previous service was not reloaded without its restored plist.')
+      } else {
+        const restored = runCommand('/bin/launchctl', [
+          'bootstrap', domainTarget(uid), plistPath
+        ])
+        if (!commandSucceeded(restored)) {
+          rollbackErrors.push(
+            `Could not reload the previous gardener agent: ${restored.stderr.trim()}`
+          )
+        }
+      }
+    }
+    const rollback = rollbackErrors.length === 0
+      ? 'The previous installation was restored.'
+      : `Rollback failed: ${rollbackErrors.join(' ')}`
+    throw new Error(`${errorMessage(error)} ${rollback}`, { cause: error })
   }
   return { label: decisionGardenerHostLabel, plist: plistPath, status: 'installed' }
 }
