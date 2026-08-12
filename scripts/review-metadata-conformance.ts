@@ -45,6 +45,10 @@ interface MatrixEntry {
 }
 
 export interface MetadataMatrix {
+  classification: {
+    authorityIssue: 134
+    status: 'provisional-evidence'
+  }
   entries: MatrixEntry[]
   expansionCandidates: Array<{
     hostProduct: string
@@ -357,11 +361,25 @@ export function parseMetadataMatrix(value: unknown): MetadataMatrix {
   const item = record(value, 'Metadata matrix')
   assertExactKeys(
     item,
-    ['entries', 'expansionCandidates', 'schemaVersion'],
+    ['classification', 'entries', 'expansionCandidates', 'schemaVersion'],
     'Metadata matrix'
   )
   if (item.schemaVersion !== matrixSchemaVersion) {
     throw new Error(`Metadata matrix schemaVersion must be ${matrixSchemaVersion}.`)
+  }
+  const classification = record(item.classification, 'Metadata matrix classification')
+  assertExactKeys(
+    classification,
+    ['authorityIssue', 'status'],
+    'Metadata matrix classification'
+  )
+  if (
+    classification.authorityIssue !== 134 ||
+    classification.status !== 'provisional-evidence'
+  ) {
+    throw new Error(
+      'Metadata matrix classifications must remain provisional evidence owned by issue #134.'
+    )
   }
   if (!Array.isArray(item.entries) || item.entries.length === 0) {
     throw new Error('Metadata matrix must contain supported entries.')
@@ -397,7 +415,15 @@ export function parseMetadataMatrix(value: unknown): MetadataMatrix {
       reason: nonblank(value.reason, `expansionCandidates[${index}].reason`)
     }
   })
-  return { entries, expansionCandidates, schemaVersion: matrixSchemaVersion }
+  return {
+    classification: {
+      authorityIssue: 134,
+      status: 'provisional-evidence'
+    },
+    entries,
+    expansionCandidates,
+    schemaVersion: matrixSchemaVersion
+  }
 }
 
 function matrixEntry(matrix: MetadataMatrix, id: string): MatrixEntry {

@@ -19,6 +19,14 @@ record live product behavior.
 The recorder creates its output exclusively and never overwrites an existing
 file. Raw artifacts stay under `tmp/review-metadata/` and are never promoted.
 
+## Classification ownership
+
+Treat every product label and `threadHost.kind`/`provider` pair in this corpus as
+provisional evidence from its recorded run. Issue #134 owns normative product
+classification and aliases. Until that specification lands, add an exact row
+only when the live thread makes both roles unambiguous; retain ambiguous future
+products as host-only `expansionCandidates` with `discover-at-exercise`.
+
 ```sh
 npm run eval:metadata:record -- \
   --review tmp/review-metadata/raw-review.json \
@@ -73,7 +81,8 @@ record; keep earlier records as history.
 Expansion candidates name hosts only. Choose their provider from the live thread
 at exercise time, then add an exact matrix row. This keeps LastCode, direct
 provider hosts, OpenCode, Cursor, and future mixed combinations visible without
-inventing provider identity.
+inventing provider identity. Revisit affected rows after #134 publishes its
+normative classification.
 
 ## Initial evidence
 

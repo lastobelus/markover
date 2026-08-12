@@ -1,5 +1,9 @@
 {
   "schemaVersion": 1,
+  "classification": {
+    "status": "provisional-evidence",
+    "authorityIssue": 134
+  },
   "entries": [
     {
       "id": "t3code-codex",
