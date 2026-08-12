@@ -655,9 +655,6 @@ export async function runDecisionGardenerHostCycle({
   const acquireLock = dependencies.acquireLock ?? acquireSingleFlightLock
   let lease
   try {
-    if (initialLogError !== null) {
-      throw new Error(`Could not append the decision-gardener host log: ${initialLogError}`)
-    }
     lease = await acquireLock(lockPath, { record: recordPath, trigger })
   } catch (error) {
     const failedAt = now()
@@ -667,9 +664,7 @@ export async function runDecisionGardenerHostCycle({
       let state = defaultState(started)
       let stateEvidence: string | undefined
       let stateWritable = true
-      const details = [initialLogError === null
-        ? `Could not acquire the decision-gardener host lock: ${errorMessage(error)}`
-        : errorMessage(error)]
+      const details = [`Could not acquire the decision-gardener host lock: ${errorMessage(error)}`]
       try {
         state = await readHostState(statePath, started)
       } catch (stateError) {
@@ -751,7 +746,6 @@ export async function runDecisionGardenerHostCycle({
     await updateAttempt(recordPath, busy, config.runStore)
     return { record: recordPath, status: 'busy', trigger }
   }
-  let attemptFinalized = false
   try {
     const statePath = path.join(config.runStore, 'host-state.json')
     let state: DecisionGardenerHostState
@@ -808,30 +802,7 @@ export async function runDecisionGardenerHostCycle({
         error: combinedError
       }
       await updateAttempt(recordPath, failedRecord, config.runStore)
-      attemptFinalized = true
       throw new Error(combinedError, { cause: error })
-    }
-    const intervalMilliseconds = config.auditIntervalMinutes * 60 * 1000
-    const lastAudit = state.lastAuditAt === null ? null : new Date(state.lastAuditAt)
-    const nextAudit = lastAudit === null
-      ? started
-      : new Date(lastAudit.valueOf() + intervalMilliseconds)
-    if (!force && state.health !== 'failed' && nextAudit > started) {
-      const finished = now().toISOString()
-      const notDue: HostAttemptRecord = {
-        ...record,
-        finishedAt: finished,
-        nextAuditAt: nextAudit.toISOString(),
-        status: 'not_due'
-      }
-      await updateAttempt(recordPath, notDue, config.runStore)
-      attemptFinalized = true
-      return {
-        nextAuditAt: nextAudit.toISOString(),
-        record: recordPath,
-        status: 'not_due',
-        trigger: 'heartbeat'
-      }
     }
     const runAudit = dependencies.runAudit ?? (() =>
       runDecisionGardenerAuditProcess(config, configPath))
@@ -839,6 +810,30 @@ export async function runDecisionGardenerHostCycle({
     let pendingFailureRecords = [...state.pendingFailureRecords]
     let lastNotifiedHealth = state.lastNotifiedHealth
     try {
+      if (initialLogError !== null) {
+        throw new Error(`Could not append the decision-gardener host log: ${initialLogError}`)
+      }
+      const intervalMilliseconds = config.auditIntervalMinutes * 60 * 1000
+      const lastAudit = state.lastAuditAt === null ? null : new Date(state.lastAuditAt)
+      const nextAudit = lastAudit === null
+        ? started
+        : new Date(lastAudit.valueOf() + intervalMilliseconds)
+      if (!force && state.health !== 'failed' && nextAudit > started) {
+        const finished = now().toISOString()
+        const notDue: HostAttemptRecord = {
+          ...record,
+          finishedAt: finished,
+          nextAuditAt: nextAudit.toISOString(),
+          status: 'not_due'
+        }
+        await updateAttempt(recordPath, notDue, config.runStore)
+        return {
+          nextAuditAt: nextAudit.toISOString(),
+          record: recordPath,
+          status: 'not_due',
+          trigger: 'heartbeat'
+        }
+      }
       const audit = await withHostPath(config, () => runAudit({
         codex: config.codex,
         model: config.model,
@@ -886,7 +881,6 @@ export async function runDecisionGardenerHostCycle({
       }
       await writePrivateJson(statePath, healthy)
       await updateAttempt(recordPath, completed, config.runStore)
-      attemptFinalized = true
       return { audit, record: recordPath, status: 'completed', trigger }
     } catch (error) {
       const failedAt = now()
@@ -947,11 +941,17 @@ export async function runDecisionGardenerHostCycle({
         error: combinedError
       }
       await updateAttempt(recordPath, failedRecord, config.runStore)
-      attemptFinalized = true
       throw new Error(combinedError, { cause: error })
     }
   } catch (error) {
-    if (!attemptFinalized) {
+    let recordIsRunning = true
+    try {
+      const current = parseJson(await fs.readFile(recordPath, 'utf8'), 'Host attempt record')
+      recordIsRunning = isRecord(current) && current.status === 'running'
+    } catch {
+      // Re-establish a terminal record when the current record cannot be inspected.
+    }
+    if (recordIsRunning) {
       const failed: HostAttemptRecord = {
         ...record,
         error: errorMessage(error),

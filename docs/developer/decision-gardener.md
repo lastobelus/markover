@@ -232,8 +232,10 @@ record under `host-runs/`, including `not_due` and `busy` outcomes, and appends
 the same lifecycle facts to `host.log`. Full audit evidence remains under
 `runs/<run-id>/`. Launchd stdout and stderr are separate files under `logs/`.
 The per-attempt JSON is authoritative: if `host.log` cannot be appended, the
-attempt is finalized as failed and the ordinary health notification identifies
-the log error rather than letting scheduling stop silently.
+invocation first acquires the host lock, then finalizes the attempt as failed
+and uses the ordinary health notification to identify the log error rather than
+letting scheduling stop silently. A concurrent invocation remains `busy` and
+does not race the active audit's health state.
 If host state is malformed or unreadable, the cycle emits a failure
 notification and preserves the invalid file under a per-attempt
 `host-state.invalid.*.json` name before establishing new failed state.

@@ -164,6 +164,30 @@ test('an unwritable host log transitions health and notifies with a terminal rec
   assert.equal(state.lastNotifiedHealth, 'failed')
 })
 
+test('an unwritable host log does not mutate health while another audit owns the lock', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  await fs.mkdir(path.join(host.config.runStore, 'host.log'))
+  let notified = false
+  const outcome = await runDecisionGardenerHostCycle({
+    configPath: host.configPath
+  }, {
+    acquireLock: () => Promise.reject(new Error(
+      `A decision-gardener run already owns ${path.join(host.config.runStore, 'host.lock')}: owner`
+    )),
+    now: () => new Date('2026-08-11T00:00:00.000Z'),
+    runCommand: () => {
+      notified = true
+      return { status: 0, stderr: '', stdout: '' }
+    }
+  })
+  assert.equal(outcome.status, 'busy')
+  assert.equal(notified, false)
+  await assert.rejects(fs.stat(path.join(host.config.runStore, 'host-state.json')), /ENOENT/)
+  const attempt = JSON.parse(await fs.readFile(outcome.record, 'utf8')) as { status: string }
+  assert.equal(attempt.status, 'busy')
+})
+
 test('failed heartbeats retry every interval tick and notify only health transitions', async (t) => {
   const host = await fixture()
   t.after(() => fs.rm(host.root, { recursive: true, force: true }))
