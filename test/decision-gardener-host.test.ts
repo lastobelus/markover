@@ -20,6 +20,7 @@ import {
   runDecisionGardenerHostCycle,
   runHostNotificationCommand,
   sendDecisionGardenerNotification,
+  testDecisionGardenerNotifier,
   uninstallDecisionGardenerLaunchAgent
 } from '../scripts/decision-gardener-host'
 
@@ -198,6 +199,23 @@ test('notifier commands have a finite timeout and surface expiration as failure'
   }), /notifier failed: operation timed out/)
   assert.equal(cwd, host.config.runStore)
   assert.equal(timeout, decisionGardenerNotifierTimeoutMilliseconds)
+})
+
+test('standalone notifier preflight creates and secures its custom run store', async (t) => {
+  const host = await fixture()
+  t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  const freshRunStore = path.join(host.root, 'standalone-run-store')
+  const custom = { ...host.config, runStore: freshRunStore }
+  await testDecisionGardenerNotifier(custom, host.configPath, (
+    _executable,
+    _args,
+    options
+  ) => {
+    assert.equal(options?.cwd, freshRunStore)
+    assert.equal(statSync(freshRunStore).mode & 0o077, 0)
+    return { status: 0, stderr: '', stdout: '' }
+  })
+  assert.equal(statSync(freshRunStore).mode & 0o077, 0)
 })
 
 test('the production notifier runner force-kills a command that ignores termination', async () => {

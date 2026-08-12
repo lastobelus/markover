@@ -1069,6 +1069,8 @@ export async function testDecisionGardenerNotifier(
   configPath: string,
   runCommand: NotificationCommandRunner = runHostNotificationCommand
 ): Promise<void> {
+  await fs.mkdir(config.runStore, { recursive: true, mode: 0o700 })
+  await fs.chmod(config.runStore, 0o700)
   await sendDecisionGardenerNotification({
     config,
     event: 'test',
@@ -1088,8 +1090,6 @@ export async function installDecisionGardenerLaunchAgent(
   if (uid === undefined) throw new Error('Could not resolve the current macOS user ID.')
   const runCommand = dependencies.runCommand ?? runHostCommand
   const config = await loadDecisionGardenerHostConfig(configPath)
-  await fs.mkdir(config.runStore, { recursive: true, mode: 0o700 })
-  await fs.chmod(config.runStore, 0o700)
   await testDecisionGardenerNotifier(
     config,
     configPath,

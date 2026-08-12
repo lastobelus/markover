@@ -168,9 +168,9 @@ npm --silent run decision-gardener:host -- status
 ```
 
 `install` repeats the notifier test and refuses to write or load the
-LaunchAgent if it fails. It first creates the configured run store with private
-permissions so notifier preflight has the same working directory as scheduled
-delivery. It writes
+LaunchAgent if it fails. Both standalone `test-notifier` and installation first
+create the configured run store with private permissions, so notifier preflight
+has the same working directory as scheduled delivery. Installation writes
 `~/Library/LaunchAgents/com.lastobelus.markover.decision-gardener.plist`, then
 uses `launchctl bootstrap` in the current GUI domain. The plist runs once when
 loaded and then asks `launchd` for one lightweight heartbeat every 300 seconds.
