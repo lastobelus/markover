@@ -206,17 +206,18 @@ each choice from that baseline without duplicating the live decisions below.
    [tree tests](test/tree.test.ts) and
    [image-preview tests](test/image-preview.test.ts).
 8. **Unrecognized extensions degrade through CommonMark.** With raw HTML and
-   extensions disabled, syntax such as definition lists, footnotes,
-   strikethrough, and HTML may appear as literal paragraph content, resolve as
-   ordinary reference syntax, or have definition lines absent from the block
-   tree. The exact input remains in `sourceDocument.content`; the sampler keeps
-   these cases visible for a later unsupported-syntax design.
+   extensions disabled, definition-list, footnote, strikethrough, and HTML
+   syntax remains visible uninterpreted paragraph content. Reference-style link
+   definitions may be absent from the block tree, while their uses remain in
+   paragraphs. The exact input always remains in `sourceDocument.content`.
 
-   **Audit — Retain current behavior; planned public boundary.** Exact source
-   preservation makes degradation non-destructive, while issue
-   [#15](https://github.com/lastobelus/markover/issues/15) owns the compatibility
-   matrix and regression coverage required before broad announcement. Evidence:
-   [extension-degradation tests](test/tree.test.ts).
+   **Audit — Retain with a published boundary.** The public
+   [behavior-level compatibility matrix](docs/user/limitations/index.html)
+   classifies structured blocks, opaque single blocks, preserved inline
+   content, and visible uninterpreted text without claiming blanket CommonMark
+   compatibility. Executable matrix fixtures protect node shape, exact source,
+   and line-range behavior. Evidence:
+   [Markdown compatibility tests](test/markdown-compatibility.test.ts).
 
 ## Interaction
 

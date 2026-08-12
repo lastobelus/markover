@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#eee8e0">
-    <meta name="description" content="Markdown structures and early-preview behaviors Markover supports, treats as whole blocks, or leaves unstructured.">
+    <meta name="description" content="Markover's tested behavior-level Markdown compatibility matrix for structured, opaque, preserved, and uninterpreted content.">
     <title>Markdown support and preview limitations — Markover documentation</title>
     <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../styles.css">
@@ -38,24 +38,82 @@
     <main class="docs-content">
       <p class="eyebrow">Early-preview reference</p>
       <h1 id="overview">Markdown support and preview limitations</h1>
-      <p class="docs-lede">Markover preserves the original Markdown while turning the structures it understands into selectable review blocks. Some structures are selectable only as a whole, and extension-specific syntax may remain ordinary or literal content.</p>
+      <p class="docs-lede">Markover preserves the exact reviewed Markdown and maps it to review blocks according to the tested behavior below. This is a Markover product contract, not a claim of blanket CommonMark or site-specific dialect compatibility.</p>
 
-      <section id="structured">
-        <h2>Selectable document structure</h2>
-        <p>Markover creates review-tree structure for YAML frontmatter, headings, paragraphs, ordered and unordered lists, task markers, fenced and indented code blocks, thematic breaks, tables, and block quotes.</p>
-        <p>Headings and nested lists organize the tree. Paragraphs, tasks, code, and thematic breaks can be selected and annotated as individual blocks.</p>
-      </section>
-
-      <section id="whole-blocks">
-        <h2>Tables and block quotes are whole blocks</h2>
-        <p>Tables and block quotes render and can be selected for feedback, but their internal rows, cells, and quoted children do not become separately selectable review-tree nodes.</p>
-        <div class="callout"><strong>Practical consequence.</strong> Attach feedback to the complete table or quote. If row-level or nested-quote feedback matters, describe the exact row or passage in the annotation.</div>
-      </section>
-
-      <section id="extensions">
-        <h2>Extensions may lose specialized meaning</h2>
-        <p>Footnotes, definition lists, strikethrough, raw HTML, and other Markdown extensions have no specialized review structure. Depending on the syntax, they may appear as ordinary CommonMark content or literal text.</p>
-        <p>Do not rely on Markover's preview as the authoritative renderer for a site-specific or extension-heavy Markdown dialect. Compare important formatting in the tool that will publish or consume the document.</p>
+      <section id="matrix">
+        <h2>Behavior-level compatibility matrix</h2>
+        <p><strong>Structured blocks</strong> become navigable review-tree nodes. <strong>Opaque single blocks</strong> are selectable as a whole without child nodes. <strong>Preserved inline content</strong> stays inside its parent block rather than becoming structure. <strong>Visible uninterpreted text</strong> keeps its markers visible without extension-specific meaning.</p>
+        <div class="docs-table-wrap">
+          <table class="docs-table markdown-compatibility">
+            <caption>Current Markdown parsing and review behavior</caption>
+            <thead>
+              <tr><th>Construct</th><th>Classification</th><th>Review and preview behavior</th></tr>
+            </thead>
+            <tbody>
+              <tr data-compatibility-id="yaml-frontmatter" data-classification="structured">
+                <td>YAML frontmatter</td>
+                <td>Structured block</td>
+                <td>The complete frontmatter is one read-only container. Line-safe top-level mapping pairs become child blocks; comments, flow maps, and complex keys remain visible in the container source.</td>
+              </tr>
+              <tr data-compatibility-id="headings-paragraphs" data-classification="structured">
+                <td>ATX and Setext headings; paragraphs</td>
+                <td>Structured block</td>
+                <td>Headings create the document hierarchy. Each paragraph is a selectable child of its current section.</td>
+              </tr>
+              <tr data-compatibility-id="lists-tasks" data-classification="structured">
+                <td>Ordered and unordered lists; task markers</td>
+                <td>Structured block</td>
+                <td>Each item is selectable, and nested lists become child items. A leading <code>[ ]</code>, <code>[x]</code>, or <code>[X]</code> records task state while remaining in the exact raw source.</td>
+              </tr>
+              <tr data-compatibility-id="code-blocks" data-classification="structured">
+                <td>Fenced and indented code</td>
+                <td>Structured block</td>
+                <td>Each source range becomes one code block. A fenced block's info string is retained as its language label.</td>
+              </tr>
+              <tr data-compatibility-id="thematic-breaks" data-classification="structured">
+                <td>Thematic breaks</td>
+                <td>Structured block</td>
+                <td>The complete marker line becomes one selectable block.</td>
+              </tr>
+              <tr data-compatibility-id="block-quotes" data-classification="opaque">
+                <td>Block quotes</td>
+                <td>Opaque single block</td>
+                <td>The complete quote is selectable and rendered together. Quoted paragraphs and lists do not become child review blocks.</td>
+              </tr>
+              <tr data-compatibility-id="pipe-tables" data-classification="opaque">
+                <td>Pipe tables</td>
+                <td>Opaque single block</td>
+                <td>Markover explicitly enables pipe-table parsing. The complete table is selectable; rows and cells do not become child review blocks.</td>
+              </tr>
+              <tr data-compatibility-id="inline-formatting" data-classification="preserved-inline">
+                <td>Emphasis, strong text, and inline code</td>
+                <td>Preserved inline content</td>
+                <td>Markers and content stay in the parent block's exact source and render inline; they do not create separate review blocks.</td>
+              </tr>
+              <tr data-compatibility-id="links-images" data-classification="preserved-inline">
+                <td>Inline links and images</td>
+                <td>Preserved inline content</td>
+                <td>Labels and destinations stay in the parent block. Links remain inert, and an image source opens only through Markover's explicit preview action.</td>
+              </tr>
+              <tr data-compatibility-id="raw-html" data-classification="visible-uninterpreted">
+                <td>Raw HTML</td>
+                <td>Visible uninterpreted text</td>
+                <td>HTML interpretation is disabled. Tags remain visible in paragraph content and do not create HTML elements or specialized blocks.</td>
+              </tr>
+              <tr data-compatibility-id="extension-markers" data-classification="visible-uninterpreted">
+                <td>Strikethrough, definition-list, and footnote syntax</td>
+                <td>Visible uninterpreted text</td>
+                <td>Markers remain literal paragraph content. Markover does not create strikethrough, definition, or footnote nodes.</td>
+              </tr>
+              <tr data-compatibility-id="reference-definitions" data-classification="visible-uninterpreted">
+                <td>Reference-style links and definitions</td>
+                <td>Visible uninterpreted text</td>
+                <td>The reference use remains in its paragraph. A standalone link definition may have no review block, but both the use and definition remain in the exact reviewed source.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout"><strong>Review granularity.</strong> For an opaque block, identify the exact row or quoted passage in your annotation. For extension syntax, compare important formatting in the tool that will publish or consume the document.</div>
       </section>
 
       <section id="links-images">
@@ -66,8 +124,8 @@
 
       <section id="source-preservation">
         <h2>The original source remains the reference</h2>
-        <p>Markover retains the exact reviewed Markdown and its checksum even when it cannot give extension-specific syntax its own tree structure. Editing a source block creates a proposal; Markover does not rewrite the original review target.</p>
-        <p>A complete handoff therefore preserves the source for an agent or developer to inspect rather than pretending every syntax feature was represented perfectly by the preview.</p>
+        <p>Markover retains the exact reviewed Markdown and its checksum even when a construct has no specialized tree structure or no separate block. Editing a source block creates a proposal; Markover does not rewrite the original review target.</p>
+        <p>A complete handoff therefore preserves the source for an agent or developer to inspect. The compatibility matrix describes review and preview behavior; it does not narrow the source-preservation guarantee.</p>
       </section>
 
       <section id="preview-boundary">

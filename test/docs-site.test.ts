@@ -328,11 +328,9 @@ test('the compatibility catalog maps released schemas without guessing', () => {
   assert.match(JSON.stringify(compatibilityCatalog), /firstMarkoverRelease/)
 })
 
-test('Markdown limitations distinguish selectable, whole-block, and extension behavior', () => {
+test('Markdown limitations publish the behavior-level compatibility boundary', () => {
   for (const section of [
-    'structured',
-    'whole-blocks',
-    'extensions',
+    'matrix',
     'links-images',
     'source-preservation',
     'preview-boundary',
@@ -340,10 +338,12 @@ test('Markdown limitations distinguish selectable, whole-block, and extension be
   ]) {
     assert.match(limitations, new RegExp(`id="${section}"`))
   }
+  assert.match(limitations, /not a claim of blanket CommonMark/)
   assert.match(limitations, /YAML frontmatter/)
-  assert.match(limitations, /internal rows, cells, and quoted children do not become separately selectable/)
-  assert.match(limitations, /Footnotes, definition lists, strikethrough, raw HTML/)
-  assert.match(limitations, /original Markdown/)
+  assert.match(limitations, /Opaque single block/)
+  assert.match(limitations, /Visible uninterpreted text/)
+  assert.match(limitations, /standalone link definition may have no review block/)
+  assert.match(limitations, /exact reviewed Markdown/)
   assert.match(limitations, /Managed reviews and their unused attachments can be moved to the macOS Trash from Markover/)
   assert.doesNotMatch(limitations, /Review deletion and cache management currently use the manual procedures/)
   assert.doesNotMatch(limitations, /markdown-it|token mapping|node contract/)

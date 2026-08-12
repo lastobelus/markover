@@ -56,11 +56,11 @@ function greet(name) {
 
     This indented code block is a second code node.
 
-## Unsupported extension syntax
+## Compatibility-boundary syntax
 
-The following examples are intentionally not special node types in the first
-cut. They let us inspect whether literal/degraded rendering is understandable
-enough, and whether Markover should label unsupported syntax more explicitly.
+The following examples intentionally have no specialized review node. The
+public Markdown compatibility matrix records whether each construct remains
+visible uninterpreted text or is preserved only in the exact reviewed source.
 
 Strikethrough markers remain literal: ~~this is not a strikethrough node~~.
 
