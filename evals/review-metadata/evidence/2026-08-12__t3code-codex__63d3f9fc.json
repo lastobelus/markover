@@ -33,11 +33,6 @@
   },
   "evidenceId": "2026-08-12__t3code-codex__63d3f9fc",
   "exercisedAt": "2026-08-12T19:28:42.000Z",
-  "limitations": [
-    "T3 Code did not expose a distinct host-owned thread identifier.",
-    "T3 Code did not expose a product version.",
-    "The Codex runtime did not expose a provider CLI or service version."
-  ],
   "matrixEntryId": "t3code-codex",
   "relationships": {
     "identity": "identified",

@@ -18,6 +18,8 @@ record live product behavior.
 
 The recorder creates its output exclusively and never overwrites an existing
 file. Raw artifacts stay under `tmp/review-metadata/` and are never promoted.
+Free-form observation limitations also stay in the ignored observation; the
+committed record retains their structured discovery and runtime facts only.
 
 ## Classification ownership
 
@@ -95,6 +97,6 @@ The 2026-08-12 baseline exercises all three initial rows against runner commit
 | T3 Code × Claude | `claude-sonnet-5`; Claude Agent SDK 0.3.227; T3 Code version not exposed | Pass |
 | Claude Code × Claude | Claude Code 2.1.228; `claude-sonnet-5`; provider service version not exposed | Pass |
 
-Each record retains discovery limitations, ID relationships, and typed redaction
-markers. No raw provider ID, host ID, hostname, session path, or account data is
-committed.
+Each record retains structured discovery limitations, ID relationships, and
+typed redaction markers. No raw provider ID, host ID, hostname, session path,
+free-form observation text, or account data is committed.
