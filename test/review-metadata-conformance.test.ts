@@ -100,6 +100,11 @@ test('initial live matrix names three exact combinations without guessing expans
     matrix.expansionCandidates.map(({ providerSelection }) => providerSelection),
     Array.from({ length: 4 }, () => 'discover-at-exercise')
   )
+  assert.deepEqual(
+    matrix.expansionCandidates.map(({ reasonCode }) => reasonCode),
+    ['no-live-thread', 'no-live-thread', 'provider-not-observed',
+      'provider-not-observed']
+  )
 })
 
 test('corpus validation requires and finds evidence for every initial row', () => {
@@ -235,7 +240,19 @@ test('recording verifies runner commit ancestry in the declared pull request', a
     assert.deepEqual(calls, [
       ['remote', 'get-url', 'origin'],
       ['fetch', '--quiet', '--no-tags', 'origin', 'refs/pull/141/head'],
-      ['merge-base', '--is-ancestor', parsed.sourceCommit, 'FETCH_HEAD']
+      ['merge-base', '--is-ancestor', parsed.sourceCommit, 'FETCH_HEAD'],
+      [
+        'diff',
+        '--quiet',
+        parsed.sourceCommit,
+        '--',
+        'package-lock.json',
+        'package.json',
+        'scripts/review-metadata-conformance.ts',
+        'src/pull-request.ts',
+        'src/review-format.ts',
+        'tsconfig.json'
+      ]
     ])
   })
 
@@ -270,6 +287,21 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         }))
       },
       /sourceCommit must belong to the sourcePullRequest head history/
+    )
+  })
+
+  await t.test('rejects a commit whose recorder sources differ', () => {
+    assert.throws(
+      () => {
+        verifySourceCommitPullRequest(parsed, root, (args) => ({
+          status: args[0] === 'diff' ? 1 : 0,
+          stderr: '',
+          stdout: args[0] === 'remote'
+            ? 'https://github.com/lastobelus/markover.git\n'
+            : ''
+        }))
+      },
+      /recorder sources must match the declared sourceCommit/
     )
   })
 })
@@ -709,6 +741,58 @@ test('metadata matrix rejects unrecognized fields at every privacy boundary', ()
   assert.throws(
     () => parseMetadataMatrix(matrix),
     /expansionCandidates\[0\] contains unrecognized fields: rawMachine/
+  )
+
+  delete firstCandidate.rawMachine
+  firstCandidate.reason = 'raw-machine-secret.local /Users/alice/review.json'
+  assert.throws(
+    () => parseMetadataMatrix(matrix),
+    /expansionCandidates\[0\] contains unrecognized fields: reason/
+  )
+})
+
+test('metadata matrix accepts only normalized exercise Markdown paths', async (t) => {
+  for (const invalid of [
+    'README.md',
+    '.',
+    'exercises',
+    'exercises/../README.md',
+    'exercises\\t3code-codex.md',
+    'exercises/t3code-codex.txt'
+  ]) {
+    await t.test(invalid, () => {
+      const matrix = json('evals/review-metadata/matrix.json') as Record<string, unknown>
+      const entries = matrix.entries as Array<Record<string, unknown>>
+      const firstEntry = entries[0]
+      assert.ok(firstEntry)
+      firstEntry.exercise = invalid
+      assert.throws(
+        () => parseMetadataMatrix(matrix),
+        /normalized relative Markdown path beneath exercises/
+      )
+    })
+  }
+})
+
+test('corpus validation requires an exercise path to resolve to a regular file', (t) => {
+  const temporaryRoot = metadataCorpusCopy()
+  t.after(() => {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true })
+  })
+  const matrixPath = path.join(temporaryRoot, 'evals/review-metadata/matrix.json')
+  const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8')) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  firstEntry.exercise = 'exercises/not-a-file.md'
+  fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`)
+  fs.mkdirSync(path.join(
+    temporaryRoot,
+    'evals/review-metadata/exercises/not-a-file.md'
+  ))
+  assert.throws(
+    () => validateMetadataCorpus(temporaryRoot),
+    /exercise must be a regular file/
   )
 })
 

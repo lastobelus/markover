@@ -19,6 +19,14 @@ const runtimeTokenPattern = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,39}(?: [A-Za-z0-9][A-
 const redactedProviderThreadId = '<redacted-provider-thread-id>'
 const redactedThreadHostThreadId = '<redacted-thread-host-thread-id>'
 const redactedMachine = '<redacted-machine>'
+const runnerSourcePaths = [
+  'package-lock.json',
+  'package.json',
+  'scripts/review-metadata-conformance.ts',
+  'src/pull-request.ts',
+  'src/review-format.ts',
+  'tsconfig.json'
+]
 
 type DiscoveryStatus = 'not-applicable' | 'observed' | 'unavailable'
 type DiscoverySource =
@@ -29,6 +37,7 @@ type DiscoverySource =
   | 'thread-context'
   | 'thread-host-runtime'
 type IdentityExpectation = 'required' | 'unavailable-allowed'
+type ExpansionReason = 'no-live-thread' | 'provider-not-observed'
 type VersionSource = 'command' | 'not-exposed' | 'runtime-context'
 
 interface DiscoveryObservation {
@@ -59,7 +68,7 @@ export interface MetadataMatrix {
   expansionCandidates: Array<{
     hostProduct: string
     providerSelection: 'discover-at-exercise'
-    reason: string
+    reasonCode: ExpansionReason
   }>
   schemaVersion: number
 }
@@ -170,6 +179,20 @@ function nonblank(value: unknown, label: string): string {
     throw new Error(`${label} must be a nonblank string.`)
   }
   return value
+}
+
+function exercisePath(value: unknown, label: string): string {
+  const parsed = nonblank(value, label)
+  const normalized = path.posix.normalize(parsed)
+  if (
+    normalized !== parsed ||
+    !/^exercises\/(?:[a-z0-9]+(?:-[a-z0-9]+)*\/)*[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(parsed)
+  ) {
+    throw new Error(
+      `${label} must be a normalized relative Markdown path beneath exercises/.`
+    )
+  }
+  return parsed
 }
 
 function nullableNonblank(value: unknown, label: string): string | null {
@@ -333,6 +356,20 @@ export function verifySourceCommitPullRequest(
   if (ancestor.status !== 0) {
     throw new Error(
       `Cannot verify sourceCommit ancestry in sourcePullRequest: ${ancestor.stderr.trim()}`
+    )
+  }
+  const matchingSources = git(
+    ['diff', '--quiet', observation.sourceCommit, '--', ...runnerSourcePaths],
+    cwd
+  )
+  if (matchingSources.status === 1) {
+    throw new Error(
+      'Running metadata recorder sources must match the declared sourceCommit.'
+    )
+  }
+  if (matchingSources.status !== 0) {
+    throw new Error(
+      `Cannot bind running recorder sources to sourceCommit: ${matchingSources.stderr.trim()}`
     )
   }
 }
@@ -520,7 +557,7 @@ function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
   return {
     availability: 'available',
     evidence: stringArray(item.evidence, `${label}.evidence`),
-    exercise: nonblank(item.exercise, `${label}.exercise`),
+    exercise: exercisePath(item.exercise, `${label}.exercise`),
     hostProduct: nonblank(item.hostProduct, `${label}.hostProduct`),
     id: nonblank(item.id, `${label}.id`),
     identityExpectation: oneOf(item.identityExpectation, [
@@ -575,7 +612,7 @@ export function parseMetadataMatrix(value: unknown): MetadataMatrix {
     const value = record(candidate, `expansionCandidates[${index}]`)
     assertExactKeys(
       value,
-      ['hostProduct', 'providerSelection', 'reason'],
+      ['hostProduct', 'providerSelection', 'reasonCode'],
       `expansionCandidates[${index}]`
     )
     if (value.providerSelection !== 'discover-at-exercise') {
@@ -589,7 +626,10 @@ export function parseMetadataMatrix(value: unknown): MetadataMatrix {
         `expansionCandidates[${index}].hostProduct`
       ),
       providerSelection: 'discover-at-exercise' as const,
-      reason: nonblank(value.reason, `expansionCandidates[${index}].reason`)
+      reasonCode: oneOf(value.reasonCode, [
+        'no-live-thread',
+        'provider-not-observed'
+      ], `expansionCandidates[${index}].reasonCode`)
     }
   })
   return {
@@ -969,8 +1009,14 @@ export function validateMetadataCorpus(
   const referencedEvidence = new Set<string>()
   for (const entry of matrix.entries) {
     const exercisePath = path.join(directory, entry.exercise)
-    if (!fs.existsSync(exercisePath)) {
+    let exercise: fs.Stats
+    try {
+      exercise = fs.lstatSync(exercisePath)
+    } catch {
       throw new Error(`${entry.id} exercise does not exist: ${entry.exercise}.`)
+    }
+    if (!exercise.isFile()) {
+      throw new Error(`${entry.id} exercise must be a regular file: ${entry.exercise}.`)
     }
     if (requireComplete && entry.evidence.length === 0) {
       throw new Error(`${entry.id} has no committed live evidence.`)
