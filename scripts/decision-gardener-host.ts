@@ -488,7 +488,7 @@ export async function sendDecisionGardenerNotification({
   let result: CommandResult
   try {
     result = await runCommand(command[0], command.slice(1), {
-      cwd: config.repository,
+      cwd: config.runStore,
       env: {
         ...hostEnvironment(config),
         MARKOVER_DECISION_GARDENER_EVENT: event,
@@ -863,7 +863,7 @@ export function renderDecisionGardenerLaunchAgent({
     ...programArguments.map((argument) => `    <string>${xml(argument)}</string>`),
     '  </array>',
     '  <key>WorkingDirectory</key>',
-    `  <string>${xml(config.repository)}</string>`,
+    `  <string>${xml(config.runStore)}</string>`,
     '  <key>EnvironmentVariables</key>',
     '  <dict>',
     '    <key>PATH</key>',

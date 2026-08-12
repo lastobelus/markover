@@ -181,17 +181,20 @@ test('failed heartbeats retry every interval tick and notify only health transit
 test('notifier commands have a finite timeout and surface expiration as failure', async (t) => {
   const host = await fixture()
   t.after(() => fs.rm(host.root, { recursive: true, force: true }))
+  let cwd: string | undefined
   let timeout: number | undefined
   await assert.rejects(sendDecisionGardenerNotification({
     config: host.config,
     event: 'test',
     record: host.configPath,
     runCommand: (_executable, _args, options) => {
+      cwd = options?.cwd
       timeout = options?.timeout
       throw new Error('operation timed out')
     },
     summary: 'timeout test'
   }), /notifier failed: operation timed out/)
+  assert.equal(cwd, host.config.runStore)
   assert.equal(timeout, decisionGardenerNotifierTimeoutMilliseconds)
 })
 
@@ -418,6 +421,12 @@ test('install fails closed on notifier test and loads one fixed heartbeat plist'
   assert.match(plist, /<string>Background<\/string>/)
   assert.match(plist, /decision-gardener-host\.js/)
   assert.match(plist, /host-config\.json/)
+  assert.match(plist, new RegExp(
+    `<key>WorkingDirectory<\\/key>\\s*<string>${host.config.runStore}<\\/string>`
+  ))
+  assert.doesNotMatch(plist, new RegExp(
+    `<key>WorkingDirectory<\\/key>\\s*<string>${host.config.repository}<\\/string>`
+  ))
   assert.deepEqual(calls.find((call) => call.includes('bootstrap')), [
     '/bin/launchctl', 'bootstrap', 'gui/501', plistPath
   ])

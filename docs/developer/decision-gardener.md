@@ -173,8 +173,10 @@ LaunchAgent if it fails. It writes
 uses `launchctl bootstrap` in the current GUI domain. The plist runs once when
 loaded and then asks `launchd` for one lightweight heartbeat every 300 seconds.
 It uses `ProcessType=Background`, a private umask, explicit stdout/stderr logs,
-and the exact Node, controller, config, repository, and PATH values present at
-installation time.
+and the exact Node, controller, config, run-store working directory, and PATH
+values present at installation time. The controller starts from the stable
+private run store rather than the audited checkout, so a missing checkout is
+reported through the ordinary failed-health and notification path.
 
 The `decision-gardener:host` npm script always runs the existing built
 controller; it never rebuilds the shared `build/` directory while an audit may
