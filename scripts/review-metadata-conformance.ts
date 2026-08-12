@@ -456,11 +456,29 @@ function trueChecks(): ConformanceChecks {
 }
 
 function assertSensitiveLeavesRedacted(
-  values: Array<{ raw: string; sanitized: string | undefined }>
+  values: Array<{ raw: string; sanitized: string | undefined }>,
+  additionalPersistedValues: Array<string | null>
 ): void {
   for (const { raw, sanitized } of values) {
     if (sanitized === raw) {
       throw new Error('Sanitized evidence still contains a raw identity value.')
+    }
+    if (additionalPersistedValues.includes(raw)) {
+      throw new Error('Sanitized evidence runtime still contains a raw identity value.')
+    }
+  }
+}
+
+function assertNullThreadHostNotObserved(
+  discovery: CaptureObservation['discovery']
+): void {
+  for (const [field, value] of [
+    ['threadHost.kind', discovery.hostKind],
+    ['threadHost.provider', discovery.hostProvider],
+    ['threadHost.threadId', discovery.hostThreadId]
+  ] as const) {
+    if (value.status === 'observed') {
+      throw new Error(`${field} was observed but is absent from null evidence.`)
     }
   }
 }
@@ -487,6 +505,7 @@ export function buildSanitizedEvidence(
     if (observation.discovery.providerThreadId.status !== 'unavailable') {
       throw new Error('A null agentThread requires provider identity to be unavailable.')
     }
+    assertNullThreadHostNotObserved(observation.discovery)
   } else {
     if (
       thread.threadHost.kind !== entry.threadHost.kind ||
@@ -559,7 +578,11 @@ export function buildSanitizedEvidence(
     schemaVersion: evidenceSchemaVersion,
     sourceCommit: observation.sourceCommit
   }
-  assertSensitiveLeavesRedacted(sensitiveLeaves)
+  assertSensitiveLeavesRedacted(sensitiveLeaves, [
+    evidence.runtime.hostVersion,
+    evidence.runtime.providerModel,
+    evidence.runtime.providerVersion
+  ])
   return evidence
 }
 
@@ -638,15 +661,7 @@ export function validateSanitizedEvidence(
     if (observation.discovery.providerThreadId.status !== 'unavailable') {
       throw new Error('Null evidence requires provider identity to be unavailable.')
     }
-    for (const [field, discovery] of [
-      ['threadHost.kind', observation.discovery.hostKind],
-      ['threadHost.provider', observation.discovery.hostProvider],
-      ['threadHost.threadId', observation.discovery.hostThreadId]
-    ] as const) {
-      if (discovery.status === 'observed') {
-        throw new Error(`${field} was observed but is absent from null evidence.`)
-      }
-    }
+    assertNullThreadHostNotObserved(observation.discovery)
     sanitizedAgentThread = null
   } else {
     const thread = record(item.sanitizedAgentThread, 'Evidence sanitizedAgentThread')

@@ -276,6 +276,71 @@ test('capture compares raw identities only with their sensitive output leaves', 
   ))
 })
 
+test('capture rejects raw identities copied into persisted runtime values', async (t) => {
+  const cases = [
+    {
+      field: 'hostVersion',
+      raw: 'raw-provider-thread-secret',
+      sourceField: 'hostVersionSource'
+    },
+    {
+      field: 'providerVersion',
+      raw: 'raw-host-thread-secret',
+      sourceField: 'providerVersionSource'
+    },
+    {
+      field: 'providerModel',
+      raw: 'raw-machine-secret.local',
+      sourceField: 'providerModelSource'
+    }
+  ] as const
+
+  for (const { field, raw, sourceField } of cases) {
+    await t.test(field, () => {
+      const artifact = fixture()
+      agentThread(artifact)
+      const value = observation()
+      const runtime = value.runtime as Record<string, unknown>
+      runtime[field] = raw
+      runtime[sourceField] = 'runtime-context'
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          value,
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a raw identity value/
+      )
+    })
+  }
+})
+
+test('capture rejects observed host fields when recording null evidence', () => {
+  const artifact = fixture()
+  const review = artifact.review as Record<string, unknown>
+  review.agentThread = null
+  const matrixValue = json(
+    'evals/review-metadata/matrix.json'
+  ) as Record<string, unknown>
+  const entries = matrixValue.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  firstEntry.identityExpectation = 'unavailable-allowed'
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
+
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ discovery }),
+      matrixValue
+    ),
+    /threadHost.kind was observed but is absent from null evidence/
+  )
+})
+
 test('committed evidence rejects raw identifiers in place of redaction markers', () => {
   const artifact = fixture()
   agentThread(artifact)
