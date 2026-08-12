@@ -202,6 +202,19 @@ test('portable metadata rejects credentials and known app-private evidence', () 
   record(review(privateThread).agentThread).logPath = '/private/session.jsonl'
   assertFormatCode(() => decodeReviewArtifact(privateThread), 'INVALID_REVIEW')
 
+  for (const field of ['title', 'name']) {
+    const privateThreadTitle = cloneFixture()
+    Reflect.set(
+      record(review(privateThreadTitle).agentThread),
+      field,
+      'Private requesting thread title'
+    )
+    assertFormatCode(
+      () => decodeReviewArtifact(privateThreadTitle),
+      'INVALID_REVIEW'
+    )
+  }
+
   for (const repositoryUrl of [
     '/Users/alice/private/repo.git',
     '../repo.git',
@@ -238,6 +251,21 @@ test('portable metadata rejects credentials and known app-private evidence', () 
     () => decodeReviewArtifact(nestedPrivateExtension),
     'INVALID_REVIEW'
   )
+})
+
+test('pull request associations require the exact canonical URL', () => {
+  for (const pullRequestUrl of [
+    'https://token@github.com/lastobelus/markover/pull/139',
+    'https://github.com/lastobelus/markover/pull/139?token=secret',
+    'https://github.com/lastobelus/markover/pull/139#fragment',
+    'https://github.com/Lastobelus/Markover/pull/139/'
+  ]) {
+    const noncanonical = cloneFixture()
+    const pullRequest = record(review(noncanonical).pullRequest)
+    pullRequest.url = pullRequestUrl
+    pullRequest.number = 139
+    assertFormatCode(() => decodeReviewArtifact(noncanonical), 'INVALID_REVIEW')
+  }
 })
 
 test('source, node, attachment, and presentation invariants are enforced', () => {

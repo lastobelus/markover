@@ -49,7 +49,7 @@ makes a property invalid. Known properties have this contract.
 | `review.updatedAt` | Required canonical UTC instant for the latest persisted portable change, including feedback, lifecycle, metadata, or pull-request observation. It does not control Inbox actionability. |
 | `review.attentionRequestedAt` | Required app-owned canonical UTC instant. Creation sets it to `createdAt`; only a transition from a non-`editing` status into `editing` advances it. Autosaves, views, metadata refresh, tab actions, and transitions away from `editing` do not. |
 | `review.contextSummary` | Required nonblank review purpose. It is neither a requesting-thread-title nor an identity field. |
-| `review.agentThread` | Required nullable request snapshot. When non-null it requires nonblank provider-owned `id` and a `threadHost` object. Requesting-thread-title is app-private. |
+| `review.agentThread` | Required nullable request snapshot. When non-null it requires nonblank provider-owned `id` and a `threadHost` object. Requesting-thread-title is app-private; `title`, `name`, and `requestingThreadTitle` aliases are forbidden. |
 | `review.agentThread.threadHost` | Requires nonblank open-string `kind` and `provider`. They are separate dimensions but may have the same value. |
 | `review.agentThread.threadHost.threadId` | Optional nonblank thread-host identifier. Include it only when it differs from `agentThread.id`; omission means consumers fall back to `agentThread.id`. |
 | `review.agentThread.threadHost.machine` | Optional nonblank agent-reported hostname snapshot, normally obtained from local `hostname` when available. It is descriptive and never stable or identity-bearing. |
@@ -78,7 +78,9 @@ Before deriving an app-private project root or favicon from a portable
 `sourceDocument.path`, Markover must read the live file and verify it against
 the snapshot checksum. A missing or changed file yields no live repository
 evidence. Newly created and restored reviews use the same verified private
-project-root path before their first renderer publication.
+project-root path before their first renderer publication. A managed review
+with no verified project root remains unassigned; only unmanaged documents may
+fall back to their current source directory for grouping.
 
 `workspace.json` is the separate private `markover-workspace` family. It owns
 navigation and presentation state, including collapsed block IDs. Missing,

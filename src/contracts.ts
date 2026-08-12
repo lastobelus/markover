@@ -851,6 +851,7 @@ declare global {
     projectIdentity: (document: {
       path?: unknown
       projectRoot?: unknown
+      reviewId?: unknown
       tree?: unknown
     }) => ProjectIdentity
     relativeTimeRefreshDelay: (

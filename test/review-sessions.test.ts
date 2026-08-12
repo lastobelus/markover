@@ -318,6 +318,15 @@ test('project identity falls back to the source directory and then Other', () =>
   )
   assert.deepEqual(
     projectIdentity({
+      reviewId: 'mko_stale01',
+      path: '/tmp/stale-checkout/notes.md',
+      projectRoot: null,
+      tree: { review: { git: null } }
+    }),
+    { key: 'unassigned', name: 'Other', root: null }
+  )
+  assert.deepEqual(
+    projectIdentity({
       path: '/tmp/project/notes.md',
       tree: { review: { git: 'legacy metadata' } }
     }),

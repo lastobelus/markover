@@ -413,7 +413,15 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
   if (!nonblank(value.id) || !isRecord(value.threadHost)) {
     invalid('review.agentThread requires a provider thread ID and threadHost object.')
   }
-  for (const privateField of ['cwd', 'logPath', 'discovery', 'parentThreadId', 'forkedFromId']) {
+  for (const privateField of [
+    'cwd',
+    'logPath',
+    'discovery',
+    'parentThreadId',
+    'forkedFromId',
+    'title',
+    'name'
+  ]) {
     if (owns(value, privateField)) invalid(`review.agentThread must not contain private ${privateField} evidence.`)
   }
   requireKeys(value.threadHost, ['kind', 'provider'])
@@ -469,7 +477,12 @@ function assertPullRequest(
   if (!isRecord(value)) invalid('review.pullRequest must be an object or null.')
   requireKeys(value, ['number', 'url'])
   const identity = parseGitHubPullRequestUrl(value.url)
-  if (!identity || !positiveInteger(value.number) || identity.number !== value.number) {
+  if (
+    !identity ||
+    value.url !== identity.url ||
+    !positiveInteger(value.number) ||
+    identity.number !== value.number
+  ) {
     invalid('An associated pull request requires a canonical GitHub URL and matching positive number.')
   }
   const observation = pullRequestObservation(value)

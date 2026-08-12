@@ -30,6 +30,7 @@
     document: {
       path?: unknown
       projectRoot?: unknown
+      reviewId?: unknown
       tree?: unknown
     }
   ): ProjectIdentity {
@@ -40,7 +41,8 @@
     const configuredRoot = typeof document.projectRoot === 'string'
       ? document.projectRoot
       : null
-    const fallbackRoot = dirname(document.path)
+    const managed = typeof document.reviewId === 'string' && Boolean(document.reviewId)
+    const fallbackRoot = managed ? null : dirname(document.path)
     const root = (configuredRoot || fallbackRoot || '')
       .replace(/[\\/]+$/, '') || null
     return {
