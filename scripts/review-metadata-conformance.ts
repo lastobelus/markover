@@ -470,6 +470,15 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
   if (!evidenceIdPattern.test(evidenceId)) {
     throw new Error('Capture observation evidenceId has an invalid format.')
   }
+  const matrixEntryId = nonblank(
+    item.matrixEntryId,
+    'Capture observation matrixEntryId'
+  )
+  if (evidenceId.split('__')[1] !== matrixEntryId) {
+    throw new Error(
+      'Capture observation evidenceId slug must equal matrixEntryId.'
+    )
+  }
   const exercisedAt = nonblank(item.exercisedAt, 'Capture observation exercisedAt')
   if (!isCanonicalReviewTimestamp(exercisedAt)) {
     throw new Error('Capture observation exercisedAt must be a canonical UTC timestamp.')
@@ -529,7 +538,7 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     evidenceId,
     exercisedAt,
     limitations: stringArray(item.limitations, 'Capture observation limitations'),
-    matrixEntryId: nonblank(item.matrixEntryId, 'Capture observation matrixEntryId'),
+    matrixEntryId,
     runtime: parseRuntime(item.runtime, 'Capture observation runtime'),
     schemaVersion: evidenceSchemaVersion,
     sourceCommit,
