@@ -25,6 +25,7 @@ const runnerSourcePaths = [
   'scripts/review-metadata-conformance.ts',
   'src/pull-request.ts',
   'src/review-format.ts',
+  'tsconfig.build.json',
   'tsconfig.json'
 ]
 
