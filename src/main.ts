@@ -90,6 +90,7 @@ import {
   type ServiceIdentity
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
+import { WorkspaceStore } from './workspace-store'
 import { smokeReviewTree } from './smoke-fixture'
 import {
   developmentStartupControls,
@@ -207,6 +208,7 @@ let localServiceIdentity: ServiceIdentity | null = null
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
 let settingsUnsubscribe: (() => void) | null = null
+let workspaceStore: WorkspaceStore | null = null
 let zoomWriter: Promise<void> = Promise.resolve()
 let managedAutosave: ReviewAutosave | null = null
 let snapshotSequence = 0
@@ -1389,6 +1391,11 @@ function requireManagedAutosave(): ReviewAutosave {
   return managedAutosave
 }
 
+function requireWorkspaceStore(): WorkspaceStore {
+  if (!workspaceStore) throw new Error('Workspace state is unavailable.')
+  return workspaceStore
+}
+
 async function flushManagedReview(
   reviewId: string,
   action: 'handoff' | 'edit' | 'done'
@@ -1526,7 +1533,10 @@ async function runManagedDurabilityShutdown(): Promise<void> {
       return Promise.resolve()
     },
     waitForAttachments: () => managedAttachmentMutations.wait(),
-    flushAutosaves: () => requireManagedAutosave().flushAll(),
+    flushAutosaves: async () => {
+      await requireManagedAutosave().flushAll()
+      await requireWorkspaceStore().flush()
+    },
     closeService: stopPublishedService,
     resumeMutations: resumeManagedMutations
   })
@@ -1752,6 +1762,11 @@ if (!hasSingleInstanceLock) {
     )
     settingsStore = store
     const initialSettings = await store.load()
+    const privateWorkspaceStore = new WorkspaceStore(
+      path.join(app.getPath('userData'), 'workspace.json')
+    )
+    workspaceStore = privateWorkspaceStore
+    await privateWorkspaceStore.load()
     managedAutosave = new ReviewAutosave(requireReviewStore(), {
       maximumDelayMs: initialSettings.autosaveMaximumDelayMs,
       onFailure(reviewId, error) {
@@ -1779,6 +1794,12 @@ if (!hasSingleInstanceLock) {
       await recordStartupWarnings([{
         category: 'settings-recovered',
         subject: 'settings.json'
+      }])
+    }
+    if (privateWorkspaceStore.lastRecoveryWarning) {
+      await recordStartupWarnings([{
+        category: 'workspace-recovered',
+        subject: 'workspace.json'
       }])
     }
     await startupDiagnostic.complete('loading-settings')
@@ -1978,6 +1999,11 @@ if (!hasSingleInstanceLock) {
       installApplicationMenu()
       return envelope
     })
+    privilegedIpc.handle('workspace:get', () => privateWorkspaceStore.state)
+    privilegedIpc.handle('workspace:update', (
+      _event: IpcMainInvokeEvent,
+      state: MarkoverWorkspaceState
+    ) => privateWorkspaceStore.replace(state))
     privilegedIpc.handle('window:focus-state:get', currentWindowFocusState)
     privilegedIpc.handle('review:initial-document', () => (
       activeManagedReview && managedDocument(activeManagedReview)

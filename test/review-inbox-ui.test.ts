@@ -76,7 +76,7 @@ test('review activation opens a working-set tab without changing lifecycle state
 
   assert.match(
     renderer,
-    /async function activateReview\([\s\S]*openReviewIds\.add\(reviewId\)/
+    /async function activateReview\([\s\S]*openReviewTab\(reviewId\)/
   )
   assert.match(
     renderer,

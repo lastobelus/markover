@@ -50,7 +50,6 @@ test('projects annotations with only their ancestor context', () => {
   const root = fixture()
   const heading = root.children[0]
   assert.ok(heading)
-  heading.collapsed = true
   const projection = annotatedProjection(root)
   assert.deepEqual(
     projection.map((entry) => ({
@@ -162,15 +161,13 @@ test('reveals a selected annotation without changing unrelated collapse state', 
   const unrelated = root.children[2]
   assert.ok(branch)
   assert.ok(unrelated)
-  heading.collapsed = true
-  branch.collapsed = true
-  unrelated.collapsed = true
+  const collapsed = new Set([heading.id, branch.id, unrelated.id])
 
-  assert.equal(revealAnnotation(root, 'annotated-image'), true)
-  assert.equal(heading.collapsed, false)
-  assert.equal(branch.collapsed, false)
-  assert.equal(unrelated.collapsed, true)
-  assert.equal(revealAnnotation(root, 'annotated-image'), false)
+  assert.equal(revealAnnotation(root, 'annotated-image', collapsed), true)
+  assert.equal(collapsed.has(heading.id), false)
+  assert.equal(collapsed.has(branch.id), false)
+  assert.equal(collapsed.has(unrelated.id), true)
+  assert.equal(revealAnnotation(root, 'annotated-image', collapsed), false)
 })
 
 test('reveals an unannotated selected block hidden by collapsed ancestors', () => {
@@ -181,10 +178,9 @@ test('reveals an unannotated selected block hidden by collapsed ancestors', () =
   assert.ok(branch)
   const selected = node('plain-nested')
   branch.children.push(selected)
-  heading.collapsed = true
-  branch.collapsed = true
+  const collapsed = new Set([heading.id, branch.id])
 
-  assert.equal(revealAnnotation(root, selected.id), true)
-  assert.equal(heading.collapsed, false)
-  assert.equal(branch.collapsed, false)
+  assert.equal(revealAnnotation(root, selected.id, collapsed), true)
+  assert.equal(collapsed.has(heading.id), false)
+  assert.equal(collapsed.has(branch.id), false)
 })

@@ -35,7 +35,7 @@ import * as YAML from 'yaml'
   )
   type NodeDefaults = 'id' | 'feedback' | 'collapsed' | 'children'
   type NewNode<T extends ReviewNode> = Omit<T, NodeDefaults> &
-    Partial<Pick<T, 'collapsed' | 'children'>>
+    Partial<Pick<T, 'children'>> & { collapsed?: boolean }
 
   const markdown = MarkdownIt('commonmark', {
     html: false,

@@ -223,6 +223,8 @@ const bridge = {
   updateSettings: (patch) => (
     invoke('settings:update', patch)
   ),
+  getWorkspaceState: () => invoke('workspace:get'),
+  updateWorkspaceState: (state) => invoke('workspace:update', state),
   getWindowFocusState: () => invoke('window:focus-state:get'),
   onWindowFocusChanged: (callback) => {
     listen('window:focus-state', (state: MarkoverWindowFocusState) => {

@@ -37,7 +37,9 @@ export const runtimeModuleNames = [
   'settings-store',
   'smoke-fixture',
   'startup-contract',
-  'startup-diagnostic'
+  'startup-diagnostic',
+  'workspace-state',
+  'workspace-store'
 ] as const
 
 export const brandAssetNames = [

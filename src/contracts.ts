@@ -91,6 +91,41 @@ declare global {
     resolvedAppearance: ResolvedAppearance
   }
 
+  type WorkspaceNavigationMode = 'inbox' | 'projects'
+  type WorkspaceAnnotationView = 'selected' | 'list'
+
+  interface WorkspaceProjectExpansion {
+    projectKey: string
+    expanded: boolean
+  }
+
+  interface WorkspaceThreadExpansion {
+    projectKey: string
+    threadKey: string
+    expanded: boolean
+  }
+
+  interface WorkspaceReviewViewState {
+    selectedBlockId: string | null
+    annotatedOnly: boolean
+    annotationView: WorkspaceAnnotationView
+    sourceCollapsed: boolean
+    collapsedBlockIds: string[]
+  }
+
+  interface MarkoverWorkspaceState {
+    format: 'markover-workspace'
+    version: 1
+    initialized: boolean
+    navigationMode: WorkspaceNavigationMode
+    projectExpansion: WorkspaceProjectExpansion[]
+    threadExpansion: WorkspaceThreadExpansion[]
+    openReviewIds: string[]
+    activeReviewId: string | null
+    annotationPaneWidth: number | null
+    reviews: Record<string, WorkspaceReviewViewState>
+  }
+
   interface MarkoverSettingsApi {
     DEFAULT_SETTINGS: Readonly<MarkoverSettings>
     ZOOM_LEVELS: readonly ZoomPercent[]
@@ -204,7 +239,7 @@ declare global {
     lineStart: number
     lineEnd: number
     feedback: string
-    collapsed: boolean
+    collapsed?: boolean
     children: ReviewNode[]
     sourceEditable?: boolean
     attachments?: ReviewAttachment[]
@@ -381,7 +416,6 @@ declare global {
     children: AnnotationTreeNode[]
     feedback?: unknown
     attachments?: ReviewAttachment[]
-    collapsed?: boolean
   }
 
   interface AnnotationProjection<T extends AnnotationTreeNode = AnnotationTreeNode> {
@@ -561,6 +595,10 @@ declare global {
     autosaveReview: (reviewId: string, tree: ReviewTree) => void
     getSettings: () => Promise<MarkoverSettingsEnvelope>
     updateSettings: (patch: unknown) => Promise<MarkoverSettingsEnvelope>
+    getWorkspaceState: () => Promise<MarkoverWorkspaceState>
+    updateWorkspaceState: (
+      state: MarkoverWorkspaceState
+    ) => Promise<MarkoverWorkspaceState>
     getWindowFocusState: () => Promise<MarkoverWindowFocusState>
     onWindowFocusChanged: (
       callback: (state: MarkoverWindowFocusState) => void
@@ -619,6 +657,7 @@ declare global {
     annotatedOnly: boolean
     annotationView: 'selected' | 'list'
     sourceCollapsed: boolean
+    collapsedBlockIds: Set<string>
     sourceDrafts: Map<string, string>
     sourceEditingId: string | null
     attachmentPreviewUrls: Map<string, string>
@@ -713,7 +752,11 @@ declare global {
       selectedId: string | null,
       enabled: boolean
     ) => { enabled: boolean; selectedId: string | null }
-    revealAnnotation: (root: AnnotationTreeNode, id: string) => boolean
+    revealAnnotation: (
+      root: AnnotationTreeNode,
+      id: string,
+      collapsedBlockIds: Set<string>
+    ) => boolean
   }
 
   interface MarkoverImagePreviewApi {

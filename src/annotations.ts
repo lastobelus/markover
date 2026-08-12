@@ -105,14 +105,17 @@
     }
   }
 
-  function revealAnnotation(root: AnnotationTreeNode, id: string): boolean {
+  function revealAnnotation(
+    root: AnnotationTreeNode,
+    id: string,
+    collapsedBlockIds: Set<string>
+  ): boolean {
     let changed = false
     function reveal(node: AnnotationTreeNode): boolean {
       if (node.id === id) return true
       for (const child of node.children) {
         if (!reveal(child)) continue
-        if (node !== root && node.collapsed) {
-          node.collapsed = false
+        if (node !== root && collapsedBlockIds.delete(node.id)) {
           changed = true
         }
         return true

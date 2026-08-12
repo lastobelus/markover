@@ -198,6 +198,7 @@
         annotatedOnly: false,
         annotationView: 'selected',
         sourceCollapsed: false,
+        collapsedBlockIds: new Set(),
         sourceDrafts: new Map(),
         sourceEditingId: null,
         attachmentPreviewUrls: new Map()

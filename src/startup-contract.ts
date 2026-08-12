@@ -41,7 +41,11 @@ export interface StartupPhaseEvent {
 }
 
 export interface StartupWarning {
-  category: 'brand-fallback' | 'review-skipped' | 'settings-recovered'
+  category:
+    | 'brand-fallback'
+    | 'review-skipped'
+    | 'settings-recovered'
+    | 'workspace-recovered'
   subject: string
 }
 
@@ -53,7 +57,8 @@ export function isStartupWarning(value: unknown): value is StartupWarning {
   return (
     category === 'brand-fallback' ||
     category === 'review-skipped' ||
-    category === 'settings-recovered'
+    category === 'settings-recovered' ||
+    category === 'workspace-recovered'
   ) && typeof Reflect.get(value, 'subject') === 'string'
 }
 
