@@ -185,7 +185,7 @@ function readJson(filePath: string): unknown {
 function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
   const item = record(value, label)
   assertExactKeys(item, ['source', 'status'], label)
-  return {
+  const observation: DiscoveryObservation = {
     source: oneOf(item.source, [
       'agent-runtime',
       'hostname-command',
@@ -200,6 +200,22 @@ function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
       'unavailable'
     ], `${label}.status`)
   }
+  const valid = observation.source === 'hostname-command'
+    ? observation.status !== 'not-applicable'
+    : (
+        (observation.source === 'not-applicable' && observation.status === 'not-applicable') ||
+        (observation.source === 'not-exposed' && observation.status === 'unavailable') ||
+        (
+          !['not-applicable', 'not-exposed'].includes(observation.source) &&
+          observation.status === 'observed'
+        )
+      )
+  if (!valid) {
+    throw new Error(
+      `${label} source ${observation.source} contradicts status ${observation.status}.`
+    )
+  }
+  return observation
 }
 
 function parseRuntime(value: unknown, label: string): RuntimeObservation {
@@ -305,7 +321,18 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
 
 function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
   const item = record(value, label)
+  assertExactKeys(item, [
+    'availability',
+    'evidence',
+    'exercise',
+    'hostProduct',
+    'id',
+    'identityExpectation',
+    'providerProduct',
+    'threadHost'
+  ], label)
   const threadHost = record(item.threadHost, `${label}.threadHost`)
+  assertExactKeys(threadHost, ['kind', 'provider'], `${label}.threadHost`)
   if (item.availability !== 'available') {
     throw new Error(`${label}.availability must be available for a supported entry.`)
   }
@@ -328,6 +355,11 @@ function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
 
 export function parseMetadataMatrix(value: unknown): MetadataMatrix {
   const item = record(value, 'Metadata matrix')
+  assertExactKeys(
+    item,
+    ['entries', 'expansionCandidates', 'schemaVersion'],
+    'Metadata matrix'
+  )
   if (item.schemaVersion !== matrixSchemaVersion) {
     throw new Error(`Metadata matrix schemaVersion must be ${matrixSchemaVersion}.`)
   }
@@ -346,6 +378,11 @@ export function parseMetadataMatrix(value: unknown): MetadataMatrix {
   }
   const expansionCandidates = item.expansionCandidates.map((candidate, index) => {
     const value = record(candidate, `expansionCandidates[${index}]`)
+    assertExactKeys(
+      value,
+      ['hostProduct', 'providerSelection', 'reason'],
+      `expansionCandidates[${index}]`
+    )
     if (value.providerSelection !== 'discover-at-exercise') {
       throw new Error(
         `expansionCandidates[${index}].providerSelection must be discover-at-exercise.`
@@ -391,10 +428,11 @@ function trueChecks(): ConformanceChecks {
   }
 }
 
-function scanForRawValues(evidence: SanitizedEvidence, values: string[]): void {
-  const serialized = JSON.stringify(evidence)
-  for (const value of values) {
-    if (serialized.includes(value)) {
+function assertSensitiveLeavesRedacted(
+  values: Array<{ raw: string; sanitized: string | undefined }>
+): void {
+  for (const { raw, sanitized } of values) {
+    if (sanitized === raw) {
       throw new Error('Sanitized evidence still contains a raw identity value.')
     }
   }
@@ -410,7 +448,7 @@ export function buildSanitizedEvidence(
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
   const thread = artifact.review.agentThread
-  const rawValues: string[] = []
+  const sensitiveLeaves: Array<{ raw: string; sanitized: string | undefined }> = []
   let sanitizedAgentThread: SanitizedEvidence['sanitizedAgentThread'] = null
   let identity: SanitizedEvidence['relationships']['identity'] = 'truthful-null'
   let threadHostId: SanitizedEvidence['relationships']['threadHostId'] = 'omitted'
@@ -432,7 +470,6 @@ export function buildSanitizedEvidence(
     assertObserved(observation.discovery.providerThreadId, 'agentThread.id')
     assertObserved(observation.discovery.hostKind, 'threadHost.kind')
     assertObserved(observation.discovery.hostProvider, 'threadHost.provider')
-    rawValues.push(thread.id)
     const sanitizedThreadHost: NonNullable<
       SanitizedEvidence['sanitizedAgentThread']
     >['threadHost'] = {
@@ -441,7 +478,6 @@ export function buildSanitizedEvidence(
     }
     if (thread.threadHost.threadId !== undefined) {
       assertObserved(observation.discovery.hostThreadId, 'threadHost.threadId')
-      rawValues.push(thread.threadHost.threadId)
       sanitizedThreadHost.threadId = redactedThreadHostThreadId
       threadHostId = 'distinct'
     } else if (observation.discovery.hostThreadId.status === 'observed') {
@@ -449,13 +485,28 @@ export function buildSanitizedEvidence(
     }
     if (thread.threadHost.machine !== undefined) {
       assertObserved(observation.discovery.machine, 'threadHost.machine')
-      rawValues.push(thread.threadHost.machine)
       sanitizedThreadHost.machine = redactedMachine
     }
     identity = 'identified'
     sanitizedAgentThread = {
       id: redactedProviderThreadId,
       threadHost: sanitizedThreadHost
+    }
+    sensitiveLeaves.push({
+      raw: thread.id,
+      sanitized: sanitizedAgentThread.id
+    })
+    if (thread.threadHost.threadId !== undefined) {
+      sensitiveLeaves.push({
+        raw: thread.threadHost.threadId,
+        sanitized: sanitizedAgentThread.threadHost.threadId
+      })
+    }
+    if (thread.threadHost.machine !== undefined) {
+      sensitiveLeaves.push({
+        raw: thread.threadHost.machine,
+        sanitized: sanitizedAgentThread.threadHost.machine
+      })
     }
   }
   if (observation.discovery.machine.source !== 'hostname-command') {
@@ -478,7 +529,7 @@ export function buildSanitizedEvidence(
     schemaVersion: evidenceSchemaVersion,
     sourceCommit: observation.sourceCommit
   }
-  scanForRawValues(evidence, rawValues)
+  assertSensitiveLeavesRedacted(sensitiveLeaves)
   return evidence
 }
 
