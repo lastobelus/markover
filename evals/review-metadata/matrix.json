@@ -12,7 +12,9 @@
       "identityExpectation": "required",
       "availability": "available",
       "exercise": "exercises/t3code-codex.md",
-      "evidence": []
+      "evidence": [
+        "2026-08-12__t3code-codex__63d3f9fc"
+      ]
     },
     {
       "id": "t3code-claude",
@@ -25,7 +27,9 @@
       "identityExpectation": "required",
       "availability": "available",
       "exercise": "exercises/t3code-claude.md",
-      "evidence": []
+      "evidence": [
+        "2026-08-12__t3code-claude__2e5faa61"
+      ]
     },
     {
       "id": "claude-code-claude",
@@ -38,7 +42,9 @@
       "identityExpectation": "required",
       "availability": "available",
       "exercise": "exercises/claude-code-claude.md",
-      "evidence": []
+      "evidence": [
+        "2026-08-12__claude-code-claude__4e2259ed"
+      ]
     }
   ],
   "expansionCandidates": [
