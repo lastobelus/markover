@@ -559,8 +559,12 @@ inlineMarkdown.renderer.rules.image = (tokens, index) => {
 
 function openSourceImagePreview(source: string, label: string): void {
   const url = MarkoverImagePreview.sourceUrl(source)
+  if (!url) {
+    showToast('Preview unavailable in this session')
+    return
+  }
   openImagePreview({
-    ...(url ? { url } : {}),
+    url,
     label,
     id: MarkoverImagePreview.sourceLabel(source, '')
   })
