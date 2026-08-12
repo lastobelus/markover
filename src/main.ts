@@ -63,6 +63,8 @@ import { createLocalReview as persistLocalReview } from './local-review'
 import { discoverRepositoryRoot } from './metadata-discovery'
 import { openPublicLinkCommand } from './public-link-opener'
 import { type PublicLink, type PublicLinkId } from './public-links'
+import { discoverProjectFavicon } from './project-favicon'
+import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
 import {
   registerProtocolOnFirstLaunch,
@@ -233,6 +235,7 @@ const pendingStatuses = new Map<string, PendingStatus>()
 const pendingActivations = new Map<string, PendingActivation>()
 const pendingManagedReviewNotifications = new Map<string, ReviewArtifact>()
 const projectRoots = new Map<string, Promise<string | null>>()
+const projectFavicons = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
 const managedLocalReviewCreations = new AsyncMutationTracker()
 const reviewUrlDispatcher = new ReviewUrlDispatcher<PendingReviewUrl>(
@@ -1102,6 +1105,35 @@ function managedDocument(
   }
 }
 
+async function projectFavicon(reviewId: string): Promise<string | null> {
+  const artifact = await requireReviewStore().load(reviewId)
+  const root = repositoryRoot(artifact)
+  if (!root) return null
+  const resolvedRoot = path.resolve(root)
+  if (!projectFavicons.has(resolvedRoot)) {
+    projectFavicons.set(
+      resolvedRoot,
+      discoverProjectFavicon(resolvedRoot).catch((error: unknown) => {
+        projectFavicons.delete(resolvedRoot)
+        throw error
+      })
+    )
+  }
+  return await projectFavicons.get(resolvedRoot) as string | null
+}
+
+async function openReviewPullRequest(reviewId: string): Promise<void> {
+  const artifact = await requireReviewStore().load(reviewId)
+  const identity = reviewPullRequestIdentity(
+    artifact.review.pullRequest,
+    artifact.review.git
+  )
+  if (!identity) {
+    throw new Error(`Review ${reviewId} has no valid GitHub pull request.`)
+  }
+  await shell.openExternal(identity.url)
+}
+
 async function managedDocuments(
   artifacts: ReviewArtifact[]
 ): Promise<MarkoverDocument[]> {
@@ -1153,6 +1185,18 @@ function sendManagedReview(artifact: ReviewArtifact): void {
   if (!mainWindow) createWindow({ show: false })
   if (!mainWindow) throw new Error('Markover window could not be created.')
   flushPendingManagedReviewNotifications()
+}
+
+function sendManagedUpdate(artifact: ReviewArtifact): void {
+  if (activeManagedReviewId === artifact.review.id) {
+    activeManagedReview = artifact
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  sendMainEvent(
+    mainWindow.webContents,
+    'review:updated',
+    managedDocument(artifact)
+  )
 }
 
 function sendManagedStatus(artifact: ReviewArtifact): Promise<void> {
@@ -1405,7 +1449,12 @@ async function startAndPublishService(): Promise<void> {
         }
         return
       }
+      if (action === 'observed') {
+        sendManagedUpdate(artifact)
+        return
+      }
       await sendManagedStatus(artifact)
+      sendManagedUpdate(artifact)
     },
     onUnauthorized(event) {
       if (!store.settings.logRejectedApiRequests) return
@@ -1948,6 +1997,14 @@ if (!hasSingleInstanceLock) {
         throw error
       }
     })
+    privilegedIpc.handle('review:project-favicon:get', (
+      _event: IpcMainInvokeEvent,
+      reviewId: string
+    ) => projectFavicon(reviewId))
+    privilegedIpc.handle('review:pull-request:open', (
+      _event: IpcMainInvokeEvent,
+      reviewId: string
+    ) => openReviewPullRequest(reviewId))
     privilegedIpc.handle('review:context-menu:open', (
       event: IpcMainInvokeEvent,
       request: ReviewContextMenuRequest

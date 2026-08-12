@@ -27,6 +27,7 @@ export interface ReviewEnvelope {
   status: ReviewStatus
   createdAt: string
   updatedAt: string
+  attentionRequestedAt: string
   contextSummary: string
   agentThread: unknown
   git: unknown
@@ -190,6 +191,12 @@ function assertSourceEdits(node: unknown): void {
   for (const child of node.children) assertSourceEdits(child)
 }
 
+function isCanonicalTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value
+}
+
 export function assertReviewArtifact(
   artifact: unknown,
   reviewId: string
@@ -204,6 +211,7 @@ export function assertReviewArtifact(
   if (
     artifact.review.id !== reviewId ||
     !isReviewStatus(artifact.review.status) ||
+    !isCanonicalTimestamp(artifact.review.attentionRequestedAt) ||
     !isRecord(artifact.review.agentGuidance) ||
     typeof artifact.review.agentGuidance.fixedContract !== 'string' ||
     typeof artifact.review.agentGuidance.interpretationPolicy !== 'string'
@@ -479,6 +487,7 @@ export class ReviewStore {
             status: 'editing',
             createdAt: timestamp,
             updatedAt: timestamp,
+            attentionRequestedAt: timestamp,
             contextSummary,
             agentThread: cloneJson(agentThread),
             git: cloneJson(git),
@@ -873,6 +882,54 @@ export class ReviewStore {
     })
   }
 
+  async propagatePullRequestObservation(
+    source: ReviewArtifact
+  ): Promise<ReviewArtifact[]> {
+    const identity = reviewPullRequestIdentity(
+      source.review.pullRequest,
+      source.review.git
+    )
+    const observation = pullRequestObservation(source.review.pullRequest)
+    if (!identity || !observation) return []
+
+    const candidates = await this.matchingPullRequestReviews(identity.url)
+    const updated: ReviewArtifact[] = []
+    for (const candidate of candidates) {
+      if (candidate.review.id === source.review.id) continue
+      const propagated = await this.serialize(candidate.review.id, async () => {
+        const current = await this.read(candidate.review.id)
+        const currentIdentity = reviewPullRequestIdentity(
+          current.review.pullRequest,
+          current.review.git
+        )
+        const currentObservation = pullRequestObservation(
+          current.review.pullRequest
+        )
+        if (
+          currentIdentity?.repository !== identity.repository ||
+          currentIdentity.number !== identity.number ||
+          currentObservation?.statusObservedAt &&
+            currentObservation.statusObservedAt >= observation.statusObservedAt ||
+          current.review.status === 'done' && observation.status !== 'merged'
+        ) return null
+
+        const next = cloneJson(current)
+        next.review.pullRequest = {
+          ...(isRecord(next.review.pullRequest) ? next.review.pullRequest : {}),
+          number: identity.number,
+          url: identity.url,
+          status: observation.status,
+          statusObservedAt: observation.statusObservedAt,
+          statusSource: observation.statusSource
+        }
+        await this.write(candidate.review.id, next)
+        return cloneJson(next)
+      })
+      if (propagated) updated.push(propagated)
+    }
+    return updated
+  }
+
   async transition(
     reviewId: string,
     status: string,
@@ -900,6 +957,9 @@ export class ReviewStore {
       updated.review.status = status
       const timestamp = this.timestamp()
       updated.review.updatedAt = timestamp
+      if (current.review.status !== 'editing' && status === 'editing') {
+        updated.review.attentionRequestedAt = timestamp
+      }
       updated.review.pullRequest = observedPullRequest(
         current.review.pullRequest,
         pullRequestStatus,

@@ -88,6 +88,8 @@ export interface RendererInvokeArguments {
   'window:focus-state:get': []
   'review:initial-document': []
   'review:list': []
+  'review:project-favicon:get': [string]
+  'review:pull-request:open': [string]
   'review:context-menu:open': [ReviewContextMenuRequest]
   'attachment:remove': [AttachmentRemoveRequest]
 }
@@ -112,6 +114,8 @@ export interface RendererInvokeResults {
   'window:focus-state:get': MarkoverWindowFocusState
   'review:initial-document': MarkoverDocument | null
   'review:list': MarkoverDocument[]
+  'review:project-favicon:get': string | null
+  'review:pull-request:open': undefined
   'review:context-menu:open': undefined
   'attachment:remove': AttachmentRemoveResult
 }
@@ -132,6 +136,7 @@ export interface MainEventArguments {
   'settings:changed': [MarkoverSettingsEnvelope]
   'window:focus-state': [MarkoverWindowFocusState]
   'review:opened': [MarkoverDocument]
+  'review:updated': [MarkoverDocument]
   'review:status': [ReviewStatusRequest]
   'review:snapshot-request': [ReviewSnapshotRequest]
   'review:autosave-status': [ReviewAutosaveStatus]
@@ -310,6 +315,7 @@ function isReviewEnvelope(value: unknown): boolean {
   if (!hasExactKeys(value, ['id', 'status'], [
     'createdAt',
     'updatedAt',
+    'attentionRequestedAt',
     'contextSummary',
     'agentThread',
     'git',
@@ -326,6 +332,7 @@ function isReviewEnvelope(value: unknown): boolean {
     ) &&
     isOptionalString(value.createdAt) &&
     isOptionalString(value.updatedAt) &&
+    isOptionalString(value.attentionRequestedAt) &&
     isOptionalString(value.contextSummary) &&
     (value.agentGuidance === undefined || isAgentGuidance(value.agentGuidance))
 }
@@ -696,6 +703,10 @@ export function assertRendererInvokeArguments(
     case 'review:list':
       valid = noArguments(args)
       break
+    case 'review:project-favicon:get':
+    case 'review:pull-request:open':
+      valid = singleArgument(args, isReviewId)
+      break
     case 'startup:phase': valid = singleArgument(args, isStartupPhaseEvent); break
     case 'startup:renderer-initialized':
       valid = singleArgument(args, isRendererInitialization)
@@ -767,6 +778,7 @@ export function assertRendererInvokeResult(
     case 'startup:reveal-diagnostic':
     case 'smoke:result':
     case 'review:context-menu:open':
+    case 'review:pull-request:open':
       valid = value === undefined
       break
     case 'startup:renderer-initialized': valid = isStartupReady(value); break
@@ -798,6 +810,12 @@ export function assertRendererInvokeResult(
     case 'review:list':
       valid = Array.isArray(value) && value.every(isDocument)
       break
+    case 'review:project-favicon:get':
+      valid = value === null || (
+        typeof value === 'string' &&
+        /^data:image\/(?:png|x-icon|svg\+xml);base64,[A-Za-z0-9+/]+=*$/.test(value)
+      )
+      break
   }
   if (!valid) throw new IpcContractError(channel, 'main-to-renderer result')
 }
@@ -814,7 +832,10 @@ export function assertMainEventArguments(
       break
     case 'settings:changed': valid = singleArgument(args, isSettingsEnvelope); break
     case 'window:focus-state': valid = singleArgument(args, isWindowFocusState); break
-    case 'review:opened': valid = singleArgument(args, isDocument); break
+    case 'review:opened':
+    case 'review:updated':
+      valid = singleArgument(args, isDocument)
+      break
     case 'review:status': valid = singleArgument(args, isReviewStatusRequest); break
     case 'review:snapshot-request':
       valid = singleArgument(args, isReviewSnapshotRequest)

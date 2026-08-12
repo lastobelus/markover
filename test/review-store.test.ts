@@ -133,6 +133,10 @@ test('handoff freezes an idempotent snapshot', async (t) => {
 
   assert.equal(handedOff.review.status, 'pending-agent')
   assert.equal(handedOff.review.updatedAt, '2026-07-30T20:01:00.000Z')
+  assert.equal(
+    handedOff.review.attentionRequestedAt,
+    '2026-07-30T20:00:00.000Z'
+  )
   assert.deepEqual(retry, handedOff)
   assert.deepEqual(await store.load(created.review.id), handedOff)
 })
@@ -159,6 +163,10 @@ test('edit returns a pending review to editing and is idempotent', async (t) => 
 
   assert.equal(editing.review.status, 'editing')
   assert.equal(editing.review.updatedAt, '2026-07-30T20:02:00.000Z')
+  assert.equal(
+    editing.review.attentionRequestedAt,
+    '2026-07-30T20:02:00.000Z'
+  )
   assert.deepEqual(retry, editing)
 })
 
@@ -272,6 +280,61 @@ test('an omitted PR observation preserves the last successful value', async (t) 
   const revised = await store.revise(created.review.id)
   assert.deepEqual(revised.review.pullRequest, observed)
   assert.equal(revised.review.updatedAt, '2026-08-10T02:12:00.000Z')
+})
+
+test('a newer PR observation propagates to matching reviews without lifecycle churn', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222', 'mko_ccc33333']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string,
+    now: () => '2026-08-10T03:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const older = await store.create({
+    tree: tree('# Older\n'),
+    contextSummary: 'Older matching review.',
+    git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
+    pullRequest: {
+      number: 123,
+      status: 'draft',
+      statusObservedAt: '2026-08-10T01:00:00.000Z',
+      statusSource: 'agent'
+    }
+  })
+  const unrelated = await store.create({
+    tree: tree('# Other\n'),
+    contextSummary: 'Same PR number in another repository.',
+    git: { repositoryUrl: 'git@github.com:openai/markover.git' },
+    pullRequest: { number: 123 }
+  })
+  const source = await store.create({
+    tree: tree('# Current\n'),
+    contextSummary: 'Newest matching observation.',
+    git: { repositoryUrl: 'https://github.com/Lastobelus/Markover' },
+    pullRequest: {
+      number: 123,
+      status: 'open',
+      statusObservedAt: '2026-08-10T02:00:00.000Z',
+      statusSource: 'agent'
+    }
+  })
+
+  const propagated = await store.propagatePullRequestObservation(source)
+  assert.deepEqual(propagated.map((review) => review.review.id), [older.review.id])
+  const refreshed = await store.load(older.review.id)
+  assert.equal(refreshed.review.updatedAt, older.review.updatedAt)
+  assert.deepEqual(refreshed.review.pullRequest, {
+    number: 123,
+    url: 'https://github.com/lastobelus/markover/pull/123',
+    status: 'open',
+    statusObservedAt: '2026-08-10T02:00:00.000Z',
+    statusSource: 'agent'
+  })
+  assert.deepEqual((await store.load(unrelated.review.id)).review.pullRequest, {
+    number: 123,
+    url: 'https://github.com/openai/markover/pull/123'
+  })
+  assert.deepEqual(await store.propagatePullRequestObservation(older), [])
 })
 
 test('requires canonical PR identity and complete lifecycle observations', async (t) => {
@@ -429,6 +492,10 @@ test('tree updates are allowed only while editing', async (t) => {
   assert.equal(updatedHeading.collapsed, true)
   assert.equal(attachment(updatedHeading).id, 'img-1')
   assert.equal(updated.review.contextSummary, 'Check updates.')
+  assert.equal(
+    updated.review.attentionRequestedAt,
+    created.review.attentionRequestedAt
+  )
 
   await store.handoff(created.review.id)
   await assert.rejects(

@@ -46,6 +46,10 @@ test('persisted review creation does not wait for renderer notification', () => 
   )
   assert.doesNotMatch(onChange, /await sendManagedReview\(artifact\)/)
   assert.match(onChange, /await sendManagedStatus\(artifact\)/)
+  assert.match(
+    onChange,
+    /await sendManagedStatus\(artifact\)[\s\S]*sendManagedUpdate\(artifact\)/
+  )
 })
 
 test('native window focus state reaches the renderer without activating Markover', () => {

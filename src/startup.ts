@@ -28,6 +28,7 @@ export function installStartup({
     olive: 'low'
   }
   const parameters = new URLSearchParams(startupWindow.location.search)
+  const inboxPrototypeRequested = parameters.get('inboxPrototype') === '1'
   const bridge = startupWindow.markover
   const requestedPalette = parameters.get('palette') || ''
   const palette = palettes.has(requestedPalette) ? requestedPalette : 'ember'
@@ -92,6 +93,11 @@ export function installStartup({
   const api: MarkoverStartupUi = {
     development(value) {
       development = value
+      if (development && inboxPrototypeRequested) {
+        startupDocument.documentElement.dataset.inboxPrototype = 'true'
+      } else {
+        delete startupDocument.documentElement.dataset.inboxPrototype
+      }
       refresh()
     },
     phase(value) {
@@ -145,6 +151,21 @@ export function installStartup({
   }
   startupWindow.addEventListener('error', failEarly)
   startupWindow.addEventListener('unhandledrejection', failEarly)
+  if (inboxPrototypeRequested && !bridge) {
+    const revealStandalonePrototype = (): void => {
+      api.development(true)
+      api.ready()
+    }
+    if (startupDocument.readyState === 'loading') {
+      startupDocument.addEventListener(
+        'DOMContentLoaded',
+        revealStandalonePrototype,
+        { once: true }
+      )
+    } else {
+      revealStandalonePrototype()
+    }
+  }
   schedule(() => {
     if (startupDocument.documentElement.dataset.startup) return
     const status = element('startup-status')

@@ -87,7 +87,7 @@ put the reliable Terminal fallback on its own line:
 
 `open 'markover://review/mko_8f3a2c'`
 
-Custom-scheme Markdown links depend on the host; T3 Code and Codex do not
+Custom-scheme Markdown links depend on the thread-host; T3 Code and the Codex app do not
 currently dispatch them. Then stop. See the dedicated [agent
 workflow](https://lastobelus.github.io/markover/agents/) for retrieval,
 reopening, and interpretation guidance.

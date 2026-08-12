@@ -243,6 +243,22 @@ test('reviews group by repository basename in project recency order', () => {
 test('project identity falls back to the source directory and then Other', () => {
   assert.deepEqual(
     projectIdentity({
+      path: '/tmp/project/notes.md',
+      projectRoot: '/Users/example/.t3/worktrees/markover/t3code-b7c2aba1',
+      tree: {
+        review: {
+          git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' }
+        }
+      }
+    }),
+    {
+      key: '/Users/example/.t3/worktrees/markover/t3code-b7c2aba1',
+      name: 'markover',
+      root: '/Users/example/.t3/worktrees/markover/t3code-b7c2aba1'
+    }
+  )
+  assert.deepEqual(
+    projectIdentity({
       path: '/tmp/fallback/notes.md',
       projectRoot: '/Users/example/projects/markover',
       tree: {}
@@ -287,6 +303,7 @@ test('persisted review artifacts satisfy the browser session boundary', () => {
       status: 'editing',
       createdAt: '2026-08-03T12:00:00.000Z',
       updatedAt: '2026-08-03T12:00:00.000Z',
+      attentionRequestedAt: '2026-08-03T12:00:00.000Z',
       contextSummary: 'Review the stored document.',
       agentThread: null,
       git: 'legacy metadata',

@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom'
 
 import { installStartup } from '../src/startup'
 
-function view(search = ''): {
+function view(search = '', bridge = true): {
   actions: { copied: number; quit: number; reported: number; revealed: number }
   dom: JSDOM
   fireSlow: () => void
@@ -23,21 +23,23 @@ function view(search = ''): {
     <span id="instance-badge" hidden></span>
   </body></html>`, { url: `file:///app/index.html${search}` })
   const actions = { copied: 0, quit: 0, reported: 0, revealed: 0 }
-  ;(dom.window as unknown as Window).markover = {
-    copyStartupDiagnostic: () => {
-      actions.copied += 1
-      return Promise.resolve()
-    },
-    quitStartup: () => { actions.quit += 1 },
-    reportStartupFailure: () => {
-      actions.reported += 1
-      return Promise.resolve({ diagnosticAvailable: true })
-    },
-    revealStartupDiagnostic: () => {
-      actions.revealed += 1
-      return Promise.resolve()
-    }
-  } as unknown as MarkoverBridge
+  if (bridge) {
+    ;(dom.window as unknown as Window).markover = {
+      copyStartupDiagnostic: () => {
+        actions.copied += 1
+        return Promise.resolve()
+      },
+      quitStartup: () => { actions.quit += 1 },
+      reportStartupFailure: () => {
+        actions.reported += 1
+        return Promise.resolve({ diagnosticAvailable: true })
+      },
+      revealStartupDiagnostic: () => {
+        actions.revealed += 1
+        return Promise.resolve()
+      }
+    } as unknown as MarkoverBridge
+  }
   let slow: (() => void) | null = null
   const startup = installStartup({
     document: dom.window.document,
@@ -98,6 +100,43 @@ test('development shows phases while release remains generic', () => {
   assert.equal(
     release.dom.window.document.querySelector('#startup-detail')?.textContent,
     ''
+  )
+})
+
+test('the inbox fixture gate is development-only and explicitly requested', () => {
+  const development = view('?inboxPrototype=1')
+  assert.equal(
+    development.dom.window.document.documentElement.dataset.inboxPrototype,
+    undefined
+  )
+  development.startup.development(true)
+  assert.equal(
+    development.dom.window.document.documentElement.dataset.inboxPrototype,
+    'true'
+  )
+
+  const release = view('?inboxPrototype=1')
+  release.startup.development(false)
+  assert.equal(
+    release.dom.window.document.documentElement.dataset.inboxPrototype,
+    undefined
+  )
+
+  const ordinaryDevelopment = view()
+  ordinaryDevelopment.startup.development(true)
+  assert.equal(
+    ordinaryDevelopment.dom.window.document.documentElement.dataset.inboxPrototype,
+    undefined
+  )
+
+  const standalone = view('?inboxPrototype=1', false)
+  assert.equal(
+    standalone.dom.window.document.documentElement.dataset.inboxPrototype,
+    'true'
+  )
+  assert.equal(
+    standalone.dom.window.document.documentElement.dataset.startup,
+    'ready'
   )
 })
 

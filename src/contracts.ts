@@ -1,12 +1,4 @@
 import type {
-  FileTree,
-  FileTreeDirectoryHandle,
-  FileTreeIcons,
-  FileTreeItemHandle,
-  FileTreeSortEntry,
-  RemappedIcon
-} from '@pierre/trees' with { 'resolution-mode': 'import' }
-import type {
   RendererInitialization,
   RendererSmokeResult,
   RendererStartupFailure,
@@ -39,13 +31,6 @@ declare global {
     fail: (diagnosticAvailable?: boolean) => void
   }
   type MarkoverDiffStats = DiffStats
-  type MarkoverFileTreeConstructor = typeof FileTree
-  type MarkoverFileTreeDirectoryHandle = FileTreeDirectoryHandle
-  type MarkoverFileTreeIcons = FileTreeIcons
-  type MarkoverFileTreeItemHandle = FileTreeItemHandle
-  type MarkoverFileTreeSortEntry = FileTreeSortEntry
-  type MarkoverRemappedIcon = RemappedIcon
-
   type Palette = 'ember' | 'ocean' | 'olive'
   type Appearance = 'system' | 'light' | 'dark'
   type ResolvedAppearance = 'light' | 'dark'
@@ -544,8 +529,13 @@ declare global {
     }>
     getInitialReview: () => Promise<MarkoverDocument | null>
     getReviews: () => Promise<MarkoverDocument[]>
+    getProjectFavicon: (reviewId: string) => Promise<string | null>
+    openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: { reviewId: string }) => Promise<void>
     onReviewOpened: (
+      callback: (document: MarkoverDocument) => void | Promise<void>
+    ) => void
+    onReviewUpdated: (
       callback: (document: MarkoverDocument) => void | Promise<void>
     ) => void
     onReviewTrashed: (callback: (event: { reviewId: string }) => void) => void
@@ -586,6 +576,7 @@ declare global {
     status: ReviewSessionStatus
     createdAt?: string
     updatedAt?: string
+    attentionRequestedAt?: string
     contextSummary?: string
     agentThread?: unknown
     git?: unknown
@@ -620,6 +611,8 @@ declare global {
     projectKey: string
     projectName: string
     projectRoot: string | null
+    attentionRequestedAt: number
+    lifecycleActivityAt: number
     lastViewedOrder: number
     lastViewedAt: number
     selectedId: string | null
@@ -654,6 +647,7 @@ declare global {
       reviewId: string,
       status: ReviewSessionEnvelope['status']
     ): ReviewSession | null
+    updateDocument(document: ReviewSessionDocument): ReviewSession | null
     adjacent(reviewId: string, offset: number): ReviewSession | null
     list(): ReviewSession[]
     recent(limit?: number): ReviewSession[]

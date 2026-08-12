@@ -453,7 +453,7 @@ each choice from that baseline without duplicating the live decisions below.
    canonical form is `markover://review/<id>`; isolated development instances
    use their own explicit schemes. Links focus Markover and apply the user's
    review-link activation policy without mutating the review. Because agent
-   hosts may not dispatch custom schemes, the standalone
+   thread-hosts may not dispatch custom schemes, the standalone
    `open '<reviewUrl>'` Terminal command is the reliable handoff.
 
    **Audit — Retain.** The complete activation path landed under issue

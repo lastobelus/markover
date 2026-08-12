@@ -87,6 +87,7 @@ function artifact(reviewId: string, snapshot: ReviewTree): ReviewArtifact {
       status: 'editing',
       createdAt: '2026-08-05T00:00:00.000Z',
       updatedAt: '2026-08-05T00:00:00.000Z',
+      attentionRequestedAt: '2026-08-05T00:00:00.000Z',
       contextSummary: 'Autosave test.',
       agentThread: null,
       git: null,

@@ -48,6 +48,7 @@ function reviewArtifact(reviewId: string): ReviewArtifact {
       status: 'editing',
       createdAt: '2026-08-06T12:00:00.000Z',
       updatedAt: '2026-08-06T12:00:00.000Z',
+      attentionRequestedAt: '2026-08-06T12:00:00.000Z',
       contextSummary: 'Packaged smoke',
       agentThread: null,
       git: null,

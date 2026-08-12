@@ -20,13 +20,27 @@ import {
 } from './incoming-review-policy'
 import * as MarkoverImagePreview from './image-preview'
 import { internalAttachmentUrl } from './internal-url'
+import {
+  markoverIcon,
+  replaceMarkoverIcon,
+  type MarkoverIconName
+} from './lucide-icons'
 import * as MarkoverNavigation from './navigation'
+import {
+  providerIcon,
+  threadHostIcon,
+  type ReviewRegistryIcon
+} from './review-icon-registry'
+import {
+  projectReviewInbox,
+  type ReviewInboxProject,
+  type ReviewInboxRow,
+  type ReviewInboxThread
+} from './review-inbox'
 import * as MarkoverReviewSessions from './review-sessions'
 import * as MarkoverSettings from './settings'
 import * as MarkoverSourceEdits from './source-edits'
 import * as MarkoverTree from './tree'
-
-type FileTreeModel = InstanceType<MarkoverFileTreeConstructor>
 
 interface RendererState {
   attachmentPreviewUrls: Map<string, string>
@@ -42,17 +56,6 @@ interface RendererState {
   sourceDrafts: Map<string, string>
   sourceEditingId: string | null
   tree: ReviewTree | null
-}
-
-interface DocumentsListProjection {
-  decorations: Map<string, string>
-  icons: MarkoverFileTreeIcons
-  paths: string[]
-  pathToReviewId: Map<string, string>
-  projectPaths: string[]
-  reviewIdToPath: Map<string, string>
-  sortOrder: Map<string, number>
-  statuses: Map<string, ReviewSessionStatus>
 }
 
 function requiredElement<T extends Element = HTMLElement>(selector: string): T {
@@ -83,12 +86,6 @@ function isReviewSessionTree(tree: ReviewTree): tree is ReviewSessionTree {
   return isRecord(review) &&
     typeof review.id === 'string' &&
     isReviewStatus(review.status)
-}
-
-function isDirectoryHandle(
-  item: MarkoverFileTreeItemHandle | null
-): item is MarkoverFileTreeDirectoryHandle {
-  return item?.isDirectory() === true
 }
 
 function metadataRecord(value: unknown): Record<string, unknown> {
@@ -172,11 +169,17 @@ const elements = {
   reviewContextFields: requiredElement('#review-context-fields'),
   reviewContextSummary: requiredElement('#review-context-summary'),
   reviewContextTitle: requiredElement('#review-context-title'),
+  reviewHoverCard: requiredElement('#review-hover-card'),
   documentsListCollapse: requiredElement<HTMLButtonElement>('#documents-list-collapse'),
   documentsListOpen: requiredElement<HTMLButtonElement>('#documents-list-open'),
   documentsListResizer: requiredElement('#documents-list-resizer'),
   documentsListSidebar: requiredElement('#documents-list-sidebar'),
   documentsListTree: requiredElement('#documents-list-tree'),
+  reviewInboxCount: requiredElement('#review-inbox-count'),
+  reviewListCount: requiredElement('#review-list-count'),
+  reviewNavigationInbox: requiredElement<HTMLButtonElement>('#review-navigation-inbox'),
+  reviewNavigationProjects: requiredElement<HTMLButtonElement>('#review-navigation-projects'),
+  reviewTabStrip: requiredElement('#review-tab-strip'),
   emptyWorkspaceLockup: requiredElement<HTMLImageElement>('#empty-workspace-lockup'),
   fixedContractClose: requiredElement<HTMLButtonElement>('#fixed-contract-close'),
   fixedContractDialog: requiredElement<HTMLDialogElement>('#fixed-contract-dialog'),
@@ -190,6 +193,9 @@ const elements = {
   settingsReset: requiredElement<HTMLButtonElement>('#settings-reset'),
   workspace: requiredElement('#workspace')
 }
+
+replaceMarkoverIcon(elements.documentsListCollapse, 'panel-left-close')
+replaceMarkoverIcon(elements.documentsListOpen, 'panel-left')
 
 const state: RendererState = {
   attachmentPreviewUrls: new Map<string, string>(),
@@ -209,20 +215,19 @@ const state: RendererState = {
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
 const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
 const MAX_VISIBLE_TABS = 6
-let DocumentsListFileTree: MarkoverFileTreeConstructor | null = null
-let documentsListModel: FileTreeModel | null = null
-let documentsListObserver: MutationObserver | null = null
+const INBOX_HISTORY_PAGE_SIZE = 10
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
+let reviewHoverTimer: ReturnType<typeof setTimeout> | null = null
 let documentsListCollapsed = false
 let localOpenInProgress = false
-let documentsListWidth = 248
+let documentsListWidth = 390
 let annotationPaneWidth: number | null = null
-let documentsListPathToReviewId = new Map<string, string>()
-let documentsListReviewIdToPath = new Map<string, string>()
-let documentsListSortOrder = new Map<string, number>()
-let documentsListDecorations = new Map<string, string>()
-let documentsListProjectPaths: string[] = []
-let documentsListStatuses = new Map<string, ReviewSessionStatus>()
+let reviewNavigationMode: 'inbox' | 'projects' = 'inbox'
+let inboxHistoryLimit = INBOX_HISTORY_PAGE_SIZE
+const projectExpansion = new Map<string, boolean>()
+const threadExpansion = new Map<string, boolean>()
+const projectFaviconLoads = new Map<string, Promise<string | null>>()
+const openReviewIds = new Set<string>()
 let brandAssetSources: MarkoverBrandAssets | null = null
 let brandAssetLoad: Promise<MarkoverBrandAssets | null> | null = null
 let brandFallbackUsed = false
@@ -273,17 +278,6 @@ window.addEventListener('unhandledrejection', (event) => {
   smokeRuntimeDiagnostics.push(`unhandledrejection: ${String(event.reason)}`)
 }, true)
 
-const documentsListReady = import('@pierre/trees')
-  .then(({ FileTree }) => {
-    DocumentsListFileTree = FileTree
-    renderDocumentsList()
-  })
-  .catch((error: unknown) => {
-    console.error('Failed to load documents list tree', error)
-    elements.documentsListTree.textContent = `Documents list unavailable: ${error instanceof Error ? error.message : String(error)}`
-    throw error
-  })
-
 const BRIDGE_METHODS = [
   'activateReview',
   'autosaveReview',
@@ -294,11 +288,13 @@ const BRIDGE_METHODS = [
   'getBrandAssets',
   'getInitialReview',
   'getReviews',
+  'getProjectFavicon',
   'getSettings',
   'getStartupInfo',
   'getWindowFocusState',
   'onOpenMarkdownRequested',
   'onReviewOpened',
+  'onReviewUpdated',
   'onReviewTrashed',
   'onReviewSnapshotRequested',
   'onReviewStatus',
@@ -306,6 +302,7 @@ const BRIDGE_METHODS = [
   'onSettingsOpen',
   'onWindowFocusChanged',
   'openMarkdown',
+  'openPullRequest',
   'openReviewContextMenu',
   'readClipboardImage',
   'reportRendererInitialized',
@@ -578,7 +575,7 @@ function setWorkspaceEmpty(empty: boolean): void {
   elements.appHeader.classList.toggle('is-empty', empty)
   elements.emptyWorkspace.hidden = !empty
   elements.workspace.hidden = empty
-  elements.documentTabs.hidden = empty || !reviewSessions.list().length
+  elements.reviewTabStrip.hidden = empty || !reviewSessions.list().length
   if (!empty) {
     requestAnimationFrame(() => {
       applyDocumentsListWidth()
@@ -755,7 +752,10 @@ function renderNode(
   if (entry.children.length && !state.annotatedOnly) {
     const disclosure = document.createElement('button')
     disclosure.className = 'disclosure'
-    disclosure.textContent = node.collapsed ? '▶' : '▼'
+    replaceMarkoverIcon(
+      disclosure,
+      node.collapsed ? 'chevron-right' : 'chevron-down'
+    )
     disclosure.title = node.collapsed ? 'Expand block' : 'Collapse block'
     disclosure.addEventListener('click', (event) => {
       event.stopPropagation()
@@ -1338,7 +1338,7 @@ function beginSourceEdit(node: ReviewNode): void {
   MarkoverSourceEdits.begin(state, node)
   state.sourceCollapsed = false
   elements.sourceToggle.setAttribute('aria-expanded', 'true')
-  elements.sourceToggleIcon.textContent = '▼'
+  replaceMarkoverIcon(elements.sourceToggleIcon, 'chevron-down')
   renderSourcePanel(node)
   requestAnimationFrame(() => {
     elements.sourceEditor.focus()
@@ -1925,176 +1925,14 @@ function closeReviewContext(restoreFocus = true): void {
   scheduleIncomingReviewNoticeDismissal()
 }
 
-function treePathSegment(value: string): string {
-  return value
-    .replace(/[\\/]/g, '∕')
-    // Control characters cannot form a useful user-facing path segment.
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f]/g, '')
-    .trim() || 'Untitled'
-}
-
-const DOCUMENT_STATUS_SPRITE = `
-  <svg xmlns="http://www.w3.org/2000/svg" data-icon-sprite aria-hidden="true" width="0" height="0">
-    <symbol id="markover-status-editing" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="var(--status-editing)" stroke="var(--status-outline)" stroke-width="0.75" />
-    </symbol>
-    <symbol id="markover-status-pending" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="var(--status-pending)" stroke="var(--status-outline)" stroke-width="0.75" />
-    </symbol>
-    <symbol id="markover-status-revised" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="var(--status-revised)" stroke="var(--status-outline)" stroke-width="0.75" />
-    </symbol>
-    <symbol id="markover-status-done" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="var(--status-done)" stroke="var(--status-outline)" stroke-width="0.75" />
-    </symbol>
-    <symbol id="markover-status-progress" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="var(--status-progress)" stroke="var(--status-outline)" stroke-width="0.75" />
-    </symbol>
-    <symbol id="markover-status-other" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="var(--status-other)" stroke="var(--status-outline)" stroke-width="0.75" />
-    </symbol>
-  </svg>
-`
-
-function documentsListStatusIcon(status: ReviewSessionStatus): string {
-  if (status === 'editing') return 'markover-status-editing'
-  if (status === 'pending-agent') return 'markover-status-pending'
-  if (status === 'revised') return 'markover-status-revised'
-  if (status === 'done') return 'markover-status-done'
-  return 'markover-status-progress'
-}
-
-function buildDocumentsListProjection(): DocumentsListProjection {
-  const groups = reviewSessions.projectGroups()
-  const nameCounts = new Map<string, number>()
-  for (const group of groups) {
-    nameCounts.set(group.name, (nameCounts.get(group.name) || 0) + 1)
-  }
-  const duplicateIndices = new Map<string, number>()
-  for (const name of nameCounts.keys()) {
-    const matches = groups
-      .filter((group) => group.name === name)
-      .sort((left, right) => left.key.localeCompare(right.key))
-    matches.forEach((group, index) => duplicateIndices.set(group.key, index + 1))
-  }
-  const paths: string[] = []
-  const projectPaths: string[] = []
-  const pathToReviewId = new Map<string, string>()
-  const reviewIdToPath = new Map<string, string>()
-  const sortOrder = new Map<string, number>()
-  const decorations = new Map<string, string>()
-  const statuses = new Map<string, ReviewSessionStatus>()
-  const byFileName: Record<string, MarkoverRemappedIcon> = {}
-
-  groups.forEach((group, groupIndex) => {
-    const duplicateSuffix = (nameCounts.get(group.name) ?? 0) > 1
-      ? ` · ${duplicateIndices.get(group.key)}`
-      : ''
-    const projectPath = `${treePathSegment(group.name)}${duplicateSuffix}/`
-    projectPaths.push(projectPath)
-    sortOrder.set(projectPath, groupIndex)
-
-    group.sessions.forEach((session, sessionIndex) => {
-      const leaf = `${treePathSegment(session.documentName)} · ${session.reviewId.slice(4)}`
-      const path = `${projectPath}${leaf}`
-      const status = session.tree.review.status
-      paths.push(path)
-      pathToReviewId.set(path, session.reviewId)
-      reviewIdToPath.set(session.reviewId, path)
-      sortOrder.set(path, sessionIndex)
-      decorations.set(
-        path,
-        MarkoverReviewSessions.formatRelativeTime(session.lastViewedAt)
-      )
-      statuses.set(path, status)
-      byFileName[leaf.toLowerCase()] = {
-        name: documentsListStatusIcon(status),
-        width: 10,
-        height: 10,
-        viewBox: '0 0 10 10'
-      }
-    })
-  })
-
-  return {
-    decorations,
-    icons: {
-      set: 'minimal',
-      colored: false,
-      spriteSheet: DOCUMENT_STATUS_SPRITE,
-      byFileName
-    },
-    paths,
-    pathToReviewId,
-    projectPaths,
-    reviewIdToPath,
-    sortOrder,
-    statuses
-  }
-}
-
-function documentsListSort(
-  left: MarkoverFileTreeSortEntry,
-  right: MarkoverFileTreeSortEntry
-): number {
-  const leftRank = documentsListSortOrder.get(left.path) ?? Number.MAX_SAFE_INTEGER
-  const rightRank = documentsListSortOrder.get(right.path) ?? Number.MAX_SAFE_INTEGER
-  return leftRank - rightRank || left.basename.localeCompare(right.basename)
-}
-
-function applyDocumentsListRowMetadata(): void {
-  const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
-  if (!shadowRoot) return
-  for (const row of shadowRoot.querySelectorAll<HTMLElement>(
-    'button[data-item-type="file"][data-item-path]'
-  )) {
-    const itemPath = row.dataset.itemPath
-    const status = itemPath ? documentsListStatuses.get(itemPath) : undefined
-    const icon = row.querySelector<HTMLElement>('[data-item-section="icon"]')
-    const content = row.querySelector<HTMLElement>('[data-item-section="content"]')
-    if (icon && status) icon.title = reviewStatusLabel(status)
-    if (content) {
-      content.dataset.documentsListLabel = row.getAttribute('aria-label') || ''
-    }
-    if (itemPath && !row.dataset.markoverContextMenu) {
-      row.dataset.markoverContextMenu = 'true'
-      row.addEventListener('contextmenu', (event) => {
-        const reviewId = documentsListPathToReviewId.get(itemPath)
-        if (!reviewId) return
-        event.preventDefault()
-        void bridge.openReviewContextMenu({ reviewId }).catch(
-          (error: unknown) => {
-            showToast(error instanceof Error ? error.message : String(error))
-          }
-        )
-      })
-    }
-  }
-}
-
-function scheduleDocumentsListRowMetadata(): void {
-  requestAnimationFrame(applyDocumentsListRowMetadata)
-}
-
-function observeDocumentsListRows(): void {
-  if (documentsListObserver) return
-  const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
-  if (!shadowRoot) return
-  documentsListObserver = new MutationObserver(
-    scheduleDocumentsListRowMetadata
-  )
-  documentsListObserver.observe(shadowRoot, {
-    childList: true,
-    subtree: true
-  })
-}
-
 function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
   if (documentsListClockTimer) clearTimeout(documentsListClockTimer)
   documentsListClockTimer = null
   const delay = MarkoverReviewSessions.relativeTimeRefreshDelay(
-    sessions.map((session) => session.lastViewedAt)
+    sessions.flatMap((session) => [
+      session.attentionRequestedAt,
+      session.lifecycleActivityAt
+    ])
   )
   if (delay === null) return
   documentsListClockTimer = setTimeout(() => {
@@ -2103,167 +1941,630 @@ function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
   }, delay)
 }
 
-function selectActiveReviewInDocumentsList(): void {
-  if (!documentsListModel || !state.reviewId) return
-  const activePath = documentsListReviewIdToPath.get(state.reviewId)
-  if (!activePath) return
-  const activeProjectPath = activePath.slice(0, activePath.lastIndexOf('/') + 1)
-  const activeProject = documentsListModel.getItem(activeProjectPath)
-  if (isDirectoryHandle(activeProject) && !activeProject.isExpanded()) {
-    activeProject.expand()
+
+function createRegisteredIcon(
+  definition: ReviewRegistryIcon,
+  className: string
+): HTMLElement {
+  const icon = document.createElement('span')
+  icon.className = `review-provider-icon ${className}`
+  if (definition.kind === 'image') {
+    const image = document.createElement('img')
+    image.src = definition.source
+    image.alt = ''
+    icon.append(image)
+    return icon
   }
-  for (const selectedPath of documentsListModel.getSelectedPaths()) {
-    if (selectedPath !== activePath) {
-      documentsListModel.getItem(selectedPath)?.deselect()
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', definition.viewBox)
+  svg.setAttribute('aria-hidden', 'true')
+  for (const registeredPath of definition.paths) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute('d', registeredPath.d)
+    path.setAttribute('fill', registeredPath.fill)
+    svg.append(path)
+  }
+  icon.append(svg)
+  return icon
+}
+
+function createProviderIcon(
+  row: Pick<ReviewInboxRow, 'local' | 'provider' | 'threadHostKind'>
+): HTMLElement {
+  if (row.local) {
+    const icon = document.createElement('span')
+    icon.className = 'review-provider-icon provider-local'
+    icon.textContent = 'md'
+    icon.title = 'Local Markdown'
+    return icon
+  }
+  const providerDefinition = providerIcon(row.provider)
+  const providerClass = (row.provider || 'unknown').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+  const primary = providerDefinition
+    ? createRegisteredIcon(providerDefinition, `provider-${providerClass}`)
+    : document.createElement('span')
+  if (!providerDefinition) {
+    primary.className = `review-provider-icon provider-${providerClass}`
+    primary.textContent = row.provider
+      ? row.provider.slice(0, 2).toUpperCase()
+      : '·'
+  }
+  const providerLabel = providerDefinition?.label || row.provider || 'Agent'
+  const threadHostDefinition = threadHostIcon(row.threadHostKind)
+  if (!threadHostDefinition) {
+    primary.title = providerLabel
+    return primary
+  }
+
+  const stack = document.createElement('span')
+  stack.className = 'review-provider-icon-stack has-thread-host'
+  stack.tabIndex = 0
+  stack.title = `${providerLabel} provider · hover to see ${threadHostDefinition.label} thread-host`
+  stack.setAttribute(
+    'aria-label',
+    `${providerLabel} provider; ${threadHostDefinition.label} thread-host`
+  )
+  primary.classList.add('is-provider')
+  const threadHost = createRegisteredIcon(
+    threadHostDefinition,
+    'is-thread-host'
+  )
+  stack.append(primary, threadHost)
+  return stack
+}
+
+function createProjectIcon(
+  projectKey: string,
+  projectName: string,
+  reviewId: string
+): HTMLElement {
+  const icon = document.createElement('span')
+  icon.className = 'review-project-icon'
+  icon.textContent = projectName.slice(0, 1).toUpperCase() || 'M'
+  icon.ariaHidden = 'true'
+  let load = projectFaviconLoads.get(projectKey)
+  if (!load) {
+    load = bridge.getProjectFavicon(reviewId)
+    projectFaviconLoads.set(projectKey, load)
+  }
+  void load.then((source) => {
+    if (!source || !icon.isConnected) return
+    const image = document.createElement('img')
+    image.src = source
+    image.alt = ''
+    icon.replaceChildren(image)
+  }).catch(() => {})
+  return icon
+}
+
+interface ReviewHoverEntry {
+  icon?: MarkoverIconName
+  text: string
+  visual?: Element
+}
+
+interface ReviewHoverModel {
+  entries: ReviewHoverEntry[]
+  title: string
+}
+
+function hideReviewHoverCard(): void {
+  if (reviewHoverTimer) clearTimeout(reviewHoverTimer)
+  reviewHoverTimer = null
+  elements.reviewHoverCard.hidden = true
+  elements.reviewHoverCard.replaceChildren()
+}
+
+function showReviewHoverCard(
+  anchor: HTMLElement,
+  model: ReviewHoverModel
+): void {
+  if (!anchor.isConnected) return
+  const title = document.createElement('strong')
+  title.className = 'review-hover-title'
+  title.textContent = model.title
+  const entries = document.createElement('div')
+  entries.className = 'review-hover-entries'
+  for (const entry of model.entries) {
+    const row = document.createElement('div')
+    row.className = 'review-hover-entry'
+    const visual = entry.visual || markoverIcon(entry.icon || 'message-square')
+    visual.classList.add('review-hover-entry-icon')
+    const value = document.createElement('span')
+    value.textContent = entry.text
+    row.append(visual, value)
+    entries.append(row)
+  }
+  elements.reviewHoverCard.replaceChildren(title, entries)
+  elements.reviewHoverCard.hidden = false
+  const anchorRect = anchor.getBoundingClientRect()
+  const hoverRect = elements.reviewHoverCard.getBoundingClientRect()
+  const position = MarkoverAnnotationBlock.popoverPosition(
+    anchorRect,
+    hoverRect,
+    { width: window.innerWidth, height: window.innerHeight }
+  )
+  elements.reviewHoverCard.style.left = `${position.x}px`
+  elements.reviewHoverCard.style.top = `${position.y}px`
+}
+
+function bindReviewHoverCard(
+  anchor: HTMLElement,
+  model: () => ReviewHoverModel
+): void {
+  anchor.setAttribute('aria-describedby', 'review-hover-card')
+  anchor.addEventListener('mouseenter', () => {
+    if (reviewHoverTimer) clearTimeout(reviewHoverTimer)
+    reviewHoverTimer = setTimeout(() => {
+      reviewHoverTimer = null
+      showReviewHoverCard(anchor, model())
+    }, 280)
+  })
+  anchor.addEventListener('mouseleave', hideReviewHoverCard)
+  anchor.addEventListener('focusin', () => {
+    hideReviewHoverCard()
+    showReviewHoverCard(anchor, model())
+  })
+  anchor.addEventListener('focusout', (event) => {
+    if (!(event.relatedTarget instanceof Node) || !anchor.contains(event.relatedTarget)) {
+      hideReviewHoverCard()
     }
-  }
-  const activeItem = documentsListModel.getItem(activePath)
-  if (!activeItem?.isSelected()) activeItem?.select()
-  documentsListModel.scrollToPath(activePath, {
-    focus: false,
-    offset: 'nearest'
   })
 }
 
+function hoverProviderVisual(
+  row: Pick<ReviewInboxRow, 'local' | 'provider' | 'threadHostKind'>
+): HTMLElement {
+  const visual = createProviderIcon(row)
+  visual.removeAttribute('title')
+  visual.removeAttribute('tabindex')
+  return visual
+}
+
+function providerDescription(
+  provider: string | null,
+  threadHostKind: string | null
+): string {
+  const providerLabel = provider || 'Provider unavailable'
+  return threadHostKind
+    ? `${providerLabel} via ${threadHostKind}`
+    : providerLabel
+}
+
+function reviewHoverModel(row: ReviewInboxRow): ReviewHoverModel {
+  const entries: ReviewHoverEntry[] = [
+    {
+      text: row.projectName,
+      visual: createProjectIcon(row.projectKey, row.projectName, row.reviewId)
+    }
+  ]
+  if (row.machine) entries.push({ icon: 'server', text: row.machine })
+  if (row.branch) entries.push({ icon: 'git-branch', text: row.branch })
+  entries.push({
+    text: providerDescription(row.provider, row.threadHostKind),
+    visual: hoverProviderVisual(row)
+  })
+  entries.push({
+    icon: 'file-text',
+    text: row.contextPath || row.documentName
+  })
+  if (row.pullRequestNumber) {
+    const observation = row.pullRequestStatus
+      ? ` · ${row.pullRequestStatus}${row.pullRequestStatusSource ? ` via ${row.pullRequestStatusSource}` : ''}`
+      : ' · linked'
+    entries.push({
+      icon: 'git-pull-request',
+      text: `PR #${row.pullRequestNumber}${observation}`
+    })
+  }
+  entries.push({
+    icon: 'clock',
+    text: `${reviewStatusLabel(row.status)} · ${reviewRowTime(row)}`
+  })
+  return { entries, title: row.title }
+}
+
+function reviewRowContext(row: ReviewInboxRow): string {
+  if (row.local) return row.contextPath || row.documentName
+  return row.branch || row.contextPath || 'Branch unavailable'
+}
+
+function reviewRowPullRequestTitle(row: ReviewInboxRow): string {
+  if (!row.pullRequestNumber) return 'No pull request is associated with this review.'
+  if (!row.pullRequestStatus || !row.pullRequestStatusObservedAt) {
+    return `PR #${row.pullRequestNumber} is linked; its current state has not been observed.`
+  }
+  const source = row.pullRequestStatusSource || 'unknown source'
+  const age = MarkoverReviewSessions.formatRelativeTime(
+    Date.parse(row.pullRequestStatusObservedAt)
+  )
+  return `PR #${row.pullRequestNumber}: ${row.pullRequestStatus}; reported by ${source} ${age}.`
+}
+
+function reviewRowTime(row: ReviewInboxRow): string {
+  return MarkoverReviewSessions.formatRelativeTime(
+    row.status === 'editing'
+      ? row.attentionRequestedAt
+      : row.lifecycleActivityAt
+  )
+}
+
+function openReviewContextMenu(reviewId: string, event: MouseEvent): void {
+  event.preventDefault()
+  closeTabOverflow()
+  void bridge.openReviewContextMenu({ reviewId }).catch((error: unknown) => {
+    showToast(error instanceof Error ? error.message : String(error))
+  })
+}
+
+function createReviewListRow(row: ReviewInboxRow): HTMLElement {
+  const container = document.createElement('div')
+  container.className = [
+    'review-list-row',
+    row.reviewId === state.reviewId ? 'is-active' : '',
+    row.status === 'editing'
+      ? 'needs-review'
+      : row.status === 'pending-agent'
+        ? 'with-agent'
+        : `is-${row.status}`
+  ].filter(Boolean).join(' ')
+  container.dataset.reviewId = row.reviewId
+
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'review-list-row-open'
+
+  const favicon = createProjectIcon(row.projectKey, row.projectName, row.reviewId)
+  const icons = document.createElement('span')
+  icons.className = 'review-row-icon-stack'
+  icons.append(favicon, createProviderIcon(row))
+
+  const content = document.createElement('span')
+  content.className = 'review-list-row-content'
+
+  const top = document.createElement('span')
+  top.className = 'review-list-row-line review-list-row-meta'
+  const identity = document.createElement('span')
+  identity.className = 'review-list-row-identity'
+  identity.textContent = `${row.projectName} · ${row.local ? 'Local review' : row.documentName}`
+  const time = document.createElement('span')
+  time.className = [
+    'review-list-row-time',
+    row.status === 'editing'
+      ? ''
+      : `review-status-badge is-${row.status}`
+  ].filter(Boolean).join(' ')
+  time.textContent = row.status === 'editing'
+    ? reviewRowTime(row)
+    : reviewStatusLabel(row.status)
+  time.title = new Date(
+    row.status === 'editing' ? row.attentionRequestedAt : row.lifecycleActivityAt
+  ).toLocaleString()
+  top.append(identity, time)
+
+  const title = document.createElement('span')
+  title.className = 'review-list-row-title'
+  const titleText = document.createElement('span')
+  titleText.textContent = row.title
+  title.append(titleText)
+
+  const bottom = document.createElement('span')
+  bottom.className = 'review-list-row-line review-list-row-meta'
+  const branch = document.createElement('span')
+  branch.className = 'review-list-row-context'
+  branch.textContent = reviewRowContext(row)
+  const pr = document.createElement(row.pullRequestNumber ? 'button' : 'span')
+  if (pr instanceof HTMLButtonElement) pr.type = 'button'
+  pr.className = [
+    'review-list-row-pr',
+    row.pullRequestNumber
+      ? `is-${row.pullRequestStatus || 'linked'}`
+      : ''
+  ].filter(Boolean).join(' ')
+  pr.textContent = row.pullRequestNumber ? `PR #${row.pullRequestNumber}` : 'PR —'
+  pr.title = reviewRowPullRequestTitle(row)
+  bottom.append(branch)
+  if (!(pr instanceof HTMLButtonElement)) bottom.append(pr)
+
+  content.append(top, title, bottom)
+  button.append(icons, content)
+  button.addEventListener('click', () => {
+    openReviewIds.add(row.reviewId)
+    void activateReview(row.reviewId)
+  })
+  container.addEventListener('contextmenu', (event) => {
+    openReviewContextMenu(row.reviewId, event)
+  })
+  container.append(button)
+  if (pr instanceof HTMLButtonElement) {
+    container.append(pr)
+    pr.addEventListener('click', (event) => {
+      event.stopPropagation()
+      void bridge.openPullRequest(row.reviewId).catch((error: unknown) => {
+        showToast(error instanceof Error ? error.message : String(error))
+      })
+    })
+  }
+  bindReviewHoverCard(container, () => reviewHoverModel(row))
+  return container
+}
+
+function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
+  const container = document.createElement('div')
+  container.className = [
+    'review-project-leaf',
+    `is-${row.status}`,
+    row.reviewId === state.reviewId ? 'is-active' : ''
+  ].filter(Boolean).join(' ')
+  container.dataset.reviewId = row.reviewId
+
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'review-project-leaf-open'
+
+  const status = document.createElement('span')
+  status.className = 'review-project-leaf-status'
+  status.ariaHidden = 'true'
+
+  const title = document.createElement('span')
+  title.className = 'review-project-leaf-title'
+  title.textContent = row.title
+
+  const age = document.createElement('span')
+  age.className = 'review-project-leaf-age'
+  age.textContent = reviewRowTime(row)
+  age.title = new Date(
+    row.status === 'editing' ? row.attentionRequestedAt : row.lifecycleActivityAt
+  ).toLocaleString()
+
+  button.append(status, title, age)
+  button.addEventListener('click', () => {
+    openReviewIds.add(row.reviewId)
+    void activateReview(row.reviewId)
+  })
+  container.addEventListener('contextmenu', (event) => {
+    openReviewContextMenu(row.reviewId, event)
+  })
+  container.append(button)
+  bindReviewHoverCard(container, () => reviewHoverModel(row))
+  return container
+}
+
+function createEmptyReviewMessage(message: string): HTMLElement {
+  const empty = document.createElement('p')
+  empty.className = 'review-list-empty'
+  empty.textContent = message
+  return empty
+}
+
+function renderInboxReviews(
+  editing: ReviewInboxRow[],
+  history: ReviewInboxRow[]
+): DocumentFragment {
+  const fragment = document.createDocumentFragment()
+  const heading = document.createElement('div')
+  heading.className = 'review-list-section-heading'
+  heading.innerHTML = '<strong>Needs review</strong><span>Recent first</span>'
+  fragment.append(heading)
+
+  const editingList = document.createElement('div')
+  editingList.className = 'review-list-rows'
+  if (editing.length) {
+    editingList.append(...editing.map(createReviewListRow))
+  } else {
+    editingList.append(createEmptyReviewMessage('Nothing needs review.'))
+  }
+  fragment.append(editingList)
+
+  const historyGroup = document.createElement('details')
+  historyGroup.className = 'review-history-group'
+  const historySummary = document.createElement('summary')
+  const latestHistory = history.at(0)
+  historySummary.innerHTML = `<span>History</span><span>${history.length} reviews${latestHistory ? ` · latest ${reviewRowTime(latestHistory)}` : ''}</span>`
+  historyGroup.append(historySummary)
+  const visibleHistory = history.slice(0, inboxHistoryLimit)
+  const historyList = document.createElement('div')
+  historyList.className = 'review-list-rows is-history'
+  historyList.append(...visibleHistory.map(createReviewListRow))
+  if (!history.length) {
+    historyList.append(createEmptyReviewMessage('No review history yet.'))
+  }
+  historyGroup.append(historyList)
+  if (visibleHistory.length < history.length) {
+    const showMore = document.createElement('button')
+    showMore.type = 'button'
+    showMore.className = 'review-list-more'
+    showMore.textContent = `Show ${Math.min(INBOX_HISTORY_PAGE_SIZE, history.length - visibleHistory.length)} more`
+    showMore.addEventListener('click', () => {
+      inboxHistoryLimit += INBOX_HISTORY_PAGE_SIZE
+      renderDocumentsList()
+    })
+    historyGroup.append(showMore)
+  }
+  const viewAll = document.createElement('button')
+  viewAll.type = 'button'
+  viewAll.className = 'review-list-more'
+  viewAll.textContent = 'View all in Projects'
+  viewAll.addEventListener('click', () => {
+    setReviewNavigationMode('projects')
+  })
+  historyGroup.append(viewAll)
+  fragment.append(historyGroup)
+  return fragment
+}
+
+function projectSummary(project: ReviewInboxProject): HTMLElement {
+  const summary = document.createElement('summary')
+  summary.append(createDetailsDisclosure())
+  const label = document.createElement('span')
+  label.className = 'review-group-label'
+  const iconReviewId = project.threads[0]?.reviews[0]?.reviewId || ''
+  const icon = createProjectIcon(project.key, project.name, iconReviewId)
+  const name = document.createElement('strong')
+  name.textContent = project.name
+  label.append(icon, name)
+  const rollup = document.createElement('span')
+  rollup.className = project.editingCount ? 'review-count-badge' : 'review-group-age'
+  rollup.textContent = project.editingCount
+    ? `${project.editingCount} need review`
+    : MarkoverReviewSessions.formatRelativeTime(project.latestActivityAt)
+  summary.append(label, rollup)
+  bindReviewHoverCard(summary, () => projectHoverModel(project))
+  return summary
+}
+
+function projectHoverModel(project: ReviewInboxProject): ReviewHoverModel {
+  const reviewCount = project.threads.reduce(
+    (count, thread) => count + thread.reviews.length,
+    0
+  )
+  const entries: ReviewHoverEntry[] = []
+  if (project.root) entries.push({ icon: 'folder', text: project.root })
+  entries.push({
+    icon: 'list-tree',
+    text: `${project.threads.length} thread${project.threads.length === 1 ? '' : 's'} · ${reviewCount} review${reviewCount === 1 ? '' : 's'}`
+  })
+  entries.push({
+    icon: 'clock',
+    text: `${project.editingCount} need review · latest ${MarkoverReviewSessions.formatRelativeTime(project.latestActivityAt)}`
+  })
+  return { entries, title: project.name }
+}
+
+function createDetailsDisclosure(): HTMLElement {
+  const disclosure = document.createElement('span')
+  disclosure.className = 'review-details-disclosure'
+  disclosure.append(
+    markoverIcon('chevron-right', 'is-closed'),
+    markoverIcon('chevron-down', 'is-open')
+  )
+  return disclosure
+}
+
+function threadHoverModel(
+  thread: ReviewInboxThread,
+  project: ReviewInboxProject
+): ReviewHoverModel {
+  const iconReviewId = thread.reviews[0]?.reviewId || ''
+  const entries: ReviewHoverEntry[] = [
+    {
+      text: project.name,
+      visual: createProjectIcon(project.key, project.name, iconReviewId)
+    }
+  ]
+  if (thread.requestingThreadId) {
+    entries.push({ icon: 'message-square', text: thread.requestingThreadId })
+  }
+  if (thread.machine) entries.push({ icon: 'server', text: thread.machine })
+  entries.push({
+    text: providerDescription(thread.provider, thread.threadHostKind),
+    visual: hoverProviderVisual(thread)
+  })
+  entries.push({
+    icon: 'list-tree',
+    text: `${thread.reviews.length} review${thread.reviews.length === 1 ? '' : 's'} · ${thread.editingCount} need review`
+  })
+  entries.push({
+    icon: 'clock',
+    text: `Latest activity ${MarkoverReviewSessions.formatRelativeTime(thread.latestActivityAt)}`
+  })
+  return { entries, title: thread.title }
+}
+
+function threadSummary(
+  thread: ReviewInboxThread,
+  project: ReviewInboxProject
+): HTMLElement {
+  const summary = document.createElement('summary')
+  summary.append(createDetailsDisclosure())
+  const label = document.createElement('span')
+  label.className = 'review-group-label review-thread-label'
+  const icon = markoverIcon('messages-square', 'review-thread-icon')
+  const title = document.createElement('strong')
+  title.textContent = thread.title
+  label.append(icon, title)
+  const rollup = document.createElement('span')
+  rollup.className = thread.editingCount ? 'review-count-badge' : 'review-group-age'
+  rollup.textContent = thread.editingCount
+    ? `${thread.editingCount}`
+    : MarkoverReviewSessions.formatRelativeTime(thread.latestActivityAt)
+  summary.append(label, rollup)
+  bindReviewHoverCard(summary, () => threadHoverModel(thread, project))
+  return summary
+}
+
+function renderProjects(projects: ReviewInboxProject[]): DocumentFragment {
+  const fragment = document.createDocumentFragment()
+  if (!projects.length) {
+    fragment.append(createEmptyReviewMessage('No review projects yet.'))
+    return fragment
+  }
+  const tree = document.createElement('div')
+  tree.className = 'review-project-tree'
+  for (const project of projects) {
+    const projectDetails = document.createElement('details')
+    projectDetails.className = 'review-project-group'
+    projectDetails.open = projectExpansion.get(project.key) ?? project.editingCount > 0
+    projectDetails.append(projectSummary(project))
+    projectDetails.addEventListener('toggle', () => {
+      projectExpansion.set(project.key, projectDetails.open)
+    })
+    const threads = document.createElement('div')
+    threads.className = 'review-thread-groups'
+    for (const thread of project.threads) {
+      const threadDetails = document.createElement('details')
+      threadDetails.className = 'review-thread-group'
+      threadDetails.open = threadExpansion.get(thread.key) ?? thread.editingCount > 0
+      threadDetails.append(threadSummary(thread, project))
+      threadDetails.addEventListener('toggle', () => {
+        threadExpansion.set(thread.key, threadDetails.open)
+      })
+      const rows = document.createElement('div')
+      rows.className = 'review-list-rows review-thread-reviews'
+      rows.append(...thread.reviews.map(createProjectReviewRow))
+      threadDetails.append(rows)
+      threads.append(threadDetails)
+    }
+    projectDetails.append(threads)
+    tree.append(projectDetails)
+  }
+  fragment.append(tree)
+  return fragment
+}
+
+function setReviewNavigationMode(mode: 'inbox' | 'projects'): void {
+  reviewNavigationMode = mode
+  elements.reviewNavigationInbox.classList.toggle('is-active', mode === 'inbox')
+  elements.reviewNavigationProjects.classList.toggle('is-active', mode === 'projects')
+  elements.reviewNavigationInbox.setAttribute('aria-pressed', String(mode === 'inbox'))
+  elements.reviewNavigationProjects.setAttribute('aria-pressed', String(mode === 'projects'))
+  renderDocumentsList()
+}
+
 function renderDocumentsList(): void {
+  hideReviewHoverCard()
   const sessions = reviewSessions.list()
+  const projection = projectReviewInbox(sessions)
   scheduleDocumentsListClockRefresh(sessions)
   elements.documentsListSidebar.hidden = sessions.length === 0
   elements.documentsListOpen.hidden = sessions.length === 0 || !documentsListCollapsed
   elements.workspace.classList.toggle('has-documents-list', sessions.length > 0)
+  elements.reviewTabStrip.hidden = sessions.length === 0
+  elements.reviewInboxCount.textContent = String(projection.editing.length)
+  elements.reviewInboxCount.hidden = projection.editing.length === 0
+  elements.reviewListCount.textContent = reviewNavigationMode === 'inbox'
+    ? `${projection.editing.length} need review`
+    : `${projection.projects.length} projects`
   applyDocumentsListWidth()
   applyAnnotationPaneWidth()
-  if (!sessions.length || !DocumentsListFileTree) {
-    if (!sessions.length) {
-      documentsListPathToReviewId.clear()
-      documentsListReviewIdToPath.clear()
-      documentsListProjectPaths = []
-      documentsListModel?.resetPaths([], { initialExpandedPaths: [] })
-    }
-    return
-  }
-
-  const projection = buildDocumentsListProjection()
-  const newProjectPaths = projection.projectPaths.filter(
-    (path) => !documentsListProjectPaths.includes(path)
+  elements.documentsListTree.replaceChildren()
+  if (!sessions.length) return
+  elements.documentsListTree.append(
+    reviewNavigationMode === 'inbox'
+      ? renderInboxReviews(projection.editing, projection.history)
+      : renderProjects(projection.projects)
   )
-  const previousModel = documentsListModel
-  const previouslyExpanded = previousModel
-    ? documentsListProjectPaths.filter((path) => {
-        const item = previousModel.getItem(path)
-        return isDirectoryHandle(item) && item.isExpanded()
-      })
-    : projection.projectPaths
-
-  documentsListPathToReviewId = projection.pathToReviewId
-  documentsListReviewIdToPath = projection.reviewIdToPath
-  documentsListSortOrder = projection.sortOrder
-  documentsListDecorations = projection.decorations
-  documentsListProjectPaths = projection.projectPaths
-  documentsListStatuses = projection.statuses
-
-  if (!documentsListModel) {
-    const model = new DocumentsListFileTree({
-      density: 'compact',
-      flattenEmptyDirectories: false,
-      icons: projection.icons,
-      initialExpandedPaths: projection.projectPaths,
-      itemHeight: 22,
-      onSelectionChange(selectedPaths) {
-        const selectedPath = selectedPaths.at(-1)
-        const reviewId = selectedPath
-          ? documentsListPathToReviewId.get(selectedPath)
-          : null
-        if (reviewId && reviewId !== state.reviewId) void activateReview(reviewId)
-      },
-      paths: projection.paths,
-      renderRowDecoration({ row }) {
-        const text = documentsListDecorations.get(row.path)
-        const reviewId = documentsListPathToReviewId.get(row.path)
-        const viewedAt = reviewId
-          ? reviewSessions.get(reviewId)?.lastViewedAt
-          : null
-        return text
-          ? {
-              text,
-              title: viewedAt ? new Date(viewedAt).toLocaleString() : text
-            }
-          : null
-      },
-      sort: documentsListSort,
-      stickyFolders: true,
-      unsafeCSS: `
-        :host {
-          --trees-bg-override: transparent;
-          --trees-bg-muted-override: rgb(var(--accent-rgb) / 9%);
-          --trees-border-color-override: transparent;
-          --trees-fg-override: var(--muted);
-          --trees-fg-muted-override: var(--muted);
-          --trees-selected-bg-override: var(--surface);
-          --trees-selected-fg-override: var(--ink);
-          --trees-selected-focused-border-color-override: transparent;
-          --trees-font-family-override: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          --trees-font-size-override: 10.5px;
-          --trees-font-weight-semibold-override: 700;
-          --trees-icon-width-override: 10px;
-          --trees-item-margin-x-override: 3px;
-          --trees-item-padding-x-override: 4px;
-          --trees-item-row-gap-override: 6px;
-          --trees-level-gap-override: 7px;
-          --trees-padding-inline-override: 1px;
-          --trees-scrollbar-gutter-override: 5px;
-        }
-        button[data-type='item'] { border-radius: 6px; }
-        button[data-item-type='file'] [data-item-section='content'] {
-          flex: 1 1 auto;
-          margin-right: 7px;
-          white-space: nowrap;
-        }
-        button[data-item-type='file'] [data-item-section='content'] > * {
-          display: none;
-        }
-        button[data-item-type='file'] [data-item-section='content']::before {
-          content: attr(data-documents-list-label);
-          display: block;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        [data-item-section='decoration'] {
-          flex: 0 0 auto;
-          color: var(--muted);
-          font-size: 9px;
-          white-space: nowrap;
-        }
-        button[data-item-type='file'] [data-item-section='icon'] {
-          cursor: help;
-        }
-        button[data-item-type='folder'] {
-          color: var(--ink);
-          font-size: 11.5px;
-        }
-      `
-    })
-    documentsListModel = model
-    model.subscribe(scheduleDocumentsListRowMetadata)
-    model.render({
-      containerWrapper: elements.documentsListTree
-    })
-    observeDocumentsListRows()
-  } else {
-    documentsListModel.setIcons(projection.icons)
-    documentsListModel.resetPaths(projection.paths, {
-      initialExpandedPaths: [
-        ...previouslyExpanded.filter(
-          (path) => projection.projectPaths.includes(path)
-        ),
-        ...newProjectPaths
-      ]
-    })
-  }
-
-  selectActiveReviewInDocumentsList()
-  scheduleDocumentsListRowMetadata()
 }
 
 function applyDocumentsListWidth(): void {
@@ -2274,6 +2575,10 @@ function applyDocumentsListWidth(): void {
   elements.workspace.style.setProperty(
     '--documents-list-width',
     `${documentsListWidth}px`
+  )
+  elements.reviewTabStrip.style.setProperty(
+    '--documents-list-width',
+    documentsListCollapsed ? '0px' : `${documentsListWidth}px`
   )
   elements.documentsListResizer.setAttribute(
     'aria-valuenow',
@@ -2325,6 +2630,8 @@ function schedulePaneResizeLayoutUpdate(): void {
 function setDocumentsListCollapsed(collapsed: boolean): void {
   documentsListCollapsed = collapsed
   elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
+  elements.reviewTabStrip.classList.toggle('is-sidebar-collapsed', collapsed)
+  applyDocumentsListWidth()
   applyAnnotationPaneWidth()
   schedulePaneResizeLayoutUpdate()
   elements.documentsListOpen.hidden = !collapsed || reviewSessions.list().length === 0
@@ -2530,31 +2837,16 @@ function focusedPane(): WorkspacePane {
 }
 
 function focusDocumentsList(): void {
-  const activePath = state.reviewId
-    ? documentsListReviewIdToPath.get(state.reviewId)
+  const active = state.reviewId
+    ? elements.documentsListTree.querySelector<HTMLElement>(
+        `.review-list-row[data-review-id="${CSS.escape(state.reviewId)}"]`
+      )
     : null
-  if (activePath && documentsListModel) {
-    const model = documentsListModel
-    model.scrollToPath(activePath, {
-      focus: true,
-      offset: 'nearest'
-    })
-    const focusActiveRow = () => {
-      const shadowRoot = model.getFileTreeContainer()?.shadowRoot
-      const row = [...(shadowRoot?.querySelectorAll<HTMLElement>(
-        'button[data-item-path]'
-      ) || [])].find((button) => (
-        button.dataset.itemPath === activePath &&
-        button.dataset.itemParked !== 'true'
-      ))
-      const target = row || shadowRoot?.querySelector<HTMLElement>('[role="tree"]')
-      target?.focus()
-    }
-    focusActiveRow()
-    requestAnimationFrame(focusActiveRow)
-    return
-  }
-  elements.documentsListCollapse.focus()
+  const target = active || elements.documentsListTree.querySelector<HTMLElement>(
+    '.review-list-row, summary, button'
+  )
+  target?.focus()
+  if (!target) elements.documentsListCollapse.focus()
 }
 
 function focusPane(pane: WorkspacePane): void {
@@ -2638,7 +2930,31 @@ function closeTabOverflow(): void {
     ?.classList.remove('is-open')
 }
 
-function createDocumentTab(session: ReviewSession): HTMLButtonElement {
+function openReviewSessions(): ReviewSession[] {
+  return reviewSessions.recent().filter((session) => (
+    openReviewIds.has(session.reviewId)
+  ))
+}
+
+async function closeDocumentTab(reviewId: string): Promise<void> {
+  const sessions = openReviewSessions()
+  if (reviewId === state.reviewId) {
+    const next = sessions.find((session) => session.reviewId !== reviewId)
+    if (!next) return
+    openReviewIds.delete(reviewId)
+    await activateReview(next.reviewId)
+    return
+  }
+  openReviewIds.delete(reviewId)
+  renderDocumentTabs()
+}
+
+function createDocumentTab(session: ReviewSession): HTMLElement {
+  const shell = document.createElement('div')
+  shell.className = [
+    'document-tab-shell',
+    session.reviewId === state.reviewId ? 'is-active' : ''
+  ].filter(Boolean).join(' ')
   const button = document.createElement('button')
   button.type = 'button'
   button.className = [
@@ -2669,13 +2985,7 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
     void activateReview(session.reviewId)
   })
   button.addEventListener('contextmenu', (event) => {
-    event.preventDefault()
-    closeTabOverflow()
-    void bridge.openReviewContextMenu({ reviewId: session.reviewId }).catch(
-      (error: unknown) => {
-        showToast(error instanceof Error ? error.message : String(error))
-      }
-    )
+    openReviewContextMenu(session.reviewId, event)
   })
   button.addEventListener('keydown', (event) => {
     const offset = event.key === 'ArrowLeft'
@@ -2685,7 +2995,11 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
         : 0
     if (!offset) return
     event.preventDefault()
-    const adjacent = reviewSessions.adjacent(session.reviewId, offset)
+    const sessions = openReviewSessions()
+    const index = sessions.findIndex((candidate) => (
+      candidate.reviewId === session.reviewId
+    ))
+    const adjacent = sessions[index + offset]
     if (!adjacent) return
     void activateReview(adjacent.reviewId).then(() => {
       requestAnimationFrame(() => {
@@ -2696,14 +3010,26 @@ function createDocumentTab(session: ReviewSession): HTMLButtonElement {
     })
   })
   button.dataset.reviewId = session.reviewId
-  return button
+
+  const close = document.createElement('button')
+  close.type = 'button'
+  close.className = 'document-tab-close'
+  close.textContent = '×'
+  close.title = `Close ${session.documentName}`
+  close.ariaLabel = `Close ${session.documentName}`
+  close.disabled = openReviewIds.size === 1
+  close.addEventListener('click', (event) => {
+    event.stopPropagation()
+    void closeDocumentTab(session.reviewId)
+  })
+  shell.append(button, close)
+  return shell
 }
 
 function renderDocumentTabs(): void {
-  const sessions = reviewSessions.recent()
+  const sessions = openReviewSessions()
   const visibleSessions = sessions.slice(0, MAX_VISIBLE_TABS)
   const overflowSessions = sessions.slice(MAX_VISIBLE_TABS)
-  elements.documentTabs.hidden = sessions.length === 0
   elements.documentTabs.replaceChildren()
 
   for (const session of visibleSessions) {
@@ -2767,7 +3093,9 @@ async function activateReview(
 ): Promise<ReviewActivationOutcome> {
   setWorkspaceEmpty(false)
   if (!reviewSessions.get(reviewId)) return 'missing'
+  openReviewIds.add(reviewId)
   if (reviewId === state.reviewId) {
+    renderDocumentTabs()
     removeIncomingPrompts(reviewId)
     return 'already-active'
   }
@@ -2808,7 +3136,10 @@ async function activateReview(
     'aria-expanded',
     String(!state.sourceCollapsed)
   )
-  elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
+  replaceMarkoverIcon(
+    elements.sourceToggleIcon,
+    state.sourceCollapsed ? 'chevron-right' : 'chevron-down'
+  )
   elements.sourceContent.hidden = state.sourceCollapsed
   closeImagePreview()
   renderTree()
@@ -2823,6 +3154,7 @@ async function activateReview(
 
 async function handleReviewTrashed(reviewId: string): Promise<void> {
   removeIncomingPrompts(reviewId)
+  openReviewIds.delete(reviewId)
   const wasActive = state.reviewId === reviewId
   const removed = reviewSessions.remove(reviewId)
   if (!removed) return
@@ -3113,7 +3445,10 @@ elements.sourceToggle.addEventListener('click', () => {
     'aria-expanded',
     String(!state.sourceCollapsed)
   )
-  elements.sourceToggleIcon.textContent = state.sourceCollapsed ? '▶' : '▼'
+  replaceMarkoverIcon(
+    elements.sourceToggleIcon,
+    state.sourceCollapsed ? 'chevron-right' : 'chevron-down'
+  )
   const node = MarkoverTree.findNode(currentTree().root, state.selectedId)
   if (node) renderSourcePanel(node)
 })
@@ -3215,10 +3550,17 @@ elements.documentsListCollapse.addEventListener('click', () => {
 elements.documentsListOpen.addEventListener('click', () => {
   setDocumentsListCollapsed(false)
 })
+elements.reviewNavigationInbox.addEventListener('click', () => {
+  setReviewNavigationMode('inbox')
+})
+elements.reviewNavigationProjects.addEventListener('click', () => {
+  setReviewNavigationMode('projects')
+})
 elements.documentsListResizer.addEventListener(
   'pointerdown',
   beginDocumentsListResize
 )
+elements.documentsListTree.addEventListener('scroll', hideReviewHoverCard)
 elements.annotationPaneResizer.addEventListener(
   'pointerdown',
   beginAnnotationPaneResize
@@ -3234,6 +3576,7 @@ MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
 })
 window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
+  hideReviewHoverCard()
   if (!elements.sourceErrorTooltip.hidden) showSourceErrorTooltip()
   applyDocumentsListWidth()
   applyAnnotationPaneWidth()
@@ -3448,12 +3791,10 @@ async function rendererSmokeResult(): Promise<{
     yaml: boolean
   }
 }> {
-  await documentsListReady
   await nextFrame()
   const treeText = elements.tree.textContent || ''
-  const shadowRoot = documentsListModel?.getFileTreeContainer()?.shadowRoot
   const documentsList = Boolean(
-    shadowRoot?.querySelector('button[data-item-type="file"]')
+    elements.documentsListTree.querySelector('.review-list-row')
   )
   const sourceNode = MarkoverTree.findNode(currentTree().root, 'smoke-heading')
   let sourceDiff = false
@@ -3558,6 +3899,18 @@ async function initialize(): Promise<void> {
   bridge.onReviewOpened((reviewDocument) => {
     return queueIncomingReview(reviewDocument)
   })
+  bridge.onReviewUpdated((reviewDocument) => {
+    const document = managedReviewDocument(reviewDocument)
+    let session = reviewSessions.updateDocument(document)
+    if (!session) {
+      addManagedReview(document, false)
+      session = reviewSessions.get(reviewDocument.reviewId || '')
+    }
+    if (!session) return
+    renderDocumentsList()
+    renderDocumentTabs()
+    if (session.reviewId === state.reviewId) renderReviewContext()
+  })
   bridge.onReviewTrashed(({ reviewId }) => {
     void handleReviewTrashed(reviewId).catch((error: unknown) => {
       showToast(error instanceof Error ? error.message : String(error))
@@ -3601,7 +3954,7 @@ async function initialize(): Promise<void> {
   bridge.onReviewShutdownState((paused) => {
     for (const element of [
       elements.appHeader,
-      elements.documentTabs,
+      elements.reviewTabStrip,
       elements.emptyWorkspace,
       elements.workspace
     ]) {
@@ -3671,7 +4024,6 @@ async function initialize(): Promise<void> {
     }
     if (elements.emptyWorkspace.hidden) elements.previewPane.focus()
     else elements.emptyOpenButton.focus()
-    await documentsListReady
     renderDocumentsList()
   })
 

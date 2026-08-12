@@ -20,6 +20,12 @@
     return index > 0 ? normalized.slice(0, index) : ''
   }
 
+  function repositoryName(value: unknown): string {
+    if (typeof value !== 'string') return ''
+    const normalized = value.trim().replace(/[\\/]+$/, '').replace(/\.git$/i, '')
+    return basename(normalized)
+  }
+
   function projectIdentity(
     document: {
       path?: unknown
@@ -43,7 +49,7 @@
       .replace(/[\\/]+$/, '') || null
     return {
       key: root || 'unassigned',
-      name: basename(root) || 'Other',
+      name: repositoryName(git?.repositoryUrl) || basename(root) || 'Other',
       root
     }
   }
@@ -169,6 +175,12 @@
         document.tree.review.createdAt ||
         ''
       )
+      const lifecycleActivityAt = Number.isFinite(reviewedAt)
+        ? reviewedAt
+        : this.now()
+      const requestedAt = Date.parse(
+        document.tree.review.attentionRequestedAt || ''
+      )
       const session: ReviewSession = {
         reviewId,
         documentName: document.name || basename(document.path) || 'Untitled',
@@ -178,8 +190,10 @@
         projectKey: project.key,
         projectName: project.name,
         projectRoot: project.root,
+        attentionRequestedAt: Number.isFinite(requestedAt) ? requestedAt : 0,
+        lifecycleActivityAt,
         lastViewedOrder: ++this.viewSequence,
-        lastViewedAt: Number.isFinite(reviewedAt) ? reviewedAt : this.now(),
+        lastViewedAt: lifecycleActivityAt,
         selectedId: document.tree.root.children[0]?.id || null,
         annotatedOnly: false,
         annotationView: 'selected',
@@ -230,7 +244,32 @@
     ): ReviewSession | null {
       const session = this.get(reviewId)
       if (!session) return null
+      const previous = session.tree.review.status
       session.tree.review.status = status
+      if (status !== previous) {
+        session.lifecycleActivityAt = this.now()
+        if (status === 'editing') {
+          session.attentionRequestedAt = session.lifecycleActivityAt
+        }
+      }
+      return session
+    }
+
+    updateDocument(document: ReviewSessionDocument): ReviewSession | null {
+      const reviewId = document.reviewId || document.tree.review.id
+      if (!reviewId) return null
+      const session = this.get(reviewId)
+      if (!session) return null
+      if (document.tree.review.updatedAt !== undefined) {
+        session.tree.review.updatedAt = document.tree.review.updatedAt
+      }
+      if (document.tree.review.attentionRequestedAt !== undefined) {
+        session.tree.review.attentionRequestedAt =
+          document.tree.review.attentionRequestedAt
+        const requestedAt = Date.parse(document.tree.review.attentionRequestedAt)
+        if (Number.isFinite(requestedAt)) session.attentionRequestedAt = requestedAt
+      }
+      session.tree.review.pullRequest = document.tree.review.pullRequest
       return session
     }
 
