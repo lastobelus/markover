@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
+import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -50,7 +51,11 @@ test('parses lifecycle commands and PR observations', () => {
       pullRequestNumber: null,
       pullRequestUrl: null,
       pullRequestStatus: null,
-      threadId: null
+      threadId: null,
+      threadHostKind: null,
+      threadHostProvider: null,
+      threadHostThreadId: null,
+      threadHostMachine: null
     }
   )
   assert.deepEqual(
@@ -275,7 +280,15 @@ test('parses explicit review metadata', () => {
       '--pr-status',
       'draft',
       '--thread-id',
-      'thread-123'
+      'thread-123',
+      '--thread-host-kind',
+      't3code',
+      '--thread-host-provider',
+      'codex',
+      '--thread-host-thread-id',
+      't3-thread-456',
+      '--thread-host-machine',
+      'Airy.local'
     ]),
     {
       command: 'open',
@@ -286,8 +299,40 @@ test('parses explicit review metadata', () => {
       pullRequestNumber: 42,
       pullRequestUrl: 'https://github.com/upstream/markover/pull/42',
       pullRequestStatus: 'draft',
-      threadId: 'thread-123'
+      threadId: 'thread-123',
+      threadHostKind: 't3code',
+      threadHostProvider: 'codex',
+      threadHostThreadId: 't3-thread-456',
+      threadHostMachine: 'Airy.local'
     }
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--thread-id',
+      'provider-thread'
+    ]),
+    /requires --thread-host-kind and --thread-host-provider/
+  )
+  assert.throws(
+    () => parseCommandArguments([
+      'open',
+      'plan.md',
+      '--summary',
+      'Review.',
+      '--thread-id',
+      'same-thread',
+      '--thread-host-kind',
+      'codex',
+      '--thread-host-provider',
+      'codex',
+      '--thread-host-thread-id',
+      'same-thread'
+    ]),
+    /must be omitted when it duplicates/
   )
   assert.throws(
     () => parseCommandArguments([
@@ -439,18 +484,26 @@ test('executes CLI commands against the local service', async (t) => {
       return Promise.resolve({
         git: parsed.branch ? {
           branch: parsed.branch,
-          repositoryUrl: 'git@github.com:fork-owner/markover.git',
-          sources: { branch: 'explicit' as const }
+          repositoryUrl: 'git@github.com:fork-owner/markover.git'
         } : null,
         pullRequest: parsed.pullRequestNumber ? {
           number: parsed.pullRequestNumber,
-          ...(parsed.pullRequestUrl ? { url: parsed.pullRequestUrl } : {}),
-          discovery: 'explicit' as const
+          ...(parsed.pullRequestUrl ? { url: parsed.pullRequestUrl } : {})
         } : null,
-        agentThread: parsed.threadId ? {
-          provider: 'codex',
+        agentThread: parsed.threadId &&
+          parsed.threadHostKind &&
+          parsed.threadHostProvider ? {
           id: parsed.threadId,
-          discovery: 'explicit' as const
+          threadHost: {
+            kind: parsed.threadHostKind,
+            provider: parsed.threadHostProvider,
+            ...(parsed.threadHostThreadId
+              ? { threadId: parsed.threadHostThreadId }
+              : {}),
+            ...(parsed.threadHostMachine
+              ? { machine: parsed.threadHostMachine }
+              : {})
+          }
         } : null
       })
     }
@@ -464,7 +517,11 @@ test('executes CLI commands against the local service', async (t) => {
       handoffKey: 'mko_handoff_0123456789abcdef',
       pullRequestNumber: 42,
       pullRequestUrl: 'https://github.com/lastobelus/markover/pull/42',
-      threadId: 'thread-123'
+      threadId: 'thread-123',
+      threadHostKind: 't3code',
+      threadHostProvider: 'codex',
+      threadHostThreadId: 't3-thread-456',
+      threadHostMachine: 'Airy.local'
     }, options),
     {
       reviewId: 'mko_aaa11111',
@@ -485,18 +542,20 @@ test('executes CLI commands against the local service', async (t) => {
   assert.equal(handedOff.review.contextSummary, 'Review exact source.')
   assert.deepEqual(handedOff.review.git, {
     branch: 'feature/review-inbox',
-    repositoryUrl: 'git@github.com:fork-owner/markover.git',
-    sources: { branch: 'explicit' }
+    repositoryUrl: 'git@github.com:fork-owner/markover.git'
   })
   assert.deepEqual(handedOff.review.pullRequest, {
     number: 42,
-    discovery: 'explicit',
     url: 'https://github.com/lastobelus/markover/pull/42'
   })
   assert.deepEqual(handedOff.review.agentThread, {
-    provider: 'codex',
     id: 'thread-123',
-    discovery: 'explicit'
+    threadHost: {
+      kind: 't3code',
+      provider: 'codex',
+      threadId: 't3-thread-456',
+      machine: 'Airy.local'
+    }
   })
 
   assert.deepEqual(
@@ -704,4 +763,52 @@ test('open validates and reads the source before starting Markover', async (t) =
     /Markdown file does not exist/
   )
   assert.equal(ensured, false)
+})
+
+test('get independently rejects a successful unknown-version service response', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-cli-future-version-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  const identity = createServiceIdentity()
+  const service = http.createServer((request, response) => {
+    const body = request.url === '/health'
+      ? { status: 'ok', version: 2, instanceId: identity.instanceId }
+      : { format: 'markover-review', version: 2 }
+    const contents = `${JSON.stringify(body)}\n`
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': Buffer.byteLength(contents)
+    })
+    response.end(contents)
+  })
+  await new Promise<void>((resolve) => service.listen(0, '127.0.0.1', resolve))
+  const address = service.address()
+  assert.ok(address && typeof address === 'object')
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: address.port,
+    pid: 1234
+  })
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => {
+      service.close((error) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+    await fs.rm(directory, { recursive: true, force: true })
+  })
+
+  await assert.rejects(
+    executeCommand({ command: 'get', reviewId: 'mko_aaa11111' }, {
+      endpointPath,
+      ensure: () => Promise.resolve()
+    }),
+    (error: unknown) => (
+      error instanceof LocalServiceError &&
+      error.code === 'UNSUPPORTED_REVIEW_VERSION'
+    )
+  )
 })

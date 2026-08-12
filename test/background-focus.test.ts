@@ -285,7 +285,7 @@ test('native startup failure dialogs survive diagnostic write failures', () => {
   )?.[0] || ''
   const createWindow = main.slice(
     main.indexOf('function createWindow('),
-    main.indexOf('function repositoryRoot(')
+    main.indexOf('function managedDocument(')
   )
 
   assert.match(

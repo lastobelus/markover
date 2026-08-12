@@ -1,4 +1,5 @@
 import { ReviewAutosave } from '../../src/review-autosave'
+import { reviewChecksum } from '../../src/review-format'
 import { ReviewStore, type ReviewArtifact } from '../../src/review-store'
 
 const { parseMarkdown } = require('../../src/tree') as MarkoverTreeApi
@@ -11,7 +12,7 @@ const EDITING_FEEDBACK = 'Latest editing feedback with [!img-1].'
 const PENDING_FEEDBACK = 'Latest feedback handed to the agent.'
 
 function tree(source: string): ReviewTree {
-  return parseMarkdown(source, 'sha256:crash-evidence', {
+  return parseMarkdown(source, reviewChecksum(source), {
     name: 'crash-evidence.md',
     path: '/tmp/crash-evidence.md'
   })

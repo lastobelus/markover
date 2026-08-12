@@ -28,7 +28,6 @@ export function smokeReviewTree(imagePath: string): ReviewTree {
       lineStart: 1,
       lineEnd: 7,
       feedback: '',
-      collapsed: false,
       children: [
         {
           id: 'smoke-yaml',
@@ -38,7 +37,6 @@ export function smokeReviewTree(imagePath: string): ReviewTree {
           lineStart: 1,
           lineEnd: 3,
           feedback: '',
-          collapsed: false,
           sourceEditable: false,
           children: [{
             id: 'smoke-yaml-title',
@@ -49,7 +47,6 @@ export function smokeReviewTree(imagePath: string): ReviewTree {
             lineStart: 2,
             lineEnd: 2,
             feedback: '',
-            collapsed: false,
             children: []
           }]
         },
@@ -62,7 +59,6 @@ export function smokeReviewTree(imagePath: string): ReviewTree {
           lineStart: 4,
           lineEnd: 4,
           feedback: '',
-          collapsed: false,
           children: [],
           attachments: [{
             id: 'img-1',
@@ -84,7 +80,6 @@ export function smokeReviewTree(imagePath: string): ReviewTree {
           lineStart: 6,
           lineEnd: 6,
           feedback: '',
-          collapsed: false,
           children: []
         }
       ]

@@ -26,6 +26,14 @@ const limitations = fs.readFileSync(
   path.join(userDirectory, 'limitations/index.html'),
   'utf8'
 )
+const compatibility = fs.readFileSync(
+  path.join(userDirectory, 'compatibility/index.html'),
+  'utf8'
+)
+const compatibilityCatalog = JSON.parse(fs.readFileSync(
+  path.join(userDirectory, 'compatibility/catalog.json'),
+  'utf8'
+)) as Record<string, unknown>
 const developerIndex = fs.readFileSync(
   path.join(projectDirectory, 'docs/developer/README.md'),
   'utf8'
@@ -164,6 +172,10 @@ test('Pages deploys built docs when a documentation build input changes', () => 
     true
   )
   assert.equal(
+    fs.existsSync(path.join(projectDirectory, 'build/docs/user/compatibility/catalog.json')),
+    true
+  )
+  assert.equal(
     fs.existsSync(path.join(projectDirectory, 'build/docs/user/.nojekyll')),
     true
   )
@@ -241,7 +253,8 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   assert.match(privacy, /within five seconds/)
   assert.match(privacy, /autosaveMaximumDelayMs/)
   assert.match(privacy, /power loss, operating-system or hardware failure/)
-  assert.match(privacy, /may not open every review created by an older version/)
+  assert.match(privacy, /byte-for-byte backup/)
+  assert.match(privacy, /official compatibility catalog/)
   assert.match(privacy, /github\.com\/lastobelus\/markover\/discussions/)
 })
 
@@ -280,6 +293,9 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(agents, /id="done"[\s\S]*markover done/)
   assert.match(agents, /pullRequestStatus/)
   assert.match(agents, /review\.agentGuidance\.fixedContract/)
+  assert.match(agents, /thread-host-kind/)
+  assert.match(agents, /Validate the handoff before reading it/)
+  assert.match(agents, /official compatibility catalog/)
   assert.match(agents, /Human reviewers should start with/)
 })
 
@@ -293,11 +309,21 @@ test('the early-preview contract is concise and consistent on user entry paths',
     assert.match(source, /issue #80|issues\/80/)
     assert.match(source, /Node\.js 22\.13\.0 or newer/)
     assert.match(source, /not Apple-verified/i)
-    assert.match(source, /may not open every older review|may not open every review created by an older version/)
+    assert.match(source, /Released review schemas\s+are converted automatically with an original backup/)
   }
   assert.match(guide, /href="\.\.\/limitations\/"/)
   assert.match(guide, /github\.com\/lastobelus\/markover\/discussions/)
   assert.match(readme, /markover\/limitations\//)
+})
+
+test('the compatibility catalog maps released schemas without guessing', () => {
+  assert.match(compatibility, /official mapping/)
+  assert.match(compatibility, /Unreleased prototype shapes are not compatibility targets/)
+  assert.match(compatibility, /byte-for-byte backup/)
+  assert.equal(compatibilityCatalog.format, 'markover-review-compatibility')
+  assert.equal(compatibilityCatalog.version, 1)
+  assert.match(JSON.stringify(compatibilityCatalog), /markover-review/)
+  assert.match(JSON.stringify(compatibilityCatalog), /firstMarkoverRelease/)
 })
 
 test('Markdown limitations distinguish selectable, whole-block, and extension behavior', () => {
@@ -326,6 +352,7 @@ test('every local user-documentation link and asset stays inside the user root',
   for (const relativePath of [
     'index.html',
     'agents/index.html',
+    'compatibility/index.html',
     'guide/index.html',
     'limitations/index.html',
     'privacy/index.html'

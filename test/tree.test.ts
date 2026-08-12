@@ -214,7 +214,7 @@ draft: false
 
   assert.equal(frontmatter.text, 'YAML Frontmatter')
   assert.equal(frontmatter.sourceEditable, false)
-  assert.equal(frontmatter.collapsed, true)
+  assert.equal(Object.hasOwn(frontmatter, 'collapsed'), false)
   assert.equal(frontmatter.lineStart, 1)
   assert.equal(frontmatter.lineEnd, 10)
   assert.deepEqual(

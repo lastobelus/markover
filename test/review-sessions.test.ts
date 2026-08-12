@@ -22,7 +22,7 @@ function sessionTreeFromArtifact(tree: ReviewArtifact): ReviewSessionTree {
 function reviewDocument(
   reviewId: string,
   name: string,
-  repositoryRoot: string | null = null
+  projectRoot: string | null = null
 ): ReviewSessionDocument {
   const parsed = parseMarkdown(`# ${name}\n\n- One\n- Two\n`, `sha256:${reviewId}`, {
     name,
@@ -33,7 +33,18 @@ function reviewDocument(
     review: {
       id: reviewId,
       status: 'editing',
-      git: repositoryRoot ? { repositoryRoot } : null
+      origin: 'agent',
+      createdAt: '2026-08-03T12:00:00.000Z',
+      updatedAt: '2026-08-03T12:00:00.000Z',
+      attentionRequestedAt: '2026-08-03T12:00:00.000Z',
+      contextSummary: `Review ${name}.`,
+      agentThread: null,
+      git: null,
+      pullRequest: null,
+      agentGuidance: {
+        fixedContract: 'Interpret feedback by intent.',
+        interpretationPolicy: 'Use your judgment.'
+      }
     }
   } satisfies ReviewSessionTree
   return {
@@ -41,7 +52,8 @@ function reviewDocument(
     name,
     path: `/tmp/${name}`,
     checksum: `sha256:${reviewId}`,
-    tree
+    tree,
+    projectRoot
   }
 }
 
@@ -121,7 +133,10 @@ test('unnamed managed documents receive a stable display name', () => {
   const parsed = parseMarkdown('# Untitled', 'sha256:mko_unnamed1')
   const tree = {
     ...parsed,
-    review: { id: 'mko_unnamed1', status: 'editing' }
+    review: {
+      ...reviewDocument('mko_unnamed1', 'Untitled').tree.review,
+      id: 'mko_unnamed1'
+    }
   } satisfies ReviewSessionTree
 
   const session = sessions.add({
@@ -327,12 +342,13 @@ test('persisted review artifacts satisfy the browser session boundary', () => {
     review: {
       ...source.review,
       status: 'editing',
+      origin: 'agent',
       createdAt: '2026-08-03T12:00:00.000Z',
       updatedAt: '2026-08-03T12:00:00.000Z',
       attentionRequestedAt: '2026-08-03T12:00:00.000Z',
       contextSummary: 'Review the stored document.',
       agentThread: null,
-      git: 'legacy metadata',
+      git: { branch: 'feature/session' },
       pullRequest: null,
       agentGuidance: {
         fixedContract: 'Interpret feedback by intent.',

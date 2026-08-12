@@ -1084,13 +1084,6 @@ function currentWindowFocusState(): MarkoverWindowFocusState {
   }
 }
 
-function repositoryRoot(artifact: ReviewArtifact): string | null {
-  const git = artifact.review.git
-  if (!git || typeof git !== 'object' || Array.isArray(git)) return null
-  const root: unknown = Reflect.get(git, 'repositoryRoot')
-  return typeof root === 'string' && root ? root : null
-}
-
 function managedDocument(
   artifact: ReviewArtifact,
   projectRoot: string | null = null
@@ -1102,14 +1095,23 @@ function managedDocument(
     path: artifact.sourceDocument.path,
     source: artifact.sourceDocument.content,
     checksum: artifact.sourceDocument.checksum,
-    projectRoot: repositoryRoot(artifact) || projectRoot,
+    projectRoot,
     tree: artifact
   }
 }
 
 async function projectFavicon(reviewId: string): Promise<string | null> {
   const artifact = await requireReviewStore().load(reviewId)
-  const root = repositoryRoot(artifact)
+  const sourcePath = artifact.sourceDocument.path
+  if (!sourcePath) return null
+  const sourceDirectory = path.dirname(path.resolve(sourcePath))
+  if (!projectRoots.has(sourceDirectory)) {
+    projectRoots.set(
+      sourceDirectory,
+      discoverRepositoryRoot(sourcePath).catch(() => null)
+    )
+  }
+  const root = await projectRoots.get(sourceDirectory)
   if (!root) return null
   const resolvedRoot = path.resolve(root)
   if (!projectFavicons.has(resolvedRoot)) {
@@ -1140,9 +1142,8 @@ async function managedDocuments(
   artifacts: ReviewArtifact[]
 ): Promise<MarkoverDocument[]> {
   return Promise.all(artifacts.map(async (artifact) => {
-    const existingRoot = repositoryRoot(artifact)
     const sourcePath = artifact.sourceDocument.path
-    if (existingRoot || !sourcePath) return managedDocument(artifact)
+    if (!sourcePath) return managedDocument(artifact)
 
     const sourceDirectory = path.dirname(path.resolve(sourcePath))
     if (!projectRoots.has(sourceDirectory)) {

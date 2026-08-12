@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { reviewChecksum } from '../src/review-format'
+
 import {
   createLocalReview,
   LOCAL_REVIEW_CONTEXT_SUMMARY
@@ -18,7 +20,7 @@ function candidate(filePath: string, source: string): MarkoverDocument {
     name: path.basename(filePath),
     path: filePath,
     source,
-    checksum: 'sha256:local'
+    checksum: reviewChecksum(source)
   }
 }
 
@@ -39,9 +41,8 @@ test('creates a managed local review with source and Git context', async (t) => 
   })
   const created = await createLocalReview(selected, tree, store, {
     discoverGit: () => Promise.resolve({
-      repositoryRoot: directory,
-      branch: 'local-notes',
-      sources: { repositoryRoot: 'git-cli', branch: 'git-cli' }
+      repositoryUrl: 'git@github.com:lastobelus/markover.git',
+      branch: 'local-notes'
     }),
     interpretationPolicy: 'Use the local review policy.'
   })
@@ -51,9 +52,8 @@ test('creates a managed local review with source and Git context', async (t) => 
   assert.equal(created.review.agentThread, null)
   assert.equal(created.review.pullRequest, null)
   assert.deepEqual(created.review.git, {
-    repositoryRoot: directory,
-    branch: 'local-notes',
-    sources: { repositoryRoot: 'git-cli', branch: 'git-cli' }
+    repositoryUrl: 'git@github.com:lastobelus/markover.git',
+    branch: 'local-notes'
   })
   assert.equal(
     created.review.agentGuidance.interpretationPolicy,
@@ -72,7 +72,8 @@ test('creates a managed local review with source and Git context', async (t) => 
 
 test('rejects a changed renderer snapshot before creating a review', async () => {
   const selected = candidate('/tmp/notes.md', '# Selected\n')
-  const changed = parseMarkdown('# Changed\n', selected.checksum, {
+  const changedSource = '# Changed\n'
+  const changed = parseMarkdown(changedSource, reviewChecksum(changedSource), {
     name: selected.name,
     path: selected.path
   })

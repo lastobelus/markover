@@ -37,15 +37,11 @@
       ? document.tree.review
       : null
     const git = review && isRecord(review.git) ? review.git : null
-    const discoveredRoot = git?.repositoryRoot
     const configuredRoot = typeof document.projectRoot === 'string'
       ? document.projectRoot
       : null
-    const repositoryRoot = configuredRoot || (
-      typeof discoveredRoot === 'string' ? discoveredRoot : null
-    )
     const fallbackRoot = dirname(document.path)
-    const root = (repositoryRoot || fallbackRoot || '')
+    const root = (configuredRoot || fallbackRoot || '')
       .replace(/[\\/]+$/, '') || null
     return {
       key: root || 'unassigned',
@@ -271,15 +267,11 @@
       if (!reviewId) return null
       const session = this.get(reviewId)
       if (!session) return null
-      if (document.tree.review.updatedAt !== undefined) {
-        session.tree.review.updatedAt = document.tree.review.updatedAt
-      }
-      if (document.tree.review.attentionRequestedAt !== undefined) {
-        session.tree.review.attentionRequestedAt =
-          document.tree.review.attentionRequestedAt
-        const requestedAt = Date.parse(document.tree.review.attentionRequestedAt)
-        if (Number.isFinite(requestedAt)) session.attentionRequestedAt = requestedAt
-      }
+      session.tree.review.updatedAt = document.tree.review.updatedAt
+      session.tree.review.attentionRequestedAt =
+        document.tree.review.attentionRequestedAt
+      const requestedAt = Date.parse(document.tree.review.attentionRequestedAt)
+      if (Number.isFinite(requestedAt)) session.attentionRequestedAt = requestedAt
       session.tree.review.pullRequest = document.tree.review.pullRequest
       return session
     }

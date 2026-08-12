@@ -9,26 +9,13 @@ import type {
   StartupReady,
   StartupWarning
 } from './startup-contract'
+import { isReviewArtifact, isReviewTree } from './review-format'
 import { isWorkspaceState } from './workspace-state'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 const ATTACHMENT_ID_PATTERN = /^img-[1-9]\d*$/
 const REQUEST_ID_PATTERN = /^(?:activation|snapshot|status)-[1-9]\d*$/
 const CHECKSUM_PATTERN = /^sha256:[a-f0-9]{64}$/
-
-const REVIEW_NODE_TYPES = new Set<ReviewNodeType>([
-  'document',
-  'heading',
-  'paragraph',
-  'blockquote',
-  'table',
-  'thematic-break',
-  'ordered-item',
-  'unordered-item',
-  'code',
-  'frontmatter',
-  'frontmatter-entry'
-])
 
 const SETTINGS_KEYS = [
   'palette',
@@ -208,163 +195,18 @@ function isChecksum(value: unknown): value is string {
   return typeof value === 'string' && CHECKSUM_PATTERN.test(value)
 }
 
-function isSourceEdit(value: unknown): value is SourceEdit {
-  return hasExactKeys(value, ['original', 'current']) &&
-    typeof value.original === 'string' &&
-    typeof value.current === 'string'
-}
-
 function isReviewAttachment(value: unknown): value is ReviewAttachment {
-  if (!hasExactKeys(value, ['id'], [
-    'type',
-    'label',
-    'path',
-    'mimeType',
-    'url',
-    'checksum',
-    'width',
-    'height'
-  ])) return false
-  return isAttachmentId(value.id) &&
-    (value.type === undefined || value.type === 'image') &&
-    isOptionalString(value.label) &&
-    isOptionalString(value.path) &&
-    isOptionalString(value.mimeType) &&
-    isOptionalString(value.url) &&
-    (value.checksum === undefined || isChecksum(value.checksum)) &&
-    (
-      value.width === undefined ||
-      value.width === null ||
-      isPositiveInteger(value.width)
-    ) &&
-    (
-      value.height === undefined ||
-      value.height === null ||
-      isPositiveInteger(value.height)
-    )
-}
-
-function isReviewNode(value: unknown): value is ReviewNode {
-  if (!isRecord(value) || !REVIEW_NODE_TYPES.has(value.type as ReviewNodeType)) {
-    return false
+  if (!isRecord(value) || !isAttachmentId(value.id)) return false
+  if (value.type !== undefined && value.type !== 'image') return false
+  for (const field of ['label', 'path', 'mimeType', 'url'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') return false
   }
-  const required = [
-    'id',
-    'raw',
-    'type',
-    'text',
-    'lineStart',
-    'lineEnd',
-    'feedback',
-    'children'
-  ]
-  const optional = ['collapsed', 'sourceEdit', 'sourceEditable', 'attachments']
-  if (value.type === 'heading') required.push('level')
-  if (value.type === 'code') required.push('language')
-  if (value.type === 'frontmatter-entry') required.push('key')
-  if (value.type === 'ordered-item' || value.type === 'unordered-item') {
-    required.push('marker', 'listId', 'listPosition', 'listLength')
-    optional.push('task', 'checked')
-  }
-  if (!hasExactKeys(value, required, optional)) return false
-  if (
-    typeof value.id !== 'string' || !value.id ||
-    typeof value.raw !== 'string' ||
-    typeof value.text !== 'string' ||
-    !isPositiveInteger(value.lineStart) ||
-    !isPositiveInteger(value.lineEnd) ||
-    value.lineEnd < value.lineStart ||
-    typeof value.feedback !== 'string' ||
-    (value.collapsed !== undefined && typeof value.collapsed !== 'boolean') ||
-    !Array.isArray(value.children) ||
-    !value.children.every(isReviewNode) ||
-    (value.sourceEdit !== undefined && !isSourceEdit(value.sourceEdit)) ||
-    (value.sourceEditable !== undefined && typeof value.sourceEditable !== 'boolean') ||
-    (
-      value.attachments !== undefined &&
-      (!Array.isArray(value.attachments) || !value.attachments.every(isReviewAttachment))
-    )
-  ) return false
-
-  if (value.type === 'heading') {
-    return isPositiveInteger(value.level) && value.level <= 6
-  }
-  if (value.type === 'code') return typeof value.language === 'string'
-  if (value.type === 'frontmatter-entry') return typeof value.key === 'string'
-  if (value.type === 'frontmatter' && value.sourceEditable !== false) return false
-  if (value.type === 'ordered-item' || value.type === 'unordered-item') {
-    return typeof value.marker === 'string' &&
-      typeof value.listId === 'string' &&
-      isPositiveInteger(value.listPosition) &&
-      (
-        value.listLength === null ||
-        (
-          isPositiveInteger(value.listLength) &&
-          value.listPosition <= value.listLength
-        )
-      ) &&
-      (value.task === undefined || value.task === true) &&
-      (value.checked === undefined || typeof value.checked === 'boolean')
-  }
-  return true
-}
-
-function isAgentGuidance(value: unknown): value is AgentGuidance {
-  return hasExactKeys(value, ['fixedContract', 'interpretationPolicy']) &&
-    typeof value.fixedContract === 'string' &&
-    typeof value.interpretationPolicy === 'string'
-}
-
-function isReviewEnvelope(value: unknown): boolean {
-  if (!hasExactKeys(value, ['id', 'status'], [
-    'createdAt',
-    'updatedAt',
-    'attentionRequestedAt',
-    'contextSummary',
-    'agentThread',
-    'git',
-    'pullRequest',
-    'agentGuidance'
-  ])) return false
-  return isReviewId(value.id) &&
-    (
-      value.status === 'editing' ||
-      value.status === 'pending-agent' ||
-      value.status === 'revised' ||
-      value.status === 'done' ||
-      value.status === 'handoff-in-progress'
-    ) &&
-    isOptionalString(value.createdAt) &&
-    isOptionalString(value.updatedAt) &&
-    isOptionalString(value.attentionRequestedAt) &&
-    isOptionalString(value.contextSummary) &&
-    (value.agentGuidance === undefined || isAgentGuidance(value.agentGuidance))
-}
-
-export function isReviewTree(value: unknown): value is ReviewTree {
-  if (!hasExactKeys(
-    value,
-    ['format', 'version', 'sourceDocument', 'unsupported', 'root'],
-    ['review']
-  )) return false
-  if (
-    value.format !== 'markover-review' ||
-    value.version !== 1 ||
-    !hasExactKeys(value.sourceDocument, ['name', 'path', 'content', 'checksum']) ||
-    !isStringOrNull(value.sourceDocument.name) ||
-    !isStringOrNull(value.sourceDocument.path) ||
-    typeof value.sourceDocument.content !== 'string' ||
-    !isChecksum(value.sourceDocument.checksum) ||
-    !Array.isArray(value.unsupported) ||
-    !value.unsupported.every((line) => (
-      hasExactKeys(line, ['line', 'text']) &&
-      isPositiveInteger(line.line) &&
-      typeof line.text === 'string'
-    )) ||
-    !isReviewNode(value.root) ||
-    value.root.type !== 'document'
-  ) return false
-  return value.review === undefined || isReviewEnvelope(value.review)
+  if (value.checksum !== undefined && !isChecksum(value.checksum)) return false
+  return ['width', 'height'].every((field) => (
+    value[field] === undefined ||
+    value[field] === null ||
+    isPositiveInteger(value[field])
+  ))
 }
 
 function isClipboardImage(value: unknown): value is MarkoverClipboardImage {
@@ -390,18 +232,46 @@ function isDocument(value: unknown): value is MarkoverDocument {
       value.projectRoot !== undefined &&
       !isStringOrNull(value.projectRoot)
     ) ||
-    (value.tree !== undefined && !isReviewTree(value.tree))
+    (
+      value.tree !== undefined &&
+      (
+        value.reviewId !== undefined
+          ? !isReviewSessionTree(value.tree, value.reviewId)
+          : !isReviewTree(value.tree)
+      )
+    )
   ) return false
-  if (value.tree && (
-    value.tree.sourceDocument.content !== value.source ||
-    value.tree.sourceDocument.checksum !== value.checksum
+  if (value.reviewId !== undefined && value.tree === undefined) return false
+  const tree = value.tree as ReviewTree | undefined
+  if (tree && (
+    tree.sourceDocument.content !== value.source ||
+    tree.sourceDocument.checksum !== value.checksum
   )) return false
   if (
     value.reviewId &&
-    isRecord(value.tree?.review) &&
-    value.tree.review.id !== value.reviewId
+    isRecord(tree?.review) &&
+    tree.review.id !== value.reviewId
   ) return false
   return true
+}
+
+function isReviewSessionTree(
+  value: unknown,
+  reviewId: string
+): value is ReviewSessionTree {
+  if (!isRecord(value) || !isRecord(value.review) || value.review.id !== reviewId) {
+    return false
+  }
+  if (value.review.status !== 'handoff-in-progress') {
+    return isReviewArtifact(value)
+  }
+  return isReviewArtifact({
+    ...value,
+    review: {
+      ...value.review,
+      status: 'editing'
+    }
+  })
 }
 
 function isStartupWarningValue(value: unknown): value is StartupWarning {
@@ -663,11 +533,7 @@ function isAttachmentRemoveRequest(value: unknown): value is AttachmentRemoveReq
   return hasExactKeys(value, ['reviewId', 'attachmentId', 'tree']) &&
     isReviewId(value.reviewId) &&
     isAttachmentId(value.attachmentId) &&
-    isReviewTree(value.tree) &&
-    (
-      !isRecord(value.tree.review) ||
-      value.tree.review.id === value.reviewId
-    )
+    isReviewSessionTree(value.tree, value.reviewId)
 }
 
 function isAttachmentRemoveResult(value: unknown): value is AttachmentRemoveResult {
@@ -765,9 +631,8 @@ export function assertRendererSendArguments(
     case 'review:autosave':
       valid = args.length === 2 &&
         isReviewId(args[0]) &&
-        isReviewTree(args[1]) &&
-        isRecord(args[1].review) &&
-        args[1].review.id === args[0]
+        isReviewSessionTree(args[1], args[0]) &&
+        args[1].review.status === 'editing'
       break
   }
   if (!valid) throw new IpcContractError(channel, 'renderer-to-main send')

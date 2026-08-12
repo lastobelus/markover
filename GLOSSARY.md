@@ -268,6 +268,8 @@ The complete machine-readable value for one review: review envelope, exact sourc
 
 `get` returns the handed-off review artifact exactly; derived navigation metadata belongs outside it.
 
+Its portable artifact family is `markover-review`. The integer `version` covers the whole portable value rather than independently versioning its subobjects.
+
 ## review block::
 
 A selectable semantic Markdown unit in the review tree to which annotation data and a source edit can attach; often shortened to block or node.
@@ -302,9 +304,9 @@ The single multi-review Markover workspace that receives work from one or more a
 
 ## review metadata::
 
-Context explaining why and where a review was opened: summary, Git state, pull request, agent thread, and discovery provenance.
+Portable opening-time context explaining why and where a review was opened: summary, sanitized Git hints, pull request, and agent thread.
 
-Metadata belongs to the review envelope, not the deterministic review target.
+It belongs to the review envelope, not the deterministic review target. Current machine-local evidence, discovery provenance, grouping keys, and requesting-thread-title observations are app-private enrichment rather than review metadata.
 
 ## review session::
 

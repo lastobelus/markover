@@ -2050,9 +2050,9 @@ function renderReviewContext(): void {
   }
 
   const git = metadataRecord(review.git)
-  const gitSources = metadataRecord(git.sources)
   const pullRequest = metadataRecord(review.pullRequest)
   const agentThread = metadataRecord(review.agentThread)
+  const threadHost = metadataRecord(agentThread.threadHost)
   elements.reviewContextTitle.textContent = state.documentName
   elements.reviewContextSummary.innerHTML = inlineMarkdown.render(
     review.contextSummary || ''
@@ -2062,16 +2062,9 @@ function renderReviewContext(): void {
   addReviewContextField('Status', reviewStatusLabel(review.status))
   addReviewContextField('Source', state.documentPath)
   addReviewContextField('Created', review.createdAt)
-  addReviewContextField('Repository root', metadataString(git, 'repositoryRoot'))
   addReviewContextField('Branch', metadataString(git, 'branch'))
   addReviewContextField('Commit', metadataString(git, 'commit'))
   addReviewContextField('Repository', metadataString(git, 'repositoryUrl'))
-  addReviewContextField(
-    'Git sources',
-    [...new Set(Object.values(gitSources).filter(
-      (value): value is string => typeof value === 'string'
-    ))].join(', ') || null
-  )
   const pullRequestNumber = pullRequest.number
   const pullRequestUrl = metadataString(pullRequest, 'url')
   addReviewContextField(
@@ -2081,28 +2074,22 @@ function renderReviewContext(): void {
       : pullRequestUrl
   )
   addReviewContextField('Pull request URL', pullRequestUrl)
-  addReviewContextField(
-    'Pull request source',
-    metadataString(pullRequest, 'discovery')
-  )
   const threadId = metadataString(agentThread, 'id')
-  const threadProvider = metadataString(agentThread, 'provider')
+  const threadProvider = metadataString(threadHost, 'provider')
   addReviewContextField(
     'Agent thread',
     threadId
       ? [threadProvider, threadId].filter(Boolean).join(' · ')
       : null
   )
-  addReviewContextField('Thread source', metadataString(agentThread, 'discovery'))
-  addReviewContextField('Thread cwd', metadataString(agentThread, 'cwd'))
-  addReviewContextField('Session log', metadataString(agentThread, 'logPath'))
+  addReviewContextField('Thread-host', metadataString(threadHost, 'kind'))
   addReviewContextField(
-    'Parent thread',
-    metadataString(agentThread, 'parentThreadId')
+    'Thread-host thread',
+    metadataString(threadHost, 'threadId')
   )
   addReviewContextField(
-    'Forked from',
-    metadataString(agentThread, 'forkedFromId')
+    'Thread-host machine',
+    metadataString(threadHost, 'machine')
   )
 }
 
@@ -2381,11 +2368,7 @@ function reviewRowPullRequestTitle(row: ReviewInboxRow): string {
   if (!row.pullRequestStatus || !row.pullRequestStatusObservedAt) {
     return `PR #${row.pullRequestNumber} is linked; its current state has not been observed.`
   }
-  const source = row.pullRequestStatusSource || 'unknown source'
-  const age = MarkoverReviewSessions.formatRelativeTime(
-    Date.parse(row.pullRequestStatusObservedAt)
-  )
-  return `PR #${row.pullRequestNumber}: ${row.pullRequestStatus}; reported by ${source} ${age}.`
+  return `PR #${row.pullRequestNumber}: ${row.pullRequestStatus}.`
 }
 
 function reviewRowTime(row: ReviewInboxRow): string {

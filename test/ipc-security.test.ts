@@ -156,11 +156,26 @@ test('privileged IPC rejects forged senders, subframes, URLs, and arguments', ()
   ])
 })
 
-test('IPC payload contracts enforce exact current and handed-off schemas', () => {
+test('IPC payload contracts share the additive v1 review decoder', () => {
   const tree = smokeReviewTree('/tmp/markover.svg')
   const managedTree: ReviewTree = {
     ...tree,
-    review: { id: 'mko_abcdef', status: 'editing' }
+    review: {
+      id: 'mko_abcdef',
+      status: 'editing',
+      origin: 'agent',
+      createdAt: '2026-08-11T20:00:00.000Z',
+      updatedAt: '2026-08-11T20:00:00.000Z',
+      attentionRequestedAt: '2026-08-11T20:00:00.000Z',
+      contextSummary: 'Exercise IPC boundaries.',
+      agentThread: null,
+      git: null,
+      pullRequest: null,
+      agentGuidance: {
+        fixedContract: 'Interpret feedback by intent.',
+        interpretationPolicy: 'Use your judgment.'
+      }
+    }
   }
   const document: MarkoverDocument = {
     reviewId: 'mko_abcdef',
@@ -241,24 +256,15 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
     )
     assertRendererInvokeResult('review:pull-request:open', undefined)
     assertMainEventArguments('review:updated', [document])
-    const withoutCollapsed = structuredClone(document)
-    const removeCollapsed = (node: Record<string, unknown>): void => {
-      delete node.collapsed
-      const children = node.children
-      if (Array.isArray(children)) {
-        for (const child of children) {
-          if (child && typeof child === 'object') {
-            removeCollapsed(child as Record<string, unknown>)
-          }
-        }
-      }
-    }
-    removeCollapsed(withoutCollapsed.tree?.root as unknown as Record<string, unknown>)
-    assertRendererInvokeResult('review:create-local', withoutCollapsed)
+    const additiveDocument = structuredClone(document)
+    Reflect.set(additiveDocument.tree as object, 'futureOptionalField', {
+      preserved: true
+    })
+    assertRendererInvokeResult('review:create-local', additiveDocument)
     assertRendererInvokeArguments('attachment:remove', [{
       reviewId: 'mko_abcdef',
       attachmentId: 'img-1',
-      tree
+      tree: managedTree
     }])
     assertMainEventArguments('review:trashed', [{ reviewId: 'mko_abcdef' }])
     assertRendererInvokeResult('attachment:remove', {
@@ -286,6 +292,53 @@ test('IPC payload contracts enforce exact current and handed-off schemas', () =>
   })
   assert.throws(() => {
     assertRendererSendArguments('review:autosave', [null, { ...tree, extra: true }])
+  })
+
+  const futureTree = { ...tree, version: 2 }
+  const futureDocument = { ...document, tree: futureTree }
+  assert.throws(() => {
+    assertRendererInvokeArguments('review:create-local', [futureTree])
+  })
+  assert.throws(() => {
+    assertRendererSendArguments('review:autosave', ['mko_abcdef', futureTree])
+  })
+  assert.throws(() => {
+    assertRendererSendArguments('review:snapshot-response', [{
+      requestId: 'snapshot-1',
+      reviewId: 'mko_abcdef',
+      purpose: 'handoff',
+      tree: futureTree
+    }])
+  })
+  assert.throws(() => {
+    assertRendererInvokeArguments('attachment:remove', [{
+      reviewId: 'mko_abcdef',
+      attachmentId: 'img-1',
+      tree: futureTree
+    }])
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:create-local', futureDocument)
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:initial-document', futureDocument)
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:list', [futureDocument])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('review:opened', [futureDocument])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('review:updated', [futureDocument])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('review:activation-request', [{
+      requestId: 'activation-1',
+      reviewId: 'mko_abcdef',
+      document: futureDocument,
+      focusState: { focused: false, blurredAt: 1 }
+    }])
   })
   assert.throws(() => {
     assertRendererInvokeArguments('attachment:save', [{

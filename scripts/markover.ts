@@ -37,6 +37,10 @@ import {
   parseGitHubPullRequestUrl,
   type PullRequestStatus
 } from '../src/pull-request'
+import {
+  decodeReviewArtifact,
+  ReviewFormatError
+} from '../src/review-format'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
@@ -81,6 +85,10 @@ export type ParsedCommand = ParsedInstanceTarget & (
       pullRequestUrl?: string | null
       pullRequestStatus?: PullRequestStatus | null
       threadId?: string | null
+      threadHostKind?: string | null
+      threadHostProvider?: string | null
+      threadHostThreadId?: string | null
+      threadHostMachine?: string | null
     }
 )
 
@@ -130,7 +138,9 @@ export function helpPayload() {
       'Run open once, then retain the returned reviewId in the agent thread.',
       'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
+      'Before interpreting a returned review, require format markover-review and version 1. For any other header, preserve the artifact, consult the official compatibility catalog named by the diagnostic, recommend the compatible Markover release when listed, and never guess at the body.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
+      'For agent-originated reviews, provide truthful thread metadata when observable: --thread-id is the provider thread ID; --thread-host-kind is the application containing the thread; --thread-host-provider is the provider serving it; --thread-host-thread-id is only a distinct host-owned ID; and --thread-host-machine should use the local hostname result when available. Omit unavailable values rather than guessing.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
       'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
@@ -152,7 +162,7 @@ export function helpPayload() {
     commands: [
       {
         name: 'open',
-        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <id>] [--handoff-key <key>]',
+        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <provider-id> | --handoff-key <key>] [--thread-host-kind <kind> --thread-host-provider <provider> [--thread-host-thread-id <distinct-id>] [--thread-host-machine <hostname>]]',
         purpose: 'Open a durable, non-blocking review and print {reviewId,status,reviewUrl} as JSON.'
       },
       {
@@ -349,6 +359,10 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   let pullRequestUrl = null
   let pullRequestStatus: PullRequestStatus | null = null
   let threadId = null
+  let threadHostKind = null
+  let threadHostProvider = null
+  let threadHostThreadId = null
+  let threadHostMachine = null
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index]
     if (argument === undefined) break
@@ -359,7 +373,11 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       argument === '--pr' ||
       argument === '--pr-url' ||
       argument === '--pr-status' ||
-      argument === '--thread-id'
+      argument === '--thread-id' ||
+      argument === '--thread-host-kind' ||
+      argument === '--thread-host-provider' ||
+      argument === '--thread-host-thread-id' ||
+      argument === '--thread-host-machine'
     ) {
       const value = rest[index + 1]
       if (!value || value.startsWith('--')) {
@@ -372,6 +390,10 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       if (argument === '--branch') branch = value
       if (argument === '--handoff-key') handoffKey = value
       if (argument === '--thread-id') threadId = value
+      if (argument === '--thread-host-kind') threadHostKind = value
+      if (argument === '--thread-host-provider') threadHostProvider = value
+      if (argument === '--thread-host-thread-id') threadHostThreadId = value
+      if (argument === '--thread-host-machine') threadHostMachine = value
       if (argument === '--pr-url') {
         const identity = parseGitHubPullRequestUrl(value)
         if (!identity) {
@@ -451,6 +473,23 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       )
     }
   }
+  for (const [option, value] of [
+    ['--thread-host-kind', threadHostKind],
+    ['--thread-host-provider', threadHostProvider],
+    ['--thread-host-thread-id', threadHostThreadId],
+    ['--thread-host-machine', threadHostMachine]
+  ] as const) {
+    if (value !== null && !value.trim()) {
+      throw commandError(
+        `${option} requires a non-empty value.`,
+        'markover open <markdown-path> --summary <text>'
+      )
+    }
+  }
+  threadHostKind = threadHostKind?.trim() || null
+  threadHostProvider = threadHostProvider?.trim() || null
+  threadHostThreadId = threadHostThreadId?.trim() || null
+  threadHostMachine = threadHostMachine?.trim() || null
   if (handoffKey !== null) {
     handoffKey = handoffKey.trim()
     if (!HANDOFF_KEY_PATTERN.test(handoffKey)) {
@@ -459,6 +498,31 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
         'markover open <markdown-path> --summary <text> --handoff-key <key>'
       )
     }
+  }
+  const hasThreadIdentity = Boolean(threadId || handoffKey)
+  const hasThreadHostMetadata = Boolean(
+    threadHostKind ||
+    threadHostProvider ||
+    threadHostThreadId ||
+    threadHostMachine
+  )
+  if (hasThreadIdentity && (!threadHostKind || !threadHostProvider)) {
+    throw commandError(
+      '--thread-id or --handoff-key requires --thread-host-kind and --thread-host-provider.',
+      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+    )
+  }
+  if (hasThreadHostMetadata && !hasThreadIdentity) {
+    throw commandError(
+      'Thread-host metadata requires --thread-id or --handoff-key.',
+      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+    )
+  }
+  if (threadId && threadHostThreadId === threadId) {
+    throw commandError(
+      '--thread-host-thread-id must be omitted when it duplicates --thread-id.',
+      'markover open <markdown-path> --summary <text> --thread-id <provider-id> --thread-host-kind <kind> --thread-host-provider <provider>'
+    )
   }
   if (pullRequestUrl && !pullRequestNumber) {
     throw commandError(
@@ -490,7 +554,11 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     pullRequestNumber,
     pullRequestUrl,
     pullRequestStatus,
-    threadId
+    threadId,
+    threadHostKind,
+    threadHostProvider,
+    threadHostThreadId,
+    threadHostMachine
   })
 }
 
@@ -767,6 +835,10 @@ export async function executeCommand(
       pullRequestNumber: parsed.pullRequestNumber ?? null,
       pullRequestUrl: parsed.pullRequestUrl ?? null,
       threadId: parsed.threadId ?? null,
+      threadHostKind: parsed.threadHostKind ?? null,
+      threadHostProvider: parsed.threadHostProvider ?? null,
+      threadHostThreadId: parsed.threadHostThreadId ?? null,
+      threadHostMachine: parsed.threadHostMachine ?? null,
       handoffKey
     })
     await ensure()
@@ -811,7 +883,7 @@ export async function executeCommand(
   }
   const reviewId = encodeURIComponent(parsed.reviewId)
   if (parsed.command === 'get') {
-    return requestJson(
+    const response = await requestJson(
       endpointPath,
       'POST',
       `/reviews/${reviewId}/handoff`,
@@ -819,6 +891,14 @@ export async function executeCommand(
         ? { pullRequestStatus: parsed.pullRequestStatus }
         : undefined
     )
+    try {
+      return decodeReviewArtifact(response, parsed.reviewId)
+    } catch (error) {
+      if (error instanceof ReviewFormatError) {
+        throw new LocalServiceError(error.code, error.message)
+      }
+      throw error
+    }
   }
   if (parsed.command === 'revise') {
     return requestJson(

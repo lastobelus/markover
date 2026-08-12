@@ -1,0 +1,172 @@
+# Review handoff format
+
+This is the authoritative contract for the portable JSON artifact exchanged by
+Markover, its command-line client, and an agent. The current artifact family is
+`markover-review`; its current version is `1`.
+
+The format version covers the whole portable object: source snapshot, review
+tree, feedback, attachments, source-edit proposals, lifecycle envelope,
+portable request metadata, pull-request observation, and agent guidance. It
+does not version Markdown parsing behavior, the local-service protocol, CLI
+help, app-private workspace or enrichment state, or source-document revisions.
+
+## Reader contract
+
+A reader must inspect `format` and `version` before interpreting the rest of the
+object. It accepts valid v1 artifacts, ignores unknown additive properties, and
+preserves those properties unchanged through every read/edit/write round trip.
+It rejects a different format or unknown future version before displaying,
+mutating, handing off, or rewriting the artifact.
+
+Rejection leaves the review JSON and attachments untouched. The diagnostic
+reports both supported and received headers and points to the
+[official compatibility catalog](https://lastobelus.github.io/markover/compatibility/),
+which maps released schema versions to compatible Markover releases.
+
+## Portable v1 inventory
+
+Every object may contain unknown additive properties unless a stated invariant
+makes a property invalid. Known properties have this contract.
+
+| Path | v1 contract |
+| --- | --- |
+| `format` | Required literal `markover-review`. |
+| `version` | Required integer `1`. It versions the complete portable object. |
+| `sourceDocument` | Required object with required `name`, `path`, `content`, and `checksum`. `name` and `path` are nullable strings. `content` is the exact immutable opening-time source. `checksum` is `sha256:` plus 64 lowercase hexadecimal characters and must match `content`. |
+| `sourceDocument.path` | Immutable opening-time locator when known. It may be absolute, stale, or machine-specific. It is not current path evidence, review identity, ancestry, repository identity, or a Local-review deduplication key. |
+| `unsupported` | Required array. Each entry has positive integer `line` and string `text`. Empty means no omitted source lines were recorded. |
+| `root` and every node | Required tree. Every node has `id`, `type`, `raw`, `text`, positive `lineStart` and `lineEnd`, `feedback`, and `children`. IDs are unique only inside this artifact. Portable nodes have no `collapsed` field. |
+| Type-specific node fields | Headings require `level`; code requires `language`; frontmatter entries require `key`; list items require `marker`, `listId`, `listPosition`, and nullable `listLength`, and may have `task` and `checked`; frontmatter requires `sourceEditable: false`. |
+| `node.feedback` | Required string. It may be blank or mix revision requests, questions, discussion, and context. |
+| `node.attachments` | Optional array. Each attachment requires `id`. Known image fields are optional `type`, `label`, `path`, `mimeType`, `url`, `checksum`, `width`, and `height`; bytes remain outside JSON. A future must-understand attachment variant is breaking. |
+| `node.sourceEdit` | Optional object requiring `original` and `current` strings. `original` equals immutable `raw`; `current` is nonblank and different. It is a proposal, not an instruction to apply blindly. |
+| `node.sourceEditable` | Optional boolean. `false` forbids `sourceEdit`; omission uses the node type's normal rule. |
+| `review` | Required envelope with `id`, `status`, `origin`, `createdAt`, `updatedAt`, `attentionRequestedAt`, `contextSummary`, `agentThread`, `git`, `pullRequest`, and `agentGuidance`. |
+| `review.id` | Required opaque `mko_...` ID. Together with source content and checksum it identifies this review target. |
+| `review.status` | Exactly `editing`, `pending-agent`, `revised`, or `done`. `editing` is mutable; the other states are read-only. `done` is terminal and requires a non-null pull request with a stored `merged` observation. Another feedback round creates an independent review. |
+| `review.origin` | Required nonblank open string, immutable for the review lifetime. v1 defines `agent` and `local`. Unknown values are valid, preserved, and lifecycle-neutral. `local` requires `agentThread: null`; `agent` may also use null when reliable identity is unavailable. |
+| `review.createdAt` | Required canonical UTC instant. It never changes. |
+| `review.updatedAt` | Required canonical UTC instant for the latest persisted portable change, including feedback, lifecycle, metadata, or pull-request observation. It does not control Inbox actionability. |
+| `review.attentionRequestedAt` | Required app-owned canonical UTC instant. Creation sets it to `createdAt`; only a transition from a non-`editing` status into `editing` advances it. Autosaves, views, metadata refresh, tab actions, and transitions away from `editing` do not. |
+| `review.contextSummary` | Required nonblank review purpose. It is neither a requesting-thread-title nor an identity field. |
+| `review.agentThread` | Required nullable request snapshot. When non-null it requires nonblank provider-owned `id` and a `threadHost` object. Requesting-thread-title is app-private. |
+| `review.agentThread.threadHost` | Requires nonblank open-string `kind` and `provider`. They are separate dimensions but may have the same value. Optional nonblank `threadId` is present only for a distinct thread-host identifier and must not equal `agentThread.id`; omission means consumers fall back to `agentThread.id`. Optional nonblank `machine` is an agent-reported hostname snapshot, descriptive and never identity-bearing. |
+| `review.git` | Required nullable opening-time snapshot. When non-null, known optional fields are sanitized nonblank `repositoryUrl`, nonblank `branch`, and nonblank `commit`. These hints are immutable, may become stale, and are not current Git truth, identity, or grouping keys. Credentials and local roots are forbidden. |
+| `review.pullRequest` | Required nullable association. When non-null it requires a canonical GitHub `url` and matching positive integer `number`. Its optional observation tuple is all-or-none: `status` is `draft`, `open`, `merged`, or `closed`; `statusObservedAt` is canonical UTC; and `statusSource` is a nonblank open string. The latest successful observation is retained when a refresh fails. |
+| `review.agentGuidance` | Required object with string `fixedContract` and `interpretationPolicy`. Agents follow both snapshotted strings before acting. |
+| Unknown properties | Additive extension data. Readers ignore unknown properties and preserve them unchanged, including inside typed metadata containers. Unknown fields do not bypass privacy boundaries or override known-field invariants. |
+
+Canonical UTC instants use JavaScript's canonical millisecond ISO form:
+`new Date(value).toISOString() === value`. Creation sets `createdAt`,
+`updatedAt`, and `attentionRequestedAt` equal.
+
+## Identity and private-data boundaries
+
+The review target is the tuple of `review.id`, `sourceDocument.content`, and
+`sourceDocument.checksum`. Node IDs locate feedback within that immutable tree;
+they make no claim across reviews or reparsed documents. Matching source paths
+never imply ancestry.
+
+Portable metadata records what the requester reported at opening time. Current
+machine-local knowledge belongs in app-private state. This includes canonical
+source and repository evidence, grouping keys, discovery records, credentials,
+integration state, and requesting-thread-title observations.
+
+`workspace.json` is the separate private `markover-workspace` family. It owns
+navigation and presentation state, including collapsed block IDs. Missing,
+malformed, or incompatible workspace state may reset presentation but must not
+hide, mutate, or invalidate a portable review. No workspace, settings,
+credential, cache, or private enrichment property is returned by `get`, copied
+as a handoff, or accepted through an unknown portable extension.
+
+## Compatibility rules
+
+Keep version `1` only for an additive change. An additive change adds an
+optional property whose omission preserves behavior, leaves every existing
+type, value domain, and meaning intact, is safe for an older v1 reader to
+ignore, and survives its round trips unchanged.
+
+Increment `version` for any breaking change, including:
+
+- removing or renaming a field;
+- making an optional field required;
+- changing a type, default, meaning, or identity rule;
+- narrowing a value domain;
+- adding a must-understand node, attachment, or lifecycle variant; or
+- moving feedback or source-edit proposals.
+
+A validator correction that rejects data already outside the published
+contract does not bump the version. Open-string domains such as `origin`,
+`threadHost.kind`, `threadHost.provider`, and `pullRequest.statusSource` accept
+new labels without a bump because unknown values remain valid and neutral.
+Closed domains such as lifecycle status, pull-request status, and node type
+require a new version for a new value.
+
+Changing guidance text, recognizing more Markdown through existing node
+shapes, or extending optional metadata does not itself bump the schema.
+`format` changes only for a different artifact family. Versions are positive
+integers, not SemVer, and v1 has no independently versioned portable subobjects.
+
+## Released-version migration
+
+Compatibility support begins with released schema versions. Prototype and
+unmerged shapes are not supported predecessors. Every breaking release must
+include an executable in-app converter from every released predecessor it
+claims to support.
+
+Migration runs automatically on load. Before changing an artifact, Markover
+creates a restorable byte-for-byte backup of its original review directory,
+including JSON and attachments. It migrates a separate working copy, validates
+the complete result with the destination decoder, and atomically replaces the
+active artifact only after validation succeeds. Failure leaves the active
+artifact and backup untouched. Backup metadata records the source schema,
+Markover version, time, and integrity information. Backups remain available for
+recovery or downgrade until the user explicitly removes them.
+
+An unknown future version is never guessed at. Markover preserves its bytes,
+keeps it visible as incompatible, and uses only its header to point at the
+official compatibility catalog. A recognized entry names the Markover release
+needed to open it; an unrecognized entry recommends updating Markover without
+interpreting the body.
+
+## Reader boundaries and errors
+
+`src/review-format.ts` is the platform-neutral decoder and error classifier.
+It validates known invariants and returns the original complete value rather
+than a lossy projection.
+
+| Boundary | Required behavior |
+| --- | --- |
+| CLI `open` to local service | Decode submitted review-tree data before storage. Malformed or incompatible input creates no review. Validate agent-supplied identity when creating the managed envelope. |
+| Managed `review.json` to store | Inspect the header before listing, restoration, activation, handoff, edit, deletion, or cleanup. v1 decodes directly. A recognized released predecessor migrates through the backed-up path. An unknown version is listed as incompatible without rewriting bytes. |
+| Store to service to CLI `get` | Decode before the service response; the CLI independently decodes successful JSON before stdout. Incompatibility exits nonzero, reports on stderr, and emits no handoff JSON on stdout. |
+| Main and renderer IPC | Reuse the shared predicate for review-bearing documents, snapshots, autosaves, attachment operations, and portable exports. IPC envelopes remain separately validated. |
+| Agent consumer | Inspect the header before fields. Accept v1, ignore and preserve additive properties, follow both guidance strings, and stop with a clear compatibility report for any other header. |
+
+Error classification is ordered:
+
+1. A non-object or missing or malformed header is `INVALID_REVIEW`.
+2. A different string `format` is `UNSUPPORTED_REVIEW_FORMAT`.
+3. An unknown positive integer `version` is `UNSUPPORTED_REVIEW_VERSION`,
+   without v1-body validation.
+4. A recognized v1 header with an invalid body is `INVALID_REVIEW`.
+
+The local service maps unsupported format or version to HTTP `409`. Listing
+isolates an incompatible review and continues loading compatible reviews.
+Direct activation, retrieval, mutation, deletion, and attachment or orphan
+cleanup fail closed against it.
+
+## Maintainer evidence
+
+The representative fixture is
+[`test/fixtures/review-handoff-v1.json`](../../test/fixtures/review-handoff-v1.json).
+Decoder, compatibility, extension-preservation, reader-boundary, and metadata
+guidance coverage lives in `test/review-format.test.ts`,
+`test/review-store.test.ts`, `test/ipc-security.test.ts`,
+`test/local-service.test.ts`, `test/markover-cli.test.ts`, and
+`test/review-metadata-evals.test.ts`.
+
+Before the first post-v1 breaking release, add migration fixtures for backup,
+working-copy validation, atomic replacement, rollback, attachment preservation,
+downgrade recovery, and compatibility-catalog diagnostics. V1 has no prototype
+migration fixture.

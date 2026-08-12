@@ -15,14 +15,9 @@ export type GitRunner = (
 ) => Promise<string | null>
 
 export interface GitMetadata {
-  repositoryRoot?: string | null
-  repositoryUrl?: string | null
-  branch?: string | null
-  commit?: string | null
-  sources: Partial<Record<
-    'repositoryRoot' | 'repositoryUrl' | 'branch' | 'commit',
-    'git-cli' | 'explicit'
-  >>
+  repositoryUrl?: string
+  branch?: string
+  commit?: string
 }
 
 export interface CodexThread {
@@ -64,16 +59,19 @@ export interface ReviewMetadataInput {
   pullRequestNumber?: number | null
   pullRequestUrl?: string | null
   threadId?: string | null
+  threadHostKind?: string | null
+  threadHostProvider?: string | null
+  threadHostThreadId?: string | null
+  threadHostMachine?: string | null
   handoffKey?: string | null
 }
 
 export interface ReviewMetadata {
   git: GitMetadata | null
-  agentThread: CodexThread | null
+  agentThread: ReviewAgentThread | null
   pullRequest: {
     number: number
     url?: string
-    discovery: 'explicit'
   } | null
 }
 
@@ -125,18 +123,11 @@ export async function discoverGitMetadata(
   ])
   const repositoryUrl = sanitizeRemoteUrl(remoteUrl)
   const metadata: GitMetadata = {
-    repositoryRoot,
-    repositoryUrl,
-    branch,
-    commit,
-    sources: {
-      repositoryRoot: 'git-cli',
-      ...(repositoryUrl ? { repositoryUrl: 'git-cli' } : {}),
-      ...(branch ? { branch: 'git-cli' } : {}),
-      ...(commit ? { commit: 'git-cli' } : {})
-    }
+    ...(repositoryUrl ? { repositoryUrl } : {}),
+    ...(branch ? { branch } : {}),
+    ...(commit ? { commit } : {})
   }
-  return metadata
+  return Object.keys(metadata).length ? metadata : null
 }
 
 export function sanitizeRemoteUrl(
@@ -345,36 +336,44 @@ export async function discoverReviewMetadata({
   pullRequestNumber = null,
   pullRequestUrl = null,
   threadId = null,
+  threadHostKind = null,
+  threadHostProvider = null,
+  threadHostThreadId = null,
+  threadHostMachine = null,
   handoffKey = null
 }: ReviewMetadataInput, options: ReviewMetadataOptions = {}): Promise<ReviewMetadata> {
   const discoveredGit = await discoverGitMetadata(
     sourcePath,
     options.git
   ).catch(() => null)
-  const git: GitMetadata | null = discoveredGit || (
-    branch ? { sources: {} } : null
-  )
+  const git: GitMetadata | null = discoveredGit || (branch ? {} : null)
   if (branch && git) {
     git.branch = branch
-    git.sources.branch = 'explicit'
   }
 
-  let agentThread: CodexThread | null = threadId
-    ? {
-        provider: 'codex',
-        id: threadId,
-        discovery: 'explicit'
-      }
-    : null
-  if (!agentThread && handoffKey) {
-    agentThread = await discoverCodexThread(
+  let providerThreadId = threadId
+  if (!providerThreadId && handoffKey) {
+    const discoveredThread = await discoverCodexThread(
       handoffKey,
       {
         ...options.codex,
         expectedPath: sourcePath
       }
     ).catch(() => null)
+    providerThreadId = discoveredThread?.id || null
   }
+  const agentThread: ReviewAgentThread | null =
+    providerThreadId && threadHostKind && threadHostProvider
+      ? {
+          id: providerThreadId,
+          threadHost: {
+            kind: threadHostKind,
+            provider: threadHostProvider,
+            ...(threadHostThreadId ? { threadId: threadHostThreadId } : {}),
+            ...(threadHostMachine ? { machine: threadHostMachine } : {})
+          }
+        }
+      : null
 
   return {
     git,
@@ -382,8 +381,7 @@ export async function discoverReviewMetadata({
     pullRequest: pullRequestNumber
       ? {
           number: pullRequestNumber,
-          ...(pullRequestUrl ? { url: pullRequestUrl } : {}),
-          discovery: 'explicit'
+          ...(pullRequestUrl ? { url: pullRequestUrl } : {})
         }
       : null
   }

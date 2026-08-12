@@ -239,7 +239,6 @@ declare global {
     lineStart: number
     lineEnd: number
     feedback: string
-    collapsed?: boolean
     children: ReviewNode[]
     sourceEditable?: boolean
     attachments?: ReviewAttachment[]
@@ -305,6 +304,57 @@ declare global {
     unsupported: UnsupportedSourceLine[]
     root: DocumentNode
     review?: unknown
+  }
+
+  type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
+
+  interface ReviewThreadHost {
+    [key: string]: unknown
+    kind: string
+    provider: string
+    threadId?: string
+    machine?: string
+  }
+
+  interface ReviewAgentThread {
+    [key: string]: unknown
+    id: string
+    threadHost: ReviewThreadHost
+  }
+
+  interface ReviewGitSnapshot {
+    [key: string]: unknown
+    repositoryUrl?: string
+    branch?: string
+    commit?: string
+  }
+
+  interface ReviewPullRequest {
+    [key: string]: unknown
+    number: number
+    url: string
+    status?: 'draft' | 'open' | 'merged' | 'closed'
+    statusObservedAt?: string
+    statusSource?: string
+  }
+
+  interface ReviewEnvelope {
+    [key: string]: unknown
+    id: string
+    status: ReviewStatus
+    origin: string
+    createdAt: string
+    updatedAt: string
+    attentionRequestedAt: string
+    contextSummary: string
+    agentThread: ReviewAgentThread | null
+    git: ReviewGitSnapshot | null
+    pullRequest: ReviewPullRequest | null
+    agentGuidance: AgentGuidance
+  }
+
+  type ReviewArtifact = Omit<ReviewTree, 'review'> & {
+    review: ReviewEnvelope
   }
 
   interface ReviewDocumentInput {
@@ -610,15 +660,18 @@ declare global {
   }
 
   interface ReviewSessionEnvelope {
+    [key: string]: unknown
     id: string
     status: ReviewSessionStatus
-    createdAt?: string
-    updatedAt?: string
-    attentionRequestedAt?: string
-    contextSummary?: string
-    agentThread?: unknown
-    git?: unknown
-    pullRequest?: unknown
+    origin: string
+    createdAt: string
+    updatedAt: string
+    attentionRequestedAt: string
+    contextSummary: string
+    agentThread: ReviewAgentThread | null
+    git: ReviewGitSnapshot | null
+    pullRequest: ReviewPullRequest | null
+    agentGuidance: AgentGuidance
   }
 
   type ReviewSessionTree = Omit<ReviewTree, 'review'> & {

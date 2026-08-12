@@ -12,9 +12,13 @@ import {
   type GitHubPullRequestIdentity,
   type PullRequestStatus
 } from './pull-request'
+import {
+  decodeReviewArtifact,
+  decodeReviewTree,
+  ReviewFormatError
+} from './review-format'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
-export type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
 const REVIEW_STATUSES = new Set<ReviewStatus>([
   'editing',
   'pending-agent',
@@ -22,19 +26,7 @@ const REVIEW_STATUSES = new Set<ReviewStatus>([
   'done'
 ])
 
-export interface ReviewEnvelope {
-  id: string
-  status: ReviewStatus
-  createdAt: string
-  updatedAt: string
-  attentionRequestedAt: string
-  contextSummary: string
-  agentThread: unknown
-  git: unknown
-  pullRequest: unknown
-  agentGuidance: AgentGuidance
-}
-
+export type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
 export type ReviewArtifact = Omit<ReviewTree, 'review'> & {
   review: ReviewEnvelope
 }
@@ -42,6 +34,7 @@ export type ReviewArtifact = Omit<ReviewTree, 'review'> & {
 export interface ReviewCreateInput {
   tree: unknown
   contextSummary: unknown
+  origin?: unknown
   agentThread?: unknown
   git?: unknown
   pullRequest?: unknown
@@ -62,7 +55,7 @@ export interface ReviewStoreOptions {
 
 export interface ReviewListWarning {
   reviewId: string
-  reason: 'incomplete' | 'invalid' | 'legacy' | 'unreadable'
+  reason: 'incomplete' | 'incompatible' | 'invalid' | 'legacy' | 'unreadable'
 }
 
 export interface ReviewListResult {
@@ -130,71 +123,14 @@ function assertReviewId(reviewId: string): void {
 }
 
 export function assertReviewTree(tree: unknown): asserts tree is ReviewTree {
-  if (
-    !isRecord(tree) ||
-    tree.format !== 'markover-review' ||
-    tree.version !== 1 ||
-    !tree.sourceDocument ||
-    !Array.isArray(tree.unsupported) ||
-    !tree.root
-  ) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Expected a markover-review version 1 tree.'
-    )
-  }
-
-  assertSourceEdits(tree.root)
-}
-
-function assertSourceEdits(node: unknown): void {
-  if (!isRecord(node)) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Expected every review block to be an object.'
-    )
-  }
-  if (!Array.isArray(node.children)) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Expected every review block to have a children array.'
-    )
-  }
-  if (Object.prototype.hasOwnProperty.call(node, 'sourceEdit')) {
-    const sourceEdit = node.sourceEdit
-    const fields = sourceEdit && typeof sourceEdit === 'object'
-      ? Object.keys(sourceEdit).sort()
-      : []
-    if (
-      !sourceEdit ||
-      node.sourceEditable === false ||
-      !isRecord(sourceEdit) ||
-      fields.length !== 2 ||
-      fields[0] !== 'current' ||
-      fields[1] !== 'original' ||
-      typeof sourceEdit.original !== 'string' ||
-      sourceEdit.original !== node.raw ||
-      typeof sourceEdit.current !== 'string' ||
-      !sourceEdit.current.trim() ||
-      sourceEdit.current === sourceEdit.original
-    ) {
-      const nodeId = typeof node.id === 'string' && node.id
-        ? node.id
-        : '<unknown>'
-      throw new ReviewStoreError(
-        'INVALID_REVIEW',
-        `Block ${nodeId} has an invalid source edit.`
-      )
+  try {
+    decodeReviewTree(tree)
+  } catch (error) {
+    if (error instanceof ReviewFormatError) {
+      throw new ReviewStoreError(error.code, error.message)
     }
+    throw error
   }
-
-  for (const child of node.children) assertSourceEdits(child)
-}
-
-function isCanonicalTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string') return false
-  const parsed = Date.parse(value)
-  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value
 }
 
 export function assertReviewArtifact(
@@ -208,71 +144,21 @@ export function assertReviewArtifact(
       `Review ${reviewId} predates the managed review envelope.`
     )
   }
-  if (
-    artifact.review.id !== reviewId ||
-    !isReviewStatus(artifact.review.status) ||
-    !isCanonicalTimestamp(artifact.review.attentionRequestedAt) ||
-    !isRecord(artifact.review.agentGuidance) ||
-    typeof artifact.review.agentGuidance.fixedContract !== 'string' ||
-    typeof artifact.review.agentGuidance.interpretationPolicy !== 'string'
-  ) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      `Review ${reviewId} has an invalid envelope.`
-    )
-  }
-  assertPullRequestEnvelope(
-    artifact.review.pullRequest,
-    artifact.review.status
-  )
-}
-
-function assertPullRequestEnvelope(
-  pullRequest: unknown,
-  reviewStatus: ReviewStatus
-): void {
-  if (pullRequest === null) {
-    if (reviewStatus === 'done') {
-      throw new ReviewStoreError(
-        'INVALID_REVIEW',
-        'A Done review requires an associated merged pull request.'
-      )
+  try {
+    decodeReviewArtifact(artifact, reviewId)
+  } catch (error) {
+    if (error instanceof ReviewFormatError) {
+      throw new ReviewStoreError(error.code, error.message)
     }
-    return
-  }
-  if (
-    !isRecord(pullRequest) ||
-    !canonicalPullRequestMetadata(pullRequest, null)
-  ) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'An associated pull request requires a canonical GitHub URL and matching positive number.'
-    )
-  }
-  const observation = pullRequestObservation(pullRequest)
-  if (hasPullRequestObservationFields(pullRequest) && !observation) {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'Pull request observations require status, statusObservedAt, and statusSource together.'
-    )
-  }
-  if (reviewStatus === 'done' && observation?.status !== 'merged') {
-    throw new ReviewStoreError(
-      'INVALID_REVIEW',
-      'A Done review requires a merged pull request observation.'
-    )
+    throw error
   }
 }
 
 function treeFields(tree: unknown): Omit<ReviewTree, 'review'> {
   assertReviewTree(tree)
-  return {
-    format: tree.format,
-    version: tree.version,
-    sourceDocument: cloneJson(tree.sourceDocument),
-    unsupported: cloneJson(tree.unsupported),
-    root: cloneJson(tree.root)
-  }
+  const fields = cloneJson(tree)
+  delete fields.review
+  return fields
 }
 
 function immutableNode(node: ReviewNode): Record<string, unknown> {
@@ -280,7 +166,6 @@ function immutableNode(node: ReviewNode): Record<string, unknown> {
   const properties: Record<string, unknown> = { ...node }
   delete properties.children
   delete properties.feedback
-  delete properties.collapsed
   delete properties.attachments
   delete properties.sourceEdit
   return {
@@ -427,6 +312,7 @@ export class ReviewStore {
   async create({
     tree,
     contextSummary,
+    origin = 'agent',
     agentThread = null,
     git = null,
     pullRequest = null,
@@ -438,6 +324,12 @@ export class ReviewStore {
       throw new ReviewStoreError(
         'INVALID_REVIEW',
         'A non-empty context summary is required.'
+      )
+    }
+    if (typeof origin !== 'string' || !origin.trim()) {
+      throw new ReviewStoreError(
+        'INVALID_REVIEW',
+        'A non-empty review origin is required.'
       )
     }
     const canonicalPullRequest = pullRequest === null || pullRequest === undefined
@@ -480,11 +372,12 @@ export class ReviewStore {
         }
 
         const timestamp = this.timestamp()
-        const artifact: ReviewArtifact = {
+        const artifact: unknown = {
           ...treeFields(tree),
           review: {
             id: reviewId,
             status: 'editing',
+            origin,
             createdAt: timestamp,
             updatedAt: timestamp,
             attentionRequestedAt: timestamp,
@@ -499,6 +392,7 @@ export class ReviewStore {
             agentGuidance: guidance(interpretationPolicy)
           }
         }
+        assertReviewArtifact(artifact, reviewId)
 
         await fs.mkdir(stagingDirectory)
         try {
@@ -558,6 +452,13 @@ export class ReviewStore {
         }
         if (code === 'UNMANAGED_REVIEW') {
           warnings.push({ reviewId, reason: 'legacy' })
+          return null
+        }
+        if (
+          code === 'UNSUPPORTED_REVIEW_FORMAT' ||
+          code === 'UNSUPPORTED_REVIEW_VERSION'
+        ) {
+          warnings.push({ reviewId, reason: 'incompatible' })
           return null
         }
         if (code === 'INVALID_REVIEW' || error instanceof SyntaxError) {
@@ -914,6 +815,7 @@ export class ReviewStore {
         ) return null
 
         const next = cloneJson(current)
+        next.review.updatedAt = this.timestamp()
         next.review.pullRequest = {
           ...(isRecord(next.review.pullRequest) ? next.review.pullRequest : {}),
           number: identity.number,
@@ -964,7 +866,7 @@ export class ReviewStore {
         current.review.pullRequest,
         pullRequestStatus,
         timestamp
-      )
+      ) as ReviewPullRequest | null
       await this.write(reviewId, updated)
       return cloneJson(updated)
     })
@@ -999,7 +901,7 @@ export class ReviewStore {
         'merged',
         timestamp,
         identity.url
-      )
+      ) as ReviewPullRequest | null
       await this.write(reviewId, updated)
       return cloneJson(updated)
     })
