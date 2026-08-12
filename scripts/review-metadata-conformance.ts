@@ -10,6 +10,7 @@ const evidenceSchemaVersion = 1
 const matrixSchemaVersion = 1
 const evidenceIdPattern = /^\d{4}-\d{2}-\d{2}__[a-z0-9]+(?:-[a-z0-9]+)*__[a-z0-9]{8}$/
 const fullCommitPattern = /^(?!0{40}$)[0-9a-f]{40}$/
+const runtimeTokenPattern = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,39}(?: [A-Za-z0-9][A-Za-z0-9._+-]{0,39}){0,4}$/
 const redactedProviderThreadId = '<redacted-provider-thread-id>'
 const redactedThreadHostThreadId = '<redacted-thread-host-thread-id>'
 const redactedMachine = '<redacted-machine>'
@@ -161,6 +162,16 @@ function nullableNonblank(value: unknown, label: string): string | null {
   return nonblank(value, label)
 }
 
+function nullableRuntimeToken(value: unknown, label: string): string | null {
+  const parsed = nullableNonblank(value, label)
+  if (parsed !== null && !runtimeTokenPattern.test(parsed)) {
+    throw new Error(
+      `${label} must be a normalized version/model token without paths or command output.`
+    )
+  }
+  return parsed
+}
+
 function stringArray(value: unknown, label: string): string[] {
   if (!Array.isArray(value)) throw new Error(`${label} must be an array.`)
   const result = value.map((item, index) => nonblank(item, `${label}[${index}]`))
@@ -230,15 +241,15 @@ function parseRuntime(value: unknown, label: string): RuntimeObservation {
     'providerVersionSource'
   ], label)
   const runtime: RuntimeObservation = {
-    hostVersion: nullableNonblank(item.hostVersion, `${label}.hostVersion`),
+    hostVersion: nullableRuntimeToken(item.hostVersion, `${label}.hostVersion`),
     hostVersionSource: oneOf(item.hostVersionSource, [
       'command', 'not-exposed', 'runtime-context'
     ], `${label}.hostVersionSource`),
-    providerModel: nullableNonblank(item.providerModel, `${label}.providerModel`),
+    providerModel: nullableRuntimeToken(item.providerModel, `${label}.providerModel`),
     providerModelSource: oneOf(item.providerModelSource, [
       'command', 'not-exposed', 'runtime-context'
     ], `${label}.providerModelSource`),
-    providerVersion: nullableNonblank(item.providerVersion, `${label}.providerVersion`),
+    providerVersion: nullableRuntimeToken(item.providerVersion, `${label}.providerVersion`),
     providerVersionSource: oneOf(item.providerVersionSource, [
       'command', 'not-exposed', 'runtime-context'
     ], `${label}.providerVersionSource`)
