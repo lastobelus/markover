@@ -2082,6 +2082,23 @@ function shortExplicitPrivateContainmentCandidates(
   ])
 }
 
+function shortCompletePrivateContainmentCandidates(
+  values: Array<string | null | undefined>
+): Set<string> {
+  const candidates = new Set<string>()
+  for (const value of values) {
+    if (value === null || value === undefined) continue
+    for (const variant of [value, ...reversibleDecodedVariants(value)]) {
+      if (variant.length >= 4 && variant.length < 8) {
+        candidates.add(variant.toLowerCase())
+      }
+      const stripped = variant.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
+      if (stripped.length >= 4 && stripped.length < 8) candidates.add(stripped)
+    }
+  }
+  return candidates
+}
+
 function canonicalNumericIdentityCandidates(
   values: Array<string | null | undefined>,
   extractEmbedded = false,
@@ -2362,6 +2379,8 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   )
   const embeddedShortExplicitPrivate =
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
+  const embeddedShortCompletePrivate =
+    shortCompletePrivateContainmentCandidates(completePrivate)
   const embeddedShortIdentifiers = new Set([
     ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
     ...shortIdentifierContainmentCandidates(shortPrivateKeys),
@@ -2370,6 +2389,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   const containmentPrivateCandidates = new Set([
     ...embeddedPrivateCandidates,
     ...embeddedShortExplicitPrivate,
+    ...embeddedShortCompletePrivate,
     ...embeddedShortIdentifiers
   ])
   const privateNumericIdentities = new Set([
@@ -2397,8 +2417,9 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     (runtimeCandidate) =>
       [...containmentPrivateCandidates].some((privateCandidate) =>
         (privateCandidate.length >= 8 ||
-          (privateCandidate.length >= 4 &&
-            embeddedShortExplicitPrivate.has(privateCandidate)) ||
+      (privateCandidate.length >= 4 &&
+        (embeddedShortExplicitPrivate.has(privateCandidate) ||
+          embeddedShortCompletePrivate.has(privateCandidate))) ||
           embeddedShortIdentifiers.has(privateCandidate)) &&
         runtimeCandidate.includes(privateCandidate)))
   const runtimeIsPrivateSubstring = [...persistedRuntimeCandidates].some(

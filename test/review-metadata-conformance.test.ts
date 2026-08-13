@@ -125,7 +125,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 312,
+    evidenceCount: 315,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -142,7 +142,7 @@ test('corpus validation passes every record to provenance verification', () => {
     assert.ok(evidence.every(({ sourceCommit }) => sourceCommit.length === 40))
   }
   validateMetadataCorpus(root, true, verifyDefect, verifyProvenance)
-  assert.equal(received, 312)
+  assert.equal(received, 315)
 })
 
 test('corpus provenance includes GitHub-recorded pre-force-push heads', () => {
@@ -504,6 +504,23 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
     rootNode.feedback = 'Account acct_12345 needs review.'
     const runtime = observation().runtime as Record<string, unknown>
     runtime.providerModel = 'acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('short private free-form value embedded in runtime', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    review.contextSummary = 'acct'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct'
     assert.throws(
       () => buildSanitizedEvidence(
         artifact,
@@ -2427,7 +2444,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 313,
+    evidenceCount: 316,
     matrixEntryCount: 3
   })
 
