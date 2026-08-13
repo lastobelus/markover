@@ -1249,6 +1249,34 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('private scientific prefix before trailing exponent digits', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 10000000 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerVersion = 'v1e70'
+    runtime.providerVersionSource = 'runtime-context'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxxx1e70'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   for (const radixValue of [
     '0xBC614E',
     '0o57060516',

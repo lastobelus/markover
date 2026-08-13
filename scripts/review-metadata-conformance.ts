@@ -1371,6 +1371,25 @@ function canonicalNumericIdentityCandidates(
                 )
               }
               numericValues.add(match[0])
+              const scientific = /^([+-]?(?:\d+(?:\.\d*)?|\.\d+)e[+-]?)(\d+)$/i.exec(
+                match[0]
+              )
+              const scientificPrefix = scientific?.[1]
+              const exponentDigits = scientific?.[2]
+              if (
+                scientificPrefix !== undefined &&
+                exponentDigits !== undefined
+              ) {
+                for (
+                  let length = 1;
+                  length < exponentDigits.length;
+                  length += 1
+                ) {
+                  numericValues.add(
+                    `${scientificPrefix}${exponentDigits.slice(0, length)}`
+                  )
+                }
+              }
             }
             for (const match of normalizedValue.matchAll(/[0-9a-f]+/gi)) {
               for (let width = 8; width <= match[0].length; width += 1) {
