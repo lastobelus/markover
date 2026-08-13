@@ -2299,6 +2299,45 @@ function restoreDocumentsListFocus(path: number[]): void {
   target.focus({ preventScroll: true })
 }
 
+type DocumentsListReviewFocus = {
+  control: 'open' | 'pull-request'
+  reviewId: string
+}
+
+function documentsListReviewFocus(): DocumentsListReviewFocus | null {
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement) || !elements.documentsListTree.contains(active)) {
+    return null
+  }
+  const review = active.closest<HTMLElement>('[data-review-id]')
+  const reviewId = review?.dataset.reviewId
+  if (!reviewId) return null
+  return {
+    control: active.classList.contains('review-list-row-pr')
+      ? 'pull-request'
+      : 'open',
+    reviewId
+  }
+}
+
+function restoreDocumentsListReviewFocus(focus: DocumentsListReviewFocus): void {
+  const review = elements.documentsListTree.querySelector<HTMLElement>(
+    `[data-review-id="${CSS.escape(focus.reviewId)}"]`
+  )
+  if (!review) return
+  let ancestor = review.parentElement
+  while (ancestor && elements.documentsListTree.contains(ancestor)) {
+    if (ancestor instanceof HTMLDetailsElement) ancestor.open = true
+    ancestor = ancestor.parentElement
+  }
+  const target = focus.control === 'pull-request'
+    ? review.querySelector<HTMLElement>('.review-list-row-pr')
+    : review.querySelector<HTMLElement>(
+        '.review-list-row-open, .review-project-leaf-open, button'
+      )
+  target?.focus({ preventScroll: true })
+}
+
 function documentTabsFocusPath(): number[] | null {
   const active = document.activeElement
   if (!(active instanceof HTMLElement) || !elements.documentTabs.contains(active)) {
@@ -4692,12 +4731,17 @@ async function initialize(): Promise<void> {
     if (!session) {
       throw new Error(`Cannot update missing review ${reviewId}.`)
     }
-    const documentsFocusPath = documentsListFocusPath()
+    const documentsReviewFocus = documentsListReviewFocus()
+    const documentsFocusPath = documentsReviewFocus
+      ? null
+      : documentsListFocusPath()
     const tabsFocusPath = documentTabsFocusPath()
     renderDocumentTabs()
-    if (documentsFocusPath || tabsFocusPath) {
+    if (documentsReviewFocus || documentsFocusPath || tabsFocusPath) {
       requestAnimationFrame(() => {
-        if (documentsFocusPath) restoreDocumentsListFocus(documentsFocusPath)
+        if (documentsReviewFocus) {
+          restoreDocumentsListReviewFocus(documentsReviewFocus)
+        } else if (documentsFocusPath) restoreDocumentsListFocus(documentsFocusPath)
         else if (tabsFocusPath) restoreDocumentTabsFocus(tabsFocusPath)
       })
     }

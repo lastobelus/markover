@@ -205,11 +205,19 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
+    /function documentsListReviewFocus[\s\S]*closest<HTMLElement>\('\[data-review-id\]'\)[\s\S]*review-list-row-pr[\s\S]*'pull-request'[\s\S]*'open'/
+  )
+  assert.match(
+    renderer,
+    /function restoreDocumentsListReviewFocus[\s\S]*data-review-id[\s\S]*while \(ancestor && elements\.documentsListTree\.contains\(ancestor\)\)[\s\S]*ancestor\.open = true[\s\S]*review-list-row-pr[\s\S]*review-list-row-open, \.review-project-leaf-open, button[\s\S]*focus\(\{ preventScroll: true \}\)/
+  )
+  assert.match(
+    renderer,
     /function restoreDocumentTabsFocus[\s\S]*target\.closest<HTMLElement>\('\.document-tab-overflow'\)[\s\S]*classList\.add\('is-open'\)[\s\S]*target\.focus\(\{ preventScroll: true \}\)/
   )
   assert.match(
     renderer,
-    /onReviewStatus[\s\S]*documentsFocusPath = documentsListFocusPath\(\)[\s\S]*tabsFocusPath = documentTabsFocusPath\(\)[\s\S]*renderDocumentTabs\(\)[\s\S]*restoreDocumentsListFocus\(documentsFocusPath\)[\s\S]*restoreDocumentTabsFocus\(tabsFocusPath\)/
+    /onReviewStatus[\s\S]*documentsReviewFocus = documentsListReviewFocus\(\)[\s\S]*documentsFocusPath = documentsReviewFocus[\s\S]*tabsFocusPath = documentTabsFocusPath\(\)[\s\S]*renderDocumentTabs\(\)[\s\S]*restoreDocumentsListReviewFocus\(documentsReviewFocus\)[\s\S]*restoreDocumentsListFocus\(documentsFocusPath\)[\s\S]*restoreDocumentTabsFocus\(tabsFocusPath\)/
   )
   assert.match(
     renderer,
