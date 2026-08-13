@@ -194,14 +194,17 @@ identifier comparison in runner commit
 each combination. Short identifier component and complete-private numeric
 normalization in runner commit `5ce4f8a7a35ebfac43746b0539ae83fa91a511e2`
 produced a fortieth record for each combination.
+Radix-form safe-integer identity comparison in runner commit
+`6fedd0b7a24616639c55b21f83812d51a93e9c96` produced a forty-first record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v19` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v20` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v19
+git fetch origin refs/tags/issue-136-runner-history-v20
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
