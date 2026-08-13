@@ -24,9 +24,7 @@ const runnerSourcePaths = [
   'AGENTS.md',
   'evals/review-metadata/README.md',
   'evals/review-metadata/exercise-source.md',
-  'evals/review-metadata/exercises/claude-code-claude.md',
-  'evals/review-metadata/exercises/t3code-claude.md',
-  'evals/review-metadata/exercises/t3code-codex.md',
+  'evals/review-metadata/exercises',
   'evals/review-metadata/matrix.json',
   'evals/review-metadata/rubric.md',
   'package-lock.json',
@@ -840,9 +838,10 @@ function assertEvidenceIdIndependent(
     ...shortExplicitPrivateCandidates,
     ...shortIdentifierCandidates
   ])
-  const privateNumericIdentities = canonicalNumericIdentityCandidates(
-    [...completePrivate, ...shortPrivateIdentifiers]
-  )
+  const privateNumericIdentities = new Set([
+    ...canonicalNumericIdentityCandidates(completePrivate),
+    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true)
+  ])
   const suffixNumericIdentities = canonicalNumericIdentityCandidates(
     [suffix],
     true
@@ -1491,9 +1490,10 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     ...embeddedShortExplicitPrivate,
     ...embeddedShortIdentifiers
   ])
-  const privateNumericIdentities = canonicalNumericIdentityCandidates(
-    [...completePrivate, ...shortPrivateIdentifiers]
-  )
+  const privateNumericIdentities = new Set([
+    ...canonicalNumericIdentityCandidates(completePrivate),
+    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true)
+  ])
   const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
     persistedRuntimeValues,
     true
