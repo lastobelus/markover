@@ -318,14 +318,17 @@ each combination, using independent suffix `lqzvmjkh`.
 Alphabetic-leading base-36 identity comparison in runner commit
 `b9aefec7d9877dff1178b98ebb07671bebaafc0c` produced an eightieth record for
 each combination, using independent suffix `oqzvmjkh`.
+Full runtime-token-width base-36 identity comparison in runner commit
+`2c6faa2e06d66297bb09a6eb0b7641e6903e38d7` produced an eighty-first record for
+each combination, using independent suffix `hqzvmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v63` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v64` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v63
+git fetch origin refs/tags/issue-136-runner-history-v64
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

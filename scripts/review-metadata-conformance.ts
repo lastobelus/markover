@@ -1344,6 +1344,73 @@ function base32DecodedVariants(value: string): string[] {
   return variants
 }
 
+function base58btcDecodedVariants(value: string): string[] {
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  const encode = (bytes: Uint8Array): string => {
+    let leadingZeroes = 0
+    while (leadingZeroes < bytes.length && bytes[leadingZeroes] === 0) {
+      leadingZeroes += 1
+    }
+    let integer = 0n
+    for (const byte of bytes) integer = integer * 256n + BigInt(byte)
+    let encoded = ''
+    while (integer > 0n) {
+      encoded = alphabet.charAt(Number(integer % 58n)) + encoded
+      integer /= 58n
+    }
+    return `${'1'.repeat(leadingZeroes)}${encoded}`
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (
+      encoded.length < 4 ||
+      encoded.length > 256 ||
+      !/^[1-9A-HJ-NP-Za-km-z]+$/.test(encoded)
+    ) {
+      return null
+    }
+    let integer = 0n
+    for (const character of encoded) {
+      const digit = alphabet.indexOf(character)
+      if (digit < 0) return null
+      integer = integer * 58n + BigInt(digit)
+    }
+    const bytes: number[] = []
+    while (integer > 0n) {
+      bytes.unshift(Number(integer % 256n))
+      integer /= 256n
+    }
+    const leadingZeroes = /^1*/.exec(encoded)?.[0].length ?? 0
+    const byteArray = Uint8Array.from([
+      ...Array.from({ length: leadingZeroes }, () => 0),
+      ...bytes
+    ])
+    if (encode(byteArray) !== encoded) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  const maximumPasses = 4
+  let completedPasses = 0
+  for (let pass = 0; pass < maximumPasses; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+    completedPasses += 1
+  }
+  if (completedPasses === maximumPasses && decodeOnce(current) !== null) {
+    throw new Error(
+      'Sanitized evidence contains Base58btc encoding beyond the safe decoding depth.'
+    )
+  }
+  return variants
+}
+
 function hexadecimalDecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
@@ -1393,6 +1460,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...percentDecodedVariants(current),
       ...base64DecodedVariants(current),
       ...base32DecodedVariants(current),
+      ...base58btcDecodedVariants(current),
       ...hexadecimalDecodedVariants(current)
     ]) {
       if (candidate === value || variants.has(candidate)) continue
