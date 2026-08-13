@@ -1779,6 +1779,62 @@ function ascii85DecodedVariants(value: string): string[] {
   return variants
 }
 
+function z85DecodedVariants(value: string): string[] {
+  const alphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#'
+  const encode = (bytes: Uint8Array): string => {
+    let encoded = ''
+    for (let offset = 0; offset < bytes.length; offset += 4) {
+      let numeric = 0
+      for (let index = 0; index < 4; index += 1) {
+        numeric = numeric * 256 + (bytes[offset + index] ?? 0)
+      }
+      const digits = Array.from({ length: 5 }, () => 0)
+      for (let index = 4; index >= 0; index -= 1) {
+        digits[index] = numeric % 85
+        numeric = Math.floor(numeric / 85)
+      }
+      encoded += digits.map((digit) => alphabet.charAt(digit)).join('')
+    }
+    return encoded
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 5 || encoded.length > 510 || encoded.length % 5 !== 0) {
+      return null
+    }
+    const bytes: number[] = []
+    for (let offset = 0; offset < encoded.length; offset += 5) {
+      let numeric = 0
+      for (const character of encoded.slice(offset, offset + 5)) {
+        const digit = alphabet.indexOf(character)
+        if (digit < 0) return null
+        numeric = numeric * 85 + digit
+      }
+      if (numeric > 0xffffffff) return null
+      bytes.push(numeric >>> 24, (numeric >>> 16) & 255, (numeric >>> 8) & 255, numeric & 255)
+    }
+    const byteArray = Uint8Array.from(bytes)
+    if (encode(byteArray) !== encoded) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error('Sanitized evidence contains Z85 encoding beyond the safe decoding depth.')
+  }
+  return variants
+}
+
 function punycodeDecodedVariants(value: string): string[] {
   if (value.length > 512 || !/(?:^|\.)xn--/i.test(value)) return []
   const decoded = domainToUnicode(value)
@@ -1893,6 +1949,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base45DecodedVariants(current),
       ...proquintDecodedVariants(current),
       ...ascii85DecodedVariants(current),
+      ...z85DecodedVariants(current),
       ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
