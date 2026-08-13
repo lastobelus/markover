@@ -122,7 +122,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 129,
+    evidenceCount: 132,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -545,6 +545,26 @@ test('capture treats additive extension keys as private artifact values', async 
       () => buildSanitizedEvidence(
         artifact,
         observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('three-character additive scalar embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { account: 'abc' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__7654edcf',
+          runtime
+        }),
         json('evals/review-metadata/matrix.json')
       ),
       /runtime still contains a private artifact value/
@@ -1117,7 +1137,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 130,
+    evidenceCount: 133,
     matrixEntryCount: 3
   })
 

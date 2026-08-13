@@ -816,7 +816,8 @@ function assertEvidenceIdIndependent(
   alwaysPrivate: Array<string | null | undefined> = [],
   completePrivate: Array<string | null | undefined> = [],
   shortPrivateIdentifiers: Array<string | null | undefined> = [],
-  shortPrivateKeys: Array<string | null | undefined> = []
+  shortPrivateKeys: Array<string | null | undefined> = [],
+  shortPrivateValues: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
   const privateCandidates = privateValueCandidates(
@@ -831,7 +832,8 @@ function assertEvidenceIdIndependent(
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
   const shortIdentifierCandidates = new Set([
     ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
-    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4)
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4),
+    ...shortIdentifierContainmentCandidates(shortPrivateValues)
   ])
   const suffixContainsPrivate = [
     ...privateContainmentCandidates(alwaysPrivate, completePrivate)
@@ -973,7 +975,10 @@ function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
   return visit(artifactValue)
 }
 
-function privateAdditiveArtifactStrings(artifactValue: unknown): string[] {
+function privateAdditiveArtifactInputs(artifactValue: unknown): {
+  keys: string[]
+  stringValues: string[]
+} {
   const knownFields = (fields: string[]): Set<string> | undefined => {
     const joined = fields.join('.')
     if (!joined) {
@@ -1030,31 +1035,33 @@ function privateAdditiveArtifactStrings(artifactValue: unknown): string[] {
     }
     return undefined
   }
-  const visit = (value: unknown, fields: string[] = []): string[] => {
-    if (Array.isArray(value)) {
-      return value.flatMap((nested, index) =>
-        visit(nested, [...fields, String(index)]))
-    }
-    if (!isRecord(value)) return []
-    const known = knownFields(fields)
-    const scalarLeaves = (nested: unknown): string[] => {
-      if (typeof nested === 'string') return [nested]
-      if (typeof nested === 'number' && Number.isSafeInteger(nested)) {
-        return [String(nested)]
-      }
-      if (Array.isArray(nested)) return nested.flatMap(scalarLeaves)
-      if (isRecord(nested)) return Object.values(nested).flatMap(scalarLeaves)
-      return []
-    }
-    return Object.entries(value).flatMap(([field, nested]) => {
-      const additive = known?.has(field) !== true
-      return [
-        ...(additive ? [field, ...scalarLeaves(nested)] : []),
-        ...visit(nested, [...fields, field])
-      ]
-    })
+  const result = { keys: [] as string[], stringValues: [] as string[] }
+  const stringLeaves = (value: unknown): string[] => {
+    if (typeof value === 'string') return [value]
+    if (Array.isArray(value)) return value.flatMap(stringLeaves)
+    if (isRecord(value)) return Object.values(value).flatMap(stringLeaves)
+    return []
   }
-  return visit(artifactValue)
+  const visit = (value: unknown, fields: string[] = []): void => {
+    if (Array.isArray(value)) {
+      value.forEach((nested, index) => {
+        visit(nested, [...fields, String(index)])
+      })
+      return
+    }
+    if (!isRecord(value)) return
+    const known = knownFields(fields)
+    for (const [field, nested] of Object.entries(value)) {
+      const additive = known?.has(field) !== true
+      if (additive) {
+        result.keys.push(field)
+        result.stringValues.push(...stringLeaves(nested))
+      }
+      visit(nested, [...fields, field])
+    }
+  }
+  visit(artifactValue)
+  return result
 }
 
 function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
@@ -1277,7 +1284,8 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   alwaysPrivate: Array<string | null | undefined> = [],
   completePrivate: Array<string | null | undefined> = [],
   shortPrivateIdentifiers: Array<string | null | undefined> = [],
-  shortPrivateKeys: Array<string | null | undefined> = []
+  shortPrivateKeys: Array<string | null | undefined> = [],
+  shortPrivateValues: Array<string | null | undefined> = []
 ): void {
   const persistedRuntimeValues = [
     runtime.hostVersion,
@@ -1301,7 +1309,8 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
   const embeddedShortIdentifiers = new Set([
     ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
-    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4)
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4),
+    ...shortIdentifierContainmentCandidates(shortPrivateValues)
   ])
   const privateNumericIdentities = canonicalNumericIdentityCandidates(
     [...completePrivate, ...shortPrivateIdentifiers]
@@ -1466,13 +1475,15 @@ export function buildSanitizedEvidence(
     artifact,
     observation
   )
+  const additivePrivateInputs = privateAdditiveArtifactInputs(artifact)
   assertEvidenceIdIndependent(
     evidence.evidenceId,
     privateInputs,
     explicitlyPrivateInputs,
     completePrivateInputs,
     privateIdentifierArtifactStrings(artifact),
-    privateAdditiveArtifactStrings(artifact)
+    additivePrivateInputs.keys,
+    additivePrivateInputs.stringValues
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
@@ -1480,7 +1491,8 @@ export function buildSanitizedEvidence(
     explicitlyPrivateInputs,
     completePrivateInputs,
     privateIdentifierArtifactStrings(artifact),
-    privateAdditiveArtifactStrings(artifact)
+    additivePrivateInputs.keys,
+    additivePrivateInputs.stringValues
   )
   return evidence
 }
@@ -1530,6 +1542,7 @@ export function recordConformanceEvidence(
       )
     }
     const observation = parseCaptureObservation(observationValue)
+    const additivePrivateInputs = privateAdditiveArtifactInputs(artifactValue)
     try {
       assertEvidenceIdIndependent(
         observation.evidenceId,
@@ -1537,7 +1550,8 @@ export function recordConformanceEvidence(
         explicitlyPrivateArtifactStrings(artifactValue),
         completePrivateCaptureStrings(artifactValue, observation),
         privateIdentifierArtifactStrings(artifactValue),
-        privateAdditiveArtifactStrings(artifactValue)
+        additivePrivateInputs.keys,
+        additivePrivateInputs.stringValues
       )
     } catch (privacyError) {
       if (
