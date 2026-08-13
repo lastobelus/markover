@@ -124,8 +124,9 @@ by private-token-segment-hardened runner commit
 `ffbe48d1a3d7121d39c5958c9ba5a7f85c1649e0`, then ID-slug-bound runner commit
 `159e8801c67478c9d35b7a7368809484dbc3d6d1`. Exercise-source-bound and
 failure-retaining runner commit `20bdc87b121e6b141254b88aa8e9d5dbd978ab85`
-produced the latest records. All nine immutable records per combination remain
-referenced by the matrix.
+produced the next records, followed by defect-ancestry-verifying runner commit
+`30239c3cc1dc6e31b29a5491657fe14f7c97c86e`. All ten immutable records per
+combination remain referenced by the matrix.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
