@@ -197,14 +197,17 @@ produced a fortieth record for each combination.
 Radix-form safe-integer identity comparison in runner commit
 `6fedd0b7a24616639c55b21f83812d51a93e9c96` produced a forty-first record for
 each combination.
+Short additive-key containment in runner commit
+`93a39dc903a53aa0480aed4fea733f6afddcdc36` produced a forty-second record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v20` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v22` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v20
+git fetch origin refs/tags/issue-136-runner-history-v22
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
