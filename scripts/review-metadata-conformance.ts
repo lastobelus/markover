@@ -499,6 +499,27 @@ export function verifySourceCommitPullRequest(
       'Running metadata recorder sources must not contain untracked inputs.'
     )
   }
+  const ignoredSources = git(
+    [
+      'ls-files',
+      '--others',
+      '--ignored',
+      '--exclude-standard',
+      '--',
+      ...runnerSourcePaths
+    ],
+    cwd
+  )
+  if (ignoredSources.status !== 0) {
+    throw new Error(
+      `Cannot inspect ignored metadata recorder sources: ${ignoredSources.stderr.trim()}`
+    )
+  }
+  if (ignoredSources.stdout.trim()) {
+    throw new Error(
+      'Running metadata recorder sources must not contain ignored inputs.'
+    )
+  }
 }
 
 function parseDiscovery(
@@ -1252,6 +1273,74 @@ function base64DecodedVariants(value: string): string[] {
   return variants
 }
 
+function base32DecodedVariants(value: string): string[] {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  const encode = (bytes: Uint8Array): string => {
+    let bits = 0
+    let buffer = 0
+    let encoded = ''
+    for (const byte of bytes) {
+      buffer = (buffer << 8) | byte
+      bits += 8
+      while (bits >= 5) {
+        bits -= 5
+        encoded += alphabet.charAt((buffer >>> bits) & 31)
+      }
+    }
+    if (bits > 0) encoded += alphabet.charAt((buffer << (5 - bits)) & 31)
+    return encoded
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (
+      encoded.length < 8 ||
+      encoded.length > 256 ||
+      !/^[A-Z2-7]+={0,6}$/i.test(encoded)
+    ) {
+      return null
+    }
+    const unpadded = encoded.replace(/=+$/, '').toUpperCase()
+    let bits = 0
+    let buffer = 0
+    const bytes: number[] = []
+    for (const character of unpadded) {
+      const value = alphabet.indexOf(character)
+      if (value < 0) return null
+      buffer = (buffer << 5) | value
+      bits += 5
+      if (bits >= 8) {
+        bits -= 8
+        bytes.push((buffer >>> bits) & 255)
+      }
+    }
+    if (bits > 0 && (buffer & ((1 << bits) - 1)) !== 0) return null
+    const byteArray = Uint8Array.from(bytes)
+    if (encode(byteArray) !== unpadded) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  const maximumPasses = 4
+  let completedPasses = 0
+  for (let pass = 0; pass < maximumPasses; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+    completedPasses += 1
+  }
+  if (completedPasses === maximumPasses && decodeOnce(current) !== null) {
+    throw new Error(
+      'Sanitized evidence contains Base32 encoding beyond the safe decoding depth.'
+    )
+  }
+  return variants
+}
+
 function reversibleDecodedVariants(value: string): string[] {
   const variants = new Set<string>()
   const pending = [value]
@@ -1261,7 +1350,8 @@ function reversibleDecodedVariants(value: string): string[] {
     if (current === undefined) break
     for (const candidate of [
       ...percentDecodedVariants(current),
-      ...base64DecodedVariants(current)
+      ...base64DecodedVariants(current),
+      ...base32DecodedVariants(current)
     ]) {
       if (candidate === value || variants.has(candidate)) continue
       if (variants.size >= maximumVariants) {

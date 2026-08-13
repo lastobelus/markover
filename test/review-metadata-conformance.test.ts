@@ -1252,6 +1252,21 @@ test('capture treats numeric extension leaves as private artifact values', async
       /runtime still contains a private artifact value/
     )
 
+    const base32Artifact = fixture()
+    agentThread(base32Artifact)
+    const base32Root = base32Artifact.root as Record<string, unknown>
+    base32Root.fixtureExtension = { accountId: 'acct12345' }
+    const base32Runtime = observation().runtime as Record<string, unknown>
+    base32Runtime.providerModel = 'MFRWG5BRGIZTINI'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        base32Artifact,
+        observation({ runtime: base32Runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+
     const suffixArtifact = fixture()
     agentThread(suffixArtifact)
     const suffixRoot = suffixArtifact.root as Record<string, unknown>
@@ -2055,12 +2070,21 @@ test('recording verifies runner commit ancestry in the declared pull request', a
       }
       return { status: 0, stderr: '', stdout: '' }
     })
+    const ignoredCall = calls.pop()
     const untrackedCall = calls.pop()
     const diffCall = calls[3]
     assert.ok(diffCall)
     assert.deepEqual(untrackedCall, [
       'ls-files',
       '--others',
+      '--exclude-standard',
+      '--',
+      ...diffCall.slice(4)
+    ])
+    assert.deepEqual(ignoredCall, [
+      'ls-files',
+      '--others',
+      '--ignored',
       '--exclude-standard',
       '--',
       ...diffCall.slice(4)
@@ -2108,6 +2132,23 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         }))
       },
       /must not contain untracked inputs/
+    )
+  })
+
+  await t.test('rejects ignored recorder inputs', () => {
+    assert.throws(
+      () => {
+        verifySourceCommitPullRequest(parsed, root, (args) => ({
+          status: 0,
+          stderr: '',
+          stdout: args[0] === 'remote'
+            ? 'git@github.com:lastobelus/markover.git\n'
+            : args.includes('--ignored')
+              ? 'evals/review-metadata/exercises/tmp/foo.md\n'
+              : ''
+        }))
+      },
+      /must not contain ignored inputs/
     )
   })
 
