@@ -1340,11 +1340,13 @@ function canonicalNumericIdentityCandidates(
         for (const normalizedValue of reconstructedSegments) {
           numericValues.add(normalizedValue)
           if (extractEmbedded) {
-            for (const match of normalizedValue.matchAll(
-              /[+-]?(?:0x[0-9a-f]+|0o[0-7]+|0b[01]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/gi
-            )) {
+            for (let offset = 0; offset < normalizedValue.length; offset += 1) {
+              const match = /^[+-]?(?:0x[0-9a-f]+|0o[0-7]+|0b[01]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/i.exec(
+                normalizedValue.slice(offset)
+              )
+              if (match === null) continue
               const nextCharacter = normalizedValue[
-                match.index + match[0].length
+                offset + match[0].length
               ]
               if (
                 /^[+-]?0[xob]/i.test(match[0]) &&
