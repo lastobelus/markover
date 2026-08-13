@@ -15,6 +15,7 @@ import {
   validateSanitizedFailureEvidence,
   validateSanitizedEvidence,
   verifyContractDefectIssue,
+  verifyEvidenceSourceCommits,
   verifySourceCommitPullRequest
 } from '../scripts/review-metadata-conformance'
 
@@ -129,6 +130,70 @@ test('corpus validation requires and finds evidence for every initial row', () =
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
   assert.deepEqual(validateMetadataCorpus(root, true), expected)
+})
+
+test('corpus validation passes every record to provenance verification', () => {
+  let received = 0
+  const verifyDefect = (): void => {}
+  const verifyProvenance = (
+    evidence: Array<{ sourceCommit: string; sourcePullRequest: string }>
+  ): void => {
+    received = evidence.length
+    assert.ok(evidence.every(({ sourceCommit }) => sourceCommit.length === 40))
+  }
+  validateMetadataCorpus(root, true, verifyDefect, verifyProvenance)
+  assert.equal(received, 282)
+})
+
+test('corpus provenance includes GitHub-recorded pre-force-push heads', () => {
+  const sourceCommit = '0'.repeat(40)
+  const currentHead = '1'.repeat(40)
+  const historicalHead = '2'.repeat(40)
+  const git = (args: string[]): { status: number; stderr: string; stdout: string } => ({
+    status: args[0] === 'merge-base'
+      ? Number(args[3] !== historicalHead || args[2] !== sourceCommit)
+      : 0,
+    stderr: '',
+    stdout: args[0] === 'remote'
+      ? 'https://github.com/lastobelus/markover.git\n'
+      : args[0] === 'rev-parse'
+        ? `${currentHead}\n`
+        : ''
+  })
+  const github = (): { status: number; stderr: string; stdout: string } => ({
+    status: 0,
+    stderr: '',
+    stdout: JSON.stringify({
+      data: {
+        repository: {
+          pullRequest: {
+            timelineItems: {
+              nodes: [{ beforeCommit: { oid: historicalHead } }],
+              pageInfo: { endCursor: null, hasNextPage: false }
+            }
+          }
+        }
+      }
+    })
+  })
+  const evidence = [{
+    sourceCommit,
+    sourcePullRequest: 'https://github.com/lastobelus/markover/pull/141'
+  }]
+  assert.doesNotThrow(() => {
+    verifyEvidenceSourceCommits(evidence, root, git, github)
+  })
+  assert.throws(
+    () => {
+      verifyEvidenceSourceCommits([
+        {
+          sourceCommit: 'f'.repeat(40),
+          sourcePullRequest: 'https://github.com/lastobelus/markover/pull/141'
+        }
+      ], root, git, github)
+    },
+    /must belong to current or pre-force-push sourcePullRequest history/
+  )
 })
 
 test('capture validates raw v1 identity and emits only typed redactions', () => {
@@ -1597,6 +1662,17 @@ test('capture treats numeric extension leaves as private artifact values', async
     rootNode.fixtureExtension = { secret: '<~@:Neh0etOA2#~>' }
     const runtime = observation().runtime as Record<string, unknown>
     runtime.providerModel = 'acct12345'
+    assert.throws(() => buildSanitizedEvidence(artifact, observation({ runtime }),
+      json('evals/review-metadata/matrix.json')), /runtime still contains a private artifact value/)
+  })
+
+  await t.test('Punycode private values', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { secret: '例子' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'xn--fsqu00a'
     assert.throws(() => buildSanitizedEvidence(artifact, observation({ runtime }),
       json('evals/review-metadata/matrix.json')), /runtime still contains a private artifact value/)
   })

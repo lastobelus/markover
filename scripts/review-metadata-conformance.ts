@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { domainToASCII, domainToUnicode } from 'node:url'
 
 import {
   decodeReviewArtifact,
@@ -515,6 +516,118 @@ export function verifySourceCommitPullRequest(
     throw new Error(
       'Running metadata recorder sources must not contain ignored inputs.'
     )
+  }
+}
+
+export function verifyEvidenceSourceCommits(
+  evidence: Array<{ sourceCommit: string; sourcePullRequest: string }>,
+  cwd = projectRoot,
+  git: GitRunner = runGit,
+  github: GitHubRunner = runGitHub
+): void {
+  const origin = git(['remote', 'get-url', 'origin'], cwd)
+  if (origin.status !== 0) throw new Error('Cannot read origin for evidence provenance.')
+  const grouped = new Map<string, Set<string>>()
+  for (const item of evidence) {
+    const pullRequest = parseGitHubPullRequestUrl(item.sourcePullRequest)
+    if (!pullRequest || githubRepositoryIdentity(origin.stdout.trim()) !== pullRequest.repository) {
+      throw new Error('Evidence sourcePullRequest must match the origin repository.')
+    }
+    const commits = grouped.get(item.sourcePullRequest) ?? new Set<string>()
+    commits.add(item.sourceCommit)
+    grouped.set(item.sourcePullRequest, commits)
+  }
+  for (const [url, commits] of grouped) {
+    const pullRequest = parseGitHubPullRequestUrl(url)
+    if (!pullRequest) throw new Error('Cannot verify non-canonical evidence provenance.')
+    const fetch = git(['fetch', '--quiet', '--no-tags', 'origin',
+      `refs/pull/${String(pullRequest.number)}/head`], cwd)
+    if (fetch.status !== 0) throw new Error('Cannot fetch evidence sourcePullRequest head.')
+    const currentHead = git(['rev-parse', 'FETCH_HEAD'], cwd)
+    if (currentHead.status !== 0 || !fullCommitPattern.test(currentHead.stdout.trim())) {
+      throw new Error('Cannot resolve evidence sourcePullRequest head.')
+    }
+    const historicalHeads = new Set<string>()
+    let cursor: string | null = null
+    do {
+      const query = `query($repository:String!,$owner:String!,$number:Int!,$cursor:String){repository(name:$repository,owner:$owner){pullRequest(number:$number){timelineItems(first:100,after:$cursor,itemTypes:[HEAD_REF_FORCE_PUSHED_EVENT]){nodes{... on HeadRefForcePushedEvent{beforeCommit{oid}}}pageInfo{hasNextPage endCursor}}}}}`
+      const [owner, repository] = pullRequest.repository.split('/')
+      const result = github([
+        'api',
+        'graphql',
+        '-f',
+        `query=${query}`,
+        '-F',
+        `owner=${owner}`,
+        '-F',
+        `repository=${repository}`,
+        '-F',
+        `number=${String(pullRequest.number)}`,
+        ...(cursor === null ? [] : ['-F', `cursor=${cursor}`])
+      ], cwd)
+      if (result.status !== 0) {
+        throw new Error('Cannot inspect sourcePullRequest force-push history.')
+      }
+      let timeline: Record<string, unknown>
+      try {
+        const response = record(JSON.parse(result.stdout) as unknown, 'GitHub response')
+        const repositoryValue = record(response.data, 'GitHub response.data')
+        const repositoryData = record(repositoryValue.repository, 'GitHub repository')
+        const pullRequestData = record(repositoryData.pullRequest, 'GitHub pull request')
+        timeline = record(pullRequestData.timelineItems, 'GitHub pull request timeline')
+      } catch (error) {
+        throw new Error('GitHub returned invalid force-push history JSON.', { cause: error })
+      }
+      if (!Array.isArray(timeline.nodes)) {
+        throw new Error('GitHub returned invalid force-push history nodes.')
+      }
+      for (const value of timeline.nodes) {
+        const node = record(value, 'GitHub force-push event')
+        if (node.beforeCommit === null) continue
+        const beforeCommit = record(node.beforeCommit, 'GitHub pre-force-push commit')
+        if (typeof beforeCommit.oid !== 'string' || !fullCommitPattern.test(beforeCommit.oid)) {
+          throw new Error('GitHub returned an invalid pre-force-push commit.')
+        }
+        historicalHeads.add(beforeCommit.oid)
+      }
+      const pageInfo = record(timeline.pageInfo, 'GitHub force-push pageInfo')
+      if (typeof pageInfo.hasNextPage !== 'boolean') {
+        throw new Error('GitHub returned invalid force-push pagination.')
+      }
+      if (pageInfo.hasNextPage) {
+        if (typeof pageInfo.endCursor !== 'string' || pageInfo.endCursor.length === 0) {
+          throw new Error('GitHub omitted the force-push pagination cursor.')
+        }
+        cursor = pageInfo.endCursor
+      } else {
+        cursor = null
+      }
+    } while (cursor !== null)
+    for (const head of historicalHeads) {
+      const available = git(['cat-file', '-e', `${head}^{commit}`], cwd)
+      if (available.status === 0) continue
+      const historicalFetch = git(['fetch', '--quiet', '--no-tags', 'origin', head], cwd)
+      if (historicalFetch.status !== 0) {
+        throw new Error('Cannot fetch a pre-force-push sourcePullRequest head.')
+      }
+    }
+    const candidateHeads = [currentHead.stdout.trim(), ...historicalHeads]
+    for (const commit of commits) {
+      let belongs = false
+      for (const head of candidateHeads) {
+        const ancestor = git(['merge-base', '--is-ancestor', commit, head], cwd)
+        if (ancestor.status === 0) {
+          belongs = true
+          break
+        }
+        if (ancestor.status !== 1 && ancestor.status !== 128) {
+          throw new Error('Cannot verify evidence sourceCommit ancestry.')
+        }
+      }
+      if (!belongs) throw new Error(
+        'Evidence sourceCommit must belong to current or pre-force-push sourcePullRequest history.'
+      )
+    }
   }
 }
 
@@ -1624,6 +1737,15 @@ function ascii85DecodedVariants(value: string): string[] {
   return variants
 }
 
+function punycodeDecodedVariants(value: string): string[] {
+  if (value.length > 512 || !/(?:^|\.)xn--/i.test(value)) return []
+  const decoded = domainToUnicode(value)
+  if (!decoded || decoded === value || domainToASCII(decoded).toLowerCase() !== value.toLowerCase()) {
+    return []
+  }
+  return [decoded]
+}
+
 function hexadecimalDecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
@@ -1722,6 +1844,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base58DecodedVariants(current),
       ...base45DecodedVariants(current),
       ...ascii85DecodedVariants(current),
+      ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
     ]) {
@@ -2579,7 +2702,11 @@ export function validateSanitizedFailureEvidence(
 export function validateMetadataCorpus(
   root = projectRoot,
   requireComplete = false,
-  verifyDefect: DefectVerifier = verifyContractDefectIssue
+  verifyDefect: DefectVerifier = verifyContractDefectIssue,
+  verifyProvenance?: (
+    evidence: Array<{ sourceCommit: string; sourcePullRequest: string }>,
+    cwd: string
+  ) => void
 ): { evidenceCount: number; matrixEntryCount: number } {
   const directory = path.join(root, 'evals/review-metadata')
   const matrixFile = path.join(directory, 'matrix.json')
@@ -2618,6 +2745,7 @@ export function validateMetadataCorpus(
     }
     evidenceById.set(evidence.evidenceId, evidence)
   }
+  verifyProvenance?.([...evidenceById.values()], root)
   const referencedEvidence = new Set<string>()
   const realExerciseDirectory = fs.realpathSync(path.join(directory, 'exercises'))
   for (const entry of matrix.entries) {
@@ -2708,7 +2836,12 @@ function main(): void {
   if (command === 'validate') {
     const unknown = args.filter((argument) => argument !== '--require-complete')
     if (unknown.length > 0) throw new Error(`Unknown validate option: ${unknown[0]}.`)
-    const result = validateMetadataCorpus(projectRoot, args.includes('--require-complete'))
+    const result = validateMetadataCorpus(
+      projectRoot,
+      args.includes('--require-complete'),
+      verifyContractDefectIssue,
+      verifyEvidenceSourceCommits
+    )
     process.stdout.write(`${JSON.stringify({ ok: true, ...result })}\n`)
     return
   }
