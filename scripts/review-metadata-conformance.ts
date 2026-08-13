@@ -1948,6 +1948,51 @@ function quotedPrintableDecodedVariants(value: string): string[] {
   return variants
 }
 
+function htmlCharacterReferenceDecodedVariants(value: string): string[] {
+  const decodeOnce = (encoded: string): string | null => {
+    if (
+      encoded.length < 4 ||
+      encoded.length > 2048 ||
+      !/&#(?:[0-9]+|[xX][0-9A-Fa-f]+);/.test(encoded)
+    ) {
+      return null
+    }
+    const decoded = encoded.replace(
+      /&#(?:([0-9]+)|[xX]([0-9A-Fa-f]+));/g,
+      (reference, decimal: string | undefined, hexadecimal: string | undefined) => {
+        const codePoint = Number.parseInt(
+          decimal ?? hexadecimal ?? '',
+          decimal === undefined ? 16 : 10
+        )
+        if (
+          !Number.isSafeInteger(codePoint) ||
+          codePoint === 0 ||
+          codePoint > 0x10ffff ||
+          (codePoint >= 0xd800 && codePoint <= 0xdfff)
+        ) {
+          return reference
+        }
+        return String.fromCodePoint(codePoint)
+      }
+    )
+    return decoded !== encoded ? decoded : null
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error(
+      'Sanitized evidence contains HTML character references beyond the safe decoding depth.'
+    )
+  }
+  return variants
+}
+
 function punycodeDecodedVariants(value: string): string[] {
   if (value.length > 512 || !/(?:^|\.)xn--/i.test(value)) return []
   const decoded = domainToUnicode(value)
@@ -2065,6 +2110,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...ascii85DecodedVariants(current),
       ...z85DecodedVariants(current),
       ...quotedPrintableDecodedVariants(current),
+      ...htmlCharacterReferenceDecodedVariants(current),
       ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
