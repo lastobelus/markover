@@ -1309,10 +1309,10 @@ function canonicalNumericIdentityCandidates(
       const normalizedValue = segment.replace(/_/g, '')
       const numericValues = [
         normalizedValue,
-        ...(/^(?:v|ver|version)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
+        ...(/^(?:version|ver|v)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
           normalizedValue
         )
-          ? [normalizedValue.replace(/^(?:v|ver|version)/i, '')]
+          ? [normalizedValue.replace(/^(?:version|ver|v)/i, '')]
           : [])
       ]
       for (const numericLiteral of numericValues) {
