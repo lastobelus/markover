@@ -873,10 +873,17 @@ function assertEvidenceIdIndependent(
   ])
   const privateNumericIdentities = new Set([
     ...canonicalNumericIdentityCandidates(completePrivate),
-    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true, 4)
+    ...canonicalNumericIdentityCandidates(
+      shortPrivateIdentifiers,
+      true,
+      4,
+      true
+    )
   ])
   const suffixNumericIdentities = canonicalNumericIdentityCandidates(
     suffixValues,
+    true,
+    1,
     true
   )
   const suffixContainsPrivate = [...containmentPrivateCandidates].some(
@@ -1519,7 +1526,8 @@ function shortExplicitPrivateContainmentCandidates(
 function canonicalNumericIdentityCandidates(
   values: Array<string | null | undefined>,
   extractEmbedded = false,
-  minimumEmbeddedWidth = 1
+  minimumEmbeddedWidth = 1,
+  includeAlphabeticBase36 = false
 ): Set<string> {
   const canonicalDecimalInteger = (value: string): string | null => {
     const match = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?$/i.exec(
@@ -1543,7 +1551,7 @@ function canonicalNumericIdentityCandidates(
     const body = match?.[2]
     if (
       body === undefined ||
-      !/^\d/.test(body) ||
+      (!includeAlphabeticBase36 && !/^\d/.test(body)) ||
       !/[a-z]/i.test(body)
     ) return null
     let decimal = 0n
@@ -1741,10 +1749,17 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   ])
   const privateNumericIdentities = new Set([
     ...canonicalNumericIdentityCandidates(completePrivate),
-    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true, 4)
+    ...canonicalNumericIdentityCandidates(
+      shortPrivateIdentifiers,
+      true,
+      4,
+      true
+    )
   ])
   const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
     expandedRuntimeValues,
+    true,
+    1,
     true
   )
   const embedsPrivateCandidate = [...persistedRuntimeCandidates].some(
