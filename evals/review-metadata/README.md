@@ -293,14 +293,18 @@ each combination, using independent suffix `vqzwmjkh`.
 Short unprefixed hexadecimal comparison in runner commit
 `7c4e1aa36de041db8949ccc92989733c40ff88bc` produced a seventy-second record for
 each combination, using independent suffix `rqzvmjkh`.
+Private-identifier numeric-component and exercise-directory provenance
+comparison in runner commit `9f1995eabcc9ef01128ab9afc022e90d7f0adc9c`
+produced a seventy-third record for each combination, using independent suffix
+`nqzvmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v54` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v56` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v54
+git fetch origin refs/tags/issue-136-runner-history-v56
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
