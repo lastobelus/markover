@@ -124,7 +124,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 171,
+    evidenceCount: 174,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -479,6 +479,28 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
     assert.doesNotThrow(() => buildSanitizedEvidence(
       artifact,
       observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ))
+  })
+
+  await t.test('public schema keys remain usable runtime segments', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    delete rootNode.fixtureNodeExtension
+    const children = rootNode.children as Array<Record<string, unknown>>
+    const reviewNode = children[1]
+    assert.ok(reviewNode)
+    const attachments = reviewNode.attachments as Array<Record<string, unknown>>
+    const attachment = attachments[0]
+    assert.ok(attachment)
+    attachment.path = 'attachments/image.png'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerVersion = 'Version 1.2.3'
+    runtime.providerVersionSource = 'runtime-context'
+    assert.doesNotThrow(() => buildSanitizedEvidence(
+      artifact,
+      observation({ limitations: [], runtime }),
       json('evals/review-metadata/matrix.json')
     ))
   })
@@ -1044,6 +1066,26 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('equivalent fractional numeric identity', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: '12.34' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '1234e-2'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__cafefeed',
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   for (const radixValue of [
     '0xBC614E',
     '0o57060516',
@@ -1462,7 +1504,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 172,
+    evidenceCount: 175,
     matrixEntryCount: 3
   })
 
