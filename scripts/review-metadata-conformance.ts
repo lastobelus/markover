@@ -2224,15 +2224,51 @@ function reversibleRuntimeVariants(value: string): string[] {
   }
   const variants = new Set([value])
   const maximumVariants = 2048
+  const addVariant = (candidate: string): void => {
+    if (!runtimeTokenPattern.test(candidate)) return
+    if (variants.size >= maximumVariants && !variants.has(candidate)) {
+      throw new Error(
+        'Sanitized evidence runtime exceeds the safe segmented-decoding bound.'
+      )
+    }
+    variants.add(candidate)
+  }
   for (const seed of seeds) {
     for (const candidate of reversibleDecodedVariants(seed)) {
-      if (!runtimeTokenPattern.test(candidate)) continue
-      if (variants.size >= maximumVariants && !variants.has(candidate)) {
-        throw new Error(
-          'Sanitized evidence runtime exceeds the safe segmented-decoding bound.'
-        )
+      addVariant(candidate)
+    }
+  }
+  const alternatives = segments.map((segment) => [
+    { decoded: false, value: segment },
+    ...reversibleDecodedVariants(segment)
+      .filter((candidate) => runtimeTokenSegmentPattern.test(candidate))
+      .map((candidate) => ({ decoded: true, value: candidate }))
+  ])
+  for (let start = 0; start < segments.length; start += 1) {
+    const combinations: Array<{ decoded: boolean; values: string[] }> = [
+      { decoded: false, values: [] }
+    ]
+    for (let offset = start; offset < Math.min(start + 5, segments.length); offset += 1) {
+      const next: Array<{ decoded: boolean; values: string[] }> = []
+      for (const combination of combinations) {
+        for (const alternative of alternatives[offset] ?? []) {
+          if (next.length >= maximumVariants) {
+            throw new Error(
+              'Sanitized evidence runtime exceeds the safe segmented-decoding bound.'
+            )
+          }
+          next.push({
+            decoded: combination.decoded || alternative.decoded,
+            values: [...combination.values, alternative.value]
+          })
+        }
       }
-      variants.add(candidate)
+      combinations.splice(0, combinations.length, ...next)
+      for (const combination of combinations) {
+        if (!combination.decoded) continue
+        addVariant(combination.values.join(' '))
+        addVariant(combination.values.join(''))
+      }
     }
   }
   return [...variants]
