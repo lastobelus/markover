@@ -761,6 +761,29 @@ test('capture treats numeric extension leaves as private artifact values', async
       /runtime still contains a private artifact value/
     )
   })
+
+  for (const radixValue of [
+    '0xBC614E',
+    '0o57060516',
+    '0b101111000110000101001110'
+  ]) {
+    await t.test(`radix runtime value ${radixValue.slice(0, 2)}`, () => {
+      const artifact = fixture()
+      agentThread(artifact)
+      const rootNode = artifact.root as Record<string, unknown>
+      rootNode.fixtureExtension = { accountId: 12345678 }
+      const runtime = observation().runtime as Record<string, unknown>
+      runtime.providerModel = radixValue
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observation({ runtime }),
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
+      )
+    })
+  }
 })
 
 test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {

@@ -1155,10 +1155,16 @@ function canonicalNumericIdentityCandidates(
 ): Set<string> {
   const candidates = new Set<string>()
   for (const value of values) {
+    const isDecimal =
+      /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value ?? '')
+    const isRadixInteger =
+      /^0x[0-9a-f]+$/i.test(value ?? '') ||
+      /^0o[0-7]+$/i.test(value ?? '') ||
+      /^0b[01]+$/i.test(value ?? '')
     if (
       value === null ||
       value === undefined ||
-      !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value)
+      (!isDecimal && !isRadixInteger)
     ) {
       continue
     }
