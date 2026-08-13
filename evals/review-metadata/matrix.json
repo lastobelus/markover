@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "classification": {
-    "status": "provisional-evidence",
+    "status": "observational-evidence",
     "authorityIssue": 134
   },
   "entries": [
@@ -21,7 +21,25 @@
         "2026-08-12__t3code-codex__a5fec04f",
         "2026-08-12__t3code-codex__1c56bdf7",
         "2026-08-12__t3code-codex__e5625350",
-        "2026-08-12__t3code-codex__9e1559d4"
+        "2026-08-12__t3code-codex__9e1559d4",
+        "2026-08-12__t3code-codex__0fce000e",
+        "2026-08-12__t3code-codex__ffbe48d1",
+        "2026-08-12__t3code-codex__159e8801",
+        "2026-08-12__t3code-codex__20bdc87b",
+        "2026-08-12__t3code-codex__30239c3c",
+        "2026-08-12__t3code-codex__4347774b",
+        "2026-08-12__t3code-codex__7266b467",
+        "2026-08-12__t3code-codex__8d3c0688",
+        "2026-08-12__t3code-codex__53f2ddfe",
+        "2026-08-12__t3code-codex__e7c4a44c",
+        "2026-08-12__t3code-codex__ae35722a",
+        "2026-08-12__t3code-codex__8ecb62d8",
+        "2026-08-12__t3code-codex__a5ab4abc",
+        "2026-08-12__t3code-codex__8d921e2e",
+        "2026-08-12__t3code-codex__4a077ece",
+        "2026-08-12__t3code-codex__bc4d87cd",
+        "2026-08-12__t3code-codex__584f85ce",
+        "2026-08-12__t3code-codex__806d09ae"
       ]
     },
     {
@@ -40,7 +58,25 @@
         "2026-08-12__t3code-claude__a5fec04f",
         "2026-08-12__t3code-claude__1c56bdf7",
         "2026-08-12__t3code-claude__e5625350",
-        "2026-08-12__t3code-claude__9e1559d4"
+        "2026-08-12__t3code-claude__9e1559d4",
+        "2026-08-12__t3code-claude__0fce000e",
+        "2026-08-12__t3code-claude__ffbe48d1",
+        "2026-08-12__t3code-claude__159e8801",
+        "2026-08-12__t3code-claude__20bdc87b",
+        "2026-08-12__t3code-claude__30239c3c",
+        "2026-08-12__t3code-claude__4347774b",
+        "2026-08-12__t3code-claude__7266b467",
+        "2026-08-12__t3code-claude__8d3c0688",
+        "2026-08-12__t3code-claude__53f2ddfe",
+        "2026-08-12__t3code-claude__e7c4a44c",
+        "2026-08-12__t3code-claude__ae35722a",
+        "2026-08-12__t3code-claude__8ecb62d8",
+        "2026-08-12__t3code-claude__a5ab4abc",
+        "2026-08-12__t3code-claude__8d921e2e",
+        "2026-08-12__t3code-claude__4a077ece",
+        "2026-08-12__t3code-claude__bc4d87cd",
+        "2026-08-12__t3code-claude__584f85ce",
+        "2026-08-12__t3code-claude__806d09ae"
       ]
     },
     {
@@ -59,7 +95,25 @@
         "2026-08-12__claude-code-claude__a5fec04f",
         "2026-08-12__claude-code-claude__1c56bdf7",
         "2026-08-12__claude-code-claude__e5625350",
-        "2026-08-12__claude-code-claude__9e1559d4"
+        "2026-08-12__claude-code-claude__9e1559d4",
+        "2026-08-12__claude-code-claude__0fce000e",
+        "2026-08-12__claude-code-claude__ffbe48d1",
+        "2026-08-12__claude-code-claude__159e8801",
+        "2026-08-12__claude-code-claude__20bdc87b",
+        "2026-08-12__claude-code-claude__30239c3c",
+        "2026-08-12__claude-code-claude__4347774b",
+        "2026-08-12__claude-code-claude__7266b467",
+        "2026-08-12__claude-code-claude__8d3c0688",
+        "2026-08-12__claude-code-claude__53f2ddfe",
+        "2026-08-12__claude-code-claude__e7c4a44c",
+        "2026-08-12__claude-code-claude__ae35722a",
+        "2026-08-12__claude-code-claude__8ecb62d8",
+        "2026-08-12__claude-code-claude__a5ab4abc",
+        "2026-08-12__claude-code-claude__8d921e2e",
+        "2026-08-12__claude-code-claude__4a077ece",
+        "2026-08-12__claude-code-claude__bc4d87cd",
+        "2026-08-12__claude-code-claude__584f85ce",
+        "2026-08-12__claude-code-claude__806d09ae"
       ]
     }
   ],

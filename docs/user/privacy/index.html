@@ -75,7 +75,7 @@
       <section id="discovery">
         <h2>Local provenance discovery</h2>
         <p>Markover may run read-only Git commands beside the reviewed source. The portable review retains the sanitized remote URL, branch, and commit reported at opening time; URL credentials, query strings, fragments, and local repository roots stay out of the handoff. App-private workspace state may retain a local project-grouping key.</p>
-        <p>If an agent supplies a unique handoff key but no explicit thread ID, Markover can search a bounded set of recent local Codex session records for an exact match. It retains the matched provider thread ID with the thread-host metadata the agent supplied, not a copy or path of the scanned logs.</p>
+        <p>If an agent supplies a unique handoff key but no explicit thread ID, Markover can search a bounded set of recent local Codex session records for an exact match. It retains the matched requesting-session ID with the thread-host metadata the agent supplied, not a copy or path of the scanned logs.</p>
         <p>This search is enabled by default. Turn off <strong>Discover agent thread from local session logs</strong> in Markover's Privacy settings to skip it on subsequent <code>open</code> commands. Explicit thread IDs and Git provenance remain available.</p>
       </section>
 

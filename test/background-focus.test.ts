@@ -331,6 +331,7 @@ test('automatic startup uses one-shot hidden background LaunchServices flags', (
   }
   assert.match(cli, /delete environment\.ELECTRON_RUN_AS_NODE/)
   assert.match(cli, /resolveMarkoverApp/)
+  assert.doesNotMatch(cli, /projectDirectory,[\s\S]*'dist',[\s\S]*`Markover-darwin-/)
   assert.match(cli, /packagedApp,[\s\S]*'--args',[\s\S]*'--markover-server'/)
   assert.match(cli, /\['start', '--', '--instance', selector, '--markover-server'\]/)
   assert.match(cli, /\{ encoding: 'utf8', env: environment \}/)

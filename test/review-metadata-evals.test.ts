@@ -25,11 +25,11 @@ test('bounded metadata cases cover direct, delegated, unavailable, and invalid p
   const cases = json('evals/review-metadata/cases.json') as MetadataCase[]
   const fixture = json('test/fixtures/review-handoff-v1.json') as Record<string, unknown>
   assert.deepEqual(cases.map(({ id }) => id), [
-    'direct-codex-one-provider-id',
+    'direct-codex-requesting-id',
     't3code-distinct-thread-host-id',
-    'mixed-thread-host-provider',
+    'mixed-thread-host-model-provider',
     'truthful-unavailable-fallback',
-    'duplicated-provider-thread-id',
+    'equal-agent-host-thread-id',
     'missing-provider',
     'private-discovery-evidence'
   ])
@@ -61,8 +61,10 @@ test('machine-readable guidance requests truthful thread-host metadata', () => {
   ]) {
     assert.match(help, new RegExp(field))
   }
-  assert.match(help, /provider thread ID/)
+  assert.match(help, /best observable requesting-thread or session ID/)
+  assert.match(help, /LLM provider or model family/)
+  assert.match(help, /not an intermediate harness/)
   assert.match(help, /only a distinct host-owned ID/)
   assert.match(help, /local hostname result/)
-  assert.match(help, /Omit unavailable values rather than guessing/)
+  assert.match(help, /omit unavailable values rather than guessing/)
 })

@@ -1,6 +1,6 @@
 {
   "checks": {
-    "distinctThreadHostId": true,
+    "threadHostIdAccepted": true,
     "guessedValuesAbsent": true,
     "machineAttempted": true,
     "nullFallbackTruthful": true,
