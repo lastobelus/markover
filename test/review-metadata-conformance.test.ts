@@ -1528,6 +1528,24 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('maximum-width runtime value encoded as Base64', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const privateValue = Array.from({ length: 5 }, (_, index) =>
+      String(index + 1).repeat(39)).join(' ')
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = {
+      secret: Buffer.from(privateValue).toString('base64')
+    }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = privateValue
+    assert.throws(
+      () => buildSanitizedEvidence(artifact, observation({ runtime }),
+        json('evals/review-metadata/matrix.json')),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('digit-only fixed-width hexadecimal identities', () => {
     const artifact = fixture()
     agentThread(artifact)
