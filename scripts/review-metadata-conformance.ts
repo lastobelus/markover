@@ -274,17 +274,28 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     'machine',
     'providerThreadId'
   ], 'Capture observation discovery')
+  const parsedDiscovery: CaptureObservation['discovery'] = {
+    hostKind: parseDiscovery(discovery.hostKind, 'discovery.hostKind'),
+    hostProvider: parseDiscovery(discovery.hostProvider, 'discovery.hostProvider'),
+    hostThreadId: parseDiscovery(discovery.hostThreadId, 'discovery.hostThreadId'),
+    machine: parseDiscovery(discovery.machine, 'discovery.machine'),
+    providerThreadId: parseDiscovery(
+      discovery.providerThreadId,
+      'discovery.providerThreadId'
+    )
+  }
+  for (const field of [
+    'hostKind',
+    'hostProvider',
+    'hostThreadId',
+    'providerThreadId'
+  ] as const) {
+    if (parsedDiscovery[field].source === 'hostname-command') {
+      throw new Error(`hostname-command is not a valid discovery source for ${field}.`)
+    }
+  }
   return {
-    discovery: {
-      hostKind: parseDiscovery(discovery.hostKind, 'discovery.hostKind'),
-      hostProvider: parseDiscovery(discovery.hostProvider, 'discovery.hostProvider'),
-      hostThreadId: parseDiscovery(discovery.hostThreadId, 'discovery.hostThreadId'),
-      machine: parseDiscovery(discovery.machine, 'discovery.machine'),
-      providerThreadId: parseDiscovery(
-        discovery.providerThreadId,
-        'discovery.providerThreadId'
-      )
-    },
+    discovery: parsedDiscovery,
     evidenceId,
     exercisedAt,
     limitations: stringArray(item.limitations, 'Capture observation limitations'),
@@ -399,6 +410,14 @@ function assertMachineAttempted(
   }
 }
 
+function assertNullIdentityUnavailable(
+  discovery: CaptureObservation['discovery']
+): void {
+  if (discovery.providerThreadId.status !== 'unavailable') {
+    throw new Error('A null agentThread requires provider identity to be unavailable.')
+  }
+}
+
 function trueChecks(): ConformanceChecks {
   return {
     threadHostIdAccepted: true,
@@ -446,6 +465,9 @@ export function buildEvidenceFixture(
   if (artifact.sourceDocument.content !== exerciseSource) {
     throw new Error('Captured review does not use the maintained metadata exercise source.')
   }
+  if (artifact.review.origin !== 'agent') {
+    throw new Error('Captured conformance evidence must come from an agent-origin review.')
+  }
   let agentThread: EvidenceFixture['agentThread'] = null
   let identity: EvidenceFixture['relationships']['identity'] = 'truthful-null'
   let threadHostId: EvidenceFixture['relationships']['threadHostId'] = 'omitted'
@@ -455,9 +477,7 @@ export function buildEvidenceFixture(
     if (entry.identityExpectation === 'required') {
       throw new Error(`${entry.id} requires reliable requesting-thread identity.`)
     }
-    if (observation.discovery.providerThreadId.status !== 'unavailable') {
-      throw new Error('A null agentThread requires provider identity to be unavailable.')
-    }
+    assertNullIdentityUnavailable(observation.discovery)
   } else {
     if (
       thread.threadHost.kind !== entry.threadHost.kind ||
@@ -568,6 +588,7 @@ export function validateEvidenceFixture(
     if (entry.identityExpectation === 'required' || identity !== 'truthful-null') {
       throw new Error(`${entry.id} evidence requires identified agentThread metadata.`)
     }
+    assertNullIdentityUnavailable(observation.discovery)
     agentThread = null
   } else {
     const thread = record(item.agentThread, 'Evidence agentThread')

@@ -225,6 +225,21 @@ test('capture rejects contradictory discovery status and source pairs', () => {
   )
 })
 
+test('capture rejects hostname as a thread identity discovery source', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'observed', source: 'hostname-command' }
+  assert.throws(
+    () => buildEvidenceFixture(
+      artifact,
+      observation({ discovery }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /hostname-command is not a valid discovery source for providerThreadId/
+  )
+})
+
 test('capture rejects incorrect null fallback for a required identity row', () => {
   const artifact = fixture()
   const review = artifact.review as Record<string, unknown>
@@ -268,6 +283,29 @@ test('capture requires a hostname attempt for truthful-null evidence', () => {
       matrix
     ),
     /Machine discovery must record an attempted hostname command/
+  )
+})
+
+test('capture rejects local reviews as agent conformance evidence', () => {
+  const artifact = fixture()
+  const review = artifact.review as Record<string, unknown>
+  review.origin = 'local'
+  review.agentThread = null
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  discovery.hostKind = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.identityExpectation = 'unavailable-allowed'
+  assert.throws(
+    () => buildEvidenceFixture(artifact, observation({ discovery }), matrix),
+    /must come from an agent-origin review/
   )
 })
 
@@ -373,6 +411,38 @@ test('corpus validation recomputes discovery checks from fixture contents', () =
       json('evals/review-metadata/matrix.json')
     ),
     /agentThread.id is present but was not observed/
+  )
+})
+
+test('corpus validation rechecks unavailable identity for null evidence', () => {
+  const artifact = fixture()
+  const review = artifact.review as Record<string, unknown>
+  review.agentThread = null
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  discovery.hostKind = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.identityExpectation = 'unavailable-allowed'
+  const evidence = buildEvidenceFixture(
+    artifact,
+    observation({ discovery }),
+    matrix
+  ) as unknown as Record<string, unknown>
+  const committedDiscovery = evidence.discovery as Record<string, unknown>
+  committedDiscovery.providerThreadId = {
+    status: 'observed',
+    source: 'agent-runtime'
+  }
+  assert.throws(
+    () => validateEvidenceFixture(evidence, matrix),
+    /A null agentThread requires provider identity to be unavailable/
   )
 })
 
