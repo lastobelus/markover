@@ -303,14 +303,17 @@ each combination, using independent suffix `pqzvmjkh`.
 Base64 decoding-depth fail-closed comparison in runner commit
 `e265f9b7c7c966efb5dd6b79cdd52a5e1baf0191` produced a seventy-fifth record for
 each combination, using independent suffix `tqzvmjkh`.
+Symmetric reversible-decoding and untracked-provenance comparison in runner
+commit `cf6bb6d1d891d0dda4be32c240cd3c991505eccf` produced a seventy-sixth record
+for each combination, using independent suffix `uqzvmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v58` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v59` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v58
+git fetch origin refs/tags/issue-136-runner-history-v59
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
