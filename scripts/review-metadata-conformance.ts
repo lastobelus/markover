@@ -1891,6 +1891,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base32zDecodedVariants(current),
       ...base58DecodedVariants(current),
       ...base45DecodedVariants(current),
+      ...proquintDecodedVariants(current),
       ...ascii85DecodedVariants(current),
       ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
