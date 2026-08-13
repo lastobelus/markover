@@ -295,6 +295,23 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
     )
   })
 
+  await t.test('UUID component embedded in feedback prose', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.feedback = 'Account deadbeef-1234-5678-90ab-cdef01234567 needs review.'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'deadbeef'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('ordinary product words remain usable runtime segments', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -427,6 +444,14 @@ test('failed automatic checks can produce only closed sanitized evidence', () =>
     failure
   )
   assert.doesNotMatch(JSON.stringify(failure), /raw-provider-thread-secret/)
+
+  assert.throws(
+    () => validateSanitizedFailureEvidence(
+      { ...failure, evidenceId: '2030-01-01__t3code-codex__1234abcd' },
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Failure evidence ID date must equal the exercisedAt UTC date/
+  )
 })
 
 test('failure evidence rejects a suffix copied from an extension key', () => {

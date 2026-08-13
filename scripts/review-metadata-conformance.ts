@@ -852,17 +852,21 @@ function privateValueCandidates(
   for (const value of values) {
     if (value === null || value === undefined) continue
     if (value.length >= 8) candidates.add(value)
-    const segments = value
-      .split(/[^A-Za-z0-9._+-]+/)
-      .filter((segment) => runtimeTokenSegmentPattern.test(segment))
-    for (let start = 0; start < segments.length; start += 1) {
-      for (
-        let end = start + 1;
-        end <= Math.min(start + 5, segments.length);
-        end += 1
-      ) {
-        const candidate = segments.slice(start, end).join(' ')
-        if (candidate.length >= 8) candidates.add(candidate)
+    for (const segments of [
+      value
+        .split(/[^A-Za-z0-9._+-]+/)
+        .filter((segment) => runtimeTokenSegmentPattern.test(segment)),
+      value.split(/[^A-Za-z0-9]+/).filter(Boolean)
+    ]) {
+      for (let start = 0; start < segments.length; start += 1) {
+        for (
+          let end = start + 1;
+          end <= Math.min(start + 5, segments.length);
+          end += 1
+        ) {
+          const candidate = segments.slice(start, end).join(' ')
+          if (candidate.length >= 8) candidates.add(candidate)
+        }
       }
     }
   }
@@ -1269,6 +1273,9 @@ export function validateSanitizedFailureEvidence(
   const exercisedAt = nonblank(item.exercisedAt, 'Failure evidence exercisedAt')
   if (!isCanonicalReviewTimestamp(exercisedAt)) {
     throw new Error('Failure evidence exercisedAt must be a canonical UTC timestamp.')
+  }
+  if (evidenceId.slice(0, 10) !== exercisedAt.slice(0, 10)) {
+    throw new Error('Failure evidence ID date must equal the exercisedAt UTC date.')
   }
   const sourceCommit = nonblank(item.sourceCommit, 'Failure evidence sourceCommit')
   if (!fullCommitPattern.test(sourceCommit)) {
