@@ -1160,6 +1160,27 @@ test('capture rejects short components copied from explicitly private paths', ()
     ),
     /runtime still contains a private artifact value/
   )
+
+  sourceDocument.path = '/Users/dead-beef/source.md'
+  runtime.providerModel = 'deadbeef'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Evidence ID suffix must be independent of private artifact values/
+  )
 })
 
 test('committed evidence rejects path-shaped runtime values', () => {

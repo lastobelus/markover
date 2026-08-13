@@ -878,6 +878,15 @@ function privateValueCandidates(
         ) {
           const candidate = segments.slice(start, end).join(' ').toLowerCase()
           if (candidate.length >= minimumLength) candidates.add(candidate)
+          if (minimumLength === 1) {
+            const delimiterStrippedCandidate = candidate.replace(
+              /[^a-z0-9]/g,
+              ''
+            )
+            if (delimiterStrippedCandidate) {
+              candidates.add(delimiterStrippedCandidate)
+            }
+          }
         }
       }
     }

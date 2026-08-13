@@ -155,12 +155,13 @@ private paths and identifiers in runner commit
 `806d09ae47a06ac03cae8e5c3b596cef68d9d4d7` produced a twenty-third record for
 each combination.
 
-`sourcePullRequest` is the durable provenance root for pre-squash runner
-commits. GitHub retains the pull-request head ref after a squash merge, so a
-clean checkout can inspect a recorded runner with:
+`sourcePullRequest` identifies the recording PR. Its rewritten historical
+runner commits are retained under the immutable
+`issue-136-runner-history` tag, so a clean checkout can inspect any recorded
+runner with:
 
 ```sh
-git fetch origin refs/pull/141/head
+git fetch origin refs/tags/issue-136-runner-history
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
