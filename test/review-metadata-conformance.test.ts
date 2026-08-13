@@ -294,6 +294,24 @@ test('capture compares private identifiers without case distinctions', async (t)
     )
   })
 
+  await t.test('runtime token copied from within a private identifier', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'prefixdeadbeefsuffix'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'deadbeef'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('short identity used as a complete runtime value', () => {
     const artifact = fixture()
     agentThread(artifact)

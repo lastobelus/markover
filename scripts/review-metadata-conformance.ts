@@ -1139,8 +1139,15 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
       (privateCandidate.length >= 8 ||
         embeddedShortIdentifiers.has(privateCandidate)) &&
       runtimeValue.toLowerCase().includes(privateCandidate)))
+  const runtimeIsPrivateSubstring = [...persistedRuntimeCandidates].some(
+    (runtimeCandidate) =>
+      runtimeCandidate.length >= 8 &&
+      [...embeddedPrivateCandidates].some((privateCandidate) =>
+        privateCandidate.includes(runtimeCandidate))
+  )
   if (
     embedsPrivateCandidate ||
+    runtimeIsPrivateSubstring ||
     [...persistedRuntimeCandidates].some((value) => privateCandidates.has(value))
   ) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')
