@@ -2226,6 +2226,7 @@ function reversibleRuntimeVariants(value: string): string[] {
   const maximumVariants = 2048
   for (const seed of seeds) {
     for (const candidate of reversibleDecodedVariants(seed)) {
+      if (!runtimeTokenPattern.test(candidate)) continue
       if (variants.size >= maximumVariants && !variants.has(candidate)) {
         throw new Error(
           'Sanitized evidence runtime exceeds the safe segmented-decoding bound.'
