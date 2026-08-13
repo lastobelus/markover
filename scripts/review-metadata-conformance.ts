@@ -1263,25 +1263,22 @@ function canonicalNumericIdentityCandidates(
 ): Set<string> {
   const candidates = new Set<string>()
   for (const value of values) {
-    const normalizedValue = value?.replace(/_/g, '')
-    const isDecimal =
-      /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(
-        normalizedValue ?? ''
-      )
-    const isRadixInteger =
-      /^0x[0-9a-f]+$/i.test(normalizedValue ?? '') ||
-      /^0o[0-7]+$/i.test(normalizedValue ?? '') ||
-      /^0b[01]+$/i.test(normalizedValue ?? '')
-    if (
-      value === null ||
-      value === undefined ||
-      (!isDecimal && !isRadixInteger)
-    ) {
-      continue
-    }
-    const numericValue = Number(normalizedValue)
-    if (Number.isSafeInteger(numericValue)) {
-      candidates.add(String(numericValue))
+    if (value === null || value === undefined) continue
+    for (const segment of [value, ...value.split(' ')]) {
+      const normalizedValue = segment.replace(/_/g, '')
+      const isDecimal =
+        /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(
+          normalizedValue
+        )
+      const isRadixInteger =
+        /^0x[0-9a-f]+$/i.test(normalizedValue) ||
+        /^0o[0-7]+$/i.test(normalizedValue) ||
+        /^0b[01]+$/i.test(normalizedValue)
+      if (!isDecimal && !isRadixInteger) continue
+      const numericValue = Number(normalizedValue)
+      if (Number.isSafeInteger(numericValue)) {
+        candidates.add(String(numericValue))
+      }
     }
   }
   return candidates
