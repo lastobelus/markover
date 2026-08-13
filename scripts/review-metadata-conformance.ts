@@ -1319,7 +1319,14 @@ function canonicalNumericIdentityCandidates(
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
-    for (const segment of [value, ...value.split(' ')]) {
+    const segments = value.split(' ')
+    const numericSegments = new Set([value])
+    for (let start = 0; start < segments.length; start += 1) {
+      for (let end = start + 1; end <= segments.length; end += 1) {
+        numericSegments.add(segments.slice(start, end).join(''))
+      }
+    }
+    for (const segment of numericSegments) {
       const normalizedValue = segment.replace(/_/g, '')
       const numericValues = [
         normalizedValue,
