@@ -1370,6 +1370,18 @@ function canonicalNumericIdentityCandidates(
               )
             : canonicalDecimalInteger(numericLiteral)
           if (canonical !== null) candidates.add(canonical)
+          if (extractEmbedded && radixBody !== undefined) {
+            const radixPrefix = radixBody.slice(0, 2)
+            const radixDigits = radixBody.slice(2)
+            for (let length = 1; length < radixDigits.length; length += 1) {
+              const prefixCanonical = canonicalDecimalInteger(
+                `${radixInteger?.[1] === '-' ? '-' : ''}${BigInt(
+                  `${radixPrefix}${radixDigits.slice(0, length)}`
+                ).toString()}`
+              )
+              if (prefixCanonical !== null) candidates.add(prefixCanonical)
+            }
+          }
         }
       }
     }
