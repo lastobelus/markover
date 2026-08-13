@@ -124,7 +124,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 222,
+    evidenceCount: 225,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -1237,6 +1237,21 @@ test('capture treats numeric extension leaves as private artifact values', async
       /runtime still contains a private artifact value/
     )
 
+    const inverseArtifact = fixture()
+    agentThread(inverseArtifact)
+    const inverseRoot = inverseArtifact.root as Record<string, unknown>
+    inverseRoot.fixtureExtension = { accountId: 'YWNjdDEyMzQ1' }
+    const inverseRuntime = observation().runtime as Record<string, unknown>
+    inverseRuntime.providerModel = 'acct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        inverseArtifact,
+        observation({ runtime: inverseRuntime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+
     const suffixArtifact = fixture()
     agentThread(suffixArtifact)
     const suffixRoot = suffixArtifact.root as Record<string, unknown>
@@ -1887,7 +1902,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 223,
+    evidenceCount: 226,
     matrixEntryCount: 3
   })
 
@@ -2040,6 +2055,16 @@ test('recording verifies runner commit ancestry in the declared pull request', a
       }
       return { status: 0, stderr: '', stdout: '' }
     })
+    const untrackedCall = calls.pop()
+    const diffCall = calls[3]
+    assert.ok(diffCall)
+    assert.deepEqual(untrackedCall, [
+      'ls-files',
+      '--others',
+      '--exclude-standard',
+      '--',
+      ...diffCall.slice(4)
+    ])
     assert.deepEqual(calls, [
       ['remote', 'get-url', 'origin'],
       ['fetch', '--quiet', '--no-tags', 'origin', 'refs/pull/141/head'],
@@ -2067,6 +2092,23 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         'tsconfig.json'
       ]
     ])
+  })
+
+  await t.test('rejects untracked recorder inputs', () => {
+    assert.throws(
+      () => {
+        verifySourceCommitPullRequest(parsed, root, (args) => ({
+          status: 0,
+          stderr: '',
+          stdout: args[0] === 'remote'
+            ? 'git@github.com:lastobelus/markover.git\n'
+            : args[0] === 'ls-files'
+              ? 'evals/review-metadata/exercises/opencode-codex.md\n'
+              : ''
+        }))
+      },
+      /must not contain untracked inputs/
+    )
   })
 
   await t.test('rejects a pull request in another repository', () => {
