@@ -191,15 +191,17 @@ length in runner commit `82ea8205e05944f1f8046e247381c7bd8a8c91d8`
 produced a thirty-eighth record for each combination. Canonical safe-integer
 identifier comparison in runner commit
 `1e6d7e8a3a1ed35608431445c1f8065979d201a8` produced a thirty-ninth record for
-each combination.
+each combination. Short identifier component and complete-private numeric
+normalization in runner commit `5ce4f8a7a35ebfac43746b0539ae83fa91a511e2`
+produced a fortieth record for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v18` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v19` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v18
+git fetch origin refs/tags/issue-136-runner-history-v19
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
