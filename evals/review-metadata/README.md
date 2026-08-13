@@ -418,14 +418,17 @@ one-hundred-twelfth record for each combination, using independent suffix
 Additive-scalar fail-closed enforcement in runner commit
 `6b378caf9d7095a26cc9c8c02624e2b4eba0fd99` produced a one-hundred-thirteenth
 record for each combination, using independent suffix `eqzvnjki`.
+Additive-boolean fail-closed enforcement in runner commit
+`3a33478563e2f4bd4b6ee80c2f9aa10fd966bb8c` produced a one-hundred-fourteenth
+record for each combination, using independent suffix `fqzvnjki`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v97` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v98` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v97
+git fetch origin refs/tags/issue-136-runner-history-v98
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
