@@ -840,7 +840,7 @@ function assertEvidenceIdIndependent(
   ])
   const privateNumericIdentities = new Set([
     ...canonicalNumericIdentityCandidates(completePrivate),
-    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true)
+    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true, 4)
   ])
   const suffixNumericIdentities = canonicalNumericIdentityCandidates(
     [suffix],
@@ -1303,7 +1303,8 @@ function shortExplicitPrivateContainmentCandidates(
 
 function canonicalNumericIdentityCandidates(
   values: Array<string | null | undefined>,
-  extractEmbedded = false
+  extractEmbedded = false,
+  minimumEmbeddedWidth = 1
 ): Set<string> {
   const canonicalDecimalInteger = (value: string): string | null => {
     const match = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?$/i.exec(
@@ -1357,6 +1358,12 @@ function canonicalNumericIdentityCandidates(
                 normalizedValue.slice(offset)
               )
               if (match === null) continue
+              const embeddedWidth = match[0]
+                .replace(/^[+-]/, '')
+                .replace(/^0[xob]/i, '')
+                .replace(/[._+-]/g, '')
+                .length
+              if (embeddedWidth < minimumEmbeddedWidth) continue
               const nextCharacter = normalizedValue[
                 offset + match[0].length
               ]
@@ -1391,7 +1398,11 @@ function canonicalNumericIdentityCandidates(
               }
             }
             for (const match of normalizedValue.matchAll(/[0-9a-f]+/gi)) {
-              for (let width = 4; width <= match[0].length; width += 1) {
+              for (
+                let width = Math.max(4, minimumEmbeddedWidth);
+                width <= match[0].length;
+                width += 1
+              ) {
                 for (let start = 0; start + width <= match[0].length; start += 1) {
                   const window = match[0].slice(start, start + width)
                   const decimal = BigInt(`0x${window}`).toString()
@@ -1430,6 +1441,7 @@ function canonicalNumericIdentityCandidates(
             const radixDigits = radixBody.slice(2)
             for (let start = 0; start < radixDigits.length; start += 1) {
               for (let end = start + 1; end <= radixDigits.length; end += 1) {
+                if (end - start < minimumEmbeddedWidth) continue
                 const subrangeDecimal = BigInt(
                   `${radixPrefix}${radixDigits.slice(start, end)}`
                 ).toString()
@@ -1492,7 +1504,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   ])
   const privateNumericIdentities = new Set([
     ...canonicalNumericIdentityCandidates(completePrivate),
-    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true)
+    ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true, 4)
   ])
   const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
     persistedRuntimeValues,
