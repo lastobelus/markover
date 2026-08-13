@@ -127,9 +127,17 @@ test('review private format enforces repository and error coherence', () => {
   staleError.error = {
     code: 'source-missing',
     observedAt: firstTime,
-    detail: 'Stale.'
+    detail: 'The previously verified source path no longer exists.'
   }
   assert.throws(() => parseReviewEnrichment(staleError), /must be newer/)
+
+  const inconsistentError = reviewFile()
+  inconsistentError.error = {
+    code: 'source-missing',
+    observedAt: secondTime,
+    detail: 'The repository is unavailable.'
+  }
+  assert.throws(() => parseReviewEnrichment(inconsistentError), /error is invalid/)
 })
 
 test('private timestamps are ordered by instant across expanded years', () => {

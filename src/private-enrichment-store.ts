@@ -220,8 +220,13 @@ export class PrivateEnrichmentStore {
       const parsed: unknown = JSON.parse(await fs.readFile(filePath, 'utf8'))
       return { invalid: false, value: parse(parsed) }
     } catch (error) {
-      if (errorCode(error) === 'ENOENT') return { invalid: false, value: null }
-      if (error instanceof SyntaxError || error instanceof PrivateEnrichmentFormatError) {
+      const code = errorCode(error)
+      if (code === 'ENOENT') return { invalid: false, value: null }
+      if (
+        typeof code === 'string' ||
+        error instanceof SyntaxError ||
+        error instanceof PrivateEnrichmentFormatError
+      ) {
         return { invalid: true, value: null }
       }
       throw error
@@ -333,7 +338,7 @@ export class PrivateEnrichmentStore {
       this.runtimeError(
         reviewId,
         'invalid-private-state',
-        'The private review enrichment file is malformed or incompatible.'
+        'The private review enrichment file is unreadable, malformed, or incompatible.'
       )
       return null
     }
@@ -350,10 +355,10 @@ export class PrivateEnrichmentStore {
     const result = await this.threadRead(identity)
     if (result.invalid) {
       this.runtimeThreadErrors.set(
-        digest,
-        new PrivateEnrichmentStoreError(
-          'INVALID_THREAD_ENRICHMENT',
-          'The private thread enrichment file is malformed, incompatible, or mismatched.'
+          digest,
+          new PrivateEnrichmentStoreError(
+            'INVALID_THREAD_ENRICHMENT',
+            'The private thread enrichment file is unreadable, malformed, incompatible, or mismatched.'
         )
       )
       return null

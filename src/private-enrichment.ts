@@ -251,7 +251,8 @@ function assertReviewError(
     typeof value.code !== 'string' ||
     !REVIEW_ERROR_CODES.has(value.code as ReviewEnrichmentErrorCode) ||
     !isCanonicalReviewTimestamp(value.observedAt) ||
-    !nonblank(value.detail)
+    !nonblank(value.detail) ||
+    value.detail !== reviewErrorDetail(value.code as ReviewEnrichmentErrorCode)
   ) invalid('Private review error is invalid.')
 }
 

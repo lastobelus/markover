@@ -225,6 +225,19 @@ test('invalid private bytes remain untouched and produce a runtime projection er
   )
 })
 
+test('unreadable private state remains untouched and does not block projection', async (t) => {
+  const value = await fixture()
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  const review = await createReview(value)
+  const privatePath = value.store.reviewPath(review.review.id)
+  await fs.mkdir(privatePath)
+
+  const projection = await value.store.projection(review)
+  assert.equal(projection.error?.code, 'invalid-private-state')
+  assert.equal((await fs.stat(privatePath)).isDirectory(), true)
+  assert.equal((await value.reviewStore.load(review.review.id)).review.id, review.review.id)
+})
+
 test('mismatched review IDs are invalid private state and remain untouched', async (t) => {
   const value = await fixture()
   t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
