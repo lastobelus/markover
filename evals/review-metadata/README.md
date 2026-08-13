@@ -284,14 +284,17 @@ Complete unprefixed hexadecimal comparison and embedded 64-character window
 support in runner commit `d4b728afbff0fafad01d20cc611f88cfad361345`
 produced a sixty-ninth record for each combination, using independent suffix
 `yqzvmjkh`.
+Every-width embedded hexadecimal comparison in runner commit
+`b9ffcec2b6829533b346e15eeea24f9e2d2e5f53` produced a seventieth record for
+each combination, using independent suffix `zqvwmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v50` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v51` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v50
+git fetch origin refs/tags/issue-136-runner-history-v51
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
