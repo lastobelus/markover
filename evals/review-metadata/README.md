@@ -153,6 +153,9 @@ private-identifier comparison in runner commit
 each combination after #148 merged. Short-component protection for explicitly
 private paths and identifiers in runner commit
 `806d09ae47a06ac03cae8e5c3b596cef68d9d4d7` produced a twenty-third record for
+each combination. Stable runner-history archival and delimiter-stripped private
+path-component comparison in runner commit
+`db4f833003fb6d861401252602f2242f360a0896` produced a twenty-fourth record for
 each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
