@@ -132,7 +132,7 @@ test('main process applies persisted zoom before and after renderer load', () =>
   )
   assert.match(
     main,
-    /function applyWindowZoom\([\s\S]*screen\.getDisplayMatching\(window\.getBounds\(\)\)\.workAreaSize[\s\S]*setMinimumSize\([\s\S]*Math\.min\(Math\.max\(width, minimum\.width\), workArea\.width\)[\s\S]*setZoomFactor\(zoomPercent \/ 100\)/
+    /function applyWindowZoom\([\s\S]*const bounds = window\.getBounds\(\)[\s\S]*screen\.getDisplayMatching\(bounds\)\.workArea[\s\S]*setMinimumSize\([\s\S]*workArea\.x \+ workArea\.width - width[\s\S]*workArea\.y \+ workArea\.height - height[\s\S]*setBounds\(\{ x, y, width, height \}\)[\s\S]*setZoomFactor\(zoomPercent \/ 100\)/
   )
   assert.match(
     main,

@@ -466,17 +466,26 @@ function applyWindowZoom(
   window: BrowserWindow,
   zoomPercent: ZoomPercent
 ): void {
-  const workArea = screen.getDisplayMatching(window.getBounds()).workAreaSize
+  const bounds = window.getBounds()
+  const workArea = screen.getDisplayMatching(bounds).workArea
   const minimum = minimumWindowSize(zoomPercent, workArea)
   window.setMinimumSize(minimum.width, minimum.height)
   if (!window.isMaximized() && !window.isFullScreen()) {
-    const size = window.getSize()
-    const width = size[0] ?? minimum.width
-    const height = size[1] ?? minimum.height
-    const fittedWidth = Math.min(Math.max(width, minimum.width), workArea.width)
-    const fittedHeight = Math.min(Math.max(height, minimum.height), workArea.height)
-    if (width !== fittedWidth || height !== fittedHeight) {
-      window.setSize(fittedWidth, fittedHeight)
+    const width = Math.min(Math.max(bounds.width, minimum.width), workArea.width)
+    const height = Math.min(Math.max(bounds.height, minimum.height), workArea.height)
+    const x = Math.min(
+      Math.max(bounds.x, workArea.x),
+      workArea.x + workArea.width - width
+    )
+    const y = Math.min(
+      Math.max(bounds.y, workArea.y),
+      workArea.y + workArea.height - height
+    )
+    if (
+      bounds.x !== x || bounds.y !== y ||
+      bounds.width !== width || bounds.height !== height
+    ) {
+      window.setBounds({ x, y, width, height })
     }
   }
   window.webContents.setZoomFactor(zoomPercent / 100)

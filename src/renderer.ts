@@ -2371,6 +2371,25 @@ function restoreDocumentTabsFocus(path: number[]): void {
   target.focus({ preventScroll: true })
 }
 
+function renderDocumentTabsPreservingFocus(): void {
+  const documentsReviewFocus = documentsListReviewFocus()
+  const documentsFocusPath = documentsReviewFocus
+    ? null
+    : documentsListFocusPath()
+  const tabsFocusPath = documentTabsFocusPath()
+  renderDocumentTabs()
+  if (!documentsReviewFocus && !documentsFocusPath && !tabsFocusPath) return
+  requestAnimationFrame(() => {
+    if (documentsReviewFocus) {
+      restoreDocumentsListReviewFocus(documentsReviewFocus)
+    } else if (documentsFocusPath) {
+      restoreDocumentsListFocus(documentsFocusPath)
+    } else if (tabsFocusPath) {
+      restoreDocumentTabsFocus(tabsFocusPath)
+    }
+  })
+}
+
 function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
   if (documentsListClockTimer) clearTimeout(documentsListClockTimer)
   documentsListClockTimer = null
@@ -4701,8 +4720,7 @@ async function initialize(): Promise<void> {
     }
     if (!session) return
     normalizeSessionWorkspaceState(session)
-    renderDocumentsList()
-    renderDocumentTabs()
+    renderDocumentTabsPreservingFocus()
     if (session.reviewId === state.reviewId) renderReviewContext()
     persistWorkspaceState()
   })
@@ -4731,20 +4749,7 @@ async function initialize(): Promise<void> {
     if (!session) {
       throw new Error(`Cannot update missing review ${reviewId}.`)
     }
-    const documentsReviewFocus = documentsListReviewFocus()
-    const documentsFocusPath = documentsReviewFocus
-      ? null
-      : documentsListFocusPath()
-    const tabsFocusPath = documentTabsFocusPath()
-    renderDocumentTabs()
-    if (documentsReviewFocus || documentsFocusPath || tabsFocusPath) {
-      requestAnimationFrame(() => {
-        if (documentsReviewFocus) {
-          restoreDocumentsListReviewFocus(documentsReviewFocus)
-        } else if (documentsFocusPath) restoreDocumentsListFocus(documentsFocusPath)
-        else if (tabsFocusPath) restoreDocumentTabsFocus(tabsFocusPath)
-      })
-    }
+    renderDocumentTabsPreservingFocus()
     if (reviewId === state.reviewId) {
       const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
       if (selected) renderAnnotation(selected)

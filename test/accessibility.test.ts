@@ -217,7 +217,15 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
-    /onReviewStatus[\s\S]*documentsReviewFocus = documentsListReviewFocus\(\)[\s\S]*documentsFocusPath = documentsReviewFocus[\s\S]*tabsFocusPath = documentTabsFocusPath\(\)[\s\S]*renderDocumentTabs\(\)[\s\S]*restoreDocumentsListReviewFocus\(documentsReviewFocus\)[\s\S]*restoreDocumentsListFocus\(documentsFocusPath\)[\s\S]*restoreDocumentTabsFocus\(tabsFocusPath\)/
+    /function renderDocumentTabsPreservingFocus[\s\S]*documentsReviewFocus = documentsListReviewFocus\(\)[\s\S]*documentsFocusPath = documentsReviewFocus[\s\S]*tabsFocusPath = documentTabsFocusPath\(\)[\s\S]*renderDocumentTabs\(\)[\s\S]*restoreDocumentsListReviewFocus\(documentsReviewFocus\)[\s\S]*restoreDocumentsListFocus\(documentsFocusPath\)[\s\S]*restoreDocumentTabsFocus\(tabsFocusPath\)/
+  )
+  assert.match(
+    renderer,
+    /onReviewUpdated[\s\S]*normalizeSessionWorkspaceState\(session\)[\s\S]*renderDocumentTabsPreservingFocus\(\)/
+  )
+  assert.match(
+    renderer,
+    /onReviewStatus[\s\S]*renderDocumentTabsPreservingFocus\(\)/
   )
   assert.match(
     renderer,
