@@ -2267,6 +2267,38 @@ function closeReviewContext(restoreFocus = true): void {
   scheduleIncomingReviewNoticeDismissal()
 }
 
+function documentsListFocusPath(): number[] | null {
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement) || !elements.documentsListTree.contains(active)) {
+    return null
+  }
+  const path: number[] = []
+  let current: Element = active
+  while (current !== elements.documentsListTree) {
+    const parent = current.parentElement
+    if (!parent) return null
+    path.unshift(Array.from(parent.children).indexOf(current))
+    current = parent
+  }
+  return path
+}
+
+function restoreDocumentsListFocus(path: number[]): void {
+  let target: Element = elements.documentsListTree
+  for (const index of path) {
+    const child = target.children.item(index)
+    if (!child) return
+    target = child
+  }
+  if (!(target instanceof HTMLElement)) return
+  let ancestor = target.parentElement
+  while (ancestor && elements.documentsListTree.contains(ancestor)) {
+    if (ancestor instanceof HTMLDetailsElement) ancestor.open = true
+    ancestor = ancestor.parentElement
+  }
+  target.focus({ preventScroll: true })
+}
+
 function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
   if (documentsListClockTimer) clearTimeout(documentsListClockTimer)
   documentsListClockTimer = null
@@ -2279,7 +2311,13 @@ function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
   if (delay === null) return
   documentsListClockTimer = setTimeout(() => {
     documentsListClockTimer = null
+    const focusPath = documentsListFocusPath()
     renderDocumentsList()
+    if (focusPath) {
+      requestAnimationFrame(() => {
+        restoreDocumentsListFocus(focusPath)
+      })
+    }
   }, delay)
 }
 

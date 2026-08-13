@@ -181,6 +181,18 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
+    /function documentsListFocusPath[\s\S]*documentsListTree\.contains\(active\)[\s\S]*path\.unshift\(Array\.from\(parent\.children\)\.indexOf\(current\)\)/
+  )
+  assert.match(
+    renderer,
+    /function restoreDocumentsListFocus[\s\S]*target\.children\.item\(index\)[\s\S]*ancestor instanceof HTMLDetailsElement[\s\S]*ancestor\.open = true[\s\S]*target\.focus\(\{ preventScroll: true \}\)/
+  )
+  assert.match(
+    renderer,
+    /scheduleDocumentsListClockRefresh[\s\S]*const focusPath = documentsListFocusPath\(\)[\s\S]*renderDocumentsList\(\)[\s\S]*restoreDocumentsListFocus\(focusPath\)/
+  )
+  assert.match(
+    renderer,
     /function saveSourceEdit[\s\S]*restoreKeyboardFocus = document\.activeElement === elements\.sourceSave[\s\S]*renderAnnotation\(node\)[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*elements\.sourceEdit\.focus\(\)/
   )
   assert.match(
