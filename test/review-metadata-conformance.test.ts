@@ -494,6 +494,14 @@ test('null fallback rejects an observed host thread identity', () => {
     /cannot omit an observed host thread identity/
   )
 
+  const relationships = evidence.relationships as Record<string, unknown>
+  relationships.threadHostId = 'equal'
+  assert.throws(
+    () => validateEvidenceFixture(evidence, matrix),
+    /Null evidence must record an omitted host thread ID relationship/
+  )
+  relationships.threadHostId = 'omitted'
+
   const committedDiscovery = evidence.discovery as Record<string, unknown>
   committedDiscovery.hostThreadId = {
     status: 'observed',

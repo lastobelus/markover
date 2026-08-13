@@ -592,6 +592,9 @@ export function validateEvidenceFixture(
     if (entry.identityExpectation === 'required' || identity !== 'truthful-null') {
       throw new Error(`${entry.id} evidence requires identified agentThread metadata.`)
     }
+    if (threadHostId !== 'omitted') {
+      throw new Error('Null evidence must record an omitted host thread ID relationship.')
+    }
     assertNullIdentityUnavailable(observation.discovery)
     agentThread = null
   } else {
