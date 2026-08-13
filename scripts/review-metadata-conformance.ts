@@ -1895,6 +1895,59 @@ function z85DecodedVariants(value: string): string[] {
   return variants
 }
 
+function quotedPrintableDecodedVariants(value: string): string[] {
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 3 || encoded.length > 2048 || !/=(?:[0-9A-Fa-f]{2}|\r?\n)/.test(encoded)) {
+      return null
+    }
+    const bytes: number[] = []
+    for (let offset = 0; offset < encoded.length;) {
+      const character = encoded.charAt(offset)
+      if (character === '=') {
+        if (encoded.startsWith('=\r\n', offset)) {
+          offset += 3
+          continue
+        }
+        if (encoded.startsWith('=\n', offset)) {
+          offset += 2
+          continue
+        }
+        const hex = encoded.slice(offset + 1, offset + 3)
+        if (!/^[0-9A-Fa-f]{2}$/.test(hex)) return null
+        bytes.push(Number.parseInt(hex, 16))
+        offset += 3
+        continue
+      }
+      const code = character.charCodeAt(0)
+      if (code > 127 || (code < 32 && character !== '\t' && character !== '\r' && character !== '\n')) {
+        return null
+      }
+      bytes.push(code)
+      offset += 1
+    }
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes))
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error(
+      'Sanitized evidence contains quoted-printable encoding beyond the safe decoding depth.'
+    )
+  }
+  return variants
+}
+
 function punycodeDecodedVariants(value: string): string[] {
   if (value.length > 512 || !/(?:^|\.)xn--/i.test(value)) return []
   const decoded = domainToUnicode(value)
@@ -2011,6 +2064,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...proquintDecodedVariants(current),
       ...ascii85DecodedVariants(current),
       ...z85DecodedVariants(current),
+      ...quotedPrintableDecodedVariants(current),
       ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
