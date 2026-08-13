@@ -261,14 +261,17 @@ each combination.
 Ambiguous embedded-radix rejection in runner commit
 `27fe1ec7e8565b79d5a238c51784461f4e9b349b` produced a sixty-second record for
 each combination.
+Embedded radix-prefix identity comparison in runner commit
+`bd157ef7e54acae9aeacfd5faab8923efee5fc51` produced a sixty-third record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v43` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v44` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v43
+git fetch origin refs/tags/issue-136-runner-history-v44
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
