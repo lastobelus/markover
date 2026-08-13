@@ -234,14 +234,17 @@ each combination.
 Complete version-prefix stripping for numeric identities in runner commit
 `ffba3af929902bdd5054a927d640690c60d009b3` produced a fifty-third record for
 each combination.
+Bounded percent decoding to stability in runner commit
+`b7b5cc143ce517e4a2f3adaf7fca75728b45c799` produced a fifty-fourth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v33` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v34` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v33
+git fetch origin refs/tags/issue-136-runner-history-v34
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
