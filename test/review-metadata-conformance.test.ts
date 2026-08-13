@@ -885,6 +885,43 @@ test('capture rejects delimiter-stripped private identifiers', async (t) => {
       /Evidence ID suffix must be independent of private artifact values/
     )
   })
+
+  await t.test('short normalized value embedded in runtime', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { account: 'ab-c' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__7654edcf',
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('short normalized value embedded in evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { account: 'ab-c' }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxxxxabc'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
 })
 
 test('capture treats numeric extension leaves as private artifact values', async (t) => {

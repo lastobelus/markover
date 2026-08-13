@@ -835,13 +835,17 @@ function assertEvidenceIdIndependent(
     ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4),
     ...shortIdentifierContainmentCandidates(shortPrivateValues)
   ])
+  const containmentPrivateCandidates = new Set([
+    ...privateContainmentCandidates(alwaysPrivate, completePrivate),
+    ...shortExplicitPrivateCandidates,
+    ...shortIdentifierCandidates
+  ])
   const privateNumericIdentities = canonicalNumericIdentityCandidates(
     [...completePrivate, ...shortPrivateIdentifiers]
   )
   const suffixNumericIdentities = canonicalNumericIdentityCandidates([suffix])
-  const suffixContainsPrivate = [
-    ...privateContainmentCandidates(alwaysPrivate, completePrivate)
-  ].some((privateCandidate) =>
+  const suffixContainsPrivate = [...containmentPrivateCandidates].some(
+    (privateCandidate) =>
     (privateCandidate.length >= 8 ||
       (privateCandidate.length >= 4 &&
         shortExplicitPrivateCandidates.has(privateCandidate)) ||
@@ -1374,6 +1378,11 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4),
     ...shortIdentifierContainmentCandidates(shortPrivateValues)
   ])
+  const containmentPrivateCandidates = new Set([
+    ...embeddedPrivateCandidates,
+    ...embeddedShortExplicitPrivate,
+    ...embeddedShortIdentifiers
+  ])
   const privateNumericIdentities = canonicalNumericIdentityCandidates(
     [...completePrivate, ...shortPrivateIdentifiers]
   )
@@ -1382,12 +1391,12 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   )
   const embedsPrivateCandidate = [...persistedRuntimeCandidates].some(
     (runtimeCandidate) =>
-    [...embeddedPrivateCandidates].some((privateCandidate) =>
-      (privateCandidate.length >= 8 ||
-        (privateCandidate.length >= 4 &&
-          embeddedShortExplicitPrivate.has(privateCandidate)) ||
-        embeddedShortIdentifiers.has(privateCandidate)) &&
-      runtimeCandidate.includes(privateCandidate)))
+      [...containmentPrivateCandidates].some((privateCandidate) =>
+        (privateCandidate.length >= 8 ||
+          (privateCandidate.length >= 4 &&
+            embeddedShortExplicitPrivate.has(privateCandidate)) ||
+          embeddedShortIdentifiers.has(privateCandidate)) &&
+        runtimeCandidate.includes(privateCandidate)))
   const runtimeIsPrivateSubstring = [...persistedRuntimeCandidates].some(
     (runtimeCandidate) =>
       runtimeCandidate.length >= 8 &&
