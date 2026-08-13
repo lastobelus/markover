@@ -177,6 +177,10 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
+    /inboxHistoryLimit \+= INBOX_HISTORY_PAGE_SIZE[\s\S]*renderDocumentsList\(\)[\s\S]*recreatedHistory\.open = true[\s\S]*\.review-list-more[\s\S]*\.focus\(\)/
+  )
+  assert.match(
+    renderer,
     /function saveSourceEdit[\s\S]*restoreKeyboardFocus = document\.activeElement === elements\.sourceSave[\s\S]*renderAnnotation\(node\)[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*elements\.sourceEdit\.focus\(\)/
   )
   assert.match(

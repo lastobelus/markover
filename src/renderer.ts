@@ -2775,10 +2775,14 @@ function renderInboxReviews(
       inboxHistoryLimit += INBOX_HISTORY_PAGE_SIZE
       renderDocumentsList()
       requestAnimationFrame(() => {
-        const controls = elements.documentsListTree.querySelectorAll<HTMLElement>(
-          '.review-history-group .review-list-more'
+        const recreatedHistory = elements.documentsListTree
+          .querySelector<HTMLDetailsElement>('.review-history-group')
+        if (!recreatedHistory) return
+        recreatedHistory.open = true
+        recreatedHistory.querySelector<HTMLElement>(
+          '.review-list-more'
         )
-        controls[0]?.focus()
+          ?.focus()
       })
     })
     historyGroup.append(showMore)
