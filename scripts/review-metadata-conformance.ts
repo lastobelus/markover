@@ -1416,6 +1416,60 @@ function base32hexDecodedVariants(value: string): string[] {
   return variants
 }
 
+function base32zDecodedVariants(value: string): string[] {
+  const alphabet = 'ybndrfg8ejkmcpqxot1uwisza345h769'
+  const encode = (bytes: Uint8Array): string => {
+    let bits = 0
+    let buffer = 0
+    let encoded = ''
+    for (const byte of bytes) {
+      buffer = (buffer << 8) | byte
+      bits += 8
+      while (bits >= 5) {
+        bits -= 5
+        encoded += alphabet.charAt((buffer >>> bits) & 31)
+      }
+    }
+    if (bits > 0) encoded += alphabet.charAt((buffer << (5 - bits)) & 31)
+    return encoded
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 2 || encoded.length > 256) return null
+    let bits = 0
+    let buffer = 0
+    const bytes: number[] = []
+    for (const character of encoded.toLowerCase()) {
+      const value = alphabet.indexOf(character)
+      if (value < 0) return null
+      buffer = (buffer << 5) | value
+      bits += 5
+      if (bits >= 8) {
+        bits -= 8
+        bytes.push((buffer >>> bits) & 255)
+      }
+    }
+    if (bits > 0 && (buffer & ((1 << bits) - 1)) !== 0) return null
+    const byteArray = Uint8Array.from(bytes)
+    if (encode(byteArray) !== encoded.toLowerCase()) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch { return null }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error('Sanitized evidence contains Base32z encoding beyond the safe decoding depth.')
+  }
+  return variants
+}
+
 function base58btcDecodedVariants(value: string): string[] {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
   const encode = (bytes: Uint8Array): string => {
@@ -1539,6 +1593,8 @@ function multibaseDecodedVariants(value: string): string[] {
     case 'v':
     case 'V':
       return base32hexDecodedVariants(body)
+    case 'h':
+      return base32zDecodedVariants(body)
     case 'k':
     case 'K':
       return [body]
@@ -1567,6 +1623,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base64DecodedVariants(current),
       ...base32DecodedVariants(current),
       ...base32hexDecodedVariants(current),
+      ...base32zDecodedVariants(current),
       ...base58btcDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
