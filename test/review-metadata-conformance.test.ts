@@ -517,6 +517,40 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('short additive key embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { acct: true }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('short additive key embedded in evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { acct: true }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxxxacct'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   await t.test('short identifier embedded in evidence ID suffix', () => {
     const artifact = fixture()
     agentThread(artifact)

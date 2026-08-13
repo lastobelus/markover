@@ -815,7 +815,8 @@ function assertEvidenceIdIndependent(
   privateValues: Array<string | null | undefined>,
   alwaysPrivate: Array<string | null | undefined> = [],
   completePrivate: Array<string | null | undefined> = [],
-  shortPrivateIdentifiers: Array<string | null | undefined> = []
+  shortPrivateIdentifiers: Array<string | null | undefined> = [],
+  shortPrivateKeys: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
   const privateCandidates = privateValueCandidates(
@@ -828,9 +829,10 @@ function assertEvidenceIdIndependent(
   ].some((privateCandidate) => privateCandidate.includes(suffix))
   const shortExplicitPrivateCandidates =
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
-  const shortIdentifierCandidates = shortIdentifierContainmentCandidates(
-    shortPrivateIdentifiers
-  )
+  const shortIdentifierCandidates = new Set([
+    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4)
+  ])
   const suffixContainsPrivate = [
     ...privateContainmentCandidates(alwaysPrivate, completePrivate)
   ].some((privateCandidate) =>
@@ -959,6 +961,78 @@ function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
       }
       return [...identifiers, ...visit(nested, nestedFields)]
     })
+  }
+  return visit(artifactValue)
+}
+
+function privateAdditiveArtifactKeys(artifactValue: unknown): string[] {
+  const knownFields = (fields: string[]): Set<string> | undefined => {
+    const joined = fields.join('.')
+    if (!joined) {
+      return new Set([
+        'format', 'version', 'sourceDocument', 'unsupported', 'root', 'review'
+      ])
+    }
+    if (joined === 'sourceDocument') {
+      return new Set(['name', 'path', 'content', 'checksum'])
+    }
+    if (/^unsupported\.\d+$/.test(joined)) {
+      return new Set(['line', 'text'])
+    }
+    if (/^root(?:\.children\.\d+)*$/.test(joined)) {
+      return new Set([
+        'id', 'type', 'raw', 'text', 'lineStart', 'lineEnd', 'feedback',
+        'children', 'sourceEditable', 'sourceEdit', 'attachments', 'level',
+        'language', 'key', 'marker', 'listId', 'listPosition', 'listLength',
+        'task', 'checked'
+      ])
+    }
+    if (/^root(?:\.children\.\d+)*\.sourceEdit$/.test(joined)) {
+      return new Set(['original', 'current'])
+    }
+    if (/^root(?:\.children\.\d+)*\.attachments\.\d+$/.test(joined)) {
+      return new Set([
+        'id', 'type', 'label', 'path', 'mimeType', 'url', 'checksum',
+        'width', 'height'
+      ])
+    }
+    if (joined === 'review') {
+      return new Set([
+        'id', 'status', 'origin', 'createdAt', 'updatedAt',
+        'attentionRequestedAt', 'contextSummary', 'agentThread', 'git',
+        'pullRequest', 'agentGuidance'
+      ])
+    }
+    if (joined === 'review.agentThread') {
+      return new Set(['id', 'threadHost'])
+    }
+    if (joined === 'review.agentThread.threadHost') {
+      return new Set(['kind', 'provider', 'threadId', 'machine'])
+    }
+    if (joined === 'review.git') {
+      return new Set(['repositoryUrl', 'branch', 'commit'])
+    }
+    if (joined === 'review.pullRequest') {
+      return new Set([
+        'number', 'url', 'status', 'statusObservedAt', 'statusSource'
+      ])
+    }
+    if (joined === 'review.agentGuidance') {
+      return new Set(['fixedContract', 'interpretationPolicy'])
+    }
+    return undefined
+  }
+  const visit = (value: unknown, fields: string[] = []): string[] => {
+    if (Array.isArray(value)) {
+      return value.flatMap((nested, index) =>
+        visit(nested, [...fields, String(index)]))
+    }
+    if (!isRecord(value)) return []
+    const known = knownFields(fields)
+    return Object.entries(value).flatMap(([field, nested]) => [
+      ...(known?.has(field) === true ? [] : [field]),
+      ...visit(nested, [...fields, field])
+    ])
   }
   return visit(artifactValue)
 }
@@ -1120,18 +1194,19 @@ function privateContainmentCandidates(
 }
 
 function shortIdentifierContainmentCandidates(
-  values: Array<string | null | undefined>
+  values: Array<string | null | undefined>,
+  minimumLength = 1
 ): Set<string> {
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
     for (const variant of [value, ...percentDecodedVariants(value)]) {
-      if (variant) candidates.add(variant.toLowerCase())
+      if (variant.length >= minimumLength) candidates.add(variant.toLowerCase())
       const stripped = variant.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
-      if (stripped) candidates.add(stripped)
+      if (stripped.length >= minimumLength) candidates.add(stripped)
       for (const segment of variant
         .split(/[^A-Za-z0-9]+/)
-        .filter((candidate) => candidate.length >= 4)) {
+        .filter((candidate) => candidate.length >= Math.max(4, minimumLength))) {
         candidates.add(segment.toLowerCase())
       }
     }
@@ -1181,7 +1256,8 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   runtime: RuntimeObservation,
   alwaysPrivate: Array<string | null | undefined> = [],
   completePrivate: Array<string | null | undefined> = [],
-  shortPrivateIdentifiers: Array<string | null | undefined> = []
+  shortPrivateIdentifiers: Array<string | null | undefined> = [],
+  shortPrivateKeys: Array<string | null | undefined> = []
 ): void {
   const persistedRuntimeValues = [
     runtime.hostVersion,
@@ -1203,9 +1279,10 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   )
   const embeddedShortExplicitPrivate =
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
-  const embeddedShortIdentifiers = shortIdentifierContainmentCandidates(
-    shortPrivateIdentifiers
-  )
+  const embeddedShortIdentifiers = new Set([
+    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4)
+  ])
   const privateNumericIdentities = canonicalNumericIdentityCandidates(
     [...completePrivate, ...shortPrivateIdentifiers]
   )
@@ -1374,14 +1451,16 @@ export function buildSanitizedEvidence(
     privateInputs,
     explicitlyPrivateInputs,
     completePrivateInputs,
-    privateIdentifierArtifactStrings(artifact)
+    privateIdentifierArtifactStrings(artifact),
+    privateAdditiveArtifactKeys(artifact)
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
     evidence.runtime,
     explicitlyPrivateInputs,
     completePrivateInputs,
-    privateIdentifierArtifactStrings(artifact)
+    privateIdentifierArtifactStrings(artifact),
+    privateAdditiveArtifactKeys(artifact)
   )
   return evidence
 }
@@ -1437,7 +1516,8 @@ export function recordConformanceEvidence(
         privateCaptureStrings(artifactValue, observation),
         explicitlyPrivateArtifactStrings(artifactValue),
         completePrivateCaptureStrings(artifactValue, observation),
-        privateIdentifierArtifactStrings(artifactValue)
+        privateIdentifierArtifactStrings(artifactValue),
+        privateAdditiveArtifactKeys(artifactValue)
       )
     } catch (privacyError) {
       if (
