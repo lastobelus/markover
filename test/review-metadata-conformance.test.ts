@@ -828,6 +828,27 @@ test('capture treats additive extension keys as private artifact values', async 
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('deeply percent-encoded extension value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = {
+      accountId:
+        'acct%25252525252531%25252525252532%25252525252533' +
+        '%25252525252534%25252525252535'
+    }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture rejects delimiter-stripped private identifiers', async (t) => {
