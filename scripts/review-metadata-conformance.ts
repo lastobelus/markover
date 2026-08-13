@@ -818,6 +818,7 @@ function assertEvidenceIdIndependent(
   shortPrivateValues: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
+  const suffixValues = [suffix, ...base64DecodedVariants(suffix)]
   const privateCandidates = privateValueCandidates(
     privateValues,
     alwaysPrivate,
@@ -825,7 +826,8 @@ function assertEvidenceIdIndependent(
   )
   const suffixIsPrivateSubstring = [
     ...privateContainmentCandidates(alwaysPrivate, completePrivate)
-  ].some((privateCandidate) => privateCandidate.includes(suffix))
+  ].some((privateCandidate) => suffixValues.some((value) =>
+    privateCandidate.includes(value.toLowerCase())))
   const shortExplicitPrivateCandidates =
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
   const shortIdentifierCandidates = new Set([
@@ -843,7 +845,7 @@ function assertEvidenceIdIndependent(
     ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true, 4)
   ])
   const suffixNumericIdentities = canonicalNumericIdentityCandidates(
-    [suffix],
+    suffixValues,
     true
   )
   const suffixContainsPrivate = [...containmentPrivateCandidates].some(
@@ -852,9 +854,9 @@ function assertEvidenceIdIndependent(
       (privateCandidate.length >= 4 &&
         shortExplicitPrivateCandidates.has(privateCandidate)) ||
       shortIdentifierCandidates.has(privateCandidate)) &&
-    suffix.includes(privateCandidate))
+    suffixValues.some((value) => value.toLowerCase().includes(privateCandidate)))
   if (
-    privateCandidates.has(suffix) ||
+    suffixValues.some((value) => privateCandidates.has(value.toLowerCase())) ||
     suffixIsPrivateSubstring ||
     suffixContainsPrivate ||
     [...suffixNumericIdentities].some((value) =>
@@ -1191,6 +1193,41 @@ function percentDecodedVariants(value: string): string[] {
   return variants
 }
 
+function base64DecodedVariants(value: string): string[] {
+  const variants: string[] = []
+  let current = value
+  const maximumPasses = 4
+  for (let pass = 0; pass < maximumPasses; pass += 1) {
+    if (
+      current.length < 4 ||
+      current.length > 256 ||
+      !/^[A-Za-z0-9+/_-]+={0,2}$/.test(current)
+    ) {
+      break
+    }
+    const unpadded = current.replace(/=+$/, '')
+    if (unpadded.length % 4 === 1) break
+    const normalized = unpadded
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(unpadded.length / 4) * 4, '=')
+    const bytes = Buffer.from(normalized, 'base64')
+    const canonical = bytes.toString('base64').replace(/=+$/, '')
+    const canonicalUrl = canonical.replace(/\+/g, '-').replace(/\//g, '_')
+    if (unpadded !== canonical && unpadded !== canonicalUrl) break
+    let decoded: string
+    try {
+      decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    } catch {
+      break
+    }
+    if (!decoded || decoded === current) break
+    variants.push(decoded)
+    current = decoded
+  }
+  return variants
+}
+
 function privateValueCandidates(
   values: Array<string | null | undefined>,
   alwaysPrivate: Array<string | null | undefined> = [],
@@ -1477,14 +1514,16 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     runtime.providerModel,
     runtime.providerVersion
   ]
+  const expandedRuntimeValues = persistedRuntimeValues.flatMap((value) =>
+    value === null ? [value] : [value, ...base64DecodedVariants(value)])
   const privateCandidates = privateValueCandidates(
     values,
     alwaysPrivate,
     completePrivate
   )
   const persistedRuntimeCandidates = privateValueCandidates(
-    persistedRuntimeValues,
-    persistedRuntimeValues
+    expandedRuntimeValues,
+    expandedRuntimeValues
   )
   const embeddedPrivateCandidates = privateContainmentCandidates(
     alwaysPrivate,
@@ -1507,7 +1546,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     ...canonicalNumericIdentityCandidates(shortPrivateIdentifiers, true, 4)
   ])
   const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
-    persistedRuntimeValues,
+    expandedRuntimeValues,
     true
   )
   const embedsPrivateCandidate = [...persistedRuntimeCandidates].some(
