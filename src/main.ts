@@ -65,6 +65,8 @@ import {
 import { startLocalService, type LocalService } from './local-service'
 import { createLocalReview as persistLocalReview } from './local-review'
 import { openPublicLinkCommand } from './public-link-opener'
+import { PrivateEnrichmentStore } from './private-enrichment-store'
+import { stableThreadIdentity } from './private-enrichment'
 import { type PublicLink, type PublicLinkId } from './public-links'
 import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
@@ -200,6 +202,10 @@ const reviewStore = new ReviewStore(
   smokeStateDirectory
     ? path.join(smokeStateDirectory, 'reviews')
     : path.join(addressedInstance.stateRoot, 'reviews')
+)
+const privateEnrichmentStore = new PrivateEnrichmentStore(
+  applicationDataDirectory,
+  reviewStore
 )
 const internalAttachments = new InternalAttachmentAllowlist(reviewStore.directory)
 const hasSingleInstanceLock = smokeMode || app.requestSingleInstanceLock()
@@ -756,10 +762,28 @@ async function moveReviewToTrash(reviewId: string): Promise<void> {
   const confirmedPolicy = await confirmReviewTrash(reviewId)
   if (!confirmedPolicy) return
   await withManagedMutationsPaused(async () => {
+    const artifact = await requireReviewStore().load(reviewId)
+    const threadIdentity = stableThreadIdentity(artifact.review.agentThread)
     await requireReviewStore().trashReview(
       reviewId,
       (target) => shell.trashItem(target)
     )
+    if (threadIdentity) {
+      try {
+        const outcome = await privateEnrichmentStore.cleanupThreadAfterTrash(
+          threadIdentity
+        )
+        if (outcome === 'retained-uncertain') {
+          process.stderr.write(
+            'markover enrichment cleanup: retained shared thread state because remaining reviews could not be checked safely\n'
+          )
+        }
+      } catch (error) {
+        process.stderr.write(
+          `markover enrichment cleanup: ${errorMessage(error)}\n`
+        )
+      }
+    }
     internalAttachments.removeReview(reviewId)
     if (activeManagedReviewId === reviewId) {
       activeManagedReviewId = null
@@ -1630,6 +1654,7 @@ async function restorePublishedServiceForEditing(): Promise<void> {
 }
 
 function resumeManagedMutations(): void {
+  privateEnrichmentStore.resume()
   managedAttachmentSavesBlocked = false
   managedLocalReviewCreationsBlocked = false
   localService?.resumeMutations()
@@ -1641,6 +1666,7 @@ async function pauseManagedMutations(): Promise<void> {
   managedLocalReviewCreationsBlocked = true
   await localService?.pauseMutations()
   await managedLocalReviewCreations.wait()
+  await privateEnrichmentStore.pauseAndDrain()
 }
 
 async function runManagedDurabilityShutdown(): Promise<void> {
@@ -1655,6 +1681,7 @@ async function runManagedDurabilityShutdown(): Promise<void> {
     flushAutosaves: async () => {
       await requireManagedAutosave().flushAll()
       await requireWorkspaceStore().flush()
+      await privateEnrichmentStore.flush()
     },
     closeService: stopPublishedService,
     resumeMutations: resumeManagedMutations

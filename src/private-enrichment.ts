@@ -492,11 +492,7 @@ export function reviewEnrichmentProjection(
 ): ReviewEnrichmentProjection {
   const repository = review?.snapshot.repository || null
   const persistedError = review?.error || null
-  const error = runtimeError?.code === 'invalid-private-state'
-    ? runtimeError
-    : runtimeError?.code === 'private-write-failed'
-      ? runtimeError
-      : persistedError
+  const error = runtimeError || persistedError
   return {
     project: repository
       ? {
