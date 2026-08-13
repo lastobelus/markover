@@ -47,7 +47,11 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   assert.match(barrier, /pauseMutations: pauseManagedMutations/)
   assert.match(
     main,
-    /async function pauseManagedMutations[\s\S]*setManagedRendererPause\(true\)[\s\S]*managedLocalReviewCreationsBlocked = true[\s\S]*localService\?\.pauseMutations\(\)[\s\S]*managedLocalReviewCreations\.wait\(\)/
+    /async function pauseManagedMutations[\s\S]*setManagedRendererPause\(true\)[\s\S]*managedLocalReviewCreationsBlocked = true[\s\S]*privateEnrichmentStore\.pauseAndDrain\(\)[\s\S]*localService\?\.pauseMutations\(\)[\s\S]*managedLocalReviewCreations\.wait\(\)/
+  )
+  assert.match(
+    main,
+    /function resumeManagedMutationsUnlessShuttingDown[\s\S]*privateEnrichmentStore\.resume\(\)[\s\S]*if \(!managedShutdownStarted\)[\s\S]*managedAttachmentSavesBlocked = false[\s\S]*localService\?\.resumeMutations\(\)/
   )
   assert.match(
     main,
@@ -58,6 +62,7 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
     /captureSnapshots: captureEditableManagedReviews,[\s\S]*blockNewAttachments[\s\S]*managedAttachmentMutations\.wait\(\)/
   )
   assert.match(barrier, /requireManagedAutosave\(\)\.flushAll\(\)/)
+  assert.match(barrier, /privateEnrichmentStore\.flush\(\)/)
   assert.match(barrier, /closeService: stopPublishedService/)
   assert.match(beforeQuit, /event\.preventDefault\(\)/)
   assert.match(beforeQuit, /if \(managedShutdownStarted\) return/)
@@ -72,7 +77,15 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   )
   assert.match(
     main,
-    /function resumeManagedMutations[\s\S]*managedLocalReviewCreationsBlocked = false/
+    /function resumeManagedMutations[\s\S]*privateEnrichmentStore\.resume\(\)[\s\S]*managedLocalReviewCreationsBlocked = false/
+  )
+  assert.match(
+    main,
+    /async function pauseManagedMutations[\s\S]*privateEnrichmentStore\.pauseAndDrain\(\)/
+  )
+  assert.match(
+    main,
+    /async function moveReviewToTrash[\s\S]*stableThreadIdentity\(artifact\.review\.agentThread\)[\s\S]*trashReview\([\s\S]*cleanupThreadAfterTrash/
   )
   assert.match(
     main,

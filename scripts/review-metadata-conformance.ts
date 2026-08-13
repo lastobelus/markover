@@ -814,14 +814,38 @@ function assertEvidenceIdIndependent(
   evidenceId: string,
   privateValues: Array<string | null | undefined>,
   alwaysPrivate: Array<string | null | undefined> = [],
-  completePrivate: Array<string | null | undefined> = []
+  completePrivate: Array<string | null | undefined> = [],
+  shortPrivateIdentifiers: Array<string | null | undefined> = [],
+  shortPrivateKeys: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
-  if (privateValueCandidates(
+  const privateCandidates = privateValueCandidates(
     privateValues,
     alwaysPrivate,
     completePrivate
-  ).has(suffix)) {
+  )
+  const suffixIsPrivateSubstring = [
+    ...privateContainmentCandidates(alwaysPrivate, completePrivate)
+  ].some((privateCandidate) => privateCandidate.includes(suffix))
+  const shortExplicitPrivateCandidates =
+    shortExplicitPrivateContainmentCandidates(alwaysPrivate)
+  const shortIdentifierCandidates = new Set([
+    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4)
+  ])
+  const suffixContainsPrivate = [
+    ...privateContainmentCandidates(alwaysPrivate, completePrivate)
+  ].some((privateCandidate) =>
+    (privateCandidate.length >= 8 ||
+      (privateCandidate.length >= 4 &&
+        shortExplicitPrivateCandidates.has(privateCandidate)) ||
+      shortIdentifierCandidates.has(privateCandidate)) &&
+    suffix.includes(privateCandidate))
+  if (
+    privateCandidates.has(suffix) ||
+    suffixIsPrivateSubstring ||
+    suffixContainsPrivate
+  ) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
     )
@@ -908,6 +932,111 @@ function completePrivateCaptureStrings(
   return [...visit(artifactValue, []), ...observation.limitations]
 }
 
+function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
+  const isIdentifierField = (field: string): boolean =>
+    field === 'id' ||
+    /(?:id|identifier)$/i.test(field) ||
+    /(?:^|[-_])(?:id|identifier)$/i.test(field)
+  const isPublicStructuralIdentifier = (fields: string[]): boolean => {
+    const joined = fields.join('.')
+    return /^root(?:\.children\.\d+)*\.(?:id|listId)$/.test(joined)
+  }
+  const visit = (value: unknown, fields: string[] = []): string[] => {
+    if (Array.isArray(value)) {
+      return value.flatMap((nested, index) =>
+        visit(nested, [...fields, String(index)]))
+    }
+    if (!isRecord(value)) return []
+    return Object.entries(value).flatMap(([field, nested]) => {
+      const identifiers: string[] = []
+      const nestedFields = [...fields, field]
+      if (
+        isIdentifierField(field) &&
+        !isPublicStructuralIdentifier(nestedFields)
+      ) {
+        if (typeof nested === 'string') identifiers.push(nested)
+        if (typeof nested === 'number' && Number.isSafeInteger(nested)) {
+          identifiers.push(String(nested))
+        }
+      }
+      return [...identifiers, ...visit(nested, nestedFields)]
+    })
+  }
+  return visit(artifactValue)
+}
+
+function privateAdditiveArtifactKeys(artifactValue: unknown): string[] {
+  const knownFields = (fields: string[]): Set<string> | undefined => {
+    const joined = fields.join('.')
+    if (!joined) {
+      return new Set([
+        'format', 'version', 'sourceDocument', 'unsupported', 'root', 'review'
+      ])
+    }
+    if (joined === 'sourceDocument') {
+      return new Set(['name', 'path', 'content', 'checksum'])
+    }
+    if (/^unsupported\.\d+$/.test(joined)) {
+      return new Set(['line', 'text'])
+    }
+    if (/^root(?:\.children\.\d+)*$/.test(joined)) {
+      return new Set([
+        'id', 'type', 'raw', 'text', 'lineStart', 'lineEnd', 'feedback',
+        'children', 'sourceEditable', 'sourceEdit', 'attachments', 'level',
+        'language', 'key', 'marker', 'listId', 'listPosition', 'listLength',
+        'task', 'checked'
+      ])
+    }
+    if (/^root(?:\.children\.\d+)*\.sourceEdit$/.test(joined)) {
+      return new Set(['original', 'current'])
+    }
+    if (/^root(?:\.children\.\d+)*\.attachments\.\d+$/.test(joined)) {
+      return new Set([
+        'id', 'type', 'label', 'path', 'mimeType', 'url', 'checksum',
+        'width', 'height'
+      ])
+    }
+    if (joined === 'review') {
+      return new Set([
+        'id', 'status', 'origin', 'createdAt', 'updatedAt',
+        'attentionRequestedAt', 'contextSummary', 'agentThread', 'git',
+        'pullRequest', 'agentGuidance'
+      ])
+    }
+    if (joined === 'review.agentThread') {
+      return new Set(['id', 'threadHost'])
+    }
+    if (joined === 'review.agentThread.threadHost') {
+      return new Set(['kind', 'provider', 'threadId', 'machine'])
+    }
+    if (joined === 'review.git') {
+      return new Set(['repositoryUrl', 'branch', 'commit'])
+    }
+    if (joined === 'review.pullRequest') {
+      return new Set([
+        'number', 'url', 'status', 'statusObservedAt', 'statusSource'
+      ])
+    }
+    if (joined === 'review.agentGuidance') {
+      return new Set(['fixedContract', 'interpretationPolicy'])
+    }
+    return undefined
+  }
+  const visit = (value: unknown, fields: string[] = []): string[] => {
+    if (Array.isArray(value)) {
+      return value.flatMap((nested, index) =>
+        visit(nested, [...fields, String(index)]))
+    }
+    if (!isRecord(value)) return []
+    const known = knownFields(fields)
+    return Object.entries(value).flatMap(([field, nested]) => [
+      ...(known?.has(field) === true ? [] : [field]),
+      ...visit(nested, [...fields, field])
+    ])
+  }
+  return visit(artifactValue)
+}
+
 function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
   if (!isRecord(artifactValue)) return []
   const attachmentLocations: string[] = []
@@ -916,10 +1045,9 @@ function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
     fields: string[] = []
   ): void => {
     if (Array.isArray(value)) {
-      value.forEach((nested, index) => collectAttachmentLocations(
-        nested,
-        [...fields, String(index)]
-      ))
+      value.forEach((nested, index) => {
+        collectAttachmentLocations(nested, [...fields, String(index)])
+      })
       return
     }
     if (!isRecord(value)) return
@@ -964,6 +1092,27 @@ function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
     threadHost?.machine,
     ...attachmentLocations
   ].filter((value): value is string => typeof value === 'string')
+}
+
+function percentDecodedVariants(value: string): string[] {
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 5; pass += 1) {
+    let decoded: string
+    try {
+      decoded = decodeURIComponent(current)
+    } catch {
+      decoded = current.replace(
+        /%([0-7][0-9a-f])/gi,
+        (_match: string, hex: string) =>
+          String.fromCharCode(Number.parseInt(hex, 16))
+      )
+    }
+    if (decoded === current) break
+    variants.push(decoded)
+    current = decoded
+  }
+  return variants
 }
 
 function privateValueCandidates(
@@ -1015,11 +1164,88 @@ function privateValueCandidates(
     if (value !== null && value !== undefined) addValue(value, 8)
   }
   for (const value of alwaysPrivate) {
-    if (value !== null && value !== undefined) addValue(value, 1)
+    if (value !== null && value !== undefined) {
+      addValue(value, 1)
+      for (const decoded of percentDecodedVariants(value)) {
+        addValue(decoded, 1)
+      }
+    }
   }
   for (const value of completePrivate) {
     if (value !== null && value !== undefined) {
-      candidates.add(value.toLowerCase())
+      addValue(value, 8, true)
+      for (const decoded of percentDecodedVariants(value)) {
+        addValue(decoded, 8, true)
+      }
+    }
+  }
+  return candidates
+}
+
+function privateContainmentCandidates(
+  alwaysPrivate: Array<string | null | undefined>,
+  completePrivate: Array<string | null | undefined>
+): Set<string> {
+  return privateValueCandidates(
+    completePrivate,
+    alwaysPrivate,
+    completePrivate
+  )
+}
+
+function shortIdentifierContainmentCandidates(
+  values: Array<string | null | undefined>,
+  minimumLength = 1
+): Set<string> {
+  const candidates = new Set<string>()
+  for (const value of values) {
+    if (value === null || value === undefined) continue
+    for (const variant of [value, ...percentDecodedVariants(value)]) {
+      if (variant.length >= minimumLength) candidates.add(variant.toLowerCase())
+      const stripped = variant.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
+      if (stripped.length >= minimumLength) candidates.add(stripped)
+      for (const segment of variant
+        .split(/[^A-Za-z0-9]+/)
+        .filter((candidate) => candidate.length >= Math.max(4, minimumLength))) {
+        candidates.add(segment.toLowerCase())
+      }
+    }
+  }
+  return candidates
+}
+
+function shortExplicitPrivateContainmentCandidates(
+  values: Array<string | null | undefined>
+): Set<string> {
+  const pathValues = values.filter((value): value is string =>
+    typeof value === 'string' && /[\\/]/.test(value))
+  return new Set([
+    ...shortIdentifierContainmentCandidates(values),
+    ...privateValueCandidates([], pathValues)
+  ])
+}
+
+function canonicalNumericIdentityCandidates(
+  values: Array<string | null | undefined>
+): Set<string> {
+  const candidates = new Set<string>()
+  for (const value of values) {
+    const isDecimal =
+      /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value ?? '')
+    const isRadixInteger =
+      /^0x[0-9a-f]+$/i.test(value ?? '') ||
+      /^0o[0-7]+$/i.test(value ?? '') ||
+      /^0b[01]+$/i.test(value ?? '')
+    if (
+      value === null ||
+      value === undefined ||
+      (!isDecimal && !isRadixInteger)
+    ) {
+      continue
+    }
+    const numericValue = Number(value)
+    if (Number.isSafeInteger(numericValue)) {
+      candidates.add(String(numericValue))
     }
   }
   return candidates
@@ -1029,7 +1255,9 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation,
   alwaysPrivate: Array<string | null | undefined> = [],
-  completePrivate: Array<string | null | undefined> = []
+  completePrivate: Array<string | null | undefined> = [],
+  shortPrivateIdentifiers: Array<string | null | undefined> = [],
+  shortPrivateKeys: Array<string | null | undefined> = []
 ): void {
   const persistedRuntimeValues = [
     runtime.hostVersion,
@@ -1045,7 +1273,43 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     persistedRuntimeValues,
     persistedRuntimeValues
   )
-  if ([...persistedRuntimeCandidates].some((value) => privateCandidates.has(value))) {
+  const embeddedPrivateCandidates = privateContainmentCandidates(
+    alwaysPrivate,
+    completePrivate
+  )
+  const embeddedShortExplicitPrivate =
+    shortExplicitPrivateContainmentCandidates(alwaysPrivate)
+  const embeddedShortIdentifiers = new Set([
+    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4)
+  ])
+  const privateNumericIdentities = canonicalNumericIdentityCandidates(
+    [...completePrivate, ...shortPrivateIdentifiers]
+  )
+  const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
+    persistedRuntimeValues
+  )
+  const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
+    runtimeValue !== null &&
+    [...embeddedPrivateCandidates].some((privateCandidate) =>
+      (privateCandidate.length >= 8 ||
+        (privateCandidate.length >= 4 &&
+          embeddedShortExplicitPrivate.has(privateCandidate)) ||
+        embeddedShortIdentifiers.has(privateCandidate)) &&
+      runtimeValue.toLowerCase().includes(privateCandidate)))
+  const runtimeIsPrivateSubstring = [...persistedRuntimeCandidates].some(
+    (runtimeCandidate) =>
+      runtimeCandidate.length >= 8 &&
+      [...embeddedPrivateCandidates].some((privateCandidate) =>
+        privateCandidate.includes(runtimeCandidate))
+  )
+  if (
+    embedsPrivateCandidate ||
+    runtimeIsPrivateSubstring ||
+    [...runtimeNumericIdentities].some((value) =>
+      privateNumericIdentities.has(value)) ||
+    [...persistedRuntimeCandidates].some((value) => privateCandidates.has(value))
+  ) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')
   }
 }
@@ -1186,13 +1450,17 @@ export function buildSanitizedEvidence(
     evidence.evidenceId,
     privateInputs,
     explicitlyPrivateInputs,
-    completePrivateInputs
+    completePrivateInputs,
+    privateIdentifierArtifactStrings(artifact),
+    privateAdditiveArtifactKeys(artifact)
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
     evidence.runtime,
     explicitlyPrivateInputs,
-    completePrivateInputs
+    completePrivateInputs,
+    privateIdentifierArtifactStrings(artifact),
+    privateAdditiveArtifactKeys(artifact)
   )
   return evidence
 }
@@ -1242,15 +1510,26 @@ export function recordConformanceEvidence(
       )
     }
     const observation = parseCaptureObservation(observationValue)
-    const suffix = observation.evidenceId.slice(-8).toLowerCase()
-    if (privateValueCandidates(
-      privateCaptureStrings(artifactValue, observation),
-      explicitlyPrivateArtifactStrings(artifactValue),
-      completePrivateCaptureStrings(artifactValue, observation)
-    ).has(suffix)) {
+    try {
+      assertEvidenceIdIndependent(
+        observation.evidenceId,
+        privateCaptureStrings(artifactValue, observation),
+        explicitlyPrivateArtifactStrings(artifactValue),
+        completePrivateCaptureStrings(artifactValue, observation),
+        privateIdentifierArtifactStrings(artifactValue),
+        privateAdditiveArtifactKeys(artifactValue)
+      )
+    } catch (privacyError) {
+      if (
+        !(privacyError instanceof Error) ||
+        privacyError.message !==
+          'Evidence ID suffix must be independent of private artifact values.'
+      ) {
+        throw privacyError
+      }
       throw new Error(
         'Failure evidence ID suffix must be independent of every raw artifact string and key.',
-        { cause: error }
+        { cause: privacyError }
       )
     }
     return buildSanitizedFailureEvidence(

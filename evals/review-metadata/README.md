@@ -162,15 +162,49 @@ produced a twenty-fifth record for each combination. Short complete private-leaf
 retention in runner commit `aae18de00aa03a4dacb783ceff222f7c092bb7ba`
 produced a twenty-sixth record for each combination. Short safe-numeric private
 leaf retention in runner commit `3eaccbd6bd62f40b5d37ed195c9bc64e0cd935a6`
-produced a twenty-seventh record for each combination.
+produced a twenty-seventh record for each combination. Explicit attachment
+path/URL normalization in runner commit
+`f65c5d7e48596706aadfeb64ae608243539629ac` produced a twenty-eighth record for
+each combination. Percent-decoded explicit-private candidate comparison in
+runner commit `b9a0e1103c2b0f62a69a54f07dc70a34900f84f8` produced a twenty-ninth
+record for each combination after the latest `main` integration. Embedded
+explicit-private identifier comparison in runner commit
+`32aeb2570a10a64c3cb24140055f6f894973af72` produced a thirtieth record for
+each combination. Shared runtime and evidence-ID private-substring comparison
+in runner commit `c80fe4967b26ca8a932d81e0e4dca7ed92712971` produced a thirty-first
+record for each combination. Failure-path substring checks and decoded
+complete-private inputs in runner commit
+`e2c3ebf24b0c710f7f9930e9dbcb2aca94ca7c24` produced a thirty-second record
+for each combination. Field-aware short-identifier containment in runner
+commit `bc32ad96ca416bb590441de37533144f1947c5af` produced a thirty-third record
+for each combination. Bidirectional private/runtime substring comparison in
+runner commit `f5a05e7c96fec9e0821f00491855527ff62045f8` produced a thirty-fourth
+record for each combination. Short explicitly private path-component
+containment in runner commit `c979810ca3349f5d63840ab287e372d569b6c9c3`
+produced a thirty-fifth record for each combination. Short-aware bidirectional
+evidence-suffix containment in runner commit
+`2c5d3397f92fcd21e0006a4cc522de8488378848` produced a thirty-sixth record for
+each combination. Case-insensitive compound identifier-field recognition in
+runner commit `b63246ecb27ac7190f4f94bfb5a9864c9024e99f` produced a thirty-seventh
+record for each combination. Field-classified identifiers of every non-empty
+length in runner commit `82ea8205e05944f1f8046e247381c7bd8a8c91d8`
+produced a thirty-eighth record for each combination. Canonical safe-integer
+identifier comparison in runner commit
+`1e6d7e8a3a1ed35608431445c1f8065979d201a8` produced a thirty-ninth record for
+each combination. Short identifier component and complete-private numeric
+normalization in runner commit `5ce4f8a7a35ebfac43746b0539ae83fa91a511e2`
+produced a fortieth record for each combination.
+Radix-form safe-integer identity comparison in runner commit
+`6fedd0b7a24616639c55b21f83812d51a93e9c96` produced a forty-first record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v6` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v20` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v6
+git fetch origin refs/tags/issue-136-runner-history-v20
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

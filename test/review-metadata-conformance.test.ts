@@ -122,7 +122,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 81,
+    evidenceCount: 123,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -203,6 +203,24 @@ test('capture rejects an evidence ID suffix copied from a private identity', () 
   )
 })
 
+test('capture rejects an evidence ID suffix embedded in a private identity', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  thread.id = 'prefixdeadbeefsuffix'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Evidence ID suffix must be independent of private artifact values/
+  )
+})
+
 test('capture compares private identifiers without case distinctions', async (t) => {
   await t.test('evidence ID suffix', () => {
     const artifact = fixture()
@@ -258,6 +276,60 @@ test('capture compares private identifiers without case distinctions', async (t)
     )
   })
 
+  await t.test('identifier embedded without a runtime-token delimiter', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'ACCT12345'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('short identifier component embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'acct-secret'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('runtime token copied from within a private identifier', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'prefixdeadbeefsuffix'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'deadbeef'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('short identity used as a complete runtime value', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -269,7 +341,10 @@ test('capture compares private identifiers without case distinctions', async (t)
     assert.throws(
       () => buildSanitizedEvidence(
         artifact,
-        observation({ runtime }),
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__7654edcf',
+          runtime
+        }),
         json('evals/review-metadata/matrix.json')
       ),
       /runtime still contains a private artifact value/
@@ -442,6 +517,57 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('short additive key embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { acct: true }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('short additive key embedded in evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { acct: true }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxxxacct'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
+  await t.test('short identifier embedded in evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'abc123' }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxabc123'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   await t.test('short extension value', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -449,6 +575,94 @@ test('capture treats additive extension keys as private artifact values', async 
     rootNode.fixtureExtension = { accountId: 'abc123' }
     const runtime = observation().runtime as Record<string, unknown>
     runtime.providerModel = 'abc123'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('short extension identifier embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'abc123' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc123'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('three-character identifier embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'abc' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__7654edcf',
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('lowercase compound identifier embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountid: 'abc123' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc123'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('extension value embedded without a runtime-token delimiter', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('percent-encoded extension value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct%31%32%33%34%35' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct12345'
     assert.throws(
       () => buildSanitizedEvidence(
         artifact,
@@ -547,6 +761,63 @@ test('capture treats numeric extension leaves as private artifact values', async
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('scientific-notation runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '1.2345678e7'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('scientific notation for a non-ID numeric extension', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { account: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '1.2345678e7'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  for (const radixValue of [
+    '0xBC614E',
+    '0o57060516',
+    '0b101111000110000101001110'
+  ]) {
+    await t.test(`radix runtime value ${radixValue.slice(0, 2)}`, () => {
+      const artifact = fixture()
+      agentThread(artifact)
+      const rootNode = artifact.root as Record<string, unknown>
+      rootNode.fixtureExtension = { accountId: 12345678 }
+      const runtime = observation().runtime as Record<string, unknown>
+      runtime.providerModel = radixValue
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observation({ runtime }),
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
+      )
+    })
+  }
 })
 
 test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {
@@ -681,6 +952,25 @@ test('failure evidence rejects a suffix copied from an extension key', () => {
   )
 })
 
+test('failure evidence rejects a substring copied from a private identity', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  thread.id = 'prefixdeadbeefsuffix'
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
 test('failure evidence rejects a normalized explicitly private path suffix', () => {
   const artifact = fixture()
   agentThread(artifact)
@@ -790,7 +1080,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 82,
+    evidenceCount: 124,
     matrixEntryCount: 3
   })
 
@@ -1233,6 +1523,16 @@ test('capture rejects short components copied from explicitly private paths', ()
     /runtime still contains a private artifact value/
   )
 
+  runtime.providerModel = 'modeljsmith'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
   sourceDocument.path = '/Users/dead-beef/source.md'
   runtime.providerModel = 'deadbeef'
   assert.throws(
@@ -1263,10 +1563,20 @@ test('capture normalizes nested attachment paths as explicitly private', () => {
   const attachments = children[1]?.attachments as Array<Record<string, unknown>>
   assert.ok(attachments[0])
   attachments[0].path = '/Users/jsmith/image.png'
-  attachments[0].url = 'file:///Users/dead-beef/image.png'
+  attachments[0].url = 'file:///Users/dead%252Dbeef/image.png'
 
   const runtime = observation().runtime as Record<string, unknown>
   runtime.providerModel = 'jsmith'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
+  runtime.providerModel = 'deadbeef'
   assert.throws(
     () => buildSanitizedEvidence(
       artifact,

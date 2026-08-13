@@ -43,16 +43,22 @@ const PRIVATE_EXTENSION_NAMESPACES = new Set([
   'workspace'
 ])
 const PRIVATE_TOP_LEVEL_FIELDS = new Set([
+  'canonicalPath',
+  'checkoutRoot',
   'commonGitDirectory',
   'cwd',
   'discovery',
   'forkedFromId',
   'logPath',
   'parentThreadId',
+  'projectKey',
   'projectRoot',
+  'repositoryRelativePath',
   'repositoryRoot',
   'requestingThreadTitle',
-  'sources'
+  'sources',
+  'titleObservations',
+  'verifiedChecksum'
 ])
 const SCP_REPOSITORY_URL_PATTERN = /^(?:[^@/\\:\s]+@)?[^/\\:\s]+:[^\\\s]+$/
 const SHA256_INITIAL = new Uint32Array([
