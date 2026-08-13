@@ -941,6 +941,17 @@ function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
     const joined = fields.join('.')
     return /^root(?:\.children\.\d+)*\.(?:id|listId)$/.test(joined)
   }
+  const identifierLeaves = (value: unknown): string[] => {
+    if (typeof value === 'string') return [value]
+    if (typeof value === 'number' && Number.isSafeInteger(value)) {
+      return [String(value)]
+    }
+    if (Array.isArray(value)) return value.flatMap(identifierLeaves)
+    if (isRecord(value)) {
+      return Object.values(value).flatMap(identifierLeaves)
+    }
+    return []
+  }
   const visit = (value: unknown, fields: string[] = []): string[] => {
     if (Array.isArray(value)) {
       return value.flatMap((nested, index) =>
@@ -954,10 +965,7 @@ function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
         isIdentifierField(field) &&
         !isPublicStructuralIdentifier(nestedFields)
       ) {
-        if (typeof nested === 'string') identifiers.push(nested)
-        if (typeof nested === 'number' && Number.isSafeInteger(nested)) {
-          identifiers.push(String(nested))
-        }
+        identifiers.push(...identifierLeaves(nested))
       }
       return [...identifiers, ...visit(nested, nestedFields)]
     })
