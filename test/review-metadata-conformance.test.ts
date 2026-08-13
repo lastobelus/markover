@@ -257,6 +257,24 @@ test('capture compares private identifiers without case distinctions', async (t)
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('short identity used as a complete runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'ABC'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'abc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture binds the evidence ID slug to the selected matrix entry', () => {
@@ -457,6 +475,30 @@ test('capture treats numeric extension leaves as private artifact values', async
       /Evidence ID suffix must be independent of private artifact values/
     )
   })
+})
+
+test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  rootNode.fixtureExtension = { accountId: Number('9007199254740993') }
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /non-safe numeric value that cannot be sanitized exactly/
+  )
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /non-safe numeric value that cannot be sanitized exactly/
+  )
 })
 
 test('capture treats ignored limitation strings as private inputs', async (t) => {

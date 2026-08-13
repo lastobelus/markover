@@ -824,7 +824,14 @@ function assertEvidenceIdIndependent(
 
 function artifactStringsAndKeys(value: unknown): string[] {
   if (typeof value === 'string') return [value]
-  if (typeof value === 'number') return [String(value)]
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) {
+      throw new Error(
+        'Raw artifact contains a non-safe numeric value that cannot be sanitized exactly.'
+      )
+    }
+    return [String(value)]
+  }
   if (Array.isArray(value)) return value.flatMap(artifactStringsAndKeys)
   if (isRecord(value)) {
     return Object.entries(value).flatMap(([key, nested]) => [
@@ -890,7 +897,10 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     runtime.providerVersion
   ]
   const privateCandidates = privateValueCandidates(values, alwaysPrivate)
-  const persistedRuntimeCandidates = privateValueCandidates(persistedRuntimeValues)
+  const persistedRuntimeCandidates = privateValueCandidates(
+    persistedRuntimeValues,
+    persistedRuntimeValues
+  )
   if ([...persistedRuntimeCandidates].some((value) => privateCandidates.has(value))) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')
   }
