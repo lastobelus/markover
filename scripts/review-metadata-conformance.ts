@@ -1576,6 +1576,51 @@ function base45DecodedVariants(value: string): string[] {
   return variants
 }
 
+function ascii85DecodedVariants(value: string): string[] {
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 2 || encoded.length > 512) return null
+    const bytes: number[] = []
+    let group = ''
+    const flush = (final: boolean): boolean => {
+      if (!group || (!final && group.length !== 5) || (final && group.length === 1)) return false
+      const width = group.length
+      const padded = group.padEnd(5, 'u')
+      let numeric = 0
+      for (const character of padded) {
+        const digit = character.charCodeAt(0) - 33
+        if (digit < 0 || digit > 84) return false
+        numeric = numeric * 85 + digit
+      }
+      if (numeric > 0xffffffff) return false
+      const decoded = [numeric >>> 24, (numeric >>> 16) & 255, (numeric >>> 8) & 255, numeric & 255]
+      bytes.push(...decoded.slice(0, final ? width - 1 : 4))
+      group = ''
+      return true
+    }
+    for (const character of encoded) {
+      if (character === 'z' && group.length === 0) bytes.push(0, 0, 0, 0)
+      else {
+        group += character
+        if (group.length === 5 && !flush(false)) return null
+      }
+    }
+    if (group && !flush(true)) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes))
+      return decoded && decoded !== encoded ? decoded : null
+    } catch { return null }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  return variants
+}
+
 function hexadecimalDecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
@@ -1672,6 +1717,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base32hexDecodedVariants(current),
       ...base32zDecodedVariants(current),
       ...base58DecodedVariants(current),
+      ...ascii85DecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
     ]) {
