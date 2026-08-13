@@ -889,8 +889,14 @@ function privateValueCandidates(
   alwaysPrivate: Array<string | null | undefined> = []
 ): Set<string> {
   const candidates = new Set<string>()
-  const addValue = (value: string, minimumLength: number): void => {
-    if (value.length >= minimumLength) candidates.add(value.toLowerCase())
+  const addValue = (
+    value: string,
+    minimumLength: number,
+    retainCompleteValue = false
+  ): void => {
+    if (retainCompleteValue || value.length >= minimumLength) {
+      candidates.add(value.toLowerCase())
+    }
     const delimiterStripped = value.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
     if (delimiterStripped.length >= minimumLength) {
       candidates.add(delimiterStripped)
@@ -923,7 +929,7 @@ function privateValueCandidates(
     }
   }
   for (const value of values) {
-    if (value !== null && value !== undefined) addValue(value, 8)
+    if (value !== null && value !== undefined) addValue(value, 8, true)
   }
   for (const value of alwaysPrivate) {
     if (value !== null && value !== undefined) addValue(value, 1)

@@ -439,6 +439,23 @@ test('capture treats additive extension keys as private artifact values', async 
       /Evidence ID suffix must be independent of private artifact values/
     )
   })
+
+  await t.test('short extension value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'abc123' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'abc123'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture rejects delimiter-stripped private identifiers', async (t) => {
@@ -655,6 +672,24 @@ test('failure evidence rejects a normalized explicitly private path suffix', () 
       artifact,
       observation({
         evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('failure evidence rejects a short complete extension value suffix', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  rootNode.fixtureExtension = { accountId: 'abc12345' }
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__abc12345'
       }),
       json('evals/review-metadata/matrix.json'),
       999
