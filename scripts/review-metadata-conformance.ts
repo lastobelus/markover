@@ -1547,7 +1547,7 @@ function canonicalNumericIdentityCandidates(
     return `${sign}${digits}@${exponent}`
   }
   const canonicalBase36Integer = (value: string): string | null => {
-    const match = /^([+-]?)([0-9a-z]{4,12})$/i.exec(value)
+    const match = /^([+-]?)([0-9a-z]{4,40})$/i.exec(value)
     const body = match?.[2]
     if (
       body === undefined ||
