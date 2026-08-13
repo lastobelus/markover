@@ -1194,6 +1194,33 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('encoded numeric component of a private identifier', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct12345678' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '0xBC614E'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__0xbc614e'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   await t.test('digit-only fixed-width hexadecimal identities', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -1978,9 +2005,7 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         'AGENTS.md',
         'evals/review-metadata/README.md',
         'evals/review-metadata/exercise-source.md',
-        'evals/review-metadata/exercises/claude-code-claude.md',
-        'evals/review-metadata/exercises/t3code-claude.md',
-        'evals/review-metadata/exercises/t3code-codex.md',
+        'evals/review-metadata/exercises',
         'evals/review-metadata/matrix.json',
         'evals/review-metadata/rubric.md',
         'package-lock.json',
