@@ -1132,6 +1132,40 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('unprefixed hexadecimal numeric identities', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 3735928559 }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+    for (const providerVersion of [
+      'deadbeef',
+      'builddeadbeef',
+      'ffdeadbeef'
+    ]) {
+      const runtime = observation().runtime as Record<string, unknown>
+      runtime.providerVersion = providerVersion
+      runtime.providerVersionSource = 'runtime-context'
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observation({ runtime }),
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
+      )
+    }
+  })
+
   for (const radixValue of [
     '0xBC614E',
     '0o57060516',

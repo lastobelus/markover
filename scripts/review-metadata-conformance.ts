@@ -1362,6 +1362,29 @@ function canonicalNumericIdentityCandidates(
               }
               numericValues.add(match[0])
             }
+            for (const match of normalizedValue.matchAll(/[0-9a-f]+/gi)) {
+              for (const width of [8, 16, 32, 40]) {
+                for (let start = 0; start + width <= match[0].length; start += 1) {
+                  const window = match[0].slice(start, start + width)
+                  if (!/[a-f]/i.test(window)) continue
+                  const decimal = BigInt(`0x${window}`).toString()
+                  const unsignedCanonical = canonicalDecimalInteger(decimal)
+                  if (unsignedCanonical !== null) {
+                    candidates.add(unsignedCanonical)
+                  }
+                  const absoluteStart = match.index + start
+                  if (
+                    absoluteStart > 0 &&
+                    normalizedValue[absoluteStart - 1] === '-'
+                  ) {
+                    const signedCanonical = canonicalDecimalInteger(`-${decimal}`)
+                    if (signedCanonical !== null) {
+                      candidates.add(signedCanonical)
+                    }
+                  }
+                }
+              }
+            }
           }
         }
         for (const numericLiteral of numericValues) {
