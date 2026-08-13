@@ -864,7 +864,7 @@ function assertEvidenceIdIndependent(
   }
 }
 
-function artifactStringsAndKeys(value: unknown): string[] {
+function artifactStrings(value: unknown): string[] {
   if (typeof value === 'string') return [value]
   if (typeof value === 'number') {
     if (!Number.isSafeInteger(value)) {
@@ -874,12 +874,9 @@ function artifactStringsAndKeys(value: unknown): string[] {
     }
     return [String(value)]
   }
-  if (Array.isArray(value)) return value.flatMap(artifactStringsAndKeys)
+  if (Array.isArray(value)) return value.flatMap(artifactStrings)
   if (isRecord(value)) {
-    return Object.entries(value).flatMap(([key, nested]) => [
-      key,
-      ...artifactStringsAndKeys(nested)
-    ])
+    return Object.values(value).flatMap(artifactStrings)
   }
   return []
 }
@@ -889,7 +886,7 @@ function privateCaptureStrings(
   observation: CaptureObservation
 ): string[] {
   return [
-    ...artifactStringsAndKeys(artifactValue),
+    ...artifactStrings(artifactValue),
     ...observation.limitations
   ]
 }
@@ -907,16 +904,25 @@ function completePrivateCaptureStrings(
     'review.pullRequest.statusSource',
     'review.status'
   ])
+  const isPublicStringPath = (fields: string[]): boolean =>
+    /^root(?:\.children\.\d+)*\.marker$/.test(fields.join('.'))
   const isPublicNumericPath = (fields: string[]): boolean => {
     const joined = fields.join('.')
     return joined === 'version' ||
       joined === 'review.pullRequest.number' ||
       /^unsupported\.\d+\.line$/.test(joined) ||
-      /^root(?:\.children\.\d+)*\.(?:level|lineEnd|lineStart)$/.test(joined)
+      /^root(?:\.children\.\d+)*\.(?:level|lineEnd|lineStart|listLength|listPosition)$/.test(
+        joined
+      ) ||
+      /^root(?:\.children\.\d+)*\.attachments\.\d+\.(?:height|width)$/.test(
+        joined
+      )
   }
   const visit = (value: unknown, fields: string[]): string[] => {
     if (typeof value === 'string') {
-      return publicValuePaths.has(fields.join('.')) ? [] : [value]
+      return publicValuePaths.has(fields.join('.')) || isPublicStringPath(fields)
+        ? []
+        : [value]
     }
     if (typeof value === 'number') {
       if (isPublicNumericPath(fields)) return []
@@ -934,10 +940,8 @@ function completePrivateCaptureStrings(
       ))
     }
     if (isRecord(value)) {
-      return Object.entries(value).flatMap(([key, nested]) => [
-        key,
-        ...visit(nested, [...fields, key])
-      ])
+      return Object.entries(value).flatMap(([key, nested]) =>
+        visit(nested, [...fields, key]))
     }
     return []
   }
@@ -1312,7 +1316,6 @@ function canonicalNumericIdentityCandidates(
       digits = digits.slice(0, -trailingZeroCount)
       exponent += BigInt(trailingZeroCount)
     }
-    if (exponent < 0n) return null
     const sign = match[1] === '-' ? '-' : ''
     return `${sign}${digits}@${exponent}`
   }
