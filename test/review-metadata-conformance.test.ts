@@ -4,12 +4,17 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { reviewChecksum } from '../src/review-format'
+
 import {
   buildSanitizedEvidence,
+  recordConformanceEvidence,
   parseCaptureObservation,
   parseMetadataMatrix,
   validateMetadataCorpus,
+  validateSanitizedFailureEvidence,
   validateSanitizedEvidence,
+  verifyContractDefectIssue,
   verifySourceCommitPullRequest
 } from '../scripts/review-metadata-conformance'
 
@@ -20,9 +25,17 @@ function json(relativePath: string): unknown {
 }
 
 function fixture(): Record<string, unknown> {
-  return structuredClone(
+  const value = structuredClone(
     json('test/fixtures/review-handoff-v1.json')
   ) as Record<string, unknown>
+  const sourceDocument = value.sourceDocument as Record<string, unknown>
+  const content = fs.readFileSync(
+    path.join(root, 'evals/review-metadata/exercise-source.md'),
+    'utf8'
+  )
+  sourceDocument.content = content
+  sourceDocument.checksum = reviewChecksum(content)
+  return value
 }
 
 function metadataCorpusCopy(): string {
@@ -85,7 +98,7 @@ test('initial live matrix names three exact combinations without guessing expans
   const matrix = parseMetadataMatrix(json('evals/review-metadata/matrix.json'))
   assert.deepEqual(matrix.classification, {
     authorityIssue: 134,
-    status: 'provisional-evidence'
+    status: 'observational-evidence'
   })
   assert.deepEqual(matrix.entries.map(({ id }) => id), [
     't3code-codex',
@@ -109,7 +122,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 15,
+    evidenceCount: 72,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -156,6 +169,22 @@ test('capture validates raw v1 identity and emits only typed redactions', () => 
   )
 })
 
+test('capture requires the immutable maintained exercise source', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const sourceDocument = artifact.sourceDocument as Record<string, unknown>
+  sourceDocument.content = '# Another valid review source\n'
+  sourceDocument.checksum = reviewChecksum(sourceDocument.content as string)
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /must use the maintained exercise source/
+  )
+})
+
 test('capture rejects an evidence ID suffix copied from a private identity', () => {
   const artifact = fixture()
   agentThread(artifact)
@@ -172,6 +201,611 @@ test('capture rejects an evidence ID suffix copied from a private identity', () 
     ),
     /Evidence ID suffix must be independent of private artifact values/
   )
+})
+
+test('capture compares private identifiers without case distinctions', async (t) => {
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'DEADBEEF'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'DEADBEEF'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'deadbeef'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('identifier embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'ACCT_12345'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'model-acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('short identity used as a complete runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'ABC'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'abc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+})
+
+test('capture binds the evidence ID slug to the selected matrix entry', () => {
+  assert.throws(
+    () => parseCaptureObservation(observation({
+      evidenceId: '2026-08-12__raw-provider-thread-secret__1234abcd'
+    })),
+    /evidenceId slug must equal matrixEntryId/
+  )
+})
+
+test('capture binds the evidence ID date to the exercisedAt UTC date', () => {
+  assert.throws(
+    () => parseCaptureObservation(observation({
+      evidenceId: '2030-01-01__t3code-codex__1234abcd'
+    })),
+    /evidenceId date must equal the exercisedAt UTC date/
+  )
+})
+
+test('capture rejects a private identity used as a complete runtime segment', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const runtime = observation().runtime as Record<string, unknown>
+  runtime.providerVersion = 'Agent raw-provider-thread-secret'
+  runtime.providerVersionSource = 'command'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
+  runtime.providerVersion = 'Agent raw-provider-thread-secret-suffix'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  thread.id = 'raw provider secret'
+  runtime.providerVersion = 'raw provider secret'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+})
+
+test('capture rejects free-form raw artifact strings used as runtime evidence', async (t) => {
+  for (const [label, providerModel] of [
+    ['feedback', 'Clarify the heading.'],
+    ['attachment label', 'Reference image']
+  ] as const) {
+    await t.test(label, () => {
+      const artifact = fixture()
+      agentThread(artifact)
+      const runtime = observation().runtime as Record<string, unknown>
+      runtime.providerModel = providerModel
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observation({ runtime }),
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
+      )
+    })
+  }
+
+  await t.test('token embedded in feedback prose', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.feedback = 'Account acct_12345 needs review.'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('UUID component embedded in feedback prose', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.feedback = 'Account deadbeef-1234-5678-90ab-cdef01234567 needs review.'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'deadbeef'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('ordinary product words remain usable runtime segments', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    review.contextSummary = 'Live T3 Code x Claude metadata conformance exercise.'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerVersion = 'Claude Agent SDK 0.3.227'
+    runtime.providerVersionSource = 'runtime-context'
+    assert.doesNotThrow(() => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ))
+  })
+})
+
+test('capture treats additive extension keys as private artifact values', async (t) => {
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { acct_12345: true }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { deadbeef: true }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+})
+
+test('capture rejects delimiter-stripped private identifiers', async (t) => {
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'dead-beef' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'deadbeef'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'dead-beef' }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+})
+
+test('capture treats numeric extension leaves as private artifact values', async (t) => {
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '12345678'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__12345678'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+})
+
+test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  rootNode.fixtureExtension = { accountId: Number('9007199254740993') }
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /non-safe numeric value that cannot be sanitized exactly/
+  )
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /non-safe numeric value that cannot be sanitized exactly/
+  )
+})
+
+test('capture treats ignored limitation strings as private inputs', async (t) => {
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          limitations: ['acct_12345'],
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef',
+          limitations: ['Account deadbeef needs review.']
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+})
+
+test('failed automatic checks can produce only closed sanitized evidence', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  const host = thread.threadHost as Record<string, unknown>
+  delete host.provider
+
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /--defect-issue NUMBER/
+  )
+
+  const failure = recordConformanceEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json'),
+    999
+  )
+  assert.deepEqual(failure, {
+    evidenceId: '2026-08-12__t3code-codex__1234abcd',
+    exercisedAt: '2026-08-12T12:34:56.789Z',
+    failure: {
+      defectIssue: 999,
+      kind: 'automatic-check-failed'
+    },
+    matrixEntryId: 't3code-codex',
+    outcome: 'failed',
+    schemaVersion: 1,
+    sourceCommit: '903a58abd2720bf82b95df3688dfb40995367e3c',
+    sourcePullRequest: 'https://github.com/lastobelus/markover/pull/141'
+  })
+  assert.deepEqual(
+    validateSanitizedFailureEvidence(
+      failure,
+      json('evals/review-metadata/matrix.json')
+    ),
+    failure
+  )
+  assert.doesNotMatch(JSON.stringify(failure), /raw-provider-thread-secret/)
+
+  assert.throws(
+    () => validateSanitizedFailureEvidence(
+      { ...failure, evidenceId: '2030-01-01__t3code-codex__1234abcd' },
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Failure evidence ID date must equal the exercisedAt UTC date/
+  )
+})
+
+test('failure evidence rejects a suffix copied from an extension key', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  rootNode.fixtureExtension = { DEADBEEF: true }
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('failure evidence rejects a normalized explicitly private path suffix', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const sourceDocument = artifact.sourceDocument as Record<string, unknown>
+  sourceDocument.path = '/Users/dead-beef/source.md'
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('failure evidence rejects a suffix copied from a numeric extension leaf', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  rootNode.fixtureExtension = { accountId: 12345678 }
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__12345678'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('failure evidence rejects a suffix copied from an ignored limitation', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef',
+        limitations: ['Account deadbeef needs review.']
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('corpus retains failures without letting them satisfy completeness', (t) => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  const host = thread.threadHost as Record<string, unknown>
+  delete host.provider
+  const observationValue = observation({
+    evidenceId: '2026-08-12__t3code-codex__cafebabe'
+  })
+  const matrixValue = json('evals/review-metadata/matrix.json') as Record<string, unknown>
+  const failure = recordConformanceEvidence(
+    artifact,
+    observationValue,
+    matrixValue,
+    999
+  )
+  const temporaryRoot = metadataCorpusCopy()
+  t.after(() => {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true })
+  })
+  const matrixPath = path.join(temporaryRoot, 'evals/review-metadata/matrix.json')
+  const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8')) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const firstEntry = entries[0]
+  assert.ok(firstEntry)
+  const evidenceIds = firstEntry.evidence as string[]
+  evidenceIds.push(failure.evidenceId)
+  fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`)
+  fs.writeFileSync(
+    path.join(
+      temporaryRoot,
+      `evals/review-metadata/evidence/${failure.evidenceId}.json`
+    ),
+    `${JSON.stringify(failure, null, 2)}\n`
+  )
+  const verifyDefect = (): void => {}
+  assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
+    evidenceCount: 73,
+    matrixEntryCount: 3
+  })
+
+  firstEntry.evidence = [failure.evidenceId]
+  fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`)
+  assert.throws(
+    () => validateMetadataCorpus(temporaryRoot, true, verifyDefect),
+    /t3code-codex has no committed live evidence/
+  )
+})
+
+test('failure links must follow the same-repository parent tree to issue 99', async (t) => {
+  await t.test('accepts a bounded descendant chain', () => {
+    const calls: number[] = []
+    verifyContractDefectIssue(
+      'https://github.com/lastobelus/markover/pull/141',
+      200,
+      root,
+      (args) => {
+        const current = Number(args[2])
+        calls.push(current)
+        const parent = current === 200 ? 150 : 99
+        return {
+          status: 0,
+          stderr: '',
+          stdout: JSON.stringify({
+            number: current,
+            parent: {
+              number: parent,
+              repository: { nameWithOwner: 'lastobelus/markover' }
+            }
+          })
+        }
+      }
+    )
+    assert.deepEqual(calls, [200, 150])
+  })
+
+  await t.test('rejects an issue outside the contract tree', () => {
+    assert.throws(
+      () => {
+        verifyContractDefectIssue(
+          'https://github.com/lastobelus/markover/pull/141',
+          200,
+          root,
+          () => ({
+            status: 0,
+            stderr: '',
+            stdout: JSON.stringify({ number: 200, parent: null })
+          })
+        )
+      },
+      /must descend from issue #99/
+    )
+  })
+
+  await t.test('rejects a nonexistent issue', () => {
+    assert.throws(
+      () => {
+        verifyContractDefectIssue(
+          'https://github.com/lastobelus/markover/pull/141',
+          404,
+          root,
+          () => ({ status: 1, stderr: 'issue not found', stdout: '' })
+        )
+      },
+      /Cannot verify contract defect #404: issue not found/
+    )
+  })
 })
 
 test('capture rejects retained values whose discovery is unavailable', () => {
@@ -264,9 +898,20 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         '--quiet',
         parsed.sourceCommit,
         '--',
+        'AGENTS.md',
+        'evals/review-metadata/README.md',
+        'evals/review-metadata/exercise-source.md',
+        'evals/review-metadata/exercises/claude-code-claude.md',
+        'evals/review-metadata/exercises/t3code-claude.md',
+        'evals/review-metadata/exercises/t3code-codex.md',
+        'evals/review-metadata/matrix.json',
+        'evals/review-metadata/rubric.md',
         'package-lock.json',
         'package.json',
+        'scripts/markover.ts',
         'scripts/review-metadata-conformance.ts',
+        'src/agent-guidance.ts',
+        'src/metadata-discovery.ts',
         'src/pull-request.ts',
         'src/review-format.ts',
         'tsconfig.build.json',
@@ -340,7 +985,7 @@ test('capture rejects incorrect null fallback for a required identity row', () =
       observation({ discovery }),
       json('evals/review-metadata/matrix.json')
     ),
-    /t3code-codex requires reliable provider thread identity/
+    /t3code-codex requires reliable requesting-thread identity/
   )
 })
 
@@ -370,20 +1015,29 @@ test('truthful-null capture fails closed without verifiable combination metadata
   )
 })
 
-test('capture rejects duplicated provider and host IDs through the v1 decoder', () => {
+test('capture accepts equal requesting and host IDs while recording the relationship', () => {
   const artifact = fixture()
   agentThread(artifact)
   const review = artifact.review as Record<string, unknown>
   const thread = review.agentThread as Record<string, unknown>
   const host = thread.threadHost as Record<string, unknown>
   host.threadId = thread.id
-  assert.throws(
-    () => buildSanitizedEvidence(
-      artifact,
-      observation(),
+  const evidence = buildSanitizedEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  )
+  assert.equal(evidence.relationships.threadHostId, 'equal')
+  assert.equal(
+    evidence.sanitizedAgentThread?.threadHost.threadId,
+    '<redacted-thread-host-thread-id>'
+  )
+  assert.deepEqual(
+    validateSanitizedEvidence(
+      evidence,
       json('evals/review-metadata/matrix.json')
     ),
-    /threadHost.threadId must be omitted when it duplicates agentThread.id/
+    evidence
   )
 })
 
@@ -507,6 +1161,44 @@ test('capture rejects omitted private artifact values in runtime tokens', async 
       )
     })
   }
+})
+
+test('capture rejects short components copied from explicitly private paths', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const sourceDocument = artifact.sourceDocument as Record<string, unknown>
+  sourceDocument.path = '/Users/jsmith/source.md'
+  const runtime = observation().runtime as Record<string, unknown>
+  runtime.providerModel = 'jsmith'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
+  sourceDocument.path = '/Users/dead-beef/source.md'
+  runtime.providerModel = 'deadbeef'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Evidence ID suffix must be independent of private artifact values/
+  )
 })
 
 test('committed evidence rejects path-shaped runtime values', () => {
@@ -639,7 +1331,7 @@ test('committed evidence rejects raw identifiers in place of redaction markers',
       evidence,
       json('evals/review-metadata/matrix.json')
     ),
-    /provider thread ID must use the redaction marker/
+    /requesting-thread ID must use the redaction marker/
   )
 })
 
@@ -918,7 +1610,8 @@ test('documentation fixes rerun and schema-defect handling without storing raw e
     'utf8'
   )
   assert.match(readme, /Raw artifacts stay under `tmp\/review-metadata\/`/)
-  assert.match(readme, /Issue #134 owns normative product\nclassification and aliases/)
+  assert.match(readme, /Issue #134 defines `threadHost.kind`/)
+  assert.match(readme, /equal `threadHost.threadId` is valid/)
   assert.match(readme, /host-only `expansionCandidates`/)
   assert.match(readme, /Rerun an affected row when Markover's metadata guidance/)
   assert.match(rubric, /contract defect descended from issue\n#99/)

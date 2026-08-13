@@ -10,7 +10,9 @@ import path from 'node:path'
 import {
   LocalServiceError,
   probeService,
-  requestJson
+  readEndpoint,
+  requestJson,
+  requestServiceQuit
 } from '../src/local-client'
 import {
   discoverReviewMetadata,
@@ -41,8 +43,16 @@ import {
   decodeReviewArtifact,
   ReviewFormatError
 } from '../src/review-format'
+import {
+  assertCanonicalReviewRoutingReady,
+  inspectCanonicalHealth,
+  type CanonicalDoctorResult
+} from '../src/canonical-maintenance'
+import {
+  installLinkHandler,
+  type LinkHandlerMutationResult
+} from '../src/link-handler'
 
-const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
 
 const helpAliases = new Set(['help', 'info', '--help', '-h'])
@@ -63,6 +73,7 @@ interface ParsedInstanceTarget {
 
 export type ParsedCommand = ParsedInstanceTarget & (
   | { command: 'help' }
+  | { command: 'canonical'; action: 'doctor' | 'refresh' }
   | { command: 'cleanup'; expectedIdentity: `pr-${number}` }
   | { command: 'edit'; reviewId: string }
   | {
@@ -135,12 +146,13 @@ export function helpPayload() {
     },
     workflow: [
       'Create the Markdown file before opening it.',
+      'Canonical review creation verifies that the configured development handler exactly owns markover: before creating the review. If routing is unhealthy, run canonical refresh from any checkout and retry open.',
       'Run open once, then retain the returned reviewId in the agent thread.',
       'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before interpreting a returned review, require format markover-review and version 1. For any other header, preserve the artifact, consult the official compatibility catalog named by the diagnostic, recommend the compatible Markover release when listed, and never guess at the body.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
-      'For agent-originated reviews, provide truthful thread metadata when observable: --thread-id is the provider thread ID; --thread-host-kind is the application containing the thread; --thread-host-provider is the provider serving it; --thread-host-thread-id is only a distinct host-owned ID; and --thread-host-machine should use the local hostname result when available. Omit unavailable values rather than guessing.',
+      'For agent-originated reviews, provide truthful thread metadata when observable: --thread-id is the best observable requesting-thread or session ID; --thread-host-kind is the user-facing product or lookup namespace where the user would look for the thread; --thread-host-provider is the LLM provider or model family in use, not an intermediate harness; --thread-host-thread-id is only a distinct host-owned ID; and --thread-host-machine should use the local hostname result when available. Use recommended product values when they match observable facts, preserve truthful unknown values, and omit unavailable values rather than guessing.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
       'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
@@ -162,7 +174,7 @@ export function helpPayload() {
     commands: [
       {
         name: 'open',
-        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <provider-id> | --handoff-key <key>] [--thread-host-kind <kind> --thread-host-provider <provider> [--thread-host-thread-id <distinct-id>] [--thread-host-machine <hostname>]]',
+        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <thread-or-session-id> | --handoff-key <key>] [--thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family> [--thread-host-thread-id <distinct-host-id>] [--thread-host-machine <hostname>]]',
         purpose: 'Open a durable, non-blocking review and print {reviewId,status,reviewUrl} as JSON.'
       },
       {
@@ -184,6 +196,11 @@ export function helpPayload() {
         name: 'edit',
         usage: 'edit <review-id>',
         purpose: 'Return a frozen review to editing so the user can add or change feedback.'
+      },
+      {
+        name: 'canonical',
+        usage: 'canonical <doctor|refresh>',
+        purpose: 'Inspect or rebuild the configured canonical instance and reconcile exact markover: ownership from any checkout.'
       },
       {
         name: 'cleanup',
@@ -245,6 +262,27 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     return targeted({ command: 'help' as const })
   }
   if (
+    command === 'canonical'
+  ) {
+    if (instance) {
+      throw commandError(
+        'canonical maintenance does not accept --instance.',
+        'markover canonical <doctor|refresh>'
+      )
+    }
+    const action = rest[0]
+    if (
+      rest.length !== 1 ||
+      (action !== 'doctor' && action !== 'refresh')
+    ) {
+      throw commandError(
+        'canonical requires doctor or refresh.',
+        'markover canonical <doctor|refresh>'
+      )
+    }
+    return { command, action }
+  }
+  if (
     command !== 'open' &&
     command !== 'get' &&
     command !== 'revise' &&
@@ -266,7 +304,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       `Unknown command: ${command}`,
-      'markover <open|get|revise|done|edit|cleanup|help> ...'
+      'markover <open|get|revise|done|edit|canonical|cleanup|help> ...'
     )
   }
 
@@ -502,7 +540,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   if (threadId && handoffKey) {
     throw commandError(
       '--thread-id and --handoff-key are alternatives; provide only one.',
-      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+      'markover open <markdown-path> --summary <text> [--thread-id <thread-or-session-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family>'
     )
   }
   const hasThreadIdentity = Boolean(threadId || handoffKey)
@@ -515,19 +553,13 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   if (hasThreadIdentity && (!threadHostKind || !threadHostProvider)) {
     throw commandError(
       '--thread-id or --handoff-key requires --thread-host-kind and --thread-host-provider.',
-      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+      'markover open <markdown-path> --summary <text> [--thread-id <thread-or-session-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family>'
     )
   }
   if (hasThreadHostMetadata && !hasThreadIdentity) {
     throw commandError(
       'Thread-host metadata requires --thread-id or --handoff-key.',
-      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
-    )
-  }
-  if (threadId && threadHostThreadId === threadId) {
-    throw commandError(
-      '--thread-host-thread-id must be omitted when it duplicates --thread-id.',
-      'markover open <markdown-path> --summary <text> --thread-id <provider-id> --thread-host-kind <kind> --thread-host-provider <provider>'
+      'markover open <markdown-path> --summary <text> [--thread-id <thread-or-session-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family>'
     )
   }
   if (pullRequestUrl && !pullRequestNumber) {
@@ -577,26 +609,18 @@ function delay(milliseconds: number): Promise<void> {
 }
 
 export interface ResolveMarkoverAppOptions {
-  architecture?: string
   environment?: NodeJS.ProcessEnv
   exists?: (candidate: string) => boolean
   homeDirectory?: string
 }
 
 export function resolveMarkoverApp({
-  architecture = process.arch,
   environment = process.env,
   exists = fsSync.existsSync,
   homeDirectory = os.homedir()
 }: ResolveMarkoverAppOptions = {}): string | null {
   const candidates = [
     environment.MARKOVER_APP_PATH,
-    path.join(
-      projectDirectory,
-      'dist',
-      `Markover-darwin-${architecture}`,
-      'Markover.app'
-    ),
     path.join(homeDirectory, 'Applications', 'Markover.app'),
     '/Applications/Markover.app'
   ].filter((candidate): candidate is string => Boolean(candidate))
@@ -649,7 +673,7 @@ export function startDetachedInstance(
   if (platform !== 'darwin') {
     throw new Error('Automatic Markover startup currently requires macOS.')
   }
-  if (instance.identity.kind === 'canonical') {
+  if (instance.identity.kind === 'canonical' && !instance.checkout) {
     const packagedApp = resolveMarkoverApp(appOptions)
     if (packagedApp) {
       startDetachedApp({
@@ -753,6 +777,223 @@ export interface ExecuteCommandOptions {
   ) => Promise<ReviewMetadata>
   readSessionDiscoverySetting?: (settingsPath: string) => Promise<boolean>
   settingsPath?: string
+  doctorCanonical?: () => Promise<CanonicalDoctorResult>
+  refreshCanonical?: () => Promise<CanonicalRefreshResult>
+  verifyCanonicalRouting?: (instance: ResolvedInstance) => Promise<void>
+}
+
+export interface CanonicalRefreshResult {
+  format: 'markover-canonical-refresh'
+  version: 1
+  status: 'healthy'
+  checkout: string
+  handler: LinkHandlerMutationResult
+  doctor: CanonicalDoctorResult
+}
+
+export interface RefreshCanonicalOptions {
+  build?: (checkout: string) => Promise<void>
+  checkoutIsClean?: (checkout: string) => boolean
+  doctor?: (instance: ResolvedInstance) => Promise<CanonicalDoctorResult>
+  isProcessAlive?: (pid: number) => boolean
+  launch?: (instance: ResolvedInstance) => void
+  now?: () => number
+  quit?: (endpointPath: string) => Promise<void>
+  readProcessPid?: (endpointPath: string) => Promise<number>
+  replaceHandler?: (
+    instance: ResolvedInstance
+  ) => Promise<LinkHandlerMutationResult>
+  resolve?: () => Promise<ResolvedInstance>
+  timeoutMilliseconds?: number
+  wait?: (milliseconds: number) => Promise<void>
+}
+
+function commandFailure(result: ReturnType<typeof spawnSync>): string {
+  const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : ''
+  const stdout = typeof result.stdout === 'string' ? result.stdout.trim() : ''
+  return result.error?.message || stderr || stdout ||
+    `command exited ${String(result.status ?? 1)}`
+}
+
+function buildCanonicalCheckout(checkout: string): Promise<void> {
+  const result = spawnSync('npm', ['run', 'build', '--silent'], {
+    cwd: checkout,
+    encoding: 'utf8'
+  })
+  if (result.error || result.status !== 0) {
+    throw new Error(`Canonical build failed: ${commandFailure(result)}`)
+  }
+  return Promise.resolve()
+}
+
+function canonicalCheckoutIsClean(checkout: string): boolean {
+  const result = spawnSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=all'],
+    { cwd: checkout, encoding: 'utf8' }
+  )
+  if (result.error || result.status !== 0) {
+    throw new Error(
+      `Cannot inspect canonical checkout cleanliness: ${commandFailure(result)}`
+    )
+  }
+  return typeof result.stdout === 'string' && result.stdout.trim() === ''
+}
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return errorCode(error) !== 'ESRCH'
+  }
+}
+
+function launchCanonicalCheckout(instance: ResolvedInstance): void {
+  if (!instance.checkout) throw new Error('Canonical checkout is unavailable.')
+  const environment = { ...process.env }
+  delete environment.ELECTRON_RUN_AS_NODE
+  const child = spawn(
+    process.execPath,
+    [
+      path.join(instance.checkout, 'build/scripts/start.js'),
+      '--instance',
+      'canonical',
+      '--markover-server'
+    ],
+    {
+      cwd: instance.checkout,
+      detached: true,
+      env: environment,
+      stdio: 'ignore'
+    }
+  )
+  child.unref()
+}
+
+function sameCanonicalCheckout(
+  expected: ResolvedInstance,
+  current: ResolvedInstance
+): boolean {
+  return expected.identity.kind === 'canonical' &&
+    current.identity.kind === 'canonical' &&
+    expected.checkout !== null &&
+    current.checkout !== null &&
+    path.resolve(expected.checkout) === path.resolve(current.checkout)
+}
+
+export async function refreshCanonicalInstance({
+  build = buildCanonicalCheckout,
+  checkoutIsClean = canonicalCheckoutIsClean,
+  doctor = (instance) => inspectCanonicalHealth(instance),
+  isProcessAlive = processIsAlive,
+  launch = launchCanonicalCheckout,
+  now = Date.now,
+  quit = requestServiceQuit,
+  readProcessPid = async (endpointPath) => (
+    await readEndpoint(endpointPath)
+  ).pid,
+  replaceHandler = (instance) => installLinkHandler(
+    'replace',
+    instance,
+    instance.checkout
+      ? {
+          sourcePath: path.join(
+            instance.checkout,
+            'native/MarkoverLinkHandler.swift'
+          )
+        }
+      : {}
+  ),
+  resolve = () => resolveInstance('canonical'),
+  timeoutMilliseconds = 30_000,
+  wait = delay
+}: RefreshCanonicalOptions = {}): Promise<CanonicalRefreshResult> {
+  const initial = await resolve()
+  if (!initial.checkout || (
+    initial.coldStart.blockedBy !== null &&
+    initial.coldStart.blockedBy !== 'already-running'
+  )) {
+    throw new Error(
+      `Cannot refresh canonical: ${initial.coldStart.blockedBy || 'checkout unavailable'}.`
+    )
+  }
+  if (!checkoutIsClean(initial.checkout)) {
+    throw new Error(
+      `Cannot refresh canonical: the configured checkout is dirty (${initial.checkout}).`
+    )
+  }
+  await build(initial.checkout)
+  const deadline = now() + timeoutMilliseconds
+  const previousPid = initial.process.status === 'running'
+    ? await readProcessPid(initial.service.endpointPath)
+    : null
+  if (initial.process.status === 'running') {
+    await quit(initial.service.endpointPath)
+  }
+  let stopped = initial
+  while ((
+    stopped.process.status !== 'stopped' ||
+    (previousPid !== null && isProcessAlive(previousPid))
+  ) && now() < deadline) {
+    await wait(100)
+    stopped = await resolve()
+    if (!sameCanonicalCheckout(initial, stopped)) {
+      throw new Error('Canonical checkout identity changed during refresh.')
+    }
+  }
+  if (stopped.process.status !== 'stopped') {
+    throw new Error('Timed out waiting for canonical shutdown.')
+  }
+  if (previousPid !== null && isProcessAlive(previousPid)) {
+    throw new Error(
+      `Timed out waiting for canonical process ${String(previousPid)} to release its single-instance lock.`
+    )
+  }
+  if (!stopped.coldStart.eligible) {
+    stopped = {
+      ...stopped,
+      coldStart: stopped.coldStart.blockedBy === 'already-running'
+        ? { eligible: true, blockedBy: null }
+        : stopped.coldStart
+    }
+  }
+  if (!stopped.coldStart.eligible) {
+    throw new Error(
+      `Cannot relaunch canonical: ${stopped.coldStart.blockedBy || 'not eligible'}.`
+    )
+  }
+  launch(stopped)
+  let running = stopped
+  while (running.process.status !== 'running' && now() < deadline) {
+    await wait(100)
+    running = await resolve()
+    if (!sameCanonicalCheckout(initial, running)) {
+      throw new Error('Canonical checkout identity changed during relaunch.')
+    }
+  }
+  if (running.process.status !== 'running') {
+    throw new Error('Timed out waiting for canonical readiness.')
+  }
+  const handler = await replaceHandler(running)
+  let health = await doctor(running)
+  while (health.status !== 'healthy' && now() < deadline) {
+    await wait(100)
+    health = await doctor(running)
+  }
+  if (health.status !== 'healthy') {
+    throw new Error(
+      `Canonical refresh completed but doctor remains unhealthy: ${health.issues.join(' ')}`
+    )
+  }
+  return {
+    format: 'markover-canonical-refresh',
+    version: 1,
+    status: 'healthy',
+    checkout: initial.checkout,
+    handler,
+    doctor: health
+  }
 }
 
 export async function readSessionDiscoverySetting(
@@ -772,6 +1013,12 @@ export async function executeCommand(
   options: ExecuteCommandOptions = {}
 ): Promise<unknown> {
   if (parsed.command === 'help') return helpPayload()
+  if (parsed.command === 'canonical') {
+    if (parsed.action === 'doctor') {
+      return (options.doctorCanonical || inspectCanonicalHealth)()
+    }
+    return (options.refreshCanonical || refreshCanonicalInstance)()
+  }
 
   const selector = parsed.instance || 'canonical'
   const resolveTarget = options.resolveTarget || (
@@ -848,6 +1095,10 @@ export async function executeCommand(
       handoffKey
     })
     await ensure()
+    if (instance) {
+      await (options.verifyCanonicalRouting ||
+        assertCanonicalReviewRoutingReady)(instance)
+    }
     const opened = await requestJson(endpointPath, 'POST', '/reviews', {
       tree,
       pullRequestStatus: parsed.pullRequestStatus,
@@ -924,6 +1175,12 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
     const parsed = parseCommandArguments(args)
     const result = await executeCommand(parsed)
     process.stdout.write(`${JSON.stringify(result)}\n`)
+    if (
+      result !== null &&
+      typeof result === 'object' &&
+      Reflect.get(result, 'format') === 'markover-canonical-doctor' &&
+      Reflect.get(result, 'status') === 'unhealthy'
+    ) process.exitCode = 1
   } catch (error) {
     process.stderr.write(formatCommandError(error))
     process.exitCode = 1
