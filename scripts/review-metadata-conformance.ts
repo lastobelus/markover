@@ -1300,7 +1300,8 @@ function shortExplicitPrivateContainmentCandidates(
 }
 
 function canonicalNumericIdentityCandidates(
-  values: Array<string | null | undefined>
+  values: Array<string | null | undefined>,
+  extractEmbedded = false
 ): Set<string> {
   const canonicalDecimalInteger = (value: string): string | null => {
     const match = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?$/i.exec(
@@ -1338,10 +1339,12 @@ function canonicalNumericIdentityCandidates(
         const numericValues = new Set<string>()
         for (const normalizedValue of reconstructedSegments) {
           numericValues.add(normalizedValue)
-          for (const match of normalizedValue.matchAll(
-            /[+-]?(?:0x[0-9a-f]+|0o[0-7]+|0b[01]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/gi
-          )) {
-            numericValues.add(match[0])
+          if (extractEmbedded) {
+            for (const match of normalizedValue.matchAll(
+              /[+-]?(?:0x[0-9a-f]+|0o[0-7]+|0b[01]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/gi
+            )) {
+              numericValues.add(match[0])
+            }
           }
         }
         for (const numericLiteral of numericValues) {
@@ -1405,7 +1408,8 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     [...completePrivate, ...shortPrivateIdentifiers]
   )
   const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
-    persistedRuntimeValues
+    persistedRuntimeValues,
+    true
   )
   const embedsPrivateCandidate = [...persistedRuntimeCandidates].some(
     (runtimeCandidate) =>
