@@ -1953,12 +1953,12 @@ function htmlCharacterReferenceDecodedVariants(value: string): string[] {
     if (
       encoded.length < 4 ||
       encoded.length > 2048 ||
-      !/&#(?:[0-9]+|[xX][0-9A-Fa-f]+);/.test(encoded)
+      !/&#(?:[0-9]+|[xX][0-9A-Fa-f]+);?/.test(encoded)
     ) {
       return null
     }
     const decoded = encoded.replace(
-      /&#(?:([0-9]+)|[xX]([0-9A-Fa-f]+));/g,
+      /&#(?:([0-9]+)|[xX]([0-9A-Fa-f]+));?/g,
       (reference, decimal: string | undefined, hexadecimal: string | undefined) => {
         const codePoint = Number.parseInt(
           decimal ?? hexadecimal ?? '',
@@ -2013,7 +2013,7 @@ function uuencodedDecodedVariants(value: string): string[] {
     const decodedLength = encoded.charCodeAt(0) - 32
     if (decodedLength < 1 || decodedLength > 45) return null
     const expectedLength = 1 + Math.ceil(decodedLength / 3) * 4
-    if (encoded.length !== expectedLength || !/^[ -_]+$/.test(encoded)) return null
+    if (encoded.length !== expectedLength || !/^[ -`]+$/.test(encoded)) return null
     const bytes: number[] = []
     for (let offset = 1; offset < encoded.length; offset += 4) {
       const first = (encoded.charCodeAt(offset) - 32) & 63
@@ -2027,7 +2027,7 @@ function uuencodedDecodedVariants(value: string): string[] {
       )
     }
     const byteArray = Uint8Array.from(bytes.slice(0, decodedLength))
-    if (encode(byteArray) !== encoded) return null
+    if (encode(byteArray) !== encoded.replace(/`/g, ' ')) return null
     try {
       const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
       return decoded && decoded !== encoded ? decoded : null
