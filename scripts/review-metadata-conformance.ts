@@ -1343,6 +1343,18 @@ function canonicalNumericIdentityCandidates(
             for (const match of normalizedValue.matchAll(
               /[+-]?(?:0x[0-9a-f]+|0o[0-7]+|0b[01]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/gi
             )) {
+              const nextCharacter = normalizedValue[
+                match.index + match[0].length
+              ]
+              if (
+                /^[+-]?0[xob]/i.test(match[0]) &&
+                nextCharacter !== undefined &&
+                /[A-Za-z0-9]/.test(nextCharacter)
+              ) {
+                throw new Error(
+                  'Sanitized evidence runtime contains an ambiguous embedded radix value.'
+                )
+              }
               numericValues.add(match[0])
             }
           }

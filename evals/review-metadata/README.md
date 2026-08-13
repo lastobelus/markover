@@ -255,14 +255,17 @@ produced a fifty-ninth record for each combination.
 Percent-decoded numeric identity canonicalization in runner commit
 `5d706d6085e655d5fc8f370d84e5a4635a3f0056` produced a sixtieth record for each
 combination.
+Runtime-scoped embedded numeric identity extraction in runner commit
+`2166b2ba2f77e8d06c60b557cd95d264d735787c` produced a sixty-first record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v40` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v42` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v40
+git fetch origin refs/tags/issue-136-runner-history-v42
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
