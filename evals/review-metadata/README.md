@@ -249,14 +249,17 @@ each combination.
 Punctuation-stripped numeric identity canonicalization in runner commit
 `13a19119285a7ed26d45b8c0e84b5a7bb7f38f3b` produced a fifty-eighth record for
 each combination.
+Public-schema candidate filtering and fractional numeric identity
+canonicalization in runner commit `0acfce4b895c755c4b1c5ffa0f0901cbf5363aca`
+produced a fifty-ninth record for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v38` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v39` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v38
+git fetch origin refs/tags/issue-136-runner-history-v39
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

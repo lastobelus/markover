@@ -1322,38 +1322,40 @@ function canonicalNumericIdentityCandidates(
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
-    const segments = value.split(' ')
-    const numericSegments = new Set([value])
-    for (let start = 0; start < segments.length; start += 1) {
-      for (let end = start + 1; end <= segments.length; end += 1) {
-        numericSegments.add(segments.slice(start, end).join(''))
+    for (const variant of [value, ...percentDecodedVariants(value)]) {
+      const segments = variant.split(' ')
+      const numericSegments = new Set([variant])
+      for (let start = 0; start < segments.length; start += 1) {
+        for (let end = start + 1; end <= segments.length; end += 1) {
+          numericSegments.add(segments.slice(start, end).join(''))
+        }
       }
-    }
-    for (const segment of numericSegments) {
-      const reconstructedSegments = new Set([
-        segment.replace(/_/g, ''),
-        segment.replace(/[^A-Za-z0-9]/g, '')
-      ])
-      const numericValues = [...reconstructedSegments].flatMap(
-        (normalizedValue) => [
-          normalizedValue,
-          ...(/^(?:version|ver|v)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
-            normalizedValue
-          )
-            ? [normalizedValue.replace(/^(?:version|ver|v)/i, '')]
-            : [])
+      for (const segment of numericSegments) {
+        const reconstructedSegments = new Set([
+          segment.replace(/_/g, ''),
+          segment.replace(/[^A-Za-z0-9]/g, '')
         ])
-      for (const numericLiteral of numericValues) {
-        const radixInteger = /^([+-]?)(0x[0-9a-f]+|0o[0-7]+|0b[01]+)$/i.exec(
-          numericLiteral
-        )
-        const radixBody = radixInteger?.[2]
-        const canonical = radixBody !== undefined
-          ? canonicalDecimalInteger(
-              `${radixInteger?.[1] === '-' ? '-' : ''}${BigInt(radixBody).toString()}`
+        const numericValues = [...reconstructedSegments].flatMap(
+          (normalizedValue) => [
+            normalizedValue,
+            ...(/^(?:version|ver|v)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
+              normalizedValue
             )
-          : canonicalDecimalInteger(numericLiteral)
-        if (canonical !== null) candidates.add(canonical)
+              ? [normalizedValue.replace(/^(?:version|ver|v)/i, '')]
+              : [])
+          ])
+        for (const numericLiteral of numericValues) {
+          const radixInteger = /^([+-]?)(0x[0-9a-f]+|0o[0-7]+|0b[01]+)$/i.exec(
+            numericLiteral
+          )
+          const radixBody = radixInteger?.[2]
+          const canonical = radixBody !== undefined
+            ? canonicalDecimalInteger(
+                `${radixInteger?.[1] === '-' ? '-' : ''}${BigInt(radixBody).toString()}`
+              )
+            : canonicalDecimalInteger(numericLiteral)
+          if (canonical !== null) candidates.add(canonical)
+        }
       }
     }
   }
