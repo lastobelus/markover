@@ -258,6 +258,24 @@ test('capture compares private identifiers without case distinctions', async (t)
     )
   })
 
+  await t.test('identifier embedded without a runtime-token delimiter', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'ACCT12345'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('short identity used as a complete runtime value', () => {
     const artifact = fixture()
     agentThread(artifact)
