@@ -14,6 +14,7 @@ import {
   validateMetadataCorpus,
   validateSanitizedFailureEvidence,
   validateSanitizedEvidence,
+  verifyContractDefectIssue,
   verifySourceCommitPullRequest
 } from '../scripts/review-metadata-conformance'
 
@@ -329,7 +330,8 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
     ),
     `${JSON.stringify(failure, null, 2)}\n`
   )
-  assert.deepEqual(validateMetadataCorpus(temporaryRoot, true), {
+  const verifyDefect = (): void => {}
+  assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
     evidenceCount: 28,
     matrixEntryCount: 3
   })
@@ -337,9 +339,69 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   firstEntry.evidence = [failure.evidenceId]
   fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`)
   assert.throws(
-    () => validateMetadataCorpus(temporaryRoot, true),
+    () => validateMetadataCorpus(temporaryRoot, true, verifyDefect),
     /t3code-codex has no committed live evidence/
   )
+})
+
+test('failure links must follow the same-repository parent tree to issue 99', async (t) => {
+  await t.test('accepts a bounded descendant chain', () => {
+    const calls: number[] = []
+    verifyContractDefectIssue(
+      'https://github.com/lastobelus/markover/pull/141',
+      200,
+      root,
+      (args) => {
+        const current = Number(args[2])
+        calls.push(current)
+        const parent = current === 200 ? 150 : 99
+        return {
+          status: 0,
+          stderr: '',
+          stdout: JSON.stringify({
+            number: current,
+            parent: {
+              number: parent,
+              repository: { nameWithOwner: 'lastobelus/markover' }
+            }
+          })
+        }
+      }
+    )
+    assert.deepEqual(calls, [200, 150])
+  })
+
+  await t.test('rejects an issue outside the contract tree', () => {
+    assert.throws(
+      () => {
+        verifyContractDefectIssue(
+          'https://github.com/lastobelus/markover/pull/141',
+          200,
+          root,
+          () => ({
+            status: 0,
+            stderr: '',
+            stdout: JSON.stringify({ number: 200, parent: null })
+          })
+        )
+      },
+      /must descend from issue #99/
+    )
+  })
+
+  await t.test('rejects a nonexistent issue', () => {
+    assert.throws(
+      () => {
+        verifyContractDefectIssue(
+          'https://github.com/lastobelus/markover/pull/141',
+          404,
+          root,
+          () => ({ status: 1, stderr: 'issue not found', stdout: '' })
+        )
+      },
+      /Cannot verify contract defect #404: issue not found/
+    )
+  })
 })
 
 test('capture rejects retained values whose discovery is unavailable', () => {
