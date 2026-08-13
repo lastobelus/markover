@@ -372,14 +372,17 @@ for each combination, using independent suffix `xqzvnjkh`.
 Unprefixed Proquint comparison in runner commit
 `87a1d65c9c16b3628f334fef91721a9c4c7664aa` produced a ninety-eighth record
 for each combination, using independent suffix `yqzvnjkh`.
+Segmented runtime reversible-decoding comparison in runner commit
+`8c0d65850caf778d775f48f017630f0de492c735` produced a ninety-ninth record for
+each combination, using independent suffix `zqzvnjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v81` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v82` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v81
+git fetch origin refs/tags/issue-136-runner-history-v82
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
