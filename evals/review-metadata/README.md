@@ -128,8 +128,10 @@ produced the next records, followed by defect-ancestry-verifying runner commit
 `30239c3cc1dc6e31b29a5491657fe14f7c97c86e`, then all-artifact-string privacy
 runner commit `4347774bc7644631f5bf98a7d40e3e772f1a4bb5`, followed by extension-key
 privacy runner commit `7266b46701d7cc0df21bc88f9f939f9aa32dab03`, then unified success/failure
-privacy runner commit `8d3c0688d787db5f8bc444c3a8e5b71e607c7ecd`. All thirteen immutable
-records per combination remain referenced by the matrix.
+privacy runner commit `8d3c0688d787db5f8bc444c3a8e5b71e607c7ecd`, followed by complete
+exercise-input and ignored-observation binding in runner commit
+`53f2ddfeaaa9b1a4732cd46f6f594a976c260c6e`. All fourteen immutable records per
+combination remain referenced by the matrix.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
