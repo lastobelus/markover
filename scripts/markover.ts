@@ -140,7 +140,7 @@ export function helpPayload() {
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before interpreting a returned review, require format markover-review and version 1. For any other header, preserve the artifact, consult the official compatibility catalog named by the diagnostic, recommend the compatible Markover release when listed, and never guess at the body.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
-      'For agent-originated reviews, provide truthful thread metadata when observable: --thread-id is the provider thread ID; --thread-host-kind is the application containing the thread; --thread-host-provider is the provider serving it; --thread-host-thread-id is only a distinct host-owned ID; and --thread-host-machine should use the local hostname result when available. Omit unavailable values rather than guessing.',
+      'For agent-originated reviews, provide truthful thread metadata when observable: --thread-id is the best observable requesting-thread or session ID; --thread-host-kind is the user-facing product or lookup namespace where the user would look for the thread; --thread-host-provider is the LLM provider or model family in use, not an intermediate harness; --thread-host-thread-id is only a distinct host-owned ID; and --thread-host-machine should use the local hostname result when available. Use recommended product values when they match observable facts, preserve truthful unknown values, and omit unavailable values rather than guessing.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
       'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
@@ -162,7 +162,7 @@ export function helpPayload() {
     commands: [
       {
         name: 'open',
-        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <provider-id> | --handoff-key <key>] [--thread-host-kind <kind> --thread-host-provider <provider> [--thread-host-thread-id <distinct-id>] [--thread-host-machine <hostname>]]',
+        usage: 'open <markdown-path> --summary <text> [--branch <name>] [--pr <number> --pr-url <url> --pr-status <draft|open|merged|closed>] [--thread-id <thread-or-session-id> | --handoff-key <key>] [--thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family> [--thread-host-thread-id <distinct-host-id>] [--thread-host-machine <hostname>]]',
         purpose: 'Open a durable, non-blocking review and print {reviewId,status,reviewUrl} as JSON.'
       },
       {
@@ -502,7 +502,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   if (threadId && handoffKey) {
     throw commandError(
       '--thread-id and --handoff-key are alternatives; provide only one.',
-      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+      'markover open <markdown-path> --summary <text> [--thread-id <thread-or-session-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family>'
     )
   }
   const hasThreadIdentity = Boolean(threadId || handoffKey)
@@ -515,19 +515,13 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   if (hasThreadIdentity && (!threadHostKind || !threadHostProvider)) {
     throw commandError(
       '--thread-id or --handoff-key requires --thread-host-kind and --thread-host-provider.',
-      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+      'markover open <markdown-path> --summary <text> [--thread-id <thread-or-session-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family>'
     )
   }
   if (hasThreadHostMetadata && !hasThreadIdentity) {
     throw commandError(
       'Thread-host metadata requires --thread-id or --handoff-key.',
-      'markover open <markdown-path> --summary <text> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
-    )
-  }
-  if (threadId && threadHostThreadId === threadId) {
-    throw commandError(
-      '--thread-host-thread-id must be omitted when it duplicates --thread-id.',
-      'markover open <markdown-path> --summary <text> --thread-id <provider-id> --thread-host-kind <kind> --thread-host-provider <provider>'
+      'markover open <markdown-path> --summary <text> [--thread-id <thread-or-session-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <llm-provider-or-model-family>'
     )
   }
   if (pullRequestUrl && !pullRequestNumber) {

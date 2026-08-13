@@ -78,8 +78,9 @@ Markdown artifact:
    `--handoff-key mko_handoff_<16-to-64-alphanumeric-characters>`. With either
    identity, pass truthful `--thread-host-kind` and
    `--thread-host-provider`; they name separate dimensions but may have the
-   same value. Pass `--thread-host-thread-id` only for a distinct host-owned
-   identifier, never a duplicate provider ID. Run `hostname` when available
+   same value. Here provider means the LLM provider or model family, not an
+   intermediate harness. Pass `--thread-host-thread-id` only for a distinct
+   host-owned identifier. Run `hostname` when available
    and pass its output as `--thread-host-machine`. Omit optional values rather
    than guessing.
 5. Report a best-effort Markdown link using the returned `reviewUrl`, the raw

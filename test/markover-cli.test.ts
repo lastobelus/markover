@@ -332,8 +332,8 @@ test('parses explicit review metadata', () => {
     ]),
     /requires --thread-host-kind and --thread-host-provider/
   )
-  assert.throws(
-    () => parseCommandArguments([
+  assert.deepEqual(
+    parseCommandArguments([
       'open',
       'plan.md',
       '--summary',
@@ -347,7 +347,21 @@ test('parses explicit review metadata', () => {
       '--thread-host-thread-id',
       'same-thread'
     ]),
-    /must be omitted when it duplicates/
+    {
+      command: 'open',
+      sourcePath: 'plan.md',
+      contextSummary: 'Review.',
+      branch: null,
+      handoffKey: null,
+      pullRequestNumber: null,
+      pullRequestUrl: null,
+      pullRequestStatus: null,
+      threadId: 'same-thread',
+      threadHostKind: 'codex',
+      threadHostProvider: 'codex',
+      threadHostThreadId: 'same-thread',
+      threadHostMachine: null
+    }
   )
   assert.throws(
     () => parseCommandArguments([
