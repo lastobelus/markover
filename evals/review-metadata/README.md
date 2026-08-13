@@ -206,14 +206,17 @@ each combination.
 Short additive scalar containment in runner commit
 `07b89385a3c20840c7091b1c1bed3ecf46476005` produced a forty-fourth record for
 each combination.
+All-length additive string containment in runner commit
+`9b23cf885ff01e0fb62e035c0ca127ae23690bae` produced a forty-fifth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v24` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v25` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v24
+git fetch origin refs/tags/issue-136-runner-history-v25
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
