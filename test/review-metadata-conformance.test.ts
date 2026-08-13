@@ -1378,6 +1378,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('encoded private values in runtime segments', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { secret: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'v1 YWNjdDEyMzQ1'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('base-36 encoded private numeric identities', () => {
     const artifact = fixture()
     agentThread(artifact)

@@ -2208,6 +2208,35 @@ function canonicalNumericIdentityCandidates(
   return candidates
 }
 
+function reversibleRuntimeVariants(value: string): string[] {
+  const seeds = new Set([value])
+  const segments = value.split(' ')
+  for (let start = 0; start < segments.length; start += 1) {
+    for (
+      let end = start + 1;
+      end <= Math.min(start + 5, segments.length);
+      end += 1
+    ) {
+      const subset = segments.slice(start, end)
+      seeds.add(subset.join(' '))
+      seeds.add(subset.join(''))
+    }
+  }
+  const variants = new Set<string>()
+  const maximumVariants = 2048
+  for (const seed of seeds) {
+    for (const candidate of [seed, ...reversibleDecodedVariants(seed)]) {
+      if (variants.size >= maximumVariants && !variants.has(candidate)) {
+        throw new Error(
+          'Sanitized evidence runtime exceeds the safe segmented-decoding bound.'
+        )
+      }
+      variants.add(candidate)
+    }
+  }
+  return [...variants]
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation,
@@ -2223,7 +2252,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     runtime.providerVersion
   ]
   const expandedRuntimeValues = persistedRuntimeValues.flatMap((value) =>
-    value === null ? [value] : [value, ...reversibleDecodedVariants(value)])
+    value === null ? [value] : reversibleRuntimeVariants(value))
   const privateCandidates = privateValueCandidates(
     values,
     alwaysPrivate,
