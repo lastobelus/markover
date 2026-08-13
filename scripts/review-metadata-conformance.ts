@@ -1301,7 +1301,7 @@ function base32DecodedVariants(value: string): string[] {
   }
   const decodeOnce = (encoded: string): string | null => {
     if (
-      encoded.length < 8 ||
+      encoded.length < 2 ||
       encoded.length > 256 ||
       !/^[A-Z2-7]+={0,6}$/i.test(encoded)
     ) {
@@ -1350,6 +1350,72 @@ function base32DecodedVariants(value: string): string[] {
   return variants
 }
 
+function base32hexDecodedVariants(value: string): string[] {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUV'
+  const encode = (bytes: Uint8Array): string => {
+    let bits = 0
+    let buffer = 0
+    let encoded = ''
+    for (const byte of bytes) {
+      buffer = (buffer << 8) | byte
+      bits += 8
+      while (bits >= 5) {
+        bits -= 5
+        encoded += alphabet.charAt((buffer >>> bits) & 31)
+      }
+    }
+    if (bits > 0) encoded += alphabet.charAt((buffer << (5 - bits)) & 31)
+    return encoded
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (
+      encoded.length < 2 ||
+      encoded.length > 256 ||
+      !/^[0-9A-V]+={0,6}$/i.test(encoded)
+    ) return null
+    const unpadded = encoded.replace(/=+$/, '').toUpperCase()
+    let bits = 0
+    let buffer = 0
+    const bytes: number[] = []
+    for (const character of unpadded) {
+      const value = alphabet.indexOf(character)
+      if (value < 0) return null
+      buffer = (buffer << 5) | value
+      bits += 5
+      if (bits >= 8) {
+        bits -= 8
+        bytes.push((buffer >>> bits) & 255)
+      }
+    }
+    if (bits > 0 && (buffer & ((1 << bits) - 1)) !== 0) return null
+    const byteArray = Uint8Array.from(bytes)
+    if (encode(byteArray) !== unpadded) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  const maximumPasses = 4
+  let completedPasses = 0
+  for (let pass = 0; pass < maximumPasses; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+    completedPasses += 1
+  }
+  if (completedPasses === maximumPasses && decodeOnce(current) !== null) {
+    throw new Error(
+      'Sanitized evidence contains Base32hex encoding beyond the safe decoding depth.'
+    )
+  }
+  return variants
+}
+
 function base58btcDecodedVariants(value: string): string[] {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
   const encode = (bytes: Uint8Array): string => {
@@ -1368,7 +1434,7 @@ function base58btcDecodedVariants(value: string): string[] {
   }
   const decodeOnce = (encoded: string): string | null => {
     if (
-      encoded.length < 4 ||
+      encoded.length < 1 ||
       encoded.length > 256 ||
       !/^[1-9A-HJ-NP-Za-km-z]+$/.test(encoded)
     ) {
@@ -1420,7 +1486,7 @@ function base58btcDecodedVariants(value: string): string[] {
 function hexadecimalDecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
-      encoded.length < 8 ||
+      encoded.length < 2 ||
       encoded.length > 256 ||
       encoded.length % 2 !== 0 ||
       !/^[0-9a-f]+$/i.test(encoded)
@@ -1464,6 +1530,9 @@ function multibaseDecodedVariants(value: string): string[] {
     case 'b':
     case 'B':
       return base32DecodedVariants(body)
+    case 'v':
+    case 'V':
+      return base32hexDecodedVariants(body)
     case 'm':
     case 'M':
     case 'u':
@@ -1488,6 +1557,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...percentDecodedVariants(current),
       ...base64DecodedVariants(current),
       ...base32DecodedVariants(current),
+      ...base32hexDecodedVariants(current),
       ...base58btcDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
