@@ -1525,6 +1525,11 @@ function multibaseDecodedVariants(value: string): string[] {
   if (value.length < 2) return []
   const body = value.slice(1)
   switch (value[0]) {
+    case '0':
+    case '9':
+      return [body]
+    case '7':
+      return [/^[0-7]+$/.test(body) ? `0o${body}` : body]
     case 'z':
       return base58btcDecodedVariants(body)
     case 'b':
