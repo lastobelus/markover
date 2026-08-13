@@ -277,14 +277,17 @@ the runner-derived suffix itself contained a rejected embedded numeric value.
 Fixed-width unprefixed hexadecimal identity comparison in runner commit
 `bf0e5ffbf935dbe39d6263959345eef037b01794` produced a sixty-seventh record for
 each combination, using independent suffix `wqzvmjkh`.
+Symmetric digit-only fixed-width hexadecimal comparison in runner commit
+`a5cc48325822384d776d037d4ce620bc03aa64d9` produced a sixty-eighth record for
+each combination, using independent suffix `xqzvmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v48` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v49` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v48
+git fetch origin refs/tags/issue-136-runner-history-v49
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
