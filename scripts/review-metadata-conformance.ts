@@ -853,6 +853,37 @@ function privateCaptureStrings(
   ]
 }
 
+function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
+  if (!isRecord(artifactValue)) return []
+  const sourceDocument = isRecord(artifactValue.sourceDocument)
+    ? artifactValue.sourceDocument
+    : undefined
+  const review = isRecord(artifactValue.review)
+    ? artifactValue.review
+    : undefined
+  const git = review && isRecord(review.git) ? review.git : undefined
+  const pullRequest = review && isRecord(review.pullRequest)
+    ? review.pullRequest
+    : undefined
+  const agentThread = review && isRecord(review.agentThread)
+    ? review.agentThread
+    : undefined
+  const threadHost = agentThread && isRecord(agentThread.threadHost)
+    ? agentThread.threadHost
+    : undefined
+  return [
+    sourceDocument?.path,
+    review?.id,
+    git?.repositoryUrl,
+    git?.branch,
+    git?.commit,
+    pullRequest?.url,
+    agentThread?.id,
+    threadHost?.threadId,
+    threadHost?.machine
+  ].filter((value): value is string => typeof value === 'string')
+}
+
 function privateValueCandidates(
   values: Array<string | null | undefined>,
   alwaysPrivate: Array<string | null | undefined> = []
@@ -1045,12 +1076,7 @@ export function buildSanitizedEvidence(
   const privateInputs = privateCaptureStrings(artifact, observation)
   const privateIdentities = sensitiveLeaves.map(({ raw }) => raw)
   const explicitlyPrivateInputs = [
-    artifact.sourceDocument.path,
-    artifact.review.id,
-    artifact.review.git?.repositoryUrl,
-    artifact.review.git?.branch,
-    artifact.review.git?.commit,
-    artifact.review.pullRequest?.url,
+    ...explicitlyPrivateArtifactStrings(artifact),
     ...privateIdentities
   ]
   assertEvidenceIdIndependent(
@@ -1113,7 +1139,8 @@ export function recordConformanceEvidence(
     const observation = parseCaptureObservation(observationValue)
     const suffix = observation.evidenceId.slice(-8).toLowerCase()
     if (privateValueCandidates(
-      privateCaptureStrings(artifactValue, observation)
+      privateCaptureStrings(artifactValue, observation),
+      explicitlyPrivateArtifactStrings(artifactValue)
     ).has(suffix)) {
       throw new Error(
         'Failure evidence ID suffix must be independent of every raw artifact string and key.',

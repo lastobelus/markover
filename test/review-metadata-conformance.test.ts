@@ -645,6 +645,24 @@ test('failure evidence rejects a suffix copied from an extension key', () => {
   )
 })
 
+test('failure evidence rejects a normalized explicitly private path suffix', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const sourceDocument = artifact.sourceDocument as Record<string, unknown>
+  sourceDocument.path = '/Users/dead-beef/source.md'
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
 test('failure evidence rejects a suffix copied from a numeric extension leaf', () => {
   const artifact = fixture()
   agentThread(artifact)
