@@ -565,7 +565,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 49,
+    evidenceCount: 52,
     matrixEntryCount: 3
   })
 
