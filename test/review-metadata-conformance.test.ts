@@ -1263,10 +1263,20 @@ test('capture normalizes nested attachment paths as explicitly private', () => {
   const attachments = children[1]?.attachments as Array<Record<string, unknown>>
   assert.ok(attachments[0])
   attachments[0].path = '/Users/jsmith/image.png'
-  attachments[0].url = 'file:///Users/dead-beef/image.png'
+  attachments[0].url = 'file:///Users/dead%252Dbeef/image.png'
 
   const runtime = observation().runtime as Record<string, unknown>
   runtime.providerModel = 'jsmith'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
+  runtime.providerModel = 'deadbeef'
   assert.throws(
     () => buildSanitizedEvidence(
       artifact,

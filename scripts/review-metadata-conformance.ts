@@ -971,6 +971,26 @@ function privateValueCandidates(
   completePrivate: Array<string | null | undefined> = []
 ): Set<string> {
   const candidates = new Set<string>()
+  const percentDecodedVariants = (value: string): string[] => {
+    const variants: string[] = []
+    let current = value
+    for (let pass = 0; pass < 5; pass += 1) {
+      let decoded: string
+      try {
+        decoded = decodeURIComponent(current)
+      } catch {
+        decoded = current.replace(
+          /%([0-7][0-9a-f])/gi,
+          (_match: string, hex: string) =>
+            String.fromCharCode(Number.parseInt(hex, 16))
+        )
+      }
+      if (decoded === current) break
+      variants.push(decoded)
+      current = decoded
+    }
+    return variants
+  }
   const addValue = (
     value: string,
     minimumLength: number,
@@ -1014,7 +1034,12 @@ function privateValueCandidates(
     if (value !== null && value !== undefined) addValue(value, 8)
   }
   for (const value of alwaysPrivate) {
-    if (value !== null && value !== undefined) addValue(value, 1)
+    if (value !== null && value !== undefined) {
+      addValue(value, 1)
+      for (const decoded of percentDecodedVariants(value)) {
+        addValue(decoded, 1)
+      }
+    }
   }
   for (const value of completePrivate) {
     if (value !== null && value !== undefined) {
