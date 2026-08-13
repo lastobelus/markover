@@ -360,14 +360,17 @@ each combination, using independent suffix `rqzvnjkh`.
 Unprefixed Base45 and Adobe-framed ASCII85 comparison in runner commit
 `0e19ba58157bba22c33370c2ecc909c691b6b25a` produced a ninety-fourth record for
 each combination, using independent suffix `tqzvnjkh`.
+Punycode private-value and historical PR-provenance comparison in runner commit
+`f4829e619dac04f44fdae0d0abe886c90b0eb3f3` produced a ninety-fifth record for
+each combination, using independent suffix `uqzvnjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v77` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v78` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v77
+git fetch origin refs/tags/issue-136-runner-history-v78
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

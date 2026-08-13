@@ -125,7 +125,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 282,
+    evidenceCount: 285,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -142,7 +142,7 @@ test('corpus validation passes every record to provenance verification', () => {
     assert.ok(evidence.every(({ sourceCommit }) => sourceCommit.length === 40))
   }
   validateMetadataCorpus(root, true, verifyDefect, verifyProvenance)
-  assert.equal(received, 282)
+  assert.equal(received, 285)
 })
 
 test('corpus provenance includes GitHub-recorded pre-force-push heads', () => {
@@ -2296,7 +2296,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 283,
+    evidenceCount: 286,
     matrixEntryCount: 3
   })
 
