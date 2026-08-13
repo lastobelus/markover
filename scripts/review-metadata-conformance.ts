@@ -1342,7 +1342,7 @@ function canonicalNumericIdentityCandidates(
         const numericValues = new Set<string>()
         for (const normalizedValue of reconstructedSegments) {
           numericValues.add(normalizedValue)
-          const fixedWidthHex = /^([+-]?)([0-9a-f]{8,})$/i.exec(
+          const fixedWidthHex = /^([+-]?)([0-9a-f]+)$/i.exec(
             normalizedValue
           )
           if (fixedWidthHex !== null) {
@@ -1392,7 +1392,7 @@ function canonicalNumericIdentityCandidates(
               }
             }
             for (const match of normalizedValue.matchAll(/[0-9a-f]+/gi)) {
-              for (let width = 8; width <= match[0].length; width += 1) {
+              for (let width = 1; width <= match[0].length; width += 1) {
                 for (let start = 0; start + width <= match[0].length; start += 1) {
                   const window = match[0].slice(start, start + width)
                   const decimal = BigInt(`0x${window}`).toString()

@@ -57,7 +57,7 @@ function observation(
 ): Record<string, unknown> {
   return {
     schemaVersion: 1,
-    evidenceId: '2026-08-12__t3code-codex__1234abcd',
+    evidenceId: '2026-08-12__t3code-codex__vqzwmjkh',
     matrixEntryId: 't3code-codex',
     exercisedAt: '2026-08-12T12:34:56.789Z',
     sourceCommit: '903a58abd2720bf82b95df3688dfb40995367e3c',
@@ -1077,7 +1077,7 @@ test('capture treats numeric extension leaves as private artifact values', async
       () => buildSanitizedEvidence(
         artifact,
         observation({
-          evidenceId: '2026-08-12__t3code-codex__cafefeed',
+          evidenceId: '2026-08-12__t3code-codex__vqzwmjkh',
           runtime
         }),
         json('evals/review-metadata/matrix.json')
@@ -1164,6 +1164,34 @@ test('capture treats numeric extension leaves as private artifact values', async
         /runtime still contains a private artifact value/
       )
     }
+  })
+
+  await t.test('short unprefixed hexadecimal numeric identities', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 48879 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerVersion = 'beef'
+    runtime.providerVersionSource = 'runtime-context'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxxxbeef'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
   })
 
   await t.test('digit-only fixed-width hexadecimal identities', () => {
