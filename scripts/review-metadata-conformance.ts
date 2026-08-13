@@ -1327,15 +1327,19 @@ function canonicalNumericIdentityCandidates(
       }
     }
     for (const segment of numericSegments) {
-      const normalizedValue = segment.replace(/_/g, '')
-      const numericValues = [
-        normalizedValue,
-        ...(/^(?:version|ver|v)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
-          normalizedValue
-        )
-          ? [normalizedValue.replace(/^(?:version|ver|v)/i, '')]
-          : [])
-      ]
+      const reconstructedSegments = new Set([
+        segment.replace(/_/g, ''),
+        segment.replace(/[^A-Za-z0-9]/g, '')
+      ])
+      const numericValues = [...reconstructedSegments].flatMap(
+        (normalizedValue) => [
+          normalizedValue,
+          ...(/^(?:version|ver|v)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
+            normalizedValue
+          )
+            ? [normalizedValue.replace(/^(?:version|ver|v)/i, '')]
+            : [])
+        ])
       for (const numericLiteral of numericValues) {
         const radixInteger = /^([+-]?)(0x[0-9a-f]+|0o[0-7]+|0b[01]+)$/i.exec(
           numericLiteral
