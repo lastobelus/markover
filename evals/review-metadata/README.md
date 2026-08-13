@@ -411,14 +411,18 @@ for each combination, using independent suffix `bqzvnjki`.
 Canonical uuencoding comparison in runner commit
 `fd60c2134bd14f6657a17f1065d6e113a47c2fbb` produced a one-hundred-eleventh
 record for each combination, using independent suffix `cqzvnjki`.
+Semicolonless numeric-reference and backtick-padded uuencoding comparison in
+runner commit `c0decdc4d353d7e8ef27f30470369e12a77355ff` produced a
+one-hundred-twelfth record for each combination, using independent suffix
+`dqzvnjki`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v95` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v96` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v95
+git fetch origin refs/tags/issue-136-runner-history-v96
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
