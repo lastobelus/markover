@@ -1342,6 +1342,16 @@ function canonicalNumericIdentityCandidates(
         const numericValues = new Set<string>()
         for (const normalizedValue of reconstructedSegments) {
           numericValues.add(normalizedValue)
+          const fixedWidthHex = /^([+-]?)([0-9a-f]{8}|[0-9a-f]{16}|[0-9a-f]{32}|[0-9a-f]{40})$/i.exec(
+            normalizedValue
+          )
+          if (fixedWidthHex !== null) {
+            const decimal = BigInt(`0x${fixedWidthHex[2]}`).toString()
+            const canonical = canonicalDecimalInteger(
+              `${fixedWidthHex[1] === '-' ? '-' : ''}${decimal}`
+            )
+            if (canonical !== null) candidates.add(canonical)
+          }
           if (extractEmbedded) {
             for (let offset = 0; offset < normalizedValue.length; offset += 1) {
               const match = /^[+-]?(?:0x[0-9a-f]+|0o[0-7]+|0b[01]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/i.exec(
@@ -1366,7 +1376,6 @@ function canonicalNumericIdentityCandidates(
               for (const width of [8, 16, 32, 40]) {
                 for (let start = 0; start + width <= match[0].length; start += 1) {
                   const window = match[0].slice(start, start + width)
-                  if (!/[a-f]/i.test(window)) continue
                   const decimal = BigInt(`0x${window}`).toString()
                   const unsignedCanonical = canonicalDecimalInteger(decimal)
                   if (unsignedCanonical !== null) {
