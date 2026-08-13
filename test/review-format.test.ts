@@ -170,7 +170,7 @@ test('lifecycle, timestamp, and pull-request invariants reject invalid envelopes
   assertFormatCode(() => decodeReviewArtifact(unmergedDone), 'INVALID_REVIEW')
 })
 
-test('thread-host identity is typed without duplicating provider identity', () => {
+test('thread-host identity accepts equal agent and host IDs', () => {
   const direct = cloneFixture()
   const directHost = record(record(review(direct).agentThread).threadHost)
   directHost.kind = 'codex'
@@ -182,7 +182,7 @@ test('thread-host identity is typed without duplicating provider identity', () =
   const duplicate = cloneFixture()
   const agentThread = record(review(duplicate).agentThread)
   record(agentThread.threadHost).threadId = agentThread.id
-  assertFormatCode(() => decodeReviewArtifact(duplicate), 'INVALID_REVIEW')
+  assert.equal(decodeReviewArtifact(duplicate), duplicate)
 
   const incomplete = cloneFixture()
   delete record(record(review(incomplete).agentThread).threadHost).provider

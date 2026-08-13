@@ -420,7 +420,7 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
   if (!isRecord(value)) invalid('review.agentThread must be an object or null.')
   requireKeys(value, ['id', 'threadHost'])
   if (!nonblank(value.id) || !isRecord(value.threadHost)) {
-    invalid('review.agentThread requires a provider thread ID and threadHost object.')
+    invalid('review.agentThread requires a requesting-thread or session ID and threadHost object.')
   }
   for (const privateField of PRIVATE_THREAD_AND_ENVELOPE_FIELDS) {
     if (owns(value, privateField)) invalid(`review.agentThread must not contain private ${privateField} evidence.`)
@@ -438,9 +438,6 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
     if (owns(value.threadHost, privateField)) {
       invalid(`review.agentThread.threadHost must not contain private ${privateField} evidence.`)
     }
-  }
-  if (value.threadHost.threadId === value.id) {
-    invalid('threadHost.threadId must be omitted when it duplicates agentThread.id.')
   }
 }
 
