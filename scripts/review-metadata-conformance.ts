@@ -1284,6 +1284,24 @@ function shortExplicitPrivateContainmentCandidates(
 function canonicalNumericIdentityCandidates(
   values: Array<string | null | undefined>
 ): Set<string> {
+  const canonicalDecimalInteger = (value: string): string | null => {
+    const match = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?$/i.exec(
+      value
+    )
+    if (!match) return null
+    const fraction = match[3] ?? match[4] ?? ''
+    let digits = `${match[2] ?? ''}${fraction}`.replace(/^0+/, '')
+    if (!digits) return '0@0'
+    let exponent = BigInt(match[5] ?? '0') - BigInt(fraction.length)
+    const trailingZeroCount = /0+$/.exec(digits)?.[0].length ?? 0
+    if (trailingZeroCount > 0) {
+      digits = digits.slice(0, -trailingZeroCount)
+      exponent += BigInt(trailingZeroCount)
+    }
+    if (exponent < 0n) return null
+    const sign = match[1] === '-' ? '-' : ''
+    return `${sign}${digits}@${exponent}`
+  }
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
@@ -1298,19 +1316,14 @@ function canonicalNumericIdentityCandidates(
           : [])
       ]
       for (const numericLiteral of numericValues) {
-        const isDecimal =
-          /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(
-            numericLiteral
-          )
         const isRadixInteger =
           /^0x[0-9a-f]+$/i.test(numericLiteral) ||
           /^0o[0-7]+$/i.test(numericLiteral) ||
           /^0b[01]+$/i.test(numericLiteral)
-        if (!isDecimal && !isRadixInteger) continue
-        const numericValue = Number(numericLiteral)
-        if (Number.isSafeInteger(numericValue)) {
-          candidates.add(String(numericValue))
-        }
+        const canonical = isRadixInteger
+          ? canonicalDecimalInteger(BigInt(numericLiteral).toString())
+          : canonicalDecimalInteger(numericLiteral)
+        if (canonical !== null) candidates.add(canonical)
       }
     }
   }

@@ -124,7 +124,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 150,
+    evidenceCount: 153,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -969,6 +969,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('scientific notation beyond the safe-integer range', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: '9007199254740993' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '9.007199254740993e15'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   for (const radixValue of [
     '0xBC614E',
     '0o57060516',
@@ -1306,7 +1323,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 151,
+    evidenceCount: 154,
     matrixEntryCount: 3
   })
 

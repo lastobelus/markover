@@ -225,14 +225,17 @@ each combination.
 Node-type-aware additive-field classification in runner commit
 `0d3a7c2ef32e9ff094454a3a65b7b38c57e30438` produced a fiftieth record for
 each combination.
+Normalized runtime forward-containment comparison in runner commit
+`c19a04670007024eabf2435935f54431b5cdc3b9` produced a fifty-first record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v30` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v31` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v30
+git fetch origin refs/tags/issue-136-runner-history-v31
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
