@@ -228,14 +228,17 @@ each combination.
 Normalized runtime forward-containment comparison in runner commit
 `c19a04670007024eabf2435935f54431b5cdc3b9` produced a fifty-first record for
 each combination.
+Arbitrary-precision integer identity canonicalization in runner commit
+`7be84c064aa0d51f32d3d734606234413c45b73f` produced a fifty-second record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v31` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v32` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v31
+git fetch origin refs/tags/issue-136-runner-history-v32
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
