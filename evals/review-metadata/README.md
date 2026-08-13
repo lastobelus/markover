@@ -222,14 +222,17 @@ each combination.
 All-length additive safe-numeric containment in runner commit
 `dedc7394a973bda3bccc45a7fea033f34d63a9f7` produced a forty-ninth record for
 each combination.
+Node-type-aware additive-field classification in runner commit
+`0d3a7c2ef32e9ff094454a3a65b7b38c57e30438` produced a fiftieth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v29` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v30` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v29
+git fetch origin refs/tags/issue-136-runner-history-v30
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
