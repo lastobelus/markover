@@ -164,7 +164,10 @@ function normalizedRelative(value: unknown): value is string {
     !value.startsWith(`..${path.sep}`)
 }
 
-function compareTimestamps(left: string, right: string): -1 | 0 | 1 {
+export function compareCanonicalTimestamps(
+  left: string,
+  right: string
+): -1 | 0 | 1 {
   const leftInstant = Date.parse(left)
   const rightInstant = Date.parse(right)
   return leftInstant === rightInstant ? 0 : leftInstant < rightInstant ? -1 : 1
@@ -292,7 +295,10 @@ export function parseReviewEnrichment(value: unknown): ReviewEnrichmentFile {
   assertReviewError(value.error)
   if (
     value.error &&
-    compareTimestamps(value.error.observedAt, value.snapshot.observedAt) <= 0
+    compareCanonicalTimestamps(
+      value.error.observedAt,
+      value.snapshot.observedAt
+    ) <= 0
   ) {
     invalid('A persisted review error must be newer than its successful snapshot.')
   }
@@ -374,7 +380,7 @@ export function arbitrateReviewSnapshot(
       }
     }
   }
-  const snapshotOrder = compareTimestamps(
+  const snapshotOrder = compareCanonicalTimestamps(
     candidate.observedAt,
     current.snapshot.observedAt
   )
@@ -391,7 +397,10 @@ export function arbitrateReviewSnapshot(
   }
   if (
     current.error &&
-    compareTimestamps(current.error.observedAt, candidate.observedAt) === 0
+    compareCanonicalTimestamps(
+      current.error.observedAt,
+      candidate.observedAt
+    ) === 0
   ) {
     return { outcome: 'conflict', value: clone(current) }
   }
@@ -400,7 +409,7 @@ export function arbitrateReviewSnapshot(
     value: {
       ...clone(current),
       snapshot: clone(candidate),
-      error: current.error && compareTimestamps(
+      error: current.error && compareCanonicalTimestamps(
         current.error.observedAt,
         candidate.observedAt
       ) > 0
@@ -430,7 +439,7 @@ export function arbitrateReviewError(
   if (current.snapshot.observedAt !== expectedSnapshotObservedAt) {
     return { outcome: 'ignored', value: clone(current) }
   }
-  const snapshotOrder = compareTimestamps(
+  const snapshotOrder = compareCanonicalTimestamps(
     observedAt,
     current.snapshot.observedAt
   )
@@ -446,7 +455,10 @@ export function arbitrateReviewError(
     detail: reviewErrorDetail(code)
   }
   if (current.error) {
-    const errorOrder = compareTimestamps(observedAt, current.error.observedAt)
+    const errorOrder = compareCanonicalTimestamps(
+      observedAt,
+      current.error.observedAt
+    )
     if (errorOrder < 0) {
       return { outcome: 'ignored', value: clone(current) }
     }
@@ -488,7 +500,7 @@ export function arbitrateTitleObservation(
   )
   const previous = base.titleObservations[index]
   if (previous) {
-    const observationOrder = compareTimestamps(
+    const observationOrder = compareCanonicalTimestamps(
       candidate.observedAt,
       previous.observedAt
     )
@@ -521,7 +533,7 @@ export function resolvedThreadTitle(
     const authority = Number(right.authority === 'thread-host') -
       Number(left.authority === 'thread-host')
     return authority ||
-      compareTimestamps(right.observedAt, left.observedAt) ||
+      compareCanonicalTimestamps(right.observedAt, left.observedAt) ||
       left.sourceKey.localeCompare(right.sourceKey)
   })[0] as ThreadTitleObservation)
 }

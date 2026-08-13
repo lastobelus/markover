@@ -6,6 +6,7 @@ import {
   arbitrateReviewError,
   arbitrateReviewSnapshot,
   arbitrateTitleObservation,
+  compareCanonicalTimestamps,
   parseReviewEnrichment,
   parseThreadEnrichment,
   PrivateEnrichmentFormatError,
@@ -407,8 +408,11 @@ export class PrivateEnrichmentStore {
         'INVALID_SNAPSHOT',
         'A review snapshot did not produce private state.'
       )
-      let shouldWrite = result.outcome === 'write'
       const runtimeError = this.runtimeReviewErrors.get(reviewId)
+      let shouldWrite = result.outcome === 'write' || (
+        result.outcome === 'idempotent' &&
+        runtimeError?.code === 'private-write-failed'
+      )
       if (
         !current.value &&
         runtimeError &&
@@ -451,7 +455,7 @@ export class PrivateEnrichmentStore {
           )
         }
       }
-      if (result.outcome !== 'ignored') {
+      if (shouldWrite) {
         this.runtimeReviewErrors.delete(reviewId)
       }
       return value
@@ -496,8 +500,12 @@ export class PrivateEnrichmentStore {
           previous.code !== 'invalid-private-state' &&
           previous.code !== 'private-write-failed'
         ) {
-          if (candidate.observedAt < previous.observedAt) return null
-          if (candidate.observedAt === previous.observedAt) {
+          const initialErrorOrder = compareCanonicalTimestamps(
+            candidate.observedAt,
+            previous.observedAt
+          )
+          if (initialErrorOrder < 0) return null
+          if (initialErrorOrder === 0) {
             if (
               candidate.code !== previous.code ||
               candidate.detail !== previous.detail
@@ -523,7 +531,13 @@ export class PrivateEnrichmentStore {
         'A review validation failure conflicts with another observation at the same time.'
       )
       const value = mutationValue(result)
-      if (result.outcome === 'write' && value) {
+      const shouldWrite = Boolean(value) && (
+        result.outcome === 'write' || (
+          result.outcome === 'idempotent' &&
+          this.runtimeReviewErrors.get(reviewId)?.code === 'private-write-failed'
+        )
+      )
+      if (shouldWrite && value) {
         try {
           await this.writeJson(this.reviewPath(reviewId), value)
         } catch (error) {
@@ -540,7 +554,7 @@ export class PrivateEnrichmentStore {
         }
       }
       if (
-        result.outcome !== 'ignored' &&
+        shouldWrite &&
         this.runtimeReviewErrors.get(reviewId)?.code === 'private-write-failed'
       ) this.runtimeReviewErrors.delete(reviewId)
       return value

@@ -279,6 +279,25 @@ test('initial validation failures arbitrate monotonically without a file', async
   await assert.rejects(fs.access(value.store.reviewPath(review.review.id)))
 })
 
+test('initial validation failures order expanded years by instant', async (t) => {
+  const value = await fixture()
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  const review = await createReview(value)
+  await value.store.recordReviewValidationFailure(
+    review.review.id,
+    null,
+    'source-missing',
+    secondTime
+  )
+  await value.store.recordReviewValidationFailure(
+    review.review.id,
+    null,
+    'source-changed',
+    '+010000-01-01T00:00:00.000Z'
+  )
+  assert.equal((await value.store.projection(review)).error?.code, 'source-changed')
+})
+
 test('initial failures survive older success and clear on newer success', async (t) => {
   const value = await fixture()
   t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
@@ -435,4 +454,32 @@ test('private writes can be parsed after direct file inspection', async (t) => {
   assert.ok(parseReviewEnrichment(JSON.parse(
     await fs.readFile(value.store.reviewPath(review.review.id), 'utf8')
   )))
+})
+
+test('idempotent replay proves storage recovery before clearing write failure', async (t) => {
+  let writes = 0
+  const value = await fixture({
+    writeJson: async (filePath, state) => {
+      writes += 1
+      if (writes === 2) throw new Error('Simulated validation write failure.')
+      await writePrivateEnrichmentJson(filePath, state)
+    }
+  })
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  const review = await createReview(value)
+  await value.store.acceptReviewSnapshot(review.review.id, snapshot(value))
+  await assert.rejects(value.store.recordReviewValidationFailure(
+    review.review.id,
+    firstTime,
+    'source-missing',
+    secondTime
+  ))
+  assert.equal(
+    (await value.store.projection(review)).error?.code,
+    'private-write-failed'
+  )
+
+  await value.store.acceptReviewSnapshot(review.review.id, snapshot(value))
+  assert.equal(writes, 3)
+  assert.equal((await value.store.projection(review)).error, null)
 })
