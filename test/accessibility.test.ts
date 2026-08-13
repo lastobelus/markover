@@ -87,6 +87,10 @@ test('status changes and tree selection have a dedicated polite announcement pat
   const renderer = read('src/renderer.ts')
   assert.match(renderer, /function announceStatus\(message: string\)/)
   assert.match(renderer, /function announceNodeSelection\(node: ReviewNode\)/)
+  assert.match(
+    renderer,
+    /const positionLabel = position\.index > 0[\s\S]*positionLabel,[\s\S]*hasAnnotation\(node\)/
+  )
   assert.match(renderer, /showToast\(message: string\)[\s\S]*announceStatus\(message\)/)
   assert.match(renderer, /announceStatus\(`Removed attachment/)
   assert.match(renderer, /announceStatus\(`\$\{deletedName\} moved to Trash\.`\)/)

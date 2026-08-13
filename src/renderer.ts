@@ -652,10 +652,13 @@ function announceNodeSelection(node: ReviewNode): void {
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 120)
+  const positionLabel = position.index > 0
+    ? `${position.index} of ${position.total}`
+    : null
   announceStatus([
     accessibleNodeKind(node),
     selectedLocationText(node),
-    `${position.index} of ${position.total}`,
+    positionLabel,
     hasAnnotation(node) ? 'Annotated' : 'Not annotated',
     source
   ].filter(Boolean).join('. '))
