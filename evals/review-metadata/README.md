@@ -166,11 +166,11 @@ produced a twenty-seventh record for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v5` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v6` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v5
+git fetch origin refs/tags/issue-136-runner-history-v6
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

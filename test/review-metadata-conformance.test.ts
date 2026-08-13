@@ -1255,6 +1255,39 @@ test('capture rejects short components copied from explicitly private paths', ()
   )
 })
 
+test('capture normalizes nested attachment paths as explicitly private', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  const children = rootNode.children as Array<Record<string, unknown>>
+  const attachments = children[1]?.attachments as Array<Record<string, unknown>>
+  assert.ok(attachments[0])
+  attachments[0].path = '/Users/jsmith/image.png'
+  attachments[0].url = 'file:///Users/dead-beef/image.png'
+
+  const runtime = observation().runtime as Record<string, unknown>
+  runtime.providerModel = 'jsmith'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Evidence ID suffix must be independent of private artifact values/
+  )
+})
+
 test('committed evidence rejects path-shaped runtime values', () => {
   const artifact = fixture()
   agentThread(artifact)

@@ -910,6 +910,32 @@ function completePrivateCaptureStrings(
 
 function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
   if (!isRecord(artifactValue)) return []
+  const attachmentLocations: string[] = []
+  const collectAttachmentLocations = (
+    value: unknown,
+    fields: string[] = []
+  ): void => {
+    if (Array.isArray(value)) {
+      value.forEach((nested, index) => collectAttachmentLocations(
+        nested,
+        [...fields, String(index)]
+      ))
+      return
+    }
+    if (!isRecord(value)) return
+    const insideAttachments = fields.includes('attachments')
+    for (const [field, nested] of Object.entries(value)) {
+      if (
+        insideAttachments &&
+        (field === 'path' || field === 'url') &&
+        typeof nested === 'string'
+      ) {
+        attachmentLocations.push(nested)
+      }
+      collectAttachmentLocations(nested, [...fields, field])
+    }
+  }
+  collectAttachmentLocations(artifactValue)
   const sourceDocument = isRecord(artifactValue.sourceDocument)
     ? artifactValue.sourceDocument
     : undefined
@@ -935,7 +961,8 @@ function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
     pullRequest?.url,
     agentThread?.id,
     threadHost?.threadId,
-    threadHost?.machine
+    threadHost?.machine,
+    ...attachmentLocations
   ].filter((value): value is string => typeof value === 'string')
 }
 
