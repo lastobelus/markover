@@ -294,6 +294,21 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('ordinary product words remain usable runtime segments', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    review.contextSummary = 'Live T3 Code x Claude metadata conformance exercise.'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerVersion = 'Claude Agent SDK 0.3.227'
+    runtime.providerVersionSource = 'runtime-context'
+    assert.doesNotThrow(() => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ))
+  })
 })
 
 test('capture treats additive extension keys as private artifact values', async (t) => {
