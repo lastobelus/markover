@@ -916,10 +916,9 @@ function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
     fields: string[] = []
   ): void => {
     if (Array.isArray(value)) {
-      value.forEach((nested, index) => collectAttachmentLocations(
-        nested,
-        [...fields, String(index)]
-      ))
+      value.forEach((nested, index) => {
+        collectAttachmentLocations(nested, [...fields, String(index)])
+      })
       return
     }
     if (!isRecord(value)) return

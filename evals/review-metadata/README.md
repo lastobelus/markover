@@ -162,7 +162,10 @@ produced a twenty-fifth record for each combination. Short complete private-leaf
 retention in runner commit `aae18de00aa03a4dacb783ceff222f7c092bb7ba`
 produced a twenty-sixth record for each combination. Short safe-numeric private
 leaf retention in runner commit `3eaccbd6bd62f40b5d37ed195c9bc64e0cd935a6`
-produced a twenty-seventh record for each combination.
+produced a twenty-seventh record for each combination. Explicit attachment
+path/URL normalization in runner commit
+`f65c5d7e48596706aadfeb64ae608243539629ac` produced a twenty-eighth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
