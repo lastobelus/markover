@@ -37,3 +37,8 @@ description: "Babysit GitHub pull requests. Use when the user says 'babysit', 'b
    review results, and merge result when applicable. If interrupted or paused,
    stop reads and mutations immediately and report the same state as a resumable
    checkpoint; resume from a fresh snapshot.
+9. After merge-mode completion, determine whether the issue being addressed is
+   complete. If work remains, summarize the concrete next steps. If it is
+   complete, perform all repository-required housekeeping, verify the issue and
+   its trackers reflect completion, and tell the user the thread is ready to
+   archive.
