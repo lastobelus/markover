@@ -106,7 +106,7 @@ export interface EvidenceFixture {
       kind: string
       machine?: typeof fixtureMachine
       provider: string
-      threadId?: typeof fixtureThreadHostId
+      threadId?: typeof fixtureThreadHostId | typeof fixtureThreadId
     }
   }
   schemaVersion: number
@@ -498,8 +498,9 @@ export function buildEvidenceFixture(
     }
     if (thread.threadHost.threadId !== undefined) {
       liveValues.push(thread.threadHost.threadId)
-      fixtureThreadHost.threadId = fixtureThreadHostId
-      threadHostId = thread.threadHost.threadId === thread.id ? 'equal' : 'distinct'
+      const idsAreEqual = thread.threadHost.threadId === thread.id
+      fixtureThreadHost.threadId = idsAreEqual ? fixtureThreadId : fixtureThreadHostId
+      threadHostId = idsAreEqual ? 'equal' : 'distinct'
     }
     if (thread.threadHost.machine !== undefined) {
       liveValues.push(thread.threadHost.machine)
@@ -616,15 +617,22 @@ export function validateEvidenceFixture(
       provider: entry.threadHost.provider
     }
     if (host.threadId !== undefined) {
-      if (
-        host.threadId !== fixtureThreadHostId ||
-        (threadHostId !== 'distinct' && threadHostId !== 'equal')
-      ) {
+      if (host.threadId === fixtureThreadId && threadHostId !== 'equal') {
         throw new Error(
-          'Evidence host thread ID must use the fixture placeholder and record its relationship.'
+          'Evidence equal host thread ID must reuse the requesting-thread placeholder.'
         )
       }
-      fixtureHost.threadId = fixtureThreadHostId
+      if (host.threadId === fixtureThreadHostId && threadHostId !== 'distinct') {
+        throw new Error(
+          'Evidence distinct host thread ID must use the host-thread placeholder.'
+        )
+      }
+      if (host.threadId !== fixtureThreadId && host.threadId !== fixtureThreadHostId) {
+        throw new Error(
+          'Evidence host thread ID must use the placeholder matching its relationship.'
+        )
+      }
+      fixtureHost.threadId = host.threadId
     } else if (threadHostId !== 'omitted') {
       throw new Error('Evidence relationship requires a host thread ID placeholder.')
     }

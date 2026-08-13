@@ -322,6 +322,26 @@ test('capture accepts equal requesting-thread and host IDs', () => {
     json('evals/review-metadata/matrix.json')
   )
   assert.equal(evidence.relationships.threadHostId, 'equal')
+  assert.equal(evidence.agentThread?.threadHost.threadId, '<thread-id>')
+})
+
+test('corpus validation recomputes the host thread ID relationship', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const evidence = buildEvidenceFixture(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  ) as unknown as Record<string, unknown>
+  const relationships = evidence.relationships as Record<string, unknown>
+  relationships.threadHostId = 'equal'
+  assert.throws(
+    () => validateEvidenceFixture(
+      evidence,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /distinct host thread ID must use the host-thread placeholder/
+  )
 })
 
 test('capture rejects missing required host fields through the v1 decoder', () => {
