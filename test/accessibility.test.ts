@@ -149,6 +149,10 @@ test('attachment preview and destructive workflow restore a useful focus target'
   assert.match(renderer, /imagePreview\.showModal\(\)[\s\S]*imagePreviewClose\.focus\(\)/)
   assert.match(renderer, /imagePreview\.addEventListener\('close',[\s\S]*returnFocus\?\.isConnected[\s\S]*returnFocus\.focus/)
   assert.match(renderer, /renderRemovedAttachment[\s\S]*requestAnimationFrame\(focusAnnotationPane\)/)
+  assert.match(
+    renderer,
+    /function focusAfterInactiveReviewTrashed[\s\S]*!documentsListCollapsed[\s\S]*focusDocumentsList\(\)[\s\S]*\.document-tab\.is-active, \.document-tab-overflow-trigger[\s\S]*documentsListOpen[\s\S]*requestAnimationFrame\(focusAfterInactiveReviewTrashed\)/
+  )
   assert.match(renderer, /handleReviewTrashed[\s\S]*previewPane\.focus\(\)[\s\S]*emptyOpenButton\.focus\(\)/)
   assert.match(renderer, /restoreReviewActivationFocus\(reviewId, focusSurface\)/)
   assert.match(renderer, /restoreFocus = document\.activeElement === disclosure[\s\S]*\.disclosure`[\s\S]*\.focus\(\)/)

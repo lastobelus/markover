@@ -3302,6 +3302,17 @@ function focusDocumentsList(): void {
   if (!target) elements.documentsListCollapse.focus()
 }
 
+function focusAfterInactiveReviewTrashed(): void {
+  if (!documentsListCollapsed) {
+    focusDocumentsList()
+    return
+  }
+  const target = elements.documentTabs.querySelector<HTMLElement>(
+    '.document-tab.is-active, .document-tab-overflow-trigger'
+  ) || (!elements.documentsListOpen.hidden ? elements.documentsListOpen : null)
+  target?.focus()
+}
+
 function focusPane(pane: WorkspacePane): void {
   if (pane === 'documents') focusDocumentsList()
   else if (pane === 'annotation') focusAnnotationPane()
@@ -3748,7 +3759,7 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
     renderDocumentTabs()
     persistWorkspaceState()
     announceStatus(`${deletedName} moved to Trash.`)
-    requestAnimationFrame(focusDocumentsList)
+    requestAnimationFrame(focusAfterInactiveReviewTrashed)
     return
   }
   state.reviewId = null
