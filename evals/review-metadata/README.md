@@ -219,14 +219,17 @@ All-length machine identity containment and version-prefixed numeric
 canonicalization in runner commit
 `f5896c8001438cf01cc660e0d95bf7168874d165` produced a forty-eighth record for
 each combination.
+All-length additive safe-numeric containment in runner commit
+`dedc7394a973bda3bccc45a7fea033f34d63a9f7` produced a forty-ninth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v28` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v29` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v28
+git fetch origin refs/tags/issue-136-runner-history-v29
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
