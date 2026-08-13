@@ -1145,6 +1145,26 @@ function shortExplicitPrivateContainmentCandidates(
   ])
 }
 
+function canonicalNumericIdentityCandidates(
+  values: Array<string | null | undefined>
+): Set<string> {
+  const candidates = new Set<string>()
+  for (const value of values) {
+    if (
+      value === null ||
+      value === undefined ||
+      !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value)
+    ) {
+      continue
+    }
+    const numericValue = Number(value)
+    if (Number.isSafeInteger(numericValue)) {
+      candidates.add(String(numericValue))
+    }
+  }
+  return candidates
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation,
@@ -1175,6 +1195,12 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   const embeddedShortIdentifiers = shortIdentifierContainmentCandidates(
     shortPrivateIdentifiers
   )
+  const privateNumericIdentities = canonicalNumericIdentityCandidates(
+    shortPrivateIdentifiers
+  )
+  const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
+    persistedRuntimeValues
+  )
   const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
     runtimeValue !== null &&
     [...embeddedPrivateCandidates].some((privateCandidate) =>
@@ -1192,6 +1218,8 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   if (
     embedsPrivateCandidate ||
     runtimeIsPrivateSubstring ||
+    [...runtimeNumericIdentities].some((value) =>
+      privateNumericIdentities.has(value)) ||
     [...persistedRuntimeCandidates].some((value) => privateCandidates.has(value))
   ) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')

@@ -709,6 +709,23 @@ test('capture treats numeric extension leaves as private artifact values', async
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('scientific-notation runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '1.2345678e7'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {
