@@ -134,8 +134,9 @@ exercise-input and ignored-observation binding in runner commit
 identifier-sized private-prose binding in runner commit
 `e7c4a44cc633712b15d0f175d29969f244674e36`, followed by identifier-component
 and failure-date validation in runner commit
-`ae35722a27c600f2d5bc536d187a918554cb84ca`. All sixteen immutable records per
-combination remain referenced by the matrix.
+`ae35722a27c600f2d5bc536d187a918554cb84ca`, then case-insensitive private-value
+comparison in runner commit `8ecb62d86ae16a5d1e5e5736fc817fcb8a8cce1f`. All seventeen
+immutable records per combination remain referenced by the matrix.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
