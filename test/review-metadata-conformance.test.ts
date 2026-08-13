@@ -306,6 +306,42 @@ test('capture treats additive extension keys as private artifact values', async 
   })
 })
 
+test('capture treats ignored limitation strings as private inputs', async (t) => {
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          limitations: ['acct_12345'],
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef',
+          limitations: ['deadbeef']
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+})
+
 test('failed automatic checks can produce only closed sanitized evidence', () => {
   const artifact = fixture()
   agentThread(artifact)
@@ -362,6 +398,23 @@ test('failure evidence rejects a suffix copied from an extension key', () => {
       artifact,
       observation({
         evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('failure evidence rejects a suffix copied from an ignored limitation', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef',
+        limitations: ['deadbeef']
       }),
       json('evals/review-metadata/matrix.json'),
       999
@@ -570,11 +623,20 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         '--quiet',
         parsed.sourceCommit,
         '--',
+        'AGENTS.md',
+        'evals/review-metadata/README.md',
         'evals/review-metadata/exercise-source.md',
+        'evals/review-metadata/exercises/claude-code-claude.md',
+        'evals/review-metadata/exercises/t3code-claude.md',
+        'evals/review-metadata/exercises/t3code-codex.md',
         'evals/review-metadata/matrix.json',
+        'evals/review-metadata/rubric.md',
         'package-lock.json',
         'package.json',
+        'scripts/markover.ts',
         'scripts/review-metadata-conformance.ts',
+        'src/agent-guidance.ts',
+        'src/metadata-discovery.ts',
         'src/pull-request.ts',
         'src/review-format.ts',
         'tsconfig.build.json',

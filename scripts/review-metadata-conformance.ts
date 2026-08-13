@@ -20,11 +20,20 @@ const redactedProviderThreadId = '<redacted-provider-thread-id>'
 const redactedThreadHostThreadId = '<redacted-thread-host-thread-id>'
 const redactedMachine = '<redacted-machine>'
 const runnerSourcePaths = [
+  'AGENTS.md',
+  'evals/review-metadata/README.md',
   'evals/review-metadata/exercise-source.md',
+  'evals/review-metadata/exercises/claude-code-claude.md',
+  'evals/review-metadata/exercises/t3code-claude.md',
+  'evals/review-metadata/exercises/t3code-codex.md',
   'evals/review-metadata/matrix.json',
+  'evals/review-metadata/rubric.md',
   'package-lock.json',
   'package.json',
+  'scripts/markover.ts',
   'scripts/review-metadata-conformance.ts',
+  'src/agent-guidance.ts',
+  'src/metadata-discovery.ts',
   'src/pull-request.ts',
   'src/review-format.ts',
   'tsconfig.build.json',
@@ -819,6 +828,16 @@ function artifactStringsAndKeys(value: unknown): string[] {
   return []
 }
 
+function privateCaptureStrings(
+  artifactValue: unknown,
+  observation: CaptureObservation
+): string[] {
+  return [
+    ...artifactStringsAndKeys(artifactValue),
+    ...observation.limitations
+  ]
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation
@@ -959,10 +978,10 @@ export function buildSanitizedEvidence(
     sourcePullRequest: observation.sourcePullRequest
   }
   assertSensitiveLeavesRedacted(sensitiveLeaves)
-  const privateArtifactValues = artifactStringsAndKeys(artifact)
-  assertEvidenceIdIndependent(evidence.evidenceId, privateArtifactValues)
+  const privateInputs = privateCaptureStrings(artifact, observation)
+  assertEvidenceIdIndependent(evidence.evidenceId, privateInputs)
   assertPrivateArtifactValuesAbsentFromRuntime(
-    privateArtifactValues,
+    privateInputs,
     evidence.runtime
   )
   return evidence
@@ -1012,8 +1031,9 @@ export function recordConformanceEvidence(
         { cause: error }
       )
     }
-    const suffix = parseCaptureObservation(observationValue).evidenceId.slice(-8)
-    if (artifactStringsAndKeys(artifactValue).includes(suffix)) {
+    const observation = parseCaptureObservation(observationValue)
+    const suffix = observation.evidenceId.slice(-8)
+    if (privateCaptureStrings(artifactValue, observation).includes(suffix)) {
       throw new Error(
         'Failure evidence ID suffix must be independent of every raw artifact string and key.',
         { cause: error }
