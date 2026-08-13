@@ -1357,14 +1357,14 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
     persistedRuntimeValues
   )
-  const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
-    runtimeValue !== null &&
+  const embedsPrivateCandidate = [...persistedRuntimeCandidates].some(
+    (runtimeCandidate) =>
     [...embeddedPrivateCandidates].some((privateCandidate) =>
       (privateCandidate.length >= 8 ||
         (privateCandidate.length >= 4 &&
           embeddedShortExplicitPrivate.has(privateCandidate)) ||
         embeddedShortIdentifiers.has(privateCandidate)) &&
-      runtimeValue.toLowerCase().includes(privateCandidate)))
+      runtimeCandidate.includes(privateCandidate)))
   const runtimeIsPrivateSubstring = [...persistedRuntimeCandidates].some(
     (runtimeCandidate) =>
       runtimeCandidate.length >= 8 &&
