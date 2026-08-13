@@ -122,7 +122,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 111,
+    evidenceCount: 114,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -323,7 +323,10 @@ test('capture compares private identifiers without case distinctions', async (t)
     assert.throws(
       () => buildSanitizedEvidence(
         artifact,
-        observation({ runtime }),
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__7654edcf',
+          runtime
+        }),
         json('evals/review-metadata/matrix.json')
       ),
       /runtime still contains a private artifact value/
@@ -968,7 +971,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 112,
+    evidenceCount: 115,
     matrixEntryCount: 3
   })
 

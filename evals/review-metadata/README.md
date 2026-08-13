@@ -186,15 +186,17 @@ evidence-suffix containment in runner commit
 `2c5d3397f92fcd21e0006a4cc522de8488378848` produced a thirty-sixth record for
 each combination. Case-insensitive compound identifier-field recognition in
 runner commit `b63246ecb27ac7190f4f94bfb5a9864c9024e99f` produced a thirty-seventh
-record for each combination.
+record for each combination. Field-classified identifiers of every non-empty
+length in runner commit `82ea8205e05944f1f8046e247381c7bd8a8c91d8`
+produced a thirty-eighth record for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v16` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v17` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v16
+git fetch origin refs/tags/issue-136-runner-history-v17
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
