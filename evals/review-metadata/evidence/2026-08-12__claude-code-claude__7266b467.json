@@ -1,0 +1,60 @@
+{
+  "checks": {
+    "threadHostIdAccepted": true,
+    "guessedValuesAbsent": true,
+    "machineAttempted": true,
+    "nullFallbackTruthful": true,
+    "portableV1Valid": true,
+    "requiredFieldsObserved": true,
+    "sanitized": true,
+    "supportedCombination": true
+  },
+  "discovery": {
+    "hostKind": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostProvider": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostThreadId": {
+      "source": "not-applicable",
+      "status": "not-applicable"
+    },
+    "machine": {
+      "source": "hostname-command",
+      "status": "observed"
+    },
+    "providerThreadId": {
+      "source": "agent-runtime",
+      "status": "observed"
+    }
+  },
+  "evidenceId": "2026-08-12__claude-code-claude__7266b467",
+  "exercisedAt": "2026-08-12T19:31:45.000Z",
+  "matrixEntryId": "claude-code-claude",
+  "relationships": {
+    "identity": "identified",
+    "threadHostId": "omitted"
+  },
+  "runtime": {
+    "hostVersion": "2.1.228",
+    "hostVersionSource": "command",
+    "providerModel": "claude-sonnet-5",
+    "providerModelSource": "runtime-context",
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
+  },
+  "sanitizedAgentThread": {
+    "id": "<redacted-provider-thread-id>",
+    "threadHost": {
+      "kind": "claude-code",
+      "provider": "claude",
+      "machine": "<redacted-machine>"
+    }
+  },
+  "schemaVersion": 1,
+  "sourceCommit": "7266b46701d7cc0df21bc88f9f939f9aa32dab03",
+  "sourcePullRequest": "https://github.com/lastobelus/markover/pull/141"
+}

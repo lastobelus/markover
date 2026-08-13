@@ -10,10 +10,12 @@ contract.
 - `portableV1Valid` — the shared v1 decoder accepts the complete artifact.
 - `supportedCombination` — `threadHost.kind` and `threadHost.provider` exactly
   match the selected matrix entry.
-- `requiredFieldsObserved` — a non-null snapshot has an observed provider-owned
-  `agentThread.id`, host kind, and host provider.
-- `distinctThreadHostId` — an included host-owned `threadId` differs from the
-  provider ID; omission records either an unavailable or inapplicable host ID.
+- `requiredFieldsObserved` — a non-null snapshot has an observed best available
+  requesting-thread or session `agentThread.id`, host kind, and LLM provider/model
+  family.
+- `threadHostIdAccepted` — an included host-owned `threadId` may equal or differ
+  from `agentThread.id`; omission records either an unavailable or inapplicable
+  host ID. Distinct-or-omitted remains the recommended agent output.
 - `machineAttempted` — the exercise records a real `hostname` attempt and keeps
   the value only when observed.
 - `nullFallbackTruthful` — a non-null snapshot passes. A null snapshot may be
@@ -21,8 +23,8 @@ contract.
   it cannot independently verify the selected host/provider combination.
 - `guessedValuesAbsent` — every retained identity value has an observed discovery
   source; unavailable values are omitted.
-- `sanitized` — provider ID, host ID, and hostname are absent from the reduced
-  committed record and replaced with typed markers.
+- `sanitized` — requesting-thread/session ID, host ID, and hostname are absent
+  from the reduced committed record and replaced with typed markers.
 
 ## Human attestation
 

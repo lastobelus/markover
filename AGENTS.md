@@ -22,6 +22,13 @@ recovery guidance:
 npm --silent run markover -- help
 ```
 
+When rebuilding canonical Markover or repairing any canonical failure, run
+`canonical doctor` and `canonical refresh` through that CLI from the current
+checkout. The configured canonical descriptor selects the owning checkout;
+the agent's cwd does not. Completion requires a healthy doctor result and the
+reported exact `markover:` URI selecting its review. A visible window or manual
+review selection is diagnostic evidence, not completion.
+
 Before changing a portable review reader, writer, validator, persisted field,
 or agent consumer, read
 `docs/developer/review-handoff-format.md`. It is the source of truth for the
@@ -78,8 +85,9 @@ Markdown artifact:
    `--handoff-key mko_handoff_<16-to-64-alphanumeric-characters>`. With either
    identity, pass truthful `--thread-host-kind` and
    `--thread-host-provider`; they name separate dimensions but may have the
-   same value. Pass `--thread-host-thread-id` only for a distinct host-owned
-   identifier, never a duplicate provider ID. Run `hostname` when available
+   same value. Here provider means the LLM provider or model family, not an
+   intermediate harness. Pass `--thread-host-thread-id` only for a distinct
+   host-owned identifier. Run `hostname` when available
    and pass its output as `--thread-host-machine`. Omit optional values rather
    than guessing.
 5. Report a best-effort Markdown link using the returned `reviewUrl`, the raw

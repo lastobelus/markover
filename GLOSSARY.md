@@ -64,6 +64,8 @@ An explicitly labelled agent page may live in the public root when it serves the
 
 Keep watching a pull request until its current head has green CI, a terminal positive review, no unresolved threads, and a clean mergeable state.
 
+In merge mode, finish file-changing housekeeping before merging, then reconcile related issue comments and state so the final handoff gives concrete next steps or confirms archive readiness.
+
 ## block ID::
 
 A deterministic document-order identifier for one review block within one exact review target.
