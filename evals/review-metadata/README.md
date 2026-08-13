@@ -363,14 +363,17 @@ each combination, using independent suffix `tqzvnjkh`.
 Punycode private-value and historical PR-provenance comparison in runner commit
 `f4829e619dac04f44fdae0d0abe886c90b0eb3f3` produced a ninety-fifth record for
 each combination, using independent suffix `uqzvnjkh`.
+Padded multibase Base32 comparison in runner commit
+`d4528b595b615d37f36bc64c454247eb14a09f35` produced a ninety-sixth record for
+each combination, using independent suffix `vqzvnjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v78` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v79` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v78
+git fetch origin refs/tags/issue-136-runner-history-v79
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
