@@ -1668,6 +1668,7 @@ function cancelSourceEdit(node: ReviewNode): void {
 }
 
 function saveSourceEdit(node: ReviewNode): boolean {
+  const restoreKeyboardFocus = document.activeElement === elements.sourceSave
   const result = MarkoverSourceEdits.commit(state, node)
   if (!result.ok) {
     showToast('Proposed source cannot be empty')
@@ -1675,6 +1676,11 @@ function saveSourceEdit(node: ReviewNode): boolean {
   }
   renderTreePreservingScroll()
   renderAnnotation(node)
+  if (restoreKeyboardFocus) {
+    requestAnimationFrame(() => {
+      elements.sourceEdit.focus()
+    })
+  }
   if (result.changed) {
     autosaveReview()
     announceStatus('Source edit saved.')
@@ -3683,6 +3689,13 @@ function restoreReviewActivationFocus(
         ) || elements.documentTabs.querySelector<HTMLElement>(
           '.document-tab-overflow-trigger'
         )
+    if (surface === 'documents' && target) {
+      let ancestor = target.parentElement
+      while (ancestor && elements.documentsListTree.contains(ancestor)) {
+        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true
+        ancestor = ancestor.parentElement
+      }
+    }
     target?.focus({ preventScroll: true })
   })
 }

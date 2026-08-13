@@ -171,6 +171,14 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(renderer, /handleReviewTrashed[\s\S]*previewPane\.focus\(\)[\s\S]*emptyOpenButton\.focus\(\)/)
   assert.match(renderer, /restoreReviewActivationFocus\(reviewId, focusSurface\)/)
+  assert.match(
+    renderer,
+    /function restoreReviewActivationFocus[\s\S]*surface === 'documents' && target[\s\S]*while \(ancestor && elements\.documentsListTree\.contains\(ancestor\)\)[\s\S]*ancestor instanceof HTMLDetailsElement[\s\S]*ancestor\.open = true[\s\S]*target\?\.focus/
+  )
+  assert.match(
+    renderer,
+    /function saveSourceEdit[\s\S]*restoreKeyboardFocus = document\.activeElement === elements\.sourceSave[\s\S]*renderAnnotation\(node\)[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*elements\.sourceEdit\.focus\(\)/
+  )
   assert.match(renderer, /restoreFocus = document\.activeElement === disclosure[\s\S]*\.disclosure`[\s\S]*\.focus\(\)/)
 })
 
