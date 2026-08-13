@@ -132,6 +132,33 @@ test('review private format enforces repository and error coherence', () => {
   assert.throws(() => parseReviewEnrichment(staleError), /must be newer/)
 })
 
+test('private timestamps are ordered by instant across expanded years', () => {
+  const expanded = '+010000-01-01T00:00:00.000Z'
+  const value = reviewFile(snapshot(firstTime))
+  value.error = {
+    code: 'source-missing',
+    observedAt: expanded,
+    detail: 'The previously verified source path no longer exists.'
+  }
+  assert.deepEqual(parseReviewEnrichment(value), value)
+
+  const newer = arbitrateReviewSnapshot(
+    reviewFile(snapshot(firstTime)),
+    'mko_review1',
+    snapshot(expanded)
+  )
+  assert.equal(newer.outcome, 'write')
+
+  const titleValue = threadFile()
+  titleValue.titleObservations.push({
+    sourceKey: 'expanded',
+    authority: 'thread-host',
+    title: 'Future title',
+    observedAt: expanded
+  })
+  assert.equal(resolvedThreadTitle(titleValue)?.title, 'Future title')
+})
+
 test('stable thread identity prefers host ID, accepts equality, and excludes provider', () => {
   const fallback = stableThreadIdentity({
     id: 'provider-id',
@@ -217,6 +244,45 @@ test('review snapshots reject stale/conflicting observations and retain later er
   )
   assert.equal(middleSuccess.outcome, 'write')
   assert.equal(middleSuccess.value.error?.observedAt, thirdTime)
+})
+
+test('same-time observations ignore JSON property insertion order', () => {
+  const initialSnapshot = snapshot()
+  const reorderedSnapshot = {
+    repository: initialSnapshot.repository,
+    source: initialSnapshot.source,
+    observedAt: initialSnapshot.observedAt
+  }
+  const current = reviewFile(initialSnapshot)
+  assert.equal(
+    arbitrateReviewSnapshot(
+      current,
+      current.reviewId,
+      reorderedSnapshot
+    ).outcome,
+    'idempotent'
+  )
+
+  const currentThread = threadFile()
+  const reorderedIdentity = {
+    threadId: currentThread.identity.threadId,
+    threadHostKind: currentThread.identity.threadHostKind
+  }
+  const prior = currentThread.titleObservations[0] as ThreadTitleObservation
+  const reorderedTitle = {
+    title: prior.title,
+    observedAt: prior.observedAt,
+    authority: prior.authority,
+    sourceKey: prior.sourceKey
+  }
+  assert.equal(
+    arbitrateTitleObservation(
+      currentThread,
+      reorderedIdentity,
+      reorderedTitle
+    ).outcome,
+    'idempotent'
+  )
 })
 
 test('review errors require the expected current snapshot generation', () => {

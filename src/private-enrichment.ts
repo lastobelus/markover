@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 
 import {
   isCanonicalReviewTimestamp,
@@ -163,8 +164,10 @@ function normalizedRelative(value: unknown): value is string {
     !value.startsWith(`..${path.sep}`)
 }
 
-function jsonEqual(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right)
+function compareTimestamps(left: string, right: string): -1 | 0 | 1 {
+  const leftInstant = Date.parse(left)
+  const rightInstant = Date.parse(right)
+  return leftInstant === rightInstant ? 0 : leftInstant < rightInstant ? -1 : 1
 }
 
 function clone<T>(value: T): T {
@@ -287,7 +290,10 @@ export function parseReviewEnrichment(value: unknown): ReviewEnrichmentFile {
   ) invalid('Review enrichment uses an unsupported or invalid private format.')
   assertSnapshot(value.snapshot)
   assertReviewError(value.error)
-  if (value.error && value.error.observedAt <= value.snapshot.observedAt) {
+  if (
+    value.error &&
+    compareTimestamps(value.error.observedAt, value.snapshot.observedAt) <= 0
+  ) {
     invalid('A persisted review error must be newer than its successful snapshot.')
   }
   return clone(value as unknown as ReviewEnrichmentFile)
@@ -368,16 +374,25 @@ export function arbitrateReviewSnapshot(
       }
     }
   }
-  if (candidate.observedAt < current.snapshot.observedAt) {
+  const snapshotOrder = compareTimestamps(
+    candidate.observedAt,
+    current.snapshot.observedAt
+  )
+  if (snapshotOrder < 0) {
     return { outcome: 'ignored', value: clone(current) }
   }
-  if (candidate.observedAt === current.snapshot.observedAt) {
+  if (snapshotOrder === 0) {
     return {
-      outcome: jsonEqual(candidate, current.snapshot) ? 'idempotent' : 'conflict',
+      outcome: isDeepStrictEqual(candidate, current.snapshot)
+        ? 'idempotent'
+        : 'conflict',
       value: clone(current)
     }
   }
-  if (current.error?.observedAt === candidate.observedAt) {
+  if (
+    current.error &&
+    compareTimestamps(current.error.observedAt, candidate.observedAt) === 0
+  ) {
     return { outcome: 'conflict', value: clone(current) }
   }
   return {
@@ -385,7 +400,10 @@ export function arbitrateReviewSnapshot(
     value: {
       ...clone(current),
       snapshot: clone(candidate),
-      error: current.error && current.error.observedAt > candidate.observedAt
+      error: current.error && compareTimestamps(
+        current.error.observedAt,
+        candidate.observedAt
+      ) > 0
         ? clone(current.error)
         : null
     }
@@ -412,10 +430,14 @@ export function arbitrateReviewError(
   if (current.snapshot.observedAt !== expectedSnapshotObservedAt) {
     return { outcome: 'ignored', value: clone(current) }
   }
-  if (observedAt < current.snapshot.observedAt) {
+  const snapshotOrder = compareTimestamps(
+    observedAt,
+    current.snapshot.observedAt
+  )
+  if (snapshotOrder < 0) {
     return { outcome: 'ignored', value: clone(current) }
   }
-  if (observedAt === current.snapshot.observedAt) {
+  if (snapshotOrder === 0) {
     return { outcome: 'conflict', value: clone(current) }
   }
   const error: ReviewEnrichmentError = {
@@ -424,12 +446,15 @@ export function arbitrateReviewError(
     detail: reviewErrorDetail(code)
   }
   if (current.error) {
-    if (observedAt < current.error.observedAt) {
+    const errorOrder = compareTimestamps(observedAt, current.error.observedAt)
+    if (errorOrder < 0) {
       return { outcome: 'ignored', value: clone(current) }
     }
-    if (observedAt === current.error.observedAt) {
+    if (errorOrder === 0) {
       return {
-        outcome: jsonEqual(error, current.error) ? 'idempotent' : 'conflict',
+        outcome: isDeepStrictEqual(error, current.error)
+          ? 'idempotent'
+          : 'conflict',
         value: clone(current)
       }
     }
@@ -447,7 +472,7 @@ export function arbitrateTitleObservation(
 ): EnrichmentArbitration<ThreadEnrichmentFile> {
   assertThreadIdentity(identity)
   assertTitleObservation(candidate)
-  if (current && !jsonEqual(current.identity, identity)) {
+  if (current && !isDeepStrictEqual(current.identity, identity)) {
     invalid('Thread enrichment identity does not match its addressed thread.')
   }
   const base: ThreadEnrichmentFile = current
@@ -463,12 +488,18 @@ export function arbitrateTitleObservation(
   )
   const previous = base.titleObservations[index]
   if (previous) {
-    if (candidate.observedAt < previous.observedAt) {
+    const observationOrder = compareTimestamps(
+      candidate.observedAt,
+      previous.observedAt
+    )
+    if (observationOrder < 0) {
       return { outcome: 'ignored', value: base }
     }
-    if (candidate.observedAt === previous.observedAt) {
+    if (observationOrder === 0) {
       return {
-        outcome: jsonEqual(candidate, previous) ? 'idempotent' : 'conflict',
+        outcome: isDeepStrictEqual(candidate, previous)
+          ? 'idempotent'
+          : 'conflict',
         value: base
       }
     }
@@ -490,7 +521,7 @@ export function resolvedThreadTitle(
     const authority = Number(right.authority === 'thread-host') -
       Number(left.authority === 'thread-host')
     return authority ||
-      right.observedAt.localeCompare(left.observedAt) ||
+      compareTimestamps(right.observedAt, left.observedAt) ||
       left.sourceKey.localeCompare(right.sourceKey)
   })[0] as ThreadTitleObservation)
 }
