@@ -152,6 +152,10 @@ declare global {
       current: ZoomPercent,
       direction: -1 | 1
     ) => ZoomPercent
+    minimumWindowSize: (
+      zoomPercent: ZoomPercent,
+      maximum?: { width: number; height: number }
+    ) => { width: number; height: number }
     windowBackground: (
       settings: unknown,
       resolvedAppearance?: string
