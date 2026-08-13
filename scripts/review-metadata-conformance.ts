@@ -814,7 +814,7 @@ function assertEvidenceIdIndependent(
   evidenceId: string,
   privateValues: Array<string | null | undefined>
 ): void {
-  const suffix = evidenceId.slice(-8)
+  const suffix = evidenceId.slice(-8).toLowerCase()
   if (privateValueCandidates(privateValues).has(suffix)) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
@@ -851,7 +851,7 @@ function privateValueCandidates(
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
-    if (value.length >= 8) candidates.add(value)
+    if (value.length >= 8) candidates.add(value.toLowerCase())
     for (const segments of [
       value
         .split(/[^A-Za-z0-9._+-]+/)
@@ -864,14 +864,16 @@ function privateValueCandidates(
           end <= Math.min(start + 5, segments.length);
           end += 1
         ) {
-          const candidate = segments.slice(start, end).join(' ')
+          const candidate = segments.slice(start, end).join(' ').toLowerCase()
           if (candidate.length >= 8) candidates.add(candidate)
         }
       }
     }
   }
   for (const value of alwaysPrivate) {
-    if (value !== null && value !== undefined) candidates.add(value)
+    if (value !== null && value !== undefined) {
+      candidates.add(value.toLowerCase())
+    }
   }
   return candidates
 }
@@ -891,7 +893,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   ))
   const privateCandidates = privateValueCandidates(values, alwaysPrivate)
   if ([...persistedRuntimeValues, ...persistedRuntimeSegments].some(
-    (value) => value !== null && privateCandidates.has(value)
+    (value) => value !== null && privateCandidates.has(value.toLowerCase())
   )) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')
   }
@@ -1078,7 +1080,7 @@ export function recordConformanceEvidence(
       )
     }
     const observation = parseCaptureObservation(observationValue)
-    const suffix = observation.evidenceId.slice(-8)
+    const suffix = observation.evidenceId.slice(-8).toLowerCase()
     if (privateValueCandidates(
       privateCaptureStrings(artifactValue, observation)
     ).has(suffix)) {

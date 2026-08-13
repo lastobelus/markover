@@ -203,6 +203,44 @@ test('capture rejects an evidence ID suffix copied from a private identity', () 
   )
 })
 
+test('capture compares private identifiers without case distinctions', async (t) => {
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'DEADBEEF'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'DEADBEEF'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'deadbeef'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+})
+
 test('capture binds the evidence ID slug to the selected matrix entry', () => {
   assert.throws(
     () => parseCaptureObservation(observation({
@@ -458,7 +496,7 @@ test('failure evidence rejects a suffix copied from an extension key', () => {
   const artifact = fixture()
   agentThread(artifact)
   const rootNode = artifact.root as Record<string, unknown>
-  rootNode.fixtureExtension = { deadbeef: true }
+  rootNode.fixtureExtension = { DEADBEEF: true }
   assert.throws(
     () => recordConformanceEvidence(
       artifact,
