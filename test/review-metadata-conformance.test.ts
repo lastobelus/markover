@@ -528,6 +528,23 @@ test('capture treats numeric extension leaves as private artifact values', async
       /Evidence ID suffix must be independent of private artifact values/
     )
   })
+
+  await t.test('short runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 123456 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '123456'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {

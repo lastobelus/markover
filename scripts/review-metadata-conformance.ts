@@ -871,12 +871,31 @@ function completePrivateCaptureStrings(
     'review.pullRequest.statusSource',
     'review.status'
   ])
+  const isPublicNumericPath = (fields: string[]): boolean => {
+    const joined = fields.join('.')
+    return joined === 'version' ||
+      joined === 'review.pullRequest.number' ||
+      /^unsupported\.\d+\.line$/.test(joined) ||
+      /^root(?:\.children\.\d+)*\.(?:level|lineEnd|lineStart)$/.test(joined)
+  }
   const visit = (value: unknown, fields: string[]): string[] => {
     if (typeof value === 'string') {
       return publicValuePaths.has(fields.join('.')) ? [] : [value]
     }
+    if (typeof value === 'number') {
+      if (isPublicNumericPath(fields)) return []
+      if (!Number.isSafeInteger(value)) {
+        throw new Error(
+          'Raw artifact contains a non-safe numeric value that cannot be sanitized exactly.'
+        )
+      }
+      return [String(value)]
+    }
     if (Array.isArray(value)) {
-      return value.flatMap((nested) => visit(nested, fields))
+      return value.flatMap((nested, index) => visit(
+        nested,
+        [...fields, String(index)]
+      ))
     }
     if (isRecord(value)) {
       return Object.entries(value).flatMap(([key, nested]) => [
