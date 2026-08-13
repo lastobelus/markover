@@ -156,7 +156,9 @@ private paths and identifiers in runner commit
 each combination. Stable runner-history archival and delimiter-stripped private
 path-component comparison in runner commit
 `db4f833003fb6d861401252602f2242f360a0896` produced a twenty-fourth record for
-each combination.
+each combination. Shared explicit-private normalization for passing and failure
+evidence in runner commit `10d7dbef69f48a1373ae77dd50047fe46fb89be7`
+produced a twenty-fifth record for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
