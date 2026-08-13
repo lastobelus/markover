@@ -1578,7 +1578,10 @@ function base45DecodedVariants(value: string): string[] {
 
 function ascii85DecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
-    if (encoded.length < 2 || encoded.length > 512) return null
+    const payload = encoded.startsWith('<~') && encoded.endsWith('~>')
+      ? encoded.slice(2, -2)
+      : encoded
+    if (payload.length < 2 || payload.length > 512) return null
     const bytes: number[] = []
     let group = ''
     const flush = (final: boolean): boolean => {
@@ -1597,7 +1600,7 @@ function ascii85DecodedVariants(value: string): string[] {
       group = ''
       return true
     }
-    for (const character of encoded) {
+    for (const character of payload) {
       if (character === 'z' && group.length === 0) bytes.push(0, 0, 0, 0)
       else {
         group += character
@@ -1717,6 +1720,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base32hexDecodedVariants(current),
       ...base32zDecodedVariants(current),
       ...base58DecodedVariants(current),
+      ...base45DecodedVariants(current),
       ...ascii85DecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
