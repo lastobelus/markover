@@ -215,14 +215,18 @@ each combination.
 Numeric multi-token segment canonicalization in runner commit
 `9904e88283135d55d7870970cb99cb98c482fe57` produced a forty-seventh record for
 each combination.
+All-length machine identity containment and version-prefixed numeric
+canonicalization in runner commit
+`f5896c8001438cf01cc660e0d95bf7168874d165` produced a forty-eighth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v27` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v28` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v27
+git fetch origin refs/tags/issue-136-runner-history-v28
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

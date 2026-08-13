@@ -984,7 +984,7 @@ function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
 
 function privateAdditiveArtifactInputs(artifactValue: unknown): {
   keys: string[]
-  stringValues: string[]
+  scalarValues: string[]
 } {
   const knownFields = (fields: string[]): Set<string> | undefined => {
     const joined = fields.join('.')
@@ -1042,11 +1042,16 @@ function privateAdditiveArtifactInputs(artifactValue: unknown): {
     }
     return undefined
   }
-  const result = { keys: [] as string[], stringValues: [] as string[] }
-  const stringLeaves = (value: unknown): string[] => {
+  const result = { keys: [] as string[], scalarValues: [] as string[] }
+  const privateScalarLeaves = (value: unknown): string[] => {
     if (typeof value === 'string') return [value]
-    if (Array.isArray(value)) return value.flatMap(stringLeaves)
-    if (isRecord(value)) return Object.values(value).flatMap(stringLeaves)
+    if (typeof value === 'number' && Number.isSafeInteger(value)) {
+      return [String(value)]
+    }
+    if (Array.isArray(value)) return value.flatMap(privateScalarLeaves)
+    if (isRecord(value)) {
+      return Object.values(value).flatMap(privateScalarLeaves)
+    }
     return []
   }
   const visit = (value: unknown, fields: string[] = []): void => {
@@ -1062,7 +1067,7 @@ function privateAdditiveArtifactInputs(artifactValue: unknown): {
       const additive = known?.has(field) !== true
       if (additive) {
         result.keys.push(field)
-        result.stringValues.push(...stringLeaves(nested))
+        result.scalarValues.push(...privateScalarLeaves(nested))
       }
       visit(nested, [...fields, field])
     }
@@ -1500,7 +1505,7 @@ export function buildSanitizedEvidence(
     completePrivateInputs,
     privateIdentifierArtifactStrings(artifact),
     additivePrivateInputs.keys,
-    additivePrivateInputs.stringValues
+    additivePrivateInputs.scalarValues
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
@@ -1509,7 +1514,7 @@ export function buildSanitizedEvidence(
     completePrivateInputs,
     privateIdentifierArtifactStrings(artifact),
     additivePrivateInputs.keys,
-    additivePrivateInputs.stringValues
+    additivePrivateInputs.scalarValues
   )
   return evidence
 }
@@ -1568,7 +1573,7 @@ export function recordConformanceEvidence(
         completePrivateCaptureStrings(artifactValue, observation),
         privateIdentifierArtifactStrings(artifactValue),
         additivePrivateInputs.keys,
-        additivePrivateInputs.stringValues
+        additivePrivateInputs.scalarValues
       )
     } catch (privacyError) {
       if (
