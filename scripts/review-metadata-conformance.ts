@@ -406,6 +406,18 @@ function trueChecks(): ConformanceChecks {
   }
 }
 
+function assertLiveValuesAbsent(
+  fixture: EvidenceFixture,
+  liveValues: string[]
+): void {
+  const serialized = JSON.stringify(fixture)
+  for (const value of liveValues) {
+    if (serialized.includes(value)) {
+      throw new Error('Evidence fixture still contains a literal value from the live review.')
+    }
+  }
+}
+
 export function buildEvidenceFixture(
   artifactValue: unknown,
   observationValue: unknown,
@@ -416,6 +428,7 @@ export function buildEvidenceFixture(
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
   const thread = artifact.review.agentThread
+  const liveValues: string[] = []
   const exerciseSource = fs.readFileSync(
     path.join(evaluationDirectory, 'exercise-source.md'),
     'utf8'
@@ -442,6 +455,7 @@ export function buildEvidenceFixture(
       throw new Error(`Captured thread metadata does not match ${entry.id}.`)
     }
     assertDiscoveryMatchesAgentThread(observation.discovery, thread)
+    liveValues.push(thread.id)
     const fixtureThreadHost: NonNullable<
       EvidenceFixture['agentThread']
     >['threadHost'] = {
@@ -449,10 +463,12 @@ export function buildEvidenceFixture(
       provider: thread.threadHost.provider
     }
     if (thread.threadHost.threadId !== undefined) {
+      liveValues.push(thread.threadHost.threadId)
       fixtureThreadHost.threadId = fixtureThreadHostId
       threadHostId = thread.threadHost.threadId === thread.id ? 'equal' : 'distinct'
     }
     if (thread.threadHost.machine !== undefined) {
+      liveValues.push(thread.threadHost.machine)
       fixtureThreadHost.machine = fixtureMachine
     }
     identity = 'identified'
@@ -461,7 +477,7 @@ export function buildEvidenceFixture(
       threadHost: fixtureThreadHost
     }
   }
-  return {
+  const fixture: EvidenceFixture = {
     checks: trueChecks(),
     discovery: observation.discovery,
     evidenceId: observation.evidenceId,
@@ -473,6 +489,8 @@ export function buildEvidenceFixture(
     agentThread,
     schemaVersion: evidenceSchemaVersion
   }
+  assertLiveValuesAbsent(fixture, liveValues)
+  return fixture
 }
 
 function assertTrueChecks(value: unknown): ConformanceChecks {

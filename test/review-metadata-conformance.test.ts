@@ -150,6 +150,37 @@ test('capture requires the maintained metadata exercise source', () => {
   )
 })
 
+test('capture rejects literal live values copied into observation text', async (t) => {
+  const artifact = fixture()
+  agentThread(artifact)
+
+  await t.test('limitations', () => {
+    assert.throws(
+      () => buildEvidenceFixture(
+        artifact,
+        observation({
+          limitations: ['Used session-from-live-exercise for this run.']
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /still contains a literal value from the live review/
+    )
+  })
+
+  await t.test('runtime', () => {
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'session-from-live-exercise'
+    assert.throws(
+      () => buildEvidenceFixture(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /still contains a literal value from the live review/
+    )
+  })
+})
+
 test('capture rejects retained values whose discovery is unavailable', () => {
   const artifact = fixture()
   agentThread(artifact)
