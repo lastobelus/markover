@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" data-repo-doc-path="doc/explanations/2026-08-13__complexity-accretion-audit/index.html">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Complexity accretion audit · Markover</title>
+  <style>
+    :root{--brand-orange:#c94e1f;--brand-burgundy:#6d211f;--ink:#26211e;--muted:#756d67;--paper:#eee8e0;--surface:#fffdf9;--line:#ddd5cc;--brand-soft:#f5e3da;--green:#436348;--green-soft:#e8f0e7;--gold:#8a6419;--gold-soft:#f5ecd3;--shadow:0 12px 28px rgba(68,43,31,.08)}
+    *{box-sizing:border-box}html{background:var(--paper);color:var(--ink);font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif;line-height:1.55}body{margin:0}a{color:var(--brand-burgundy);text-underline-offset:3px}a:hover{color:var(--brand-orange)}code,.sans,nav,table,.tag,.metric strong,.eyebrow{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{width:min(1120px,calc(100% - 32px));margin:auto}.hero{padding:54px 0 30px}.eyebrow{color:var(--brand-orange);font-size:.78rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase}.hero h1{font-size:clamp(2.3rem,7vw,5.3rem);line-height:.96;letter-spacing:-.055em;max-width:940px;margin:.22em 0}.lede{max-width:790px;color:#534b46;font-size:1.2rem}.nav{position:sticky;top:0;z-index:5;background:rgba(238,232,224,.96);border-block:1px solid var(--line);backdrop-filter:blur(8px)}nav{display:flex;gap:8px;overflow-x:auto;padding:10px 0}nav a{white-space:nowrap;text-decoration:none;font-weight:750;font-size:.84rem;padding:7px 11px;border-radius:999px;color:var(--muted)}nav a[aria-current="page"],nav a:hover{background:var(--surface);color:var(--brand-burgundy)}main{padding:24px 0 70px}.card,details.truth{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}details.truth{margin-bottom:22px}details.truth summary{cursor:pointer;display:flex;justify-content:space-between;gap:16px;padding:15px 18px;font-family:ui-sans-serif,-apple-system,sans-serif;font-weight:800}.truth-body{padding:0 18px 16px;color:var(--muted);font-size:.93rem}.truth-body p{margin:.5em 0}.status{color:var(--brand-orange);font-size:.82rem;text-align:right}.section{margin-top:44px}.section h2{font-size:clamp(1.7rem,4vw,2.5rem);line-height:1.05;letter-spacing:-.03em;margin:0 0 9px}.section-intro{color:var(--muted);max-width:760px;margin:0 0 20px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.card{padding:20px}.card h3{font-size:1.08rem;margin:0 0 8px}.card p{color:#625952;margin:.45em 0}.number{font-size:2.2rem;font-weight:800;line-height:1;color:var(--brand-burgundy);font-family:ui-sans-serif,-apple-system,sans-serif}.label{font-family:ui-sans-serif,-apple-system,sans-serif;color:var(--muted);font-size:.83rem;margin-top:5px}.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:18px}.metric{background:var(--ink);color:#fff;border-radius:14px;padding:16px}.metric strong{display:block;font-size:1.55rem;color:#ffd9c7}.metric span{display:block;color:#d8cdc5;font-size:.78rem;margin-top:4px}.verdict{border-left:6px solid var(--brand-orange);padding:22px 24px}.verdict p{font-size:1.14rem;color:var(--ink);max-width:880px}.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:10px;margin:20px 0}.flow .step{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:16px;min-height:112px}.arrow{font-family:ui-sans-serif,sans-serif;font-weight:900;color:var(--brand-orange);font-size:1.5rem}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--surface)}table{border-collapse:collapse;width:100%;min-width:820px;font-size:.88rem}th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}th{background:#f7f2eb;color:#5f5650;font-size:.76rem;text-transform:uppercase;letter-spacing:.06em}tr:last-child td{border-bottom:0}.tag{display:inline-block;font-size:.72rem;font-weight:800;border-radius:999px;padding:3px 8px;background:var(--brand-soft);color:var(--brand-burgundy)}.tag.keep{background:var(--green-soft);color:var(--green)}.tag.mid{background:var(--gold-soft);color:var(--gold)}.chapters{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.chapter{text-decoration:none;color:var(--ink);transition:transform .15s ease,border-color .15s ease}.chapter:hover{transform:translateY(-2px);border-color:#bd8c78;color:var(--ink)}.chapter .kicker{font-family:ui-sans-serif,sans-serif;color:var(--brand-orange);font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.chapter h3{font-size:1.35rem}.chapter .go{font-family:ui-sans-serif,sans-serif;font-weight:800;color:var(--brand-burgundy)}.keep-box{background:var(--green-soft);border-color:#bfd0be}.note{font-size:.9rem;color:var(--muted)}footer{border-top:1px solid var(--line);padding:25px 0 55px;color:var(--muted);font-size:.87rem}footer details summary{cursor:pointer;font-family:ui-sans-serif,sans-serif;font-weight:750;color:var(--ink)}
+    @media(max-width:820px){.grid,.chapters{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg);text-align:center}.hero{padding-top:38px}.hero h1{font-size:clamp(2.45rem,14vw,4.1rem)}.status{max-width:48%}}
+    @media(max-width:420px){.wrap{width:min(100% - 22px,1120px)}.metrics{grid-template-columns:1fr 1fr}.metric{padding:12px}.card{padding:17px}details.truth summary{padding:13px 15px}.truth-body{padding:0 15px 14px}}
+  </style>
+</head>
+<body>
+  <header class="wrap hero">
+    <div class="eyebrow">Read-only forensic audit · Issue 136 / PR 141</div>
+    <h1>The complexity trap</h1>
+    <p class="lede">A small evaluation PR became a 23-hour proof that no private string could ever be disguised in a fixture. That proof has no end. This report explains how the loop formed, why Markover's agent guidance did not stop it, and where the same pattern already lives in the repository.</p>
+  </header>
+  <div class="nav"><nav class="wrap" aria-label="Report chapters">
+    <a href="index.html" aria-current="page">Overview</a>
+    <a href="01-pr-141-forensics.html">PR 141 forensics</a>
+    <a href="02-guidance-loop.html">Why guidance failed</a>
+    <a href="03-local-app-hotspots.html">Local-app hotspots</a>
+    <a href="04-tooling-process-hotspots.html">Tooling &amp; process</a>
+  </nav></div>
+  <main class="wrap">
+    <details class="truth">
+      <summary><span>Where this is true</span><span class="status">Snapshot · 13 Aug 2026</span></summary>
+      <div class="truth-body">
+        <p><strong>Subject:</strong> T3 thread <code>4e6fb032-a168-459f-b704-a3d034b82961</code>, <a href="https://github.com/lastobelus/markover/issues/136">issue #136</a>, and open <a href="https://github.com/lastobelus/markover/pull/141">PR #141</a>.</p>
+        <p><strong>Exact states checked:</strong> repository base <code>3d9e676b</code>; PR high-water head <code>20ffc771</code>; cleaned PR head <code>5dc8016a</code>. The GitHub status can change; the numerical history and local archive make the high-water comparison reproducible.</p>
+        <p><strong>Scope:</strong> complexity proportionality, realistic security, concurrency, and recoverability for a single-user local macOS app. This is not a request to remove legitimate renderer isolation, localhost authentication, primary-review durability, narrow deletion checks, or per-review serialization.</p>
+        <p><strong>Method:</strong> five independent read-only subagent audits, full local session transcript analysis, GitHub review-thread inspection, local Git archaeology, and targeted source/test/plan reading. No application code or external state was changed.</p>
+      </div>
+    </details>
+
+    <section class="section" aria-labelledby="tiny-story">
+      <h2 id="tiny-story">The tiny story</h2>
+      <p class="section-intro">The PR began with a finite job. One sentence accidentally turned it into an infinite one.</p>
+      <div class="flow" aria-label="How a finite evaluation became an unbounded proof">
+        <div class="step"><strong>1 · Finite job</strong><br><span class="note">Run live agents and preserve useful review-metadata evidence.</span></div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="step"><strong>2 · Unbounded promise</strong><br><span class="note">Claim that no raw private value was committed, then validate the claim.</span></div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="step"><strong>3 · Infinite search</strong><br><span class="note">Every fix inspired another reversible encoding, so “review again” nearly always found one.</span></div>
+      </div>
+      <div class="card verdict">
+        <h3>Verdict</h3>
+        <p><strong>This was an automated-review fixed-point failure, not 160 independent product defects.</strong> The loop asked a stochastic reviewer to disprove an unlimited property. It accepted every P2 as mandatory, changed the reviewed surface after every answer, and had no rule that compared the proposed protection with Markover's actual attacker, consequence, or recovery path.</p>
+      </div>
+      <div class="metrics" aria-label="PR 141 high-water metrics">
+        <div class="metric"><strong>23h</strong><span>first to last submitted review</span></div>
+        <div class="metric"><strong>126</strong><span>manual review triggers</span></div>
+        <div class="metric"><strong>160</strong><span>findings in total</span></div>
+        <div class="metric"><strong>254</strong><span>commits reachable above base</span></div>
+        <div class="metric"><strong>29,105</strong><span>inserted lines at high water</span></div>
+        <div class="metric"><strong>97%</strong><span>high-water additions later removed</span></div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="why">
+      <h2 id="why">Why the guardrails did not guard</h2>
+      <p class="section-intro">The guidance contains strong positive duties—fail closed, preserve evidence, re-run review on the exact head—but no equally strong stopping rule.</p>
+      <div class="grid">
+        <article class="card"><h3>Local correctness won</h3><p>Each finding named a real bypass of the validator as implemented. Nobody stepped back to ask whether the validator itself was a meaningful security boundary.</p></article>
+        <article class="card"><h3>The review loop was self-renewing</h3><p>Every push invalidated terminal-clean status. Every provenance fix created three more artifacts. Each added decoder enlarged the attack and test surface.</p></article>
+        <article class="card"><h3>The threat model was absent</h3><p>The imagined attacker was a repository committer who deliberately copied a private value into a checked-in fixture under a reversible encoding. That person can also bypass the validator.</p></article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="repo-map">
+      <h2 id="repo-map">Where the same shape appears</h2>
+      <p class="section-intro">The ranking separates “wrong boundary” from “right goal, too much machinery.” Confidence reflects the strength of production-call, threat-model, and recovery evidence—not an estimate of deletion effort.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Rank</th><th>Area</th><th>Plain-English diagnosis</th><th>Consequence being prevented</th><th>Assessment</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><a href="03-local-app-hotspots.html#enrichment">Private enrichment</a></td><td>Database-grade conflict and recovery semantics before a production producer or consumer exists.</td><td>Stale or missing secondary title/project metadata.</td><td><span class="tag">Severe excess</span></td></tr>
+          <tr><td>2</td><td><a href="04-tooling-process-hotspots.html#gardener">Decision Gardener</a></td><td>PID/start-time locks, stale reapers, durable notification retries around an audit whose missed runs are documented as harmless.</td><td>A delayed draft audit or notification.</td><td><span class="tag">Severe excess</span></td></tr>
+          <tr><td>3</td><td><a href="03-local-app-hotspots.html#shutdown">Shutdown durability</a></td><td>A deadline reports timeout but cannot cancel work; the app then needs compensation for mutations still running.</td><td>Feedback loss on quit—real—but mixed with disposable cache/layout flushes.</td><td><span class="tag mid">Goal right, model wrong</span></td></tr>
+          <tr><td>4</td><td><a href="03-local-app-hotspots.html#settings">Settings store</a></td><td>Cross-process PID locks and watching for a file with one supported process owner.</td><td>Re-selecting appearance or zoom.</td><td><span class="tag">Strong excess</span></td></tr>
+          <tr><td>5</td><td><a href="03-local-app-hotspots.html#cleanup">Attachment cleanup</a></td><td>A valid recheck is widened into an app-wide mutation freeze, even while the user reads a confirmation dialog.</td><td>A referenced attachment being trashed.</td><td><span class="tag mid">Narrow it</span></td></tr>
+          <tr><td>6</td><td><a href="03-local-app-hotspots.html#service">Local service publication</a></td><td>Two private records manufacture convergence, retry, and repair states.</td><td>Accidentally sending private content to a reused localhost port.</td><td><span class="tag mid">Core justified</span></td></tr>
+          <tr><td>7</td><td><a href="03-local-app-hotspots.html#autosave">Autosave</a></td><td>Useful durability becomes an exact timing protocol with reserve budgets and recovery scheduling.</td><td>A few seconds of unsaved feedback after app crash.</td><td><span class="tag mid">Moderate excess</span></td></tr>
+          <tr><td>8</td><td><a href="04-tooling-process-hotspots.html#evals">Annotation eval corpus</a></td><td>Thousands of committed raw trace artifacts and a 2,054-line runner to support an empirical question.</td><td>Losing reproducibility detail that could live outside Git.</td><td><span class="tag">Large evidence tax</span></td></tr>
+          <tr><td>9</td><td><a href="04-tooling-process-hotspots.html#links">Deep links &amp; canonical repair</a></td><td>A best-effort custom link became a blocking health/repair protocol although the raw ID and Terminal command work.</td><td>Having to paste one command.</td><td><span class="tag">Boundary inversion</span></td></tr>
+          <tr><td>10</td><td><a href="03-local-app-hotspots.html#provenance">Checksum-gated provenance</a></td><td>Expected document edits can hide harmless project labels and favicons.</td><td>A stale decorative label.</td><td><span class="tag">Disproportionate</span></td></tr>
+          <tr><td>11</td><td><a href="03-local-app-hotspots.html#workspace">Workspace state</a></td><td>Queued, exact retry semantics and strict validation for disposable UI layout.</td><td>Reset panes and selection.</td><td><span class="tag">Recover instead</span></td></tr>
+          <tr><td>12</td><td><a href="04-tooling-process-hotspots.html#shape-tests">Source-shape tests</a></td><td>Hundreds of regex assertions freeze implementation form instead of user-visible behavior.</td><td>An internal refactor changing names or ordering.</td><td><span class="tag">Fossilization</span></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section class="section" aria-labelledby="keep">
+      <h2 id="keep">The audit is not “delete all safety”</h2>
+      <div class="grid">
+        <article class="card keep-box"><h3>Keep primary-data barriers</h3><p>Atomic <code>review.json</code> replacement, attachment-bytes-before-reference ordering, autosave, and exact handoff snapshots protect user work.</p></article>
+        <article class="card keep-box"><h3>Keep real trust boundaries</h3><p>Renderer isolation, loopback binding, bearer authentication before body parsing, path containment, Trash, and confirmation protect against realistic harm.</p></article>
+        <article class="card keep-box"><h3>Keep narrow concurrency</h3><p>Agents really can collide with each other or the user. One coherent per-review mutation lane and one lifecycle gate match that reality.</p></article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="chapters">
+      <h2 id="chapters">Read the evidence</h2>
+      <div class="chapters">
+        <a class="card chapter" href="01-pr-141-forensics.html"><span class="kicker">Chapter 1</span><h3>How PR #141 became an encoding arms race</h3><p>The timeline, counts, review ladder, growth curve, and cleanup counterfactual.</p><span class="go">Open forensics →</span></a>
+        <a class="card chapter" href="02-guidance-loop.html"><span class="kicker">Chapter 2</span><h3>How the instructions created a one-way ratchet</h3><p>What AGENTS.md and the babysitting workflow demanded, what they omitted, and a practical stopping filter.</p><span class="go">Open guidance analysis →</span></a>
+        <a class="card chapter" href="03-local-app-hotspots.html"><span class="kicker">Chapter 3</span><h3>Runtime security, concurrency, and recovery hotspots</h3><p>Evidence-ranked findings in enrichment, shutdown, settings, deletion, local service, autosave, and secondary state.</p><span class="go">Open local-app audit →</span></a>
+        <a class="card chapter" href="04-tooling-process-hotspots.html"><span class="kicker">Chapter 4</span><h3>Tooling, eval, contract, and process hotspots</h3><p>The Decision Gardener, annotation evals, canonical links, source-shape tests, and process multipliers.</p><span class="go">Open tooling audit →</span></a>
+      </div>
+    </section>
+  </main>
+  <footer><div class="wrap">
+    <details><summary>Prompt / context</summary><p>The user requested a no-change analysis of thread <code>4e6fb032…</code>, issue #136, Codex reviews on its PR through the GitHub review connector, and repository evidence of disproportionate security/race/recovery complexity. Five subagents independently covered thread mechanics, PR archaeology, security, concurrency/recovery, and cross-repository patterns. This report is explanatory, not an implementation plan.</p></details>
+    <p>Prepared from local source, Git history, GitHub review data, and the retained Codex session transcript. Counts are exact where stated; qualitative rankings and the finding taxonomy are reasoned judgments.</p>
+  </div></footer>
+  <script>
+    function eli5RepoBase(){const p=new URLSearchParams(location.search);const e=p.get("baseUrl")||p.get("repoBase");if(e)return e.replace(/\/$/,"");const d=document.documentElement.dataset.repoDocPath;if(location.protocol==="file:"&&d){const f=decodeURIComponent(location.pathname);const s=`/${d.replace(/^\//,"")}`;return f.endsWith(s)?f.slice(0,-s.length):""}return""}
+    function wire(){const b=eli5RepoBase();for(const a of document.querySelectorAll("a[data-repo-path]")){if(!b){a.setAttribute("aria-disabled","true");a.title="Open the saved file directly or add ?baseUrl=/path/to/worktree.";continue}a.href=encodeURI(`file://${b}/${a.dataset.repoPath.replace(/^\//,"")}`)}}wire();
+  </script>
+</body>
+</html>
