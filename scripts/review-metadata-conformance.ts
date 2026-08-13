@@ -845,12 +845,13 @@ function privateCaptureStrings(
 }
 
 function privateValueCandidates(
-  values: Array<string | null | undefined>
+  values: Array<string | null | undefined>,
+  alwaysPrivate: Array<string | null | undefined> = []
 ): Set<string> {
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
-    candidates.add(value)
+    if (value.length >= 8) candidates.add(value)
     const segments = value
       .split(/[^A-Za-z0-9._+-]+/)
       .filter((segment) => runtimeTokenSegmentPattern.test(segment))
@@ -860,16 +861,21 @@ function privateValueCandidates(
         end <= Math.min(start + 5, segments.length);
         end += 1
       ) {
-        candidates.add(segments.slice(start, end).join(' '))
+        const candidate = segments.slice(start, end).join(' ')
+        if (candidate.length >= 8) candidates.add(candidate)
       }
     }
+  }
+  for (const value of alwaysPrivate) {
+    if (value !== null && value !== undefined) candidates.add(value)
   }
   return candidates
 }
 
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
-  runtime: RuntimeObservation
+  runtime: RuntimeObservation,
+  alwaysPrivate: Array<string | null | undefined> = []
 ): void {
   const persistedRuntimeValues = [
     runtime.hostVersion,
@@ -879,7 +885,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   const persistedRuntimeSegments = persistedRuntimeValues.flatMap((value) => (
     value === null ? [] : value.split(/\s+/)
   ))
-  const privateCandidates = privateValueCandidates(values)
+  const privateCandidates = privateValueCandidates(values, alwaysPrivate)
   if ([...persistedRuntimeValues, ...persistedRuntimeSegments].some(
     (value) => value !== null && privateCandidates.has(value)
   )) {
@@ -1010,10 +1016,15 @@ export function buildSanitizedEvidence(
   }
   assertSensitiveLeavesRedacted(sensitiveLeaves)
   const privateInputs = privateCaptureStrings(artifact, observation)
-  assertEvidenceIdIndependent(evidence.evidenceId, privateInputs)
+  const privateIdentities = sensitiveLeaves.map(({ raw }) => raw)
+  assertEvidenceIdIndependent(
+    evidence.evidenceId,
+    [...privateInputs, ...privateIdentities]
+  )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
-    evidence.runtime
+    evidence.runtime,
+    privateIdentities
   )
   return evidence
 }
