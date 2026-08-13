@@ -2299,6 +2299,39 @@ function restoreDocumentsListFocus(path: number[]): void {
   target.focus({ preventScroll: true })
 }
 
+function documentTabsFocusPath(): number[] | null {
+  const active = document.activeElement
+  if (!(active instanceof HTMLElement) || !elements.documentTabs.contains(active)) {
+    return null
+  }
+  const path: number[] = []
+  let current: Element = active
+  while (current !== elements.documentTabs) {
+    const parent = current.parentElement
+    if (!parent) return null
+    path.unshift(Array.from(parent.children).indexOf(current))
+    current = parent
+  }
+  return path
+}
+
+function restoreDocumentTabsFocus(path: number[]): void {
+  let target: Element = elements.documentTabs
+  for (const index of path) {
+    const child = target.children.item(index)
+    if (!child) return
+    target = child
+  }
+  if (!(target instanceof HTMLElement)) return
+  const overflow = target.closest<HTMLElement>('.document-tab-overflow')
+  if (overflow) {
+    overflow.classList.add('is-open')
+    overflow.querySelector<HTMLElement>('.document-tab-overflow-trigger')
+      ?.setAttribute('aria-expanded', 'true')
+  }
+  target.focus({ preventScroll: true })
+}
+
 function scheduleDocumentsListClockRefresh(sessions: ReviewSession[]): void {
   if (documentsListClockTimer) clearTimeout(documentsListClockTimer)
   documentsListClockTimer = null
@@ -3147,6 +3180,9 @@ function schedulePaneResizeLayoutUpdate(): void {
 }
 
 function setDocumentsListCollapsed(collapsed: boolean): void {
+  const restoreKeyboardFocus = document.activeElement === (
+    collapsed ? elements.documentsListCollapse : elements.documentsListOpen
+  )
   documentsListCollapsed = collapsed
   elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
   elements.reviewTabStrip.classList.toggle('is-sidebar-collapsed', collapsed)
@@ -3162,6 +3198,14 @@ function setDocumentsListCollapsed(collapsed: boolean): void {
     'aria-expanded',
     String(!collapsed)
   )
+  if (restoreKeyboardFocus) {
+    requestAnimationFrame(() => {
+      const target = collapsed
+        ? elements.documentsListOpen
+        : elements.documentsListCollapse
+      target.focus()
+    })
+  }
 }
 
 function themedBrandSource(
@@ -3994,10 +4038,11 @@ elements.annotationInput.addEventListener('input', () => {
   if (!node) return
   const wasAnnotated = hasAnnotation(node)
   node.feedback = elements.annotationInput.value
-  elements.annotationState.textContent = hasAnnotation(node)
-    ? 'Annotated'
-    : 'Not annotated'
-  if (wasAnnotated !== hasAnnotation(node)) {
+  const isAnnotated = hasAnnotation(node)
+  if (wasAnnotated !== isAnnotated) {
+    elements.annotationState.textContent = isAnnotated
+      ? 'Annotated'
+      : 'Not annotated'
     const selectionChanged = normalizeAnnotatedSelection()
     renderTreePreservingScroll()
     if (selectionChanged) {
@@ -4647,7 +4692,15 @@ async function initialize(): Promise<void> {
     if (!session) {
       throw new Error(`Cannot update missing review ${reviewId}.`)
     }
+    const documentsFocusPath = documentsListFocusPath()
+    const tabsFocusPath = documentTabsFocusPath()
     renderDocumentTabs()
+    if (documentsFocusPath || tabsFocusPath) {
+      requestAnimationFrame(() => {
+        if (documentsFocusPath) restoreDocumentsListFocus(documentsFocusPath)
+        else if (tabsFocusPath) restoreDocumentTabsFocus(tabsFocusPath)
+      })
+    }
     if (reviewId === state.reviewId) {
       const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
       if (selected) renderAnnotation(selected)

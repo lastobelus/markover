@@ -136,6 +136,10 @@ test('keyboard access reaches native controls and retains an explicit pane short
     /menu\.addEventListener\('keydown'[\s\S]*Home[\s\S]*End[\s\S]*ArrowDown[\s\S]*ArrowUp[\s\S]*\.focus\(\)/
   )
   assert.match(renderer, /closeTabOverflow\(true\)/)
+  assert.match(
+    renderer,
+    /const isAnnotated = hasAnnotation\(node\)[\s\S]*if \(wasAnnotated !== isAnnotated\) \{[\s\S]*annotationState\.textContent = isAnnotated/
+  )
 })
 
 test('attachment preview and destructive workflow restore a useful focus target', () => {
@@ -190,6 +194,22 @@ test('attachment preview and destructive workflow restore a useful focus target'
   assert.match(
     renderer,
     /scheduleDocumentsListClockRefresh[\s\S]*const focusPath = documentsListFocusPath\(\)[\s\S]*renderDocumentsList\(\)[\s\S]*restoreDocumentsListFocus\(focusPath\)/
+  )
+  assert.match(
+    renderer,
+    /function setDocumentsListCollapsed[\s\S]*restoreKeyboardFocus = document\.activeElement[\s\S]*collapsed \? elements\.documentsListCollapse : elements\.documentsListOpen[\s\S]*collapsed[\s\S]*elements\.documentsListOpen[\s\S]*elements\.documentsListCollapse[\s\S]*target\.focus\(\)/
+  )
+  assert.match(
+    renderer,
+    /function documentTabsFocusPath[\s\S]*documentTabs\.contains\(active\)[\s\S]*path\.unshift\(Array\.from\(parent\.children\)\.indexOf\(current\)\)/
+  )
+  assert.match(
+    renderer,
+    /function restoreDocumentTabsFocus[\s\S]*target\.closest<HTMLElement>\('\.document-tab-overflow'\)[\s\S]*classList\.add\('is-open'\)[\s\S]*target\.focus\(\{ preventScroll: true \}\)/
+  )
+  assert.match(
+    renderer,
+    /onReviewStatus[\s\S]*documentsFocusPath = documentsListFocusPath\(\)[\s\S]*tabsFocusPath = documentTabsFocusPath\(\)[\s\S]*renderDocumentTabs\(\)[\s\S]*restoreDocumentsListFocus\(documentsFocusPath\)[\s\S]*restoreDocumentTabsFocus\(tabsFocusPath\)/
   )
   assert.match(
     renderer,
