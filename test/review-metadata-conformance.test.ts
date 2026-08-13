@@ -203,6 +203,24 @@ test('capture rejects an evidence ID suffix copied from a private identity', () 
   )
 })
 
+test('capture rejects an evidence ID suffix embedded in a private identity', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  thread.id = 'prefixdeadbeefsuffix'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /Evidence ID suffix must be independent of private artifact values/
+  )
+})
+
 test('capture compares private identifiers without case distinctions', async (t) => {
   await t.test('evidence ID suffix', () => {
     const artifact = fixture()
@@ -467,6 +485,23 @@ test('capture treats additive extension keys as private artifact values', async 
     rootNode.fixtureExtension = { accountId: 'abc123' }
     const runtime = observation().runtime as Record<string, unknown>
     runtime.providerModel = 'abc123'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('extension value embedded without a runtime-token delimiter', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct12345'
     assert.throws(
       () => buildSanitizedEvidence(
         artifact,

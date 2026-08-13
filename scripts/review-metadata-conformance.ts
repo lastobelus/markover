@@ -817,11 +817,15 @@ function assertEvidenceIdIndependent(
   completePrivate: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
-  if (privateValueCandidates(
+  const privateCandidates = privateValueCandidates(
     privateValues,
     alwaysPrivate,
     completePrivate
-  ).has(suffix)) {
+  )
+  const suffixIsPrivateSubstring = [
+    ...privateContainmentCandidates(alwaysPrivate, completePrivate)
+  ].some((privateCandidate) => privateCandidate.includes(suffix))
+  if (privateCandidates.has(suffix) || suffixIsPrivateSubstring) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
     )
@@ -1049,6 +1053,17 @@ function privateValueCandidates(
   return candidates
 }
 
+function privateContainmentCandidates(
+  alwaysPrivate: Array<string | null | undefined>,
+  completePrivate: Array<string | null | undefined>
+): Set<string> {
+  return privateValueCandidates(
+    completePrivate,
+    alwaysPrivate,
+    completePrivate
+  )
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation,
@@ -1069,7 +1084,10 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     persistedRuntimeValues,
     persistedRuntimeValues
   )
-  const embeddedPrivateCandidates = privateValueCandidates([], alwaysPrivate)
+  const embeddedPrivateCandidates = privateContainmentCandidates(
+    alwaysPrivate,
+    completePrivate
+  )
   const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
     runtimeValue !== null &&
     [...embeddedPrivateCandidates].some((privateCandidate) =>
