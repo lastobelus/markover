@@ -42,7 +42,6 @@ import {
   ReviewFormatError
 } from '../src/review-format'
 
-const projectDirectory = path.resolve(__dirname, '../..')
 const defaultEndpointPath = serviceEndpointPath()
 
 const helpAliases = new Set(['help', 'info', '--help', '-h'])
@@ -577,26 +576,18 @@ function delay(milliseconds: number): Promise<void> {
 }
 
 export interface ResolveMarkoverAppOptions {
-  architecture?: string
   environment?: NodeJS.ProcessEnv
   exists?: (candidate: string) => boolean
   homeDirectory?: string
 }
 
 export function resolveMarkoverApp({
-  architecture = process.arch,
   environment = process.env,
   exists = fsSync.existsSync,
   homeDirectory = os.homedir()
 }: ResolveMarkoverAppOptions = {}): string | null {
   const candidates = [
     environment.MARKOVER_APP_PATH,
-    path.join(
-      projectDirectory,
-      'dist',
-      `Markover-darwin-${architecture}`,
-      'Markover.app'
-    ),
     path.join(homeDirectory, 'Applications', 'Markover.app'),
     '/Applications/Markover.app'
   ].filter((candidate): candidate is string => Boolean(candidate))
@@ -649,7 +640,7 @@ export function startDetachedInstance(
   if (platform !== 'darwin') {
     throw new Error('Automatic Markover startup currently requires macOS.')
   }
-  if (instance.identity.kind === 'canonical') {
+  if (instance.identity.kind === 'canonical' && !instance.checkout) {
     const packagedApp = resolveMarkoverApp(appOptions)
     if (packagedApp) {
       startDetachedApp({

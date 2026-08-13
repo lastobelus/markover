@@ -13,6 +13,7 @@ import {
   parseCommandArguments,
   readSessionDiscoverySetting,
   resolveMarkoverApp,
+  startDetachedInstance,
   type ExecuteCommandOptions
 } from '../scripts/markover'
 import type { ResolvedInstance } from '../src/instance'
@@ -728,7 +729,7 @@ test('bounded startup reports the diagnostic without relaunching', async (t) => 
   assert.equal(startCalls, 1)
 })
 
-test('cold startup prefers a packaged Markover app and supports an override', () => {
+test('packaged fallback excludes packages from the caller checkout', () => {
   const seen: string[] = []
   const exists = (candidate: string): boolean => {
     seen.push(candidate)
@@ -736,14 +737,13 @@ test('cold startup prefers a packaged Markover app and supports an override', ()
   }
   assert.equal(
     resolveMarkoverApp({
-      architecture: 'arm64',
       environment: {},
       exists,
       homeDirectory: '/Users/reviewer'
     }),
     '/Users/reviewer/Applications/Markover.app'
   )
-  assert.ok(seen.some((candidate) => candidate.includes('Markover-darwin-arm64')))
+  assert.ok(seen.every((candidate) => !candidate.includes('/dist/')))
 
   assert.equal(
     resolveMarkoverApp({
@@ -752,6 +752,43 @@ test('cold startup prefers a packaged Markover app and supports an override', ()
     }),
     '/Custom/Markover.app'
   )
+})
+
+test('canonical cold startup always uses its configured checkout', () => {
+  const calls: Array<{
+    command: string
+    args: readonly string[]
+    cwd: string | undefined
+  }> = []
+  const child = { unref() {} }
+  startDetachedInstance({
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/Users/reviewer/projects/markover',
+    process: { status: 'stopped' },
+    coldStart: { eligible: true, blockedBy: null }
+  } as unknown as ResolvedInstance, {
+    platform: 'darwin',
+    environment: {
+      MARKOVER_APP_PATH: '/Users/reviewer/worktree/dist/Markover.app'
+    },
+    exists: () => true,
+    spawnProcess: ((command: string, args: readonly string[], options: {
+      cwd?: string
+    }) => {
+      calls.push({
+        command,
+        args,
+        cwd: typeof options?.cwd === 'string' ? options.cwd : undefined
+      })
+      return child
+    }) as unknown as typeof import('node:child_process').spawn
+  })
+
+  assert.deepEqual(calls, [{
+    command: 'npm',
+    args: ['start', '--', '--instance', 'canonical', '--markover-server'],
+    cwd: '/Users/reviewer/projects/markover'
+  }])
 })
 
 test('open validates and reads the source before starting Markover', async (t) => {
