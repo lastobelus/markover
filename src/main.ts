@@ -662,7 +662,13 @@ function formatByteCount(bytes: number): string {
 }
 
 function resumeManagedMutationsUnlessShuttingDown(): void {
-  if (!managedShutdownStarted) resumeManagedMutations()
+  privateEnrichmentStore.resume()
+  if (!managedShutdownStarted) {
+    managedAttachmentSavesBlocked = false
+    managedLocalReviewCreationsBlocked = false
+    localService?.resumeMutations()
+    setManagedRendererPause(false)
+  }
 }
 
 async function showReviewOperationError(error: unknown): Promise<void> {

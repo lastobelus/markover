@@ -51,6 +51,10 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   )
   assert.match(
     main,
+    /function resumeManagedMutationsUnlessShuttingDown[\s\S]*privateEnrichmentStore\.resume\(\)[\s\S]*if \(!managedShutdownStarted\)[\s\S]*managedAttachmentSavesBlocked = false[\s\S]*localService\?\.resumeMutations\(\)/
+  )
+  assert.match(
+    main,
     /review:create-local[\s\S]*if \(managedLocalReviewCreationsBlocked\)[\s\S]*managedLocalReviewCreations\.track\(\(\) => createManagedLocalReview\(tree\)\)/
   )
   assert.match(
