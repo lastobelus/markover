@@ -354,14 +354,17 @@ each combination, using independent suffix `iqzvmjkh`.
 Multibase Base45 and short additive-key comparison in runner commit
 `bdd4bd1265237fce42614feab1194fc527941d0d` produced a ninety-second record for
 each combination, using independent suffix `qqzvmjkh`.
+ASCII85 private-value comparison in runner commit
+`6d3f476b73dec5c97712b9d652f3e097e52b29dd` produced a ninety-third record for
+each combination, using independent suffix `rqzvnjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v75` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v76` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v75
+git fetch origin refs/tags/issue-136-runner-history-v76
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
