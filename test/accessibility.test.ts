@@ -102,7 +102,7 @@ test('keyboard access reaches native controls and retains an explicit pane short
   const renderer = read('src/renderer.ts')
   assert.doesNotMatch(
     renderer,
-    /if \(event\.key === 'Tab'\) \{\s*event\.preventDefault\(\)/
+    /document\.addEventListener\('keydown',[\s\S]*if \(event\.key === 'Tab'\) \{\s*event\.preventDefault\(\)/
   )
   assert.match(renderer, /event\.key === 'F6'[\s\S]*MarkoverNavigation\.nextPane/)
   assert.match(
@@ -115,6 +115,14 @@ test('keyboard access reaches native controls and retains an explicit pane short
   )
   assert.match(renderer, /aria-keyshortcuts', 'F2'/)
   assert.match(renderer, /event\.key !== 'F2'[\s\S]*beginAttachmentLabelEdit/)
+  assert.match(
+    renderer,
+    /event\.key === 'Tab'[\s\S]*event\.preventDefault\(\)[\s\S]*finish\(true, event\.shiftKey \? -1 : 1\)/
+  )
+  assert.match(
+    renderer,
+    /const focusTarget = tabDirection > 0[\s\S]*\.attachment-remove[\s\S]*\.attachment-thumbnail[\s\S]*focusTarget\?\.focus\(\)/
+  )
   assert.match(
     renderer,
     /moveAnnotationViewTabFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight[\s\S]*target\.focus/
@@ -156,6 +164,10 @@ test('attachment preview and destructive workflow restore a useful focus target'
   assert.match(
     renderer,
     /function focusAfterInactiveReviewTrashed[\s\S]*!documentsListCollapsed[\s\S]*focusDocumentsList\(\)[\s\S]*\.document-tab\.is-active, \.document-tab-overflow-trigger[\s\S]*documentsListOpen[\s\S]*requestAnimationFrame\(focusAfterInactiveReviewTrashed\)/
+  )
+  assert.match(
+    renderer,
+    /async function closeDocumentTab[\s\S]*closeReviewTab\(reviewId\)[\s\S]*renderDocumentTabs\(\)[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*\.document-tab\.is-active, \.document-tab-overflow-trigger[\s\S]*\.focus\(\)/
   )
   assert.match(renderer, /handleReviewTrashed[\s\S]*previewPane\.focus\(\)[\s\S]*emptyOpenButton\.focus\(\)/)
   assert.match(renderer, /restoreReviewActivationFocus\(reviewId, focusSurface\)/)

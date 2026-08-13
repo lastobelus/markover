@@ -1244,7 +1244,7 @@ function beginAttachmentLabelEdit(
   details.replaceWith(input)
 
   let finished = false
-  function finish(commit = false): void {
+  function finish(commit = false, tabDirection: -1 | 0 | 1 = 0): void {
     if (finished) return
     finished = true
     const restoreKeyboardFocus = document.activeElement === input
@@ -1267,11 +1267,13 @@ function beginAttachmentLabelEdit(
       renderAttachmentList(node)
       if (restoreKeyboardFocus) {
         requestAnimationFrame(() => {
-          elements.attachmentList
-            .querySelector<HTMLElement>(
-              `[data-attachment-id="${CSS.escape(attachment.id)}"] .attachment-thumbnail`
-            )
-            ?.focus()
+          const attachmentItem = elements.attachmentList.querySelector<HTMLElement>(
+            `[data-attachment-id="${CSS.escape(attachment.id)}"]`
+          )
+          const focusTarget = tabDirection > 0
+            ? attachmentItem?.querySelector<HTMLElement>('.attachment-remove')
+            : attachmentItem?.querySelector<HTMLElement>('.attachment-thumbnail')
+          focusTarget?.focus()
         })
       }
     }
@@ -1286,6 +1288,9 @@ function beginAttachmentLabelEdit(
     } else if (event.key === 'Escape') {
       event.preventDefault()
       finish(false)
+    } else if (event.key === 'Tab') {
+      event.preventDefault()
+      finish(true, event.shiftKey ? -1 : 1)
     }
   })
   input.addEventListener('blur', () => {
@@ -3443,6 +3448,13 @@ async function closeDocumentTab(reviewId: string): Promise<void> {
   closeReviewTab(reviewId)
   renderDocumentTabs()
   persistWorkspaceState()
+  requestAnimationFrame(() => {
+    elements.documentTabs
+      .querySelector<HTMLElement>(
+        '.document-tab.is-active, .document-tab-overflow-trigger'
+      )
+      ?.focus()
+  })
 }
 
 function createDocumentTab(session: ReviewSession): HTMLElement {

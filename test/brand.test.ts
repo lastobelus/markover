@@ -188,7 +188,10 @@ test('the working header aligns the brand and uses the primary action color', ()
   assert.match(renderer, /resizeDocumentsListFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight[\s\S]*shiftKey \? 48 : 16/)
   assert.match(renderer, /documentsListResizer\.addEventListener\(\s*'keydown',[\s\S]*resizeDocumentsListFromKeyboard/)
   assert.match(renderer, /event\.key === 'F6'[\s\S]*MarkoverNavigation\.nextPane/)
-  assert.doesNotMatch(renderer, /if \(event\.key === 'Tab'\) \{\s*event\.preventDefault\(\)/)
+  assert.doesNotMatch(
+    renderer,
+    /document\.addEventListener\('keydown',[\s\S]*if \(event\.key === 'Tab'\) \{\s*event\.preventDefault\(\)/
+  )
   assert.match(renderer, /setWorkspaceEmpty[\s\S]*requestAnimationFrame[\s\S]*applyAnnotationPaneWidth\(\)/)
   assert.match(renderer, /renderDocumentsList[\s\S]*classList\.toggle\('has-documents-list'[\s\S]*applyAnnotationPaneWidth\(\)/)
   assert.match(renderer, /schedulePaneResizeLayoutUpdate[\s\S]*updatePinnedSelection\(\)[\s\S]*updateTruncation/)
