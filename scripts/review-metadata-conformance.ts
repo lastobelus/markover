@@ -973,7 +973,7 @@ function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
   return visit(artifactValue)
 }
 
-function privateAdditiveArtifactKeys(artifactValue: unknown): string[] {
+function privateAdditiveArtifactStrings(artifactValue: unknown): string[] {
   const knownFields = (fields: string[]): Set<string> | undefined => {
     const joined = fields.join('.')
     if (!joined) {
@@ -1037,10 +1037,22 @@ function privateAdditiveArtifactKeys(artifactValue: unknown): string[] {
     }
     if (!isRecord(value)) return []
     const known = knownFields(fields)
-    return Object.entries(value).flatMap(([field, nested]) => [
-      ...(known?.has(field) === true ? [] : [field]),
-      ...visit(nested, [...fields, field])
-    ])
+    const scalarLeaves = (nested: unknown): string[] => {
+      if (typeof nested === 'string') return [nested]
+      if (typeof nested === 'number' && Number.isSafeInteger(nested)) {
+        return [String(nested)]
+      }
+      if (Array.isArray(nested)) return nested.flatMap(scalarLeaves)
+      if (isRecord(nested)) return Object.values(nested).flatMap(scalarLeaves)
+      return []
+    }
+    return Object.entries(value).flatMap(([field, nested]) => {
+      const additive = known?.has(field) !== true
+      return [
+        ...(additive ? [field, ...scalarLeaves(nested)] : []),
+        ...visit(nested, [...fields, field])
+      ]
+    })
   }
   return visit(artifactValue)
 }
@@ -1460,7 +1472,7 @@ export function buildSanitizedEvidence(
     explicitlyPrivateInputs,
     completePrivateInputs,
     privateIdentifierArtifactStrings(artifact),
-    privateAdditiveArtifactKeys(artifact)
+    privateAdditiveArtifactStrings(artifact)
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
@@ -1468,7 +1480,7 @@ export function buildSanitizedEvidence(
     explicitlyPrivateInputs,
     completePrivateInputs,
     privateIdentifierArtifactStrings(artifact),
-    privateAdditiveArtifactKeys(artifact)
+    privateAdditiveArtifactStrings(artifact)
   )
   return evidence
 }
@@ -1525,7 +1537,7 @@ export function recordConformanceEvidence(
         explicitlyPrivateArtifactStrings(artifactValue),
         completePrivateCaptureStrings(artifactValue, observation),
         privateIdentifierArtifactStrings(artifactValue),
-        privateAdditiveArtifactKeys(artifactValue)
+        privateAdditiveArtifactStrings(artifactValue)
       )
     } catch (privacyError) {
       if (

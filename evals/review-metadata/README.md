@@ -200,14 +200,17 @@ each combination.
 Short additive-key containment in runner commit
 `93a39dc903a53aa0480aed4fea733f6afddcdc36` produced a forty-second record for
 each combination.
+Identifier-field propagation through nested values in runner commit
+`856ecd62cf13fd54eebc9fa1aac95ed7b2e79d08` produced a forty-third record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v22` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v23` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v22
+git fetch origin refs/tags/issue-136-runner-history-v23
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
