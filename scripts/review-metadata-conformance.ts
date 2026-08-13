@@ -863,7 +863,7 @@ function assertEvidenceIdIndependent(
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
   const shortIdentifierCandidates = new Set([
     ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
-    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4),
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys),
     ...shortIdentifierContainmentCandidates(shortPrivateValues)
   ])
   const containmentPrivateCandidates = new Set([
@@ -1540,6 +1540,42 @@ function base58DecodedVariants(
   return variants
 }
 
+function base45DecodedVariants(value: string): string[] {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:'
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 2 || encoded.length > 512 || encoded.length % 3 === 1) return null
+    const bytes: number[] = []
+    for (let offset = 0; offset < encoded.length; offset += 3) {
+      const width = Math.min(3, encoded.length - offset)
+      const a = alphabet.indexOf(encoded.charAt(offset))
+      const b = alphabet.indexOf(encoded.charAt(offset + 1))
+      const c = width === 3 ? alphabet.indexOf(encoded.charAt(offset + 2)) : 0
+      if (a < 0 || b < 0 || c < 0) return null
+      const numeric = a + b * 45 + c * 2025
+      if (width === 3) {
+        if (numeric > 65535) return null
+        bytes.push(Math.floor(numeric / 256), numeric % 256)
+      } else {
+        if (numeric > 255) return null
+        bytes.push(numeric)
+      }
+    }
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes))
+      return decoded && decoded !== encoded ? decoded : null
+    } catch { return null }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  return variants
+}
+
 function hexadecimalDecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
@@ -1596,6 +1632,8 @@ function multibaseDecodedVariants(value: string): string[] {
         '123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ',
         'Base58flickr'
       )
+    case 'R':
+      return base45DecodedVariants(body)
     case 'b':
     case 'B':
       return base32DecodedVariants(body)
@@ -1981,7 +2019,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     shortExplicitPrivateContainmentCandidates(alwaysPrivate)
   const embeddedShortIdentifiers = new Set([
     ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers),
-    ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4),
+    ...shortIdentifierContainmentCandidates(shortPrivateKeys),
     ...shortIdentifierContainmentCandidates(shortPrivateValues)
   ])
   const containmentPrivateCandidates = new Set([
