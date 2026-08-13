@@ -814,7 +814,8 @@ function assertEvidenceIdIndependent(
   evidenceId: string,
   privateValues: Array<string | null | undefined>,
   alwaysPrivate: Array<string | null | undefined> = [],
-  completePrivate: Array<string | null | undefined> = []
+  completePrivate: Array<string | null | undefined> = [],
+  shortPrivateIdentifiers: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
   const privateCandidates = privateValueCandidates(
@@ -825,7 +826,21 @@ function assertEvidenceIdIndependent(
   const suffixIsPrivateSubstring = [
     ...privateContainmentCandidates(alwaysPrivate, completePrivate)
   ].some((privateCandidate) => privateCandidate.includes(suffix))
-  if (privateCandidates.has(suffix) || suffixIsPrivateSubstring) {
+  const shortPrivateCandidates = new Set([
+    ...shortExplicitPrivateContainmentCandidates(alwaysPrivate),
+    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers)
+  ])
+  const suffixContainsPrivate = [
+    ...privateContainmentCandidates(alwaysPrivate, completePrivate)
+  ].some((privateCandidate) =>
+    (privateCandidate.length >= 8 ||
+      (privateCandidate.length >= 4 && shortPrivateCandidates.has(privateCandidate))) &&
+    suffix.includes(privateCandidate))
+  if (
+    privateCandidates.has(suffix) ||
+    suffixIsPrivateSubstring ||
+    suffixContainsPrivate
+  ) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
     )
@@ -1105,6 +1120,17 @@ function shortIdentifierContainmentCandidates(
   return candidates
 }
 
+function shortExplicitPrivateContainmentCandidates(
+  values: Array<string | null | undefined>
+): Set<string> {
+  const pathValues = values.filter((value): value is string =>
+    typeof value === 'string' && /[\\/]/.test(value))
+  return new Set([
+    ...shortIdentifierContainmentCandidates(values),
+    ...privateValueCandidates([], pathValues)
+  ])
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation,
@@ -1131,14 +1157,15 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     completePrivate
   )
   const embeddedShortIdentifiers = new Set([
-    ...privateValueCandidates([], alwaysPrivate),
+    ...shortExplicitPrivateContainmentCandidates(alwaysPrivate),
     ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers)
   ])
   const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
     runtimeValue !== null &&
     [...embeddedPrivateCandidates].some((privateCandidate) =>
       (privateCandidate.length >= 8 ||
-        embeddedShortIdentifiers.has(privateCandidate)) &&
+        (privateCandidate.length >= 4 &&
+          embeddedShortIdentifiers.has(privateCandidate))) &&
       runtimeValue.toLowerCase().includes(privateCandidate)))
   const runtimeIsPrivateSubstring = [...persistedRuntimeCandidates].some(
     (runtimeCandidate) =>
@@ -1291,7 +1318,8 @@ export function buildSanitizedEvidence(
     evidence.evidenceId,
     privateInputs,
     explicitlyPrivateInputs,
-    completePrivateInputs
+    completePrivateInputs,
+    privateIdentifierArtifactStrings(artifact)
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
@@ -1353,7 +1381,8 @@ export function recordConformanceEvidence(
         observation.evidenceId,
         privateCaptureStrings(artifactValue, observation),
         explicitlyPrivateArtifactStrings(artifactValue),
-        completePrivateCaptureStrings(artifactValue, observation)
+        completePrivateCaptureStrings(artifactValue, observation),
+        privateIdentifierArtifactStrings(artifactValue)
       )
     } catch (privacyError) {
       if (

@@ -496,6 +496,23 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('short identifier embedded in evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'abc123' }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxabc123'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   await t.test('short extension value', () => {
     const artifact = fixture()
     agentThread(artifact)
