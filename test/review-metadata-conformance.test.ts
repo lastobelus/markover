@@ -239,6 +239,24 @@ test('capture compares private identifiers without case distinctions', async (t)
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('identifier embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'ACCT_12345'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'model-acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture binds the evidence ID slug to the selected matrix entry', () => {
@@ -275,11 +293,14 @@ test('capture rejects a private identity used as a complete runtime segment', ()
   )
 
   runtime.providerVersion = 'Agent raw-provider-thread-secret-suffix'
-  assert.doesNotThrow(() => buildSanitizedEvidence(
-    artifact,
-    observation({ runtime }),
-    json('evals/review-metadata/matrix.json')
-  ))
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
 
   const review = artifact.review as Record<string, unknown>
   const thread = review.agentThread as Record<string, unknown>
