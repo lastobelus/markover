@@ -393,14 +393,17 @@ record for each combination, using independent suffix `5qzvnjkh`.
 Canonical Z85 comparison in runner commit
 `fa92e485e7c8a3f0eb49a7762ad655670107344a` produced a one-hundred-fifth record
 for each combination, using independent suffix `6qzvnjkh`.
+Short complete-private value containment in runner commit
+`b356681bfb405f8c7ae871d96d1ce1eb8009cc88` produced a one-hundred-sixth record
+for each combination, using independent suffix `7qzvnjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v89` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v90` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v89
+git fetch origin refs/tags/issue-136-runner-history-v90
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
