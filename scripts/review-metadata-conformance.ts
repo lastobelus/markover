@@ -1231,6 +1231,7 @@ function privateAdditiveArtifactInputs(artifactValue: unknown): {
   const result = { keys: [] as string[], scalarValues: [] as string[] }
   const privateScalarLeaves = (value: unknown): string[] => {
     if (typeof value === 'string') return [value]
+    if (typeof value === 'boolean') return [String(value)]
     if (typeof value === 'number' && Number.isSafeInteger(value)) {
       return [String(value)]
     }
