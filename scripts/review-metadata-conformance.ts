@@ -860,6 +860,8 @@ function privateValueCandidates(
   for (const value of values) {
     if (value === null || value === undefined) continue
     if (value.length >= 8) candidates.add(value.toLowerCase())
+    const delimiterStripped = value.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
+    if (delimiterStripped.length >= 8) candidates.add(delimiterStripped)
     for (const segments of [
       value
         .split(/[^A-Za-z0-9._+-]+/)
