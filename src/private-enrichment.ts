@@ -177,6 +177,10 @@ function clone<T>(value: T): T {
   return structuredClone(value)
 }
 
+function compareExactStrings(left: string, right: string): -1 | 0 | 1 {
+  return left === right ? 0 : left < right ? -1 : 1
+}
+
 function assertSource(value: unknown): asserts value is ReviewSourceSnapshot {
   if (!exactRecord(value, ['canonicalPath', 'verifiedChecksum'])) {
     invalid('Private review source evidence has invalid fields.')
@@ -521,7 +525,7 @@ export function arbitrateTitleObservation(
     base.titleObservations.push(clone(candidate))
   }
   base.titleObservations.sort(({ sourceKey: left }, { sourceKey: right }) => (
-    left.localeCompare(right)
+    compareExactStrings(left, right)
   ))
   return { outcome: 'write', value: base }
 }
@@ -535,7 +539,7 @@ export function resolvedThreadTitle(
       Number(left.authority === 'thread-host')
     return authority ||
       compareCanonicalTimestamps(right.observedAt, left.observedAt) ||
-      left.sourceKey.localeCompare(right.sourceKey)
+      compareExactStrings(left.sourceKey, right.sourceKey)
   })[0] as ThreadTitleObservation)
 }
 

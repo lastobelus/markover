@@ -164,6 +164,7 @@ export class PrivateEnrichmentStore {
     EnrichmentProjectionError
   >()
   private readonly pendingReviewWrites = new Map<string, ReviewEnrichmentFile>()
+  private readonly pendingThreadWrites = new Map<string, ThreadEnrichmentFile>()
   private readonly runtimeThreadErrors = new Map<string, Error>()
 
   constructor(
@@ -594,7 +595,12 @@ export class PrivateEnrichmentStore {
         this.runtimeThreadErrors.set(digest, error)
         throw error
       }
-      const result = arbitrateTitleObservation(current.value, identity, candidate)
+      const pending = this.pendingThreadWrites.get(digest) || null
+      const result = arbitrateTitleObservation(
+        pending || current.value,
+        identity,
+        candidate
+      )
       if (result.outcome === 'conflict') {
         const error = new PrivateEnrichmentStoreError(
           'ENRICHMENT_CONFLICT',
@@ -608,10 +614,12 @@ export class PrivateEnrichmentStore {
         'INVALID_TITLE_OBSERVATION',
         'A thread-title observation did not produce private state.'
       )
-      if (result.outcome === 'write') {
+      const shouldWrite = result.outcome === 'write' || Boolean(pending)
+      if (shouldWrite) {
         try {
           await this.writeJson(this.threadPath(identity), value)
         } catch (error) {
+          this.pendingThreadWrites.set(digest, structuredClone(value))
           const failure = new PrivateEnrichmentStoreError(
             'PRIVATE_WRITE_FAILED',
             'Private thread enrichment could not be saved.',
@@ -621,7 +629,12 @@ export class PrivateEnrichmentStore {
           throw failure
         }
       }
-      if (result.outcome !== 'ignored') this.runtimeThreadErrors.delete(digest)
+      if (shouldWrite) {
+        this.pendingThreadWrites.delete(digest)
+        this.runtimeThreadErrors.delete(digest)
+      } else if (result.outcome !== 'ignored') {
+        this.runtimeThreadErrors.delete(digest)
+      }
       return value
     }))
   }
@@ -674,6 +687,7 @@ export class PrivateEnrichmentStore {
         return 'retained-uncertain'
       }
       await fs.rm(this.threadDirectory(identity), { recursive: true, force: true })
+      this.pendingThreadWrites.delete(digest)
       this.runtimeThreadErrors.delete(digest)
       return 'removed'
     })

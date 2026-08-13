@@ -167,6 +167,28 @@ test('private timestamps are ordered by instant across expanded years', () => {
   assert.equal(resolvedThreadTitle(titleValue)?.title, 'Future title')
 })
 
+test('thread title source keys use a locale-independent total ordering', () => {
+  const composed = observation(
+    '\u00e9',
+    'provider',
+    'Composed source key',
+    firstTime
+  )
+  const decomposed = observation(
+    'e\u0301',
+    'provider',
+    'Decomposed source key',
+    firstTime
+  )
+  const forward = threadFile()
+  forward.titleObservations = [composed, decomposed]
+  const reverse = threadFile()
+  reverse.titleObservations = [decomposed, composed]
+
+  assert.equal(resolvedThreadTitle(forward)?.title, 'Decomposed source key')
+  assert.equal(resolvedThreadTitle(reverse)?.title, 'Decomposed source key')
+})
+
 test('stable thread identity prefers host ID, accepts equality, and excludes provider', () => {
   const fallback = stableThreadIdentity({
     id: 'provider-id',

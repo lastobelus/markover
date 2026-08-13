@@ -525,3 +525,38 @@ test('recovery retries the failed target before clearing write failure', async (
     'source-missing'
   )
 })
+
+test('thread recovery retains a failed target over an older arrival', async (t) => {
+  let writes = 0
+  const value = await fixture({
+    writeJson: async (filePath, state) => {
+      writes += 1
+      if (writes === 2) throw new Error('Simulated thread write failure.')
+      await writePrivateEnrichmentJson(filePath, state)
+    }
+  })
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  await value.store.observeThreadTitle(identity(), title(firstTime))
+  await assert.rejects(
+    value.store.observeThreadTitle(identity(), {
+      ...title(thirdTime),
+      title: 'Newest failed title'
+    })
+  )
+  assert.equal(
+    (value.store.threadError(identity()) as PrivateEnrichmentStoreError).code,
+    'PRIVATE_WRITE_FAILED'
+  )
+
+  const recovered = await value.store.observeThreadTitle(
+    identity(),
+    { ...title(secondTime), title: 'Older arriving title' }
+  )
+  assert.equal(writes, 3)
+  assert.equal(value.store.threadError(identity()), null)
+  assert.equal(recovered.titleObservations[0]?.title, 'Newest failed title')
+  assert.equal(
+    (await value.store.loadThread(identity()))?.titleObservations[0]?.title,
+    'Newest failed title'
+  )
+})
