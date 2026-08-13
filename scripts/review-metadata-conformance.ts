@@ -1354,14 +1354,16 @@ function base64DecodedVariants(value: string): string[] {
   const variants: string[] = []
   let current = value
   const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length > 2048) return null
+    const compact = encoded.replace(/[\t\n\f\r ]/g, '')
     if (
-      encoded.length < 2 ||
-      encoded.length > 512 ||
-      !/^[A-Za-z0-9+/_-]+={0,2}$/.test(encoded)
+      compact.length < 2 ||
+      compact.length > 512 ||
+      !/^[A-Za-z0-9+/_-]+={0,2}$/.test(compact)
     ) {
       return null
     }
-    const unpadded = encoded.replace(/=+$/, '')
+    const unpadded = compact.replace(/=+$/, '')
     if (unpadded.length % 4 === 1) return null
     const normalized = unpadded
       .replace(/-/g, '+')
