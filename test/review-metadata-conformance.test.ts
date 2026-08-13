@@ -1267,6 +1267,21 @@ test('capture treats numeric extension leaves as private artifact values', async
       /runtime still contains a private artifact value/
     )
 
+    const hexadecimalArtifact = fixture()
+    agentThread(hexadecimalArtifact)
+    const hexadecimalRoot = hexadecimalArtifact.root as Record<string, unknown>
+    hexadecimalRoot.fixtureExtension = { accountId: 'acct12345' }
+    const hexadecimalRuntime = observation().runtime as Record<string, unknown>
+    hexadecimalRuntime.providerModel = '616363743132333435'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        hexadecimalArtifact,
+        observation({ runtime: hexadecimalRuntime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+
     const suffixArtifact = fixture()
     agentThread(suffixArtifact)
     const suffixRoot = suffixArtifact.root as Record<string, unknown>
@@ -2106,12 +2121,8 @@ test('recording verifies runner commit ancestry in the declared pull request', a
         'evals/review-metadata/rubric.md',
         'package-lock.json',
         'package.json',
-        'scripts/markover.ts',
-        'scripts/review-metadata-conformance.ts',
-        'src/agent-guidance.ts',
-        'src/metadata-discovery.ts',
-        'src/pull-request.ts',
-        'src/review-format.ts',
+        'scripts',
+        'src',
         'tsconfig.build.json',
         'tsconfig.json'
       ]

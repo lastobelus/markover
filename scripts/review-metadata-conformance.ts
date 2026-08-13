@@ -29,12 +29,8 @@ const runnerSourcePaths = [
   'evals/review-metadata/rubric.md',
   'package-lock.json',
   'package.json',
-  'scripts/markover.ts',
-  'scripts/review-metadata-conformance.ts',
-  'src/agent-guidance.ts',
-  'src/metadata-discovery.ts',
-  'src/pull-request.ts',
-  'src/review-format.ts',
+  'scripts',
+  'src',
   'tsconfig.build.json',
   'tsconfig.json'
 ]
@@ -1341,6 +1337,44 @@ function base32DecodedVariants(value: string): string[] {
   return variants
 }
 
+function hexadecimalDecodedVariants(value: string): string[] {
+  const decodeOnce = (encoded: string): string | null => {
+    if (
+      encoded.length < 8 ||
+      encoded.length > 256 ||
+      encoded.length % 2 !== 0 ||
+      !/^[0-9a-f]+$/i.test(encoded)
+    ) {
+      return null
+    }
+    const bytes = Buffer.from(encoded, 'hex')
+    if (bytes.toString('hex') !== encoded.toLowerCase()) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  const maximumPasses = 4
+  let completedPasses = 0
+  for (let pass = 0; pass < maximumPasses; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+    completedPasses += 1
+  }
+  if (completedPasses === maximumPasses && decodeOnce(current) !== null) {
+    throw new Error(
+      'Sanitized evidence contains hexadecimal encoding beyond the safe decoding depth.'
+    )
+  }
+  return variants
+}
+
 function reversibleDecodedVariants(value: string): string[] {
   const variants = new Set<string>()
   const pending = [value]
@@ -1351,7 +1385,8 @@ function reversibleDecodedVariants(value: string): string[] {
     for (const candidate of [
       ...percentDecodedVariants(current),
       ...base64DecodedVariants(current),
-      ...base32DecodedVariants(current)
+      ...base32DecodedVariants(current),
+      ...hexadecimalDecodedVariants(current)
     ]) {
       if (candidate === value || variants.has(candidate)) continue
       if (variants.size >= maximumVariants) {
