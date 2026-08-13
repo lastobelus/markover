@@ -1974,6 +1974,20 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('basE91 encoded known private values', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    review.contextSummary = 'uJ(I,i~RR2a'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(artifact, observation({ runtime }),
+        json('evals/review-metadata/matrix.json')),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('Punycode private values', () => {
     const artifact = fixture()
     agentThread(artifact)

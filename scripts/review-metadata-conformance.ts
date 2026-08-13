@@ -2050,6 +2050,84 @@ function uuencodedDecodedVariants(value: string): string[] {
   return variants
 }
 
+function base91DecodedVariants(value: string): string[] {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' +
+    '!#$%&()*+,./:;<=>?@[]^_`{|}~"'
+  const encode = (bytes: Uint8Array): string => {
+    let accumulator = 0
+    let bitCount = 0
+    let encoded = ''
+    for (const byte of bytes) {
+      accumulator |= byte << bitCount
+      bitCount += 8
+      if (bitCount <= 13) continue
+      let value = accumulator & 8191
+      if (value > 88) {
+        accumulator >>>= 13
+        bitCount -= 13
+      } else {
+        value = accumulator & 16383
+        accumulator >>>= 14
+        bitCount -= 14
+      }
+      encoded += alphabet.charAt(value % 91)
+      encoded += alphabet.charAt(Math.floor(value / 91))
+    }
+    if (bitCount > 0) {
+      encoded += alphabet.charAt(accumulator % 91)
+      if (bitCount > 7 || accumulator > 90) {
+        encoded += alphabet.charAt(Math.floor(accumulator / 91))
+      }
+    }
+    return encoded
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 2 || encoded.length > 512) return null
+    let accumulator = 0
+    let bitCount = 0
+    let pending = -1
+    const bytes: number[] = []
+    for (const character of encoded) {
+      const digit = alphabet.indexOf(character)
+      if (digit < 0) return null
+      if (pending < 0) {
+        pending = digit
+        continue
+      }
+      const value = pending + digit * 91
+      accumulator |= value << bitCount
+      bitCount += (value & 8191) > 88 ? 13 : 14
+      while (bitCount > 7) {
+        bytes.push(accumulator & 255)
+        accumulator >>>= 8
+        bitCount -= 8
+      }
+      pending = -1
+    }
+    if (pending >= 0) bytes.push((accumulator | (pending << bitCount)) & 255)
+    const byteArray = Uint8Array.from(bytes)
+    if (encode(byteArray) !== encoded) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error('Sanitized evidence contains basE91 encoding beyond the safe decoding depth.')
+  }
+  return variants
+}
+
 function punycodeDecodedVariants(value: string): string[] {
   if (value.length > 512 || !/(?:^|\.)xn--/i.test(value)) return []
   const decoded = domainToUnicode(value)
@@ -2169,6 +2247,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...quotedPrintableDecodedVariants(current),
       ...htmlCharacterReferenceDecodedVariants(current),
       ...uuencodedDecodedVariants(current),
+      ...base91DecodedVariants(current),
       ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
