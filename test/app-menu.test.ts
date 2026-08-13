@@ -134,6 +134,10 @@ test('main process applies persisted zoom before and after renderer load', () =>
     main,
     /function applyWindowZoom\([\s\S]*screen\.getDisplayMatching\(window\.getBounds\(\)\)\.workAreaSize[\s\S]*setMinimumSize\([\s\S]*Math\.min\(Math\.max\(width, minimum\.width\), workArea\.width\)[\s\S]*setZoomFactor\(zoomPercent \/ 100\)/
   )
+  assert.match(
+    main,
+    /const refitWindowToDisplay[\s\S]*applyWindowZoom\([\s\S]*window\.on\('move', refitWindowToDisplay\)[\s\S]*screen\.on\('display-metrics-changed', refitWindowToDisplay\)[\s\S]*window\.once\('closed',[\s\S]*screen\.removeListener\('display-metrics-changed', refitWindowToDisplay\)/
+  )
 })
 
 test('Help uses the native role and exposes the canonical public commands', () => {

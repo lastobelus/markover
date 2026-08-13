@@ -1046,6 +1046,18 @@ function createWindow(
     }
   })
   mainWindow = window
+  const refitWindowToDisplay = (): void => {
+    if (window.isDestroyed()) return
+    applyWindowZoom(
+      window,
+      settingsStore?.settings.zoomPercent || DEFAULT_SETTINGS.zoomPercent
+    )
+  }
+  window.on('move', refitWindowToDisplay)
+  screen.on('display-metrics-changed', refitWindowToDisplay)
+  window.once('closed', () => {
+    screen.removeListener('display-metrics-changed', refitWindowToDisplay)
+  })
   applyWindowZoom(window, startupSettings.zoomPercent)
   mainWindowBlurredAt = window.isFocused()
     ? null
