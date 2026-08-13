@@ -918,11 +918,16 @@ test('diagnostic callback failures cannot change a rejection', async (t) => {
 })
 
 test('lists and loads reviews through one-shot requests', async (t) => {
-  const { endpointPath } = await serviceFixture(t)
+  const { endpointPath, store } = await serviceFixture(t)
   await requestJson(endpointPath, 'POST', '/reviews', {
     tree: tree(),
     metadata: { contextSummary: 'Review listing.' }
   })
+  await fs.writeFile(
+    path.join(store.directory, 'mko_aaa11111', 'enrichment.json'),
+    JSON.stringify({ canonicalPath: '/private/do-not-export.md' }),
+    'utf8'
+  )
 
   const listed = expectRecord(await requestJson(endpointPath, 'GET', '/reviews'))
   const loaded = await requestJson(
@@ -933,6 +938,7 @@ test('lists and loads reviews through one-shot requests', async (t) => {
   assert.ok(Array.isArray(listed.reviews))
   assert.equal(listed.reviews.length, 1)
   assert.deepEqual(listed.reviews[0], loaded)
+  assert.doesNotMatch(JSON.stringify({ listed, loaded }), /enrichment|canonicalPath|do-not-export/)
 })
 
 test('returns structured errors to the client', async (t) => {
