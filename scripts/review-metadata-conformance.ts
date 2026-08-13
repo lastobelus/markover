@@ -807,11 +807,14 @@ function assertEvidenceIdIndependent(
   }
 }
 
-function artifactStringLeaves(value: unknown): string[] {
+function artifactStringsAndKeys(value: unknown): string[] {
   if (typeof value === 'string') return [value]
-  if (Array.isArray(value)) return value.flatMap(artifactStringLeaves)
+  if (Array.isArray(value)) return value.flatMap(artifactStringsAndKeys)
   if (isRecord(value)) {
-    return Object.values(value).flatMap(artifactStringLeaves)
+    return Object.entries(value).flatMap(([key, nested]) => [
+      key,
+      ...artifactStringsAndKeys(nested)
+    ])
   }
   return []
 }
@@ -956,7 +959,7 @@ export function buildSanitizedEvidence(
     sourcePullRequest: observation.sourcePullRequest
   }
   assertSensitiveLeavesRedacted(sensitiveLeaves)
-  const privateArtifactValues = artifactStringLeaves(artifact)
+  const privateArtifactValues = artifactStringsAndKeys(artifact)
   assertEvidenceIdIndependent(evidence.evidenceId, privateArtifactValues)
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateArtifactValues,
