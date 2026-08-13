@@ -446,6 +446,45 @@ test('corpus validation rechecks unavailable identity for null evidence', () => 
   )
 })
 
+test('null fallback rejects an observed host thread identity', () => {
+  const artifact = fixture()
+  const review = artifact.review as Record<string, unknown>
+  review.agentThread = null
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  discovery.hostKind = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.identityExpectation = 'unavailable-allowed'
+  const evidence = buildEvidenceFixture(
+    artifact,
+    observation({ discovery }),
+    matrix
+  ) as unknown as Record<string, unknown>
+
+  discovery.hostThreadId = { status: 'observed', source: 'thread-host-runtime' }
+  assert.throws(
+    () => buildEvidenceFixture(artifact, observation({ discovery }), matrix),
+    /cannot omit an observed host thread identity/
+  )
+
+  const committedDiscovery = evidence.discovery as Record<string, unknown>
+  committedDiscovery.hostThreadId = {
+    status: 'observed',
+    source: 'thread-host-runtime'
+  }
+  assert.throws(
+    () => validateEvidenceFixture(evidence, matrix),
+    /cannot omit an observed host thread identity/
+  )
+})
+
 test('documentation defines reruns, fixture placeholders, and schema-defect routing', () => {
   const readme = fs.readFileSync(
     path.join(root, 'evals/review-metadata/README.md'),

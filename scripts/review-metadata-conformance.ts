@@ -416,6 +416,9 @@ function assertNullIdentityUnavailable(
   if (discovery.providerThreadId.status !== 'unavailable') {
     throw new Error('A null agentThread requires provider identity to be unavailable.')
   }
+  if (discovery.hostThreadId.status === 'observed') {
+    throw new Error('A null agentThread cannot omit an observed host thread identity.')
+  }
 }
 
 function trueChecks(): ConformanceChecks {
