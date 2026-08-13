@@ -165,6 +165,12 @@ interface GitResult {
 }
 
 type GitRunner = (args: string[], cwd: string) => GitResult
+type GitHubRunner = (args: string[], cwd: string) => GitResult
+type DefectVerifier = (
+  sourcePullRequest: string,
+  defectIssue: number,
+  cwd?: string
+) => void
 
 const projectRoot = path.resolve(__dirname, '../..')
 const evaluationDirectory = path.join(projectRoot, 'evals/review-metadata')
@@ -333,6 +339,86 @@ function runGit(args: string[], cwd: string): GitResult {
     stderr: result.stderr,
     stdout: result.stdout
   }
+}
+
+function runGitHub(args: string[], cwd: string): GitResult {
+  const result = spawnSync('gh', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  return {
+    status: result.status,
+    stderr: result.stderr,
+    stdout: result.stdout
+  }
+}
+
+export function verifyContractDefectIssue(
+  sourcePullRequest: string,
+  defectIssue: number,
+  cwd = projectRoot,
+  github: GitHubRunner = runGitHub
+): void {
+  const pullRequest = parseGitHubPullRequestUrl(sourcePullRequest)
+  if (!pullRequest) throw new Error('Cannot verify a defect for a non-canonical PR.')
+  if (!Number.isSafeInteger(defectIssue) || defectIssue < 1 || defectIssue === 99) {
+    throw new Error('Contract defect must be a positive descendant issue, not #99 itself.')
+  }
+  const visited = new Set<number>()
+  let current = defectIssue
+  for (let depth = 0; depth < 32; depth += 1) {
+    if (visited.has(current)) {
+      throw new Error('Contract defect parent hierarchy contains a cycle.')
+    }
+    visited.add(current)
+    const result = github([
+      'issue',
+      'view',
+      String(current),
+      '--repo',
+      pullRequest.repository,
+      '--json',
+      'number,parent'
+    ], cwd)
+    if (result.status !== 0) {
+      throw new Error(
+        `Cannot verify contract defect #${String(current)}: ${result.stderr.trim()}`
+      )
+    }
+    let value: unknown
+    try {
+      value = JSON.parse(result.stdout) as unknown
+    } catch (error) {
+      throw new Error('GitHub returned invalid contract-defect JSON.', { cause: error })
+    }
+    const issue = record(value, `Contract defect #${String(current)}`)
+    if (issue.number !== current) {
+      throw new Error('GitHub returned the wrong contract defect issue.')
+    }
+    if (issue.parent === null) {
+      throw new Error(
+        `Contract defect #${String(defectIssue)} must descend from issue #99.`
+      )
+    }
+    const parent = record(issue.parent, `Contract defect #${String(current)} parent`)
+    const repository = record(
+      parent.repository,
+      `Contract defect #${String(current)} parent repository`
+    )
+    if (
+      typeof repository.nameWithOwner !== 'string' ||
+      repository.nameWithOwner.toLowerCase() !== pullRequest.repository
+    ) {
+      throw new Error('Contract defect parent must remain in the source repository.')
+    }
+    if (!Number.isSafeInteger(parent.number) || (parent.number as number) < 1) {
+      throw new Error('Contract defect parent has an invalid issue number.')
+    }
+    if (parent.number === 99) return
+    current = parent.number as number
+  }
+  throw new Error('Contract defect hierarchy exceeds the 32-level verification bound.')
 }
 
 export function verifySourceCommitPullRequest(
@@ -1163,7 +1249,8 @@ export function validateSanitizedFailureEvidence(
 
 export function validateMetadataCorpus(
   root = projectRoot,
-  requireComplete = false
+  requireComplete = false,
+  verifyDefect: DefectVerifier = verifyContractDefectIssue
 ): { evidenceCount: number; matrixEntryCount: number } {
   const directory = path.join(root, 'evals/review-metadata')
   const matrixFile = path.join(directory, 'matrix.json')
@@ -1187,6 +1274,13 @@ export function validateMetadataCorpus(
     const evidence = isRecord(value) && value.outcome === 'failed'
       ? validateSanitizedFailureEvidence(value, matrixValue)
       : validateSanitizedEvidence(value, matrixValue)
+    if ('outcome' in evidence) {
+      verifyDefect(
+        evidence.sourcePullRequest,
+        evidence.failure.defectIssue,
+        root
+      )
+    }
     if (name !== `${evidence.evidenceId}.json`) {
       throw new Error(`Evidence filename does not match ${evidence.evidenceId}.`)
     }
@@ -1301,6 +1395,12 @@ function main(): void {
       readJson(matrixPath),
       optionalPositiveIntegerOption(args, '--defect-issue')
     )
+    if ('outcome' in evidence) {
+      verifyContractDefectIssue(
+        evidence.sourcePullRequest,
+        evidence.failure.defectIssue
+      )
+    }
     writeExclusiveJson(outputPath, evidence)
     process.stdout.write(`${JSON.stringify({
       evidenceId: evidence.evidenceId,

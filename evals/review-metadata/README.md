@@ -26,12 +26,15 @@ Free-form observation limitations also stay in the ignored observation; the
 committed record retains their structured discovery and runtime facts only.
 The recorder requires a matching GitHub `origin` and read access to the
 declared pull-request head ref so runner provenance cannot point elsewhere.
-If a truthful artifact fails an automatic check, first open or link its contract
-defect descended from #99, then rerun the same record command with
+If a truthful artifact fails an automatic check, first create or link its
+contract defect as a GitHub sub-issue descendant of #99, then rerun the same record command with
 `--defect-issue NUMBER`. The recorder writes a closed failure record containing
 only corpus identity, provenance, and the defect link; it omits the raw artifact,
 runtime values, discovery details, and error text. A failed record cannot satisfy
 `--require-complete` without at least one passing record for the same matrix row.
+Recording and later corpus validation walk GitHub's bounded `parent` hierarchy,
+require every issue to remain in the source PR repository, and fail unless the
+chain reaches #99.
 
 ## Classification ownership
 
