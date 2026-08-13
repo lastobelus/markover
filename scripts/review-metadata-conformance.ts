@@ -2134,6 +2134,39 @@ function base91DecodedVariants(value: string): string[] {
   return variants
 }
 
+function unicodeEscapeDecodedVariants(value: string): string[] {
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 6 || encoded.length > 2048 || !/\\u[0-9A-Fa-f]{4}/.test(encoded)) {
+      return null
+    }
+    const decoded = encoded.replace(/\\u([0-9A-Fa-f]{4})/g, (_escape, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)))
+    for (let index = 0; index < decoded.length; index += 1) {
+      const codeUnit = decoded.charCodeAt(index)
+      if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+        const low = decoded.charCodeAt(index + 1)
+        if (low < 0xdc00 || low > 0xdfff) return null
+        index += 1
+      } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+        return null
+      }
+    }
+    return decoded !== encoded ? decoded : null
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error('Sanitized evidence contains Unicode escapes beyond the safe decoding depth.')
+  }
+  return variants
+}
+
 function punycodeDecodedVariants(value: string): string[] {
   if (value.length > 512 || !/(?:^|\.)xn--/i.test(value)) return []
   const decoded = domainToUnicode(value)
@@ -2254,6 +2287,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...htmlCharacterReferenceDecodedVariants(current),
       ...uuencodedDecodedVariants(current),
       ...base91DecodedVariants(current),
+      ...unicodeEscapeDecodedVariants(current),
       ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)

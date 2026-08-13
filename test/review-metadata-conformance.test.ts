@@ -2019,6 +2019,20 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('Unicode-escaped known private values', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    review.contextSummary = '\\u0061\\u0063\\u0063\\u0074\\u0031\\u0032\\u0033\\u0034\\u0035'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(artifact, observation({ runtime }),
+        json('evals/review-metadata/matrix.json')),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('Punycode private values', () => {
     const artifact = fixture()
     agentThread(artifact)
