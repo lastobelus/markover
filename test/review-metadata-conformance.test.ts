@@ -553,6 +553,30 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('type-inapplicable node field embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    const children = rootNode.children as Array<Record<string, unknown>>
+    const headingChildren = children[1]?.children as Array<Record<string, unknown>>
+    const paragraph = headingChildren[0] as Record<string, unknown>
+    assert.equal(paragraph.type, 'paragraph')
+    paragraph.language = 'abc'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__7654edcf',
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('three-character additive scalar embedded in a runtime token', () => {
     const artifact = fixture()
     agentThread(artifact)
