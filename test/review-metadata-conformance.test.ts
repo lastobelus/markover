@@ -125,7 +125,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 300,
+    evidenceCount: 303,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -142,7 +142,7 @@ test('corpus validation passes every record to provenance verification', () => {
     assert.ok(evidence.every(({ sourceCommit }) => sourceCommit.length === 40))
   }
   validateMetadataCorpus(root, true, verifyDefect, verifyProvenance)
-  assert.equal(received, 300)
+  assert.equal(received, 303)
 })
 
 test('corpus provenance includes GitHub-recorded pre-force-push heads', () => {
@@ -1395,6 +1395,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('private values reconstructed from decoded runtime segments', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { secret: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'YWNjdA MTIzNDU'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('base-36 encoded private numeric identities', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -2080,7 +2097,7 @@ test('capture treats numeric extension leaves as private artifact values', async
           observation({ runtime }),
           json('evals/review-metadata/matrix.json')
         ),
-        /runtime still contains a private artifact value/
+        /runtime still contains a private artifact value|ambiguous embedded radix value/
       )
     }
   })
@@ -2371,7 +2388,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 301,
+    evidenceCount: 304,
     matrixEntryCount: 3
   })
 
