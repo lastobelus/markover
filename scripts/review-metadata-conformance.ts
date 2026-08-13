@@ -812,10 +812,11 @@ function assertSensitiveLeavesRedacted(
 
 function assertEvidenceIdIndependent(
   evidenceId: string,
-  privateValues: Array<string | null | undefined>
+  privateValues: Array<string | null | undefined>,
+  alwaysPrivate: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
-  if (privateValueCandidates(privateValues).has(suffix)) {
+  if (privateValueCandidates(privateValues, alwaysPrivate).has(suffix)) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
     )
@@ -857,11 +858,12 @@ function privateValueCandidates(
   alwaysPrivate: Array<string | null | undefined> = []
 ): Set<string> {
   const candidates = new Set<string>()
-  for (const value of values) {
-    if (value === null || value === undefined) continue
-    if (value.length >= 8) candidates.add(value.toLowerCase())
+  const addValue = (value: string, minimumLength: number): void => {
+    if (value.length >= minimumLength) candidates.add(value.toLowerCase())
     const delimiterStripped = value.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
-    if (delimiterStripped.length >= 8) candidates.add(delimiterStripped)
+    if (delimiterStripped.length >= minimumLength) {
+      candidates.add(delimiterStripped)
+    }
     for (const segments of [
       value
         .split(/[^A-Za-z0-9._+-]+/)
@@ -875,15 +877,16 @@ function privateValueCandidates(
           end += 1
         ) {
           const candidate = segments.slice(start, end).join(' ').toLowerCase()
-          if (candidate.length >= 8) candidates.add(candidate)
+          if (candidate.length >= minimumLength) candidates.add(candidate)
         }
       }
     }
   }
+  for (const value of values) {
+    if (value !== null && value !== undefined) addValue(value, 8)
+  }
   for (const value of alwaysPrivate) {
-    if (value !== null && value !== undefined) {
-      candidates.add(value.toLowerCase())
-    }
+    if (value !== null && value !== undefined) addValue(value, 1)
   }
   return candidates
 }
@@ -1032,14 +1035,24 @@ export function buildSanitizedEvidence(
   assertSensitiveLeavesRedacted(sensitiveLeaves)
   const privateInputs = privateCaptureStrings(artifact, observation)
   const privateIdentities = sensitiveLeaves.map(({ raw }) => raw)
+  const explicitlyPrivateInputs = [
+    artifact.sourceDocument.path,
+    artifact.review.id,
+    artifact.review.git?.repositoryUrl,
+    artifact.review.git?.branch,
+    artifact.review.git?.commit,
+    artifact.review.pullRequest?.url,
+    ...privateIdentities
+  ]
   assertEvidenceIdIndependent(
     evidence.evidenceId,
-    [...privateInputs, ...privateIdentities]
+    privateInputs,
+    explicitlyPrivateInputs
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
     evidence.runtime,
-    privateIdentities
+    explicitlyPrivateInputs
   )
   return evidence
 }

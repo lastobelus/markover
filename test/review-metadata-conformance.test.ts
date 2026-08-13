@@ -1145,6 +1145,23 @@ test('capture rejects omitted private artifact values in runtime tokens', async 
   }
 })
 
+test('capture rejects short components copied from explicitly private paths', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const sourceDocument = artifact.sourceDocument as Record<string, unknown>
+  sourceDocument.path = '/Users/jsmith/source.md'
+  const runtime = observation().runtime as Record<string, unknown>
+  runtime.providerModel = 'jsmith'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+})
+
 test('committed evidence rejects path-shaped runtime values', () => {
   const artifact = fixture()
   agentThread(artifact)
