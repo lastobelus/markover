@@ -86,7 +86,7 @@ test('the app composes external brand assets and exposes a true empty state', ()
   assert.match(renderer, /function setWorkspaceEmpty\(empty: boolean\): void/)
   assert.match(
     renderer,
-    /async function activateReview\([\s\S]*reviewId: string[\s\S]*Promise<ReviewActivationOutcome> \{\s*setWorkspaceEmpty\(false\)/
+    /async function activateReview\([\s\S]*reviewId: string[\s\S]*Promise<ReviewActivationOutcome> \{[\s\S]*setWorkspaceEmpty\(false\)/
   )
   assert.match(renderer, /setWorkspaceEmpty\(true\)/)
   assert.doesNotMatch(renderer, /SAMPLE_MARKDOWN/)
@@ -103,7 +103,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
     '--brand-orange: var(--markover-primary)',
     '--brand-burgundy: var(--markover-secondary)',
     '--ink: #26211e',
-    '--muted: #756d67',
+    '--muted: #6f6761',
     '--paper: #eee8e0',
     '--surface: #fffdf9',
     '--line: #ddd5cc',
@@ -184,9 +184,14 @@ test('the working header aligns the brand and uses the primary action color', ()
   assert.match(renderer, /beginAnnotationPaneResize[\s\S]*setPointerCapture[\s\S]*applyAnnotationPaneWidth/)
   assert.match(renderer, /resizeAnnotationPaneFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight[\s\S]*shiftKey \? 48 : 16/)
   assert.match(renderer, /annotationPaneResizer\.addEventListener\(\s*'keydown',[\s\S]*resizeAnnotationPaneFromKeyboard/)
-  assert.match(renderer, /event\.key === 'Tab'[\s\S]*active === elements\.annotationPaneResizer[\s\S]*focusAnnotationPane\(\)/)
-  assert.match(renderer, /event\.shiftKey[\s\S]*elements\.annotationPane\.contains\(active\)[\s\S]*annotationPaneResizer\.focus\(\)/)
-  assert.match(renderer, /pane === 'annotation' && !event\.shiftKey[\s\S]*annotationPaneResizer\.focus\(\)/)
+  assert.match(html, /id="documents-list-resizer"[\s\S]*role="separator"[\s\S]*aria-valuemin="150"[\s\S]*tabindex="0"/)
+  assert.match(renderer, /resizeDocumentsListFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight[\s\S]*shiftKey \? 48 : 16/)
+  assert.match(renderer, /documentsListResizer\.addEventListener\(\s*'keydown',[\s\S]*resizeDocumentsListFromKeyboard/)
+  assert.match(renderer, /event\.key === 'F6'[\s\S]*MarkoverNavigation\.nextPane/)
+  assert.doesNotMatch(
+    renderer,
+    /document\.addEventListener\('keydown',[\s\S]*if \(event\.key === 'Tab'\) \{\s*event\.preventDefault\(\)/
+  )
   assert.match(renderer, /setWorkspaceEmpty[\s\S]*requestAnimationFrame[\s\S]*applyAnnotationPaneWidth\(\)/)
   assert.match(renderer, /renderDocumentsList[\s\S]*classList\.toggle\('has-documents-list'[\s\S]*applyAnnotationPaneWidth\(\)/)
   assert.match(renderer, /schedulePaneResizeLayoutUpdate[\s\S]*updatePinnedSelection\(\)[\s\S]*updateTruncation/)
