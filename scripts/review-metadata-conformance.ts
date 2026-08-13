@@ -2222,10 +2222,10 @@ function reversibleRuntimeVariants(value: string): string[] {
       seeds.add(subset.join(''))
     }
   }
-  const variants = new Set<string>()
+  const variants = new Set([value])
   const maximumVariants = 2048
   for (const seed of seeds) {
-    for (const candidate of [seed, ...reversibleDecodedVariants(seed)]) {
+    for (const candidate of reversibleDecodedVariants(seed)) {
       if (variants.size >= maximumVariants && !variants.has(candidate)) {
         throw new Error(
           'Sanitized evidence runtime exceeds the safe segmented-decoding bound.'
