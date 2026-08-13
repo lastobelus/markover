@@ -1733,9 +1733,9 @@ function proquintDecodedVariants(value: string): string[] {
 
 function ascii85DecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
-    const payload = encoded.startsWith('<~') && encoded.endsWith('~>')
+    const payload = (encoded.startsWith('<~') && encoded.endsWith('~>')
       ? encoded.slice(2, -2)
-      : encoded
+      : encoded).replace(/[\t\n\f\r ]/g, '')
     if (payload.length < 2 || payload.length > 512) return null
     const bytes: number[] = []
     let group = ''
