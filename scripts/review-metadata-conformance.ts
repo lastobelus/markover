@@ -1375,13 +1375,20 @@ function canonicalNumericIdentityCandidates(
           if (extractEmbedded && radixBody !== undefined) {
             const radixPrefix = radixBody.slice(0, 2)
             const radixDigits = radixBody.slice(2)
-            for (let length = 1; length < radixDigits.length; length += 1) {
-              const prefixCanonical = canonicalDecimalInteger(
-                `${radixInteger?.[1] === '-' ? '-' : ''}${BigInt(
-                  `${radixPrefix}${radixDigits.slice(0, length)}`
-                ).toString()}`
-              )
-              if (prefixCanonical !== null) candidates.add(prefixCanonical)
+            for (let start = 0; start < radixDigits.length; start += 1) {
+              for (let end = start + 1; end <= radixDigits.length; end += 1) {
+                const subrangeDecimal = BigInt(
+                  `${radixPrefix}${radixDigits.slice(start, end)}`
+                ).toString()
+                const unsignedCanonical = canonicalDecimalInteger(subrangeDecimal)
+                if (unsignedCanonical !== null) candidates.add(unsignedCanonical)
+                if (radixInteger?.[1] === '-') {
+                  const signedCanonical = canonicalDecimalInteger(
+                    `-${subrangeDecimal}`
+                  )
+                  if (signedCanonical !== null) candidates.add(signedCanonical)
+                }
+              }
             }
           }
         }
