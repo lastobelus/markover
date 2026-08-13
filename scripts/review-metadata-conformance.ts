@@ -1013,15 +1013,9 @@ export function recordConformanceEvidence(
       )
     }
     const suffix = parseCaptureObservation(observationValue).evidenceId.slice(-8)
-    const rawContainsSuffix = (value: unknown): boolean => {
-      if (typeof value === 'string') return value === suffix
-      if (Array.isArray(value)) return value.some(rawContainsSuffix)
-      if (isRecord(value)) return Object.values(value).some(rawContainsSuffix)
-      return false
-    }
-    if (rawContainsSuffix(artifactValue)) {
+    if (artifactStringsAndKeys(artifactValue).includes(suffix)) {
       throw new Error(
-        'Failure evidence ID suffix must be independent of every raw artifact value.',
+        'Failure evidence ID suffix must be independent of every raw artifact string and key.',
         { cause: error }
       )
     }
