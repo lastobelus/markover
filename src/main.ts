@@ -11,6 +11,8 @@ import {
   protocol,
   screen,
   shell,
+  type Display,
+  type Event as ElectronEvent,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   type WebContents
@@ -1055,17 +1057,32 @@ function createWindow(
     }
   })
   mainWindow = window
-  const refitWindowToDisplay = (): void => {
+  let currentDisplayId = screen.getDisplayMatching(window.getBounds()).id
+  const applyCurrentWindowZoom = (): void => {
     if (window.isDestroyed()) return
     applyWindowZoom(
       window,
       settingsStore?.settings.zoomPercent || DEFAULT_SETTINGS.zoomPercent
     )
   }
-  window.on('move', refitWindowToDisplay)
-  screen.on('display-metrics-changed', refitWindowToDisplay)
+  const refitWindowAfterDisplayTransition = (): void => {
+    if (window.isDestroyed()) return
+    const display = screen.getDisplayMatching(window.getBounds())
+    if (display.id === currentDisplayId) return
+    currentDisplayId = display.id
+    applyCurrentWindowZoom()
+  }
+  const refitWindowForDisplayMetrics = (
+    _event: ElectronEvent,
+    display: Display
+  ): void => {
+    if (display.id !== currentDisplayId) return
+    applyCurrentWindowZoom()
+  }
+  window.on('move', refitWindowAfterDisplayTransition)
+  screen.on('display-metrics-changed', refitWindowForDisplayMetrics)
   window.once('closed', () => {
-    screen.removeListener('display-metrics-changed', refitWindowToDisplay)
+    screen.removeListener('display-metrics-changed', refitWindowForDisplayMetrics)
   })
   applyWindowZoom(window, startupSettings.zoomPercent)
   mainWindowBlurredAt = window.isFocused()

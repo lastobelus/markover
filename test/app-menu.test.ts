@@ -136,7 +136,11 @@ test('main process applies persisted zoom before and after renderer load', () =>
   )
   assert.match(
     main,
-    /const refitWindowToDisplay[\s\S]*applyWindowZoom\([\s\S]*window\.on\('move', refitWindowToDisplay\)[\s\S]*screen\.on\('display-metrics-changed', refitWindowToDisplay\)[\s\S]*window\.once\('closed',[\s\S]*screen\.removeListener\('display-metrics-changed', refitWindowToDisplay\)/
+    /let currentDisplayId = screen\.getDisplayMatching\(window\.getBounds\(\)\)\.id[\s\S]*const refitWindowAfterDisplayTransition[\s\S]*if \(display\.id === currentDisplayId\) return[\s\S]*currentDisplayId = display\.id[\s\S]*applyCurrentWindowZoom\(\)[\s\S]*window\.on\('move', refitWindowAfterDisplayTransition\)/
+  )
+  assert.match(
+    main,
+    /const refitWindowForDisplayMetrics[\s\S]*if \(display\.id !== currentDisplayId\) return[\s\S]*applyCurrentWindowZoom\(\)[\s\S]*screen\.on\('display-metrics-changed', refitWindowForDisplayMetrics\)[\s\S]*window\.once\('closed',[\s\S]*screen\.removeListener\('display-metrics-changed', refitWindowForDisplayMetrics\)/
   )
 })
 
