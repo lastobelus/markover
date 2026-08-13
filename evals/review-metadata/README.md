@@ -179,15 +179,17 @@ for each combination. Field-aware short-identifier containment in runner
 commit `bc32ad96ca416bb590441de37533144f1947c5af` produced a thirty-third record
 for each combination. Bidirectional private/runtime substring comparison in
 runner commit `f5a05e7c96fec9e0821f00491855527ff62045f8` produced a thirty-fourth
-record for each combination.
+record for each combination. Short explicitly private path-component
+containment in runner commit `c979810ca3349f5d63840ab287e372d569b6c9c3`
+produced a thirty-fifth record for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v13` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v14` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v13
+git fetch origin refs/tags/issue-136-runner-history-v14
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
