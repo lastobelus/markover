@@ -137,8 +137,9 @@ and failure-date validation in runner commit
 `ae35722a27c600f2d5bc536d187a918554cb84ca`, then case-insensitive private-value
 comparison in runner commit `8ecb62d86ae16a5d1e5e5736fc817fcb8a8cce1f`, followed by
 punctuation-aware runtime containment in runner commit
-`a5ab4abca2e11cf51e2a5e714fcbbaef777aafa7`. All eighteen immutable records per
-combination remain referenced by the matrix.
+`a5ab4abca2e11cf51e2a5e714fcbbaef777aafa7`, then numeric-leaf privacy in runner
+commit `8d921e2eb2c85ebe211e7a3daddac31d563040b6`. All nineteen immutable
+records per combination remain referenced by the matrix.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
