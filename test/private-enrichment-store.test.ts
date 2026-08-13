@@ -242,6 +242,15 @@ test('initial validation failures arbitrate monotonically without a file', async
   const value = await fixture()
   t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
   const review = await createReview(value)
+  await assert.rejects(
+    value.store.recordReviewValidationFailure(
+      review.review.id,
+      null,
+      'source-missing',
+      'not-a-time'
+    )
+  )
+  assert.equal((await value.store.projection(review)).error, null)
   await value.store.recordReviewValidationFailure(
     review.review.id,
     null,

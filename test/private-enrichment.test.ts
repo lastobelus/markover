@@ -21,6 +21,7 @@ import {
   threadIdentityDigest,
   type EnrichmentProjectionError,
   type ReviewEnrichmentFile,
+  type ReviewEnrichmentErrorCode,
   type ReviewEnrichmentSnapshot,
   type StableThreadIdentity,
   type ThreadEnrichmentFile,
@@ -159,6 +160,22 @@ test('stable thread identity prefers host ID, accepts equality, and excludes pro
   assert.equal(threadIdentityDigest(equal), threadIdentityDigest(
     fallback
   ))
+
+  const exact = stableThreadIdentity({
+    id: ' provider-id ',
+    threadHost: {
+      kind: ' t3code ',
+      provider: 'codex'
+    }
+  })
+  assert.deepEqual(exact, {
+    threadHostKind: ' t3code ',
+    threadId: ' provider-id '
+  })
+  assert.notEqual(
+    threadIdentityDigest(exact),
+    threadIdentityDigest(fallback)
+  )
 })
 
 test('thread digest uses exact JSON UTF-8 encoding and future key prefix', () => {
@@ -240,6 +257,36 @@ test('review errors require the expected current snapshot generation', () => {
     'source-missing',
     thirdTime
   ).outcome, 'ignored')
+})
+
+test('review errors validate initial and expected observation inputs', () => {
+  assert.throws(
+    () => arbitrateReviewError(
+      null,
+      null,
+      'not-an-error' as ReviewEnrichmentErrorCode,
+      secondTime
+    ),
+    PrivateEnrichmentFormatError
+  )
+  assert.throws(
+    () => arbitrateReviewError(
+      null,
+      null,
+      'source-missing',
+      'not-a-time'
+    ),
+    PrivateEnrichmentFormatError
+  )
+  assert.throws(
+    () => arbitrateReviewError(
+      reviewFile(),
+      'not-a-time',
+      'source-missing',
+      secondTime
+    ),
+    PrivateEnrichmentFormatError
+  )
 })
 
 test('title observations arbitrate per source and resolve by authority then recency', () => {

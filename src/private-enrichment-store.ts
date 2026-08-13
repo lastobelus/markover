@@ -478,6 +478,12 @@ export class PrivateEnrichmentStore {
           'Refusing to overwrite invalid private review enrichment.'
         )
       }
+      arbitrateReviewError(
+        null,
+        expectedSnapshotObservedAt,
+        code,
+        observedAt
+      )
       if (!current.value && expectedSnapshotObservedAt === null) {
         const candidate: EnrichmentProjectionError = {
           code,

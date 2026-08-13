@@ -318,10 +318,10 @@ export function stableThreadIdentity(
   agentThread: ReviewAgentThread | null
 ): StableThreadIdentity | null {
   if (!agentThread) return null
-  const kind = agentThread.threadHost.kind.trim()
-  const threadId = (agentThread.threadHost.threadId || agentThread.id).trim()
-  if (!kind || !threadId) return null
-  return { threadHostKind: kind, threadId }
+  return {
+    threadHostKind: agentThread.threadHost.kind,
+    threadId: agentThread.threadHost.threadId || agentThread.id
+  }
 }
 
 export function threadIdentityDigest(identity: StableThreadIdentity): string {
@@ -398,7 +398,14 @@ export function arbitrateReviewError(
   code: ReviewEnrichmentErrorCode,
   observedAt: string
 ): EnrichmentArbitration<ReviewEnrichmentFile> {
-  if (!REVIEW_ERROR_CODES.has(code) || !isCanonicalReviewTimestamp(observedAt)) {
+  if (
+    !REVIEW_ERROR_CODES.has(code) ||
+    !isCanonicalReviewTimestamp(observedAt) ||
+    (
+      expectedSnapshotObservedAt !== null &&
+      !isCanonicalReviewTimestamp(expectedSnapshotObservedAt)
+    )
+  ) {
     invalid('Review validation failure is invalid.')
   }
   if (!current) return { outcome: 'ignored', value: null }
