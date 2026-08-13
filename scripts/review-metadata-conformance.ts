@@ -1533,6 +1533,9 @@ function multibaseDecodedVariants(value: string): string[] {
     case 'v':
     case 'V':
       return base32hexDecodedVariants(body)
+    case 'k':
+    case 'K':
+      return [body]
     case 'm':
     case 'M':
     case 'u':
