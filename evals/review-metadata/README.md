@@ -147,7 +147,10 @@ records per combination remain referenced by the matrix. After rebasing onto
 the latest `main`, rebased head `4a077eceae1354a554868070204f1215b1269589`
 produced a twentieth record for each combination. After stacking on #148, the
 #134-aligned runner at `bc4d87cd121f0451ff9aac72d3c810c8653a5f76`
-produced a twenty-first record for each combination.
+produced a twenty-first record for each combination. Delimiter-stripped
+private-identifier comparison in runner commit
+`584f85ced53c2b745c018fe6958975ceee04897a` produced a twenty-second record for
+each combination after #148 merged.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
