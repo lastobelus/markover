@@ -124,7 +124,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 276,
+    evidenceCount: 279,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -1579,6 +1579,28 @@ test('capture treats numeric extension leaves as private artifact values', async
       json('evals/review-metadata/matrix.json')), /runtime still contains a private artifact value/)
   })
 
+  await t.test('unprefixed Base45 private identities', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { secret: 'azR1' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'OECQHA'
+    assert.throws(() => buildSanitizedEvidence(artifact, observation({ runtime }),
+      json('evals/review-metadata/matrix.json')), /runtime still contains a private artifact value/)
+  })
+
+  await t.test('Adobe-framed ASCII85 private values', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { secret: '<~@:Neh0etOA2#~>' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct12345'
+    assert.throws(() => buildSanitizedEvidence(artifact, observation({ runtime }),
+      json('evals/review-metadata/matrix.json')), /runtime still contains a private artifact value/)
+  })
+
   await t.test('digit-only fixed-width hexadecimal identities', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -2198,7 +2220,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 277,
+    evidenceCount: 280,
     matrixEntryCount: 3
   })
 
