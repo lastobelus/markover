@@ -1449,6 +1449,28 @@ function hexadecimalDecodedVariants(value: string): string[] {
   return variants
 }
 
+function multibaseDecodedVariants(value: string): string[] {
+  if (value.length < 2) return []
+  const body = value.slice(1)
+  switch (value[0]) {
+    case 'z':
+      return base58btcDecodedVariants(body)
+    case 'b':
+    case 'B':
+      return base32DecodedVariants(body)
+    case 'm':
+    case 'M':
+    case 'u':
+    case 'U':
+      return base64DecodedVariants(body)
+    case 'f':
+    case 'F':
+      return hexadecimalDecodedVariants(body)
+    default:
+      return []
+  }
+}
+
 function reversibleDecodedVariants(value: string): string[] {
   const variants = new Set<string>()
   const pending = [value]
@@ -1461,7 +1483,8 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base64DecodedVariants(current),
       ...base32DecodedVariants(current),
       ...base58btcDecodedVariants(current),
-      ...hexadecimalDecodedVariants(current)
+      ...hexadecimalDecodedVariants(current),
+      ...multibaseDecodedVariants(current)
     ]) {
       if (candidate === value || variants.has(candidate)) continue
       if (variants.size >= maximumVariants) {
