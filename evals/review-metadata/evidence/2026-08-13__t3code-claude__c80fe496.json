@@ -1,0 +1,60 @@
+{
+  "checks": {
+    "threadHostIdAccepted": true,
+    "guessedValuesAbsent": true,
+    "machineAttempted": true,
+    "nullFallbackTruthful": true,
+    "portableV1Valid": true,
+    "requiredFieldsObserved": true,
+    "sanitized": true,
+    "supportedCombination": true
+  },
+  "discovery": {
+    "hostKind": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostProvider": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostThreadId": {
+      "source": "not-exposed",
+      "status": "unavailable"
+    },
+    "machine": {
+      "source": "hostname-command",
+      "status": "observed"
+    },
+    "providerThreadId": {
+      "source": "agent-runtime",
+      "status": "observed"
+    }
+  },
+  "evidenceId": "2026-08-13__t3code-claude__c80fe496",
+  "exercisedAt": "2026-08-13T04:50:04.000Z",
+  "matrixEntryId": "t3code-claude",
+  "relationships": {
+    "identity": "identified",
+    "threadHostId": "omitted"
+  },
+  "runtime": {
+    "hostVersion": null,
+    "hostVersionSource": "not-exposed",
+    "providerModel": "claude-sonnet-5",
+    "providerModelSource": "runtime-context",
+    "providerVersion": "Claude Agent SDK 0.3.227",
+    "providerVersionSource": "runtime-context"
+  },
+  "sanitizedAgentThread": {
+    "id": "<redacted-provider-thread-id>",
+    "threadHost": {
+      "kind": "t3code",
+      "provider": "claude",
+      "machine": "<redacted-machine>"
+    }
+  },
+  "schemaVersion": 1,
+  "sourceCommit": "c80fe4967b26ca8a932d81e0e4dca7ed92712971",
+  "sourcePullRequest": "https://github.com/lastobelus/markover/pull/141"
+}
