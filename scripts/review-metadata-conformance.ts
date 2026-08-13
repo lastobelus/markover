@@ -1993,6 +1993,62 @@ function htmlCharacterReferenceDecodedVariants(value: string): string[] {
   return variants
 }
 
+function uuencodedDecodedVariants(value: string): string[] {
+  const encodeCharacter = (sixBits: number): string => String.fromCharCode(sixBits + 32)
+  const encode = (bytes: Uint8Array): string => {
+    let encoded = encodeCharacter(bytes.length)
+    for (let offset = 0; offset < bytes.length; offset += 3) {
+      const first = bytes[offset] ?? 0
+      const second = bytes[offset + 1] ?? 0
+      const third = bytes[offset + 2] ?? 0
+      encoded += encodeCharacter(first >>> 2)
+      encoded += encodeCharacter(((first & 3) << 4) | (second >>> 4))
+      encoded += encodeCharacter(((second & 15) << 2) | (third >>> 6))
+      encoded += encodeCharacter(third & 63)
+    }
+    return encoded
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 5 || encoded.length > 253) return null
+    const decodedLength = encoded.charCodeAt(0) - 32
+    if (decodedLength < 1 || decodedLength > 45) return null
+    const expectedLength = 1 + Math.ceil(decodedLength / 3) * 4
+    if (encoded.length !== expectedLength || !/^[ -_]+$/.test(encoded)) return null
+    const bytes: number[] = []
+    for (let offset = 1; offset < encoded.length; offset += 4) {
+      const first = (encoded.charCodeAt(offset) - 32) & 63
+      const second = (encoded.charCodeAt(offset + 1) - 32) & 63
+      const third = (encoded.charCodeAt(offset + 2) - 32) & 63
+      const fourth = (encoded.charCodeAt(offset + 3) - 32) & 63
+      bytes.push(
+        (first << 2) | (second >>> 4),
+        ((second & 15) << 4) | (third >>> 2),
+        ((third & 3) << 6) | fourth
+      )
+    }
+    const byteArray = Uint8Array.from(bytes.slice(0, decodedLength))
+    if (encode(byteArray) !== encoded) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error('Sanitized evidence contains uuencoding beyond the safe decoding depth.')
+  }
+  return variants
+}
+
 function punycodeDecodedVariants(value: string): string[] {
   if (value.length > 512 || !/(?:^|\.)xn--/i.test(value)) return []
   const decoded = domainToUnicode(value)
@@ -2111,6 +2167,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...z85DecodedVariants(current),
       ...quotedPrintableDecodedVariants(current),
       ...htmlCharacterReferenceDecodedVariants(current),
+      ...uuencodedDecodedVariants(current),
       ...punycodeDecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
