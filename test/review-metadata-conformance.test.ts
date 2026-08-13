@@ -212,6 +212,15 @@ test('capture binds the evidence ID slug to the selected matrix entry', () => {
   )
 })
 
+test('capture binds the evidence ID date to the exercisedAt UTC date', () => {
+  assert.throws(
+    () => parseCaptureObservation(observation({
+      evidenceId: '2030-01-01__t3code-codex__1234abcd'
+    })),
+    /evidenceId date must equal the exercisedAt UTC date/
+  )
+})
+
 test('capture rejects a private identity used as a complete runtime segment', () => {
   const artifact = fixture()
   agentThread(artifact)
@@ -268,6 +277,23 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
       )
     })
   }
+
+  await t.test('token embedded in feedback prose', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.feedback = 'Account acct_12345 needs review.'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture treats additive extension keys as private artifact values', async (t) => {
@@ -333,7 +359,7 @@ test('capture treats ignored limitation strings as private inputs', async (t) =>
         artifact,
         observation({
           evidenceId: '2026-08-12__t3code-codex__deadbeef',
-          limitations: ['deadbeef']
+          limitations: ['Account deadbeef needs review.']
         }),
         json('evals/review-metadata/matrix.json')
       ),
@@ -414,7 +440,7 @@ test('failure evidence rejects a suffix copied from an ignored limitation', () =
       artifact,
       observation({
         evidenceId: '2026-08-12__t3code-codex__deadbeef',
-        limitations: ['deadbeef']
+        limitations: ['Account deadbeef needs review.']
       }),
       json('evals/review-metadata/matrix.json'),
       999
