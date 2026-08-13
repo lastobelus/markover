@@ -37,7 +37,10 @@ description: "Babysit GitHub pull requests. Use when the user says 'babysit', 'b
    review results, and merge result when applicable. If interrupted or paused,
    stop reads and mutations immediately and report the same state as a resumable
    checkpoint; resume from a fresh snapshot.
-9. After merge-mode completion, determine whether the issue being addressed is
+9. After merge-mode completion, inspect the issue conversation before
+   recommending next steps or closing it. Treat comments added by other threads
+   as a separate input from Codex PR reviews and account for every adjunct work
+   item, revision request, or finding. Then determine whether the issue is
    complete. If work remains, summarize the concrete next steps. If it is
    complete, perform all repository-required housekeeping, verify the issue and
    its trackers reflect completion, and tell the user the thread is ready to
