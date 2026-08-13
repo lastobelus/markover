@@ -5,6 +5,11 @@ export const PUBLIC_LINKS = [
     url: 'https://lastobelus.github.io/markover/guide/'
   },
   {
+    id: 'markdown-support-and-limitations',
+    label: 'Markdown Support and Limitations',
+    url: 'https://lastobelus.github.io/markover/limitations/'
+  },
+  {
     id: 'privacy-and-local-data',
     label: 'Privacy and Local Data',
     url: 'https://lastobelus.github.io/markover/privacy/'

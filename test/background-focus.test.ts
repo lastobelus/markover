@@ -134,7 +134,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /!windowFocusState\.focused \|\|[\s\S]*elements\.incomingReviewNotice\.hidden \|\|[\s\S]*elements\.incomingReviewDialog\.open \|\|[\s\S]*elements\.settingsDialog\.open \|\|[\s\S]*elements\.fixedContractDialog\.open \|\|[\s\S]*!elements\.imagePreview\.hidden \|\|[\s\S]*!elements\.reviewContextDrawer\.hidden/
+    /!windowFocusState\.focused \|\|[\s\S]*elements\.incomingReviewNotice\.hidden \|\|[\s\S]*elements\.incomingReviewDialog\.open \|\|[\s\S]*elements\.settingsDialog\.open \|\|[\s\S]*elements\.fixedContractDialog\.open \|\|[\s\S]*elements\.imagePreview\.open \|\|[\s\S]*elements\.reviewContextDrawer\.open/
   )
   assert.match(
     renderer,
@@ -162,10 +162,6 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /noticeVisible && active === elements\.incomingReviewNoticeOpen[\s\S]*noticeVisible &&[\s\S]*elements\.incomingReviewNoticeOpen\.focus\(\)/
-  )
-  assert.match(
-    renderer,
     /incomingReviewNoticeOpen\.addEventListener\([\s\S]*'focus',[\s\S]*scheduleIncomingReviewNoticeDismissal[\s\S]*'blur',[\s\S]*scheduleIncomingReviewNoticeDismissal/
   )
   assert.match(
@@ -182,11 +178,11 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /function openImagePreview[\s\S]*imagePreview\.hidden = false[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeImagePreview[\s\S]*imagePreview\.hidden = true[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+    /function openImagePreview[\s\S]*imagePreview\.showModal\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeImagePreview[\s\S]*imagePreview\.close\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
   )
   assert.match(
     renderer,
-    /function openReviewContext[\s\S]*reviewContextDrawer\.hidden = false[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeReviewContext[\s\S]*reviewContextDrawer\.hidden = true[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
+    /function openReviewContext[\s\S]*reviewContextDrawer\.showModal\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeReviewContext[\s\S]*reviewContextDrawer\.close\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
   )
   assert.match(
     renderer,

@@ -373,10 +373,17 @@
           role="separator"
           aria-label="Resize documents list sidebar"
           aria-orientation="vertical"
+          aria-valuemin="150"
+          tabindex="0"
         ></div>
       </aside>
 
-      <section id="preview-pane" class="pane preview-pane" tabindex="0">
+      <section
+        id="preview-pane"
+        class="pane preview-pane"
+        tabindex="0"
+        aria-label="Document tree. Use arrow keys to navigate blocks."
+      >
         <div class="pane-header">
           <div class="pane-header-leading">
             <button
@@ -432,12 +439,15 @@
             type="button"
             role="tab"
             aria-selected="true"
+            aria-controls="selected-annotation-view"
           >Selected block</button>
           <button
             id="annotation-view-list"
             type="button"
             role="tab"
             aria-selected="false"
+            aria-controls="annotation-list-view"
+            tabindex="-1"
           >All Annotations (0)</button>
         </div>
         <div class="pane-header annotation-selection-header">
@@ -450,7 +460,12 @@
           >—</button>
         </div>
 
-        <div id="selected-annotation-view" class="selected-annotation-view">
+        <div
+          id="selected-annotation-view"
+          class="selected-annotation-view"
+          role="tabpanel"
+          aria-labelledby="annotation-view-selected"
+        >
           <div id="review-state-banner" class="review-state-banner" hidden>
             With agent · Read only
           </div>
@@ -495,7 +510,12 @@
 
           <label class="annotation-label" for="annotation-input">
             Feedback
-            <span id="annotation-state">Not annotated</span>
+            <span
+              id="annotation-state"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >Not annotated</span>
           </label>
           <textarea
             id="annotation-input"
@@ -508,7 +528,13 @@
             tabindex="0"
             hidden
           ></div>
-          <div id="attachment-list" class="attachment-list" hidden></div>
+          <div
+            id="attachment-list"
+            class="attachment-list"
+            role="list"
+            aria-label="Attached screenshots"
+            hidden
+          ></div>
 
           <div class="annotation-footer">
             <p id="annotation-guidance">Annotations stay in memory. Copy feedback JSON when you’re done.</p>
@@ -521,6 +547,8 @@
           class="annotation-list-view"
           tabindex="0"
           aria-label="All annotations"
+          role="tabpanel"
+          aria-labelledby="annotation-view-list"
           hidden
         >
           <div id="annotation-list" class="annotation-list"></div>
@@ -528,6 +556,13 @@
       </aside>
     </main>
 
+    <div
+      id="status-announcer"
+      class="visually-hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
     <div id="toast" class="toast" aria-hidden="true"></div>
     <div
       id="incoming-review-notice"
@@ -541,14 +576,27 @@
       ></span>
       <button id="incoming-review-notice-open" type="button">Open</button>
     </div>
-    <div id="image-preview" class="image-preview" hidden>
-      <button id="image-preview-close" class="image-preview-close" type="button">×</button>
+    <dialog
+      id="image-preview"
+      class="image-preview"
+      aria-labelledby="image-preview-label"
+    >
+      <button
+        id="image-preview-close"
+        class="image-preview-close"
+        type="button"
+        aria-label="Close image preview"
+      >×</button>
       <div class="image-preview-frame">
         <img id="image-preview-content" alt="Pasted screenshot preview">
         <span id="image-preview-label" class="image-preview-label"></span>
       </div>
-    </div>
-    <aside id="review-context-drawer" class="review-context-drawer" hidden>
+    </dialog>
+    <dialog
+      id="review-context-drawer"
+      class="review-context-drawer"
+      aria-labelledby="review-context-title"
+    >
       <header>
         <div>
           <span class="eyebrow">Review context</span>
@@ -563,7 +611,7 @@
       </header>
       <div id="review-context-summary" class="review-context-summary"></div>
       <dl id="review-context-fields" class="review-context-fields"></dl>
-    </aside>
+    </dialog>
     <div id="annotation-sneak-peek" class="annotation-sneak-peek" hidden></div>
     <div
       id="review-hover-card"
