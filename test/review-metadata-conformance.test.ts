@@ -352,6 +352,24 @@ test('failed automatic checks can produce only closed sanitized evidence', () =>
   assert.doesNotMatch(JSON.stringify(failure), /raw-provider-thread-secret/)
 })
 
+test('failure evidence rejects a suffix copied from an extension key', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  rootNode.fixtureExtension = { deadbeef: true }
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
 test('corpus retains failures without letting them satisfy completeness', (t) => {
   const artifact = fixture()
   agentThread(artifact)
