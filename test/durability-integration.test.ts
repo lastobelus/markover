@@ -47,7 +47,7 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   assert.match(barrier, /pauseMutations: pauseManagedMutations/)
   assert.match(
     main,
-    /async function pauseManagedMutations[\s\S]*setManagedRendererPause\(true\)[\s\S]*managedLocalReviewCreationsBlocked = true[\s\S]*localService\?\.pauseMutations\(\)[\s\S]*managedLocalReviewCreations\.wait\(\)/
+    /async function pauseManagedMutations[\s\S]*setManagedRendererPause\(true\)[\s\S]*managedLocalReviewCreationsBlocked = true[\s\S]*privateEnrichmentStore\.pauseAndDrain\(\)[\s\S]*localService\?\.pauseMutations\(\)[\s\S]*managedLocalReviewCreations\.wait\(\)/
   )
   assert.match(
     main,

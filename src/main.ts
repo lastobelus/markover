@@ -1665,9 +1665,9 @@ function resumeManagedMutations(): void {
 async function pauseManagedMutations(): Promise<void> {
   setManagedRendererPause(true)
   managedLocalReviewCreationsBlocked = true
+  await privateEnrichmentStore.pauseAndDrain()
   await localService?.pauseMutations()
   await managedLocalReviewCreations.wait()
-  await privateEnrichmentStore.pauseAndDrain()
 }
 
 async function runManagedDurabilityShutdown(): Promise<void> {
