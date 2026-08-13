@@ -75,7 +75,7 @@ interface MatrixEntry {
 export interface MetadataMatrix {
   classification: {
     authorityIssue: 134
-    status: 'provisional-evidence'
+    status: 'observational-evidence'
   }
   entries: MatrixEntry[]
   expansionCandidates: Array<{
@@ -115,7 +115,7 @@ export interface CaptureObservation {
 }
 
 interface ConformanceChecks {
-  distinctThreadHostId: true
+  threadHostIdAccepted: true
   guessedValuesAbsent: true
   machineAttempted: true
   nullFallbackTruthful: true
@@ -133,7 +133,7 @@ export interface SanitizedEvidence {
   matrixEntryId: string
   relationships: {
     identity: 'identified' | 'truthful-null'
-    threadHostId: 'distinct' | 'omitted'
+    threadHostId: 'distinct' | 'equal' | 'omitted'
   }
   runtime: RuntimeObservation
   sanitizedAgentThread: null | {
@@ -718,10 +718,10 @@ export function parseMetadataMatrix(value: unknown): MetadataMatrix {
   )
   if (
     classification.authorityIssue !== 134 ||
-    classification.status !== 'provisional-evidence'
+    classification.status !== 'observational-evidence'
   ) {
     throw new Error(
-      'Metadata matrix classifications must remain provisional evidence owned by issue #134.'
+      'Metadata matrix must retain observational product evidence under issue #134 role semantics.'
     )
   }
   if (!Array.isArray(item.entries) || item.entries.length === 0) {
@@ -764,7 +764,7 @@ export function parseMetadataMatrix(value: unknown): MetadataMatrix {
   return {
     classification: {
       authorityIssue: 134,
-      status: 'provisional-evidence'
+      status: 'observational-evidence'
     },
     entries,
     expansionCandidates,
@@ -789,7 +789,7 @@ function assertObserved(
 
 function trueChecks(): ConformanceChecks {
   return {
-    distinctThreadHostId: true,
+    threadHostIdAccepted: true,
     guessedValuesAbsent: true,
     machineAttempted: true,
     nullFallbackTruthful: true,
@@ -947,10 +947,10 @@ export function buildSanitizedEvidence(
 
   if (thread === null) {
     if (entry.identityExpectation === 'required') {
-      throw new Error(`${entry.id} requires reliable provider thread identity.`)
+      throw new Error(`${entry.id} requires reliable requesting-thread identity.`)
     }
     if (observation.discovery.providerThreadId.status !== 'unavailable') {
-      throw new Error('A null agentThread requires provider identity to be unavailable.')
+      throw new Error('A null agentThread requires requesting-thread identity to be unavailable.')
     }
     assertNullThreadHostNotObserved(observation.discovery)
     throw new Error(
@@ -976,7 +976,7 @@ export function buildSanitizedEvidence(
   if (thread.threadHost.threadId !== undefined) {
     assertObserved(observation.discovery.hostThreadId, 'threadHost.threadId')
     sanitizedThreadHost.threadId = redactedThreadHostThreadId
-    threadHostId = 'distinct'
+    threadHostId = thread.threadHost.threadId === thread.id ? 'equal' : 'distinct'
   } else if (observation.discovery.hostThreadId.status === 'observed') {
     throw new Error('Host thread identity was observed but omitted from the artifact.')
   }
@@ -1107,7 +1107,7 @@ export function recordConformanceEvidence(
 function assertTrueChecks(value: unknown): ConformanceChecks {
   const checks = record(value, 'Evidence checks')
   const fields = [
-    'distinctThreadHostId',
+    'threadHostIdAccepted',
     'guessedValuesAbsent',
     'machineAttempted',
     'nullFallbackTruthful',
@@ -1168,7 +1168,7 @@ export function validateSanitizedEvidence(
     'identified', 'truthful-null'
   ], 'Evidence relationships.identity')
   const threadHostId = oneOf(relationships.threadHostId, [
-    'distinct', 'omitted'
+    'distinct', 'equal', 'omitted'
   ], 'Evidence relationships.threadHostId')
   let sanitizedAgentThread: SanitizedEvidence['sanitizedAgentThread']
   if (item.sanitizedAgentThread === null) {
@@ -1190,7 +1190,7 @@ export function validateSanitizedEvidence(
       'Evidence sanitizedAgentThread.threadHost'
     )
     if (thread.id !== redactedProviderThreadId) {
-      throw new Error('Evidence provider thread ID must use the redaction marker.')
+      throw new Error('Evidence requesting-thread ID must use the redaction marker.')
     }
     if (host.kind !== entry.threadHost.kind || host.provider !== entry.threadHost.provider) {
       throw new Error(`Evidence thread metadata does not match ${entry.id}.`)
@@ -1206,8 +1206,11 @@ export function validateSanitizedEvidence(
     assertObserved(observation.discovery.hostProvider, 'threadHost.provider')
     if (host.threadId !== undefined) {
       assertObserved(observation.discovery.hostThreadId, 'threadHost.threadId')
-      if (host.threadId !== redactedThreadHostThreadId || threadHostId !== 'distinct') {
-        throw new Error('Evidence host thread ID must be distinct and redacted.')
+      if (
+        host.threadId !== redactedThreadHostThreadId ||
+        (threadHostId !== 'distinct' && threadHostId !== 'equal')
+      ) {
+        throw new Error('Evidence host thread ID must record an accepted relationship and use the redaction marker.')
       }
       sanitizedHost.threadId = redactedThreadHostThreadId
     } else {

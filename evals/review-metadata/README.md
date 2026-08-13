@@ -36,13 +36,18 @@ Recording and later corpus validation walk GitHub's bounded `parent` hierarchy,
 require every issue to remain in the source PR repository, and fail unless the
 chain reaches #99.
 
-## Classification ownership
+## Classification semantics
 
-Treat every product label and `threadHost.kind`/`provider` pair in this corpus as
-provisional evidence from its recorded run. Issue #134 owns normative product
-classification and aliases. Until that specification lands, add an exact row
-only when the live thread makes both roles unambiguous; retain ambiguous future
-products as host-only `expansionCandidates` with `discover-at-exercise`.
+Issue #134 defines `threadHost.kind` as the user-facing product or lookup
+namespace and `threadHost.provider` as the observed LLM provider or model family,
+not an intermediate harness. Exact product labels and pairs in this corpus remain
+observational evidence from their recorded runs. Add an exact row only when the
+live thread makes both roles unambiguous; retain ambiguous future products as
+host-only `expansionCandidates` with `discover-at-exercise`.
+
+`agentThread.id` records the best observable requesting-thread or session ID. An
+equal `threadHost.threadId` is valid, although agent guidance recommends omitting
+it unless it is a distinct host-owned identifier.
 
 ```sh
 npm run eval:metadata:record -- \
@@ -100,11 +105,10 @@ materially, a new host/provider combination becomes available, or an observed
 snapshot drifts from the last committed evidence. Add a new immutable evidence
 record; keep earlier records as history.
 
-Expansion candidates name hosts only. Choose their provider from the live thread
-at exercise time, then add an exact matrix row. This keeps LastCode, direct
-provider hosts, OpenCode, Cursor, and future mixed combinations visible without
-inventing provider identity. Revisit affected rows after #134 publishes its
-normative classification. Candidate context uses only the closed reason codes
+Expansion candidates name hosts only. Choose their LLM provider/model family
+from the live thread at exercise time, then add an exact matrix row. This keeps
+LastCode, direct provider hosts, OpenCode, Cursor, and future mixed combinations
+visible without inventing LLM provider/model-family identity. Candidate context uses only the closed reason codes
 `no-live-thread` and `provider-not-observed`; keep free-form notes outside the
 committed corpus.
 
@@ -159,5 +163,5 @@ git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 | Claude Code × Claude | Claude Code 2.1.228; `claude-sonnet-5`; provider service version not exposed | Pass |
 
 Each record retains structured discovery limitations, ID relationships, and
-typed redaction markers. No raw provider ID, host ID, hostname, session path,
+typed redaction markers. No raw requesting-thread ID, host ID, hostname, session path,
 free-form observation text, or account data is committed.

@@ -98,7 +98,7 @@ test('initial live matrix names three exact combinations without guessing expans
   const matrix = parseMetadataMatrix(json('evals/review-metadata/matrix.json'))
   assert.deepEqual(matrix.classification, {
     authorityIssue: 134,
-    status: 'provisional-evidence'
+    status: 'observational-evidence'
   })
   assert.deepEqual(matrix.entries.map(({ id }) => id), [
     't3code-codex',
@@ -931,7 +931,7 @@ test('capture rejects incorrect null fallback for a required identity row', () =
       observation({ discovery }),
       json('evals/review-metadata/matrix.json')
     ),
-    /t3code-codex requires reliable provider thread identity/
+    /t3code-codex requires reliable requesting-thread identity/
   )
 })
 
@@ -961,20 +961,29 @@ test('truthful-null capture fails closed without verifiable combination metadata
   )
 })
 
-test('capture rejects duplicated provider and host IDs through the v1 decoder', () => {
+test('capture accepts equal requesting and host IDs while recording the relationship', () => {
   const artifact = fixture()
   agentThread(artifact)
   const review = artifact.review as Record<string, unknown>
   const thread = review.agentThread as Record<string, unknown>
   const host = thread.threadHost as Record<string, unknown>
   host.threadId = thread.id
-  assert.throws(
-    () => buildSanitizedEvidence(
-      artifact,
-      observation(),
+  const evidence = buildSanitizedEvidence(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  )
+  assert.equal(evidence.relationships.threadHostId, 'equal')
+  assert.equal(
+    evidence.sanitizedAgentThread?.threadHost.threadId,
+    '<redacted-thread-host-thread-id>'
+  )
+  assert.deepEqual(
+    validateSanitizedEvidence(
+      evidence,
       json('evals/review-metadata/matrix.json')
     ),
-    /threadHost.threadId must be omitted when it duplicates agentThread.id/
+    evidence
   )
 })
 
@@ -1230,7 +1239,7 @@ test('committed evidence rejects raw identifiers in place of redaction markers',
       evidence,
       json('evals/review-metadata/matrix.json')
     ),
-    /provider thread ID must use the redaction marker/
+    /requesting-thread ID must use the redaction marker/
   )
 })
 
@@ -1509,7 +1518,8 @@ test('documentation fixes rerun and schema-defect handling without storing raw e
     'utf8'
   )
   assert.match(readme, /Raw artifacts stay under `tmp\/review-metadata\/`/)
-  assert.match(readme, /Issue #134 owns normative product\nclassification and aliases/)
+  assert.match(readme, /Issue #134 defines `threadHost.kind`/)
+  assert.match(readme, /equal `threadHost.threadId` is valid/)
   assert.match(readme, /host-only `expansionCandidates`/)
   assert.match(readme, /Rerun an affected row when Markover's metadata guidance/)
   assert.match(rubric, /contract defect descended from issue\n#99/)
