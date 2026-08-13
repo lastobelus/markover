@@ -124,7 +124,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 213,
+    evidenceCount: 216,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -1637,7 +1637,7 @@ test('failed automatic checks can produce only closed sanitized evidence', () =>
     999
   )
   assert.deepEqual(failure, {
-    evidenceId: '2026-08-12__t3code-codex__1234abcd',
+    evidenceId: '2026-08-12__t3code-codex__vqzwmjkh',
     exercisedAt: '2026-08-12T12:34:56.789Z',
     failure: {
       defectIssue: 999,
@@ -1813,7 +1813,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 214,
+    evidenceCount: 217,
     matrixEntryCount: 3
   })
 
