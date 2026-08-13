@@ -209,6 +209,37 @@ test('corpus provenance includes GitHub-recorded pre-force-push heads', () => {
   )
 })
 
+test('corpus provenance rejects a PR ancestor without the recorder', () => {
+  const sourceCommit = '3'.repeat(40)
+  const git = (args: string[]): { status: number; stderr: string; stdout: string } => ({
+    status: args[0] === 'cat-file' && args[2]?.includes(':scripts/') ? 1 : 0,
+    stderr: '',
+    stdout: args[0] === 'remote'
+      ? 'https://github.com/lastobelus/markover.git\n'
+      : args[0] === 'rev-parse'
+        ? `${'4'.repeat(40)}\n`
+        : ''
+  })
+  const github = (): { status: number; stderr: string; stdout: string } => ({
+    status: 0,
+    stderr: '',
+    stdout: JSON.stringify({
+      data: { repository: { pullRequest: { timelineItems: {
+        nodes: [], pageInfo: { endCursor: null, hasNextPage: false }
+      } } } }
+    })
+  })
+  assert.throws(
+    () => {
+      verifyEvidenceSourceCommits([{
+        sourceCommit,
+        sourcePullRequest: 'https://github.com/lastobelus/markover/pull/141'
+      }], root, git, github)
+    },
+    /must contain the conformance recorder/
+  )
+})
+
 test('capture validates raw v1 identity and emits only typed redactions', () => {
   const artifact = fixture()
   agentThread(artifact)

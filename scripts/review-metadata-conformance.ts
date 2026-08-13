@@ -627,6 +627,12 @@ export function verifyEvidenceSourceCommits(
       if (!belongs) throw new Error(
         'Evidence sourceCommit must belong to current or pre-force-push sourcePullRequest history.'
       )
+      const recorder = git([
+        'cat-file', '-e', `${commit}:scripts/review-metadata-conformance.ts`
+      ], cwd)
+      if (recorder.status !== 0) {
+        throw new Error('Evidence sourceCommit must contain the conformance recorder.')
+      }
     }
   }
 }
