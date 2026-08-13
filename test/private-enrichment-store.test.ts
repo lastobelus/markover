@@ -489,7 +489,7 @@ test('private writes can be parsed after direct file inspection', async (t) => {
   )))
 })
 
-test('idempotent replay proves storage recovery before clearing write failure', async (t) => {
+test('recovery retries the failed target before clearing write failure', async (t) => {
   let writes = 0
   const value = await fixture({
     writeJson: async (filePath, state) => {
@@ -514,5 +514,14 @@ test('idempotent replay proves storage recovery before clearing write failure', 
 
   await value.store.acceptReviewSnapshot(review.review.id, snapshot(value))
   assert.equal(writes, 3)
-  assert.equal((await value.store.projection(review)).error, null)
+  assert.equal(
+    (await value.store.projection(review)).error?.code,
+    'source-missing'
+  )
+  assert.equal(
+    parseReviewEnrichment(JSON.parse(
+      await fs.readFile(value.store.reviewPath(review.review.id), 'utf8')
+    )).error?.code,
+    'source-missing'
+  )
 })

@@ -163,6 +163,7 @@ export class PrivateEnrichmentStore {
     string,
     EnrichmentProjectionError
   >()
+  private readonly pendingReviewWrites = new Map<string, ReviewEnrichmentFile>()
   private readonly runtimeThreadErrors = new Map<string, Error>()
 
   constructor(
@@ -403,7 +404,16 @@ export class PrivateEnrichmentStore {
           'Refusing to overwrite invalid private review enrichment.'
         )
       }
-      const result = arbitrateReviewSnapshot(current.value, reviewId, candidate)
+      const pending = this.runtimeReviewErrors.get(reviewId)?.code ===
+        'private-write-failed'
+        ? this.pendingReviewWrites.get(reviewId) || null
+        : null
+      const arbitrationCurrent = pending || current.value
+      const result = arbitrateReviewSnapshot(
+        arbitrationCurrent,
+        reviewId,
+        candidate
+      )
       if (result.outcome === 'conflict') this.conflict(
         'A review snapshot conflicts with another observation at the same time.'
       )
@@ -413,12 +423,9 @@ export class PrivateEnrichmentStore {
         'A review snapshot did not produce private state.'
       )
       const runtimeError = this.runtimeReviewErrors.get(reviewId)
-      let shouldWrite = result.outcome === 'write' || (
-        result.outcome === 'idempotent' &&
-        runtimeError?.code === 'private-write-failed'
-      )
+      let shouldWrite = result.outcome === 'write' || Boolean(pending)
       if (
-        !current.value &&
+        !arbitrationCurrent &&
         runtimeError &&
         runtimeError.code !== 'invalid-private-state' &&
         runtimeError.code !== 'private-write-failed'
@@ -447,6 +454,7 @@ export class PrivateEnrichmentStore {
         try {
           await this.writeJson(this.reviewPath(reviewId), value)
         } catch (error) {
+          this.pendingReviewWrites.set(reviewId, structuredClone(value))
           this.runtimeError(
             reviewId,
             'private-write-failed',
@@ -460,6 +468,7 @@ export class PrivateEnrichmentStore {
         }
       }
       if (shouldWrite) {
+        this.pendingReviewWrites.delete(reviewId)
         this.runtimeReviewErrors.delete(reviewId)
       }
       return value
@@ -492,7 +501,11 @@ export class PrivateEnrichmentStore {
         code,
         observedAt
       )
-      if (!current.value && expectedSnapshotObservedAt === null) {
+      const pending = this.runtimeReviewErrors.get(reviewId)?.code ===
+        'private-write-failed'
+        ? this.pendingReviewWrites.get(reviewId) || null
+        : null
+      if (!current.value && !pending && expectedSnapshotObservedAt === null) {
         const candidate: EnrichmentProjectionError = {
           code,
           observedAt,
@@ -526,7 +539,7 @@ export class PrivateEnrichmentStore {
         return null
       }
       const result = arbitrateReviewError(
-        current.value,
+        pending || current.value,
         expectedSnapshotObservedAt,
         code,
         observedAt
@@ -536,15 +549,13 @@ export class PrivateEnrichmentStore {
       )
       const value = mutationValue(result)
       const shouldWrite = Boolean(value) && (
-        result.outcome === 'write' || (
-          result.outcome === 'idempotent' &&
-          this.runtimeReviewErrors.get(reviewId)?.code === 'private-write-failed'
-        )
+        result.outcome === 'write' || Boolean(pending)
       )
       if (shouldWrite && value) {
         try {
           await this.writeJson(this.reviewPath(reviewId), value)
         } catch (error) {
+          this.pendingReviewWrites.set(reviewId, structuredClone(value))
           this.runtimeError(
             reviewId,
             'private-write-failed',
@@ -560,7 +571,10 @@ export class PrivateEnrichmentStore {
       if (
         shouldWrite &&
         this.runtimeReviewErrors.get(reviewId)?.code === 'private-write-failed'
-      ) this.runtimeReviewErrors.delete(reviewId)
+      ) {
+        this.pendingReviewWrites.delete(reviewId)
+        this.runtimeReviewErrors.delete(reviewId)
+      }
       return value
     }))
   }
