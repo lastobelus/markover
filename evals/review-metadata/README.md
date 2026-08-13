@@ -264,14 +264,17 @@ each combination.
 Embedded radix-prefix identity comparison in runner commit
 `bd157ef7e54acae9aeacfd5faab8923efee5fc51` produced a sixty-third record for
 each combination.
+Overlapping embedded numeric-literal extraction in runner commit
+`3dfb39fc9afa582db3263535e2cfefe81c6a03e1` produced a sixty-fourth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v44` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v45` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v44
+git fetch origin refs/tags/issue-136-runner-history-v45
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
