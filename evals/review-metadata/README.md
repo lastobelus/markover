@@ -309,14 +309,17 @@ for each combination, using independent suffix `uqzvmjkh`.
 Canonical Base32 and ignored-provenance comparison in runner commit
 `6bf78f42d2280798841eb0ed12067d21b9d40e01` produced a seventy-seventh record
 for each combination, using independent suffix `gqzvmjkh`.
+Canonical UTF-8 hexadecimal and transitive CLI-source comparison in runner
+commit `8572a54536f2770f36cb635dab88258c1be5203e` produced a seventy-eighth record
+for each combination, using independent suffix `fqzvmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v60` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v61` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v60
+git fetch origin refs/tags/issue-136-runner-history-v61
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

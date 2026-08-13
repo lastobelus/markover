@@ -1538,6 +1538,24 @@ function canonicalNumericIdentityCandidates(
     const sign = match[1] === '-' ? '-' : ''
     return `${sign}${digits}@${exponent}`
   }
+  const canonicalBase36Integer = (value: string): string | null => {
+    const match = /^([+-]?)([0-9a-z]{4,12})$/i.exec(value)
+    const body = match?.[2]
+    if (
+      body === undefined ||
+      !/^\d/.test(body) ||
+      !/[a-z]/i.test(body)
+    ) return null
+    let decimal = 0n
+    for (const character of body.toLowerCase()) {
+      const digit = Number.parseInt(character, 36)
+      if (!Number.isSafeInteger(digit) || digit < 0 || digit >= 36) return null
+      decimal = decimal * 36n + BigInt(digit)
+    }
+    return canonicalDecimalInteger(
+      `${match?.[1] === '-' ? '-' : ''}${decimal.toString()}`
+    )
+  }
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
@@ -1557,6 +1575,8 @@ function canonicalNumericIdentityCandidates(
         const numericValues = new Set<string>()
         for (const normalizedValue of reconstructedSegments) {
           numericValues.add(normalizedValue)
+          const base36Canonical = canonicalBase36Integer(normalizedValue)
+          if (base36Canonical !== null) candidates.add(base36Canonical)
           const fixedWidthHex = /^([+-]?)([0-9a-f]+)$/i.exec(
             normalizedValue
           )
