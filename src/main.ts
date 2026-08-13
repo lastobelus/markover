@@ -9,7 +9,10 @@ import {
   nativeTheme,
   net,
   protocol,
+  screen,
   shell,
+  type Display,
+  type Event as ElectronEvent,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   type WebContents
@@ -112,6 +115,7 @@ import {
   adjacentZoomPercent,
   darkColorization,
   DEFAULT_SETTINGS,
+  minimumWindowSize,
   windowBackground,
   ZOOM_LEVELS
 } from './settings'
@@ -460,6 +464,35 @@ function loadBrandAssets(): Promise<MarkoverBrandAssets> {
   return brandAssetsPromise
 }
 
+function applyWindowZoom(
+  window: BrowserWindow,
+  zoomPercent: ZoomPercent
+): void {
+  const bounds = window.getBounds()
+  const workArea = screen.getDisplayMatching(bounds).workArea
+  const minimum = minimumWindowSize(zoomPercent, workArea)
+  window.setMinimumSize(minimum.width, minimum.height)
+  if (!window.isMaximized() && !window.isFullScreen()) {
+    const width = Math.min(Math.max(bounds.width, minimum.width), workArea.width)
+    const height = Math.min(Math.max(bounds.height, minimum.height), workArea.height)
+    const x = Math.min(
+      Math.max(bounds.x, workArea.x),
+      workArea.x + workArea.width - width
+    )
+    const y = Math.min(
+      Math.max(bounds.y, workArea.y),
+      workArea.y + workArea.height - height
+    )
+    if (
+      bounds.x !== x || bounds.y !== y ||
+      bounds.width !== width || bounds.height !== height
+    ) {
+      window.setBounds({ x, y, width, height })
+    }
+  }
+  window.webContents.setZoomFactor(zoomPercent / 100)
+}
+
 function applyMainSettings(
   settings: MarkoverSettings,
   broadcast = true
@@ -471,7 +504,7 @@ function applyMainSettings(
     window.setBackgroundColor(
       windowBackground(settings, envelope.resolvedAppearance)
     )
-    window.webContents.setZoomFactor(settings.zoomPercent / 100)
+    applyWindowZoom(window, settings.zoomPercent)
   }
   if (broadcast && window && !window.isDestroyed()) {
     sendMainEvent(window.webContents, 'settings:changed', envelope)
@@ -1002,11 +1035,13 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
+  const workArea = screen.getPrimaryDisplay().workAreaSize
+  const minimumSize = minimumWindowSize(startupSettings.zoomPercent, workArea)
   const window = new BrowserWindow({
-    width: 1180,
-    height: 760,
-    minWidth: 760,
-    minHeight: 520,
+    width: Math.min(1180, workArea.width),
+    height: Math.min(760, workArea.height),
+    minWidth: minimumSize.width,
+    minHeight: minimumSize.height,
     show: show && !showWithoutActivating,
     focusable: !smokeMode,
     skipTaskbar: smokeMode,
@@ -1022,7 +1057,34 @@ function createWindow(
     }
   })
   mainWindow = window
-  window.webContents.setZoomFactor(startupSettings.zoomPercent / 100)
+  let currentDisplayId = screen.getDisplayMatching(window.getBounds()).id
+  const applyCurrentWindowZoom = (): void => {
+    if (window.isDestroyed()) return
+    applyWindowZoom(
+      window,
+      settingsStore?.settings.zoomPercent || DEFAULT_SETTINGS.zoomPercent
+    )
+  }
+  const refitWindowAfterDisplayTransition = (): void => {
+    if (window.isDestroyed()) return
+    const display = screen.getDisplayMatching(window.getBounds())
+    if (display.id === currentDisplayId) return
+    currentDisplayId = display.id
+    applyCurrentWindowZoom()
+  }
+  const refitWindowForDisplayMetrics = (
+    _event: ElectronEvent,
+    display: Display
+  ): void => {
+    if (display.id !== currentDisplayId) return
+    applyCurrentWindowZoom()
+  }
+  window.on('move', refitWindowAfterDisplayTransition)
+  screen.on('display-metrics-changed', refitWindowForDisplayMetrics)
+  window.once('closed', () => {
+    screen.removeListener('display-metrics-changed', refitWindowForDisplayMetrics)
+  })
+  applyWindowZoom(window, startupSettings.zoomPercent)
   mainWindowBlurredAt = window.isFocused()
     ? null
     : mainWindowBlurredAt ?? Date.now()
@@ -1041,8 +1103,9 @@ function createWindow(
   installRendererSecurityBoundaries(window.webContents)
   void window.loadURL(internalRendererEntryUrl(query))
   window.webContents.on('did-finish-load', () => {
-    window.webContents.setZoomFactor(
-      (settingsStore?.settings.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent) / 100
+    applyWindowZoom(
+      window,
+      settingsStore?.settings.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent
     )
     mainWindow?.setTitle(`${addressedInstance.branding.appName} Inbox`)
   })
