@@ -3293,11 +3293,18 @@ function focusedPane(): WorkspacePane {
 function focusDocumentsList(): void {
   const active = state.reviewId
     ? elements.documentsListTree.querySelector<HTMLElement>(
-        `.review-list-row[data-review-id="${CSS.escape(state.reviewId)}"]`
+        `[data-review-id="${CSS.escape(state.reviewId)}"]`
       )
     : null
+  if (active) {
+    let ancestor = active.parentElement
+    while (ancestor && elements.documentsListTree.contains(ancestor)) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true
+      ancestor = ancestor.parentElement
+    }
+  }
   const target = active?.querySelector<HTMLElement>('button') ||
-    elements.documentsListTree.querySelector<HTMLElement>('button, summary')
+    elements.documentsListTree.querySelector<HTMLElement>('summary, button')
   target?.focus()
   if (!target) elements.documentsListCollapse.focus()
 }
