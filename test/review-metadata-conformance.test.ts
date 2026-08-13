@@ -122,7 +122,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 78,
+    evidenceCount: 81,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -392,6 +392,8 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
   await t.test('ordinary product words remain usable runtime segments', () => {
     const artifact = fixture()
     agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    delete rootNode.fixtureNodeExtension
     const review = artifact.review as Record<string, unknown>
     review.contextSummary = 'Live T3 Code x Claude metadata conformance exercise.'
     const runtime = observation().runtime as Record<string, unknown>
@@ -788,7 +790,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 79,
+    evidenceCount: 82,
     matrixEntryCount: 3
   })
 
