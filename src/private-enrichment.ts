@@ -303,8 +303,11 @@ export function parseThreadEnrichment(value: unknown): ThreadEnrichmentFile {
     !Array.isArray(value.titleObservations)
   ) invalid('Thread enrichment uses an unsupported or invalid private format.')
   assertThreadIdentity(value.identity)
-  value.titleObservations.forEach(assertTitleObservation)
-  const sourceKeys = value.titleObservations.map(({ sourceKey }) => sourceKey)
+  const sourceKeys: string[] = []
+  for (const observation of value.titleObservations) {
+    assertTitleObservation(observation)
+    sourceKeys.push(observation.sourceKey)
+  }
   if (new Set(sourceKeys).size !== sourceKeys.length) {
     invalid('Private title observations require unique sourceKey values.')
   }

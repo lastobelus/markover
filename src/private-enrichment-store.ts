@@ -358,7 +358,9 @@ export class PrivateEnrichmentStore {
       )
       return null
     }
-    this.runtimeThreadErrors.delete(digest)
+    if (errorCode(this.runtimeThreadErrors.get(digest)) === 'INVALID_THREAD_ENRICHMENT') {
+      this.runtimeThreadErrors.delete(digest)
+    }
     return result.value
   }
 
@@ -400,12 +402,32 @@ export class PrivateEnrichmentStore {
       if (result.outcome === 'conflict') this.conflict(
         'A review snapshot conflicts with another observation at the same time.'
       )
-      const value = mutationValue(result)
+      let value = mutationValue(result)
       if (!value) throw new PrivateEnrichmentStoreError(
         'INVALID_SNAPSHOT',
         'A review snapshot did not produce private state.'
       )
-      if (result.outcome === 'write') {
+      let shouldWrite = result.outcome === 'write'
+      const runtimeError = this.runtimeReviewErrors.get(reviewId)
+      if (
+        !current.value &&
+        runtimeError &&
+        runtimeError.code !== 'invalid-private-state' &&
+        runtimeError.code !== 'private-write-failed'
+      ) {
+        const retainedFailure = arbitrateReviewError(
+          value,
+          candidate.observedAt,
+          runtimeError.code,
+          runtimeError.observedAt
+        )
+        if (retainedFailure.outcome === 'conflict') this.conflict(
+          'A review snapshot conflicts with an initial validation failure at the same time.'
+        )
+        value = mutationValue(retainedFailure) || value
+        shouldWrite ||= retainedFailure.outcome === 'write'
+      }
+      if (shouldWrite) {
         const latest = await this.reviewStore.load(reviewId)
         if (
           latest.review.id !== artifact.review.id ||
@@ -429,7 +451,9 @@ export class PrivateEnrichmentStore {
           )
         }
       }
-      this.runtimeReviewErrors.delete(reviewId)
+      if (result.outcome !== 'ignored') {
+        this.runtimeReviewErrors.delete(reviewId)
+      }
       return value
     }))
   }
@@ -533,9 +557,14 @@ export class PrivateEnrichmentStore {
         throw error
       }
       const result = arbitrateTitleObservation(current.value, identity, candidate)
-      if (result.outcome === 'conflict') this.conflict(
-        'A thread-title observation conflicts with another observation at the same time.'
-      )
+      if (result.outcome === 'conflict') {
+        const error = new PrivateEnrichmentStoreError(
+          'ENRICHMENT_CONFLICT',
+          'A thread-title observation conflicts with another observation at the same time.'
+        )
+        this.runtimeThreadErrors.set(digest, error)
+        throw error
+      }
       const value = mutationValue(result)
       if (!value) throw new PrivateEnrichmentStoreError(
         'INVALID_TITLE_OBSERVATION',
@@ -554,7 +583,7 @@ export class PrivateEnrichmentStore {
           throw failure
         }
       }
-      this.runtimeThreadErrors.delete(digest)
+      if (result.outcome !== 'ignored') this.runtimeThreadErrors.delete(digest)
       return value
     }))
   }

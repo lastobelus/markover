@@ -775,12 +775,13 @@ async function moveReviewToTrash(reviewId: string): Promise<void> {
         )
         if (outcome === 'retained-uncertain') {
           process.stderr.write(
-            'markover enrichment cleanup: retained shared thread state because remaining reviews could not be checked safely\n'
+            `markover enrichment cleanup ${reviewId}: THREAD_CLEANUP_UNCERTAIN\n`
           )
         }
       } catch (error) {
+        const code = errorProperty(error, 'code')
         process.stderr.write(
-          `markover enrichment cleanup: ${errorMessage(error)}\n`
+          `markover enrichment cleanup ${reviewId}: ${typeof code === 'string' ? code : 'UNKNOWN'}\n`
         )
       }
     }

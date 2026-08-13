@@ -270,6 +270,37 @@ test('initial validation failures arbitrate monotonically without a file', async
   await assert.rejects(fs.access(value.store.reviewPath(review.review.id)))
 })
 
+test('initial failures survive older success and clear on newer success', async (t) => {
+  const value = await fixture()
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  const review = await createReview(value)
+  await value.store.recordReviewValidationFailure(
+    review.review.id,
+    null,
+    'source-missing',
+    secondTime
+  )
+  const older = await value.store.acceptReviewSnapshot(
+    review.review.id,
+    snapshot(value, firstTime)
+  )
+  assert.equal(older.error?.code, 'source-missing')
+  assert.equal(
+    (await new PrivateEnrichmentStore(
+      value.applicationData,
+      value.reviewStore
+    ).projection(review)).error?.code,
+    'source-missing'
+  )
+
+  const newer = await value.store.acceptReviewSnapshot(
+    review.review.id,
+    snapshot(value, thirdTime)
+  )
+  assert.equal(newer.error, null)
+  assert.equal((await value.store.projection(review)).error, null)
+})
+
 test('thread observations persist independently and conflict without rewriting', async (t) => {
   const value = await fixture()
   t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
@@ -287,7 +318,18 @@ test('thread observations persist independently and conflict without rewriting',
       error.code === 'ENRICHMENT_CONFLICT'
     )
   )
+  assert.equal(
+    (value.store.threadError(identity()) as PrivateEnrichmentStoreError).code,
+    'ENRICHMENT_CONFLICT'
+  )
   assert.equal(await fs.readFile(value.store.threadPath(identity()), 'utf8'), bytes)
+  await value.store.loadThread(identity())
+  assert.equal(
+    (value.store.threadError(identity()) as PrivateEnrichmentStoreError).code,
+    'ENRICHMENT_CONFLICT'
+  )
+  await value.store.observeThreadTitle(identity(), title(secondTime))
+  assert.equal(value.store.threadError(identity()), null)
 })
 
 test('pause drains admitted work and rejects later mutations', async (t) => {

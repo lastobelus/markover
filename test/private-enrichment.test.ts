@@ -156,8 +156,8 @@ test('stable thread identity prefers host ID, accepts equality, and excludes pro
   assert.deepEqual(distinct, { threadHostKind: 't3code', threadId: 'host-id' })
   assert.deepEqual(equal, fallback)
   assert.equal(stableThreadIdentity(null), null)
-  assert.equal(threadIdentityDigest(equal as StableThreadIdentity), threadIdentityDigest(
-    fallback as StableThreadIdentity
+  assert.equal(threadIdentityDigest(equal), threadIdentityDigest(
+    fallback
   ))
 })
 
@@ -191,7 +191,7 @@ test('review snapshots reject stale/conflicting observations and retain later er
     thirdTime
   )
   assert.equal(failed.outcome, 'write')
-  assert.equal(failed.value?.error?.detail.includes('repository'), true)
+  assert.equal(failed.value.error?.detail.includes('repository'), true)
 
   const middleSuccess = arbitrateReviewSnapshot(
     failed.value,
@@ -199,7 +199,7 @@ test('review snapshots reject stale/conflicting observations and retain later er
     snapshot(secondTime)
   )
   assert.equal(middleSuccess.outcome, 'write')
-  assert.equal(middleSuccess.value?.error?.observedAt, thirdTime)
+  assert.equal(middleSuccess.value.error?.observedAt, thirdTime)
 })
 
 test('review errors require the expected current snapshot generation', () => {
