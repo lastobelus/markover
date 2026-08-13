@@ -1357,6 +1357,16 @@ test('capture rejects short components copied from explicitly private paths', ()
     /runtime still contains a private artifact value/
   )
 
+  runtime.providerModel = 'modeljsmith'
+  assert.throws(
+    () => buildSanitizedEvidence(
+      artifact,
+      observation({ runtime }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /runtime still contains a private artifact value/
+  )
+
   sourceDocument.path = '/Users/dead-beef/source.md'
   runtime.providerModel = 'deadbeef'
   assert.throws(

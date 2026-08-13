@@ -1130,9 +1130,10 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     alwaysPrivate,
     completePrivate
   )
-  const embeddedShortIdentifiers = shortIdentifierContainmentCandidates(
-    shortPrivateIdentifiers
-  )
+  const embeddedShortIdentifiers = new Set([
+    ...privateValueCandidates([], alwaysPrivate),
+    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers)
+  ])
   const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
     runtimeValue !== null &&
     [...embeddedPrivateCandidates].some((privateCandidate) =>
