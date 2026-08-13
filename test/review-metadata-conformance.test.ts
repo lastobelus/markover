@@ -1500,6 +1500,20 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('multibase Base32z private identities', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'hcftsg7btge3uepe'
+    assert.throws(
+      () => buildSanitizedEvidence(artifact, observation({ runtime }),
+        json('evals/review-metadata/matrix.json')),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('digit-only fixed-width hexadecimal identities', () => {
     const artifact = fixture()
     agentThread(artifact)
