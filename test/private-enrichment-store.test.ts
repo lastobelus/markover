@@ -255,6 +255,37 @@ test('mismatched review IDs are invalid private state and remain untouched', asy
   assert.equal(await fs.readFile(value.store.reviewPath(review.review.id), 'utf8'), bytes)
 })
 
+test('mismatched source checksums are invalid private state and remain untouched', async (t) => {
+  const value = await fixture()
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  const review = await createReview(value)
+  const mismatched = {
+    format: 'markover-review-enrichment',
+    version: 1,
+    reviewId: review.review.id,
+    snapshot: {
+      ...snapshot(value),
+      source: {
+        ...snapshot(value).source,
+        verifiedChecksum: reviewChecksum('# Different source\n')
+      }
+    },
+    error: null
+  }
+  const bytes = `${JSON.stringify(mismatched)}\n`
+  await fs.writeFile(value.store.reviewPath(review.review.id), bytes, 'utf8')
+
+  assert.equal((await value.store.projection(review)).error?.code, 'invalid-private-state')
+  assert.equal(await fs.readFile(value.store.reviewPath(review.review.id), 'utf8'), bytes)
+  await assert.rejects(
+    value.store.acceptReviewSnapshot(review.review.id, snapshot(value)),
+    (error: unknown) => (
+      error instanceof PrivateEnrichmentStoreError &&
+      error.code === 'INVALID_PRIVATE_STATE'
+    )
+  )
+})
+
 test('initial validation failures arbitrate monotonically without a file', async (t) => {
   const value = await fixture()
   t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))

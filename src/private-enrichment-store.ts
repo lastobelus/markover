@@ -235,12 +235,21 @@ export class PrivateEnrichmentStore {
     }
   }
 
-  private async reviewRead(reviewId: string): Promise<PrivateRead<ReviewEnrichmentFile>> {
+  private async reviewRead(
+    reviewId: string,
+    expectedSourceChecksum: string
+  ): Promise<PrivateRead<ReviewEnrichmentFile>> {
     const result = await this.readPrivate(
       this.reviewPath(reviewId),
       parseReviewEnrichment
     )
-    if (result.value && result.value.reviewId !== reviewId) {
+    if (
+      result.value &&
+      (
+        result.value.reviewId !== reviewId ||
+        result.value.snapshot.source.verifiedChecksum !== expectedSourceChecksum
+      )
+    ) {
       return { invalid: true, value: null }
     }
     return result
@@ -335,7 +344,11 @@ export class PrivateEnrichmentStore {
   }
 
   async loadReview(reviewId: string): Promise<ReviewEnrichmentFile | null> {
-    const result = await this.reviewRead(reviewId)
+    const artifact = await this.reviewStore.load(reviewId)
+    const result = await this.reviewRead(
+      reviewId,
+      artifact.sourceDocument.checksum
+    )
     if (result.invalid) {
       this.runtimeError(
         reviewId,
@@ -393,7 +406,10 @@ export class PrivateEnrichmentStore {
     return this.gate.run(() => this.serialize(`review:${reviewId}`, async () => {
       const artifact = await this.reviewStore.load(reviewId)
       await this.coherentSnapshot(artifact, candidate)
-      const current = await this.reviewRead(reviewId)
+      const current = await this.reviewRead(
+        reviewId,
+        artifact.sourceDocument.checksum
+      )
       if (current.invalid) {
         this.runtimeError(
           reviewId,
@@ -483,8 +499,11 @@ export class PrivateEnrichmentStore {
     observedAt: string
   ): Promise<ReviewEnrichmentFile | null> {
     return this.gate.run(() => this.serialize(`review:${reviewId}`, async () => {
-      await this.reviewStore.load(reviewId)
-      const current = await this.reviewRead(reviewId)
+      const artifact = await this.reviewStore.load(reviewId)
+      const current = await this.reviewRead(
+        reviewId,
+        artifact.sourceDocument.checksum
+      )
       if (current.invalid) {
         this.runtimeError(
           reviewId,
