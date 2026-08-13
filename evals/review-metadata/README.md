@@ -145,7 +145,9 @@ punctuation-aware runtime containment in runner commit
 commit `8d921e2eb2c85ebe211e7a3daddac31d563040b6`. All nineteen immutable
 records per combination remain referenced by the matrix. After rebasing onto
 the latest `main`, rebased head `4a077eceae1354a554868070204f1215b1269589`
-produced a twentieth record for each combination.
+produced a twentieth record for each combination. After stacking on #148, the
+#134-aligned runner at `bc4d87cd121f0451ff9aac72d3c810c8653a5f76`
+produced a twenty-first record for each combination.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
@@ -163,5 +165,5 @@ git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 | Claude Code × Claude | Claude Code 2.1.228; `claude-sonnet-5`; provider service version not exposed | Pass |
 
 Each record retains structured discovery limitations, ID relationships, and
-typed redaction markers. No raw requesting-thread ID, host ID, hostname, session path,
-free-form observation text, or account data is committed.
+typed redaction markers. No raw requesting-thread ID, host ID, hostname,
+session path, free-form observation text, or account data is committed.
