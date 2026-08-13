@@ -1047,7 +1047,10 @@ function privateValueCandidates(
   }
   for (const value of completePrivate) {
     if (value !== null && value !== undefined) {
-      candidates.add(value.toLowerCase())
+      addValue(value, 8, true)
+      for (const decoded of percentDecodedVariants(value)) {
+        addValue(decoded, 8, true)
+      }
     }
   }
   return candidates
@@ -1293,15 +1296,24 @@ export function recordConformanceEvidence(
       )
     }
     const observation = parseCaptureObservation(observationValue)
-    const suffix = observation.evidenceId.slice(-8).toLowerCase()
-    if (privateValueCandidates(
-      privateCaptureStrings(artifactValue, observation),
-      explicitlyPrivateArtifactStrings(artifactValue),
-      completePrivateCaptureStrings(artifactValue, observation)
-    ).has(suffix)) {
+    try {
+      assertEvidenceIdIndependent(
+        observation.evidenceId,
+        privateCaptureStrings(artifactValue, observation),
+        explicitlyPrivateArtifactStrings(artifactValue),
+        completePrivateCaptureStrings(artifactValue, observation)
+      )
+    } catch (privacyError) {
+      if (
+        !(privacyError instanceof Error) ||
+        privacyError.message !==
+          'Evidence ID suffix must be independent of private artifact values.'
+      ) {
+        throw privacyError
+      }
       throw new Error(
         'Failure evidence ID suffix must be independent of every raw artifact string and key.',
-        { cause: error }
+        { cause: privacyError }
       )
     }
     return buildSanitizedFailureEvidence(

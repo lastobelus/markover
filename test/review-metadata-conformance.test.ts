@@ -511,6 +511,23 @@ test('capture treats additive extension keys as private artifact values', async 
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('percent-encoded extension value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct%31%32%33%34%35' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture rejects delimiter-stripped private identifiers', async (t) => {
@@ -721,6 +738,25 @@ test('failure evidence rejects a suffix copied from an extension key', () => {
   agentThread(artifact)
   const rootNode = artifact.root as Record<string, unknown>
   rootNode.fixtureExtension = { DEADBEEF: true }
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('failure evidence rejects a substring copied from a private identity', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const review = artifact.review as Record<string, unknown>
+  const thread = review.agentThread as Record<string, unknown>
+  thread.id = 'prefixdeadbeefsuffix'
   assert.throws(
     () => recordConformanceEvidence(
       artifact,
