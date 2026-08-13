@@ -39,7 +39,6 @@ observed in the live run:
   "evidenceId": "2026-08-12__t3code-codex__1234abcd",
   "matrixEntryId": "t3code-codex",
   "exercisedAt": "2026-08-12T12:34:56.789Z",
-  "sourceCommit": "0000000000000000000000000000000000000000",
   "runtime": {
     "hostVersion": null,
     "hostVersionSource": "not-exposed",
@@ -76,8 +75,7 @@ issue #134 owns normative classification and aliases.
 
 ## Initial evidence
 
-The 2026-08-12 baseline exercises all three initial rows against runner commit
-`82df4d6ecd95be511ede2ccb0113e126c46d416d`:
+The 2026-08-12 baseline exercises all three initial rows:
 
 | Combination | Runtime evidence | Result |
 | --- | --- | --- |

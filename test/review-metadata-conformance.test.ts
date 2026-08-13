@@ -39,7 +39,6 @@ function observation(
     evidenceId: '2026-08-12__t3code-codex__1234abcd',
     matrixEntryId: 't3code-codex',
     exercisedAt: '2026-08-12T12:34:56.789Z',
-    sourceCommit: '903a58abd2720bf82b95df3688dfb40995367e3c',
     runtime: {
       hostVersion: null,
       hostVersionSource: 'not-exposed',
@@ -249,6 +248,41 @@ test('committed fixtures require placeholders in run-specific fields', () => {
     ),
     /requesting-thread ID must use the fixture placeholder/
   )
+})
+
+test('committed fixtures reject fields outside the versioned shape', async (t) => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const evidence = buildEvidenceFixture(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  ) as unknown as Record<string, unknown>
+
+  await t.test('top level', () => {
+    const changed = structuredClone(evidence)
+    changed.unexpected = 'value'
+    assert.throws(
+      () => validateEvidenceFixture(
+        changed,
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence fixture has unexpected fields: unexpected/
+    )
+  })
+
+  await t.test('runtime', () => {
+    const changed = structuredClone(evidence)
+    const runtime = changed.runtime as Record<string, unknown>
+    runtime.unexpected = 'value'
+    assert.throws(
+      () => validateEvidenceFixture(
+        changed,
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Capture observation runtime has unexpected fields: unexpected/
+    )
+  })
 })
 
 test('corpus validation recomputes discovery checks from fixture contents', () => {

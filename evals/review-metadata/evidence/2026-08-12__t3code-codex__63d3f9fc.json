@@ -58,6 +58,5 @@
       "machine": "<machine>"
     }
   },
-  "schemaVersion": 1,
-  "sourceCommit": "82df4d6ecd95be511ede2ccb0113e126c46d416d"
+  "schemaVersion": 1
 }

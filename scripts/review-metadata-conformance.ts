@@ -9,7 +9,6 @@ import {
 const evidenceSchemaVersion = 1
 const matrixSchemaVersion = 1
 const evidenceIdPattern = /^\d{4}-\d{2}-\d{2}__[a-z0-9]+(?:-[a-z0-9]+)*__[a-z0-9]{8}$/
-const fullCommitPattern = /^[0-9a-f]{40}$/
 const fixtureThreadId = '<thread-id>'
 const fixtureThreadHostId = '<thread-host-id>'
 const fixtureMachine = '<machine>'
@@ -76,7 +75,6 @@ export interface CaptureObservation {
   matrixEntryId: string
   runtime: RuntimeObservation
   schemaVersion: number
-  sourceCommit: string
   truthfulnessAttested: true
 }
 
@@ -112,7 +110,6 @@ export interface EvidenceFixture {
     }
   }
   schemaVersion: number
-  sourceCommit: string
 }
 
 type JsonRecord = Record<string, unknown>
@@ -128,6 +125,17 @@ function isRecord(value: unknown): value is JsonRecord {
 function record(value: unknown, label: string): JsonRecord {
   if (!isRecord(value)) throw new Error(`${label} must be an object.`)
   return value
+}
+
+function assertExactKeys(
+  value: JsonRecord,
+  allowed: readonly string[],
+  label: string
+): void {
+  const unexpected = Object.keys(value).filter((key) => !allowed.includes(key))
+  if (unexpected.length > 0) {
+    throw new Error(`${label} has unexpected fields: ${unexpected.join(', ')}.`)
+  }
 }
 
 function nonblank(value: unknown, label: string): string {
@@ -168,6 +176,7 @@ function readJson(filePath: string): unknown {
 
 function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
   const item = record(value, label)
+  assertExactKeys(item, ['source', 'status'], label)
   const source = oneOf(item.source, [
       'agent-runtime',
       'hostname-command',
@@ -193,6 +202,14 @@ function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
 
 function parseRuntime(value: unknown, label: string): RuntimeObservation {
   const item = record(value, label)
+  assertExactKeys(item, [
+    'hostVersion',
+    'hostVersionSource',
+    'providerModel',
+    'providerModelSource',
+    'providerVersion',
+    'providerVersionSource'
+  ], label)
   const runtime: RuntimeObservation = {
     hostVersion: nullableNonblank(item.hostVersion, `${label}.hostVersion`),
     hostVersionSource: oneOf(item.hostVersionSource, [
@@ -225,6 +242,16 @@ function parseRuntime(value: unknown, label: string): RuntimeObservation {
 
 export function parseCaptureObservation(value: unknown): CaptureObservation {
   const item = record(value, 'Capture observation')
+  assertExactKeys(item, [
+    'discovery',
+    'evidenceId',
+    'exercisedAt',
+    'limitations',
+    'matrixEntryId',
+    'runtime',
+    'schemaVersion',
+    'truthfulnessAttested'
+  ], 'Capture observation')
   if (item.schemaVersion !== evidenceSchemaVersion) {
     throw new Error(`Capture observation schemaVersion must be ${evidenceSchemaVersion}.`)
   }
@@ -236,14 +263,17 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
   if (!isCanonicalReviewTimestamp(exercisedAt)) {
     throw new Error('Capture observation exercisedAt must be a canonical UTC timestamp.')
   }
-  const sourceCommit = nonblank(item.sourceCommit, 'Capture observation sourceCommit')
-  if (!fullCommitPattern.test(sourceCommit)) {
-    throw new Error('Capture observation sourceCommit must be a full Git commit.')
-  }
   if (item.truthfulnessAttested !== true) {
     throw new Error('Capture observation must attest truthful discovery.')
   }
   const discovery = record(item.discovery, 'Capture observation discovery')
+  assertExactKeys(discovery, [
+    'hostKind',
+    'hostProvider',
+    'hostThreadId',
+    'machine',
+    'providerThreadId'
+  ], 'Capture observation discovery')
   return {
     discovery: {
       hostKind: parseDiscovery(discovery.hostKind, 'discovery.hostKind'),
@@ -261,7 +291,6 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     matrixEntryId: nonblank(item.matrixEntryId, 'Capture observation matrixEntryId'),
     runtime: parseRuntime(item.runtime, 'Capture observation runtime'),
     schemaVersion: evidenceSchemaVersion,
-    sourceCommit,
     truthfulnessAttested: true
   }
 }
@@ -442,14 +471,13 @@ export function buildEvidenceFixture(
     relationships: { identity, threadHostId },
     runtime: observation.runtime,
     agentThread,
-    schemaVersion: evidenceSchemaVersion,
-    sourceCommit: observation.sourceCommit
+    schemaVersion: evidenceSchemaVersion
   }
 }
 
 function assertTrueChecks(value: unknown): ConformanceChecks {
   const checks = record(value, 'Evidence checks')
-  for (const field of [
+  const fields = [
     'threadHostIdAccepted',
     'guessedValuesAbsent',
     'machineAttempted',
@@ -457,7 +485,9 @@ function assertTrueChecks(value: unknown): ConformanceChecks {
     'portableV1Valid',
     'requiredFieldsObserved',
     'supportedCombination'
-  ] as const) {
+  ] as const
+  assertExactKeys(checks, fields, 'Evidence checks')
+  for (const field of fields) {
     if (checks[field] !== true) throw new Error(`Evidence check ${field} must pass.`)
   }
   return trueChecks()
@@ -468,16 +498,35 @@ export function validateEvidenceFixture(
   matrixValue: unknown
 ): EvidenceFixture {
   const item = record(value, 'Evidence fixture')
+  assertExactKeys(item, [
+    'agentThread',
+    'checks',
+    'discovery',
+    'evidenceId',
+    'exercisedAt',
+    'limitations',
+    'matrixEntryId',
+    'relationships',
+    'runtime',
+    'schemaVersion'
+  ], 'Evidence fixture')
   if (item.schemaVersion !== evidenceSchemaVersion) {
     throw new Error(`Evidence fixture schemaVersion must be ${evidenceSchemaVersion}.`)
   }
   const observation = parseCaptureObservation({
-    ...item,
+    discovery: item.discovery,
+    evidenceId: item.evidenceId,
+    exercisedAt: item.exercisedAt,
+    limitations: item.limitations,
+    matrixEntryId: item.matrixEntryId,
+    runtime: item.runtime,
+    schemaVersion: item.schemaVersion,
     truthfulnessAttested: true
   })
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
   const relationships = record(item.relationships, 'Evidence relationships')
+  assertExactKeys(relationships, ['identity', 'threadHostId'], 'Evidence relationships')
   const identity = oneOf(relationships.identity, [
     'identified', 'truthful-null'
   ], 'Evidence relationships.identity')
@@ -492,7 +541,13 @@ export function validateEvidenceFixture(
     agentThread = null
   } else {
     const thread = record(item.agentThread, 'Evidence agentThread')
+    assertExactKeys(thread, ['id', 'threadHost'], 'Evidence agentThread')
     const host = record(thread.threadHost, 'Evidence agentThread.threadHost')
+    assertExactKeys(
+      host,
+      ['kind', 'machine', 'provider', 'threadId'],
+      'Evidence agentThread.threadHost'
+    )
     assertDiscoveryMatchesAgentThread(observation.discovery, { threadHost: host })
     if (thread.id !== fixtureThreadId) {
       throw new Error('Evidence requesting-thread ID must use the fixture placeholder.')
@@ -543,8 +598,7 @@ export function validateEvidenceFixture(
     relationships: { identity, threadHostId },
     runtime: observation.runtime,
     agentThread,
-    schemaVersion: evidenceSchemaVersion,
-    sourceCommit: observation.sourceCommit
+    schemaVersion: evidenceSchemaVersion
   }
 }
 
