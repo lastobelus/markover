@@ -150,7 +150,10 @@ produced a twentieth record for each combination. After stacking on #148, the
 produced a twenty-first record for each combination. Delimiter-stripped
 private-identifier comparison in runner commit
 `584f85ced53c2b745c018fe6958975ceee04897a` produced a twenty-second record for
-each combination after #148 merged.
+each combination after #148 merged. Short-component protection for explicitly
+private paths and identifiers in runner commit
+`806d09ae47a06ac03cae8e5c3b596cef68d9d4d7` produced a twenty-third record for
+each combination.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
