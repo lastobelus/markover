@@ -813,10 +813,15 @@ function assertSensitiveLeavesRedacted(
 function assertEvidenceIdIndependent(
   evidenceId: string,
   privateValues: Array<string | null | undefined>,
-  alwaysPrivate: Array<string | null | undefined> = []
+  alwaysPrivate: Array<string | null | undefined> = [],
+  completePrivate: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
-  if (privateValueCandidates(privateValues, alwaysPrivate).has(suffix)) {
+  if (privateValueCandidates(
+    privateValues,
+    alwaysPrivate,
+    completePrivate
+  ).has(suffix)) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
     )
@@ -853,6 +858,37 @@ function privateCaptureStrings(
   ]
 }
 
+function completePrivateCaptureStrings(
+  artifactValue: unknown,
+  observation: CaptureObservation
+): string[] {
+  const publicValuePaths = new Set([
+    'format',
+    'review.agentThread.threadHost.kind',
+    'review.agentThread.threadHost.provider',
+    'review.origin',
+    'review.pullRequest.status',
+    'review.pullRequest.statusSource',
+    'review.status'
+  ])
+  const visit = (value: unknown, fields: string[]): string[] => {
+    if (typeof value === 'string') {
+      return publicValuePaths.has(fields.join('.')) ? [] : [value]
+    }
+    if (Array.isArray(value)) {
+      return value.flatMap((nested) => visit(nested, fields))
+    }
+    if (isRecord(value)) {
+      return Object.entries(value).flatMap(([key, nested]) => [
+        key,
+        ...visit(nested, [...fields, key])
+      ])
+    }
+    return []
+  }
+  return [...visit(artifactValue, []), ...observation.limitations]
+}
+
 function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
   if (!isRecord(artifactValue)) return []
   const sourceDocument = isRecord(artifactValue.sourceDocument)
@@ -886,7 +922,8 @@ function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
 
 function privateValueCandidates(
   values: Array<string | null | undefined>,
-  alwaysPrivate: Array<string | null | undefined> = []
+  alwaysPrivate: Array<string | null | undefined> = [],
+  completePrivate: Array<string | null | undefined> = []
 ): Set<string> {
   const candidates = new Set<string>()
   const addValue = (
@@ -929,10 +966,15 @@ function privateValueCandidates(
     }
   }
   for (const value of values) {
-    if (value !== null && value !== undefined) addValue(value, 8, true)
+    if (value !== null && value !== undefined) addValue(value, 8)
   }
   for (const value of alwaysPrivate) {
     if (value !== null && value !== undefined) addValue(value, 1)
+  }
+  for (const value of completePrivate) {
+    if (value !== null && value !== undefined) {
+      candidates.add(value.toLowerCase())
+    }
   }
   return candidates
 }
@@ -940,14 +982,19 @@ function privateValueCandidates(
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation,
-  alwaysPrivate: Array<string | null | undefined> = []
+  alwaysPrivate: Array<string | null | undefined> = [],
+  completePrivate: Array<string | null | undefined> = []
 ): void {
   const persistedRuntimeValues = [
     runtime.hostVersion,
     runtime.providerModel,
     runtime.providerVersion
   ]
-  const privateCandidates = privateValueCandidates(values, alwaysPrivate)
+  const privateCandidates = privateValueCandidates(
+    values,
+    alwaysPrivate,
+    completePrivate
+  )
   const persistedRuntimeCandidates = privateValueCandidates(
     persistedRuntimeValues,
     persistedRuntimeValues
@@ -1085,15 +1132,21 @@ export function buildSanitizedEvidence(
     ...explicitlyPrivateArtifactStrings(artifact),
     ...privateIdentities
   ]
+  const completePrivateInputs = completePrivateCaptureStrings(
+    artifact,
+    observation
+  )
   assertEvidenceIdIndependent(
     evidence.evidenceId,
     privateInputs,
-    explicitlyPrivateInputs
+    explicitlyPrivateInputs,
+    completePrivateInputs
   )
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
     evidence.runtime,
-    explicitlyPrivateInputs
+    explicitlyPrivateInputs,
+    completePrivateInputs
   )
   return evidence
 }
@@ -1146,7 +1199,8 @@ export function recordConformanceEvidence(
     const suffix = observation.evidenceId.slice(-8).toLowerCase()
     if (privateValueCandidates(
       privateCaptureStrings(artifactValue, observation),
-      explicitlyPrivateArtifactStrings(artifactValue)
+      explicitlyPrivateArtifactStrings(artifactValue),
+      completePrivateCaptureStrings(artifactValue, observation)
     ).has(suffix)) {
       throw new Error(
         'Failure evidence ID suffix must be independent of every raw artifact string and key.',
