@@ -378,14 +378,17 @@ each combination, using independent suffix `zqzvnjkh`.
 Decoded-only segmented runtime comparison in runner commit
 `1d0f331872d69f6bf3d10955e9d65a9874705eb6` produced a one-hundredth record
 for each combination, using independent suffix `1qzvnjkh`.
+Runtime-token-filtered segmented decoding in runner commit
+`245bb0ca5c0b151ce9a55bb1ce31b5915012f995` produced a one-hundred-first record
+for each combination, using independent suffix `2qzvnjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v83` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v85` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v83
+git fetch origin refs/tags/issue-136-runner-history-v85
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
