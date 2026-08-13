@@ -389,6 +389,11 @@ function assertDiscoveryMatchesAgentThread(
   } else if (discovery.machine.status === 'observed') {
     throw new Error('An observed machine value must be present in the artifact.')
   }
+}
+
+function assertMachineAttempted(
+  discovery: CaptureObservation['discovery']
+): void {
   if (discovery.machine.source !== 'hostname-command') {
     throw new Error('Machine discovery must record an attempted hostname command.')
   }
@@ -410,9 +415,14 @@ function assertLiveValuesAbsent(
   fixture: EvidenceFixture,
   liveValues: string[]
 ): void {
-  const serialized = JSON.stringify(fixture)
+  const fixtureText = [
+    ...fixture.limitations,
+    ...Object.values(fixture.runtime).filter(
+      (value): value is string => typeof value === 'string'
+    )
+  ]
   for (const value of liveValues) {
-    if (serialized.includes(value)) {
+    if (fixtureText.some((text) => text.includes(value))) {
       throw new Error('Evidence fixture still contains a literal value from the live review.')
     }
   }
@@ -439,6 +449,7 @@ export function buildEvidenceFixture(
   let agentThread: EvidenceFixture['agentThread'] = null
   let identity: EvidenceFixture['relationships']['identity'] = 'truthful-null'
   let threadHostId: EvidenceFixture['relationships']['threadHostId'] = 'omitted'
+  assertMachineAttempted(observation.discovery)
 
   if (thread === null) {
     if (entry.identityExpectation === 'required') {
@@ -543,6 +554,7 @@ export function validateEvidenceFixture(
   })
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
+  assertMachineAttempted(observation.discovery)
   const relationships = record(item.relationships, 'Evidence relationships')
   assertExactKeys(relationships, ['identity', 'threadHostId'], 'Evidence relationships')
   const identity = oneOf(relationships.identity, [

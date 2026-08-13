@@ -179,6 +179,20 @@ test('capture rejects literal live values copied into observation text', async (
       /still contains a literal value from the live review/
     )
   })
+
+  await t.test('JSON-escaped identifier character', () => {
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'session"secret'
+    assert.throws(
+      () => buildEvidenceFixture(
+        artifact,
+        observation({ limitations: ['Used session"secret for this run.'] }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /still contains a literal value from the live review/
+    )
+  })
 })
 
 test('capture rejects retained values whose discovery is unavailable', () => {
@@ -227,6 +241,33 @@ test('capture rejects incorrect null fallback for a required identity row', () =
       json('evals/review-metadata/matrix.json')
     ),
     /t3code-codex requires reliable requesting-thread identity/
+  )
+})
+
+test('capture requires a hostname attempt for truthful-null evidence', () => {
+  const artifact = fixture()
+  const review = artifact.review as Record<string, unknown>
+  review.agentThread = null
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  discovery.hostKind = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostProvider = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.hostThreadId = { status: 'not-applicable', source: 'not-applicable' }
+  discovery.machine = { status: 'unavailable', source: 'not-exposed' }
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.identityExpectation = 'unavailable-allowed'
+  assert.throws(
+    () => buildEvidenceFixture(
+      artifact,
+      observation({ discovery }),
+      matrix
+    ),
+    /Machine discovery must record an attempted hostname command/
   )
 })
 
