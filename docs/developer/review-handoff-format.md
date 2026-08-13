@@ -49,9 +49,9 @@ makes a property invalid. Known properties have this contract.
 | `review.updatedAt` | Required canonical UTC instant for the latest persisted portable change, including feedback, lifecycle, metadata, or pull-request observation. It does not control Inbox actionability. |
 | `review.attentionRequestedAt` | Required app-owned canonical UTC instant. Creation sets it to `createdAt`; only a transition from a non-`editing` status into `editing` advances it. Autosaves, views, metadata refresh, tab actions, and transitions away from `editing` do not. |
 | `review.contextSummary` | Required nonblank review purpose. It is neither a requesting-thread-title nor an identity field. |
-| `review.agentThread` | Required nullable request snapshot. When non-null it requires nonblank provider-owned `id` and a `threadHost` object. App-private local evidence is forbidden at both levels: session paths/discovery/ancestry, checkout roots/sources, and requesting-thread-title aliases. |
-| `review.agentThread.threadHost` | Requires nonblank open-string `kind` and `provider`. They are separate dimensions but may have the same value. It enforces the same app-private session-field boundary as `review.agentThread`. |
-| `review.agentThread.threadHost.threadId` | Optional nonblank thread-host identifier. Include it only when it differs from `agentThread.id`; omission means consumers fall back to `agentThread.id`. |
+| `review.agentThread` | Required nullable request snapshot. When non-null it requires nonblank `id` containing the best observable requesting-thread or session ID and a `threadHost` object. App-private local evidence is forbidden at both levels: session paths/discovery/ancestry, checkout roots/sources, and requesting-thread-title aliases. |
+| `review.agentThread.threadHost` | Requires nonblank open-string `kind` and `provider`. `kind` identifies the user-facing product or lookup namespace where the user would look for the thread. `provider` identifies the truthfully reported LLM provider or model family, not an intermediate harness. The values name separate dimensions but may be equal. The object enforces the same app-private session-field boundary as `review.agentThread`. |
+| `review.agentThread.threadHost.threadId` | Optional nonblank best observable thread-host-owned identifier. Agent guidance recommends including it only when it differs from `agentThread.id`, but equal values remain valid. Consumers use it when present and otherwise fall back to `agentThread.id`; they never rely on inequality. |
 | `review.agentThread.threadHost.machine` | Optional nonblank agent-reported hostname snapshot, normally obtained from local `hostname` when available. It is descriptive and never stable or identity-bearing. |
 | `review.git` | Required nullable opening-time snapshot. When non-null, known optional fields are sanitized nonblank network/scp-like `repositoryUrl`, nonblank `branch`, and nonblank `commit`. These hints are immutable, may become stale, and are not current Git truth, identity, or grouping keys. Credentials, `file:` URLs, and absolute or relative filesystem remotes are forbidden. |
 | `review.pullRequest` | Required nullable association. When non-null it requires a canonical GitHub `url` and matching positive integer `number`. Its optional observation tuple is all-or-none: `status` is `draft`, `open`, `merged`, or `closed`; `statusObservedAt` is canonical UTC no later than `review.updatedAt`; and `statusSource` is a nonblank open string. The latest successful observation is retained when a refresh fails. |
@@ -73,6 +73,13 @@ Portable metadata records what the requester reported at opening time. Current
 machine-local knowledge belongs in app-private state. This includes canonical
 source and repository evidence, grouping keys, discovery records, credentials,
 integration state, and requesting-thread-title observations.
+
+Stable requesting-thread identity is the two-element tuple of
+`threadHost.kind` and `threadHost.threadId` when the latter is present, or
+`threadHost.kind` and `agentThread.id` otherwise. `threadHost.provider`,
+`threadHost.machine`, aliases, titles, runtime details, and discovery paths do
+not participate. Equal agent and host IDs produce the same identity and require
+no special handling.
 
 Before deriving an app-private project root or favicon from a portable
 `sourceDocument.path`, Markover must read the live file and verify it against

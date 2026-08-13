@@ -6,7 +6,7 @@
   --brand-burgundy: var(--markover-secondary);
   --brand-soft: #f5e3da;
   --ink: #26211e;
-  --muted: #756d67;
+  --muted: #6f6761;
   --paper: #eee8e0;
   --surface: #fffdf9;
   --line: #ddd5cc;
@@ -368,6 +368,23 @@
 
 * {
   box-sizing: border-box;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+:is(button, a, summary, [role="button"]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 html,
@@ -735,11 +752,11 @@ p {
 .document-tab-close {
   position: absolute;
   z-index: 2;
-  top: 5px;
-  right: 5px;
+  top: 3px;
+  right: 3px;
   display: grid;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -990,8 +1007,8 @@ p {
 
 .documents-list-disclosure {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -1590,8 +1607,13 @@ button.review-list-row-pr:hover {
 }
 
 .documents-list-resizer:hover::after,
+.documents-list-resizer:focus-visible::after,
 .is-resizing-documents-list .documents-list-resizer::after {
   background: var(--accent-deep);
+}
+
+.documents-list-resizer:focus-visible {
+  outline: none;
 }
 
 .documents-list-sidebar.is-collapsed {
@@ -1904,8 +1926,8 @@ button.review-list-row-pr:hover {
 }
 
 .disclosure {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   border-radius: 5px;
@@ -2492,6 +2514,7 @@ kbd {
 .annotation-view-tabs button {
   position: relative;
   min-width: 0;
+  min-height: 28px;
   flex: none;
   padding: 7px 0 5px;
   border: 0;
@@ -2713,6 +2736,7 @@ kbd {
 }
 
 .source-action {
+  min-height: 24px;
   padding: 3px 6px;
   border: 1px solid var(--line);
   border-radius: 5px;
@@ -2932,10 +2956,10 @@ kbd {
   display: grid;
   grid-template:
     "thumbnail thumbnail" 42px
-    "details remove" 18px
-    / minmax(0, 1fr) 18px;
+    "details remove" 24px
+    / minmax(0, 1fr) 24px;
   min-width: 86px;
-  height: 68px;
+  height: 74px;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -3002,8 +3026,8 @@ kbd {
 
 .attachment-remove {
   grid-area: remove;
-  width: 17px;
-  height: 17px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -3127,8 +3151,22 @@ body.is-control-pressed .attachment-remove:hover {
   inset: 0;
   z-index: 10;
   display: grid;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
   place-items: center;
   padding: 42px;
+  border: 0;
+  background: transparent;
+}
+
+.image-preview:not([open]) {
+  display: none;
+}
+
+.image-preview::backdrop {
   background: rgb(20 18 16 / 82%);
 }
 
@@ -3188,12 +3226,23 @@ body.is-control-pressed .attachment-remove:hover {
   bottom: 0;
   z-index: 7;
   width: min(420px, 46vw);
+  max-width: none;
+  max-height: none;
+  margin: 0 0 0 auto;
   overflow: auto;
   padding: 22px;
   border-left: 1px solid var(--line);
   color: var(--ink);
   background: var(--surface);
   box-shadow: -14px 0 40px var(--shadow);
+}
+
+.review-context-drawer:not([open]) {
+  display: none;
+}
+
+.review-context-drawer::backdrop {
+  background: transparent;
 }
 
 .review-context-drawer header {
@@ -3547,6 +3596,17 @@ body.is-control-pressed .attachment-remove:hover {
 .settings-policy-link:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .settings-footer {

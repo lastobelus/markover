@@ -1,6 +1,6 @@
 [
   {
-    "id": "direct-codex-one-provider-id",
+    "id": "direct-codex-requesting-id",
     "expectedValid": true,
     "agentThread": {
       "id": "provider-thread-1",
@@ -25,12 +25,12 @@
     }
   },
   {
-    "id": "mixed-thread-host-provider",
+    "id": "mixed-thread-host-model-provider",
     "expectedValid": true,
     "agentThread": {
       "id": "provider-thread-3",
       "threadHost": {
-        "kind": "claude",
+        "kind": "claude-code",
         "provider": "codex"
       }
     }
@@ -41,8 +41,8 @@
     "agentThread": null
   },
   {
-    "id": "duplicated-provider-thread-id",
-    "expectedValid": false,
+    "id": "equal-agent-host-thread-id",
+    "expectedValid": true,
     "agentThread": {
       "id": "same-thread",
       "threadHost": {
