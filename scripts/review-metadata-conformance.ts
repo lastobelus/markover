@@ -930,7 +930,7 @@ function completePrivateCaptureStrings(
 function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
   const isIdentifierField = (field: string): boolean =>
     field === 'id' ||
-    /(?:Id|ID|Identifier)$/.test(field) ||
+    /(?:id|identifier)$/i.test(field) ||
     /(?:^|[-_])(?:id|identifier)$/i.test(field)
   const visit = (value: unknown): string[] => {
     if (Array.isArray(value)) return value.flatMap(visit)
