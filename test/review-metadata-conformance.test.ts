@@ -1514,6 +1514,30 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('padded multibase Base32 private values', () => {
+    for (const secret of [
+      'cMFRWG5BRGIZTINI=',
+      'CMFRWG5BRGIZTINI=',
+      'tC5HM6T1H68PJ8D8=',
+      'TC5HM6T1H68PJ8D8='
+    ]) {
+      const artifact = fixture()
+      agentThread(artifact)
+      const rootNode = artifact.root as Record<string, unknown>
+      rootNode.fixtureExtension = { secret }
+      const runtime = observation().runtime as Record<string, unknown>
+      runtime.providerModel = 'acct12345'
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observation({ runtime }),
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
+      )
+    }
+  })
+
   await t.test('multibase-prefixed base-36 private numeric identities', () => {
     const artifact = fixture()
     agentThread(artifact)
