@@ -27,6 +27,13 @@ import {
 } from './lucide-icons'
 import * as MarkoverNavigation from './navigation'
 import {
+  isReviewContextMenuKey,
+  keyboardContextMenuPoint,
+  pointerContextMenuPoint,
+  reviewContextMenuFocusKey,
+  type ReviewContextMenuSurface
+} from './review-context-menu'
+import {
   providerIcon,
   threadHostIcon,
   type ReviewRegistryIcon
@@ -552,8 +559,12 @@ inlineMarkdown.renderer.rules.image = (tokens, index) => {
 
 function openSourceImagePreview(source: string, label: string): void {
   const url = MarkoverImagePreview.sourceUrl(source)
+  if (!url) {
+    showToast('Preview unavailable in this session')
+    return
+  }
   openImagePreview({
-    ...(url ? { url } : {}),
+    url,
     label,
     id: MarkoverImagePreview.sourceLabel(source, '')
   })
@@ -2382,12 +2393,59 @@ function reviewRowTime(row: ReviewInboxRow): string {
   )
 }
 
-function openReviewContextMenu(reviewId: string, event: MouseEvent): void {
+function openReviewContextMenu(
+  reviewId: string,
+  event: MouseEvent | KeyboardEvent,
+  anchor: HTMLElement,
+  focusKey: string,
+  fallbackFocus?: () => HTMLElement | null
+): void {
   event.preventDefault()
+  event.stopPropagation()
+  const point = event instanceof MouseEvent
+    ? pointerContextMenuPoint(event)
+    : keyboardContextMenuPoint(anchor.getBoundingClientRect())
   closeTabOverflow()
-  void bridge.openReviewContextMenu({ reviewId }).catch((error: unknown) => {
-    showToast(error instanceof Error ? error.message : String(error))
+  void bridge.openReviewContextMenu({ reviewId, ...point })
+    .then((result) => {
+      if (result.outcome === 'copied') showToast('Review link copied')
+    })
+    .catch((error: unknown) => {
+      showToast(error instanceof Error ? error.message : String(error))
+    })
+    .finally(() => {
+      const anchorIsHiddenOverflowItem = (
+        anchor.classList.contains('document-tab-overflow-item') &&
+        !anchor.closest('.document-tab-overflow.is-open')
+      )
+      const replacement = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-review-context-menu-focus]')
+      ).find((candidate) => (
+        candidate.dataset.reviewContextMenuFocus === focusKey &&
+        !(candidate.classList.contains('document-tab-overflow-item') &&
+          !candidate.closest('.document-tab-overflow.is-open'))
+      ))
+      const focusTarget = anchor.isConnected && !anchorIsHiddenOverflowItem
+        ? anchor
+        : replacement || fallbackFocus?.()
+      focusTarget?.focus({ preventScroll: true })
+    })
+}
+
+function bindReviewContextMenuKeyboard(
+  control: HTMLElement,
+  reviewId: string,
+  surface: ReviewContextMenuSurface,
+  fallbackFocus?: () => HTMLElement | null
+): string {
+  const focusKey = reviewContextMenuFocusKey(surface, reviewId)
+  control.setAttribute('aria-haspopup', 'menu')
+  control.dataset.reviewContextMenuFocus = focusKey
+  control.addEventListener('keydown', (event) => {
+    if (!isReviewContextMenuKey(event)) return
+    openReviewContextMenu(reviewId, event, control, focusKey, fallbackFocus)
   })
+  return focusKey
 }
 
 function createReviewListRow(row: ReviewInboxRow): HTMLElement {
@@ -2464,8 +2522,13 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   button.addEventListener('click', () => {
     void activateReview(row.reviewId)
   })
+  const contextMenuFocusKey = bindReviewContextMenuKeyboard(
+    button,
+    row.reviewId,
+    'review-list'
+  )
   container.addEventListener('contextmenu', (event) => {
-    openReviewContextMenu(row.reviewId, event)
+    openReviewContextMenu(row.reviewId, event, button, contextMenuFocusKey)
   })
   container.append(button)
   if (pr instanceof HTMLButtonElement) {
@@ -2513,8 +2576,13 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
   button.addEventListener('click', () => {
     void activateReview(row.reviewId)
   })
+  const contextMenuFocusKey = bindReviewContextMenuKeyboard(
+    button,
+    row.reviewId,
+    'project-review-list'
+  )
   container.addEventListener('contextmenu', (event) => {
-    openReviewContextMenu(row.reviewId, event)
+    openReviewContextMenu(row.reviewId, event, button, contextMenuFocusKey)
   })
   container.append(button)
   bindReviewHoverCard(container, () => reviewHoverModel(row))
@@ -3239,8 +3307,13 @@ function createDocumentTab(session: ReviewSession): HTMLElement {
   button.addEventListener('click', () => {
     void activateReview(session.reviewId)
   })
+  const contextMenuFocusKey = bindReviewContextMenuKeyboard(
+    button,
+    session.reviewId,
+    'document-tab'
+  )
   button.addEventListener('contextmenu', (event) => {
-    openReviewContextMenu(session.reviewId, event)
+    openReviewContextMenu(session.reviewId, event, button, contextMenuFocusKey)
   })
   button.addEventListener('keydown', (event) => {
     const offset = event.key === 'ArrowLeft'
@@ -3325,13 +3398,22 @@ function renderDocumentTabs(): void {
       item.addEventListener('click', () => {
         void activateReview(session.reviewId)
       })
+      const restoreOverflowFocus = (): HTMLElement | null => (
+        elements.documentTabs.querySelector('.document-tab-overflow-trigger')
+      )
+      const contextMenuFocusKey = bindReviewContextMenuKeyboard(
+        item,
+        session.reviewId,
+        'document-tab-overflow',
+        restoreOverflowFocus
+      )
       item.addEventListener('contextmenu', (event) => {
-        event.preventDefault()
-        closeTabOverflow()
-        void bridge.openReviewContextMenu({ reviewId: session.reviewId }).catch(
-          (error: unknown) => {
-            showToast(error instanceof Error ? error.message : String(error))
-          }
+        openReviewContextMenu(
+          session.reviewId,
+          event,
+          item,
+          contextMenuFocusKey,
+          restoreOverflowFocus
         )
       })
       menu.append(item)
