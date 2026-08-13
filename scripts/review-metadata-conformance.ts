@@ -826,15 +826,18 @@ function assertEvidenceIdIndependent(
   const suffixIsPrivateSubstring = [
     ...privateContainmentCandidates(alwaysPrivate, completePrivate)
   ].some((privateCandidate) => privateCandidate.includes(suffix))
-  const shortPrivateCandidates = new Set([
-    ...shortExplicitPrivateContainmentCandidates(alwaysPrivate),
-    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers)
-  ])
+  const shortExplicitPrivateCandidates =
+    shortExplicitPrivateContainmentCandidates(alwaysPrivate)
+  const shortIdentifierCandidates = shortIdentifierContainmentCandidates(
+    shortPrivateIdentifiers
+  )
   const suffixContainsPrivate = [
     ...privateContainmentCandidates(alwaysPrivate, completePrivate)
   ].some((privateCandidate) =>
     (privateCandidate.length >= 8 ||
-      (privateCandidate.length >= 4 && shortPrivateCandidates.has(privateCandidate))) &&
+      (privateCandidate.length >= 4 &&
+        shortExplicitPrivateCandidates.has(privateCandidate)) ||
+      shortIdentifierCandidates.has(privateCandidate)) &&
     suffix.includes(privateCandidate))
   if (
     privateCandidates.has(suffix) ||
@@ -932,18 +935,29 @@ function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
     field === 'id' ||
     /(?:id|identifier)$/i.test(field) ||
     /(?:^|[-_])(?:id|identifier)$/i.test(field)
-  const visit = (value: unknown): string[] => {
-    if (Array.isArray(value)) return value.flatMap(visit)
+  const isPublicStructuralIdentifier = (fields: string[]): boolean => {
+    const joined = fields.join('.')
+    return /^root(?:\.children\.\d+)*\.(?:id|listId)$/.test(joined)
+  }
+  const visit = (value: unknown, fields: string[] = []): string[] => {
+    if (Array.isArray(value)) {
+      return value.flatMap((nested, index) =>
+        visit(nested, [...fields, String(index)]))
+    }
     if (!isRecord(value)) return []
     return Object.entries(value).flatMap(([field, nested]) => {
       const identifiers: string[] = []
-      if (isIdentifierField(field)) {
+      const nestedFields = [...fields, field]
+      if (
+        isIdentifierField(field) &&
+        !isPublicStructuralIdentifier(nestedFields)
+      ) {
         if (typeof nested === 'string') identifiers.push(nested)
         if (typeof nested === 'number' && Number.isSafeInteger(nested)) {
           identifiers.push(String(nested))
         }
       }
-      return [...identifiers, ...visit(nested)]
+      return [...identifiers, ...visit(nested, nestedFields)]
     })
   }
   return visit(artifactValue)
@@ -1156,16 +1170,18 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     alwaysPrivate,
     completePrivate
   )
-  const embeddedShortIdentifiers = new Set([
-    ...shortExplicitPrivateContainmentCandidates(alwaysPrivate),
-    ...shortIdentifierContainmentCandidates(shortPrivateIdentifiers)
-  ])
+  const embeddedShortExplicitPrivate =
+    shortExplicitPrivateContainmentCandidates(alwaysPrivate)
+  const embeddedShortIdentifiers = shortIdentifierContainmentCandidates(
+    shortPrivateIdentifiers
+  )
   const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
     runtimeValue !== null &&
     [...embeddedPrivateCandidates].some((privateCandidate) =>
       (privateCandidate.length >= 8 ||
         (privateCandidate.length >= 4 &&
-          embeddedShortIdentifiers.has(privateCandidate))) &&
+          embeddedShortExplicitPrivate.has(privateCandidate)) ||
+        embeddedShortIdentifiers.has(privateCandidate)) &&
       runtimeValue.toLowerCase().includes(privateCandidate)))
   const runtimeIsPrivateSubstring = [...persistedRuntimeCandidates].some(
     (runtimeCandidate) =>

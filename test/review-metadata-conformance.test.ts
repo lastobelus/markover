@@ -547,6 +547,26 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('three-character identifier embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'abc' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__7654edcf',
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('lowercase compound identifier embedded in a runtime token', () => {
     const artifact = fixture()
     agentThread(artifact)
