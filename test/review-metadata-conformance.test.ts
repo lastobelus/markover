@@ -270,6 +270,42 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
   }
 })
 
+test('capture treats additive extension keys as private artifact values', async (t) => {
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { acct_12345: true }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct_12345'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { deadbeef: true }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+})
+
 test('failed automatic checks can produce only closed sanitized evidence', () => {
   const artifact = fixture()
   agentThread(artifact)
