@@ -1538,6 +1538,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     }
   })
 
+  await t.test('multibase Proquint private values', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { secret: 'azR1' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'pkajup-jamud'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('multibase-prefixed base-36 private numeric identities', () => {
     const artifact = fixture()
     agentThread(artifact)
