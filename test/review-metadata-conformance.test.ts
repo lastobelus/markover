@@ -9,6 +9,7 @@ import {
   validateEvidenceFixture,
   validateMetadataCorpus
 } from '../scripts/review-metadata-conformance'
+import { reviewChecksum } from '../src/review-format'
 
 const root = path.resolve(__dirname, '../..')
 
@@ -17,9 +18,17 @@ function json(relativePath: string): unknown {
 }
 
 function fixture(): Record<string, unknown> {
-  return structuredClone(
+  const value = structuredClone(
     json('test/fixtures/review-handoff-v1.json')
   ) as Record<string, unknown>
+  const sourceDocument = value.sourceDocument as Record<string, unknown>
+  const content = fs.readFileSync(
+    path.join(root, 'evals/review-metadata/exercise-source.md'),
+    'utf8'
+  )
+  sourceDocument.content = content
+  sourceDocument.checksum = reviewChecksum(content)
+  return value
 }
 
 function observation(
@@ -126,6 +135,22 @@ test('capture validates a live review and writes fixture placeholders', () => {
   )
 })
 
+test('capture requires the maintained metadata exercise source', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const sourceDocument = artifact.sourceDocument as Record<string, unknown>
+  sourceDocument.content = '# Different review\n'
+  sourceDocument.checksum = reviewChecksum(sourceDocument.content as string)
+  assert.throws(
+    () => buildEvidenceFixture(
+      artifact,
+      observation(),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /does not use the maintained metadata exercise source/
+  )
+})
+
 test('capture rejects retained values whose discovery is unavailable', () => {
   const artifact = fixture()
   agentThread(artifact)
@@ -138,6 +163,21 @@ test('capture rejects retained values whose discovery is unavailable', () => {
       json('evals/review-metadata/matrix.json')
     ),
     /threadHost.provider is present but was not observed/
+  )
+})
+
+test('capture rejects contradictory discovery status and source pairs', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.hostProvider = { status: 'observed', source: 'not-exposed' }
+  assert.throws(
+    () => buildEvidenceFixture(
+      artifact,
+      observation({ discovery }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /hostProvider status and source contradict each other/
   )
 })
 
@@ -208,6 +248,25 @@ test('committed fixtures require placeholders in run-specific fields', () => {
       json('evals/review-metadata/matrix.json')
     ),
     /requesting-thread ID must use the fixture placeholder/
+  )
+})
+
+test('corpus validation recomputes discovery checks from fixture contents', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const evidence = buildEvidenceFixture(
+    artifact,
+    observation(),
+    json('evals/review-metadata/matrix.json')
+  ) as unknown as Record<string, unknown>
+  const discovery = evidence.discovery as Record<string, unknown>
+  discovery.providerThreadId = { status: 'unavailable', source: 'not-exposed' }
+  assert.throws(
+    () => validateEvidenceFixture(
+      evidence,
+      json('evals/review-metadata/matrix.json')
+    ),
+    /agentThread.id is present but was not observed/
   )
 })
 

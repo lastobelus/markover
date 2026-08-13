@@ -168,21 +168,27 @@ function readJson(filePath: string): unknown {
 
 function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
   const item = record(value, label)
-  return {
-    source: oneOf(item.source, [
+  const source = oneOf(item.source, [
       'agent-runtime',
       'hostname-command',
       'not-exposed',
       'not-applicable',
       'thread-context',
       'thread-host-runtime'
-    ], `${label}.source`),
-    status: oneOf(item.status, [
+    ], `${label}.source`)
+  const status = oneOf(item.status, [
       'not-applicable',
       'observed',
       'unavailable'
     ], `${label}.status`)
+  if (
+    (source === 'not-exposed' && status !== 'unavailable') ||
+    (source === 'not-applicable' && status !== 'not-applicable') ||
+    (status === 'not-applicable' && source !== 'not-applicable')
+  ) {
+    throw new Error(`${label} status and source contradict each other.`)
   }
+  return { source, status }
 }
 
 function parseRuntime(value: unknown, label: string): RuntimeObservation {
@@ -332,6 +338,33 @@ function assertObserved(
   }
 }
 
+function assertDiscoveryMatchesAgentThread(
+  discovery: CaptureObservation['discovery'],
+  thread: {
+    threadHost: {
+      machine?: unknown
+      threadId?: unknown
+    }
+  }
+): void {
+  assertObserved(discovery.providerThreadId, 'agentThread.id')
+  assertObserved(discovery.hostKind, 'threadHost.kind')
+  assertObserved(discovery.hostProvider, 'threadHost.provider')
+  if (thread.threadHost.threadId !== undefined) {
+    assertObserved(discovery.hostThreadId, 'threadHost.threadId')
+  } else if (discovery.hostThreadId.status === 'observed') {
+    throw new Error('Host thread identity was observed but omitted from the artifact.')
+  }
+  if (thread.threadHost.machine !== undefined) {
+    assertObserved(discovery.machine, 'threadHost.machine')
+  } else if (discovery.machine.status === 'observed') {
+    throw new Error('An observed machine value must be present in the artifact.')
+  }
+  if (discovery.machine.source !== 'hostname-command') {
+    throw new Error('Machine discovery must record an attempted hostname command.')
+  }
+}
+
 function trueChecks(): ConformanceChecks {
   return {
     threadHostIdAccepted: true,
@@ -354,6 +387,13 @@ export function buildEvidenceFixture(
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
   const thread = artifact.review.agentThread
+  const exerciseSource = fs.readFileSync(
+    path.join(evaluationDirectory, 'exercise-source.md'),
+    'utf8'
+  )
+  if (artifact.sourceDocument.content !== exerciseSource) {
+    throw new Error('Captured review does not use the maintained metadata exercise source.')
+  }
   let agentThread: EvidenceFixture['agentThread'] = null
   let identity: EvidenceFixture['relationships']['identity'] = 'truthful-null'
   let threadHostId: EvidenceFixture['relationships']['threadHostId'] = 'omitted'
@@ -372,9 +412,7 @@ export function buildEvidenceFixture(
     ) {
       throw new Error(`Captured thread metadata does not match ${entry.id}.`)
     }
-    assertObserved(observation.discovery.providerThreadId, 'agentThread.id')
-    assertObserved(observation.discovery.hostKind, 'threadHost.kind')
-    assertObserved(observation.discovery.hostProvider, 'threadHost.provider')
+    assertDiscoveryMatchesAgentThread(observation.discovery, thread)
     const fixtureThreadHost: NonNullable<
       EvidenceFixture['agentThread']
     >['threadHost'] = {
@@ -382,14 +420,10 @@ export function buildEvidenceFixture(
       provider: thread.threadHost.provider
     }
     if (thread.threadHost.threadId !== undefined) {
-      assertObserved(observation.discovery.hostThreadId, 'threadHost.threadId')
       fixtureThreadHost.threadId = fixtureThreadHostId
       threadHostId = thread.threadHost.threadId === thread.id ? 'equal' : 'distinct'
-    } else if (observation.discovery.hostThreadId.status === 'observed') {
-      throw new Error('Host thread identity was observed but omitted from the artifact.')
     }
     if (thread.threadHost.machine !== undefined) {
-      assertObserved(observation.discovery.machine, 'threadHost.machine')
       fixtureThreadHost.machine = fixtureMachine
     }
     identity = 'identified'
@@ -398,13 +432,6 @@ export function buildEvidenceFixture(
       threadHost: fixtureThreadHost
     }
   }
-  if (observation.discovery.machine.source !== 'hostname-command') {
-    throw new Error('Machine discovery must record an attempted hostname command.')
-  }
-  if (thread?.threadHost.machine === undefined && observation.discovery.machine.status === 'observed') {
-    throw new Error('An observed machine value must be present in the artifact.')
-  }
-
   return {
     checks: trueChecks(),
     discovery: observation.discovery,
@@ -466,6 +493,7 @@ export function validateEvidenceFixture(
   } else {
     const thread = record(item.agentThread, 'Evidence agentThread')
     const host = record(thread.threadHost, 'Evidence agentThread.threadHost')
+    assertDiscoveryMatchesAgentThread(observation.discovery, { threadHost: host })
     if (thread.id !== fixtureThreadId) {
       throw new Error('Evidence requesting-thread ID must use the fixture placeholder.')
     }
