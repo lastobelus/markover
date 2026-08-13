@@ -1335,15 +1335,15 @@ function canonicalNumericIdentityCandidates(
           segment.replace(/_/g, ''),
           segment.replace(/[^A-Za-z0-9]/g, '')
         ])
-        const numericValues = [...reconstructedSegments].flatMap(
-          (normalizedValue) => [
-            normalizedValue,
-            ...(/^(?:version|ver|v)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
-              normalizedValue
-            )
-              ? [normalizedValue.replace(/^(?:version|ver|v)/i, '')]
-              : [])
-          ])
+        const numericValues = new Set<string>()
+        for (const normalizedValue of reconstructedSegments) {
+          numericValues.add(normalizedValue)
+          for (const match of normalizedValue.matchAll(
+            /[+-]?(?:0x[0-9a-f]+|0o[0-7]+|0b[01]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)/gi
+          )) {
+            numericValues.add(match[0])
+          }
+        }
         for (const numericLiteral of numericValues) {
           const radixInteger = /^([+-]?)(0x[0-9a-f]+|0o[0-7]+|0b[01]+)$/i.exec(
             numericLiteral
