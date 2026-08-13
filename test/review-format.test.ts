@@ -117,7 +117,7 @@ test('header classification precedes all v1 body validation', () => {
   )
 })
 
-test('all four lifecycle values and open-string origins are valid', () => {
+test('human and agent lifecycle values and open-string origins are valid', () => {
   for (const status of ['editing', 'pending-agent', 'revised'] as const) {
     const value = cloneFixture()
     review(value).status = status
@@ -128,6 +128,27 @@ test('all four lifecycle values and open-string origins are valid', () => {
   review(done).status = 'done'
   record(review(done).pullRequest).status = 'merged'
   assert.equal(decodeReviewArtifact(done), done)
+
+  const reviewing = cloneFixture()
+  review(reviewing).status = 'agent-reviewing'
+  review(reviewing).agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-11T12:05:00.000Z',
+    completedAt: null,
+    agentGuidance: {
+      fixedContract: 'Return reviewer feedback.',
+      interpretationPolicy: 'Review carefully.'
+    }
+  }
+  assert.equal(decodeReviewArtifact(reviewing), reviewing)
+
+  const reviewed = structuredClone(reviewing)
+  review(reviewed).status = 'reviewed'
+  record(review(reviewed).agentReviewer).completedAt =
+    '2026-08-11T12:05:00.000Z'
+  assert.equal(decodeReviewArtifact(reviewed), reviewed)
 
   const futureOrigin = cloneFixture()
   review(futureOrigin).origin = 'imported-agent'
@@ -168,6 +189,33 @@ test('lifecycle, timestamp, and pull-request invariants reject invalid envelopes
   const unmergedDone = cloneFixture()
   review(unmergedDone).status = 'done'
   assertFormatCode(() => decodeReviewArtifact(unmergedDone), 'INVALID_REVIEW')
+
+  const missingReviewer = cloneFixture()
+  review(missingReviewer).status = 'agent-reviewing'
+  assertFormatCode(() => decodeReviewArtifact(missingReviewer), 'INVALID_REVIEW')
+
+  const humanReviewer = cloneFixture()
+  review(humanReviewer).agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-11T12:05:00.000Z',
+    completedAt: null,
+    agentGuidance: { fixedContract: '', interpretationPolicy: '' }
+  }
+  assertFormatCode(() => decodeReviewArtifact(humanReviewer), 'INVALID_REVIEW')
+
+  const prematureCompletion = cloneFixture()
+  review(prematureCompletion).status = 'agent-reviewing'
+  review(prematureCompletion).agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-11T12:05:00.000Z',
+    completedAt: '2026-08-11T12:05:00.000Z',
+    agentGuidance: { fixedContract: '', interpretationPolicy: '' }
+  }
+  assertFormatCode(() => decodeReviewArtifact(prematureCompletion), 'INVALID_REVIEW')
 })
 
 test('thread-host identity accepts equal agent and host IDs', () => {

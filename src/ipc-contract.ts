@@ -32,6 +32,7 @@ const SETTINGS_KEYS = [
   'incomingReviewIdleMinutes',
   'discoverAgentThreadFromLocalSessions',
   'logRejectedApiRequests',
+  'agentReviewMode',
   'agentInterpretationPolicy',
   'autosaveMaximumDelayMs'
 ] as const
@@ -414,6 +415,9 @@ function settingsValueValid(key: string, value: unknown): boolean {
         value === 'always' ||
         value === 'warn' ||
         value === 'when-idle'
+    case 'agentReviewMode':
+      return value === 'annotation-only' ||
+        value === 'annotations-and-source-proposals'
     case 'showKeyboardHelp':
     case 'openDocumentsSidebar':
     case 'confirmAttachmentRemoval':
@@ -464,6 +468,8 @@ function isReviewStatusRequest(value: unknown): value is ReviewStatusRequest {
     (
       value.status === 'editing' ||
       value.status === 'pending-agent' ||
+      value.status === 'agent-reviewing' ||
+      value.status === 'reviewed' ||
       value.status === 'revised' ||
       value.status === 'done' ||
       value.status === 'handoff-in-progress'

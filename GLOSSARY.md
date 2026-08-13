@@ -8,6 +8,12 @@ Every entry starts with `## term::`, so the index is available with `rg '^## .*:
 
 The normal `open` → human review → `get` → agent response → `revise` workflow, with `edit` used when the human changes a handoff before the agent finishes.
 
+## agent-reviewing::
+
+The persisted read-only review status indicating that one agent reviewer has claimed a pristine review and is preparing one atomic annotation batch.
+
+The claim snapshots the global agent-review permission mode and remains recoverable through an idempotent `get-for-review` read.
+
 ## annotated-only view::
 
 A document-tree mode showing annotated blocks and only the unannotated ancestors needed to preserve their source hierarchy; also called the annotated filter.
@@ -331,6 +337,12 @@ Annotations and source edits may change; the source content, checksum, block IDs
 The serialized deterministic hierarchy of review blocks for one source document, including mutable annotation state.
 
 Use **document tree** for the central UI view of this structure.
+
+## reviewed::
+
+The persisted read-only review status indicating that an agent reviewer submitted a complete accepted annotation batch.
+
+Reviewed cycles appear in history and emit a completion notice; they do not become human-editable or re-enter the ordinary agent handoff loop.
 
 ## revised::
 

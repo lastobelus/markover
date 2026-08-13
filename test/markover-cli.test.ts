@@ -38,6 +38,12 @@ function commandUsage(error: unknown): string | undefined {
     : undefined
 }
 
+function child(node: ReviewNode, index = 0): ReviewNode {
+  const result = node.children[index]
+  assert.ok(result)
+  return result
+}
+
 test('parses lifecycle commands and PR observations', () => {
   assert.deepEqual(
     parseCommandArguments([
@@ -68,6 +74,42 @@ test('parses lifecycle commands and PR observations', () => {
       command: 'get',
       reviewId: 'mko_aaa11111',
       pullRequestStatus: null
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments([
+      'get-for-review',
+      'mko_aaa11111',
+      '--thread-id',
+      'reviewer-thread',
+      '--thread-host-kind',
+      't3code',
+      '--thread-host-provider',
+      'codex'
+    ]),
+    {
+      command: 'get-for-review',
+      reviewId: 'mko_aaa11111',
+      handoffKey: null,
+      pullRequestStatus: null,
+      threadId: 'reviewer-thread',
+      threadHostKind: 't3code',
+      threadHostProvider: 'codex',
+      threadHostThreadId: null,
+      threadHostMachine: null
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments([
+      'submit',
+      'mko_aaa11111',
+      '--input',
+      '-'
+    ]),
+    {
+      command: 'submit',
+      reviewId: 'mko_aaa11111',
+      inputPath: '-'
     }
   )
   assert.deepEqual(
@@ -497,6 +539,10 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
     /add feedback before revise, run edit.*After revise, open a new review/
   )
   assert.match(helpPayload().workflow.join(' '), /--pr-status merged/)
+  assert.match(
+    helpPayload().workflow.join(' '),
+    /review\.agentReviewer\.agentGuidance/
+  )
 
   const misuse = spawnSync(process.execPath, [cliPath, 'wat'], {
     encoding: 'utf8'
@@ -506,7 +552,7 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(misuse.stderr, /Unknown command: wat/)
   assert.match(
     misuse.stderr,
-    /Usage: markover <open\|get\|revise\|done\|edit\|canonical\|cleanup\|help>/
+    /Usage: markover <open\|get\|get-for-review\|submit\|revise\|done\|edit\|canonical\|cleanup\|help>/
   )
   assert.match(
     misuse.stderr,
@@ -834,7 +880,6 @@ test('executes CLI commands against the local service', async (t) => {
       reviewUrl: 'markover://review/mko_aaa11111'
     }
   )
-
   const handedOff = await executeCommand({
     command: 'get',
     reviewId: 'mko_aaa11111'
@@ -915,6 +960,40 @@ test('executes CLI commands against the local service', async (t) => {
       status: 'editing',
       reviewUrl: 'markover://review/mko_bbb22222'
     }
+  )
+  const reviewerClaim = await executeCommand({
+    command: 'get-for-review',
+    reviewId: 'mko_bbb22222',
+    threadId: 'reviewer-thread',
+    threadHostKind: 't3code',
+    threadHostProvider: 'codex'
+  }, options)
+  assertReviewArtifact(reviewerClaim, 'mko_bbb22222')
+  assert.equal(reviewerClaim.review.status, 'agent-reviewing')
+  assert.deepEqual(
+    reviewerClaim.review.agentReviewer?.agentThread,
+    {
+      id: 'reviewer-thread',
+      threadHost: { kind: 't3code', provider: 'codex' }
+    }
+  )
+  assert.deepEqual(
+    await executeCommand({
+      command: 'get-for-review',
+      reviewId: 'mko_bbb22222'
+    }, options),
+    reviewerClaim
+  )
+  child(reviewerClaim.root).feedback = 'CLI reviewer finding.'
+  const submissionPath = path.join(directory, 'agent-review.json')
+  await fs.writeFile(submissionPath, JSON.stringify(reviewerClaim), 'utf8')
+  assert.deepEqual(
+    await executeCommand({
+      command: 'submit',
+      reviewId: 'mko_bbb22222',
+      inputPath: submissionPath
+    }, options),
+    { reviewId: 'mko_bbb22222', status: 'reviewed' }
   )
   assert.deepEqual(
     await executeCommand({

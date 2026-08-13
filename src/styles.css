@@ -813,6 +813,15 @@ p {
   background: var(--brand-burgundy);
 }
 
+.document-tab-status.is-agent-reviewing {
+  color: var(--ink);
+  background: var(--status-progress);
+}
+
+.document-tab-status.is-reviewed {
+  background: var(--status-revised);
+}
+
 .document-tab-status.is-revised {
   background: var(--status-revised);
 }
@@ -1314,6 +1323,16 @@ p {
   background: var(--accent-soft);
 }
 
+.review-status-badge.is-agent-reviewing {
+  border-color: var(--status-progress);
+  color: var(--ink);
+}
+
+.review-status-badge.is-reviewed {
+  border-color: var(--status-revised);
+  color: var(--status-revised);
+}
+
 .review-list-row-pr:is(.is-linked, .is-open) {
   color: #2e7d4f;
   font-weight: 750;
@@ -1561,6 +1580,14 @@ button.review-list-row-pr:hover {
 
 .review-project-leaf.is-pending-agent .review-project-leaf-status {
   background: var(--status-pending);
+}
+
+.review-project-leaf.is-agent-reviewing .review-project-leaf-status {
+  background: var(--status-progress);
+}
+
+.review-project-leaf.is-reviewed .review-project-leaf-status {
+  background: var(--status-revised);
 }
 
 .review-project-leaf.is-revised .review-project-leaf-status {

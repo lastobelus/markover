@@ -1548,7 +1548,7 @@ function requireWorkspaceStore(): WorkspaceStore {
 
 async function flushManagedReview(
   reviewId: string,
-  action: 'handoff' | 'edit' | 'done'
+  action: 'handoff' | 'get-for-review' | 'edit' | 'done'
 ): Promise<() => Promise<void>> {
   const store = requireReviewStore()
   try {
@@ -1590,6 +1590,7 @@ async function startAndPublishService(): Promise<void> {
     identity,
     store: managedStore,
     interpretationPolicy: () => store.settings.agentInterpretationPolicy,
+    agentReviewMode: () => store.settings.agentReviewMode,
     beforeAction: flushManagedReview,
     onActivate: activateManagedReview,
     onQuit() {
@@ -1610,8 +1611,8 @@ async function startAndPublishService(): Promise<void> {
         await sendManagedUpdate(artifact)
         return
       }
-      await sendManagedStatus(artifact)
       await sendManagedUpdate(artifact)
+      await sendManagedStatus(artifact)
     },
     onUnauthorized(event) {
       if (!store.settings.logRejectedApiRequests) return

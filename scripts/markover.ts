@@ -52,6 +52,7 @@ import {
   installLinkHandler,
   type LinkHandlerMutationResult
 } from '../src/link-handler'
+import { MAXIMUM_BODY_BYTES } from '../src/local-service'
 
 const defaultEndpointPath = serviceEndpointPath()
 
@@ -80,6 +81,22 @@ export type ParsedCommand = ParsedInstanceTarget & (
       command: 'get' | 'revise'
       reviewId: string
       pullRequestStatus?: PullRequestStatus | null
+    }
+  | {
+      command: 'get-for-review'
+      reviewId: string
+      handoffKey?: string | null
+      pullRequestStatus?: PullRequestStatus | null
+      threadId?: string | null
+      threadHostKind?: string | null
+      threadHostProvider?: string | null
+      threadHostThreadId?: string | null
+      threadHostMachine?: string | null
+    }
+  | {
+      command: 'submit'
+      reviewId: string
+      inputPath: string
     }
   | {
       command: 'done'
@@ -156,7 +173,9 @@ export function helpPayload() {
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
       'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
-      'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.'
+      'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.',
+      'To act as reviewer, run get-for-review once with the retained review ID and truthful reviewer thread metadata. Follow review.agentReviewer.agentGuidance, add only feedback and source proposals permitted by review.agentReviewer.mode, then return the complete artifact with submit --input.',
+      'A response-uncertain get-for-review is recovered by repeating get-for-review with only the review ID. A response-uncertain submit is recovered by repeating the exact submit command.'
     ],
     pullRequestStatus: {
       lookup: 'gh pr view <pull-request-url-or-number> --json state,isDraft,url',
@@ -181,6 +200,16 @@ export function helpPayload() {
         name: 'get',
         usage: 'get <review-id> [--pr-status <draft|open|merged|closed>]',
         purpose: 'Freeze one review and print its complete markover-review JSON.'
+      },
+      {
+        name: 'get-for-review',
+        usage: 'get-for-review <review-id> [--pr-status <draft|open|merged|closed>] [--thread-id <provider-id> | --handoff-key <key>] [--thread-host-kind <kind> --thread-host-provider <provider> [--thread-host-thread-id <distinct-id>] [--thread-host-machine <hostname>]]',
+        purpose: 'Claim one pristine review for an agent reviewer and print its complete frozen markover-review JSON.'
+      },
+      {
+        name: 'submit',
+        usage: 'submit <review-id> --input <path|->',
+        purpose: 'Atomically return one complete agent-reviewed markover-review artifact.'
       },
       {
         name: 'revise',
@@ -285,6 +314,8 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   if (
     command !== 'open' &&
     command !== 'get' &&
+    command !== 'get-for-review' &&
+    command !== 'submit' &&
     command !== 'revise' &&
     command !== 'done' &&
     command !== 'edit' &&
@@ -304,7 +335,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       `Unknown command: ${command}`,
-      'markover <open|get|revise|done|edit|canonical|cleanup|help> ...'
+      'markover <open|get|get-for-review|submit|revise|done|edit|canonical|cleanup|help> ...'
     )
   }
 
@@ -352,6 +383,125 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       command,
       pullRequestUrl,
       pullRequestStatus: 'merged' as const
+    })
+  }
+
+  if (command === 'submit') {
+    const reviewId = rest[0]
+    if (
+      rest.length !== 3 ||
+      !reviewId ||
+      reviewId.startsWith('--') ||
+      rest[1] !== '--input' ||
+      !rest[2] ||
+      rest[2].startsWith('--')
+    ) {
+      throw commandError(
+        'submit requires one review ID and one JSON input path or stdin.',
+        'markover submit <review-id> --input <path|->'
+      )
+    }
+    return targeted({ command, reviewId, inputPath: rest[2] })
+  }
+
+  if (command === 'get-for-review') {
+    const reviewId = rest[0]
+    if (!reviewId || reviewId.startsWith('--')) {
+      throw commandError(
+        'get-for-review requires one review ID.',
+        'markover get-for-review <review-id>'
+      )
+    }
+    let handoffKey: string | null = null
+    let pullRequestStatus: PullRequestStatus | null = null
+    let threadId: string | null = null
+    let threadHostKind: string | null = null
+    let threadHostProvider: string | null = null
+    let threadHostThreadId: string | null = null
+    let threadHostMachine: string | null = null
+    for (let index = 1; index < rest.length; index += 2) {
+      const option = rest[index]
+      const value = rest[index + 1]
+      if (!option || !value || value.startsWith('--')) {
+        throw commandError(
+          `${option || 'Reviewer option'} requires a value.`,
+          'markover get-for-review <review-id> [reviewer identity options]'
+        )
+      }
+      if (option === '--handoff-key') handoffKey = value
+      else if (option === '--pr-status') {
+        if (!isPullRequestStatus(value)) {
+          throw commandError(
+            '--pr-status requires draft, open, merged, or closed.',
+            'markover get-for-review <review-id> [--pr-status <draft|open|merged|closed>]'
+          )
+        }
+        pullRequestStatus = value
+      } else if (option === '--thread-id') threadId = value
+      else if (option === '--thread-host-kind') threadHostKind = value
+      else if (option === '--thread-host-provider') threadHostProvider = value
+      else if (option === '--thread-host-thread-id') threadHostThreadId = value
+      else if (option === '--thread-host-machine') threadHostMachine = value
+      else {
+        throw commandError(
+          `Unknown option for get-for-review: ${option}`,
+          'markover get-for-review <review-id> [reviewer identity options]'
+        )
+      }
+    }
+    threadId = threadId?.trim() || null
+    threadHostKind = threadHostKind?.trim() || null
+    threadHostProvider = threadHostProvider?.trim() || null
+    threadHostThreadId = threadHostThreadId?.trim() || null
+    threadHostMachine = threadHostMachine?.trim() || null
+    handoffKey = handoffKey?.trim() || null
+    if (handoffKey && !HANDOFF_KEY_PATTERN.test(handoffKey)) {
+      throw commandError(
+        '--handoff-key must match mko_handoff_ followed by 16–64 letters or digits.',
+        'markover get-for-review <review-id> --handoff-key <key>'
+      )
+    }
+    if (threadId && handoffKey) {
+      throw commandError(
+        '--thread-id and --handoff-key are alternatives; provide only one.',
+        'markover get-for-review <review-id> [--thread-id <provider-id> | --handoff-key <key>]'
+      )
+    }
+    const hasIdentity = Boolean(threadId || handoffKey)
+    const hasHostMetadata = Boolean(
+      threadHostKind ||
+      threadHostProvider ||
+      threadHostThreadId ||
+      threadHostMachine
+    )
+    if (hasIdentity && (!threadHostKind || !threadHostProvider)) {
+      throw commandError(
+        '--thread-id or --handoff-key requires --thread-host-kind and --thread-host-provider.',
+        'markover get-for-review <review-id> [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+      )
+    }
+    if (hasHostMetadata && !hasIdentity) {
+      throw commandError(
+        'Thread-host metadata requires --thread-id or --handoff-key.',
+        'markover get-for-review <review-id> [--thread-id <provider-id> | --handoff-key <key>]'
+      )
+    }
+    if (threadId && threadHostThreadId === threadId) {
+      throw commandError(
+        '--thread-host-thread-id must be omitted when it duplicates --thread-id.',
+        'markover get-for-review <review-id> --thread-id <provider-id> --thread-host-kind <kind> --thread-host-provider <provider>'
+      )
+    }
+    return targeted({
+      command,
+      reviewId,
+      handoffKey,
+      pullRequestStatus,
+      threadId,
+      threadHostKind,
+      threadHostProvider,
+      threadHostThreadId,
+      threadHostMachine
     })
   }
 
@@ -1132,6 +1282,158 @@ export async function executeCommand(
   }
 
   await ensure()
+  if (parsed.command === 'submit') {
+    let contents: string
+    try {
+      contents = parsed.inputPath === '-'
+        ? await fs.readFile('/dev/stdin', 'utf8')
+        : await fs.readFile(path.resolve(parsed.inputPath), 'utf8')
+    } catch (error) {
+      if (errorCode(error) === 'ENOENT') {
+        throw commandError(
+          `Submission file does not exist: ${path.resolve(parsed.inputPath)}`,
+          'markover submit <review-id> --input <path|->'
+        )
+      }
+      throw error
+    }
+    let artifact: ReviewArtifact
+    try {
+      artifact = decodeReviewArtifact(JSON.parse(contents), parsed.reviewId)
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw commandError(
+          'Submission input must contain one valid JSON artifact.',
+          'markover submit <review-id> --input <path|->'
+        )
+      }
+      if (error instanceof ReviewFormatError) {
+        throw new LocalServiceError(error.code, error.message)
+      }
+      throw error
+    }
+    const body = { artifact }
+    if (Buffer.byteLength(JSON.stringify(body), 'utf8') > MAXIMUM_BODY_BYTES) {
+      throw commandError(
+        'Submission exceeds Markover’s 16 MiB request limit. Shrink the annotations and retry, or ask the human to cancel with edit.',
+        'markover submit <review-id> --input <path|->'
+      )
+    }
+    const result = await requestJson(
+      endpointPath,
+      'POST',
+      `/reviews/${encodeURIComponent(parsed.reviewId)}/submit`,
+      body
+    )
+    if (
+      !result ||
+      typeof result !== 'object' ||
+      Array.isArray(result) ||
+      Reflect.get(result, 'reviewId') !== parsed.reviewId ||
+      Reflect.get(result, 'status') !== 'reviewed'
+    ) {
+      throw new LocalServiceError(
+        'INCOMPATIBLE_SERVICE',
+        'Markover returned an invalid agent-review submission receipt.'
+      )
+    }
+    return result
+  }
+  if (parsed.command === 'get-for-review') {
+    const encodedReviewId = encodeURIComponent(parsed.reviewId)
+    let current: ReviewArtifact
+    try {
+      current = decodeReviewArtifact(
+        await requestJson(endpointPath, 'GET', `/reviews/${encodedReviewId}`),
+        parsed.reviewId
+      )
+    } catch (error) {
+      if (error instanceof ReviewFormatError) {
+        throw new LocalServiceError(error.code, error.message)
+      }
+      throw error
+    }
+
+    let agentThread: ReviewAgentThread | null | undefined
+    if (parsed.threadId) {
+      agentThread = {
+        id: parsed.threadId,
+        threadHost: {
+          kind: parsed.threadHostKind as string,
+          provider: parsed.threadHostProvider as string,
+          ...(parsed.threadHostThreadId
+            ? { threadId: parsed.threadHostThreadId }
+            : {}),
+          ...(parsed.threadHostMachine
+            ? { machine: parsed.threadHostMachine }
+            : {})
+        }
+      }
+    } else if (parsed.handoffKey) {
+      if (current.review.status === 'agent-reviewing') {
+        throw commandError(
+          'A claimed review never re-runs handoff-key discovery. Retry get-for-review with only the review ID.',
+          'markover get-for-review <review-id>'
+        )
+      }
+      const sourcePath = current.sourceDocument.path
+      if (!sourcePath) {
+        throw commandError(
+          'Handoff-key discovery requires a verified live source path; use explicit --thread-id metadata or omit reviewer identity.',
+          'markover get-for-review <review-id> [--thread-id <provider-id>]'
+        )
+      }
+      let source: string
+      try {
+        source = await fs.readFile(sourcePath, 'utf8')
+      } catch {
+        throw commandError(
+          'Handoff-key discovery requires the stored source path to exist and match the review snapshot.',
+          'markover get-for-review <review-id> [--thread-id <provider-id>]'
+        )
+      }
+      if (checksum(source) !== current.sourceDocument.checksum) {
+        throw commandError(
+          'Handoff-key discovery requires the stored source path to match the review snapshot.',
+          'markover get-for-review <review-id> [--thread-id <provider-id>]'
+        )
+      }
+      const discoveryEnabled = await readDiscoverySetting(settingsPath)
+      agentThread = discoveryEnabled
+        ? (await discoverMetadata({
+            sourcePath,
+            threadId: null,
+            threadHostKind: parsed.threadHostKind ?? null,
+            threadHostProvider: parsed.threadHostProvider ?? null,
+            threadHostThreadId: parsed.threadHostThreadId ?? null,
+            threadHostMachine: parsed.threadHostMachine ?? null,
+            handoffKey: parsed.handoffKey
+          })).agentThread
+        : null
+    } else if (current.review.status === 'editing') {
+      agentThread = null
+    }
+
+    const response = await requestJson(
+      endpointPath,
+      'POST',
+      `/reviews/${encodedReviewId}/get-for-review`,
+      {
+        ...(agentThread !== undefined ? { agentThread } : {}),
+        ...(parsed.pullRequestStatus
+          ? { pullRequestStatus: parsed.pullRequestStatus }
+          : {})
+      }
+    )
+    try {
+      return decodeReviewArtifact(response, parsed.reviewId)
+    } catch (error) {
+      if (error instanceof ReviewFormatError) {
+        throw new LocalServiceError(error.code, error.message)
+      }
+      throw error
+    }
+  }
   if (parsed.command === 'done') {
     return requestJson(endpointPath, 'POST', '/reviews/done', {
       pullRequestUrl: parsed.pullRequestUrl,

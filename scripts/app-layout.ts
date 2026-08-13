@@ -7,6 +7,7 @@ import { rendererContentSecurityPolicy } from '../src/renderer-security'
 export const runtimeModuleNames = [
   'about-panel',
   'agent-guidance',
+  'agent-reviewer-guidance',
   'app-menu',
   'async-mutation-tracker',
   'development-control',

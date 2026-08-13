@@ -47,6 +47,7 @@ test('settings defaults cover the persisted preferences', () => {
     'incomingReviewIdleMinutes',
     'discoverAgentThreadFromLocalSessions',
     'logRejectedApiRequests',
+    'agentReviewMode',
     'agentInterpretationPolicy',
     'autosaveMaximumDelayMs'
   ])
@@ -68,6 +69,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
+    agentReviewMode: 'annotations-and-source-proposals',
     agentInterpretationPolicy: 'Follow the checklist.',
     autosaveMaximumDelayMs: 2500,
     unexpected: 'ignored'
@@ -86,6 +88,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
     logRejectedApiRequests: true,
+    agentReviewMode: 'annotations-and-source-proposals',
     agentInterpretationPolicy: 'Follow the checklist.',
     autosaveMaximumDelayMs: 2500
   })
@@ -118,6 +121,19 @@ test('window minimums preserve the usable CSS viewport at every zoom level', () 
     minimumWindowSize(150, { width: 900, height: 700 }),
     { width: 900, height: 700 }
   )
+})
+
+test('agent review permissions default to annotations and accept only both global modes', () => {
+  assert.equal(DEFAULT_SETTINGS.agentReviewMode, 'annotation-only')
+  assert.equal(
+    normalizeSettings({
+      agentReviewMode: 'annotations-and-source-proposals'
+    }).agentReviewMode,
+    'annotations-and-source-proposals'
+  )
+  for (const value of ['source-edits', '', 1, null]) {
+    assert.equal(normalizeSettings({ agentReviewMode: value }).agentReviewMode, 'annotation-only')
+  }
 })
 
 test('autosave maximum delay accepts only integer values in the safe range', () => {
@@ -451,6 +467,10 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(preload, /onSettingsOpen:/)
   assert.match(renderer, /function applySettings\([\s\S]*next: unknown,[\s\S]*options: \{ initial\?: boolean \} = \{\}[\s\S]*\): void/)
   assert.match(html, /<dialog id="settings-dialog"/)
+  assert.match(html, /<h3 class="settings-section-title">Agent Review<\/h3>/)
+  assert.match(html, /<select name="agentReviewMode">/)
+  assert.match(html, /Annotations only \(default\)/)
+  assert.match(html, /Annotations and source proposals/)
   assert.match(html, /id="fixed-contract-open"[^>]*>View fixed contract</)
   assert.match(html, /<dialog id="fixed-contract-dialog"/)
   assert.match(renderer, /MarkoverAgentGuidance\.FIXED_CONTRACT_STATEMENTS/)

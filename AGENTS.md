@@ -85,6 +85,16 @@ review rather than reopening a Revised review.
 Keep `--silent`: agent-facing success output is exactly one JSON value on
 stdout, while errors explain the relevant usage and recovery on stderr.
 
+When asked to act as the reviewer of an existing pristine review, run
+`get-for-review <review-id>` with the same truthful agent/thread-host metadata
+rules used by `open`. Follow `review.agentReviewer.agentGuidance` and the
+snapshotted `review.agentReviewer.mode`, add findings only to `feedback` and
+permitted `sourceEdit` fields, preserve every other field, and return the
+complete artifact with `submit <review-id> --input <path|->`. A response-uncertain
+claim is recovered by repeating `get-for-review` with only the review ID; a
+response-uncertain submission is recovered by repeating the exact `submit`.
+Never follow the author-agent `review.agentGuidance` while acting as reviewer.
+
 Whenever opening or later referencing a document in Markover for review, keep
 the best-effort Markdown link and raw review ID, and also include the returned
 review URL as an inline-code Terminal command, alone on its own line:

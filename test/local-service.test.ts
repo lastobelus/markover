@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import test, { type TestContext } from 'node:test'
 
 import { reviewChecksum } from '../src/review-format'
@@ -14,6 +15,8 @@ import {
   requestJson
 } from '../src/local-client'
 import {
+  MAXIMUM_BODY_BYTES,
+  readJson,
   startLocalService,
   type LocalServiceOptions
 } from '../src/local-service'
@@ -61,6 +64,25 @@ function hasServiceError(
     error.statusCode === statusCode
 }
 
+function requestBody(contents: string): http.IncomingMessage {
+  return Readable.from([Buffer.from(contents)]) as unknown as http.IncomingMessage
+}
+
+test('request body limit accepts the exact boundary and rejects one byte more', async () => {
+  const exact = JSON.stringify('a'.repeat(MAXIMUM_BODY_BYTES - 2))
+  assert.equal(Buffer.byteLength(exact), MAXIMUM_BODY_BYTES)
+  assert.equal((await readJson(requestBody(exact)) as string).length, MAXIMUM_BODY_BYTES - 2)
+
+  const oversized = JSON.stringify('a'.repeat(MAXIMUM_BODY_BYTES - 1))
+  assert.equal(Buffer.byteLength(oversized), MAXIMUM_BODY_BYTES + 1)
+  await assert.rejects(
+    readJson(requestBody(oversized)),
+    (error: unknown) => (
+      error instanceof Error && Reflect.get(error, 'code') === 'BODY_TOO_LARGE'
+    )
+  )
+})
+
 async function serviceFixture(
   t: TestContext,
   options: FixtureOptions = {}
@@ -71,7 +93,15 @@ async function serviceFixture(
   const endpointPath = path.join(directory, 'service.json')
   const changes: Array<{
     artifact: ReviewArtifact
-    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done' | 'observed'
+    action:
+      | 'created'
+      | 'handoff'
+      | 'get-for-review'
+      | 'submit'
+      | 'edit'
+      | 'revise'
+      | 'done'
+      | 'observed'
   }> = []
   const store = new ReviewStore(path.join(directory, 'reviews'), {
     idFactory: () => options.reviewIds?.shift() || 'mko_aaa11111'
@@ -88,7 +118,8 @@ async function serviceFixture(
     onActivate: options.onActivate,
     onQuit: options.onQuit,
     onUnauthorized: options.onUnauthorized,
-    interpretationPolicy: options.interpretationPolicy
+    interpretationPolicy: options.interpretationPolicy,
+    agentReviewMode: options.agentReviewMode
   })
   await publishServiceConnection({
     endpointPath,
@@ -228,6 +259,137 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
     changes.map((change) => change.action),
     ['created', 'handoff', 'handoff', 'edit']
   )
+})
+
+test('claims and atomically submits a complete agent review', async (t) => {
+  let reviewMode: AgentReviewMode = 'annotations-and-source-proposals'
+  const { changes, endpointPath, store } = await serviceFixture(t, {
+    agentReviewMode: () => reviewMode
+  })
+  await requestJson(endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Agent review workflow.' }
+  })
+  const claimed = expectArtifact(await requestJson(
+    endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/get-for-review',
+    {
+      agentThread: {
+        id: 'reviewer-thread',
+        threadHost: { kind: 't3code', provider: 'codex' }
+      }
+    }
+  ), 'mko_aaa11111')
+  assert.equal(claimed.review.status, 'agent-reviewing')
+  assert.equal(
+    claimed.review.agentReviewer?.mode,
+    'annotations-and-source-proposals'
+  )
+  reviewMode = 'annotation-only'
+  assert.deepEqual(
+    await requestJson(
+      endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/get-for-review'
+    ),
+    claimed
+  )
+
+  const submission = structuredClone(claimed)
+  child(submission.root).feedback = 'Agent finding.'
+  assert.deepEqual(
+    await requestJson(
+      endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/submit',
+      { artifact: submission }
+    ),
+    { reviewId: 'mko_aaa11111', status: 'reviewed' }
+  )
+  assert.equal((await store.load('mko_aaa11111')).review.status, 'reviewed')
+  assert.deepEqual(
+    changes.map((change) => change.action),
+    ['created', 'get-for-review', 'get-for-review', 'submit']
+  )
+})
+
+test('a post-commit submit publication failure is uncertain and exact retry repairs it', async (t) => {
+  let failPublication = true
+  const fixture = await serviceFixture(t, {
+    onChange(_artifact, action) {
+      if (action === 'submit' && failPublication) {
+        failPublication = false
+        throw new Error('renderer unavailable')
+      }
+    }
+  })
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Recover an uncertain submit.' }
+  })
+  const claimed = expectArtifact(await requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/get-for-review'
+  ), 'mko_aaa11111')
+  child(claimed.root).feedback = 'Returned despite publication failure.'
+
+  await assert.rejects(
+    requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/submit',
+      { artifact: claimed }
+    ),
+    (error: unknown) => hasServiceError(error, 'REQUEST_UNCERTAIN', 503)
+  )
+  assert.equal(
+    (await fixture.store.load('mko_aaa11111')).review.status,
+    'reviewed'
+  )
+  assert.deepEqual(
+    await requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/submit',
+      { artifact: claimed }
+    ),
+    { reviewId: 'mko_aaa11111', status: 'reviewed' }
+  )
+})
+
+test('get-for-review checks the persisted renderer snapshot before claiming', async (t) => {
+  const storeReference: { current?: ReviewStore } = {}
+  let rolledBack = false
+  const fixture = await serviceFixture(t, {
+    async beforeAction(reviewId, action) {
+      assert.equal(action, 'get-for-review')
+      const latest = await storeReference.current?.load(reviewId)
+      assert.ok(latest)
+      child(latest.root).feedback = 'Pending human feedback.'
+      await storeReference.current?.updateTree(reviewId, latest)
+      return () => { rolledBack = true }
+    }
+  })
+  storeReference.current = fixture.store
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Flush before claim.' }
+  })
+
+  await assert.rejects(
+    requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/get-for-review'
+    ),
+    (error: unknown) => hasServiceError(error, 'REVIEW_NOT_PRISTINE', 409)
+  )
+  const stored = await fixture.store.load('mko_aaa11111')
+  assert.equal(stored.review.status, 'editing')
+  assert.equal(child(stored.root).feedback, 'Pending human feedback.')
+  assert.equal(rolledBack, true)
 })
 
 test('persists PR observations through revise and PR-scoped done', async (t) => {
@@ -529,7 +691,11 @@ test('gates every current non-health route with real HTTP', async (t) => {
     { method: 'GET', path: '/reviews/mko_missing1', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/activate', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/handoff', body: null },
+    { method: 'POST', path: '/reviews/mko_missing1/get-for-review', body: null },
+    { method: 'POST', path: '/reviews/mko_missing1/submit', body: '{' },
     { method: 'POST', path: '/reviews/mko_missing1/edit', body: null },
+    { method: 'POST', path: '/reviews/mko_missing1/revise', body: null },
+    { method: 'POST', path: '/reviews/done', body: '{' },
     { method: 'POST', path: '/quit', body: null },
     { method: 'GET', path: '/missing?private=secret', body: null },
     { method: 'GET', path: '/health?details=1', body: null },

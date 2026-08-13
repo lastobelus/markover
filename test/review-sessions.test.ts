@@ -173,6 +173,45 @@ test('status updates include the transient renderer handoff state', () => {
   assert.equal(review.tree.review.status, 'handoff-in-progress')
 })
 
+test('document updates replace returned review content while preserving presentation state', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_reviewed1', 'reviewed.md')
+  const session = sessions.add(original)
+  const treeReference = session.tree
+  session.selectedId = firstNode(session).id
+  session.annotatedOnly = true
+  session.sourceCollapsed = true
+  session.sourceDrafts.set(firstNode(session).id, 'private draft')
+
+  const returned = structuredClone(original)
+  returned.tree.review.status = 'reviewed'
+  returned.tree.review.updatedAt = '2026-08-03T12:01:00.000Z'
+  returned.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: '2026-08-03T12:01:00.000Z',
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
+  const returnedFirst = returned.tree.root.children[0]
+  assert.ok(returnedFirst)
+  returnedFirst.feedback = 'Agent finding.'
+
+  const updated = sessions.updateDocument(returned)
+  assert.equal(updated, session)
+  assert.notEqual(session.tree, treeReference)
+  assert.equal(firstNode(session).feedback, 'Agent finding.')
+  assert.equal(session.tree.review.status, 'reviewed')
+  assert.equal(session.selectedId, firstNode(session).id)
+  assert.equal(session.annotatedOnly, true)
+  assert.equal(session.sourceCollapsed, true)
+  assert.equal(session.sourceDrafts.get(firstNode(session).id), 'private draft')
+})
+
 test('adjacent review navigation wraps in either direction', () => {
   const sessions = new ReviewSessions()
   const first = sessions.add(reviewDocument('mko_first11', 'first.md'))

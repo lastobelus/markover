@@ -1,6 +1,6 @@
 # #132 agent document reviews — requirements and protocol discovery
 
-Status: discovery only; implementation is not authorized.
+Status: discovery accepted; implementation authorized on 2026-08-12.
 
 ## Outcome so far
 
@@ -256,7 +256,7 @@ Making `reviewed` actionable until acknowledgement would require a new acknowled
 Implementation must update `docs/developer/review-handoff-format.md` as the authoritative v1 contract. It must define:
 
 - `agent-reviewing` and `reviewed`, their read-only semantics, and every allowed transition;
-- optional agent-reviewer ownership, unique claim ID, mode snapshot, nullable agent/thread-host identity, role-specific guidance, and timestamps;
+- lifecycle-conditional agent-reviewer ownership, unique claim ID, mode snapshot, nullable agent/thread-host identity, role-specific guidance, and timestamps;
 - the exact fields an agent may change between `get-for-review` and `submit`;
 - annotation-only and source-proposal validation, including whole-batch rejection;
 - stale submission detection, claim-read recovery, claim cancellation, and re-claim behavior;

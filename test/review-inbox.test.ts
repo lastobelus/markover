@@ -304,6 +304,12 @@ test('Projects put actionable rollups before every non-actionable lifecycle stat
     projectRoot: '/projects/recent-history',
     status: 'done'
   }))
+  sessions.add(reviewDocument('mko_reviewed1', 'reviewed.md', {
+    agentThread: providerThread('old-thread'),
+    createdAt: '2026-08-09T14:00:00.000Z',
+    projectRoot: '/projects/recent-history',
+    status: 'reviewed'
+  }))
   sessions.add(reviewDocument('mko_editing1', 'needed.md', {
     agentThread: providerThread('needed-thread'),
     createdAt: '2026-08-09T09:00:00.000Z',
@@ -324,6 +330,7 @@ test('Projects put actionable rollups before every non-actionable lifecycle stat
   assert.deepEqual(
     projection.history.map((review) => [review.reviewId, review.status]),
     [
+      ['mko_reviewed1', 'reviewed'],
       ['mko_done1111', 'done'],
       ['mko_revised1', 'revised'],
       ['mko_pending1', 'pending-agent']

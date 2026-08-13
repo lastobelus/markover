@@ -10,6 +10,7 @@ export const REVIEW_FORMAT_COMPATIBILITY_URL =
   'https://lastobelus.github.io/markover/compatibility/' as const
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
+const REVIEW_CLAIM_ID_PATTERN = /^mko_claim_[a-zA-Z0-9]{16,64}$/
 const ATTACHMENT_ID_PATTERN = /^img-[1-9]\d*$/
 const CHECKSUM_PATTERN = /^sha256:[a-f0-9]{64}$/
 const REVIEW_NODE_TYPES = new Set<ReviewNodeType>([
@@ -28,6 +29,8 @@ const REVIEW_NODE_TYPES = new Set<ReviewNodeType>([
 const REVIEW_STATUSES = new Set<ReviewStatus>([
   'editing',
   'pending-agent',
+  'agent-reviewing',
+  'reviewed',
   'revised',
   'done'
 ])
@@ -447,6 +450,73 @@ function assertAgentThread(value: unknown): asserts value is ReviewAgentThread |
   }
 }
 
+function assertAgentGuidance(
+  value: unknown,
+  field: string
+): asserts value is AgentGuidance {
+  if (!isRecord(value)) invalid(`${field} must be an object.`)
+  requireKeys(value, ['fixedContract', 'interpretationPolicy'])
+  if (
+    typeof value.fixedContract !== 'string' ||
+    typeof value.interpretationPolicy !== 'string'
+  ) {
+    invalid(`${field} requires string fixedContract and interpretationPolicy fields.`)
+  }
+}
+
+function assertAgentReviewer(
+  value: unknown,
+  status: ReviewStatus,
+  updatedAt: string
+): asserts value is ReviewAgentReviewer | undefined {
+  const required = status === 'agent-reviewing' || status === 'reviewed'
+  const forbidden = status === 'editing' ||
+    status === 'pending-agent' ||
+    status === 'revised'
+  if (value === undefined) {
+    if (required) invalid(`review.agentReviewer is required for ${status}.`)
+    return
+  }
+  if (forbidden) invalid(`review.agentReviewer is forbidden for ${status}.`)
+  if (!isRecord(value)) invalid('review.agentReviewer must be an object.')
+  requireKeys(value, [
+    'mode',
+    'claimId',
+    'agentThread',
+    'startedAt',
+    'completedAt',
+    'agentGuidance'
+  ])
+  if (
+    value.mode !== 'annotation-only' &&
+    value.mode !== 'annotations-and-source-proposals'
+  ) {
+    invalid('review.agentReviewer.mode is invalid.')
+  }
+  if (
+    typeof value.claimId !== 'string' ||
+    !REVIEW_CLAIM_ID_PATTERN.test(value.claimId)
+  ) {
+    invalid('review.agentReviewer.claimId is invalid.')
+  }
+  assertAgentThread(value.agentThread)
+  if (!isCanonicalReviewTimestamp(value.startedAt) || value.startedAt > updatedAt) {
+    invalid('review.agentReviewer.startedAt must be an ordered canonical UTC instant.')
+  }
+  if (status === 'agent-reviewing') {
+    if (value.completedAt !== null) {
+      invalid('An agent-reviewing review requires a null completedAt.')
+    }
+  } else if (
+    !isCanonicalReviewTimestamp(value.completedAt) ||
+    value.completedAt < value.startedAt ||
+    value.completedAt > updatedAt
+  ) {
+    invalid('A completed agent review requires an ordered canonical completedAt.')
+  }
+  assertAgentGuidance(value.agentGuidance, 'review.agentReviewer.agentGuidance')
+}
+
 export function isPortableRepositoryUrl(value: unknown): value is string {
   if (!nonblank(value)) return false
   if (/^file:/i.test(value)) return false
@@ -566,14 +636,12 @@ function assertEnvelope(
   if (observation && observation.statusObservedAt > value.updatedAt) {
     invalid('Pull request observations must not be newer than review.updatedAt.')
   }
-  if (!isRecord(value.agentGuidance)) invalid('review.agentGuidance must be an object.')
-  requireKeys(value.agentGuidance, ['fixedContract', 'interpretationPolicy'])
-  if (
-    typeof value.agentGuidance.fixedContract !== 'string' ||
-    typeof value.agentGuidance.interpretationPolicy !== 'string'
-  ) {
-    invalid('review.agentGuidance requires string fixedContract and interpretationPolicy fields.')
-  }
+  assertAgentGuidance(value.agentGuidance, 'review.agentGuidance')
+  assertAgentReviewer(
+    value.agentReviewer,
+    value.status as ReviewStatus,
+    value.updatedAt
+  )
 }
 
 function assertV1Body(value: Record<string, unknown>): void {

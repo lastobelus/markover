@@ -38,6 +38,9 @@ declare global {
   type AnnotationTextSize = 'small' | 'medium' | 'large'
   type ZoomPercent = 80 | 90 | 100 | 110 | 125 | 150
   type DefaultTreeView = 'all' | 'annotated'
+  type AgentReviewMode =
+    | 'annotation-only'
+    | 'annotations-and-source-proposals'
   type IncomingReviewActivationPolicy =
     | 'never'
     | 'always'
@@ -72,6 +75,7 @@ declare global {
     incomingReviewIdleMinutes: number
     discoverAgentThreadFromLocalSessions: boolean
     logRejectedApiRequests: boolean
+    agentReviewMode: AgentReviewMode
     agentInterpretationPolicy: string
     autosaveMaximumDelayMs: number
   }
@@ -145,6 +149,7 @@ declare global {
       defaultTreeView: readonly DefaultTreeView[]
       incomingReviewActivationPolicy: readonly IncomingReviewActivationPolicy[]
       reviewLinkActivationPolicy: readonly IncomingReviewActivationPolicy[]
+      agentReviewMode: readonly AgentReviewMode[]
     }>
     normalizeSettings: (value?: unknown) => MarkoverSettings
     updateSettings: (current: unknown, patch: unknown) => MarkoverSettings
@@ -310,7 +315,13 @@ declare global {
     review?: unknown
   }
 
-  type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
+  type ReviewStatus =
+    | 'editing'
+    | 'pending-agent'
+    | 'agent-reviewing'
+    | 'reviewed'
+    | 'revised'
+    | 'done'
 
   interface ReviewThreadHost {
     [key: string]: unknown
@@ -342,6 +353,16 @@ declare global {
     statusSource?: string
   }
 
+  interface ReviewAgentReviewer {
+    [key: string]: unknown
+    mode: AgentReviewMode
+    claimId: string
+    agentThread: ReviewAgentThread | null
+    startedAt: string
+    completedAt: string | null
+    agentGuidance: AgentGuidance
+  }
+
   interface ReviewEnvelope {
     [key: string]: unknown
     id: string
@@ -355,6 +376,7 @@ declare global {
     git: ReviewGitSnapshot | null
     pullRequest: ReviewPullRequest | null
     agentGuidance: AgentGuidance
+    agentReviewer?: ReviewAgentReviewer
   }
 
   type ReviewArtifact = Omit<ReviewTree, 'review'> & {
@@ -500,6 +522,8 @@ declare global {
   type ReviewSessionStatus =
     | 'editing'
     | 'pending-agent'
+    | 'agent-reviewing'
+    | 'reviewed'
     | 'revised'
     | 'done'
     | 'handoff-in-progress'
@@ -692,6 +716,7 @@ declare global {
     git: ReviewGitSnapshot | null
     pullRequest: ReviewPullRequest | null
     agentGuidance: AgentGuidance
+    agentReviewer?: ReviewAgentReviewer
   }
 
   type ReviewSessionTree = Omit<ReviewTree, 'review'> & {
