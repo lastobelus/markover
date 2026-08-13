@@ -139,7 +139,9 @@ comparison in runner commit `8ecb62d86ae16a5d1e5e5736fc817fcb8a8cce1f`, followed
 punctuation-aware runtime containment in runner commit
 `a5ab4abca2e11cf51e2a5e714fcbbaef777aafa7`, then numeric-leaf privacy in runner
 commit `8d921e2eb2c85ebe211e7a3daddac31d563040b6`. All nineteen immutable
-records per combination remain referenced by the matrix.
+records per combination remain referenced by the matrix. After rebasing onto
+the latest `main`, rebased head `4a077eceae1354a554868070204f1215b1269589`
+produced a twentieth record for each combination.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
 commits. GitHub retains the pull-request head ref after a squash merge, so a
