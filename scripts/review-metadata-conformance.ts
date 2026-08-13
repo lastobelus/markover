@@ -2799,6 +2799,12 @@ export function buildSanitizedEvidence(
     additivePrivateInputs.keys,
     additivePrivateInputs.scalarValues
   )
+  if (additivePrivateInputs.scalarValues.length > 0) {
+    throw new Error(
+      'Sanitized evidence runtime still contains a private artifact value; ' +
+      'additive scalar independence cannot be proven.'
+    )
+  }
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateInputs,
     evidence.runtime,

@@ -29,8 +29,21 @@ function fixture(): Record<string, unknown> {
   const value = structuredClone(
     json('test/fixtures/review-handoff-v1.json')
   ) as Record<string, unknown>
-  const rootNode = value.root as Record<string, unknown>
-  delete rootNode.fixtureNodeExtension
+  const removeFixtureExtensions = (candidate: unknown): void => {
+    if (Array.isArray(candidate)) {
+      candidate.forEach(removeFixtureExtensions)
+      return
+    }
+    if (candidate === null || typeof candidate !== 'object') return
+    for (const [key, nested] of Object.entries(candidate)) {
+      if (/^fixture.*Extension$/.test(key)) {
+        Reflect.deleteProperty(candidate, key)
+      } else {
+        removeFixtureExtensions(nested)
+      }
+    }
+  }
+  removeFixtureExtensions(value)
   const sourceDocument = value.sourceDocument as Record<string, unknown>
   const content = fs.readFileSync(
     path.join(root, 'evals/review-metadata/exercise-source.md'),
@@ -1391,7 +1404,7 @@ test('capture treats numeric extension leaves as private artifact values', async
         observation({ runtime: nestedRuntime }),
         json('evals/review-metadata/matrix.json')
       ),
-      /Base64 encoding beyond the safe decoding depth/
+      /additive scalar independence cannot be proven/
     )
   })
 
@@ -1919,6 +1932,34 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('complete uuencode envelopes in additive private values', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = {
+      secret: 'begin 644 secret\n)86-C=#$R,S0U\n`\nend'
+    }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'acct12345'
+    assert.throws(
+      () => buildSanitizedEvidence(artifact, observation({ runtime }),
+        json('evals/review-metadata/matrix.json')),
+      /additive scalar independence cannot be proven/
+    )
+  })
+
+  await t.test('unrelated additive scalar values fail closed', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { note: 'unclassified private extension' }
+    assert.throws(
+      () => buildSanitizedEvidence(artifact, observation(),
+        json('evals/review-metadata/matrix.json')),
+      /additive scalar independence cannot be proven/
+    )
+  })
+
   await t.test('Punycode private values', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -2167,7 +2208,7 @@ test('capture treats numeric extension leaves as private artifact values', async
         observation({ runtime }),
         json('evals/review-metadata/matrix.json')
       ),
-      /ambiguous embedded radix value/
+      /additive scalar independence cannot be proven/
     )
   })
 
