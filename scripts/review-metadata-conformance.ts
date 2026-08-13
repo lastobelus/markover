@@ -878,6 +878,12 @@ function assertEvidenceIdIndependent(
       true,
       4,
       true
+    ),
+    ...canonicalNumericIdentityCandidates(
+      shortPrivateValues,
+      false,
+      1,
+      true
     )
   ])
   const suffixNumericIdentities = canonicalNumericIdentityCandidates(
@@ -1236,7 +1242,7 @@ function base64DecodedVariants(value: string): string[] {
   let current = value
   const decodeOnce = (encoded: string): string | null => {
     if (
-      encoded.length < 4 ||
+      encoded.length < 2 ||
       encoded.length > 256 ||
       !/^[A-Za-z0-9+/_-]+={0,2}$/.test(encoded)
     ) {
@@ -1844,6 +1850,12 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
       shortPrivateIdentifiers,
       true,
       4,
+      true
+    ),
+    ...canonicalNumericIdentityCandidates(
+      shortPrivateValues,
+      false,
+      1,
       true
     )
   ])
