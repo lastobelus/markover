@@ -231,14 +231,17 @@ each combination.
 Arbitrary-precision integer identity canonicalization in runner commit
 `7be84c064aa0d51f32d3d734606234413c45b73f` produced a fifty-second record for
 each combination.
+Complete version-prefix stripping for numeric identities in runner commit
+`ffba3af929902bdd5054a927d640690c60d009b3` produced a fifty-third record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v32` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v33` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v32
+git fetch origin refs/tags/issue-136-runner-history-v33
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

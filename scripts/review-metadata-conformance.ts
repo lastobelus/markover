@@ -1153,20 +1153,30 @@ function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
 function percentDecodedVariants(value: string): string[] {
   const variants: string[] = []
   let current = value
-  for (let pass = 0; pass < 5; pass += 1) {
+  const decodeOnce = (encoded: string): string => {
     let decoded: string
     try {
-      decoded = decodeURIComponent(current)
+      decoded = decodeURIComponent(encoded)
     } catch {
-      decoded = current.replace(
+      decoded = encoded.replace(
         /%([0-7][0-9a-f])/gi,
         (_match: string, hex: string) =>
           String.fromCharCode(Number.parseInt(hex, 16))
       )
     }
+    return decoded
+  }
+  const maximumPasses = 32
+  for (let pass = 0; pass < maximumPasses; pass += 1) {
+    const decoded = decodeOnce(current)
     if (decoded === current) break
     variants.push(decoded)
     current = decoded
+  }
+  if (decodeOnce(current) !== current) {
+    throw new Error(
+      'Raw artifact contains percent encoding beyond the safe decoding depth.'
+    )
   }
   return variants
 }
