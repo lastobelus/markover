@@ -28,6 +28,8 @@ function fixture(): Record<string, unknown> {
   const value = structuredClone(
     json('test/fixtures/review-handoff-v1.json')
   ) as Record<string, unknown>
+  const rootNode = value.root as Record<string, unknown>
+  delete rootNode.fixtureNodeExtension
   const sourceDocument = value.sourceDocument as Record<string, unknown>
   const content = fs.readFileSync(
     path.join(root, 'evals/review-metadata/exercise-source.md'),
@@ -571,6 +573,26 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('short additive numeric scalar embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { account: 123 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'model123'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__deadbeef',
+          runtime
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('short additive key embedded in evidence ID suffix', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -581,6 +603,23 @@ test('capture treats additive extension keys as private artifact values', async 
         artifact,
         observation({
           evidenceId: '2026-08-12__t3code-codex__xxxxacct'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
+  await t.test('short additive numeric scalar in evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { account: 123 }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxxxx123'
         }),
         json('evals/review-metadata/matrix.json')
       ),
