@@ -1,0 +1,60 @@
+{
+  "checks": {
+    "threadHostIdAccepted": true,
+    "guessedValuesAbsent": true,
+    "machineAttempted": true,
+    "nullFallbackTruthful": true,
+    "portableV1Valid": true,
+    "requiredFieldsObserved": true,
+    "sanitized": true,
+    "supportedCombination": true
+  },
+  "discovery": {
+    "hostKind": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostProvider": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostThreadId": {
+      "source": "not-exposed",
+      "status": "unavailable"
+    },
+    "machine": {
+      "source": "hostname-command",
+      "status": "observed"
+    },
+    "providerThreadId": {
+      "source": "agent-runtime",
+      "status": "observed"
+    }
+  },
+  "evidenceId": "2026-08-13__t3code-codex__aqzvnjki",
+  "exercisedAt": "2026-08-13T17:21:28.000Z",
+  "matrixEntryId": "t3code-codex",
+  "relationships": {
+    "identity": "identified",
+    "threadHostId": "omitted"
+  },
+  "runtime": {
+    "hostVersion": null,
+    "hostVersionSource": "not-exposed",
+    "providerModel": "gpt-5.6-sol",
+    "providerModelSource": "runtime-context",
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
+  },
+  "sanitizedAgentThread": {
+    "id": "<redacted-provider-thread-id>",
+    "threadHost": {
+      "kind": "t3code",
+      "provider": "codex",
+      "machine": "<redacted-machine>"
+    }
+  },
+  "schemaVersion": 1,
+  "sourceCommit": "85feb53c8311526280f55dd31e9601c5d2629cbc",
+  "sourcePullRequest": "https://github.com/lastobelus/markover/pull/141"
+}

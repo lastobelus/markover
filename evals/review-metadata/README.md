@@ -402,14 +402,17 @@ record for each combination, using independent suffix `8qzvnjkh`.
 Whitespace-folded Base64 comparison in runner commit
 `e3701fa68cdf378098b989d8d06f3925b5581f85` produced a one-hundred-eighth
 record for each combination, using independent suffix `9qzvnjkh`.
+Quoted-printable comparison in runner commit
+`85feb53c8311526280f55dd31e9601c5d2629cbc` produced a one-hundred-ninth record
+for each combination, using independent suffix `aqzvnjki`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v92` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v93` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v92
+git fetch origin refs/tags/issue-136-runner-history-v93
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
