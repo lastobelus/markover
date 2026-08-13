@@ -124,7 +124,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 264,
+    evidenceCount: 267,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -1514,6 +1514,20 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('multibase Base58flickr private identities', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'Z2eU6GwpUigB3M'
+    assert.throws(
+      () => buildSanitizedEvidence(artifact, observation({ runtime }),
+        json('evals/review-metadata/matrix.json')),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('digit-only fixed-width hexadecimal identities', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -2133,7 +2147,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 265,
+    evidenceCount: 268,
     matrixEntryCount: 3
   })
 

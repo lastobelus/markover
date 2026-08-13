@@ -1470,8 +1470,11 @@ function base32zDecodedVariants(value: string): string[] {
   return variants
 }
 
-function base58btcDecodedVariants(value: string): string[] {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+function base58DecodedVariants(
+  value: string,
+  alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
+  label = 'Base58btc'
+): string[] {
   const encode = (bytes: Uint8Array): string => {
     let leadingZeroes = 0
     while (leadingZeroes < bytes.length && bytes[leadingZeroes] === 0) {
@@ -1531,7 +1534,7 @@ function base58btcDecodedVariants(value: string): string[] {
   }
   if (completedPasses === maximumPasses && decodeOnce(current) !== null) {
     throw new Error(
-      'Sanitized evidence contains Base58btc encoding beyond the safe decoding depth.'
+      `Sanitized evidence contains ${label} encoding beyond the safe decoding depth.`
     )
   }
   return variants
@@ -1586,7 +1589,13 @@ function multibaseDecodedVariants(value: string): string[] {
     case '7':
       return [/^[0-7]+$/.test(body) ? `0o${body}` : body]
     case 'z':
-      return base58btcDecodedVariants(body)
+      return base58DecodedVariants(body)
+    case 'Z':
+      return base58DecodedVariants(
+        body,
+        '123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ',
+        'Base58flickr'
+      )
     case 'b':
     case 'B':
       return base32DecodedVariants(body)
@@ -1624,7 +1633,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base32DecodedVariants(current),
       ...base32hexDecodedVariants(current),
       ...base32zDecodedVariants(current),
-      ...base58btcDecodedVariants(current),
+      ...base58DecodedVariants(current),
       ...hexadecimalDecodedVariants(current),
       ...multibaseDecodedVariants(current)
     ]) {
