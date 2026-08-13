@@ -294,6 +294,24 @@ test('capture compares private identifiers without case distinctions', async (t)
     )
   })
 
+  await t.test('short identifier component embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    thread.id = 'acct-secret'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('runtime token copied from within a private identifier', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -715,6 +733,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     agentThread(artifact)
     const rootNode = artifact.root as Record<string, unknown>
     rootNode.fixtureExtension = { accountId: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '1.2345678e7'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('scientific notation for a non-ID numeric extension', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { account: 12345678 }
     const runtime = observation().runtime as Record<string, unknown>
     runtime.providerModel = '1.2345678e7'
     assert.throws(

@@ -1129,6 +1129,11 @@ function shortIdentifierContainmentCandidates(
       if (variant) candidates.add(variant.toLowerCase())
       const stripped = variant.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
       if (stripped) candidates.add(stripped)
+      for (const segment of variant
+        .split(/[^A-Za-z0-9]+/)
+        .filter((candidate) => candidate.length >= 4)) {
+        candidates.add(segment.toLowerCase())
+      }
     }
   }
   return candidates
@@ -1196,7 +1201,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     shortPrivateIdentifiers
   )
   const privateNumericIdentities = canonicalNumericIdentityCandidates(
-    shortPrivateIdentifiers
+    [...completePrivate, ...shortPrivateIdentifiers]
   )
   const runtimeNumericIdentities = canonicalNumericIdentityCandidates(
     persistedRuntimeValues
