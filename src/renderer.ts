@@ -4118,17 +4118,22 @@ elements.annotationViewList.addEventListener('click', () => {
   setAnnotationView('list')
 })
 function moveAnnotationViewTabFromKeyboard(event: KeyboardEvent): void {
-  const direction = event.key === 'ArrowLeft' || event.key === 'Home'
-    ? 'selected'
-    : event.key === 'ArrowRight' || event.key === 'End'
-      ? 'list'
-      : null
-  if (!direction) return
-  const target = direction === 'selected'
-    ? elements.annotationViewSelected
-    : elements.annotationViewList
-  if (target.disabled) return
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  const tabs = [elements.annotationViewSelected, elements.annotationViewList]
+    .filter((tab) => !tab.disabled)
+  const currentIndex = tabs.indexOf(event.currentTarget as HTMLButtonElement)
+  if (currentIndex < 0 || tabs.length === 0) return
+  const targetIndex = event.key === 'Home'
+    ? 0
+    : event.key === 'End'
+      ? tabs.length - 1
+      : event.key === 'ArrowLeft'
+        ? (currentIndex - 1 + tabs.length) % tabs.length
+        : (currentIndex + 1) % tabs.length
+  const target = tabs[targetIndex]
+  if (!target) return
   event.preventDefault()
+  const direction = target === elements.annotationViewSelected ? 'selected' : 'list'
   setAnnotationView(direction)
   requestAnimationFrame(() => { target.focus() })
 }

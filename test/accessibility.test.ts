@@ -125,7 +125,7 @@ test('keyboard access reaches native controls and retains an explicit pane short
   )
   assert.match(
     renderer,
-    /moveAnnotationViewTabFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight[\s\S]*target\.focus/
+    /moveAnnotationViewTabFromKeyboard[\s\S]*filter\(\(tab\) => !tab\.disabled\)[\s\S]*currentIndex - 1 \+ tabs\.length\) % tabs\.length[\s\S]*currentIndex \+ 1\) % tabs\.length[\s\S]*target\.focus/
   )
   assert.match(
     renderer,
