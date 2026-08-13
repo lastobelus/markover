@@ -485,6 +485,20 @@ export function verifySourceCommitPullRequest(
       `Cannot bind running recorder sources to sourceCommit: ${matchingSources.stderr.trim()}`
     )
   }
+  const untrackedSources = git(
+    ['ls-files', '--others', '--exclude-standard', '--', ...runnerSourcePaths],
+    cwd
+  )
+  if (untrackedSources.status !== 0) {
+    throw new Error(
+      `Cannot inspect untracked metadata recorder sources: ${untrackedSources.stderr.trim()}`
+    )
+  }
+  if (untrackedSources.stdout.trim()) {
+    throw new Error(
+      'Running metadata recorder sources must not contain untracked inputs.'
+    )
+  }
 }
 
 function parseDiscovery(
@@ -818,7 +832,7 @@ function assertEvidenceIdIndependent(
   shortPrivateValues: Array<string | null | undefined> = []
 ): void {
   const suffix = evidenceId.slice(-8).toLowerCase()
-  const suffixValues = [suffix, ...base64DecodedVariants(suffix)]
+  const suffixValues = [suffix, ...reversibleDecodedVariants(suffix)]
   const privateCandidates = privateValueCandidates(
     privateValues,
     alwaysPrivate,
@@ -1238,6 +1252,30 @@ function base64DecodedVariants(value: string): string[] {
   return variants
 }
 
+function reversibleDecodedVariants(value: string): string[] {
+  const variants = new Set<string>()
+  const pending = [value]
+  const maximumVariants = 256
+  while (pending.length > 0) {
+    const current = pending.shift()
+    if (current === undefined) break
+    for (const candidate of [
+      ...percentDecodedVariants(current),
+      ...base64DecodedVariants(current)
+    ]) {
+      if (candidate === value || variants.has(candidate)) continue
+      if (variants.size >= maximumVariants) {
+        throw new Error(
+          'Sanitized evidence contains reversible encoding beyond the safe variant bound.'
+        )
+      }
+      variants.add(candidate)
+      pending.push(candidate)
+    }
+  }
+  return [...variants]
+}
+
 function privateValueCandidates(
   values: Array<string | null | undefined>,
   alwaysPrivate: Array<string | null | undefined> = [],
@@ -1284,12 +1322,17 @@ function privateValueCandidates(
     }
   }
   for (const value of values) {
-    if (value !== null && value !== undefined) addValue(value, 8)
+    if (value !== null && value !== undefined) {
+      addValue(value, 8)
+      for (const decoded of reversibleDecodedVariants(value)) {
+        addValue(decoded, 8)
+      }
+    }
   }
   for (const value of alwaysPrivate) {
     if (value !== null && value !== undefined) {
       addValue(value, 1)
-      for (const decoded of percentDecodedVariants(value)) {
+      for (const decoded of reversibleDecodedVariants(value)) {
         addValue(decoded, 1)
       }
     }
@@ -1297,7 +1340,7 @@ function privateValueCandidates(
   for (const value of completePrivate) {
     if (value !== null && value !== undefined) {
       addValue(value, 8, true)
-      for (const decoded of percentDecodedVariants(value)) {
+      for (const decoded of reversibleDecodedVariants(value)) {
         addValue(decoded, 8, true)
       }
     }
@@ -1323,7 +1366,7 @@ function shortIdentifierContainmentCandidates(
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
-    for (const variant of [value, ...percentDecodedVariants(value)]) {
+    for (const variant of [value, ...reversibleDecodedVariants(value)]) {
       if (variant.length >= minimumLength) candidates.add(variant.toLowerCase())
       const stripped = variant.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
       if (stripped.length >= minimumLength) candidates.add(stripped)
@@ -1373,7 +1416,7 @@ function canonicalNumericIdentityCandidates(
   const candidates = new Set<string>()
   for (const value of values) {
     if (value === null || value === undefined) continue
-    for (const variant of [value, ...percentDecodedVariants(value)]) {
+    for (const variant of [value, ...reversibleDecodedVariants(value)]) {
       const segments = variant.split(' ')
       const numericSegments = new Set([variant])
       for (let start = 0; start < segments.length; start += 1) {
@@ -1525,7 +1568,7 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     runtime.providerVersion
   ]
   const expandedRuntimeValues = persistedRuntimeValues.flatMap((value) =>
-    value === null ? [value] : [value, ...base64DecodedVariants(value)])
+    value === null ? [value] : [value, ...reversibleDecodedVariants(value)])
   const privateCandidates = privateValueCandidates(
     values,
     alwaysPrivate,
