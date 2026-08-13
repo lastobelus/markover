@@ -1806,9 +1806,13 @@ function multibaseDecodedVariants(value: string): string[] {
       return base45DecodedVariants(body)
     case 'b':
     case 'B':
+    case 'c':
+    case 'C':
       return base32DecodedVariants(body)
     case 'v':
     case 'V':
+    case 't':
+    case 'T':
       return base32hexDecodedVariants(body)
     case 'h':
       return base32zDecodedVariants(body)

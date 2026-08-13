@@ -125,7 +125,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 282,
+    evidenceCount: 285,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -142,7 +142,7 @@ test('corpus validation passes every record to provenance verification', () => {
     assert.ok(evidence.every(({ sourceCommit }) => sourceCommit.length === 40))
   }
   validateMetadataCorpus(root, true, verifyDefect, verifyProvenance)
-  assert.equal(received, 282)
+  assert.equal(received, 285)
 })
 
 test('corpus provenance includes GitHub-recorded pre-force-push heads', () => {
@@ -1514,6 +1514,30 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('padded multibase Base32 private values', () => {
+    for (const secret of [
+      'cMFRWG5BRGIZTINI=',
+      'CMFRWG5BRGIZTINI=',
+      'tC5HM6T1H68PJ8D8=',
+      'TC5HM6T1H68PJ8D8='
+    ]) {
+      const artifact = fixture()
+      agentThread(artifact)
+      const rootNode = artifact.root as Record<string, unknown>
+      rootNode.fixtureExtension = { secret }
+      const runtime = observation().runtime as Record<string, unknown>
+      runtime.providerModel = 'acct12345'
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observation({ runtime }),
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
+      )
+    }
+  })
+
   await t.test('multibase-prefixed base-36 private numeric identities', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -2296,7 +2320,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 283,
+    evidenceCount: 286,
     matrixEntryCount: 3
   })
 
