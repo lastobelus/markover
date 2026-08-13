@@ -986,7 +986,10 @@ function privateAdditiveArtifactInputs(artifactValue: unknown): {
   keys: string[]
   scalarValues: string[]
 } {
-  const knownFields = (fields: string[]): Set<string> | undefined => {
+  const knownFields = (
+    fields: string[],
+    value: JsonRecord
+  ): Set<string> | undefined => {
     const joined = fields.join('.')
     if (!joined) {
       return new Set([
@@ -1000,11 +1003,25 @@ function privateAdditiveArtifactInputs(artifactValue: unknown): {
       return new Set(['line', 'text'])
     }
     if (/^root(?:\.children\.\d+)*$/.test(joined)) {
-      return new Set([
+      const commonNodeFields = [
         'id', 'type', 'raw', 'text', 'lineStart', 'lineEnd', 'feedback',
-        'children', 'sourceEditable', 'sourceEdit', 'attachments', 'level',
-        'language', 'key', 'marker', 'listId', 'listPosition', 'listLength',
-        'task', 'checked'
+        'children', 'sourceEditable', 'sourceEdit', 'attachments'
+      ]
+      const typeSpecificFields: Record<string, string[]> = {
+        heading: ['level'],
+        code: ['language'],
+        'frontmatter-entry': ['key'],
+        'ordered-item': [
+          'marker', 'listId', 'listPosition', 'listLength', 'task', 'checked'
+        ],
+        'unordered-item': [
+          'marker', 'listId', 'listPosition', 'listLength', 'task', 'checked'
+        ]
+      }
+      const nodeType = typeof value.type === 'string' ? value.type : ''
+      return new Set([
+        ...commonNodeFields,
+        ...(typeSpecificFields[nodeType] ?? [])
       ])
     }
     if (/^root(?:\.children\.\d+)*\.sourceEdit$/.test(joined)) {
@@ -1062,7 +1079,7 @@ function privateAdditiveArtifactInputs(artifactValue: unknown): {
       return
     }
     if (!isRecord(value)) return
-    const known = knownFields(fields)
+    const known = knownFields(fields, value)
     for (const [field, nested] of Object.entries(value)) {
       const additive = known?.has(field) !== true
       if (additive) {
