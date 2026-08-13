@@ -297,14 +297,17 @@ Private-identifier numeric-component and exercise-directory provenance
 comparison in runner commit `9f1995eabcc9ef01128ab9afc022e90d7f0adc9c`
 produced a seventy-third record for each combination, using independent suffix
 `nqzvmjkh`.
+Canonical Base64 and Base64url private-value comparison in runner commit
+`bf95592d2f61a8f65037e788ccc2838e18e188a6` produced a seventy-fourth record for
+each combination, using independent suffix `pqzvmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v56` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v57` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v56
+git fetch origin refs/tags/issue-136-runner-history-v57
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
