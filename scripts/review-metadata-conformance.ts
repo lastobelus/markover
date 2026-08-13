@@ -843,7 +843,10 @@ function assertEvidenceIdIndependent(
   const privateNumericIdentities = canonicalNumericIdentityCandidates(
     [...completePrivate, ...shortPrivateIdentifiers]
   )
-  const suffixNumericIdentities = canonicalNumericIdentityCandidates([suffix])
+  const suffixNumericIdentities = canonicalNumericIdentityCandidates(
+    [suffix],
+    true
+  )
   const suffixContainsPrivate = [...containmentPrivateCandidates].some(
     (privateCandidate) =>
     (privateCandidate.length >= 8 ||

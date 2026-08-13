@@ -1115,6 +1115,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('embedded radix evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 123456 }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__x0x1e240'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   for (const radixValue of [
     '0xBC614E',
     '0o57060516',
