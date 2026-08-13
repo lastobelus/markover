@@ -18,6 +18,8 @@ import {
   type ExecuteCommandOptions
 } from '../scripts/markover'
 import type { ResolvedInstance } from '../src/instance'
+import type { CanonicalDoctorResult } from '../src/canonical-maintenance'
+import type { LinkHandlerMutationResult } from '../src/link-handler'
 import { guidance } from '../src/agent-guidance'
 import { LocalServiceError } from '../src/local-client'
 import { startLocalService, type LocalService } from '../src/local-service'
@@ -294,6 +296,10 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
       events.push(`build:${checkout}`)
       return Promise.resolve()
     },
+    checkoutIsClean() {
+      events.push('clean')
+      return true
+    },
     doctor() {
       events.push('doctor')
       return Promise.resolve(doctor)
@@ -304,6 +310,13 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     quit(endpointPath) {
       events.push(`quit:${endpointPath}`)
       return Promise.resolve()
+    },
+    readProcessPid(endpointPath) {
+      events.push(`read-pid:${endpointPath}`)
+      return Promise.resolve(123)
+    },
+    isProcessAlive() {
+      return false
     },
     replaceHandler() {
       events.push('replace-handler')
@@ -319,7 +332,9 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     }
   })
   assert.deepEqual(events, [
+    'clean',
     'build:/canonical',
+    'read-pid:/state/service.json',
     'quit:/state/service.json',
     'launch',
     'replace-handler',
@@ -333,6 +348,98 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     handler,
     doctor
   })
+})
+
+test('canonical refresh rejects dirty state before build or downtime', async () => {
+  const events: string[] = []
+  await assert.rejects(
+    refreshCanonicalInstance({
+      checkoutIsClean() {
+        events.push('clean')
+        return false
+      },
+      build() {
+        events.push('build')
+        return Promise.resolve()
+      },
+      quit() {
+        events.push('quit')
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve({
+          identity: { kind: 'canonical', key: 'canonical' },
+          checkout: '/canonical',
+          process: { status: 'running' },
+          coldStart: { eligible: false, blockedBy: 'already-running' },
+          service: { endpointPath: '/state/service.json' }
+        } as unknown as ResolvedInstance)
+      }
+    }),
+    /configured checkout is dirty/
+  )
+  assert.deepEqual(events, ['clean'])
+})
+
+test('canonical refresh waits for the old process after its service stops', async () => {
+  const running = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical',
+    process: { status: 'running' },
+    coldStart: { eligible: false, blockedBy: 'already-running' },
+    service: { endpointPath: '/state/service.json' }
+  } as unknown as ResolvedInstance
+  const stopped = {
+    ...running,
+    process: { status: 'stopped' },
+    coldStart: { eligible: true, blockedBy: null }
+  } as ResolvedInstance
+  const resolved = [running, stopped, stopped, running]
+  const alive = [true, false, false]
+  const events: string[] = []
+  await refreshCanonicalInstance({
+    build: () => Promise.resolve(),
+    checkoutIsClean: () => true,
+    doctor: () => Promise.resolve({
+      status: 'healthy',
+      issues: []
+    } as unknown as CanonicalDoctorResult),
+    isProcessAlive(pid) {
+      events.push(`alive:${String(pid)}`)
+      return alive.shift() ?? false
+    },
+    launch() {
+      events.push('launch')
+    },
+    quit: () => Promise.resolve(),
+    readProcessPid: () => Promise.resolve(123),
+    replaceHandler: () => Promise.resolve({
+      status: 'healthy'
+    } as unknown as LinkHandlerMutationResult),
+    resolve() {
+      const instance = resolved.shift()
+      assert.ok(instance)
+      events.push(`resolve:${instance.process.status}`)
+      return Promise.resolve(instance)
+    },
+    wait() {
+      events.push('wait')
+      return Promise.resolve()
+    }
+  })
+  assert.deepEqual(events, [
+    'resolve:running',
+    'wait',
+    'resolve:stopped',
+    'alive:123',
+    'wait',
+    'resolve:stopped',
+    'alive:123',
+    'alive:123',
+    'launch',
+    'wait',
+    'resolve:running'
+  ])
 })
 
 test('help and info aliases return service-free machine-readable guidance', async () => {

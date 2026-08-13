@@ -10,6 +10,7 @@ import path from 'node:path'
 import {
   LocalServiceError,
   probeService,
+  readEndpoint,
   requestJson,
   requestServiceQuit
 } from '../src/local-client'
@@ -798,10 +799,13 @@ export interface CanonicalRefreshResult {
 
 export interface RefreshCanonicalOptions {
   build?: (checkout: string) => Promise<void>
+  checkoutIsClean?: (checkout: string) => boolean
   doctor?: (instance: ResolvedInstance) => Promise<CanonicalDoctorResult>
+  isProcessAlive?: (pid: number) => boolean
   launch?: (instance: ResolvedInstance) => void
   now?: () => number
   quit?: (endpointPath: string) => Promise<void>
+  readProcessPid?: (endpointPath: string) => Promise<number>
   replaceHandler?: (
     instance: ResolvedInstance
   ) => Promise<LinkHandlerMutationResult>
@@ -826,6 +830,29 @@ function buildCanonicalCheckout(checkout: string): Promise<void> {
     throw new Error(`Canonical build failed: ${commandFailure(result)}`)
   }
   return Promise.resolve()
+}
+
+function canonicalCheckoutIsClean(checkout: string): boolean {
+  const result = spawnSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=all'],
+    { cwd: checkout, encoding: 'utf8' }
+  )
+  if (result.error || result.status !== 0) {
+    throw new Error(
+      `Cannot inspect canonical checkout cleanliness: ${commandFailure(result)}`
+    )
+  }
+  return typeof result.stdout === 'string' && result.stdout.trim() === ''
+}
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return errorCode(error) !== 'ESRCH'
+  }
 }
 
 function launchCanonicalCheckout(instance: ResolvedInstance): void {
@@ -863,10 +890,15 @@ function sameCanonicalCheckout(
 
 export async function refreshCanonicalInstance({
   build = buildCanonicalCheckout,
+  checkoutIsClean = canonicalCheckoutIsClean,
   doctor = (instance) => inspectCanonicalHealth(instance),
+  isProcessAlive = processIsAlive,
   launch = launchCanonicalCheckout,
   now = Date.now,
   quit = requestServiceQuit,
+  readProcessPid = async (endpointPath) => (
+    await readEndpoint(endpointPath)
+  ).pid,
   replaceHandler = (instance) => installLinkHandler(
     'replace',
     instance,
@@ -892,13 +924,24 @@ export async function refreshCanonicalInstance({
       `Cannot refresh canonical: ${initial.coldStart.blockedBy || 'checkout unavailable'}.`
     )
   }
+  if (!checkoutIsClean(initial.checkout)) {
+    throw new Error(
+      `Cannot refresh canonical: the configured checkout is dirty (${initial.checkout}).`
+    )
+  }
   await build(initial.checkout)
   const deadline = now() + timeoutMilliseconds
+  const previousPid = initial.process.status === 'running'
+    ? await readProcessPid(initial.service.endpointPath)
+    : null
   if (initial.process.status === 'running') {
     await quit(initial.service.endpointPath)
   }
   let stopped = initial
-  while (stopped.process.status !== 'stopped' && now() < deadline) {
+  while ((
+    stopped.process.status !== 'stopped' ||
+    (previousPid !== null && isProcessAlive(previousPid))
+  ) && now() < deadline) {
     await wait(100)
     stopped = await resolve()
     if (!sameCanonicalCheckout(initial, stopped)) {
@@ -907,6 +950,11 @@ export async function refreshCanonicalInstance({
   }
   if (stopped.process.status !== 'stopped') {
     throw new Error('Timed out waiting for canonical shutdown.')
+  }
+  if (previousPid !== null && isProcessAlive(previousPid)) {
+    throw new Error(
+      `Timed out waiting for canonical process ${String(previousPid)} to release its single-instance lock.`
+    )
   }
   if (!stopped.coldStart.eligible) {
     stopped = {
