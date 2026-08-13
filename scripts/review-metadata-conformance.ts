@@ -1373,7 +1373,7 @@ function canonicalNumericIdentityCandidates(
               numericValues.add(match[0])
             }
             for (const match of normalizedValue.matchAll(/[0-9a-f]+/gi)) {
-              for (const width of [8, 16, 32, 40, 64]) {
+              for (let width = 8; width <= match[0].length; width += 1) {
                 for (let start = 0; start + width <= match[0].length; start += 1) {
                   const window = match[0].slice(start, start + width)
                   const decimal = BigInt(`0x${window}`).toString()

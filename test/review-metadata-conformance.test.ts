@@ -1231,6 +1231,24 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('embedded 12-character hexadecimal runtime identity', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 20015998343868 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerVersion = 'sdk-123456789abc'
+    runtime.providerVersionSource = 'runtime-context'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   for (const radixValue of [
     '0xBC614E',
     '0o57060516',
