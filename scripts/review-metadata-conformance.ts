@@ -807,6 +807,15 @@ function assertEvidenceIdIndependent(
   }
 }
 
+function artifactStringLeaves(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap(artifactStringLeaves)
+  if (isRecord(value)) {
+    return Object.values(value).flatMap(artifactStringLeaves)
+  }
+  return []
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation
@@ -947,17 +956,7 @@ export function buildSanitizedEvidence(
     sourcePullRequest: observation.sourcePullRequest
   }
   assertSensitiveLeavesRedacted(sensitiveLeaves)
-  const privateArtifactValues = [
-    artifact.sourceDocument.name,
-    artifact.sourceDocument.path,
-    artifact.sourceDocument.checksum,
-    artifact.review.id,
-    artifact.review.git?.repositoryUrl,
-    artifact.review.git?.branch,
-    artifact.review.git?.commit,
-    artifact.review.pullRequest?.url,
-    ...sensitiveLeaves.map(({ raw }) => raw)
-  ]
+  const privateArtifactValues = artifactStringLeaves(artifact)
   assertEvidenceIdIndependent(evidence.evidenceId, privateArtifactValues)
   assertPrivateArtifactValuesAbsentFromRuntime(
     privateArtifactValues,

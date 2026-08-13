@@ -248,6 +248,28 @@ test('capture rejects a private identity used as a complete runtime segment', ()
   )
 })
 
+test('capture rejects free-form raw artifact strings used as runtime evidence', async (t) => {
+  for (const [label, providerModel] of [
+    ['feedback', 'Clarify the heading.'],
+    ['attachment label', 'Reference image']
+  ] as const) {
+    await t.test(label, () => {
+      const artifact = fixture()
+      agentThread(artifact)
+      const runtime = observation().runtime as Record<string, unknown>
+      runtime.providerModel = providerModel
+      assert.throws(
+        () => buildSanitizedEvidence(
+          artifact,
+          observation({ runtime }),
+          json('evals/review-metadata/matrix.json')
+        ),
+        /runtime still contains a private artifact value/
+      )
+    })
+  }
+})
+
 test('failed automatic checks can produce only closed sanitized evidence', () => {
   const artifact = fixture()
   agentThread(artifact)
