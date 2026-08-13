@@ -423,6 +423,42 @@ test('capture treats additive extension keys as private artifact values', async 
   })
 })
 
+test('capture treats numeric extension leaves as private artifact values', async (t) => {
+  await t.test('runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '12345678'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
+  await t.test('evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__12345678'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+})
+
 test('capture treats ignored limitation strings as private inputs', async (t) => {
   await t.test('runtime value', () => {
     const artifact = fixture()
@@ -523,6 +559,24 @@ test('failure evidence rejects a suffix copied from an extension key', () => {
       artifact,
       observation({
         evidenceId: '2026-08-12__t3code-codex__deadbeef'
+      }),
+      json('evals/review-metadata/matrix.json'),
+      999
+    ),
+    /Failure evidence ID suffix must be independent of every raw artifact string and key/
+  )
+})
+
+test('failure evidence rejects a suffix copied from a numeric extension leaf', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const rootNode = artifact.root as Record<string, unknown>
+  rootNode.fixtureExtension = { accountId: 12345678 }
+  assert.throws(
+    () => recordConformanceEvidence(
+      artifact,
+      observation({
+        evidenceId: '2026-08-12__t3code-codex__12345678'
       }),
       json('evals/review-metadata/matrix.json'),
       999

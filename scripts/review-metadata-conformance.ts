@@ -824,6 +824,7 @@ function assertEvidenceIdIndependent(
 
 function artifactStringsAndKeys(value: unknown): string[] {
   if (typeof value === 'string') return [value]
+  if (typeof value === 'number') return [String(value)]
   if (Array.isArray(value)) return value.flatMap(artifactStringsAndKeys)
   if (isRecord(value)) {
     return Object.entries(value).flatMap(([key, nested]) => [
