@@ -158,7 +158,9 @@ path-component comparison in runner commit
 `db4f833003fb6d861401252602f2242f360a0896` produced a twenty-fourth record for
 each combination. Shared explicit-private normalization for passing and failure
 evidence in runner commit `10d7dbef69f48a1373ae77dd50047fe46fb89be7`
-produced a twenty-fifth record for each combination.
+produced a twenty-fifth record for each combination. Short complete private-leaf
+retention in runner commit `aae18de00aa03a4dacb783ceff222f7c092bb7ba`
+produced a twenty-sixth record for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
