@@ -1196,17 +1196,16 @@ function percentDecodedVariants(value: string): string[] {
 function base64DecodedVariants(value: string): string[] {
   const variants: string[] = []
   let current = value
-  const maximumPasses = 4
-  for (let pass = 0; pass < maximumPasses; pass += 1) {
+  const decodeOnce = (encoded: string): string | null => {
     if (
-      current.length < 4 ||
-      current.length > 256 ||
-      !/^[A-Za-z0-9+/_-]+={0,2}$/.test(current)
+      encoded.length < 4 ||
+      encoded.length > 256 ||
+      !/^[A-Za-z0-9+/_-]+={0,2}$/.test(encoded)
     ) {
-      break
+      return null
     }
-    const unpadded = current.replace(/=+$/, '')
-    if (unpadded.length % 4 === 1) break
+    const unpadded = encoded.replace(/=+$/, '')
+    if (unpadded.length % 4 === 1) return null
     const normalized = unpadded
       .replace(/-/g, '+')
       .replace(/_/g, '/')
@@ -1214,16 +1213,27 @@ function base64DecodedVariants(value: string): string[] {
     const bytes = Buffer.from(normalized, 'base64')
     const canonical = bytes.toString('base64').replace(/=+$/, '')
     const canonicalUrl = canonical.replace(/\+/g, '-').replace(/\//g, '_')
-    if (unpadded !== canonical && unpadded !== canonicalUrl) break
-    let decoded: string
+    if (unpadded !== canonical && unpadded !== canonicalUrl) return null
     try {
-      decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      return decoded && decoded !== encoded ? decoded : null
     } catch {
-      break
+      return null
     }
-    if (!decoded || decoded === current) break
+  }
+  const maximumPasses = 4
+  let completedPasses = 0
+  for (let pass = 0; pass < maximumPasses; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
     variants.push(decoded)
     current = decoded
+    completedPasses += 1
+  }
+  if (completedPasses === maximumPasses && decodeOnce(current) !== null) {
+    throw new Error(
+      'Sanitized evidence contains Base64 encoding beyond the safe decoding depth.'
+    )
   }
   return variants
 }

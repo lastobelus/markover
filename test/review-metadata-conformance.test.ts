@@ -1251,6 +1251,21 @@ test('capture treats numeric extension leaves as private artifact values', async
       ),
       /Evidence ID suffix must be independent of private artifact values/
     )
+
+    const nestedArtifact = fixture()
+    agentThread(nestedArtifact)
+    const nestedRoot = nestedArtifact.root as Record<string, unknown>
+    nestedRoot.fixtureExtension = { account: '2ljm' }
+    const nestedRuntime = observation().runtime as Record<string, unknown>
+    nestedRuntime.providerModel = 'VmtaamVFNUhUbGhUYkVwUlZrUkJPUT09'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        nestedArtifact,
+        observation({ runtime: nestedRuntime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Base64 encoding beyond the safe decoding depth/
+    )
   })
 
   await t.test('digit-only fixed-width hexadecimal identities', () => {
