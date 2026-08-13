@@ -1364,6 +1364,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('Base58btc encoded private identities', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '2Eu6hXQuJGc3n'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('digit-only fixed-width hexadecimal identities', () => {
     const artifact = fixture()
     agentThread(artifact)
