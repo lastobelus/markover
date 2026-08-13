@@ -101,11 +101,11 @@ export async function writePrivateEnrichmentJson(
 }
 
 class EnrichmentAdmissionGate {
-  private blocked = false
+  private pauseOwners = 0
   private readonly active = new Set<Promise<unknown>>()
 
   run<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.blocked) {
+    if (this.pauseOwners > 0) {
       return Promise.reject(new PrivateEnrichmentStoreError(
         'ENRICHMENT_PAUSED',
         'Private review enrichment changes are unavailable right now.'
@@ -119,12 +119,12 @@ class EnrichmentAdmissionGate {
   }
 
   async pauseAndDrain(): Promise<void> {
-    this.blocked = true
+    this.pauseOwners += 1
     while (this.active.size) await Promise.allSettled([...this.active])
   }
 
   resume(): void {
-    this.blocked = false
+    if (this.pauseOwners > 0) this.pauseOwners -= 1
   }
 
   async drain(): Promise<void> {
@@ -132,7 +132,7 @@ class EnrichmentAdmissionGate {
   }
 
   get isBlocked(): boolean {
-    return this.blocked
+    return this.pauseOwners > 0
   }
 }
 

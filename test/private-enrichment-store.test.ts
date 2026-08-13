@@ -443,6 +443,26 @@ test('pause drains admitted work and rejects later mutations', async (t) => {
   await value.store.observeThreadTitle(identity(), title())
 })
 
+test('overlapping pause owners keep enrichment blocked until all resume', async (t) => {
+  const value = await fixture()
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  await Promise.all([
+    value.store.pauseAndDrain(),
+    value.store.pauseAndDrain()
+  ])
+
+  value.store.resume()
+  await assert.rejects(
+    value.store.observeThreadTitle(identity(), title()),
+    (error: unknown) => (
+      error instanceof PrivateEnrichmentStoreError &&
+      error.code === 'ENRICHMENT_PAUSED'
+    )
+  )
+  value.store.resume()
+  await value.store.observeThreadTitle(identity(), title())
+})
+
 test('post-trash cleanup retains references and fails closed on uncertain reviews', async (t) => {
   const ids = ['mko_review1', 'mko_review2']
   const value = await fixture()
