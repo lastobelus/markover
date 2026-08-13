@@ -1689,6 +1689,48 @@ function base45DecodedVariants(value: string): string[] {
   return variants
 }
 
+function proquintDecodedVariants(value: string): string[] {
+  const consonants = 'bdfghjklmnprstvz'
+  const vowels = 'aiou'
+  const encode = (bytes: Uint8Array): string => {
+    const groups: string[] = []
+    for (let offset = 0; offset < bytes.length; offset += 2) {
+      const word = ((bytes[offset] ?? 0) << 8) | (bytes[offset + 1] ?? 0)
+      groups.push(
+        consonants.charAt((word >>> 12) & 15) +
+        vowels.charAt((word >>> 10) & 3) +
+        consonants.charAt((word >>> 6) & 15) +
+        vowels.charAt((word >>> 4) & 3) +
+        consonants.charAt(word & 15)
+      )
+    }
+    return groups.join('-')
+  }
+  if (
+    value.length < 5 ||
+    value.length > 512 ||
+    !/^[bdfghjklmnprstvz][aiou][bdfghjklmnprstvz][aiou][bdfghjklmnprstvz](?:-[bdfghjklmnprstvz][aiou][bdfghjklmnprstvz][aiou][bdfghjklmnprstvz])*$/.test(value)
+  ) return []
+  const bytes: number[] = []
+  for (const group of value.split('-')) {
+    const word =
+      (consonants.indexOf(group[0] ?? '') << 12) |
+      (vowels.indexOf(group[1] ?? '') << 10) |
+      (consonants.indexOf(group[2] ?? '') << 6) |
+      (vowels.indexOf(group[3] ?? '') << 4) |
+      consonants.indexOf(group[4] ?? '')
+    bytes.push((word >>> 8) & 255, word & 255)
+  }
+  const byteArray = Uint8Array.from(bytes)
+  if (encode(byteArray) !== value) return []
+  try {
+    const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+    return decoded && decoded !== value ? [decoded] : []
+  } catch {
+    return []
+  }
+}
+
 function ascii85DecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     const payload = encoded.startsWith('<~') && encoded.endsWith('~>')
@@ -1804,6 +1846,8 @@ function multibaseDecodedVariants(value: string): string[] {
       )
     case 'R':
       return base45DecodedVariants(body)
+    case 'p':
+      return proquintDecodedVariants(body)
     case 'b':
     case 'B':
     case 'c':
