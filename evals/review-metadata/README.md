@@ -172,15 +172,18 @@ explicit-private identifier comparison in runner commit
 `32aeb2570a10a64c3cb24140055f6f894973af72` produced a thirtieth record for
 each combination. Shared runtime and evidence-ID private-substring comparison
 in runner commit `c80fe4967b26ca8a932d81e0e4dca7ed92712971` produced a thirty-first
-record for each combination.
+record for each combination. Failure-path substring checks and decoded
+complete-private inputs in runner commit
+`e2c3ebf24b0c710f7f9930e9dbcb2aca94ca7c24` produced a thirty-second record
+for each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v10` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v11` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v10
+git fetch origin refs/tags/issue-136-runner-history-v11
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
