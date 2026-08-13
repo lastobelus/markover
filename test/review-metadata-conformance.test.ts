@@ -125,7 +125,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 291,
+    evidenceCount: 294,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -142,7 +142,7 @@ test('corpus validation passes every record to provenance verification', () => {
     assert.ok(evidence.every(({ sourceCommit }) => sourceCommit.length === 40))
   }
   validateMetadataCorpus(root, true, verifyDefect, verifyProvenance)
-  assert.equal(received, 291)
+  assert.equal(received, 294)
 })
 
 test('corpus provenance includes GitHub-recorded pre-force-push heads', () => {
@@ -1378,6 +1378,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('encoded private values in runtime segments', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { secret: 'acct12345' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'v1 YWNjdDEyMzQ1'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('base-36 encoded private numeric identities', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -2354,7 +2371,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 292,
+    evidenceCount: 295,
     matrixEntryCount: 3
   })
 
