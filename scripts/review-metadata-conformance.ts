@@ -2241,7 +2241,7 @@ function reversibleRuntimeVariants(value: string): string[] {
   const alternatives = segments.map((segment) => [
     { decoded: false, value: segment },
     ...reversibleDecodedVariants(segment)
-      .filter((candidate) => runtimeTokenSegmentPattern.test(candidate))
+      .filter((candidate) => runtimeTokenPattern.test(candidate))
       .map((candidate) => ({ decoded: true, value: candidate }))
   ])
   for (let start = 0; start < segments.length; start += 1) {
@@ -2267,7 +2267,7 @@ function reversibleRuntimeVariants(value: string): string[] {
       for (const combination of combinations) {
         if (!combination.decoded) continue
         addVariant(combination.values.join(' '))
-        addVariant(combination.values.join(''))
+        addVariant(combination.values.join('').replace(/ /g, ''))
       }
     }
   }
