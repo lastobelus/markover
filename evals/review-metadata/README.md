@@ -167,15 +167,18 @@ path/URL normalization in runner commit
 `f65c5d7e48596706aadfeb64ae608243539629ac` produced a twenty-eighth record for
 each combination. Percent-decoded explicit-private candidate comparison in
 runner commit `b9a0e1103c2b0f62a69a54f07dc70a34900f84f8` produced a twenty-ninth
-record for each combination after the latest `main` integration.
+record for each combination after the latest `main` integration. Embedded
+explicit-private identifier comparison in runner commit
+`32aeb2570a10a64c3cb24140055f6f894973af72` produced a thirtieth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v8` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v9` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v8
+git fetch origin refs/tags/issue-136-runner-history-v9
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
