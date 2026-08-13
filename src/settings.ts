@@ -153,12 +153,18 @@ import * as agentGuidance from './agent-guidance'
   }
 
   function minimumWindowSize(
-    zoomPercent: ZoomPercent
+    zoomPercent: ZoomPercent,
+    maximum?: { width: number; height: number }
   ): { width: number; height: number } {
     const factor = zoomPercent / 100
-    return {
+    const scaled = {
       width: Math.ceil(760 * factor),
       height: Math.ceil(520 * factor)
+    }
+    if (!maximum) return scaled
+    return {
+      width: Math.min(scaled.width, maximum.width),
+      height: Math.min(scaled.height, maximum.height)
     }
   }
 

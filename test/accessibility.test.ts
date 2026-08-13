@@ -179,6 +179,14 @@ test('attachment preview and destructive workflow restore a useful focus target'
     renderer,
     /function saveSourceEdit[\s\S]*restoreKeyboardFocus = document\.activeElement === elements\.sourceSave[\s\S]*renderAnnotation\(node\)[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*elements\.sourceEdit\.focus\(\)/
   )
+  assert.match(
+    renderer,
+    /function cancelSourceEdit[\s\S]*document\.activeElement === elements\.sourceCancel[\s\S]*renderSourcePanel\(node\)[\s\S]*elements\.sourceEdit\.focus\(\)/
+  )
+  assert.match(
+    renderer,
+    /function revertSourceEdit[\s\S]*document\.activeElement === elements\.sourceRevert[\s\S]*renderAnnotation\(node\)[\s\S]*elements\.sourceEdit\.focus\(\)/
+  )
   assert.match(renderer, /restoreFocus = document\.activeElement === disclosure[\s\S]*\.disclosure`[\s\S]*\.focus\(\)/)
 })
 

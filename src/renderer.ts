@@ -1663,8 +1663,14 @@ function beginSourceEdit(node: ReviewNode): void {
 }
 
 function cancelSourceEdit(node: ReviewNode): void {
+  const restoreKeyboardFocus = document.activeElement === elements.sourceCancel
   MarkoverSourceEdits.cancel(state, node)
   renderSourcePanel(node)
+  if (restoreKeyboardFocus) {
+    requestAnimationFrame(() => {
+      elements.sourceEdit.focus()
+    })
+  }
 }
 
 function saveSourceEdit(node: ReviewNode): boolean {
@@ -1720,11 +1726,17 @@ function finishActiveSourceEdit(nextId: string | null = null): boolean {
 
 function revertSourceEdit(node: ReviewNode): void {
   if (!node.sourceEdit || !isCurrentReviewEditable()) return
+  const restoreKeyboardFocus = document.activeElement === elements.sourceRevert
   delete node.sourceEdit
   state.sourceDrafts.delete(node.id)
   if (state.sourceEditingId === node.id) state.sourceEditingId = null
   renderTreePreservingScroll()
   renderAnnotation(node)
+  if (restoreKeyboardFocus) {
+    requestAnimationFrame(() => {
+      elements.sourceEdit.focus()
+    })
+  }
   autosaveReview()
   announceStatus('Source edit reverted.')
 }

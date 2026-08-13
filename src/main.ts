@@ -9,6 +9,7 @@ import {
   nativeTheme,
   net,
   protocol,
+  screen,
   shell,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -465,17 +466,17 @@ function applyWindowZoom(
   window: BrowserWindow,
   zoomPercent: ZoomPercent
 ): void {
-  const minimum = minimumWindowSize(zoomPercent)
+  const workArea = screen.getDisplayMatching(window.getBounds()).workAreaSize
+  const minimum = minimumWindowSize(zoomPercent, workArea)
   window.setMinimumSize(minimum.width, minimum.height)
   if (!window.isMaximized() && !window.isFullScreen()) {
     const size = window.getSize()
     const width = size[0] ?? minimum.width
     const height = size[1] ?? minimum.height
-    if (width < minimum.width || height < minimum.height) {
-      window.setSize(
-        Math.max(width, minimum.width),
-        Math.max(height, minimum.height)
-      )
+    const fittedWidth = Math.min(Math.max(width, minimum.width), workArea.width)
+    const fittedHeight = Math.min(Math.max(height, minimum.height), workArea.height)
+    if (width !== fittedWidth || height !== fittedHeight) {
+      window.setSize(fittedWidth, fittedHeight)
     }
   }
   window.webContents.setZoomFactor(zoomPercent / 100)
@@ -1023,10 +1024,11 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
-  const minimumSize = minimumWindowSize(startupSettings.zoomPercent)
+  const workArea = screen.getPrimaryDisplay().workAreaSize
+  const minimumSize = minimumWindowSize(startupSettings.zoomPercent, workArea)
   const window = new BrowserWindow({
-    width: 1180,
-    height: 760,
+    width: Math.min(1180, workArea.width),
+    height: Math.min(760, workArea.height),
     minWidth: minimumSize.width,
     minHeight: minimumSize.height,
     show: show && !showWithoutActivating,
