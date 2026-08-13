@@ -1653,6 +1653,64 @@ function base58DecodedVariants(
   return variants
 }
 
+function base62DecodedVariants(value: string): string[] {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  const encode = (bytes: Uint8Array): string => {
+    let leadingZeroes = 0
+    while (leadingZeroes < bytes.length && bytes[leadingZeroes] === 0) {
+      leadingZeroes += 1
+    }
+    let integer = 0n
+    for (const byte of bytes) integer = integer * 256n + BigInt(byte)
+    let encoded = ''
+    while (integer > 0n) {
+      encoded = alphabet.charAt(Number(integer % 62n)) + encoded
+      integer /= 62n
+    }
+    return `${'0'.repeat(leadingZeroes)}${encoded}`
+  }
+  const decodeOnce = (encoded: string): string | null => {
+    if (encoded.length < 2 || encoded.length > 512 || !/^[0-9A-Za-z]+$/.test(encoded)) {
+      return null
+    }
+    let integer = 0n
+    for (const character of encoded) {
+      const digit = alphabet.indexOf(character)
+      if (digit < 0) return null
+      integer = integer * 62n + BigInt(digit)
+    }
+    const bytes: number[] = []
+    while (integer > 0n) {
+      bytes.unshift(Number(integer % 256n))
+      integer /= 256n
+    }
+    const leadingZeroes = /^0*/.exec(encoded)?.[0].length ?? 0
+    const byteArray = Uint8Array.from([
+      ...Array.from({ length: leadingZeroes }, () => 0),
+      ...bytes
+    ])
+    if (encode(byteArray) !== encoded) return null
+    try {
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(byteArray)
+      return decoded && decoded !== encoded ? decoded : null
+    } catch {
+      return null
+    }
+  }
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 4; pass += 1) {
+    const decoded = decodeOnce(current)
+    if (decoded === null) break
+    variants.push(decoded)
+    current = decoded
+  }
+  if (variants.length === 4 && decodeOnce(current) !== null) {
+    throw new Error('Sanitized evidence contains Base62 encoding beyond the safe decoding depth.')
+  }
+  return variants
+}
+
 function base45DecodedVariants(value: string): string[] {
   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:'
   const decodeOnce = (encoded: string): string | null => {
@@ -1946,6 +2004,7 @@ function reversibleDecodedVariants(value: string): string[] {
       ...base32hexDecodedVariants(current),
       ...base32zDecodedVariants(current),
       ...base58DecodedVariants(current),
+      ...base62DecodedVariants(current),
       ...base45DecodedVariants(current),
       ...proquintDecodedVariants(current),
       ...ascii85DecodedVariants(current),
