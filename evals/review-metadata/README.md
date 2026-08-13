@@ -237,14 +237,17 @@ each combination.
 Bounded percent decoding to stability in runner commit
 `b7b5cc143ce517e4a2f3adaf7fca75728b45c799` produced a fifty-fourth record for
 each combination.
+Normalized short-candidate containment in runner commit
+`72d7d133bf6c12f351abb08164c8064bfe67a0e5` produced a fifty-fifth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v34` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v35` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v34
+git fetch origin refs/tags/issue-136-runner-history-v35
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

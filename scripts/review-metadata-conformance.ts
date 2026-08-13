@@ -1330,12 +1330,14 @@ function canonicalNumericIdentityCandidates(
           : [])
       ]
       for (const numericLiteral of numericValues) {
-        const isRadixInteger =
-          /^0x[0-9a-f]+$/i.test(numericLiteral) ||
-          /^0o[0-7]+$/i.test(numericLiteral) ||
-          /^0b[01]+$/i.test(numericLiteral)
-        const canonical = isRadixInteger
-          ? canonicalDecimalInteger(BigInt(numericLiteral).toString())
+        const radixInteger = /^([+-]?)(0x[0-9a-f]+|0o[0-7]+|0b[01]+)$/i.exec(
+          numericLiteral
+        )
+        const radixBody = radixInteger?.[2]
+        const canonical = radixBody !== undefined
+          ? canonicalDecimalInteger(
+              `${radixInteger?.[1] === '-' ? '-' : ''}${BigInt(radixBody).toString()}`
+            )
           : canonicalDecimalInteger(numericLiteral)
         if (canonical !== null) candidates.add(canonical)
       }
