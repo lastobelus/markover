@@ -514,6 +514,23 @@ test('capture rejects free-form raw artifact strings used as runtime evidence', 
     )
   })
 
+  await t.test('short private free-form value embedded in runtime', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    review.contextSummary = 'acct'
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelacct'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('UUID component embedded in feedback prose', () => {
     const artifact = fixture()
     agentThread(artifact)
