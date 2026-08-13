@@ -93,7 +93,6 @@ export async function writePrivateEnrichmentJson(
     })
     if (platform !== 'win32') await fs.chmod(temporaryPath, 0o600)
     await fs.rename(temporaryPath, filePath)
-    if (platform !== 'win32') await fs.chmod(filePath, 0o600)
   } finally {
     await fs.unlink(temporaryPath).catch((error: unknown) => {
       if (errorCode(error) !== 'ENOENT') throw error
@@ -649,6 +648,12 @@ export class PrivateEnrichmentStore {
           candidate.threadId === identity.threadId
       })
       if (referenced) return 'retained-reference'
+      try {
+        const thread = await this.threadRead(identity)
+        if (thread.invalid) return 'retained-uncertain'
+      } catch {
+        return 'retained-uncertain'
+      }
       await fs.rm(this.threadDirectory(identity), { recursive: true, force: true })
       this.runtimeThreadErrors.delete(digest)
       return 'removed'

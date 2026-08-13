@@ -119,6 +119,10 @@ test('strict private JSON replacement uses user-only files without temp residue'
   if (process.platform !== 'win32') {
     assert.equal((await fs.stat(filePath)).mode & 0o777, 0o600)
     assert.equal((await fs.stat(path.dirname(filePath))).mode & 0o777, 0o700)
+    await fs.chmod(filePath, 0o644)
+    await writePrivateEnrichmentJson(filePath, { value: 2 })
+    assert.deepEqual(JSON.parse(await fs.readFile(filePath, 'utf8')), { value: 2 })
+    assert.equal((await fs.stat(filePath)).mode & 0o777, 0o600)
   }
 })
 
@@ -432,6 +436,22 @@ test('post-trash cleanup retains references and fails closed on uncertain review
   await fs.rm(malformedDirectory, { recursive: true, force: true })
   assert.equal(await store.cleanupThreadAfterTrash(identity()), 'removed')
   await assert.rejects(fs.access(store.threadPath(identity())))
+})
+
+test('post-trash cleanup preserves invalid thread enrichment bytes', async (t) => {
+  const value = await fixture()
+  t.after(() => fs.rm(value.applicationData, { recursive: true, force: true }))
+  await value.store.observeThreadTitle(identity(), title())
+  const threadPath = value.store.threadPath(identity())
+  const invalid = '{"format":"future-private-thread-state"}\n'
+  await fs.writeFile(threadPath, invalid, 'utf8')
+  await value.store.pauseAndDrain()
+
+  assert.equal(
+    await value.store.cleanupThreadAfterTrash(identity()),
+    'retained-uncertain'
+  )
+  assert.equal(await fs.readFile(threadPath, 'utf8'), invalid)
 })
 
 test('post-trash cleanup is fenced behind the paused admission gate', async (t) => {
