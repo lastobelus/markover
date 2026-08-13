@@ -122,7 +122,7 @@ test('initial live matrix names three exact combinations without guessing expans
 
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
-    evidenceCount: 138,
+    evidenceCount: 141,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
@@ -605,6 +605,25 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('short machine embedded in evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const review = artifact.review as Record<string, unknown>
+    const thread = review.agentThread as Record<string, unknown>
+    const host = thread.threadHost as Record<string, unknown>
+    host.machine = 'abc'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__xxxxxabc'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   await t.test('short extension value', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -927,6 +946,24 @@ test('capture treats numeric extension leaves as private artifact values', async
       /runtime still contains a private artifact value/
     )
   })
+
+  await t.test('version-prefixed radix runtime value', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerVersion = 'v0xBC614E'
+    runtime.providerVersionSource = 'runtime-context'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {
@@ -1189,7 +1226,7 @@ test('corpus retains failures without letting them satisfy completeness', (t) =>
   )
   const verifyDefect = (): void => {}
   assert.deepEqual(validateMetadataCorpus(temporaryRoot, true, verifyDefect), {
-    evidenceCount: 139,
+    evidenceCount: 142,
     matrixEntryCount: 3
   })
 

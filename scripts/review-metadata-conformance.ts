@@ -943,6 +943,7 @@ function completePrivateCaptureStrings(
 function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
   const isIdentifierField = (field: string): boolean =>
     field === 'id' ||
+    field === 'machine' ||
     /(?:id|identifier)$/i.test(field) ||
     /(?:^|[-_])(?:id|identifier)$/i.test(field)
   const isPublicStructuralIdentifier = (fields: string[]): boolean => {
@@ -1266,18 +1267,28 @@ function canonicalNumericIdentityCandidates(
     if (value === null || value === undefined) continue
     for (const segment of [value, ...value.split(' ')]) {
       const normalizedValue = segment.replace(/_/g, '')
-      const isDecimal =
-        /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(
+      const numericValues = [
+        normalizedValue,
+        ...(/^(?:v|ver|version)(?=(?:[+-]?(?:\d|\.\d)|0[xob]))/i.test(
           normalizedValue
         )
-      const isRadixInteger =
-        /^0x[0-9a-f]+$/i.test(normalizedValue) ||
-        /^0o[0-7]+$/i.test(normalizedValue) ||
-        /^0b[01]+$/i.test(normalizedValue)
-      if (!isDecimal && !isRadixInteger) continue
-      const numericValue = Number(normalizedValue)
-      if (Number.isSafeInteger(numericValue)) {
-        candidates.add(String(numericValue))
+          ? [normalizedValue.replace(/^(?:v|ver|version)/i, '')]
+          : [])
+      ]
+      for (const numericLiteral of numericValues) {
+        const isDecimal =
+          /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(
+            numericLiteral
+          )
+        const isRadixInteger =
+          /^0x[0-9a-f]+$/i.test(numericLiteral) ||
+          /^0o[0-7]+$/i.test(numericLiteral) ||
+          /^0b[01]+$/i.test(numericLiteral)
+        if (!isDecimal && !isRadixInteger) continue
+        const numericValue = Number(numericLiteral)
+        if (Number.isSafeInteger(numericValue)) {
+          candidates.add(String(numericValue))
+        }
       }
     }
   }
