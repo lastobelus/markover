@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, type spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
@@ -12,6 +12,7 @@ import {
   helpPayload,
   parseCommandArguments,
   readSessionDiscoverySetting,
+  refreshCanonicalInstance,
   resolveMarkoverApp,
   startDetachedInstance,
   type ExecuteCommandOptions
@@ -131,6 +132,25 @@ test('development targeting is worktree-local and cleanup requires an exact iden
   )
 })
 
+test('canonical maintenance is explicit and instance-independent', () => {
+  assert.deepEqual(
+    parseCommandArguments(['canonical', 'doctor']),
+    { command: 'canonical', action: 'doctor' }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['canonical', 'refresh']),
+    { command: 'canonical', action: 'refresh' }
+  )
+  assert.throws(
+    () => parseCommandArguments(['--instance', 'dev', 'canonical', 'doctor']),
+    /does not accept --instance/
+  )
+  assert.throws(
+    () => parseCommandArguments(['canonical', 'repair']),
+    /requires doctor or refresh/
+  )
+})
+
 test('cleanup resolves the current PR exactly without starting a service', async () => {
   const instance = {
     identity: { kind: 'development', key: 'pr-61', pullRequestNumber: 61 }
@@ -164,6 +184,154 @@ test('cleanup resolves the current PR exactly without starting a service', async
     status: 'trashed',
     identity: 'pr-61',
     recoveryPath: '/Users/reviewer/.Trash/Markover-pr-61-instance'
+  })
+})
+
+test('canonical maintenance commands bypass review-service execution', async () => {
+  const doctor = {
+    format: 'markover-canonical-doctor' as const,
+    version: 1 as const,
+    status: 'healthy' as const,
+    identity: 'canonical' as const,
+    checkout: {
+      path: '/canonical',
+      branch: 'main',
+      head: 'abc123',
+      clean: true
+    },
+    service: {
+      status: 'ready' as const,
+      endpointPath: '/state/service.json',
+      instanceId: 'instance-id',
+      pid: 123
+    },
+    build: {
+      status: 'current' as const,
+      commit: 'abc123',
+      dirty: false,
+      startupStatus: 'ready'
+    },
+    handler: {
+      format: 'markover-link-handler-status' as const,
+      version: 1 as const,
+      scheme: 'markover',
+      status: 'healthy' as const,
+      expectedPath: '/handler.app',
+      ownerPath: '/handler.app',
+      identity: 'canonical',
+      endpointPath: '/state/service.json'
+    },
+    issues: [],
+    repairCommand: null
+  }
+  assert.deepEqual(await executeCommand({
+    command: 'canonical',
+    action: 'doctor'
+  }, {
+    doctorCanonical: () => Promise.resolve(doctor),
+    ensure() {
+      throw new Error('canonical doctor must not use review execution')
+    }
+  }), doctor)
+})
+
+test('canonical refresh builds, restarts, reclaims routing, and verifies health', async () => {
+  const running = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical',
+    process: { status: 'running' },
+    coldStart: { eligible: false, blockedBy: 'already-running' },
+    service: { endpointPath: '/state/service.json' }
+  } as unknown as ResolvedInstance
+  const stopped = {
+    ...running,
+    process: { status: 'stopped' },
+    coldStart: { eligible: true, blockedBy: null }
+  } as ResolvedInstance
+  const resolved = [running, stopped, running]
+  const events: string[] = []
+  const handler = {
+    format: 'markover-link-handler-status' as const,
+    version: 1 as const,
+    scheme: 'markover',
+    status: 'healthy' as const,
+    expectedPath: '/handler.app',
+    ownerPath: '/handler.app',
+    identity: 'canonical',
+    endpointPath: '/state/service.json',
+    action: 'replaced' as const,
+    previousOwnerPath: '/worktree/dist/Markover.app'
+  }
+  const doctor = {
+    format: 'markover-canonical-doctor' as const,
+    version: 1 as const,
+    status: 'healthy' as const,
+    identity: 'canonical' as const,
+    checkout: {
+      path: '/canonical',
+      branch: 'main',
+      head: 'abc123',
+      clean: true
+    },
+    service: {
+      status: 'ready' as const,
+      endpointPath: '/state/service.json',
+      instanceId: 'instance-id',
+      pid: 123
+    },
+    build: {
+      status: 'current' as const,
+      commit: 'abc123',
+      dirty: false,
+      startupStatus: 'ready'
+    },
+    handler,
+    issues: [],
+    repairCommand: null
+  }
+  const result = await refreshCanonicalInstance({
+    build(checkout) {
+      events.push(`build:${checkout}`)
+      return Promise.resolve()
+    },
+    doctor() {
+      events.push('doctor')
+      return Promise.resolve(doctor)
+    },
+    launch() {
+      events.push('launch')
+    },
+    quit(endpointPath) {
+      events.push(`quit:${endpointPath}`)
+      return Promise.resolve()
+    },
+    replaceHandler() {
+      events.push('replace-handler')
+      return Promise.resolve(handler)
+    },
+    resolve() {
+      const instance = resolved.shift()
+      assert.ok(instance)
+      return Promise.resolve(instance)
+    },
+    wait() {
+      return Promise.resolve()
+    }
+  })
+  assert.deepEqual(events, [
+    'build:/canonical',
+    'quit:/state/service.json',
+    'launch',
+    'replace-handler',
+    'doctor'
+  ])
+  assert.deepEqual(result, {
+    format: 'markover-canonical-refresh',
+    version: 1,
+    status: 'healthy',
+    checkout: '/canonical',
+    handler,
+    doctor
   })
 })
 
@@ -231,7 +399,7 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(misuse.stderr, /Unknown command: wat/)
   assert.match(
     misuse.stderr,
-    /Usage: markover <open\|get\|revise\|done\|edit\|cleanup\|help>/
+    /Usage: markover <open\|get\|revise\|done\|edit\|canonical\|cleanup\|help>/
   )
   assert.match(
     misuse.stderr,
@@ -638,6 +806,11 @@ test('executes CLI commands against the local service', async (t) => {
       resolveTarget(selector) {
         assert.equal(selector, 'development')
         return Promise.resolve({
+          identity: {
+            kind: 'development',
+            key: 'pr-76',
+            pullRequestNumber: 76
+          },
           checkout: null,
           scheme: 'markover-76',
           service: { endpointPath }
@@ -778,10 +951,10 @@ test('canonical cold startup always uses its configured checkout', () => {
       calls.push({
         command,
         args,
-        cwd: typeof options?.cwd === 'string' ? options.cwd : undefined
+        cwd: typeof options.cwd === 'string' ? options.cwd : undefined
       })
       return child
-    }) as unknown as typeof import('node:child_process').spawn
+    }) as unknown as typeof spawn
   })
 
   assert.deepEqual(calls, [{
@@ -815,6 +988,49 @@ test('open validates and reads the source before starting Markover', async (t) =
     /Markdown file does not exist/
   )
   assert.equal(ensured, false)
+})
+
+test('canonical open verifies URI ownership before creating the review', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-routing-preflight-test-')
+  )
+  const sourcePath = path.join(directory, 'plan.md')
+  await fs.writeFile(sourcePath, '# Plan\n')
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const events: string[] = []
+  await assert.rejects(
+    executeCommand({
+      command: 'open',
+      sourcePath,
+      contextSummary: 'Review routing readiness.'
+    }, {
+      ensure() {
+        events.push('ensure')
+        return Promise.resolve()
+      },
+      resolveTarget() {
+        return Promise.resolve({
+          identity: { kind: 'canonical', key: 'canonical' },
+          checkout: '/canonical',
+          scheme: 'markover',
+          service: { endpointPath: path.join(directory, 'service.json') }
+        } as unknown as ResolvedInstance)
+      },
+      discoverMetadata() {
+        return Promise.resolve({
+          agentThread: null,
+          git: null,
+          pullRequest: null
+        })
+      },
+      verifyCanonicalRouting() {
+        events.push('verify-routing')
+        return Promise.reject(new Error('routing displaced'))
+      }
+    }),
+    /routing displaced/
+  )
+  assert.deepEqual(events, ['ensure', 'verify-routing'])
 })
 
 test('get independently rejects a successful unknown-version service response', async (t) => {
