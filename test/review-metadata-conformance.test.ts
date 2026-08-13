@@ -86,6 +86,22 @@ test('initial live matrix contains only the three exercised combinations', () =>
   })
 })
 
+test('matrix exercise paths name maintained Markdown exercise files', () => {
+  for (const exercise of ['.', '../../package.json']) {
+    const matrix = structuredClone(
+      json('evals/review-metadata/matrix.json')
+    ) as Record<string, unknown>
+    const entries = matrix.entries as Array<Record<string, unknown>>
+    const entry = entries[0]
+    assert.ok(entry)
+    entry.exercise = exercise
+    assert.throws(
+      () => parseMetadataMatrix(matrix),
+      /exercise must name a Markdown file under exercises/
+    )
+  }
+})
+
 test('corpus validation requires and finds evidence for every initial row', () => {
   const expected = {
     evidenceCount: 3,

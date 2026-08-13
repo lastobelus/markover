@@ -9,6 +9,7 @@ import {
 const evidenceSchemaVersion = 1
 const matrixSchemaVersion = 1
 const evidenceIdPattern = /^\d{4}-\d{2}-\d{2}__[a-z0-9]+(?:-[a-z0-9]+)*__[a-z0-9]{8}$/
+const exercisePathPattern = /^exercises\/[a-z0-9]+(?:-[a-z0-9]+)*\.md$/
 const fixtureThreadId = '<thread-id>'
 const fixtureThreadHostId = '<thread-host-id>'
 const fixtureMachine = '<machine>'
@@ -312,10 +313,14 @@ function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
   if (item.availability !== 'available') {
     throw new Error(`${label}.availability must be available for a supported entry.`)
   }
+  const exercise = nonblank(item.exercise, `${label}.exercise`)
+  if (!exercisePathPattern.test(exercise)) {
+    throw new Error(`${label}.exercise must name a Markdown file under exercises.`)
+  }
   return {
     availability: 'available',
     evidence: stringArray(item.evidence, `${label}.evidence`),
-    exercise: nonblank(item.exercise, `${label}.exercise`),
+    exercise,
     hostProduct: nonblank(item.hostProduct, `${label}.hostProduct`),
     id: nonblank(item.id, `${label}.id`),
     identityExpectation: oneOf(item.identityExpectation, [
@@ -696,7 +701,7 @@ export function validateMetadataCorpus(
   const referencedEvidence = new Set<string>()
   for (const entry of matrix.entries) {
     const exercisePath = path.join(directory, entry.exercise)
-    if (!fs.existsSync(exercisePath)) {
+    if (!fs.existsSync(exercisePath) || !fs.statSync(exercisePath).isFile()) {
       throw new Error(`${entry.id} exercise does not exist: ${entry.exercise}.`)
     }
     if (requireComplete && entry.evidence.length === 0) {
