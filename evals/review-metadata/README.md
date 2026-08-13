@@ -243,14 +243,17 @@ each combination.
 Signed radix identity canonicalization in runner commit
 `72ad81f6c5ddc5c3df57e3fcb5b3eef192f00d75` produced a fifty-sixth record for
 each combination.
+Split-token numeric identity canonicalization in runner commit
+`894af016bb99cd7dfe6ba978691614df7263f551` produced a fifty-seventh record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v36` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v37` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v36
+git fetch origin refs/tags/issue-136-runner-history-v37
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
