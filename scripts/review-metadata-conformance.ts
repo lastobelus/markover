@@ -835,6 +835,10 @@ function assertEvidenceIdIndependent(
     ...shortIdentifierContainmentCandidates(shortPrivateKeys, 4),
     ...shortIdentifierContainmentCandidates(shortPrivateValues)
   ])
+  const privateNumericIdentities = canonicalNumericIdentityCandidates(
+    [...completePrivate, ...shortPrivateIdentifiers]
+  )
+  const suffixNumericIdentities = canonicalNumericIdentityCandidates([suffix])
   const suffixContainsPrivate = [
     ...privateContainmentCandidates(alwaysPrivate, completePrivate)
   ].some((privateCandidate) =>
@@ -846,7 +850,9 @@ function assertEvidenceIdIndependent(
   if (
     privateCandidates.has(suffix) ||
     suffixIsPrivateSubstring ||
-    suffixContainsPrivate
+    suffixContainsPrivate ||
+    [...suffixNumericIdentities].some((value) =>
+      privateNumericIdentities.has(value))
   ) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
@@ -1257,12 +1263,15 @@ function canonicalNumericIdentityCandidates(
 ): Set<string> {
   const candidates = new Set<string>()
   for (const value of values) {
+    const normalizedValue = value?.replace(/_/g, '')
     const isDecimal =
-      /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value ?? '')
+      /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(
+        normalizedValue ?? ''
+      )
     const isRadixInteger =
-      /^0x[0-9a-f]+$/i.test(value ?? '') ||
-      /^0o[0-7]+$/i.test(value ?? '') ||
-      /^0b[01]+$/i.test(value ?? '')
+      /^0x[0-9a-f]+$/i.test(normalizedValue ?? '') ||
+      /^0o[0-7]+$/i.test(normalizedValue ?? '') ||
+      /^0b[01]+$/i.test(normalizedValue ?? '')
     if (
       value === null ||
       value === undefined ||
@@ -1270,7 +1279,7 @@ function canonicalNumericIdentityCandidates(
     ) {
       continue
     }
-    const numericValue = Number(value)
+    const numericValue = Number(normalizedValue)
     if (Number.isSafeInteger(numericValue)) {
       candidates.add(String(numericValue))
     }

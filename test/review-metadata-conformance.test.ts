@@ -802,6 +802,23 @@ test('capture treats numeric extension leaves as private artifact values', async
     )
   })
 
+  await t.test('radix evidence ID suffix', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({
+          evidenceId: '2026-08-12__t3code-codex__0xbc614e'
+        }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /Evidence ID suffix must be independent of private artifact values/
+    )
+  })
+
   await t.test('short runtime value', () => {
     const artifact = fixture()
     agentThread(artifact)
@@ -875,6 +892,23 @@ test('capture treats numeric extension leaves as private artifact values', async
       )
     })
   }
+
+  await t.test('radix runtime value with separators', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 12345678 }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = '0xBC_614E'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
 })
 
 test('capture rejects non-safe numeric artifact leaves before sanitizing', () => {
