@@ -912,6 +912,28 @@ function completePrivateCaptureStrings(
   return [...visit(artifactValue, []), ...observation.limitations]
 }
 
+function privateIdentifierArtifactStrings(artifactValue: unknown): string[] {
+  const isIdentifierField = (field: string): boolean =>
+    field === 'id' ||
+    /(?:Id|ID|Identifier)$/.test(field) ||
+    /(?:^|[-_])(?:id|identifier)$/i.test(field)
+  const visit = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.flatMap(visit)
+    if (!isRecord(value)) return []
+    return Object.entries(value).flatMap(([field, nested]) => {
+      const identifiers: string[] = []
+      if (isIdentifierField(field)) {
+        if (typeof nested === 'string') identifiers.push(nested)
+        if (typeof nested === 'number' && Number.isSafeInteger(nested)) {
+          identifiers.push(String(nested))
+        }
+      }
+      return [...identifiers, ...visit(nested)]
+    })
+  }
+  return visit(artifactValue)
+}
+
 function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
   if (!isRecord(artifactValue)) return []
   const attachmentLocations: string[] = []
@@ -969,32 +991,33 @@ function explicitlyPrivateArtifactStrings(artifactValue: unknown): string[] {
   ].filter((value): value is string => typeof value === 'string')
 }
 
+function percentDecodedVariants(value: string): string[] {
+  const variants: string[] = []
+  let current = value
+  for (let pass = 0; pass < 5; pass += 1) {
+    let decoded: string
+    try {
+      decoded = decodeURIComponent(current)
+    } catch {
+      decoded = current.replace(
+        /%([0-7][0-9a-f])/gi,
+        (_match: string, hex: string) =>
+          String.fromCharCode(Number.parseInt(hex, 16))
+      )
+    }
+    if (decoded === current) break
+    variants.push(decoded)
+    current = decoded
+  }
+  return variants
+}
+
 function privateValueCandidates(
   values: Array<string | null | undefined>,
   alwaysPrivate: Array<string | null | undefined> = [],
   completePrivate: Array<string | null | undefined> = []
 ): Set<string> {
   const candidates = new Set<string>()
-  const percentDecodedVariants = (value: string): string[] => {
-    const variants: string[] = []
-    let current = value
-    for (let pass = 0; pass < 5; pass += 1) {
-      let decoded: string
-      try {
-        decoded = decodeURIComponent(current)
-      } catch {
-        decoded = current.replace(
-          /%([0-7][0-9a-f])/gi,
-          (_match: string, hex: string) =>
-            String.fromCharCode(Number.parseInt(hex, 16))
-        )
-      }
-      if (decoded === current) break
-      variants.push(decoded)
-      current = decoded
-    }
-    return variants
-  }
   const addValue = (
     value: string,
     minimumLength: number,
@@ -1067,11 +1090,27 @@ function privateContainmentCandidates(
   )
 }
 
+function shortIdentifierContainmentCandidates(
+  values: Array<string | null | undefined>
+): Set<string> {
+  const candidates = new Set<string>()
+  for (const value of values) {
+    if (value === null || value === undefined) continue
+    for (const variant of [value, ...percentDecodedVariants(value)]) {
+      if (variant) candidates.add(variant.toLowerCase())
+      const stripped = variant.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
+      if (stripped) candidates.add(stripped)
+    }
+  }
+  return candidates
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation,
   alwaysPrivate: Array<string | null | undefined> = [],
-  completePrivate: Array<string | null | undefined> = []
+  completePrivate: Array<string | null | undefined> = [],
+  shortPrivateIdentifiers: Array<string | null | undefined> = []
 ): void {
   const persistedRuntimeValues = [
     runtime.hostVersion,
@@ -1091,10 +1130,14 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
     alwaysPrivate,
     completePrivate
   )
+  const embeddedShortIdentifiers = shortIdentifierContainmentCandidates(
+    shortPrivateIdentifiers
+  )
   const embedsPrivateCandidate = persistedRuntimeValues.some((runtimeValue) =>
     runtimeValue !== null &&
     [...embeddedPrivateCandidates].some((privateCandidate) =>
-      privateCandidate.length >= 8 &&
+      (privateCandidate.length >= 8 ||
+        embeddedShortIdentifiers.has(privateCandidate)) &&
       runtimeValue.toLowerCase().includes(privateCandidate)))
   if (
     embedsPrivateCandidate ||
@@ -1246,7 +1289,8 @@ export function buildSanitizedEvidence(
     privateInputs,
     evidence.runtime,
     explicitlyPrivateInputs,
-    completePrivateInputs
+    completePrivateInputs,
+    privateIdentifierArtifactStrings(artifact)
   )
   return evidence
 }

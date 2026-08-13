@@ -495,6 +495,23 @@ test('capture treats additive extension keys as private artifact values', async 
     )
   })
 
+  await t.test('short extension identifier embedded in a runtime token', () => {
+    const artifact = fixture()
+    agentThread(artifact)
+    const rootNode = artifact.root as Record<string, unknown>
+    rootNode.fixtureExtension = { accountId: 'abc123' }
+    const runtime = observation().runtime as Record<string, unknown>
+    runtime.providerModel = 'modelabc123'
+    assert.throws(
+      () => buildSanitizedEvidence(
+        artifact,
+        observation({ runtime }),
+        json('evals/review-metadata/matrix.json')
+      ),
+      /runtime still contains a private artifact value/
+    )
+  })
+
   await t.test('extension value embedded without a runtime-token delimiter', () => {
     const artifact = fixture()
     agentThread(artifact)
