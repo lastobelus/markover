@@ -345,14 +345,17 @@ each combination, using independent suffix `aqzvmjkh`.
 Multibase Base32z comparison in runner commit
 `d15de37ce945acfcfe47102abd23d832bdd87212` produced an eighty-ninth record for
 each combination, using independent suffix `bqzvmjkh`.
+Multibase Base58flickr comparison in runner commit
+`c86595b8e1cd5109337ed788fc7476e98e9100a2` produced a ninetieth record for
+each combination, using independent suffix `mqzvmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v72` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v73` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v72
+git fetch origin refs/tags/issue-136-runner-history-v73
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 

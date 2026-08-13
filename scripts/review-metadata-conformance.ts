@@ -1243,7 +1243,7 @@ function base64DecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
       encoded.length < 2 ||
-      encoded.length > 256 ||
+      encoded.length > 512 ||
       !/^[A-Za-z0-9+/_-]+={0,2}$/.test(encoded)
     ) {
       return null
@@ -1302,7 +1302,7 @@ function base32DecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
       encoded.length < 2 ||
-      encoded.length > 256 ||
+      encoded.length > 512 ||
       !/^[A-Z2-7]+={0,6}$/i.test(encoded)
     ) {
       return null
@@ -1370,7 +1370,7 @@ function base32hexDecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
       encoded.length < 2 ||
-      encoded.length > 256 ||
+      encoded.length > 512 ||
       !/^[0-9A-V]+={0,6}$/i.test(encoded)
     ) return null
     const unpadded = encoded.replace(/=+$/, '').toUpperCase()
@@ -1434,7 +1434,7 @@ function base32zDecodedVariants(value: string): string[] {
     return encoded
   }
   const decodeOnce = (encoded: string): string | null => {
-    if (encoded.length < 2 || encoded.length > 256) return null
+    if (encoded.length < 2 || encoded.length > 512) return null
     let bits = 0
     let buffer = 0
     const bytes: number[] = []
@@ -1492,7 +1492,7 @@ function base58DecodedVariants(
   const decodeOnce = (encoded: string): string | null => {
     if (
       encoded.length < 1 ||
-      encoded.length > 256 ||
+      encoded.length > 512 ||
       !/^[1-9A-HJ-NP-Za-km-z]+$/.test(encoded)
     ) {
       return null
@@ -1544,7 +1544,7 @@ function hexadecimalDecodedVariants(value: string): string[] {
   const decodeOnce = (encoded: string): string | null => {
     if (
       encoded.length < 2 ||
-      encoded.length > 256 ||
+      encoded.length > 512 ||
       encoded.length % 2 !== 0 ||
       !/^[0-9a-f]+$/i.test(encoded)
     ) {
