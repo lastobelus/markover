@@ -15,6 +15,7 @@ const evidenceSchemaVersion = 1
 const matrixSchemaVersion = 1
 const evidenceIdPattern = /^\d{4}-\d{2}-\d{2}__[a-z0-9]+(?:-[a-z0-9]+)*__[a-z0-9]{8}$/
 const fullCommitPattern = /^(?!0{40}$)[0-9a-f]{40}$/
+const runtimeTokenSegmentPattern = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,39}$/
 const runtimeTokenPattern = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,39}(?: [A-Za-z0-9][A-Za-z0-9._+-]{0,39}){0,4}$/
 const redactedProviderThreadId = '<redacted-provider-thread-id>'
 const redactedThreadHostThreadId = '<redacted-thread-host-thread-id>'
@@ -596,6 +597,11 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
   if (!isCanonicalReviewTimestamp(exercisedAt)) {
     throw new Error('Capture observation exercisedAt must be a canonical UTC timestamp.')
   }
+  if (evidenceId.slice(0, 10) !== exercisedAt.slice(0, 10)) {
+    throw new Error(
+      'Capture observation evidenceId date must equal the exercisedAt UTC date.'
+    )
+  }
   const sourceCommit = nonblank(item.sourceCommit, 'Capture observation sourceCommit')
   if (!fullCommitPattern.test(sourceCommit)) {
     throw new Error(
@@ -809,7 +815,7 @@ function assertEvidenceIdIndependent(
   privateValues: Array<string | null | undefined>
 ): void {
   const suffix = evidenceId.slice(-8)
-  if (privateValues.some((value) => value === suffix)) {
+  if (privateValueCandidates(privateValues).has(suffix)) {
     throw new Error(
       'Evidence ID suffix must be independent of private artifact values.'
     )
@@ -838,6 +844,29 @@ function privateCaptureStrings(
   ]
 }
 
+function privateValueCandidates(
+  values: Array<string | null | undefined>
+): Set<string> {
+  const candidates = new Set<string>()
+  for (const value of values) {
+    if (value === null || value === undefined) continue
+    candidates.add(value)
+    const segments = value
+      .split(/[^A-Za-z0-9._+-]+/)
+      .filter((segment) => runtimeTokenSegmentPattern.test(segment))
+    for (let start = 0; start < segments.length; start += 1) {
+      for (
+        let end = start + 1;
+        end <= Math.min(start + 5, segments.length);
+        end += 1
+      ) {
+        candidates.add(segments.slice(start, end).join(' '))
+      }
+    }
+  }
+  return candidates
+}
+
 function assertPrivateArtifactValuesAbsentFromRuntime(
   values: Array<string | null | undefined>,
   runtime: RuntimeObservation
@@ -850,8 +879,10 @@ function assertPrivateArtifactValuesAbsentFromRuntime(
   const persistedRuntimeSegments = persistedRuntimeValues.flatMap((value) => (
     value === null ? [] : value.split(/\s+/)
   ))
-  if (values.some((value) => value !== null && value !== undefined &&
-    (persistedRuntimeValues.includes(value) || persistedRuntimeSegments.includes(value)))) {
+  const privateCandidates = privateValueCandidates(values)
+  if ([...persistedRuntimeValues, ...persistedRuntimeSegments].some(
+    (value) => value !== null && privateCandidates.has(value)
+  )) {
     throw new Error('Sanitized evidence runtime still contains a private artifact value.')
   }
 }
@@ -1033,7 +1064,9 @@ export function recordConformanceEvidence(
     }
     const observation = parseCaptureObservation(observationValue)
     const suffix = observation.evidenceId.slice(-8)
-    if (privateCaptureStrings(artifactValue, observation).includes(suffix)) {
+    if (privateValueCandidates(
+      privateCaptureStrings(artifactValue, observation)
+    ).has(suffix)) {
       throw new Error(
         'Failure evidence ID suffix must be independent of every raw artifact string and key.',
         { cause: error }
