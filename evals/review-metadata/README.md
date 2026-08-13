@@ -240,14 +240,17 @@ each combination.
 Normalized short-candidate containment in runner commit
 `72d7d133bf6c12f351abb08164c8064bfe67a0e5` produced a fifty-fifth record for
 each combination.
+Signed radix identity canonicalization in runner commit
+`72ad81f6c5ddc5c3df57e3fcb5b3eef192f00d75` produced a fifty-sixth record for
+each combination.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v35` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v36` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v35
+git fetch origin refs/tags/issue-136-runner-history-v36
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
