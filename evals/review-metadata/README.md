@@ -287,14 +287,17 @@ produced a sixty-ninth record for each combination, using independent suffix
 Every-width embedded hexadecimal comparison in runner commit
 `b9ffcec2b6829533b346e15eeea24f9e2d2e5f53` produced a seventieth record for
 each combination, using independent suffix `zqvwmjkh`.
+Scientific exponent-prefix comparison in runner commit
+`aca65339312abe915b776eeea38415074e896307` produced a seventy-first record for
+each combination, using independent suffix `vqzwmjkh`.
 
 `sourcePullRequest` identifies the recording PR. Its rewritten historical
 runner commits are retained under the versioned immutable
-`issue-136-runner-history-v51` tag, so a clean checkout can inspect any recorded
+`issue-136-runner-history-v52` tag, so a clean checkout can inspect any recorded
 runner with:
 
 ```sh
-git fetch origin refs/tags/issue-136-runner-history-v51
+git fetch origin refs/tags/issue-136-runner-history-v52
 git show SOURCE_COMMIT:scripts/review-metadata-conformance.ts
 ```
 
