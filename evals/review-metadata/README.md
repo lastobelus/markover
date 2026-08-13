@@ -130,7 +130,9 @@ runner commit `4347774bc7644631f5bf98a7d40e3e772f1a4bb5`, followed by extension-
 privacy runner commit `7266b46701d7cc0df21bc88f9f939f9aa32dab03`, then unified success/failure
 privacy runner commit `8d3c0688d787db5f8bc444c3a8e5b71e607c7ecd`, followed by complete
 exercise-input and ignored-observation binding in runner commit
-`53f2ddfeaaa9b1a4732cd46f6f594a976c260c6e`. All fourteen immutable records per
+`53f2ddfeaaa9b1a4732cd46f6f594a976c260c6e`, then evidence-date and
+identifier-sized private-prose binding in runner commit
+`e7c4a44cc633712b15d0f175d29969f244674e36`. All fifteen immutable records per
 combination remain referenced by the matrix.
 
 `sourcePullRequest` is the durable provenance root for pre-squash runner
