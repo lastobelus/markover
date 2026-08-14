@@ -199,6 +199,10 @@ test('completed agent reviews update full content and notify without activation'
   )
   assert.match(renderer, /Agent review completed — no findings/)
   assert.match(renderer, /Agent review completed —.*finding/)
+  assert.match(
+    renderer,
+    /status === 'reviewed'[\s\S]*This agent review is complete\. Open a new review for another feedback round\./
+  )
   assert.match(sessions, /session\.tree = replacement/)
 })
 

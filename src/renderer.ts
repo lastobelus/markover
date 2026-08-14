@@ -1551,9 +1551,11 @@ function renderReviewEditability(): void {
       `${reviewStatusLabel(status)} · Read only`
     elements.annotationGuidance.textContent = status === 'revised'
       ? 'The agent has addressed this review. Open a new review for another feedback round.'
-      : status === 'done'
-        ? 'This review belongs to merged work and is retained as read-only history.'
-        : 'The agent has this review. Ask it to return the review to editing if you need to add more.'
+      : status === 'reviewed'
+        ? 'This agent review is complete. Open a new review for another feedback round.'
+        : status === 'done'
+          ? 'This review belongs to merged work and is retained as read-only history.'
+          : 'The agent has this review. Ask it to return the review to editing if you need to add more.'
   } else if (managed) {
     elements.annotationGuidance.textContent =
       'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
