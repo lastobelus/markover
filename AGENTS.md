@@ -14,8 +14,9 @@ document agents consume, read `.ai/skills/writing-for-agents/SKILL.md`.
 During implementation or review, trigger the tripwire before making a proposed
 change when any of these is true:
 
-- a second consecutive finding extends the same defensive concern, such as
-  another encoding, race, retry, lock, failure record, provenance check, or
+- after a finding about a defensive concern has been addressed in the current
+  issue or pull request, a later finding extends that same concern with another
+  encoding, race, retry, lock, failure record, provenance check, or
   compatibility case;
 - the change introduces a new persistence layer, protocol, background process,
   ownership state, retry state, or compatibility path for a scenario not shown

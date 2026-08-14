@@ -24,9 +24,10 @@ description: "Babysit GitHub pull requests. Use when the user says 'babysit', 'b
    review gates. A Codex 👀 is in progress, and silence or an empty formal review
    list is not success. Require a current-head 👍 or explicit no-issues result,
    checking the PR body and trigger comments too. Do not keep the loop running
-   solely to prove an unbounded property. Before acting on a finding that adds a
-   new codec, compatibility path, ownership state, retry state, provenance
-   layer, or hypothetical producer, apply the repository's complexity tripwire.
+   solely to prove an unbounded property. Before acting on a later finding that
+   extends an already-addressed defensive concern with a new codec,
+   compatibility path, ownership state, retry state, provenance layer, or
+   hypothetical producer, apply the repository's complexity tripwire.
    Continue only when the scenario is reachable, its consequence is material,
    and prevention is cheaper than recovery; otherwise pause and report the
    resumable state. If review fails to start, trigger it once; do not duplicate
