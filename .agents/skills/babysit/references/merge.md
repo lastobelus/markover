@@ -3,7 +3,7 @@
 Before merging, inspect the addressed issue conversation. Comments added by
 other threads are a separate input from Codex pull-request reviews: sort every
 adjunct work item, revision request, and finding that bears on this pull
-request with the same four verbs, and let any resulting push restart the gates
+request with the same five verbs, and let any resulting push restart the gates
 of stage 3. Merge a stack dependency-first, then re-audit or restack the later
 pull requests.
 
