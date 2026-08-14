@@ -55,12 +55,19 @@ gh pr view ITEM_URL --json milestone,projectItems
 
 Use every open Project and milestone already attached to the target unless the
 user asks to change its tracking. Report an attached closed Project as
-historical and leave it out of the tracker set. Resolve each Project's `Status`
-field and its `In Progress` and `Done` options from live JSON; a milestone has
-no status field. When an attached active Project lacks those options or
-represents lifecycle differently, ask the user how that Project represents it
-and retain the answer as its status mapping. Report conflicting active Project
-statuses rather than choosing between them.
+historical and leave it out of the tracker set.
+
+**Tracker selection:** when the target has no active tracker, an attached
+Project's identity is incomplete, or the user selects `New Project` or `New
+Milestone`, read [`references/tracker-selection.md`](references/tracker-selection.md)
+completely before continuing. Treat the selected tracker as part of the tracker
+set before the inflight read, even though stage 3 performs the attachment.
+
+Resolve each Project's `Status` field and its `In Progress` and `Done` options
+from live JSON; a milestone has no status field. When an attached active
+Project lacks those options or represents lifecycle differently, ask the user
+how that Project represents it and retain the answer as its status mapping.
+Report conflicting active Project statuses rather than choosing between them.
 
 Then read the inflight set once, using live counts as limits: the items each
 active Project holds in `In Progress`, each milestone's open issues and pull
@@ -80,11 +87,6 @@ Read once. When a later read shows the set changed, use the newer read and
 report what changed; two reads need not agree before you continue. Never
 describe evidence gathered before a claim or a material scope change as a fresh
 check.
-
-**Tracker selection:** when the target has no active tracker, an attached
-Project's identity is incomplete, or the user selects `New Project` or `New
-Milestone`, read [`references/tracker-selection.md`](references/tracker-selection.md)
-completely before the next tracking write.
 
 **Complete when:** the tracker set and its status mappings are explicit, and
 plausible overlap has been assessed or raised with the user.
