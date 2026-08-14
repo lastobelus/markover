@@ -171,7 +171,7 @@ export function helpPayload() {
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'For agent-originated reviews, provide truthful thread metadata when observable: --thread-id is the best observable requesting-thread or session ID; --thread-host-kind is the user-facing product or lookup namespace where the user would look for the thread; --thread-host-provider is the LLM provider or model family in use, not an intermediate harness; --thread-host-thread-id is only a distinct host-owned ID; and --thread-host-machine should use the local hostname result when available. Use recommended product values when they match observable facts, preserve truthful unknown values, and omit unavailable values rather than guessing.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
-      'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get or revise, preserving the review ID also preserves the last successful observation.',
+      'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, get-for-review, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get, get-for-review, or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get, get-for-review, or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
       'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.',
       'To act as reviewer, run get-for-review once with the retained review ID and truthful reviewer thread metadata. Follow review.agentReviewer.agentGuidance, add only feedback and source proposals permitted by review.agentReviewer.mode, then return the complete artifact with submit --input.',
@@ -187,7 +187,7 @@ export function helpPayload() {
       },
       values: ['draft', 'open', 'merged', 'closed'],
       persistence: 'A successful observation is stored with its receipt time and source agent. A missing --pr-status preserves the last successful observation.',
-      failure: 'A failed lookup does not block open, get, or revise. Continue without --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. done requires a verified merged observation.'
+      failure: 'A failed lookup does not block open, get, get-for-review, or revise. Continue without --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. done requires a verified merged observation.'
     },
     defaultAgentGuidance,
     commands: [

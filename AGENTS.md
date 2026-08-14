@@ -62,10 +62,10 @@ or agent consumer, read
 `markover-review` schema, additive-field preservation, private-data boundary,
 version bumps, migration, and fail-closed behavior.
 
-Before `open`, `get`, `revise`, or `done` for a pull-request-associated review,
-follow the help payload's `pullRequestStatus` contract. That contract is the
-source of truth for the live `gh pr view` lookup, status mapping, command flags,
-and non-blocking lookup-failure behavior.
+Before `open`, `get`, `get-for-review`, `revise`, or `done` for a
+pull-request-associated review, follow the help payload's `pullRequestStatus`
+contract. That contract is the source of truth for the live `gh pr view`
+lookup, status mapping, command flags, and non-blocking lookup-failure behavior.
 
 The normal flow is `open` once, retain the returned `reviewId`, give the user a
 best-effort Markdown link whose target is the returned `reviewUrl`, include the

@@ -55,7 +55,12 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(agents, /back-and-forth human QA/)
   assert.match(agents, /keep\s+`npm run dev` running from the owning checkout/)
   assert.match(agents, /after the loop reports `ready`/)
-  assert.match(agents, /help payload's `pullRequestStatus` contract/)
+  assert.match(agents, /help payload's `pullRequestStatus`\s+contract/)
+  assert.match(
+    agents,
+    /Before `open`, `get`, `get-for-review`, `revise`, or `done`/
+  )
+  assert.match(agentGuide, /<code>get-for-review<\/code>/)
   assert.match(agents, /run `revise <reviewId>`/)
   assert.match(agentGuide, /does not classify annotations into rigid types or apply changes itself/)
   assert.match(agentGuide, /substantively address discussion and concerns/)

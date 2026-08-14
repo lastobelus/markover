@@ -531,6 +531,14 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
     /On open, pass its canonical url with --pr-url/
   )
   assert.match(
+    helpPayload().workflow.join(' '),
+    /before open, get, get-for-review, revise, and done.*on get, get-for-review, or revise, pass --pr-status/i
+  )
+  assert.match(
+    helpPayload().pullRequestStatus.failure,
+    /does not block open, get, get-for-review, or revise/
+  )
+  assert.match(
     helpPayload().pullRequestStatus.failure,
     /retain --pr and a known canonical --pr-url.*omit the PR association/
   )
