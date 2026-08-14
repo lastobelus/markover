@@ -47,10 +47,10 @@ formal review list is not a completed review. Check the PR body and trigger
 comments too. If review fails to start, trigger it once; do not duplicate an
 active request.
 
-Apply the repository's complexity tripwire before acting on any finding; when
-it fires, pause and report the resumable state instead of opening another
-round. Then read every finding the completed review delivered, sort the whole
-set, and push one batch.
+Read every finding the completed review delivered and sort the whole set. Then
+apply the repository's complexity tripwire before acting on any item. When it
+fires, pause and report the resumable state instead of opening another round.
+Push one batch only after the set clears it.
 
 Sort each finding into one verb:
 
