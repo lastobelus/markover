@@ -255,6 +255,71 @@ test('document observations preserve newer editable content', () => {
   )
 })
 
+test('agent review claims add reviewer metadata without replacing editable content', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_claimed11', 'claimed.md')
+  const session = sessions.add(original)
+  const treeReference = session.tree
+  firstNode(session).feedback = 'Preserve this annotation.'
+
+  const claimed = structuredClone(original)
+  claimed.tree.review.status = 'agent-reviewing'
+  claimed.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: null,
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
+  const staleNode = claimed.tree.root.children[0]
+  assert.ok(staleNode)
+  staleNode.feedback = ''
+
+  sessions.updateDocument(claimed)
+  sessions.updateStatus(session.reviewId, 'agent-reviewing')
+
+  assert.equal(session.tree, treeReference)
+  assert.equal(firstNode(session).feedback, 'Preserve this annotation.')
+  assert.deepEqual(
+    session.tree.review.agentReviewer,
+    claimed.tree.review.agentReviewer
+  )
+})
+
+test('agent review cancellation removes reviewer metadata without replacing content', () => {
+  const sessions = new ReviewSessions()
+  const inflight = reviewDocument('mko_cancel111', 'cancel.md')
+  inflight.tree.review.status = 'agent-reviewing'
+  inflight.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_fedcba9876543210',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: null,
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
+  const session = sessions.add(inflight)
+  const treeReference = session.tree
+
+  const cancelled = structuredClone(inflight)
+  cancelled.tree.review.status = 'editing'
+  delete cancelled.tree.review.agentReviewer
+
+  sessions.updateDocument(cancelled)
+  sessions.updateStatus(session.reviewId, 'editing')
+
+  assert.equal(session.tree, treeReference)
+  assert.equal(session.tree.review.status, 'editing')
+  assert.equal(session.tree.review.agentReviewer, undefined)
+})
+
 test('adjacent review navigation wraps in either direction', () => {
   const sessions = new ReviewSessions()
   const first = sessions.add(reviewDocument('mko_first11', 'first.md'))

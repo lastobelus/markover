@@ -282,6 +282,13 @@
         session.tree.review.attentionRequestedAt =
           document.tree.review.attentionRequestedAt
         session.tree.review.pullRequest = document.tree.review.pullRequest
+        if (document.tree.review.agentReviewer) {
+          session.tree.review.agentReviewer = JSON.parse(
+            JSON.stringify(document.tree.review.agentReviewer)
+          ) as ReviewAgentReviewer
+        } else {
+          delete session.tree.review.agentReviewer
+        }
       }
       const updatedAt = Date.parse(document.tree.review.updatedAt)
       if (Number.isFinite(updatedAt)) session.lifecycleActivityAt = updatedAt
