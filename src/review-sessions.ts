@@ -269,10 +269,20 @@
       if (!reviewId) return null
       const session = this.get(reviewId)
       if (!session) return null
-      const replacement: ReviewSessionTree = JSON.parse(
-        JSON.stringify(document.tree)
-      ) as ReviewSessionTree
-      session.tree = replacement
+      if (
+        session.tree.review.status === 'agent-reviewing' &&
+        document.tree.review.status === 'reviewed'
+      ) {
+        const replacement: ReviewSessionTree = JSON.parse(
+          JSON.stringify(document.tree)
+        ) as ReviewSessionTree
+        session.tree = replacement
+      } else {
+        session.tree.review.updatedAt = document.tree.review.updatedAt
+        session.tree.review.attentionRequestedAt =
+          document.tree.review.attentionRequestedAt
+        session.tree.review.pullRequest = document.tree.review.pullRequest
+      }
       const updatedAt = Date.parse(document.tree.review.updatedAt)
       if (Number.isFinite(updatedAt)) session.lifecycleActivityAt = updatedAt
       const requestedAt = Date.parse(document.tree.review.attentionRequestedAt)

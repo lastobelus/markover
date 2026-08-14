@@ -176,6 +176,18 @@ test('status updates include the transient renderer handoff state', () => {
 test('document updates replace returned review content while preserving presentation state', () => {
   const sessions = new ReviewSessions()
   const original = reviewDocument('mko_reviewed1', 'reviewed.md')
+  original.tree.review.status = 'agent-reviewing'
+  original.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: null,
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
   const session = sessions.add(original)
   const treeReference = session.tree
   session.selectedId = firstNode(session).id
@@ -210,6 +222,37 @@ test('document updates replace returned review content while preserving presenta
   assert.equal(session.annotatedOnly, true)
   assert.equal(session.sourceCollapsed, true)
   assert.equal(session.sourceDrafts.get(firstNode(session).id), 'private draft')
+})
+
+test('document observations preserve newer editable content', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_editing11', 'editing.md')
+  const session = sessions.add(original)
+  const treeReference = session.tree
+  firstNode(session).feedback = 'Unsaved human annotation.'
+
+  const observed = structuredClone(original)
+  observed.tree.review.updatedAt = '2026-08-03T12:01:00.000Z'
+  observed.tree.review.attentionRequestedAt = '2026-08-03T12:00:30.000Z'
+  observed.tree.review.pullRequest = {
+    number: 150,
+    url: 'https://github.com/lastobelus/markover/pull/150',
+    status: 'open',
+    statusObservedAt: '2026-08-03T12:01:00.000Z',
+    statusSource: 'agent'
+  }
+  const staleNode = observed.tree.root.children[0]
+  assert.ok(staleNode)
+  staleNode.feedback = ''
+
+  const updated = sessions.updateDocument(observed)
+  assert.equal(updated, session)
+  assert.equal(session.tree, treeReference)
+  assert.equal(firstNode(session).feedback, 'Unsaved human annotation.')
+  assert.equal(
+    session.tree.review.pullRequest?.statusObservedAt,
+    '2026-08-03T12:01:00.000Z'
+  )
 })
 
 test('adjacent review navigation wraps in either direction', () => {
