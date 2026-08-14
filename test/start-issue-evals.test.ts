@@ -83,6 +83,14 @@ test('start-issue corpus covers the twelve coordination branches', () => {
   assert.equal(new Set(cases.map(({ id }) => id)).size, cases.length)
 })
 
+test('start-issue triggers for authorized untracked implementation, not diagnosis', () => {
+  assert.match(
+    skillSource,
+    /^description: .*implement untracked repository work.*Reporting or diagnosing a problem is not itself a request to start work\.$/m
+  )
+  assert.match(skillSource, /asks to start, take over, implement untracked\nrepository work, or record work/)
+})
+
 test('initial response identifies the live issue and title first', () => {
   assert.match(
     skillSource,

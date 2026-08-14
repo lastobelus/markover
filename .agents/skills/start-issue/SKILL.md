@@ -1,6 +1,6 @@
 ---
 name: start-issue
-description: Use when the user asks to start or take over an issue or pull request, to open a tracked pull request for work authorized now, or to record a follow-up found after a merge, before implementation. Reporting or diagnosing a problem is not itself a request to start work.
+description: Use before implementation when the user asks to start or take over an issue or pull request, implement untracked repository work, open a tracked pull request for work authorized now, or record a follow-up found after a merge. Reporting or diagnosing a problem is not itself a request to start work.
 ---
 
 # Start Issue
@@ -11,9 +11,10 @@ The interview then fixes the **slice boundary** — the evidence that ends this
 slice and what it leaves out — so babysit and the tripwire have something
 finite to compare against. Complete the stages in order.
 
-Enter this workflow when the user asks to start, take over, or record work.
-Diagnosing a failure, explaining behavior, and reporting status stay outside
-it, even when the request names an issue or pull request.
+Enter this workflow when the user asks to start, take over, implement untracked
+repository work, or record work. Diagnosing a failure, explaining behavior,
+and reporting status stay outside it, even when the request names an issue or
+pull request.
 
 ## 1. Identify the work item
 
