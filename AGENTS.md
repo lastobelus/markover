@@ -9,6 +9,32 @@ Markover is a macOS app for reviewing Markdown as a document tree and returning 
 Before creating or editing a skill, `AGENTS.md`, `CLAUDE.md`, or another
 document agents consume, read `.ai/skills/writing-for-agents/SKILL.md`.
 
+## Complexity tripwire
+
+During implementation or review, trigger the tripwire before making a proposed
+change when any of these is true:
+
+- a second consecutive finding extends the same defensive concern, such as
+  another encoding, race, retry, lock, failure record, provenance check, or
+  compatibility case;
+- the change introduces a new persistence layer, protocol, background process,
+  ownership state, retry state, or compatibility path for a scenario not shown
+  in supported use;
+- review-driven safeguards have doubled the original change or become larger
+  than the behavior they protect.
+
+Pause that line of work and report the reachable scenario, actor or
+interleaving, consequence, recovery path, complexity added so far, and the
+smallest alternative. Get the user's direction before continuing. A reviewer's
+severity or “actionable” label does not bypass the tripwire. The tripwire is a
+stop condition for every workflow, including babysitting: do not seek another
+automated review merely to reach terminal-clean status while it is unresolved.
+
+Prefer prevention for primary user data, real trust boundaries, and destructive
+operations. Prefer detection and recovery for secondary, reconstructible, or
+disposable state. Before resuming a tripped concern, establish a finite
+completion test; when none exists, propose narrowing the promise instead.
+
 ## Markover quick start for agents
 
 Markover is this repository's local Markdown review inbox. If a user asks you
