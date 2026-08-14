@@ -23,8 +23,14 @@ description: "Babysit GitHub pull requests. Use when the user says 'babysit', 'b
 5. Treat each pushed fix or rebase as a new head: restart CI and automated
    review gates. A Codex 👀 is in progress, and silence or an empty formal review
    list is not success. Require a current-head 👍 or explicit no-issues result,
-   checking the PR body and trigger comments too. If review fails to start,
-   trigger it once; do not duplicate an active request.
+   checking the PR body and trigger comments too. Do not keep the loop running
+   solely to prove an unbounded property. Before acting on a finding that adds a
+   new codec, compatibility path, ownership state, retry state, provenance
+   layer, or hypothetical producer, apply the repository's complexity tripwire.
+   Continue only when the scenario is reachable, its consequence is material,
+   and prevention is cheaper than recovery; otherwise pause and report the
+   resumable state. If review fails to start, trigger it once; do not duplicate
+   an active request.
 6. Continue until the current head has green CI, a terminal-clean Codex review,
    zero unresolved threads, and a clean mergeable state. Before merging, inspect
    the addressed issue conversation. Treat comments added by other threads as a
