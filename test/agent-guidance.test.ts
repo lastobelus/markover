@@ -38,12 +38,13 @@ test('guidance combines the fixed contract with a replaceable policy', () => {
 })
 
 test('generic and dedicated agent guidance preserve the same semantics', async () => {
-  const [agents, agentGuide, humanGuide, development, babysit, cli] = await Promise.all([
+  const [agents, agentGuide, humanGuide, development, babysit, mergeReference, cli] = await Promise.all([
     read('AGENTS.md'),
     read('docs/user/agents/index.html'),
     read('docs/user/guide/index.html'),
     read('docs/developer/development.md'),
     read('.agents/skills/babysit/SKILL.md'),
+    read('.agents/skills/babysit/references/merge.md'),
     read('scripts/markover.ts')
   ])
 
@@ -63,8 +64,9 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(agentGuide, /Possible stricter policies/)
   assert.match(agentGuide, /id="revise"/)
   assert.match(agentGuide, /id="done"/)
-  assert.match(babysit, /machine-readable\s+help[\s\S]*`pullRequestStatus`/)
-  assert.match(babysit, /Run `done`/)
+  assert.match(babysit, /references\/merge\.md/)
+  assert.match(mergeReference, /machine-readable\s+help[\s\S]*`pullRequestStatus`/)
+  assert.match(mergeReference, /Run `done`/)
   assert.match(cli, /gh pr view <pull-request-url-or-number> --json state,isDraft,url/)
   assert.doesNotMatch(humanGuide, /markover get|markover edit|Default policy|Possible stricter policies/)
   assert.match(development, /Agent-facing instructions must preserve the contract/)
