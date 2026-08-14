@@ -100,6 +100,7 @@
       "tracker-choice-presented:new-milestone",
       "question-count:one",
       "direct-pr-action-announced:tracker",
+      "direct-pr-boundary-resolved:before-first-commit",
       "prewrite-inflight-scan:selected-tracker",
       "draft-pr-created:only-work-item",
       "draft-pr-attached:selected-tracker",
@@ -108,6 +109,7 @@
     ],
     "forbiddenActions": [
       "delivery-shape-question-asked:clear-single-pr",
+      "first-commit-made:before-authorization",
       "issue-created:direct-pr-path",
       "implementation-continued:before-draft-pr-claim",
       "work-item-count-created:issue-and-pr"
@@ -121,6 +123,7 @@
         "tracker-choice-presented:new-milestone",
         "question-count:one",
         "direct-pr-action-announced:tracker",
+        "direct-pr-boundary-resolved:before-first-commit",
         "prewrite-inflight-scan:selected-tracker",
         "draft-pr-created:only-work-item",
         "draft-pr-attached:selected-tracker",
@@ -134,6 +137,7 @@
           "tracker-choice-presented:new-project",
           "tracker-choice-presented:new-milestone",
           "question-count:one",
+          "first-commit-made:before-authorization",
           "issue-created:direct-pr-path",
           "draft-pr-created:only-work-item",
           "implementation-continued:before-draft-pr-claim",
@@ -142,12 +146,14 @@
         "expectedMissing": [
           "delivery-shape-decided:direct-pr",
           "direct-pr-action-announced:tracker",
+          "direct-pr-boundary-resolved:before-first-commit",
           "prewrite-inflight-scan:selected-tracker",
           "draft-pr-attached:selected-tracker",
           "draft-pr-claimed:before-further-implementation",
           "work-item-count-created:one-pr"
         ],
         "expectedForbidden": [
+          "first-commit-made:before-authorization",
           "issue-created:direct-pr-path",
           "implementation-continued:before-draft-pr-claim",
           "work-item-count-created:issue-and-pr"
@@ -436,15 +442,15 @@
     }
   },
   {
-    "id": "post-claim-scan-reconstructs-unmarked-items",
-    "description": "A post-claim scan must rebuild overlap evidence for every still-unmarked Project item instead of reusing the pre-claim reconstruction.",
+    "id": "changed-ledger-read-uses-newer-state",
+    "description": "When a later ledger read shows changed state, the workflow adopts the newer evidence, reports the change, and does not seek snapshot convergence.",
     "provenance": {
       "kind": "live-thread",
       "sourceThreadIds": [
         "6bcd8df5-d1e2-4ebc-90c4-7c765ffd56af",
         "2fdb0272-8eb1-4549-a47a-2051b6d37b01"
       ],
-      "observation": "Both runs collected fresh post-claim candidate and marker snapshots but reused pre-claim evidence for still-unmarked Project items."
+      "observation": "Both runs demonstrated that earlier ledger evidence must not be presented as a fresh check after the tracked state changes."
     },
     "observations": {
       "workItem": {
@@ -458,59 +464,40 @@
           }
         ]
       },
-      "scanCheckpoint": "post-claim",
-      "preClaimReconstructionAvailable": true,
-      "postClaimState": {
-        "consecutiveCandidateSetsMatch": true,
-        "allCandidateMarkersRead": true,
-        "unmarkedProjectItems": [
-          {
-            "key": "umbrella-issue",
-            "currentContentAvailable": true
-          },
-          {
-            "key": "active-feature",
-            "linkedChangesAvailable": true,
-            "worktreeMetadataAvailable": true
-          },
-          {
-            "key": "stale-closed-item",
-            "currentContentAvailable": true
-          }
-        ]
-      }
+      "ledgerRead": "single-bounded-pass",
+      "laterRead": "changed-state-visible"
     },
     "requiredActions": [
-      "postclaim-snapshot-collected:fresh",
-      "postclaim-marker-read:every-candidate",
-      "postclaim-missing-intent-reconstructed:every-unmarked-project-item",
-      "postclaim-overlap-assessed:fresh-evidence"
+      "ledger-read-performed:single-bounded-pass",
+      "changed-state-adopted:newer-read",
+      "ledger-change-reported:user-visible"
     ],
     "forbiddenActions": [
-      "postclaim-missing-intent-reused:preclaim-evidence",
-      "postclaim-scan-completed:ids-and-markers-only"
+      "earlier-evidence-presented:as-fresh-check",
+      "ledger-read-repeated:until-snapshots-agree",
+      "unmarked-item-reconstructed:exhaustively"
     ],
     "controls": {
       "positive": [
-        "postclaim-snapshot-collected:fresh",
-        "postclaim-marker-read:every-candidate",
-        "postclaim-missing-intent-reconstructed:every-unmarked-project-item",
-        "postclaim-overlap-assessed:fresh-evidence"
+        "ledger-read-performed:single-bounded-pass",
+        "changed-state-adopted:newer-read",
+        "ledger-change-reported:user-visible"
       ],
       "negative": {
         "signals": [
-          "postclaim-snapshot-collected:fresh",
-          "postclaim-marker-read:every-candidate",
-          "postclaim-missing-intent-reused:preclaim-evidence",
-          "postclaim-scan-completed:ids-and-markers-only"
+          "ledger-read-performed:single-bounded-pass",
+          "earlier-evidence-presented:as-fresh-check",
+          "ledger-read-repeated:until-snapshots-agree",
+          "unmarked-item-reconstructed:exhaustively"
         ],
         "expectedMissing": [
-          "postclaim-missing-intent-reconstructed:every-unmarked-project-item",
-          "postclaim-overlap-assessed:fresh-evidence"
+          "changed-state-adopted:newer-read",
+          "ledger-change-reported:user-visible"
         ],
         "expectedForbidden": [
-          "postclaim-missing-intent-reused:preclaim-evidence",
-          "postclaim-scan-completed:ids-and-markers-only"
+          "earlier-evidence-presented:as-fresh-check",
+          "ledger-read-repeated:until-snapshots-agree",
+          "unmarked-item-reconstructed:exhaustively"
         ]
       }
     }
@@ -548,6 +535,7 @@
       "followup-choice-offered:create-issue",
       "tracker-set-inherited:source-pull-request",
       "action-announced:source-pr-and-tracker",
+      "direct-pr-boundary-resolved:before-first-commit",
       "prewrite-inflight-scan:inherited-trackers",
       "draft-pr-created:follow-up-to-source",
       "draft-pr-attached:inherited-trackers",
@@ -556,6 +544,7 @@
     ],
     "forbiddenActions": [
       "issue-created:apply-now",
+      "first-commit-made:before-authorization",
       "tracker-choice-question-asked:usable-source-trackers",
       "implementation-continued:before-draft-pr-claim",
       "source-pull-request-reopened",
@@ -567,6 +556,7 @@
         "followup-choice-offered:create-issue",
         "tracker-set-inherited:source-pull-request",
         "action-announced:source-pr-and-tracker",
+        "direct-pr-boundary-resolved:before-first-commit",
         "prewrite-inflight-scan:inherited-trackers",
         "draft-pr-created:follow-up-to-source",
         "draft-pr-attached:inherited-trackers",
@@ -577,6 +567,7 @@
         "signals": [
           "followup-choice-offered:apply-now",
           "followup-choice-offered:create-issue",
+          "first-commit-made:before-authorization",
           "tracker-choice-question-asked:usable-source-trackers",
           "issue-created:apply-now",
           "draft-pr-created:follow-up-to-source",
@@ -586,6 +577,7 @@
         "expectedMissing": [
           "tracker-set-inherited:source-pull-request",
           "action-announced:source-pr-and-tracker",
+          "direct-pr-boundary-resolved:before-first-commit",
           "prewrite-inflight-scan:inherited-trackers",
           "draft-pr-attached:inherited-trackers",
           "draft-pr-claimed:before-further-implementation",
@@ -593,6 +585,7 @@
         ],
         "expectedForbidden": [
           "issue-created:apply-now",
+          "first-commit-made:before-authorization",
           "tracker-choice-question-asked:usable-source-trackers",
           "implementation-continued:before-draft-pr-claim",
           "work-item-count-created:issue-and-pr"

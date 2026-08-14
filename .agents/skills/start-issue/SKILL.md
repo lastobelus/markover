@@ -1,183 +1,122 @@
 ---
 name: start-issue
-description: Use when starting or taking over a GitHub issue or pull request, starting untracked repository work, or handling a follow-up found after a pull request merged, before implementation.
+description: Use when the user asks to start or take over an issue or pull request, to open a tracked pull request for work authorized now, or to record a follow-up found after a merge, before implementation. Reporting or diagnosing a problem is not itself a request to start work.
 ---
 
 # Start Issue
 
-Treat Projects linked to the current repository and its milestones as the
-target's tracker set. A Project can provide a kanban status ledger; a milestone
-only groups repository issues and pull requests. Always use the work-intent
-comment as the change-surface and ownership ledger. Complete the stages in
-order.
+Starting work means making it visible before changing it: one **work item** on
+GitHub, the **tracker** the user reads, and one **claim** other agents can see.
+The interview then fixes the **slice boundary** — the evidence that ends this
+slice and what it leaves out — so babysit and the tripwire have something
+finite to compare against. Complete the stages in order.
 
-## How to respond to initial start-issue prompt
+Enter this workflow when the user asks to start, take over, or record work.
+Diagnosing a failure, explaining behavior, and reporting status stay outside
+it, even when the request names an issue or pull request.
 
-When the opening prompt names an existing numbered issue or pull request,
-resolve its live number, exact GitHub title, and item URL as the first lookup.
-Then immediately emit this identity block as the first substantive response:
+## 1. Identify the work item
+
+For an existing numbered issue or pull request, resolve its live number, exact
+GitHub title, and item URL as the first lookup, then emit this identity block
+as the first substantive response:
 
 ```markdown
 # #52: Open a specific review through a clickable Markover deep link
 [#52 on github](https://github.com/lastobelus/markover/issues/52)
 
-I’m checking its trackers, existing claim, and inflight overlap before proceeding.
+I'm checking its trackers, existing claims, and overlap before proceeding.
 ```
 
-For that existing item, treat both identity lines as an emission gate: complete
-them before continuing tracker discovery, inflight scanning, or an interview.
-Place no decision, question, activity summary, or recommendation before them.
+A brief orienting sentence may precede the lookup. No decision, question,
+activity summary, or recommendation precedes the identity block.
 
-When no numbered work item exists yet, perform only the routing needed to
-create the issue or draft pull request. Immediately after creation, resolve and
-emit its identity block before continuing work on that new item. Pre-creation
-tracker or delivery-shape questions are exempt from the identity gate.
+**No numbered work item yet:** when no open issue or pull request owns the
+requested work, including a problem found after a pull request merged, read
+[`references/work-item-routing.md`](references/work-item-routing.md) completely
+before the first write. Tracker and delivery-shape questions belong before an
+item exists, so they precede this block; emit it immediately after creation.
 
-## 1. Orient and select tracking
+**Complete when:** the work has one issue or pull request and its live identity
+is on screen.
 
-Confirm `gh auth status`, then resolve the current checkout's repository. Keep
-all tracking and work-item operations in that repository. Resolve the item type,
+## 2. Read the ledger
+
+Confirm `gh auth status`, then resolve the current checkout's repository and
+keep every tracking and work-item operation there. Read the target once: type,
 number, URL, title, body, relationships, comments, current branch, and attached
-trackers. Inspect the repository and GitHub for facts; reserve questions for
-decisions.
-
-For an existing issue or pull request, inspect both tracker types:
+trackers.
 
 ```sh
 gh issue view ITEM_URL --json milestone,projectItems
 gh pr view ITEM_URL --json milestone,projectItems
 ```
 
-**Untracked or post-merge work:** when no open issue or pull request owns the
-requested work, including a problem found after a pull request merged, read
-[`references/work-item-routing.md`](references/work-item-routing.md) completely
-before deciding which work item to create.
+Use every open Project and milestone already attached to the target unless the
+user asks to change its tracking. Report an attached closed Project as
+historical and leave it out of the tracker set. Resolve each Project's `Status`
+field and its `In Progress` and `Done` options from live JSON; a milestone has
+no status field. When an attached active Project lacks those options or
+represents lifecycle differently, ask the user how that Project represents it
+and retain the answer as its status mapping. Report conflicting active Project
+statuses rather than choosing between them.
+
+Then read the inflight set once, using live counts as limits: the items each
+active Project holds in `In Progress`, each milestone's open issues and pull
+requests, and the claim comments those items carry.
+
+```html
+<!-- start-issue-work-intent -->
+```
+
+Judge overlap from what that one pass shows — title, body, declared touch
+points, linked pull request, and branch. An item with no claim is not thereby
+suspicious; read what it says and move on. Ask the user when overlap is
+plausible but unclear, because they are present and a collision is cheap to
+resolve.
+
+Read once. When a later read shows the set changed, use the newer read and
+report what changed; two reads need not agree before you continue. Never
+describe evidence gathered before a claim or a material scope change as a fresh
+check.
 
 **Tracker selection:** when the target has no active tracker, an attached
 Project's identity is incomplete, or the user selects `New Project` or `New
 Milestone`, read [`references/tracker-selection.md`](references/tracker-selection.md)
 completely before the next tracking write.
 
-**Markover instance selection:** when this run will open, get, or edit a
-Markover review, or the user asks to run a development instance, read
-[`references/markover-review.md`](references/markover-review.md) completely
-before the next Markover command.
+**Complete when:** the tracker set and its status mappings are explicit, and
+plausible overlap has been assessed or raised with the user.
 
-Run only the command matching the item type. Use every open Project and
-milestone already attached to the target unless the user asks to change its
-tracking. Report attached closed Projects as historical and exclude them from
-the tracker set, scans, and status writes. Include one only after the user
-explicitly chooses to reactivate it and live data shows it open. Report
-conflicting active Project statuses before proceeding.
+## 3. Claim it
 
-For every selected Project, resolve its fields and status options from live
-JSON. Use an existing `Status` field and semantically matching `In Progress`
-and `Done` options when present. If lifecycle status is absent or ambiguous,
-ask the user how that Project represents it and retain the answer as the status
-mapping. A milestone has no item-status mapping.
+**When the target already carries an active claim** — any claim whose phase is
+not `completed` — show it to the user and ask whether this run continues it,
+takes it over, or belongs on a different item, before attaching or claiming
+anything. Add no second claim. Edit another run's claim only after the user
+says that run has stopped, and preserve its intent data when taking it over.
+One item carries one active intent.
 
-Establish one stable owner token for this run. Use the agent thread identifier
-when available; otherwise generate and retain a unique `start-issue-...` token.
-Every independent run uses a different token.
-
-**Complete when:** the work has an issue or pull request, its tracker set and
-Project status mappings are explicit, its current local and GitHub context is
-unambiguous, and this run has a unique owner token.
-
-## 2. Scan inflight work
-
-Build the candidate set independently for each selected tracker:
-
-- For a Project with an `In Progress` mapping, read its live item count, then
-  query every item in that status with the count as `--limit`.
-- For a Project without a status mapping, inspect all of its items for trusted
-  active work-intent comments.
-- For a milestone, use paginated `gh api` reads to inspect its open issues and
-  pull requests for trusted active work-intent comments. An unmarked milestone
-  item is not known to be inflight because milestones have no lifecycle field.
-
-Use tracker identities resolved in stage 1 rather than fixed values. A Project
-status query has this parameterized shape:
-
-```sh
-gh project view PROJECT_NUMBER --owner PROJECT_OWNER --format json --jq '.items.totalCount'
-gh project item-list PROJECT_NUMBER --owner PROJECT_OWNER --limit PROJECT_ITEM_TOTAL \
-  --query 'status:"IN_PROGRESS_OPTION_NAME"' --format json
-```
-
-For every candidate repository issue or pull request, use paginated `gh api`
-reads to inspect all issue comments for this marker, including each comment's
-`user.login` and `author_association` (pull-request conversation comments use
-the same REST endpoint):
-
-```html
-<!-- start-issue-work-intent -->
-```
-
-Only markers authored with live association `OWNER`, `MEMBER`, or
-`COLLABORATOR`, or by a bot identity explicitly allowlisted in repository
-guidance, are trusted. Report and ignore every other marker; untrusted comments
-never participate in intent discovery, missing-intent resolution, ownership, or
-the canonical election.
-
-An `In Progress` Project draft has no repository comments endpoint. Treat it as
-a missing-intent item and inspect its live Project title, body, and fields for
-overlap evidence.
-
-Summarize inflight items, declared touch points and dependencies, tracker
-membership, and plausible overlap with the target. Treat a Project item whose
-status says `In Progress` but lacks a work-intent comment as unresolved. For a
-milestone, trusted comments in `investigating`, `implementing`, `blocked`, or
-`review` phase define the known inflight set.
-
-After the comment checks, refresh every tracker's membership and candidate
-query. Compare sorted Project item node IDs and milestone item node IDs with the
-prior snapshot. If any total or candidate ID set changed, inspect the changed
-set and repeat with refreshed limits. Complete only after two consecutive
-snapshots return the same candidate sets.
-
-Re-read every missing-intent Project item after the sets stabilize. If its
-marker is still absent, inspect its issue, pull request, or Project draft
-content; linked pull requests; changed paths; and local worktree metadata for
-enough evidence to assess overlap. Ask the user before claiming the target when
-that evidence remains ambiguous. Complete the scan only after each missing
-intent has been reconstructed from live evidence or explicitly resolved by the
-user.
-
-When the target already has one or more trusted marked comments, read
-[`references/existing-claim.md`](references/existing-claim.md) completely
-before deciding whether this run is a continuation, handoff, or collision.
-
-**Complete when:** every known inflight item in the tracker set has been checked
-and the target has no unresolved intent collision.
-
-## 3. Claim the item
-
-Attach the target to the tracker selected in stage 1 if it is not already
-attached. Use the resolved owner, repository, and number:
+Attach the target to the tracker set if it is not already attached, and move
+each mapped Project to `In Progress`. An already-correct value is a no-op.
 
 ```sh
 gh project item-add PROJECT_NUMBER --owner PROJECT_OWNER --url ITEM_URL
 gh issue edit ITEM_URL --milestone MILESTONE_TITLE
 gh pr edit ITEM_URL --milestone MILESTONE_TITLE
-```
-
-Run only commands required for the selected tracker and item type. An item can
-belong to multiple Projects but only one milestone.
-
-For each selected Project with a status mapping, resolve the Project node ID,
-target item node ID, Status field node ID, and option node IDs from live JSON.
-Read live field and item counts before using them as `--limit` values. Treat an
-item already in the mapped `In Progress` option as a no-op. Otherwise move it
-there without changing other fields:
-
-```sh
 gh project item-edit --id ITEM_NODE_ID --project-id PROJECT_NODE_ID \
   --field-id STATUS_FIELD_NODE_ID \
   --single-select-option-id IN_PROGRESS_OPTION_NODE_ID
 ```
 
-Create or update one canonical comment using this shape:
+Run only the commands the item type and tracker type require, and resolve
+every node ID from live JSON — `item-edit` arguments are invalid without them.
+An item belongs to many Projects but one milestone. Treat every other Project
+field, milestone property, and repository label as read-only; the claim carries
+the rest.
+
+With no active claim on the target, post one claim comment and maintain it by
+editing that exact comment ID:
 
 ````markdown
 <!-- start-issue-work-intent -->
@@ -188,48 +127,28 @@ phase: investigating
 summary: "Short description of the intended slice"
 touch-points:
   - unknown
+done-when: unknown
+excludes: []
 blocked-by: []
 may-block: []
 branch: "current branch or unknown"
-thread: "this run's owner token"
 ```
 ````
 
-Use `phase: implementing` instead of `phase: investigating` when the opening
-request already resolves every material implementation decision and explicitly
-authorizes implementation. Keep the phase truthful; do not transition merely
-because the claim exists.
+`done-when` is the observable evidence that ends this slice, and `excludes`
+names the actors, scenarios, variants, and extensions left outside it. Stage 4
+fills both; babysit reads them as the boundary for triage. Use issue or
+pull-request references in dependency fields, keep unknown values explicit, and
+keep the phase truthful — `implementing` only after implementation is
+authorized.
 
-Use issue or pull-request references in dependency fields. Include a thread
-identifier when available. Keep unknown values explicit. Maintain this single
-comment by editing its exact GitHub comment ID; routine changes do not create
-new comments.
+After posting, read the target's own claim comments once more — that comment
+thread only, not the trackers. When more than one active claim is present,
+pause, show the collision, and let the user resolve it before implementation.
+Two runs pausing is a good outcome; do not invent a winner.
 
-Immediately re-read all trusted marked comments on the target with their REST
-`created_at` timestamps and numeric IDs. The canonical claim is the earliest
-`created_at`, breaking a timestamp tie with the smallest numeric ID. Only the
-canonical claimant proceeds. A losing claimant edits its own comment to remove
-the marker, labels it as a superseded claim, and stops; a later claim can never
-displace the established winner. Pause for the user if a trusted losing marker
-cannot be demoted by its author.
-
-At every ownership checkpoint, re-read all target markers. Checkpoints are
-before every later work-intent edit, before starting or resuming implementation,
-after a wait or interruption, before each commit or push, and before handoff or
-completion. Proceed only while this comment remains canonical and its `thread`
-equals this run's owner token. Stop on any mismatch before changing the comment
-or implementation.
-
-After the winner is known, repeat the inflight scan from stage 2 without reusing
-either pre-claim snapshot. Treat the current canonical target comment as this
-run's owned claim, but re-read every item's live intent and apply the same
-set-stability and missing-intent rules. Resolve newly visible overlap with the
-user before proceeding.
-
-**Complete when:** the target is attached to its tracker set, mapped Projects
-show `In Progress`, the canonical comment is accurate, every visible losing
-claim is demoted, this run is the deterministic winner, and the post-claim scan
-is stable with no unresolved overlap.
+**Complete when:** the target is attached, mapped Projects show `In Progress`,
+one truthful claim exists, and no unresolved collision remains.
 
 ## 4. Interview
 
@@ -237,42 +156,67 @@ When planned slices imply future pull requests, name each uncreated pull
 request by its relationship to the slice: `slice-3 PR`, `third PR`, or `PR for
 slice 3`. Reserve `PR #N` for an existing GitHub pull request numbered `N`.
 
-Use a zero-question path when the opening request already resolves acceptance
-criteria, scope boundaries, dependencies, touch points, validation, and
-meaningful tradeoffs, and explicitly authorizes implementation. Record the
-resolved decisions, synchronize the canonical intent, perform the required
-fresh final inflight scan, and complete this stage without inventing a question.
+When the work promises an open-ended property, such as security, privacy or
+sanitization, compatibility breadth, race freedom, provenance, resilience, or
+evaluation completeness, resolve its stop condition with the other decisions:
+the observable evidence that ends this slice, and the actors, scenarios,
+variants, or extensions left outside it. Record that boundary as a decision
+when the acceptance criteria already make it finite; otherwise narrow the
+promise with the user before authorizing implementation.
+
+When the user asks whether the complexity is warranted, or doubts that the
+design will hold up, answer that as the next decision: name the actor, the
+consequence, the ordinary recovery, and the smaller alternative, then take
+direction before the scope grows further.
+
+Use a zero-question path when the opening request, or a routing interview that
+preceded item creation, already resolves acceptance criteria, scope boundaries,
+dependencies, touch points, validation, and meaningful tradeoffs, and
+explicitly authorizes implementation. Record the
+resolved decisions, write them into the claim, and complete this stage without
+inventing a question.
 
 When any material decision remains unresolved, read
 [`references/interview.md`](references/interview.md) completely and follow its
-question, synchronization, and rescan rules.
+question and synchronization rules.
 
 **Complete when:** acceptance criteria, scope boundaries, dependencies,
-touch-points, validation, and meaningful tradeoffs are resolved, and either the
-opening request or a later response explicitly confirms the shared
-understanding and authorizes implementation.
+touch-points, validation, meaningful tradeoffs, and the stop condition of any
+open-ended promise are resolved; `done-when` and `excludes` are written into
+the claim; and either the opening request or a later response explicitly
+confirms the shared understanding and authorizes implementation.
 
-## 5. Implement and maintain intent
+## 5. Implement and hand off
 
-After authorization, change the comment to `phase: implementing` if needed and
-make the agreed changes. Keep the comment and trackers aligned with these
-lifecycle rules:
+Set `phase: implementing` and make the agreed changes. Keep the claim, the
+Projects, and the milestone aligned with the real state:
 
-If implementation uncovers a material change to the summary, touch points,
-dependencies, or branch, pause before entering the newly added surface. Update
-the canonical comment, repeat the inflight scan from stage 2 with fresh
-stability snapshots, and resolve newly visible overlap before continuing.
+- `blocked`: name the concrete blocker in `blocked-by`; mapped Projects stay
+  `In Progress`.
+- `review`: the slice is with babysit or the user; record the handoff in the
+  summary and leave mapped Projects `In Progress`.
+- `completed`: the owned work is finished, and mapped Projects move to `Done`.
+  A direct pull request completes when it merges. An issue completes when the
+  issue closes, so a merged pull request that leaves issue work open keeps it
+  `In Progress`.
 
-- `blocked`: state the concrete blocker in `blocked-by`; keep mapped Projects `In Progress`.
-- `review`: record the handoff in the summary; keep mapped Projects `In Progress`.
-- `completed`: use only when the item is completed or closed; move mapped Projects to `Done`.
+Keep the milestone attached throughout; its progress changes when the item
+closes.
 
-Keep the milestone attached throughout the work; its progress changes when the
-issue or pull request closes. For Project status changes, reuse the resolved
-field and option IDs, and treat an already-correct value as a no-op. Treat every
-other Project field, milestone property, and repository label as read-only after
-selection; the canonical comment carries the additional coordination detail.
+Re-read the claim before resuming after an interruption, and before entering a
+surface it does not declare. When implementation materially changes the
+summary, touch points, dependencies, or branch, update the claim and reassess
+overlap for the newly added surface before working inside it.
+
+When the user decides something belongs to later work, record it on the owning
+durable item before moving on; a follow-on that lives only in a plan or a reply
+is lost. Propose the item and get authorization before creating a new one.
+
+**Markover instance selection:** when this run will open, get, or edit a
+Markover review, or the user asks to run a development instance, read
+[`references/markover-review.md`](references/markover-review.md) completely
+before the next Markover command.
 
 **Complete when:** implementation and proportionate verification are finished,
-and the final comment, Project statuses, milestone membership, and item state
-match the real handoff state.
+and the claim, Project statuses, milestone membership, and item state match the
+real handoff state.

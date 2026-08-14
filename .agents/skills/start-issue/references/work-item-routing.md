@@ -48,8 +48,8 @@ ambiguous. Present the normal tracker choices before the first write.
 For direct-PR work, follow the bootstrap below. For issue-backed work, create
 the issue in the current repository before claiming it. When scheduling it for
 later, attach it, set an unambiguous Project `Todo` or backlog status when
-available, report the issue and tracker, and stop. Otherwise return to stages 2
-through 5 in `SKILL.md` with the issue as the target.
+available, report the issue and tracker, and stop. Otherwise emit its identity block and
+return to stages 2 through 5 in `SKILL.md` with the issue as the target.
 
 ## Direct-PR bootstrap
 
@@ -58,10 +58,19 @@ After making the tracker set explicit:
 1. State the action in one concise sentence. For a merged-PR follow-up, say
    `Opening a new PR linked to #42 and adding it to TRACKER_TITLE.` For fresh
    work, say `Opening one PR and adding it to TRACKER_TITLE.`
-2. Scan inflight work in that tracker set before editing. Create a branch, make
-   the smallest coherent first commit, and open a draft pull request. Include
+2. Resolve stage 4's material decisions and the finite slice boundary before
+   the first commit. That commit is implementation, so it needs the same
+   authorization every other change does. No pull request exists yet, so these
+   questions precede the identity block exactly as the tracker choice does.
+3. Read inflight work in that tracker set, then create a branch, make the
+   smallest coherent first commit, and open a draft pull request. Include
    `Follow-up to #42` in the body when a merged pull request is the source.
-3. Immediately attach and claim the draft pull request, then complete the
-   post-claim scan before continuing implementation.
+4. Emit the new pull request's identity block, then continue at stage 3 of
+   `SKILL.md` with it as the target. The inflight read in step 3 was this path's
+   stage 2; do not repeat it. Stage 3 attaches the pull request, publishes the
+   already-resolved claim with `phase: implementing` and the agreed `done-when`
+   and `excludes`, and performs its collision read. Stage 4 then takes its
+   zero-question path. The branch and pull request are this path's coordination
+   point; nothing is claimable until they exist.
 
 Create exactly one new work item in this path: the pull request.

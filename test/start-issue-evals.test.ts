@@ -73,7 +73,7 @@ test('start-issue corpus covers the twelve coordination branches', () => {
     'confirmed-new-project-uses-repository-owner',
     'new-milestone-interviews-before-creation',
     'multiple-trackers-retain-all-active-attachments',
-    'post-claim-scan-reconstructs-unmarked-items',
+    'changed-ledger-read-uses-newer-state',
     'merged-pr-followup-apply-now-reuses-tracker',
     'merged-pr-followup-issue-only-chooses-tracker',
     'open-pr-artifact-review-uses-canonical-instance',
@@ -86,19 +86,19 @@ test('start-issue corpus covers the twelve coordination branches', () => {
 test('initial response identifies the live issue and title first', () => {
   assert.match(
     skillSource,
-    /## How to respond to initial start-issue prompt[\s\S]*```markdown\n# #52: Open a specific review through a clickable Markover deep link\n\[#52 on github\]\(https:\/\/github\.com\/lastobelus\/markover\/issues\/52\)/
+    /## 1\. Identify the work item[\s\S]*```markdown\n# #52: Open a specific review through a clickable Markover deep link\n\[#52 on github\]\(https:\/\/github\.com\/lastobelus\/markover\/issues\/52\)/
   )
   assert.match(
     skillSource,
-    /both identity lines as an emission gate:[\s\S]*before continuing[\s\S]*inflight scanning, or an interview/
+    /No decision, question,[\s\S]*precedes the identity block/
   )
   assert.match(
     skillSource,
-    /When no numbered work item exists yet,[\s\S]*Immediately after creation,[\s\S]*emit its identity block/
+    /No numbered work item yet:[\s\S]*before the first write[\s\S]*emit it immediately after creation/
   )
   assert.match(
     skillSource,
-    /Pre-creation[\s\S]*tracker or delivery-shape questions are exempt from the identity gate/
+    /Tracker and delivery-shape questions belong before an[\s\S]*item exists/
   )
   assert.doesNotMatch(skillSource, /^# #52—/m)
   assert.match(
@@ -122,7 +122,7 @@ test('branch-only guidance is progressively disclosed', () => {
   assert.doesNotMatch(skillSource, /^### Follow-ups to merged pull requests$/m)
   assert.match(
     skillSource,
-    /Untracked or post-merge work:[\s\S]*references\/work-item-routing\.md/
+    /No numbered work item yet:[\s\S]*references\/work-item-routing\.md/
   )
   assert.match(
     skillSource,
@@ -134,23 +134,37 @@ test('branch-only guidance is progressively disclosed', () => {
   )
   assert.match(
     skillSource,
-    /target already has one or more trusted marked comments[\s\S]*references\/existing-claim\.md/
-  )
-  assert.match(
-    skillSource,
     /Markover instance selection:[\s\S]*references\/markover-review\.md/
   )
 
   assert.match(readReference('work-item-routing.md'), /## Follow-up after merge/)
   assert.match(readReference('tracker-selection.md'), /## Discover candidates/)
   assert.match(readReference('interview.md'), /# Implementation interview/)
-  assert.match(readReference('existing-claim.md'), /# Existing work-intent claim/)
+  assert.equal(
+    fs.existsSync(path.join(skillDirectory, 'references', 'existing-claim.md')),
+    false
+  )
   const markoverReference = readReference('markover-review.md')
   assert.match(markoverReference, /Use canonical for reviews of plans/)
   assert.match(markoverReference, /--instance dev open PATH/)
   assert.match(markoverReference, /tmp\/pr-N-dev-checklist\.md/)
   assert.match(markoverReference, /do not launch the instance separately/)
   assert.doesNotMatch(markoverReference, /open '<reviewUrl>'/)
+})
+
+test('duplicate claims are detected and handed to the user without an election', () => {
+  const existingClaim = skillSource.indexOf(
+    '**When the target already carries an active claim**'
+  )
+  const firstTrackerWrite = skillSource.indexOf('Attach the target to the tracker set')
+  assert.ok(existingClaim >= 0)
+  assert.ok(firstTrackerWrite > existingClaim)
+  assert.match(skillSource, /any claim whose phase is\nnot `completed`/)
+  assert.match(
+    skillSource,
+    /read the target's own claim comments once more[\s\S]*pause, show the collision[\s\S]*do not invent a winner/
+  )
+  assert.doesNotMatch(skillSource, /owner token|earliest `created_at`|self-demot/i)
 })
 
 test('root guidance owns the terminal-friendly Markover handoff', () => {
@@ -207,9 +221,9 @@ test('live provenance stays explanatory rather than becoming fixture input', () 
   }
 })
 
-test('post-claim freshness case records both independent live observations', () => {
+test('changed-ledger case records both independent live observations', () => {
   const evaluationCase = cases.find(
-    ({ id }) => id === 'post-claim-scan-reconstructs-unmarked-items'
+    ({ id }) => id === 'changed-ledger-read-uses-newer-state'
   )
   assert.ok(evaluationCase)
   assert.equal(evaluationCase.provenance.kind, 'live-thread')
@@ -217,7 +231,10 @@ test('post-claim freshness case records both independent live observations', () 
     '6bcd8df5-d1e2-4ebc-90c4-7c765ffd56af',
     '2fdb0272-8eb1-4549-a47a-2051b6d37b01'
   ])
-  assert.match(evaluationCase.provenance.observation ?? '', /reused pre-claim/)
+  assert.match(
+    evaluationCase.provenance.observation ?? '',
+    /earlier ledger evidence[\s\S]*fresh check/
+  )
 })
 
 test('post-merge cases record the issue-and-PR live failure', () => {
