@@ -134,7 +134,12 @@ function inspectFile(input, explicitRoot) {
   }
   for (const link of tags(source, 'link')) {
     const relation = (link.attrs.get('rel') || '').toLowerCase().split(/\s+/)
-    if (relation.includes('stylesheet')) failures.push(`external stylesheet tag: ${link.full}`)
+    const href = link.attrs.get('href')
+    if (relation.includes('stylesheet')) {
+      failures.push(`external stylesheet tag: ${link.full}`)
+    } else if (href && !href.startsWith('data:')) {
+      failures.push(`non-inline link tag: ${link.full}`)
+    }
   }
   if (/@import\b/i.test(source)) failures.push('CSS @import is not self-contained')
 
@@ -164,6 +169,7 @@ function inspectFile(input, explicitRoot) {
     { expression: /file:\/\/\/(?:Users|home)\//i, label: 'absolute file URL' },
     { expression: /[A-Za-z]:\\Users\\[^\\]+\\/, label: 'Windows user path' }
   ]
+  if (source.includes(root)) failures.push('committed current repository path')
   for (const { expression, label } of pathLeaks) {
     if (expression.test(source)) failures.push(`committed ${label}`)
   }

@@ -159,8 +159,9 @@ Run the mechanical checks against the saved file:
 node .agents/skills/eli5-html-doc/scripts/verify-eli5.mjs doc/plans/<file>-eli5.html
 ```
 
-It confirms the page is self-contained, commits no absolute path, compiles its inline
-JavaScript, and resolves every local link and repository-path target. Fix what it reports.
+It confirms the page is self-contained, carries no absolute path to the current checkout,
+compiles its inline JavaScript, and resolves every local link and repository-path target.
+Fix what it reports.
 
 Then look at the page. Open it from its filesystem path, check it at desktop and narrow
 widths, and confirm nothing overflows sideways. When the page has interactive surfaces,
