@@ -167,11 +167,11 @@ test('a claim owns one slice, so disjoint slices of an issue run in parallel', (
   )
   assert.match(
     skillSource,
-    /Clearly separate slices: claim yours and continue\./
+    /Clearly separate from every active claim: claim yours and continue\./
   )
   assert.match(
     skillSource,
-    /reading its summary, touch points, `done-when`,\n`excludes`, and branch/
+    /reading each claim's summary, touch points, `done-when`,\n`excludes`, and branch/
   )
   assert.match(
     skillSource,
@@ -187,19 +187,22 @@ test('a claim owns one slice, so disjoint slices of an issue run in parallel', (
 
 test('an overlapping slice is detected and handed to the user without an election', () => {
   const existingClaim = skillSource.indexOf(
-    '**When the target already carries an active claim**'
+    '**When the target already carries active claims**'
   )
   const firstTrackerWrite = skillSource.indexOf('Attach the target to the tracker set')
   assert.ok(existingClaim >= 0)
   assert.ok(firstTrackerWrite > existingClaim)
-  assert.match(skillSource, /any claim whose phase is\nnot `completed`/)
   assert.match(
     skillSource,
-    /Clearly the same slice: show that claim and ask/
+    /every claim whose phase is not `completed`/
   )
   assert.match(
     skillSource,
-    /Plausible overlap the live evidence does not settle: show both slices and ask\./
+    /Clearly the same as an active claim: show that claim and ask/
+  )
+  assert.match(
+    skillSource,
+    /Plausible overlap with any active claim that the live evidence does not\n  settle: show both slices and ask\./
   )
   assert.match(
     skillSource,

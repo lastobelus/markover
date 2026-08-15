@@ -95,17 +95,18 @@ plausible overlap has been assessed or raised with the user.
 
 ## 3. Claim it
 
-**When the target already carries an active claim** — any claim whose phase is
-not `completed` — compare its slice with the one you are taking before
-attaching or claiming anything, reading its summary, touch points, `done-when`,
+**When the target already carries active claims**, compare the slice you are
+taking with every claim whose phase is not `completed` before attaching or
+claiming anything, reading each claim's summary, touch points, `done-when`,
 `excludes`, and branch:
 
-- Clearly separate slices: claim yours and continue. Another claim on the item
-  is not by itself a reason to ask.
-- Clearly the same slice: show that claim and ask whether this run continues
-  it, takes it over, or belongs on a different item. One slice carries one
-  active claim.
-- Plausible overlap the live evidence does not settle: show both slices and ask.
+- Clearly separate from every active claim: claim yours and continue. Another
+  claim on the item is not by itself a reason to ask.
+- Clearly the same as an active claim: show that claim and ask whether this run
+  continues it, takes it over, or belongs on a different item. One slice
+  carries one active claim.
+- Plausible overlap with any active claim that the live evidence does not
+  settle: show both slices and ask.
 
 Edit another run's claim only after the user says that run has stopped, and
 preserve its intent data when taking it over. A pull request is one slice, so
