@@ -10,127 +10,123 @@ description: >-
 
 # ELI5 HTML Doc
 
-Create a compact, self-contained HTML file that lets the user understand and respond to
-technical work without reading the whole diff or plan first.
-
-Read `references/experiment-history.md` only when changing this skill or evaluating a
-new ELI5 presentation experiment.
+Write one HTML file that lets the user understand and answer technical work without
+reading the whole diff or plan first. It is an editorial document — a short explanation
+carrying the structure it actually needs — rather than an app, a dashboard, or a second
+copy of the plan.
 
 ## Workflow
 
-1. Read the repository `AGENTS.md`, the material to explain, and only the related source,
-   tests, plans, or design references needed to verify the story.
-2. Establish the truth context: what artifact or state the explanation describes, its
-   status and roadmap position, where its claims apply, which parts are expected to
-   remain stable, and which known work may change or supersede them.
-3. Identify the smallest useful explanation: the change, why it matters, what remains
-   unchanged, the decisions or risks that deserve attention, and any questions the user
-   must answer.
-4. Choose a durable repository location and create one self-contained `.html` file.
-5. Write plain-language content first. Add cards, tables, diagrams, or controls only when
-   they reduce reading or decision effort.
-6. Verify the saved artifact with Markover's existing Node/npm toolchain and an available
-   local preview path. Do not install tooling solely to inspect an ELI5 page.
-7. Hand off the real absolute filesystem path as the primary link.
+1. Read the repository `AGENTS.md`, then the material you are explaining, plus only the
+   source, tests, plans, or design docs you need to be sure the story is true.
+2. Fix the truth context: what the explanation describes, its status, where its claims
+   apply, and what may change it.
+3. Find the smallest useful explanation — what changed, why it matters, what stays the
+   same, the decisions worth inspecting, and any question you need answered.
+4. Save one self-contained `.html` file in a durable repository location.
+5. Write the plain-language story first. Add cards, tables, diagrams, or controls only
+   where they save the reader effort.
+6. Verify the saved file, then look at it.
+7. Hand off its absolute filesystem path.
 
-## File Location
+Hand off the moment the page is ready. Further analysis you want to do belongs after that
+link, not in front of it.
 
-- Put plan-level explainers beside their plans as
-  `doc/plans/<date>__topic-eli5.html`.
-- Put design explainers beside their source material under `doc/design/`.
-- Put PR or implementation explainers in the most relevant existing `doc/` or `docs/`
-  directory. Use `docs/` only when the artifact is intentionally part of the public
+## The file
+
+Where it lives:
+
+- Plan explainers sit beside their plan, as `doc/plans/<date>__topic-eli5.html`.
+- Design explainers sit beside their source material under `doc/design/`.
+- Pull-request and implementation explainers go in the most relevant existing `doc/`
+  directory. Use `docs/` only when the page is deliberately part of the public
   documentation site.
-- Keep local file references and path attributes repository-relative. Never commit
-  absolute worktree paths.
-- Make the HTML directly viewable from its saved filesystem path. Do not make the user
-  depend on localhost, an open preview tab, or an agent-owned process.
 
-## Stack And Dependency Contract
+One `.html` file with inline CSS, inline JavaScript, and inline SVG. It has to open from
+its saved path on a filesystem, so it carries no framework, CDN, remote asset, external
+font, tracking script, build step, package, or server. Ordinary `https` links to a pull
+request, issue, or plan are navigation, not dependencies, and are welcome.
 
-- Produce one HTML file with inline CSS, inline JavaScript, and inline explanatory SVGs.
-- Use browser-native HTML, CSS, and JavaScript. Do not add a framework, CDN, remote asset,
-  external font, tracking script, build step, package, or runtime.
-- Do not add Python, Ruby, shell, or another language for generation or verification.
-  When deterministic project tooling is genuinely required, use TypeScript or JavaScript
-  with the repository's Node.js 22/npm setup and existing dependencies.
-- Reuse the existing `node:test` and `jsdom` approach demonstrated in
-  `test/docs-site.test.js` when durable automated interaction coverage is warranted.
-  Do not add Playwright, Mermaid, a static-server package, or another browser dependency
-  just for an ELI5 artifact.
-- Prefer a small hand-authored inline SVG for diagrams. If a complex topology is easier
-  to author as Mermaid, keep its source as optional context but render the final diagram
-  without introducing a Mermaid runtime or package.
-- Treat temporary servers or preview processes as verification-only. Stop them before
-  handoff and never present their URLs as the artifact link.
+Keep every local link inside the page's own directory or a descendant, and reach
+repository files elsewhere through the link metadata in `optional-surfaces.md`.
+Repository-relative paths inside the file; the absolute path only in the handoff. A
+committed worktree path breaks for everyone but you.
 
-## Content Contract
+One page is the default. When the material has genuinely separate chapters, a small
+linked set is easier to hold than one long page: keep the set in one directory, keep every
+page self-contained, and pass them all to the verifier in one run. Nothing else changes —
+no shared shell, navigation, or template.
 
-Keep the document as small as the user's decision needs. Start with a top-level view,
-not a comprehensive alternate plan. Include only useful blocks, which may include:
+Install nothing to build or check an ELI5. When something genuinely has to run, it is
+JavaScript on the repository's existing Node setup. Temporary servers and preview
+processes are verification tools: stop them before handoff, and never hand out their URLs.
 
-- a clear title and one-paragraph plain-English lede
-- a collapsed truth-context card immediately after the lede when the explanation describes
-  proposed, evolving, historical, branch-specific, or otherwise time-sensitive work
-- `The Tiny Story`: what changed, why it matters, and what does not change
-- a diagram for an important flow, relationship, state change, or mental model that prose
-  cannot explain as clearly
+## What goes in it
+
+Keep the page as small as the user's decision needs, and start with the top-level view.
+Useful blocks, not a required set:
+
+- a clear title and a one-paragraph plain-English lede
+- a collapsed truth-context card when the claims can age
+- `The Tiny Story`: what changed, why it matters, what does not change
+- a diagram for a flow, relationship, state change, or mental model that prose leaves fuzzy
 - `What This Adds` or `What This PR Changes`: concise cards or bullets
-- `What Does Not Happen`: explicit non-goals, especially for tooling or automation work
+- `What Does Not Happen`: explicit non-goals, especially for tooling work
 - `Important Tradeoffs` or `Risks`: only the decisions the user should inspect
-- `Questions To Answer`: `details`/`summary` rows with one textarea per requested decision,
-  marked with `data-question`
-- `What I'd Change`: recommendation rows with one optional note textarea marked with
-  `data-change`
-- optional inline `Approve` and `Reject` controls for concrete recommendations
-- `References`: authoritative plans, docs, tests, and source files checked
+- `Questions To Answer` and `What I'd Change`: rows that collect a written answer
+- `References`: the plans, docs, tests, and source files you actually checked
 - a compact prompt/context disclosure outside the main reading path
-- a sticky `Copy Answers` button that copies all feedback as Markdown
 
-For a simple explanation, a title, lede, tiny story, one comparison or diagram, and a few
-references may be enough. Do not make the ELI5 longer than its source unless the extra
-structure materially reduces confusion or collects required decisions.
+A title, lede, tiny story, one comparison or diagram, and a few references is a complete
+ELI5 for a simple change. Do not make the page longer than its source unless the extra
+structure genuinely reduces confusion or collects a decision you need.
 
-## Truth Context
+**Diagrams, feedback controls, clickable local repository links, or icon-only buttons:**
+read
+[`references/optional-surfaces.md`](references/optional-surfaces.md) before building one.
+It carries the layout, the wiring, and what to check for each of them.
 
-Treat truth context as part of the explanation, not as prompt provenance. When claims can
-age, make a native `details` element the first card after the title and lede, immediately
-before the Tiny Story. Start it collapsed by omitting `open`. Keep its summary to one
-compact row: a short label such as `Where This Is True` on the left and a precise state
-such as `Proposed · PR 38` on the right. The visible summary keeps applicability upfront
-while leaving the Tiny Story immediately available. Do not hide the entire context in a
-footer or generic prompt disclosure.
+## Truth context
 
-Put the supporting context inside the disclosure and keep the summary useful even when
-the reader never expands it. Preserve native `summary` keyboard and screen-reader
-behavior; styling away the default marker is acceptable only when the whole summary row
-still looks and behaves like an interactive disclosure.
+When the claims can age, make a native `details` card the first thing after the lede and
+immediately before the Tiny Story, and leave it collapsed. Its summary is one compact row:
+a short label such as `Where This Is True` on the left, a precise state such as
+`Proposed · PR 38` on the right. Applicability stays visible; the Tiny Story stays one
+line away. Keep native `summary` keyboard and screen-reader behavior — restyling the
+marker is fine as long as the row still looks and behaves like a disclosure.
 
-Include the smallest set that lets a future reader judge the document correctly:
+Inside it, include the smallest set that lets a later reader judge the page correctly: the
+subject and its canonical source; its status when you wrote this, such as proposed, open,
+merged, or historical; the snapshot date or immutable revision when exact state matters;
+the scope where the claims hold and any boundary the model leaves out; the roadmap,
+milestone, or stack position when one exists; known follow-on work that may change the
+picture, kept distinct from the stable center it does not touch; and where to re-check
+the current truth.
 
-- the subject and canonical source, such as a PR, issue, plan, release, branch, or commit
-- the subject's status when the explainer was written: proposed, open, merged, accepted,
-  released, historical, or another precise state
-- the snapshot date or immutable revision when exact source state matters
-- the scope where the claims apply, including important boundaries omitted from the model
-- the parent roadmap, launch gate, milestone, or PR-stack position when one exists
-- known follow-on or superseding work and how it may change the picture
-- a clear distinction between the stable center of the explanation and transient details
-- an authoritative place to re-check current truth
+Link live canonical sources for moving status and immutable ones for exact snapshots — a
+date alone is not enough when a pull request, issue, or plan is the real source of truth.
+Describe what may change in calibrated language: `will`, `may`, `outside this diagram`. An
+open pull request or an accepted plan is never the timeless architecture of the product.
 
-Use live canonical links for moving status and immutable links for exact snapshots. A date
-alone is not enough when a PR, issue, roadmap, or plan is the real source of truth. Describe
-known changes with calibrated language such as `will`, `may`, or `outside this diagram`;
-do not invent a future architecture merely to fill the section. Never present an open PR
-or accepted plan as though it were already the timeless architecture of the product.
+Sources move underneath finished pages. When you revisit an ELI5, re-read its named source
+and correct the card. That is the whole job; nothing here stays in sync automatically, and
+it should not try to.
 
-## Voice And Visual Style
+## Prompt and context
 
-Use direct language, short paragraphs, and scannable structure. Prefer a serious
-editorial-tool feel with warmth over a generic developer dashboard or marketing page.
+Keep the prompt and conversation behind a small `Prompt/context` button, footer
+disclosure, or modal. Curate rather than transcribe: the user's terse request, the plan or
+diff being explained, the constraints that actually shaped the result, and the sources you
+checked. It answers why the page exists, which is a different question from the truth
+context's when and where.
+
+## Voice
+
+Direct language, short paragraphs, scannable structure. Aim for a serious editorial tool
+with warmth, not a developer dashboard or a marketing page.
 
 When the artifact represents Markover, follow
-`doc/design/2026-08-01__brand-implementation-brief.md` and start with these light-theme
+`doc/design/2026-08-01__brand-implementation-brief.md` and start from these light-theme
 tokens:
 
 ```css
@@ -146,190 +142,54 @@ tokens:
 }
 ```
 
-- Use solid colors and quiet warm shadows. Avoid gradients, glass effects, saturated
-  shadows, generic blue focus colors, and purple/violet palettes.
-- Keep light mode as the baseline. Add dark/system appearance only when it helps the
-  artifact, and preserve readable contrast in every state.
-- Keep brand presence restrained on working documents. Do not duplicate path data from
-  the canonical Markover SVGs into a self-contained explainer. Omit the logo or use a
-  small generic inline document favicon instead.
-- Use tabs only for genuinely parallel alternatives or current/proposed states. Prefer
-  scrolling for a linear explanation.
+- Solid colors and quiet warm shadows. No gradients, glass, saturated shadows, generic
+  blue focus rings, or purple palettes.
+- Light mode is the baseline. Add dark or system appearance when it helps the artifact,
+  and keep contrast readable in every state.
+- Keep branding restrained on a working document. Omit the logo or use a small generic
+  inline document favicon; do not copy path data from the canonical Markover SVGs.
+- Tabs are for genuinely parallel alternatives or current-versus-proposed states. A linear
+  explanation scrolls.
 
-## Controls And Icons
+## Verify
 
-Prefer clear text labels. Markover has no general-purpose icon package to consume from a
-standalone document.
+Run the mechanical checks against the saved file:
 
-- Inline only the tiny SVG geometry needed by an icon-only control.
-- Keep control icons `currentColor`, give every icon-only button an `aria-label`, and add
-  visually hidden text when it improves context.
-- Do not import the app's runtime sprite, canonical brand SVGs, external icon fonts, or a
-  new icon dependency.
-- Use a plus magnifier for diagram zoom and an `x` for a pinned close control when icons
-  make those actions easier to scan.
-
-## Prompt And Context
-
-Keep prompt and conversation context outside the main reading path. Use a small
-`Prompt/context` button, footer disclosure, or modal. Curate rather than transcribe:
-
-- include the user's terse request
-- name the plan, PR, diff, or docs being explained
-- include only constraints that materially shaped the result
-- note authoritative sources checked and assumptions worth remembering
-
-Do not let context compete with the Tiny Story, decisions, or feedback controls.
-This disclosure answers why the explainer was made. It does not replace the visible truth
-context that tells the reader when and where its claims apply.
-
-## Diagrams
-
-Use a diagram only when prose would leave an important relationship fuzzy. Prefer
-top-to-bottom flow for complex relationships and left-to-right flow only for short linear
-sequences.
-
-- Render the final diagram as accessible inline SVG with a title or adjacent explanation.
-- Keep diagram text readable on narrow screens. Put an intrinsically wide diagram in a
-  clearly contained horizontal scroller.
-- Put optional diagram source behind a small `Source` button or modal anchored to the
-  card. Keep source text out of the main flow.
-- Keep controls, feedback forms, and source disclosures outside the diagram surface.
-- Add zoom only when labels are hard to inspect at normal width. Make the first zoom fit
-  the card to the viewport with a safety margin and no tiny scroll range.
-- Add a second zoom only when it can make the smallest text roughly `1em` without becoming
-  a no-op. Keep the left edge reachable.
-- Pin the close control in the upper right and the optional second-level zoom in the lower
-  right without consuming diagram layout.
-- Avoid page-level `.node` CSS classes because diagram tooling commonly reserves that
-  name.
-
-## Feedback Controls
-
-Keep feedback rows collapsed by default. Put inline `Approve` and `Reject` buttons beside
-the summary only when the row describes a concrete suggestion or decision.
-
-- Keep one textarea inside each row and mark it with `data-question` or `data-change`.
-- Store decisions on the row, for example as
-  `data-feedback-state="approved"` or `data-feedback-state="rejected"`.
-- Use a success color for approval and an error color for rejection, with text or icons so
-  color is not the only signal.
-- Include each decision state and its optional note in copied Markdown.
-- Do not add approve/reject controls to explanatory rows, references, or prompt context.
-
-## Clickable References
-
-Use ordinary `https` links for authoritative remote sources such as the PR, issue,
-roadmap, plan, release, or documentation that establishes truth context. These links are
-navigation, not runtime dependencies. Give them descriptive text and prefer canonical
-sources over search results or copied summaries.
-
-Show local references as durable repository-relative paths. When clickable local source
-links materially help, store only repository-relative metadata in the committed HTML:
-
-```html
-<html data-repo-doc-path="doc/plans/2026-08-03__example-eli5.html">
-<!-- ... -->
-<a href="#" data-repo-path="src/main.js" data-repo-line="42">src/main.js:42</a>
+```sh
+node .agents/skills/eli5-html-doc/scripts/verify-eli5.mjs doc/plans/<file>-eli5.html
 ```
 
-Resolve the local repository root at runtime from the ELI5 file location or an explicit
-preview query parameter. Do not commit absolute paths or editor-specific URLs:
+It confirms the page is self-contained, commits no absolute path, compiles its inline
+JavaScript, and resolves every local link and repository-path target. Fix what it reports.
 
-```html
-<script>
-  function eli5RepoBase() {
-    const params = new URLSearchParams(window.location.search);
-    const explicit = params.get("baseUrl") || params.get("repoBase");
-    if (explicit) return explicit.replace(/\/$/, "");
+Then look at the page. Open it from its filesystem path, check it at desktop and narrow
+widths, and confirm nothing overflows sideways. When the page has interactive surfaces,
+`optional-surfaces.md` lists what to exercise.
 
-    const docPath = document.documentElement.dataset.repoDocPath;
-    if (window.location.protocol === "file:" && docPath) {
-      const fullPath = decodeURIComponent(window.location.pathname);
-      const suffix = `/${docPath.replace(/^\//, "")}`;
-      return fullPath.endsWith(suffix) ? fullPath.slice(0, -suffix.length) : "";
-    }
+Add a focused `node:test` check for a page only when it is durable product behavior
+whose exact claims must stay coupled to code; most ELI5s are not that, and the existing
+`jsdom` setup is there when one is.
 
-    return "";
-  }
+Report what you actually did. If no rendered preview was available, run the strongest
+checks you have and say once that you did not view the page. If you exercised a control,
+say which one — an untested control is not a verified one.
 
-  function eli5WireRepoLinks() {
-    const repoBase = eli5RepoBase();
-    for (const link of document.querySelectorAll("a[data-repo-path]")) {
-      if (!repoBase) {
-        link.setAttribute("aria-disabled", "true");
-        link.title = "Open the saved file directly or add ?baseUrl=/path/to/worktree.";
-        continue;
-      }
+## Hand off
 
-      const repoPath = link.dataset.repoPath.replace(/^\//, "");
-      link.href = encodeURI(`file://${repoBase}/${repoPath}`);
-    }
-  }
+Put the link near the top of your response, as a Markdown link to the real absolute
+filesystem path:
 
-  eli5WireRepoLinks();
-</script>
+```markdown
+[Open ELI5](/absolute/path/doc/plans/example-eli5.html)
 ```
 
-Treat line numbers as visible orientation only; a normal `file:` link cannot guarantee
-that every viewer opens an editor at that line.
+Add the repository-relative path as secondary context when it helps. Never hand off
+localhost, a temporary preview URL, a signed asset URL, or an already-open tab. Confirm
+the path exists and is readable immediately before you send it.
 
-## Feedback Script
+## Changing this skill
 
-Include a small inline script that:
-
-- finds `textarea[data-question]` and `textarea[data-change]`
-- reads recommendation state from rows with approve/reject controls
-- formats answers under `## Questions` and `## Notes On Proposed Plan Changes`
-- includes approve/reject state next to the matching recommendation
-- uses `navigator.clipboard.writeText` when available
-- falls back to a temporary textarea plus `document.execCommand("copy")`
-- reports copy success or failure through an `aria-live` status element
-
-Keep all feedback local to the page. Do not add storage, telemetry, network submission,
-or external dependencies unless the user explicitly requests them.
-
-## Verification
-
-For a substantial ELI5 artifact:
-
-1. Confirm the saved HTML is readable and contains no remote runtime assets, external
-   dependencies, absolute committed paths, or accidental dependencies. Check that every
-   remote URL is an intentional authoritative navigation link.
-2. For time-sensitive claims, confirm the visible truth context identifies the subject,
-   status, scope, roadmap position when relevant, known change horizon, and current source
-   of truth.
-3. Confirm the truth-context card is the first card, starts collapsed, exposes its label
-   and status in the summary, opens and closes from the keyboard, and leaves the Tiny
-   Story immediately after it.
-4. Use the project's existing Node.js and `jsdom` stack for scripted DOM and interaction
-   checks when needed. Add a focused `node:test` test only when the artifact is durable
-   product behavior that should remain covered.
-5. Use the T3 in-app preview when available for desktop and narrow visual checks. Prefer
-   direct filesystem preview. Do not install or launch a different browser stack merely
-   for routine verification.
-6. If no visual preview path is available, run the strongest static/DOM checks available
-   and say once that rendered browser verification was not performed.
-7. Run `npm run check` and `npm test` before committing a completed skill or repository
-   artifact change.
-
-Check that:
-
-- desktop and narrow layouts have no unintended horizontal page overflow
-- diagrams and tables fit or scroll within their containers
-- source modals and diagram controls open, close, and do not obscure content
-- zoom keeps the left edge reachable and restores the original card position
-- appearance controls work when present and preserve readable contrast
-- accordion rows and textareas are keyboard-usable
-- approve/reject controls expose their state accessibly
-- copied Markdown includes every answer, note, and decision state
-
-## User Handoff
-
-- Put the ELI5 link near the top of the final response.
-- Use a direct Markdown link to the real absolute filesystem path as the primary link,
-  such as `[Open ELI5](/absolute/path/doc/plans/example-eli5.html)`.
-- Include the repository-relative path as secondary context when useful.
-- Never use localhost, a temporary preview URL, a signed asset URL, or an already-open tab
-  as the durable handoff.
-- Verify that the linked path exists and is readable immediately before handoff.
+Read [`references/experiment-history.md`](references/experiment-history.md) when you are
+changing this skill or evaluating a new ELI5 presentation experiment; it records which
+past experiments were accepted and which were rejected. Run `npm run check` and `npm test`
+before committing a change to the skill or its verifier.
