@@ -31,6 +31,9 @@ const SETTINGS_KEYS = [
   'reviewLinkActivationPolicy',
   'incomingReviewIdleMinutes',
   'discoverAgentThreadFromLocalSessions',
+  't3ThreadTitlesEnabled',
+  't3MetadataDatabasePath',
+  'inboxTitlePreference',
   'logRejectedApiRequests',
   'agentReviewMode',
   'agentInterpretationPolicy',
@@ -85,6 +88,7 @@ export interface RendererInvokeArguments {
   'window:focus-state:get': []
   'review:initial-document': []
   'review:list': []
+  'review:t3-thread-titles:get': []
   'review:project-favicon:get': [string]
   'review:pull-request:open': [string]
   'review:context-menu:open': [ReviewContextMenuRequest]
@@ -113,6 +117,7 @@ export interface RendererInvokeResults {
   'window:focus-state:get': MarkoverWindowFocusState
   'review:initial-document': MarkoverDocument | null
   'review:list': MarkoverReviewListItem[]
+  'review:t3-thread-titles:get': T3ThreadTitleSnapshot
   'review:project-favicon:get': string | null
   'review:pull-request:open': undefined
   'review:context-menu:open': ReviewContextMenuResult
@@ -418,13 +423,17 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'agentReviewMode':
       return value === 'annotation-only' ||
         value === 'annotations-and-source-proposals'
+    case 'inboxTitlePreference':
+      return value === 'review-purpose' || value === 'requesting-thread-title'
     case 'showKeyboardHelp':
     case 'openDocumentsSidebar':
     case 'confirmAttachmentRemoval':
     case 'discoverAgentThreadFromLocalSessions':
+    case 't3ThreadTitlesEnabled':
     case 'logRejectedApiRequests':
       return typeof value === 'boolean'
     case 'agentInterpretationPolicy': return typeof value === 'string'
+    case 't3MetadataDatabasePath': return typeof value === 'string'
     case 'autosaveMaximumDelayMs':
       return typeof value === 'number' &&
         Number.isInteger(value) &&
@@ -452,6 +461,29 @@ function isSettingsEnvelope(value: unknown): value is MarkoverSettingsEnvelope {
   return hasExactKeys(value, [...SETTINGS_KEYS, 'resolvedAppearance']) &&
     SETTINGS_KEYS.every((key) => settingsValueValid(key, value[key])) &&
     (value.resolvedAppearance === 'light' || value.resolvedAppearance === 'dark')
+}
+
+function isT3ThreadTitle(value: unknown): value is T3ThreadTitle {
+  return hasExactKeys(value, ['threadId', 'title']) &&
+    typeof value.threadId === 'string' &&
+    Boolean(value.threadId.trim()) &&
+    typeof value.title === 'string' &&
+    Boolean(value.title.trim())
+}
+
+function isT3ThreadTitleSnapshot(
+  value: unknown
+): value is T3ThreadTitleSnapshot {
+  return hasExactKeys(value, ['status', 'detail', 'titles']) &&
+    (
+      value.status === 'disabled' ||
+      value.status === 'available' ||
+      value.status === 'unavailable'
+    ) &&
+    typeof value.detail === 'string' &&
+    Array.isArray(value.titles) &&
+    value.titles.every(isT3ThreadTitle) &&
+    (value.status === 'available' || value.titles.length === 0)
 }
 
 function isWindowFocusState(value: unknown): value is MarkoverWindowFocusState {
@@ -616,6 +648,7 @@ export function assertRendererInvokeArguments(
     case 'window:focus-state:get':
     case 'review:initial-document':
     case 'review:list':
+    case 'review:t3-thread-titles:get':
       valid = noArguments(args)
       break
     case 'review:project-favicon:get':
@@ -730,6 +763,9 @@ export function assertRendererInvokeResult(
       valid = Array.isArray(value) && value.every((item) => (
         isDocument(item) || isIncompatibleReview(item)
       ))
+      break
+    case 'review:t3-thread-titles:get':
+      valid = isT3ThreadTitleSnapshot(value)
       break
     case 'review:project-favicon:get':
       valid = value === null || (

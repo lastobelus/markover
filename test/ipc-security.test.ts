@@ -73,6 +73,32 @@ test('settings IPC accepts supported zoom levels only', () => {
   )
 })
 
+test('T3 title IPC accepts only the strict private snapshot', () => {
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('review:t3-thread-titles:get', [])
+    assertRendererInvokeResult('review:t3-thread-titles:get', {
+      status: 'available',
+      detail: 'One title is available.',
+      titles: [{ threadId: 't3-thread-1', title: 'Renamed thread' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:t3-thread-titles:get', {
+      status: 'unavailable',
+      detail: 'Unavailable.',
+      titles: [{ threadId: 't3-thread-1', title: 'Stale title' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:t3-thread-titles:get', {
+      status: 'available',
+      detail: 'Available.',
+      titles: [],
+      databasePath: '/private/t3.sqlite'
+    })
+  })
+})
+
 test('workspace IPC accepts only the exact private workspace format', () => {
   const workspace = defaultWorkspaceState()
   assert.doesNotThrow(() => {
@@ -443,6 +469,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:pull-request:open',
     'review:snapshot-response',
     'review:status-response',
+    'review:t3-thread-titles:get',
     'settings:get',
     'settings:update',
     'smoke:result',

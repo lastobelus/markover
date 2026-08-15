@@ -96,6 +96,7 @@ import {
   type ServiceIdentity
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
+import { t3ThreadTitleSnapshot } from './t3-thread-titles'
 import { WorkspaceStore } from './workspace-store'
 import { smokeReviewTree } from './smoke-fixture'
 import {
@@ -2146,6 +2147,13 @@ if (!hasSingleInstanceLock) {
         await failStartup('review-storage-access', error)
         throw error
       }
+    })
+    privilegedIpc.handle('review:t3-thread-titles:get', async () => {
+      if (!store.settings.t3ThreadTitlesEnabled) {
+        return t3ThreadTitleSnapshot(store.settings, [])
+      }
+      const result = await requireReviewStore().listWithWarnings()
+      return t3ThreadTitleSnapshot(store.settings, result.reviews)
     })
     privilegedIpc.handle('review:project-favicon:get', (
       _event: IpcMainInvokeEvent,

@@ -43,6 +43,7 @@ export const runtimeModuleNames = [
   'smoke-fixture',
   'startup-contract',
   'startup-diagnostic',
+  't3-thread-titles',
   'workspace-state',
   'workspace-store'
 ] as const

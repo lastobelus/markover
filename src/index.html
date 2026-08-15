@@ -759,6 +759,37 @@
             <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex session records for the review's handoff key. Nothing is uploaded.</small></span>
             <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
           </label>
+          <h3 class="settings-section-title">T3 requesting-thread titles</h3>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Read current titles from T3</strong><small>Use T3's local metadata database to show renamed requesting threads. This integration is off by default and keeps titles in memory only.</small></span>
+            <input name="t3ThreadTitlesEnabled" type="checkbox" role="switch">
+          </label>
+          <label class="settings-field">
+            <span><strong>Metadata database override</strong><small>Leave blank to use <code>~/.t3/userdata/state.sqlite</code>.</small></span>
+            <input
+              name="t3MetadataDatabasePath"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="~/.t3/userdata/state.sqlite"
+            >
+          </label>
+          <label class="settings-field">
+            <span><strong>Inbox title</strong><small>Choose whether Inbox leads with the review purpose or the current requesting-thread title. Projects always names the requesting thread when available.</small></span>
+            <select name="inboxTitlePreference">
+              <option value="review-purpose">Review purpose</option>
+              <option value="requesting-thread-title">Requesting-thread title</option>
+            </select>
+          </label>
+          <div class="settings-field settings-integration-status">
+            <span id="t3-thread-title-status" role="status" aria-live="polite">T3 requesting-thread titles are disabled.</span>
+            <button
+              id="t3-thread-titles-refresh"
+              class="button button-secondary"
+              type="button"
+              disabled
+            >Refresh titles now</button>
+          </div>
           <h3 class="settings-section-title">Diagnostics</h3>
           <label class="settings-field settings-switch-field">
             <span><strong>Log rejected API requests</strong><small>Write sanitized request method, path, and rejection reason to stderr. Request contents and credentials are never logged.</small></span>

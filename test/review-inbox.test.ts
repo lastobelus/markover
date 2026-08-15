@@ -159,6 +159,71 @@ test('thread-host packets expose nested provider and thread-host registry keys',
   assert.equal(thread.key, 't3code:host-thread-1')
 })
 
+test('T3 titles name Projects while Inbox independently follows its preference', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_title111', 'title.md', {
+    agentThread: {
+      id: 'codex-session-1',
+      threadHost: {
+        kind: 't3-code',
+        threadId: 't3-thread-1',
+        provider: 'codex'
+      }
+    },
+    contextSummary: 'Review the title integration.',
+    createdAt: '2026-08-09T12:30:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+  const titles = [{ threadId: 't3-thread-1', title: 'Renamed T3 thread' }]
+
+  const purposeFirst = projectReviewInbox(
+    sessions.list(),
+    titles,
+    'review-purpose'
+  )
+  const purposeRow = purposeFirst.editing[0]
+  const projectThread = purposeFirst.projects[0]?.threads[0]
+  assert.ok(purposeRow)
+  assert.ok(projectThread)
+  assert.equal(purposeRow.title, 'Review the title integration.')
+  assert.equal(purposeRow.requestingThreadTitle, 'Renamed T3 thread')
+  assert.equal(projectThread.title, 'Renamed T3 thread')
+  assert.equal(projectThread.titleSource, 'thread-title')
+
+  const titleFirst = projectReviewInbox(
+    sessions.list(),
+    titles,
+    'requesting-thread-title'
+  )
+  const titleRow = titleFirst.editing[0]
+  assert.ok(titleRow)
+  assert.equal(titleRow.title, 'Renamed T3 thread')
+  assert.equal(titleRow.titleSource, 'thread-title')
+})
+
+test('agent-session fallback identity uses thread-host kind and never provider', () => {
+  const sessions = new ReviewSessions()
+  for (const [reviewId, provider] of [
+    ['mko_kindgrp1', 'codex'],
+    ['mko_kindgrp2', 'claude']
+  ] as const) {
+    sessions.add(reviewDocument(reviewId, `${reviewId}.md`, {
+      agentThread: {
+        id: 'shared-host-session',
+        threadHost: { kind: 't3code', provider }
+      },
+      createdAt: reviewId.endsWith('1')
+        ? '2026-08-09T12:30:00.000Z'
+        : '2026-08-09T12:31:00.000Z',
+      projectRoot: '/projects/markover'
+    }))
+  }
+
+  const threads = projectReviewInbox(sessions.list()).projects[0]?.threads
+  assert.equal(threads?.length, 1)
+  assert.equal(threads[0]?.key, 't3code:shared-host-session')
+})
+
 test('distinct host thread IDs own grouping across provider identities', () => {
   const sessions = new ReviewSessions()
   sessions.add(reviewDocument('mko_hostgrp1', 'first.md', {

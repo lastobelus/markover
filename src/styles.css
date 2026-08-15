@@ -1023,6 +1023,10 @@ p {
   background: var(--surface);
 }
 
+.review-row-icon-stack > .review-provider-icon-stack {
+  width: 21px;
+}
+
 .review-row-icon-stack .review-provider-icon :is(svg, img) {
   width: 11px;
   height: 11px;
@@ -1049,40 +1053,24 @@ p {
 }
 
 .review-provider-icon-stack {
-  display: inline-grid;
+  display: inline-flex;
   flex: 0 0 auto;
-  width: 18px;
+  width: 21px;
   height: 18px;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   border-radius: 5px;
-  outline: none;
 }
 
 .review-provider-icon-stack > .review-provider-icon {
-  grid-area: 1 / 1;
-  transition: opacity 100ms ease, transform 100ms ease;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface);
 }
 
 .review-provider-icon-stack > .is-thread-host {
-  opacity: 0;
-  transform: scale(.82);
-}
-
-.review-provider-icon-stack.has-thread-host:hover > .is-provider,
-.review-provider-icon-stack.has-thread-host:focus-visible > .is-provider {
-  opacity: 0;
-  transform: scale(.82);
-}
-
-.review-provider-icon-stack.has-thread-host:hover > .is-thread-host,
-.review-provider-icon-stack.has-thread-host:focus-visible > .is-thread-host {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.review-provider-icon-stack:focus-visible {
-  outline: 1px solid var(--accent-deep);
-  outline-offset: 2px;
+  margin-left: -3px;
 }
 
 .review-provider-icon.provider-local {
@@ -2061,6 +2049,10 @@ button.review-list-row-pr:hover {
 .review-hover-entry-icon.review-provider-icon-stack {
   width: 16px;
   height: 16px;
+}
+
+.review-hover-entry-icon.review-provider-icon-stack {
+  width: 20px;
 }
 
 .review-hover-entry-icon.review-project-icon img,
@@ -3368,7 +3360,7 @@ body.is-control-pressed .attachment-remove:hover {
   font: 700 11px/1 ui-sans-serif, -apple-system, sans-serif;
 }
 
-.settings-field input[type="number"] {
+.settings-field input:is([type="number"], [type="text"]) {
   width: 100%;
   min-height: 30px;
   padding: 0 9px;
@@ -3377,6 +3369,12 @@ body.is-control-pressed .attachment-remove:hover {
   color: var(--ink);
   background: var(--input);
   font: 700 11px/1 ui-sans-serif, -apple-system, sans-serif;
+}
+
+.settings-integration-status > span {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .settings-field :is(select, input)[disabled] {
