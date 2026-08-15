@@ -214,7 +214,6 @@ let closingPublishedService: LocalService | null = null
 let localServiceIdentity: ServiceIdentity | null = null
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
-let settingsUnsubscribe: (() => void) | null = null
 let workspaceStore: WorkspaceStore | null = null
 let zoomWriter: Promise<void> = Promise.resolve()
 let managedAutosave: ReviewAutosave | null = null
@@ -1667,11 +1666,6 @@ async function runManagedDurabilityShutdown(): Promise<void> {
   })
 }
 
-function stopSettingsSubscription(): void {
-  settingsUnsubscribe?.()
-  settingsUnsubscribe = null
-}
-
 async function showDurabilityShutdownDialog(error: unknown): Promise<number> {
   const options = {
     type: 'warning' as const,
@@ -1700,7 +1694,6 @@ async function finishManagedShutdown(): Promise<void> {
     try {
       await runManagedDurabilityShutdown()
       managedShutdownComplete = true
-      stopSettingsSubscription()
       app.quit()
       return
     } catch (error) {
@@ -1711,7 +1704,6 @@ async function finishManagedShutdown(): Promise<void> {
       process.stderr.write(`markover shutdown: ${errorMessage(failure)}\n`)
       const response = await showDurabilityShutdownDialog(failure)
       if (response === 2) {
-        stopSettingsSubscription()
         app.exit(0)
         return
       }
@@ -1911,10 +1903,6 @@ if (!hasSingleInstanceLock) {
       }
     })
     nativeTheme.themeSource = initialSettings.appearance
-    settingsUnsubscribe = await store.subscribe((settings) => {
-      applyMainSettings(settings)
-      installApplicationMenu()
-    })
     if (store.lastRecoveryWarning) {
       await recordStartupWarnings([{
         category: 'settings-recovered',
@@ -2274,7 +2262,6 @@ if (!hasSingleInstanceLock) {
       managedShutdownComplete ||
       !managedAutosave
     ) {
-      stopSettingsSubscription()
       if (localService) void stopPublishedService().catch(() => {
         // Startup failure shutdown is already in progress.
       })
