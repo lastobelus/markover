@@ -6,10 +6,12 @@ description: Use before implementation when the user asks to start or take over 
 # Start Issue
 
 Starting work means making it visible before changing it: one **work item** on
-GitHub, the **tracker** the user reads, and one **claim** other agents can see.
-The interview then fixes the **slice boundary** — the evidence that ends this
-slice and what it leaves out — so babysit and the tripwire have something
-finite to compare against. Complete the stages in order.
+GitHub, the **tracker** the user reads, and a **claim** other agents can see on
+the slice you are taking. A claim owns one bounded slice rather than the whole
+item, so separate slices of one issue can run at the same time. The interview
+then fixes the **slice boundary** — the evidence that ends this slice and what
+it leaves out — so babysit and the tripwire have something finite to compare
+against. Complete the stages in order.
 
 Enter this workflow when the user asks to start, take over, implement untracked
 repository work, or record work. Diagnosing a failure, explaining behavior,
@@ -94,11 +96,19 @@ plausible overlap has been assessed or raised with the user.
 ## 3. Claim it
 
 **When the target already carries an active claim** — any claim whose phase is
-not `completed` — show it to the user and ask whether this run continues it,
-takes it over, or belongs on a different item, before attaching or claiming
-anything. Add no second claim. Edit another run's claim only after the user
-says that run has stopped, and preserve its intent data when taking it over.
-One item carries one active intent.
+not `completed` — compare its slice with the one you are taking before
+attaching or claiming anything, reading its summary, touch points, and branch:
+
+- Clearly separate slices: claim yours and continue. Another claim on the item
+  is not by itself a reason to ask.
+- Clearly the same slice: show that claim and ask whether this run continues
+  it, takes it over, or belongs on a different item. One slice carries one
+  active claim.
+- Plausible overlap the live evidence does not settle: show both slices and ask.
+
+Edit another run's claim only after the user says that run has stopped, and
+preserve its intent data when taking it over. A pull request is one slice, so
+it normally carries one claim.
 
 Attach the target to the tracker set if it is not already attached, and move
 each mapped Project to `In Progress`. An already-correct value is a no-op.
@@ -118,8 +128,9 @@ An item belongs to many Projects but one milestone. Treat every other Project
 field, milestone property, and repository label as read-only; the claim carries
 the rest.
 
-With no active claim on the target, post one claim comment and maintain it by
-editing that exact comment ID:
+With no active claim on your slice, post one claim comment and maintain it by
+editing that exact comment ID rather than a sibling slice's claim on the same
+item:
 
 ````markdown
 <!-- start-issue-work-intent -->
@@ -146,12 +157,14 @@ keep the phase truthful — `implementing` only after implementation is
 authorized.
 
 After posting, read the target's own claim comments once more — that comment
-thread only, not the trackers. When more than one active claim is present,
-pause, show the collision, and let the user resolve it before implementation.
-Two runs pausing is a good outcome; do not invent a winner.
+thread only, not the trackers. A claim that appeared while you were writing
+collides only when its slice overlaps or may overlap yours; two disjoint
+slices both continue. On a real overlap, pause, show both slices, and let the
+user resolve it before implementation. Two runs pausing is a good outcome;
+do not invent a winner.
 
 **Complete when:** the target is attached, mapped Projects show `In Progress`,
-one truthful claim exists, and no unresolved collision remains.
+this slice has one truthful claim, and no unresolved overlap remains.
 
 ## 4. Interview
 
@@ -198,16 +211,17 @@ Projects, and the milestone aligned with the real state:
   `In Progress`.
 - `review`: the slice is with babysit or the user; record the handoff in the
   summary and leave mapped Projects `In Progress`.
-- `completed`: the owned work is finished, and mapped Projects move to `Done`.
-  A direct pull request completes when it merges. An issue completes when the
-  issue closes, so a merged pull request that leaves issue work open keeps it
-  `In Progress`.
+- `completed`: this slice's work is finished. A direct pull request's claim
+  completes when it merges; an issue slice's claim completes when that slice
+  lands, even while sibling slices continue. Mapped Projects move to `Done`
+  only when the item itself is done, so an issue with slices still running
+  stays `In Progress`.
 
 Keep the milestone attached throughout; its progress changes when the item
 closes.
 
-Re-read the claim before resuming after an interruption, and before entering a
-surface it does not declare. When implementation materially changes the
+Re-read your claim before resuming after an interruption, and before entering
+a surface it does not declare. When implementation materially changes the
 summary, touch points, dependencies, or branch, update the claim and reassess
 overlap for the newly added surface before working inside it.
 

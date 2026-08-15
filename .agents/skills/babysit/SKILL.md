@@ -22,8 +22,10 @@ merge` merges the exact green head with the repository's enabled method and
 verifies the merge.
 
 Read the slice boundary before the first fix: the addressed issue's acceptance
-criteria and the work-intent comment carry the observable evidence that ends
-this slice and the actors, scenarios, variants, and extensions it leaves out.
+criteria and this pull request's work-intent claim carry the observable evidence
+that ends this slice and the actors, scenarios, variants, and extensions it
+leaves out. An issue can carry several claims for slices running in parallel, so
+read the one whose slice this pull request delivers.
 When neither records one, state the boundary you will use in the first response
 and proceed. Ask before the first triage when the ambiguity would change how a
 finding is sorted. The boundary is the authority for triage.

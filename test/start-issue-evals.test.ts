@@ -160,7 +160,28 @@ test('branch-only guidance is progressively disclosed', () => {
   assert.doesNotMatch(markoverReference, /open '<reviewUrl>'/)
 })
 
-test('duplicate claims are detected and handed to the user without an election', () => {
+test('a claim owns one slice, so disjoint slices of an issue run in parallel', () => {
+  assert.match(
+    skillSource,
+    /A claim owns one bounded slice rather than the whole/
+  )
+  assert.match(
+    skillSource,
+    /Clearly separate slices: claim yours and continue\./
+  )
+  assert.match(
+    skillSource,
+    /collides only when its slice overlaps or may overlap yours/
+  )
+  assert.match(
+    skillSource,
+    /even while sibling slices continue/
+  )
+  assert.doesNotMatch(skillSource, /Add no second claim|One item carries one active intent/)
+  assert.doesNotMatch(skillSource, /more than one active claim is present/)
+})
+
+test('an overlapping slice is detected and handed to the user without an election', () => {
   const existingClaim = skillSource.indexOf(
     '**When the target already carries an active claim**'
   )
@@ -170,9 +191,33 @@ test('duplicate claims are detected and handed to the user without an election',
   assert.match(skillSource, /any claim whose phase is\nnot `completed`/)
   assert.match(
     skillSource,
-    /read the target's own claim comments once more[\s\S]*pause, show the collision[\s\S]*do not invent a winner/
+    /Clearly the same slice: show that claim and ask/
+  )
+  assert.match(
+    skillSource,
+    /Plausible overlap the live evidence does not settle: show both slices and ask\./
+  )
+  assert.match(
+    skillSource,
+    /read the target's own claim comments once more[\s\S]*pause, show both slices[\s\S]*do not invent a winner/
   )
   assert.doesNotMatch(skillSource, /owner token|earliest `created_at`|self-demot/i)
+})
+
+test('merging one slice leaves its sibling claims alone', () => {
+  const merge = fs.readFileSync(
+    path.join(root, '.agents/skills/babysit/references/merge.md'),
+    'utf8'
+  )
+  assert.match(
+    merge,
+    /Complete the claim for the merged slice[\s\S]*sibling claim alone/
+  )
+  assert.doesNotMatch(merge, /`completed` as well/)
+  assert.match(
+    fs.readFileSync(path.join(root, '.agents/skills/babysit/SKILL.md'), 'utf8'),
+    /An issue can carry several claims for slices running in parallel/
+  )
 })
 
 test('root guidance owns the terminal-friendly Markover handoff', () => {
