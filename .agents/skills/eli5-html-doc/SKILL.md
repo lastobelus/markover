@@ -42,10 +42,10 @@ Where it lives:
   directory. Use `docs/` only when the page is deliberately part of the public
   documentation site.
 
-One `.html` file with inline CSS, inline JavaScript, and inline SVG. It has to open from
-its saved path on a filesystem, so it carries no framework, CDN, remote asset, external
-font, tracking script, build step, package, or server. Ordinary `https` links to a pull
-request, issue, or plan are navigation, not dependencies, and are welcome.
+One `.html` file with inline CSS, classic inline JavaScript, and inline SVG. It has to open
+from its saved path on a filesystem, so it carries no framework, CDN, remote asset,
+external font, tracking script, build step, package, or server. Ordinary `https` links to
+a pull request, issue, or plan are navigation, not dependencies, and are welcome.
 
 Keep every local link inside the page's own directory or a descendant, and reach
 repository files elsewhere through the link metadata in `optional-surfaces.md`.
@@ -160,8 +160,8 @@ node .agents/skills/eli5-html-doc/scripts/verify-eli5.mjs doc/plans/<file>-eli5.
 ```
 
 It confirms the page is self-contained, carries no absolute path to the current checkout,
-compiles its inline JavaScript, and resolves every local link and repository-path target.
-Fix what it reports.
+compiles its classic inline JavaScript, and resolves every local link and repository-path
+target. Fix what it reports.
 
 Then look at the page. Open it from its filesystem path, check it at desktop and narrow
 widths, and confirm nothing overflows sideways. When the page has interactive surfaces,

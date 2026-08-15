@@ -141,11 +141,24 @@ function inspectFile(input, explicitRoot) {
       failures.push(`non-inline link tag: ${link.full}`)
     }
   }
-  if (/@import\b/i.test(source)) failures.push('CSS @import is not self-contained')
+  const cssSources = [
+    ...[...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)].map(
+      (match) => match[1]
+    )
+  ]
+  for (const match of source.matchAll(/<[a-z][^>]*>/gi)) {
+    const style = attributes(match[0]).get('style')
+    if (style) cssSources.push(style)
+  }
 
-  for (const match of source.matchAll(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi)) {
-    const value = match[2].trim()
-    if (!/^(?:data:|#)/i.test(value)) failures.push(`non-inline CSS url(): ${value}`)
+  if (cssSources.some((css) => /@import\b/i.test(css))) {
+    failures.push('CSS @import is not self-contained')
+  }
+  for (const css of cssSources) {
+    for (const match of css.matchAll(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi)) {
+      const value = match[2].trim()
+      if (!/^(?:data:|#)/i.test(value)) failures.push(`non-inline CSS url(): ${value}`)
+    }
   }
 
   const runtimeTags = ['audio', 'embed', 'iframe', 'img', 'input', 'source', 'track', 'video']
