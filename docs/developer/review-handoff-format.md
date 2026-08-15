@@ -106,6 +106,14 @@ compares the original submitted shape with the completed content, republishes
 the complete accepted artifact, and returns the original receipt. Different
 content conflicts and cannot overwrite the completed review.
 
+If PR-driven `done` archives the accepted review before a response-uncertain
+retry, the exact submission still returns the original `reviewed` receipt and
+republishes the immutable `done` artifact. The retry comparison ignores only
+the terminal lifecycle fields and pull-request observation changed by `done`;
+the pull-request identity, claim identity, review content, and every preserved
+additive field must still match. No retry can reopen or mutate the archived
+artifact.
+
 `edit` cancels a still-pristine `agent-reviewing` claim, removes
 `agentReviewer`, and returns to `editing`. A later claim always receives a new
 claim ID. `reviewed` is immutable; another human or agent feedback cycle opens

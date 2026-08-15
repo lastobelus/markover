@@ -281,6 +281,51 @@ function withoutAgentReviewContent(artifact: ReviewArtifact): unknown {
   return stripped
 }
 
+function expectedAgentReviewSubmission(
+  current: ReviewArtifact,
+  submission: ReviewArtifact
+): ReviewArtifact | null {
+  const reviewer = current.review.agentReviewer
+  if (!reviewer) return null
+
+  const expected = cloneJson(current)
+  expected.review.status = 'agent-reviewing'
+  expected.review.updatedAt = reviewer.startedAt
+  expected.review.agentReviewer = {
+    ...reviewer,
+    completedAt: null
+  }
+
+  if (current.review.status === 'done') {
+    const currentIdentity = reviewPullRequestIdentity(
+      current.review.pullRequest,
+      current.review.git
+    )
+    const submittedIdentity = reviewPullRequestIdentity(
+      submission.review.pullRequest,
+      submission.review.git
+    )
+    if (
+      !currentIdentity ||
+      !submittedIdentity ||
+      !isDeepStrictEqual(currentIdentity, submittedIdentity)
+    ) return null
+
+    const pullRequest = cloneJson(current.review.pullRequest)
+    if (!isRecord(pullRequest)) return null
+    delete pullRequest.status
+    delete pullRequest.statusObservedAt
+    delete pullRequest.statusSource
+    const submittedObservation = pullRequestObservation(
+      submission.review.pullRequest
+    )
+    if (submittedObservation) Object.assign(pullRequest, submittedObservation)
+    expected.review.pullRequest = pullRequest
+  }
+
+  return expected
+}
+
 function assertAllowedAgentReviewContent(
   artifact: ReviewArtifact,
   mode: AgentReviewMode
@@ -909,16 +954,14 @@ export class ReviewStore {
     assertReviewArtifact(submission, reviewId)
     return this.serialize(reviewId, async () => {
       const current = await this.read(reviewId)
-      if (current.review.status === 'reviewed') {
-        const reviewer = current.review.agentReviewer as ReviewAgentReviewer
-        const expected = cloneJson(current)
-        expected.review.status = 'agent-reviewing'
-        expected.review.updatedAt = reviewer.startedAt
-        expected.review.agentReviewer = {
-          ...reviewer,
-          completedAt: null
+      if (
+        current.review.status === 'reviewed' ||
+        (current.review.status === 'done' && current.review.agentReviewer)
+      ) {
+        const expected = expectedAgentReviewSubmission(current, submission)
+        if (expected && isDeepStrictEqual(expected, submission)) {
+          return cloneJson(current)
         }
-        if (isDeepStrictEqual(expected, submission)) return cloneJson(current)
         throw new ReviewStoreError(
           'SUBMISSION_CONFLICT',
           'This agent review is already complete with different submitted content.'

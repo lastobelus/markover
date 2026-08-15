@@ -359,6 +359,65 @@ test('a post-commit submit publication failure is uncertain and exact retry repa
   )
 })
 
+test('an exact submit retry keeps its reviewed receipt after PR archival', async (t) => {
+  let failPublication = true
+  const fixture = await serviceFixture(t, {
+    onChange(_artifact, action) {
+      if (action === 'submit' && failPublication) {
+        failPublication = false
+        throw new Error('renderer unavailable')
+      }
+    }
+  })
+  await requestJson(fixture.endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: {
+      contextSummary: 'Recover an archived uncertain submit.',
+      git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' },
+      pullRequest: { number: 150, fixtureExtension: 'preserve me' }
+    }
+  })
+  const claimed = expectArtifact(await requestJson(
+    fixture.endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/get-for-review'
+  ), 'mko_aaa11111')
+  child(claimed.root).feedback = 'Accepted before archival.'
+
+  await assert.rejects(
+    requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/submit',
+      { artifact: claimed }
+    ),
+    (error: unknown) => hasServiceError(error, 'REQUEST_UNCERTAIN', 503)
+  )
+  await requestJson(fixture.endpointPath, 'POST', '/reviews/done', {
+    pullRequestUrl: 'https://github.com/lastobelus/markover/pull/150',
+    pullRequestStatus: 'merged'
+  })
+  assert.equal(
+    (await fixture.store.load('mko_aaa11111')).review.status,
+    'done'
+  )
+  assert.deepEqual(
+    await requestJson(
+      fixture.endpointPath,
+      'POST',
+      '/reviews/mko_aaa11111/submit',
+      { artifact: claimed }
+    ),
+    { reviewId: 'mko_aaa11111', status: 'reviewed' }
+  )
+  const stored = await fixture.store.load('mko_aaa11111')
+  assert.equal(stored.review.status, 'done')
+  assert.equal(
+    (stored.review.pullRequest as Record<string, unknown>).fixtureExtension,
+    'preserve me'
+  )
+})
+
 test('get-for-review checks the persisted renderer snapshot before claiming', async (t) => {
   const storeReference: { current?: ReviewStore } = {}
   let rolledBack = false

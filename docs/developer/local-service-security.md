@@ -176,6 +176,11 @@ changed. Success is returned only after publication acknowledges. Any
 transport loss or publication failure after commit is `REQUEST_UNCERTAIN`.
 Repeating the exact submit republishes the accepted artifact and returns the
 original `{reviewId,status}` receipt; different content returns conflict. The
+same receipt is recoverable after PR-driven `done`: Markover republishes the
+immutable terminal artifact, returns the original `reviewed` status, and
+ignores only the lifecycle and pull-request observation fields that `done`
+changed while comparing the retry. Pull-request identity, claim identity,
+review content, and preserved additive fields must still match. The
 same uncertain rule applies when a claim commits but its artifact response or
 renderer publication is lost: retry `get-for-review` using only the review ID.
 

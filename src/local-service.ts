@@ -449,7 +449,10 @@ export async function startLocalService({
         ))
         sendJson(response, 200, {
           reviewId: artifact.review.id,
-          status: artifact.review.status
+          status: artifact.review.status === 'done' &&
+            artifact.review.agentReviewer
+            ? 'reviewed'
+            : artifact.review.status
         })
         return
       }

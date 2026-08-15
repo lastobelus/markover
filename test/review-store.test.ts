@@ -414,6 +414,23 @@ test('PR completion skips inflight agent review and archives reviewed content', 
     completed.review.agentReviewer?.claimId,
     'mko_claim_0123456789abcdef'
   )
+  assert.deepEqual(
+    await store.submitAgentReview(created.review.id, claimed),
+    completed
+  )
+  const changedRetry = structuredClone(claimed)
+  child(changedRetry.root).feedback = 'Different feedback.'
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, changedRetry),
+    (error: unknown) => hasErrorCode(error, 'SUBMISSION_CONFLICT')
+  )
+  const changedExtension = structuredClone(claimed)
+  const pullRequest = changedExtension.review.pullRequest as Record<string, unknown>
+  pullRequest.fixtureExtension = 'changed'
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, changedExtension),
+    (error: unknown) => hasErrorCode(error, 'SUBMISSION_CONFLICT')
+  )
 })
 
 test('edit returns a pending review to editing and is idempotent', async (t) => {
