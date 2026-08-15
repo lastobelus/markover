@@ -46,6 +46,7 @@ declare global {
     | 'always'
     | 'warn'
     | 'when-idle'
+  type InboxTitlePreference = 'review-purpose' | 'requesting-thread-title'
   type DarkColorization = 'high' | 'mid' | 'low'
 
   interface AgentGuidance {
@@ -74,6 +75,9 @@ declare global {
     reviewLinkActivationPolicy: IncomingReviewActivationPolicy
     incomingReviewIdleMinutes: number
     discoverAgentThreadFromLocalSessions: boolean
+    t3ThreadTitlesEnabled: boolean
+    t3MetadataDatabasePath: string
+    inboxTitlePreference: InboxTitlePreference
     logRejectedApiRequests: boolean
     agentReviewMode: AgentReviewMode
     agentInterpretationPolicy: string
@@ -148,6 +152,7 @@ declare global {
       defaultTreeView: readonly DefaultTreeView[]
       incomingReviewActivationPolicy: readonly IncomingReviewActivationPolicy[]
       reviewLinkActivationPolicy: readonly IncomingReviewActivationPolicy[]
+      inboxTitlePreference: readonly InboxTitlePreference[]
       agentReviewMode: readonly AgentReviewMode[]
     }>
     normalizeSettings: (value?: unknown) => MarkoverSettings
@@ -615,6 +620,19 @@ declare global {
     blurredAt: number | null
   }
 
+  type T3ThreadTitleStatus = 'disabled' | 'available' | 'unavailable'
+
+  interface T3ThreadTitle {
+    threadId: string
+    title: string
+  }
+
+  interface T3ThreadTitleSnapshot {
+    status: T3ThreadTitleStatus
+    detail: string
+    titles: T3ThreadTitle[]
+  }
+
   interface MarkoverBridge {
     getStartupInfo: () => Promise<StartupInfo>
     reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
@@ -650,6 +668,7 @@ declare global {
     }>
     getInitialReview: () => Promise<MarkoverDocument | null>
     getReviews: () => Promise<MarkoverReviewListItem[]>
+    getT3ThreadTitles: () => Promise<T3ThreadTitleSnapshot>
     getProjectFavicon: (reviewId: string) => Promise<string | null>
     openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: {

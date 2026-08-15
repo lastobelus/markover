@@ -23,6 +23,9 @@ import * as agentGuidance from './agent-guidance'
     reviewLinkActivationPolicy: 'always',
     incomingReviewIdleMinutes: 5,
     discoverAgentThreadFromLocalSessions: true,
+    t3ThreadTitlesEnabled: false,
+    t3MetadataDatabasePath: '',
+    inboxTitlePreference: 'review-purpose',
     logRejectedApiRequests: false,
     agentReviewMode: 'annotation-only',
     agentInterpretationPolicy: agentGuidance.DEFAULT_INTERPRETATION_POLICY,
@@ -38,6 +41,7 @@ import * as agentGuidance from './agent-guidance'
     defaultTreeView: ['all', 'annotated'],
     incomingReviewActivationPolicy: ['never', 'always', 'warn', 'when-idle'],
     reviewLinkActivationPolicy: ['never', 'always', 'warn', 'when-idle'],
+    inboxTitlePreference: ['review-purpose', 'requesting-thread-title'],
     agentReviewMode: [
       'annotation-only',
       'annotations-and-source-proposals'
@@ -109,12 +113,16 @@ import * as agentGuidance from './agent-guidance'
       'openDocumentsSidebar',
       'confirmAttachmentRemoval',
       'discoverAgentThreadFromLocalSessions',
+      't3ThreadTitlesEnabled',
       'logRejectedApiRequests'
     ] as const) {
       if (typeof input[key] === 'boolean') normalized[key] = input[key]
     }
     if (typeof input.agentInterpretationPolicy === 'string') {
       normalized.agentInterpretationPolicy = input.agentInterpretationPolicy
+    }
+    if (typeof input.t3MetadataDatabasePath === 'string') {
+      normalized.t3MetadataDatabasePath = input.t3MetadataDatabasePath.trim()
     }
     const incomingReviewIdleMinutes = input.incomingReviewIdleMinutes
     if (
@@ -220,6 +228,12 @@ import * as agentGuidance from './agent-guidance'
       idleMinutes.disabled =
         normalized.incomingReviewActivationPolicy !== 'when-idle' &&
         normalized.reviewLinkActivationPolicy !== 'when-idle'
+    }
+    const t3MetadataDatabasePath = view.form.elements.namedItem(
+      't3MetadataDatabasePath'
+    )
+    if (t3MetadataDatabasePath && 'disabled' in t3MetadataDatabasePath) {
+      t3MetadataDatabasePath.disabled = !normalized.t3ThreadTitlesEnabled
     }
     return { appearance, preferences: normalized }
   }

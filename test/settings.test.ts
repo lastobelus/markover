@@ -46,6 +46,9 @@ test('settings defaults cover the persisted preferences', () => {
     'reviewLinkActivationPolicy',
     'incomingReviewIdleMinutes',
     'discoverAgentThreadFromLocalSessions',
+    't3ThreadTitlesEnabled',
+    't3MetadataDatabasePath',
+    'inboxTitlePreference',
     'logRejectedApiRequests',
     'agentReviewMode',
     'agentInterpretationPolicy',
@@ -68,6 +71,9 @@ test('settings normalization accepts known choices and rejects unknown values', 
     reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
+    t3ThreadTitlesEnabled: true,
+    t3MetadataDatabasePath: ' /tmp/t3.sqlite ',
+    inboxTitlePreference: 'requesting-thread-title',
     logRejectedApiRequests: true,
     agentReviewMode: 'annotations-and-source-proposals',
     agentInterpretationPolicy: 'Follow the checklist.',
@@ -87,6 +93,9 @@ test('settings normalization accepts known choices and rejects unknown values', 
     reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
+    t3ThreadTitlesEnabled: true,
+    t3MetadataDatabasePath: '/tmp/t3.sqlite',
+    inboxTitlePreference: 'requesting-thread-title',
     logRejectedApiRequests: true,
     agentReviewMode: 'annotations-and-source-proposals',
     agentInterpretationPolicy: 'Follow the checklist.',
@@ -202,6 +211,9 @@ test('renderer settings apply immediately and reset through the same path', () =
       <select name="reviewLinkActivationPolicy"><option value="always">Always</option><option value="when-idle">When idle</option></select>
       <input name="incomingReviewIdleMinutes" type="number">
       <input name="discoverAgentThreadFromLocalSessions" type="checkbox">
+      <input name="t3ThreadTitlesEnabled" type="checkbox">
+      <input name="t3MetadataDatabasePath" type="text">
+      <select name="inboxTitlePreference"><option value="review-purpose">Purpose</option><option value="requesting-thread-title">Thread</option></select>
       <input name="logRejectedApiRequests" type="checkbox">
       <textarea name="agentInterpretationPolicy"></textarea>
     </form>
@@ -250,6 +262,20 @@ test('renderer settings apply immediately and reset through the same path', () =
   assert.ok(idleControl)
   assert.equal(idleControl.value, '5')
   assert.equal(idleControl.disabled, true)
+  const t3PathControl = view.form.elements.namedItem('t3MetadataDatabasePath') as
+    | HTMLInputElement
+    | null
+  assert.ok(t3PathControl)
+  assert.equal(t3PathControl.disabled, true)
+
+  applySettingsToView({
+    ...DEFAULT_SETTINGS,
+    t3ThreadTitlesEnabled: true,
+    t3MetadataDatabasePath: '/tmp/t3.sqlite',
+    resolvedAppearance: 'light'
+  }, view)
+  assert.equal(t3PathControl.value, '/tmp/t3.sqlite')
+  assert.equal(t3PathControl.disabled, false)
 
   applySettingsToView({
     ...DEFAULT_SETTINGS,

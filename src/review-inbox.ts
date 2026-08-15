@@ -27,6 +27,7 @@ export interface ReviewInboxRow {
   pullRequestStatusSource: string | null
   reviewId: string
   requestingThreadId: string | null
+  requestingThreadTitle: string | null
   status: ReviewSessionStatus
   threadKey: string
   threadHostKind: string | null
@@ -106,8 +107,17 @@ function relativeDocumentPath(session: ReviewSession): string | null {
 
 function rowTitle(
   session: ReviewSession,
-  local: boolean
+  local: boolean,
+  requestingThreadTitle: string | null,
+  titlePreference: InboxTitlePreference
 ): Pick<ReviewInboxRow, 'title' | 'titleSource'> {
+  if (
+    requestingThreadTitle &&
+    !local &&
+    titlePreference === 'requesting-thread-title'
+  ) {
+    return { title: requestingThreadTitle, titleSource: 'thread-title' }
+  }
   const contextSummary = session.tree.review.contextSummary.trim()
   if (contextSummary && !local) {
     return { title: contextSummary, titleSource: 'context-summary' }
@@ -118,7 +128,11 @@ function rowTitle(
   }
 }
 
-function rowFromSession(session: ReviewSession): ReviewInboxRow {
+function rowFromSession(
+  session: ReviewSession,
+  t3Titles: ReadonlyMap<string, string>,
+  titlePreference: InboxTitlePreference
+): ReviewInboxRow {
   const review = session.tree.review
   const agentThread = review.agentThread
   const threadHost = isRecord(agentThread) && isRecord(agentThread.threadHost)
@@ -129,9 +143,18 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
   const agentThreadId = stringField(agentThread, ['id'])
   const threadHostThreadId = stringField(threadHost, ['threadId'])
   const requestingThreadId = threadHostThreadId || agentThreadId
+  const requestingThreadTitle = (
+    threadHostKind?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 't3code' &&
+    requestingThreadId
+  ) ? t3Titles.get(requestingThreadId) || null : null
   const machine = stringField(threadHost, ['machine'])
   const local = review.origin === 'local'
-  const title = rowTitle(session, local)
+  const title = rowTitle(
+    session,
+    local,
+    requestingThreadTitle,
+    titlePreference
+  )
   const branch = stringField(review.git, ['branch'])
   const pullRequestNumber = numberField(review.pullRequest, 'number')
   const pullRequestState = pullRequestObservation(review.pullRequest)
@@ -140,7 +163,7 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
     : threadHostThreadId
       ? `${threadHostKind || 'thread-host'}:${threadHostThreadId}`
       : agentThreadId
-      ? `${provider || 'agent'}:${agentThreadId}`
+      ? `${threadHostKind || 'thread-host'}:${agentThreadId}`
       : `review:${session.reviewId}`
 
   return {
@@ -161,6 +184,7 @@ function rowFromSession(session: ReviewSession): ReviewInboxRow {
     pullRequestStatusSource: pullRequestState?.statusSource ?? null,
     reviewId: session.reviewId,
     requestingThreadId,
+    requestingThreadTitle,
     status: review.status,
     threadKey,
     threadHostKind,
@@ -201,7 +225,7 @@ function threadProjection(
   const first = ordered[0]
   if (!first) throw new Error(`Review thread ${key} cannot be empty.`)
   const editing = ordered.filter((review) => review.status === 'editing')
-  const titledReview = ordered.find((review) => review.titleSource === 'thread-title')
+  const titledReview = ordered.find((review) => review.requestingThreadTitle)
   return {
     editingCount: editing.length,
     key,
@@ -217,10 +241,12 @@ function threadProjection(
     reviews: ordered,
     title: first.local
       ? 'Local reviews'
-      : titledReview?.title || first.requestingThreadId || 'Thread title unavailable',
+      : titledReview?.requestingThreadTitle ||
+        first.requestingThreadId ||
+        'Thread title unavailable',
     titleSource: first.local
       ? 'document-name'
-      : titledReview?.titleSource || (
+      : titledReview ? 'thread-title' : (
           first.requestingThreadId ? 'thread-id' : 'document-name'
         )
   }
@@ -257,9 +283,16 @@ function projectProjection(
 }
 
 export function projectReviewInbox(
-  sessions: ReviewSession[]
+  sessions: ReviewSession[],
+  t3ThreadTitles: readonly T3ThreadTitle[] = [],
+  titlePreference: InboxTitlePreference = 'review-purpose'
 ): ReviewInboxProjection {
-  const rows = sessions.map(rowFromSession)
+  const titles = new Map(
+    t3ThreadTitles.map(({ threadId, title }) => [threadId, title])
+  )
+  const rows = sessions.map((session) => (
+    rowFromSession(session, titles, titlePreference)
+  ))
   const byProject = new Map<string, ReviewInboxRow[]>()
   for (const row of rows) {
     const projectRows = byProject.get(row.projectKey) || []

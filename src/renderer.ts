@@ -208,6 +208,8 @@ const elements = {
   settingsDialog: requiredElement<HTMLDialogElement>('#settings-dialog'),
   settingsForm: requiredElement<HTMLFormElement>('#settings-form'),
   settingsReset: requiredElement<HTMLButtonElement>('#settings-reset'),
+  t3ThreadTitleStatus: requiredElement('#t3-thread-title-status'),
+  t3ThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#t3-thread-titles-refresh'),
   workspace: requiredElement('#workspace')
 }
 
@@ -257,6 +259,12 @@ let statusAnnouncementFrame: number | null = null
 let imagePreviewReturnFocus: HTMLElement | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
+let t3ThreadTitles: T3ThreadTitleSnapshot = {
+  status: 'disabled',
+  detail: 'T3 requesting-thread titles are disabled.',
+  titles: []
+}
+let t3ThreadTitleRefresh: Promise<void> = Promise.resolve()
 let windowFocusState: MarkoverWindowFocusState = {
   focused: false,
   blurredAt: Date.now()
@@ -268,6 +276,16 @@ let incomingReviewNoticeCount = 0
 let incomingReviewNoticeId: string | null = null
 let incomingReviewNoticePrompts: IncomingReviewPrompt[] = []
 let incomingReviewNoticeSequence: number | null = null
+
+function reviewInboxProjection(
+  sessions = reviewSessions.list()
+): ReturnType<typeof projectReviewInbox> {
+  return projectReviewInbox(
+    sessions,
+    t3ThreadTitles.titles,
+    preferences.inboxTitlePreference
+  )
+}
 
 function threadExpansionKey(projectKey: string, threadKey: string): string {
   return JSON.stringify([projectKey, threadKey])
@@ -292,7 +310,7 @@ function workspaceReviewScopes(): Array<{
   blockIds: string[]
 }> {
   const sessions = reviewSessions.list()
-  const projection = projectReviewInbox(sessions)
+  const projection = reviewInboxProjection(sessions)
   const rows = [...projection.editing, ...projection.history]
   const rowById = new Map(rows.map((row) => [row.reviewId, row]))
   return sessions.map((session) => ({
@@ -326,7 +344,7 @@ function normalizeSessionWorkspaceState(session: ReviewSession): void {
 function workspaceSnapshot(): MarkoverWorkspaceState {
   captureActiveSession()
   const sessions = reviewSessions.list()
-  const projection = projectReviewInbox(sessions)
+  const projection = reviewInboxProjection(sessions)
   const reviews: Record<string, WorkspaceReviewViewState> = {}
   for (const session of sessions) {
     reviews[session.reviewId] = {
@@ -375,7 +393,7 @@ function persistWorkspaceState(): void {
 
 function applyWorkspaceState(value: MarkoverWorkspaceState): MarkoverWorkspaceState {
   const normalized = reconcileWorkspaceState(value, workspaceReviewScopes())
-  const projection = projectReviewInbox(reviewSessions.list())
+  const projection = reviewInboxProjection()
   projectExpansion.clear()
   threadExpansion.clear()
   for (const item of normalized.projectExpansion) {
@@ -2130,8 +2148,14 @@ async function handleReviewLink(
 
 function queueIncomingReview(reviewDocument: MarkoverDocument): Promise<void> {
   incomingReviewQueue = incomingReviewQueue.then(
-    () => handleIncomingReview(reviewDocument),
-    () => handleIncomingReview(reviewDocument)
+    async () => {
+      await handleIncomingReview(reviewDocument)
+      await refreshT3ThreadTitles()
+    },
+    async () => {
+      await handleIncomingReview(reviewDocument)
+      await refreshT3ThreadTitles()
+    }
   ).catch((error: unknown) => {
     console.error('Failed to add incoming review', error)
     showToast('Could not add the incoming review')
@@ -2452,6 +2476,19 @@ function createRegisteredIcon(
   return icon
 }
 
+function registeredIconsMatch(
+  left: ReviewRegistryIcon,
+  right: ReviewRegistryIcon
+): boolean {
+  if (left.kind !== right.kind) return false
+  if (left.kind === 'image' && right.kind === 'image') {
+    return left.source === right.source
+  }
+  return left.kind === 'vector' && right.kind === 'vector' &&
+    left.viewBox === right.viewBox &&
+    JSON.stringify(left.paths) === JSON.stringify(right.paths)
+}
+
 function createProviderIcon(
   row: Pick<ReviewInboxRow, 'local' | 'provider' | 'threadHostKind'>
 ): HTMLElement {
@@ -2477,18 +2514,27 @@ function createProviderIcon(
   const providerLabel = providerDefinition?.label || row.provider || 'Agent'
   const threadHostDefinition = threadHostIcon(row.threadHostKind)
   if (!threadHostDefinition) {
-    primary.title = providerLabel
+    primary.title = `${providerLabel} provider (${row.provider || 'unknown'})`
+    return primary
+  }
+
+  const roles = [
+    `${providerLabel} provider (${row.provider || 'unknown'})`,
+    `${threadHostDefinition.label} thread host (${row.threadHostKind || 'unknown'})`
+  ].join('; ')
+  if (
+    providerDefinition &&
+    registeredIconsMatch(providerDefinition, threadHostDefinition)
+  ) {
+    primary.title = roles
+    primary.setAttribute('aria-label', roles)
     return primary
   }
 
   const stack = document.createElement('span')
   stack.className = 'review-provider-icon-stack has-thread-host'
-  stack.tabIndex = 0
-  stack.title = `${providerLabel} provider · hover to see ${threadHostDefinition.label} thread-host`
-  stack.setAttribute(
-    'aria-label',
-    `${providerLabel} provider; ${threadHostDefinition.label} thread-host`
-  )
+  stack.title = roles
+  stack.setAttribute('aria-label', roles)
   primary.classList.add('is-provider')
   const threadHost = createRegisteredIcon(
     threadHostDefinition,
@@ -3107,7 +3153,10 @@ function setReviewNavigationMode(
   elements.reviewNavigationInbox.setAttribute('aria-pressed', String(mode === 'inbox'))
   elements.reviewNavigationProjects.setAttribute('aria-pressed', String(mode === 'projects'))
   renderDocumentsList()
-  if (persist) persistWorkspaceState()
+  if (persist) {
+    persistWorkspaceState()
+    void refreshT3ThreadTitles()
+  }
 }
 
 function renderIncompatibleReviews(): DocumentFragment {
@@ -3156,7 +3205,7 @@ function renderDocumentsList(): void {
   hideReviewHoverCard()
   const sessions = reviewSessions.list()
   const hasReviews = sessions.length > 0 || incompatibleReviews.length > 0
-  const projection = projectReviewInbox(sessions)
+  const projection = reviewInboxProjection(sessions)
   scheduleDocumentsListClockRefresh(sessions)
   elements.documentsListSidebar.hidden = !hasReviews
   elements.documentsListCollapse.hidden = sessions.length === 0
@@ -3337,6 +3386,38 @@ async function themeBrandAssets(): Promise<void> {
   }
 }
 
+function updateT3ThreadTitleStatus(refreshing = false): void {
+  elements.t3ThreadTitleStatus.textContent = refreshing
+    ? 'Refreshing T3 requesting-thread titles…'
+    : t3ThreadTitles.detail
+  elements.t3ThreadTitleStatus.dataset.status = refreshing
+    ? 'refreshing'
+    : t3ThreadTitles.status
+  elements.t3ThreadTitleStatus.setAttribute('aria-busy', String(refreshing))
+  elements.t3ThreadTitlesRefresh.disabled =
+    refreshing || !preferences.t3ThreadTitlesEnabled
+}
+
+function refreshT3ThreadTitles(): Promise<void> {
+  const refresh = async (): Promise<void> => {
+    updateT3ThreadTitleStatus(true)
+    try {
+      t3ThreadTitles = await bridge.getT3ThreadTitles()
+    } catch (error) {
+      console.error('Failed to refresh T3 requesting-thread titles', error)
+      t3ThreadTitles = {
+        status: 'unavailable',
+        detail: 'T3 metadata is temporarily unavailable.',
+        titles: []
+      }
+    }
+    updateT3ThreadTitleStatus()
+    renderDocumentsListPreservingFocus()
+  }
+  t3ThreadTitleRefresh = t3ThreadTitleRefresh.then(refresh, refresh)
+  return t3ThreadTitleRefresh
+}
+
 function applySettings(
   next: unknown,
   options: { initial?: boolean } = {}
@@ -3350,6 +3431,7 @@ function applySettings(
   preferences = applied.preferences
   resolvedAppearance = applied.appearance
   void themeBrandAssets()
+  updateT3ThreadTitleStatus()
 
   if (MarkoverSettings.sidebarPreferenceChanged(
     previous,
@@ -3357,6 +3439,21 @@ function applySettings(
     options.initial
   )) {
     setDocumentsListCollapsed(!preferences.openDocumentsSidebar)
+  }
+  if (
+    !options.initial &&
+    previous.inboxTitlePreference !== preferences.inboxTitlePreference
+  ) {
+    renderDocumentsListPreservingFocus()
+  }
+  if (
+    !options.initial &&
+    (
+      previous.t3ThreadTitlesEnabled !== preferences.t3ThreadTitlesEnabled ||
+      previous.t3MetadataDatabasePath !== preferences.t3MetadataDatabasePath
+    )
+  ) {
+    void refreshT3ThreadTitles()
   }
 }
 
@@ -3410,6 +3507,9 @@ elements.fixedContractDialog.addEventListener('close', () => {
 })
 elements.settingsReset.addEventListener('click', () => {
   void bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS).then(applySettings)
+})
+elements.t3ThreadTitlesRefresh.addEventListener('click', () => {
+  void refreshT3ThreadTitles()
 })
 elements.settingsForm.addEventListener('change', (event) => {
   const control = event.target
@@ -3599,7 +3699,7 @@ function resizeAnnotationPaneFromKeyboard(event: KeyboardEvent): void {
 }
 
 function expandReviewAncestors(reviewId: string): void {
-  const projection = projectReviewInbox(reviewSessions.list())
+  const projection = reviewInboxProjection()
   for (const project of projection.projects) {
     for (const thread of project.threads) {
       if (!thread.reviews.some((review) => review.reviewId === reviewId)) continue
@@ -4486,6 +4586,7 @@ async function initialize(): Promise<void> {
     windowFocusStateVersion += 1
     windowFocusState = focusState
     scheduleIncomingReviewNoticeDismissal()
+    if (focusState.focused) void refreshT3ThreadTitles()
   })
   const initialFocusStateVersion = windowFocusStateVersion
   const initialFocusState = await bridge.getWindowFocusState()
@@ -4519,6 +4620,7 @@ async function initialize(): Promise<void> {
     if (!session) return
     normalizeSessionWorkspaceState(session)
     renderDocumentsListPreservingFocus()
+    void refreshT3ThreadTitles()
     if (session.reviewId === state.reviewId) {
       state.tree = session.tree
       state.selectedId = session.selectedId
@@ -4657,6 +4759,7 @@ async function initialize(): Promise<void> {
     workspaceStateReady = true
     persistWorkspaceState()
     renderDocumentsList()
+    void refreshT3ThreadTitles()
     if (state.reviewId) elements.previewPane.focus()
     else if (incompatibleReviews.length) {
       elements.documentsListTree.querySelector<HTMLButtonElement>(
