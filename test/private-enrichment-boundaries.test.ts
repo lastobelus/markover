@@ -9,8 +9,16 @@ const read = (relativePath: string): string => fs.readFileSync(
   'utf8'
 )
 
-test('private enrichment has no agent-visible or renderer transport', () => {
+test('private enrichment remains absent from runtime and agent-visible transport', () => {
   for (const relativePath of [
+    'src/private-enrichment.ts',
+    'src/private-enrichment-store.ts'
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, relativePath)), false, relativePath)
+  }
+
+  for (const relativePath of [
+    'src/main.ts',
     'src/local-client.ts',
     'src/local-service.ts',
     'src/preload.ts',
@@ -24,13 +32,8 @@ test('private enrichment has no agent-visible or renderer transport', () => {
     )
   }
 
-  const main = read('src/main.ts')
-  const managedDocument = main.slice(
-    main.indexOf('function managedDocument('),
-    main.indexOf('function projectRootForReview(')
+  assert.doesNotMatch(
+    read('scripts/app-layout.ts'),
+    /'private-enrichment'|'private-enrichment-store'/
   )
-  assert.doesNotMatch(managedDocument, /privateEnrichment|enrichment/)
-  assert.match(main, /privateEnrichmentStore\.cleanupThreadAfterTrash/)
-  assert.match(main, /privateEnrichmentStore\.pauseAndDrain/)
-  assert.match(main, /privateEnrichmentStore\.flush/)
 })

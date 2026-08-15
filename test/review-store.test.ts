@@ -1163,6 +1163,12 @@ test('review deletion policies cover every status and trash the exact directory'
     contextSummary: 'Delete a pending review.'
   })
   await store.handoff(pending.review.id)
+  const sidecarBytes = '{malformed historical sidecar bytes\n'
+  await fs.writeFile(
+    path.join(store.reviewDirectory(editing.review.id), 'enrichment.json'),
+    sidecarBytes,
+    'utf8'
+  )
   const trashed: string[] = []
 
   assert.equal(reviewDeletionPolicy('editing'), 'standard')
@@ -1172,9 +1178,12 @@ test('review deletion policies cover every status and trash the exact directory'
   assert.equal(reviewDeletionPolicy('revised'), 'standard')
   assert.equal(reviewDeletionPolicy('done'), 'standard')
   assert.equal(
-    await store.trashReview(editing.review.id, (target) => {
+    await store.trashReview(editing.review.id, async (target) => {
       trashed.push(target)
-      return Promise.resolve()
+      assert.equal(
+        await fs.readFile(path.join(target, 'enrichment.json'), 'utf8'),
+        sidecarBytes
+      )
     }),
     'standard'
   )

@@ -1,5 +1,12 @@
 # App-private review enrichment storage
 
+> **Historical and deferred.** This plan describes the unreleased #131
+> storage runtime removed by issue #156 after a zero-producer/zero-consumer
+> preflight. Markover preserves any existing sidecar bytes but does not read,
+> write, migrate, or clean them up. A future proven producer/consumer vertical
+> must decide whether it needs persistence and document only that smaller
+> contract; this file is not an active implementation specification.
+
 Issue: [#131](https://github.com/lastobelus/markover/issues/131)
 Coordinates with: [#97](https://github.com/lastobelus/markover/issues/97), [#126](https://github.com/lastobelus/markover/issues/126), [#132](https://github.com/lastobelus/markover/issues/132), [#134](https://github.com/lastobelus/markover/issues/134)
 Portable-format boundary: merged [PR #139](https://github.com/lastobelus/markover/pull/139)
