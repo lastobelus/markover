@@ -51,12 +51,12 @@ test('gives each review representation a stable focus identity', () => {
     'review-list:mko_example'
   )
   assert.equal(
-    reviewContextMenuFocusKey('document-tab', 'mko_example'),
-    'document-tab:mko_example'
+    reviewContextMenuFocusKey('project-review-list', 'mko_example'),
+    'project-review-list:mko_example'
   )
 })
 
-test('both review representations expose the native menu without activation', () => {
+test('both review-list representations expose the native menu without activation', () => {
   const renderer = fs.readFileSync(path.join(root, 'src/renderer.ts'), 'utf8')
   assert.match(
     renderer,
@@ -68,7 +68,7 @@ test('both review representations expose the native menu without activation', ()
   )
   assert.match(
     renderer,
-    /function createDocumentTab[\s\S]*bindReviewContextMenuKeyboard\([\s\S]*session\.reviewId,[\s\S]*'document-tab'[\s\S]*openReviewContextMenu\(session\.reviewId, event, button, contextMenuFocusKey\)/
+    /function createProjectReviewRow[\s\S]*bindReviewContextMenuKeyboard\([\s\S]*row\.reviewId,[\s\S]*'project-review-list'[\s\S]*openReviewContextMenu\(row\.reviewId, event, button, contextMenuFocusKey\)/
   )
 })
 

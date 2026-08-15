@@ -17,20 +17,20 @@ The selected direction is Concept A, **Inbox + Projects**. The updated interacti
 
 ## Application chrome and navigation
 
-- Place `Inbox` and `Projects` tabs in the left segment of the existing document-tab strip, directly above the review-list header.
-- Start the document-tab bar at the document-tree pane boundary rather than extending it across the review-list pane.
+- Place `Inbox` and `Projects` tabs in the left segment of the review-navigation strip, directly above the review-list header.
+- Use the rest of that strip for a minimal exact-review-ID activation form.
 - Open Inbox on first launch. Afterward, restore the last-selected Inbox or Projects tab.
-- Treat document tabs as a persistent, closeable working set rather than a second global review list.
-- Selecting a review opens or activates its document tab. Restore open tabs and the active tab after relaunch.
-- Closing a document tab only removes it from the working set. It does not change review status, remove the review from Inbox/Projects, or delete data.
-- Explicit review navigation and deep links open a document tab and reveal the selected review without otherwise disturbing saved hierarchy expansion.
+- Keep exactly one active review and restore it after relaunch while retaining every review's private view state.
+- Selecting a review, entering its exact ID, or following a deep link activates it and reveals its ancestors without otherwise disturbing saved hierarchy expansion.
+- Keep next/previous review navigation independent of any closeable working-set model.
+- Show the active review's exact ID in the Document Tree header as a copyable keyboard control. Include the exact ID in Inbox/Projects hover details, focused-row accessible content, and the review-context drawer with a one-step copy action.
 
 ## Inbox
 
 - Show a flat, complete list with exactly one row per `Editing` agent review and active Local review.
 - Never group or collapse actionable reviews by thread. Multiple documents from one thread remain separate rows.
 - Sort by `attentionRequestedAt`, newest first. Set it when a review first arrives in `Editing` or returns to `Editing`.
-- Viewing a review, annotation autosaves, thread-title refreshes, and document-tab activation do not reorder Inbox.
+- Viewing a review, annotation autosaves, thread-title refreshes, and review activation do not reorder Inbox.
 - If real use makes this ordering feel stale, evaluate debounced meaningful `updatedAt` later rather than mixing timestamp semantics now.
 - Put every non-`Editing` lifecycle state—`With Agent`, `Revised`, and `Done`—behind one collapsed History section. Initial expansion shows the 10 most recent reviews, supports incremental `Show more`, and offers `View all in Projects`.
 - Preserve the specific lifecycle label on each historical row. `Revised` and `Done` must not be presented as `With Agent`, and none of those read-only states count as actionable Inbox work.
@@ -93,7 +93,7 @@ PR identity is color-coded independently from review lifecycle. A timestamped #1
 ## Local reviews and #107
 
 - Keep #107 separate. It owns `Open Markdown…` ingestion into durable managed-review storage, default context creation, atomic cancellation/failure behavior, deduplication, and preservation of the original Markdown file.
-- #97 consumes #107’s output as a first-class Local review in Inbox, Projects, and document tabs.
+- #97 consumes #107’s output as a first-class Local review in Inbox and Projects.
 - Local rows use: small `project · Local review` plus age; prominent filename plus Markdown/file icon; small repository-relative path and branch plus right-aligned PR when available.
 - In Projects, Local reviews live beneath a synthetic `Local reviews` group.
 - Match a Local review to a project using canonical source-path containment and discovered Git identity. Non-Git files use a matching known project root or containing directory, then `Other`.
@@ -112,7 +112,7 @@ The implementation must persist enough structured data to support the behavior w
 - app-private requesting-thread-title, authority/provenance, and observation time keyed by stable requesting-thread identity;
 - last-selected Inbox/Projects mode;
 - Projects expansion state;
-- open document-tab IDs and active tab.
+- one active review ID plus per-review view state.
 
 This is pre-MVP0 work. Change the current schema directly; do not add fallback readers, dual writers, or migration machinery without evidence of active external use. Preserve historical review JSON and attachments even when the newest app does not open every old artifact.
 
@@ -120,7 +120,7 @@ This is pre-MVP0 work. Change the current schema directly; do not add fallback r
 
 - #15 owns review deletion, macOS Trash behavior, orphaned-attachment cleanup, destructive confirmation, and shared cleanup commands. #97 owns where those affordances appear in Inbox/Projects.
 - #102 owns incoming-review activation, arrival notices, and focus policy. #97 preserves that behavior and coordinates the shared settings UI/store.
-- #54 owns global base-text-size controls. #97 validates rows, badges, truncation, hierarchy, and tabs at every supported size bound.
+- #54 owns global base-text-size controls. #97 validates rows, badges, truncation, hierarchy, and exact-ID controls at every supported size bound.
 - #107 owns the manual-open ingestion contract described above.
 - #129, merged on `main`, owns the persisted `Editing`, `Pending Agent`, `Revised`, and `Done` lifecycle plus timestamped agent-reported PR observations. #97 consumes those values for actionability, history labels, ordering, and PR cues without duplicating lifecycle transitions.
 
@@ -130,7 +130,7 @@ Delivery uses three independently reviewable slices:
 2. Consume the managed Local-review ingestion that landed through #107/#117 on `main`, without rewriting its Open Markdown boundary.
 3. PR #120 adds tested #97 projections and production wiring against that unified managed-review model, based on `main` after #129 and consuming its lifecycle and PR-observation semantics.
 
-The visual fixture and production tests exercise the edge cases already known to matter: multiple actionable reviews from one thread, a Local review, `With Agent`, `Revised`, and `Done` history, collapsed Projects rollups, observed and merely linked PRs, long timestamp-prefixed documents, missing optional metadata, closeable document tabs, narrow/wide sidebars, and light/dark appearance. Presentation-only fixture controls may demonstrate selected, expanded, and collapsed states locally, but they do not mutate production review state.
+The visual fixture and production tests exercise the edge cases already known to matter: multiple actionable reviews from one thread, a Local review, `With Agent`, `Revised`, and `Done` history, collapsed Projects rollups, observed and merely linked PRs, long timestamp-prefixed documents, missing optional metadata, exact review IDs, narrow/wide sidebars, and light/dark appearance. Presentation-only fixture controls may demonstrate selected, expanded, and collapsed states locally, but they do not mutate production review state.
 
 ## Likely implementation touch points
 
@@ -138,8 +138,8 @@ The visual fixture and production tests exercise the edge cases already known to
 - `src/review-store.ts`: creation/status timestamps and durable metadata updates that do not conflate autosave with attention recency.
 - `src/metadata-discovery.ts`: repository identity plus thread-host/provider requesting-thread-title adapters.
 - `src/settings.ts`, `src/settings-store.ts`, and `src/index.html`: explicit integrations and persisted navigation/workspace preferences.
-- `src/review-sessions.ts`: actionable projections, grouping, ordering, rollups, tab working set, and project equivalence.
-- `src/renderer.ts`, `src/index.html`, and `src/styles.css`: split tab strip, Inbox rows, Projects tree, bounded history, Local variants, and accessible interaction.
+- `src/review-sessions.ts`: actionable projections, grouping, ordering, rollups, adjacent-review navigation, and project equivalence.
+- `src/renderer.ts`, `src/index.html`, and `src/styles.css`: review-navigation strip, exact-ID controls, Inbox rows, Projects tree, bounded history, Local variants, and accessible interaction.
 - `src/main.ts` and `src/preload.ts`: metadata refresh, activation, persistence, and the #107 managed-open boundary.
 - Existing review-store, review-session, metadata-discovery, settings, app-menu, startup, activation, and smoke tests, plus focused projection/UI contract tests.
 
@@ -147,24 +147,25 @@ The visual fixture and production tests exercise the edge cases already known to
 
 - Every actionable review appears exactly once in Inbox, including reviews whose Projects ancestors are collapsed.
 - Only `Editing` reviews are actionable; `Pending Agent`, `Revised`, and `Done` remain individually identifiable, read-only history with their exact lifecycle labels.
-- Inbox ordering changes only when `attentionRequestedAt` changes; unrelated autosaves, viewing, thread-title refreshes, and tab actions do not reorder it.
+- Inbox ordering changes only when `attentionRequestedAt` changes; unrelated autosaves, viewing, thread-title refreshes, ID copying, and review activation do not reorder it.
 - A collapsed Projects row truthfully reports actionable descendant count and recency.
 - Projects ordering, persisted expansion, explicit ancestor reveal, and bounded history behave as specified.
 - Agent and Local rows remain distinguishable and useful with duplicate requesting-thread-titles, timestamp-prefixed filenames, missing metadata, and long values.
 - Renaming a thread in a supported thread-host/provider combination is reflected after a defined refresh trigger without falling back to the original prompt.
 - Disabled integrations perform no metadata inspection; invalid overrides explain the failure and do not destroy the last authoritative thread-title.
 - Equivalent worktrees group together while forks and unrelated directories remain separate.
-- Document-tab closure is data-neutral and review cleanup remains recoverable through #15.
+- The UI has no document-tab or closeable-working-set model; review cleanup remains recoverable through #15.
 - Local same-path/same-checksum open deduplicates; changed content creates a preserved new snapshot; source files remain untouched.
-- First launch defaults to Inbox; later launches restore selected mode, Projects expansion, open tabs, and active tab.
-- Keyboard and assistive-technology users can select modes, traverse rows/tree, expand history/groups, activate reviews, and close tabs. Status and recency never rely on color alone.
+- First launch defaults to Inbox; later launches restore selected mode, Projects expansion, one active review, and per-review view state.
+- Exact review IDs are visible, copyable, keyboard-accessible, present in row details, and usable for direct activation without providing general search.
+- Keyboard and assistive-technology users can select modes, traverse rows/tree, expand history/groups, activate reviews, and copy exact IDs. Status and recency never rely on color alone.
 - PR cues consume the newest valid #129 observation, expose its source and age, and distinguish an unobserved green PR-linked fallback from a verified state in text.
 - Layout remains usable at the minimum and maximum review-list widths, in light/dark appearances, and at every base text size supported by #54.
 
 ## Validation
 
 - Unit-test pure Inbox/Projects projections, timestamp transitions, repository equivalence, Local deduplication, and workspace-state normalization.
-- Integration-test store → main/preload → renderer flows for status changes, thread-title refresh, restart restoration, deep-link ancestor reveal, tab closure, and Local opens.
+- Integration-test store → main/preload → renderer flows for status changes, thread-title refresh, restart restoration, deep-link ancestor reveal, exact-ID activation/copy, next/previous navigation, and Local opens.
 - Test explicit integration enablement, path overrides, unavailable sources, stale authoritative-thread-title retention, and completed rename experiments.
 - Exercise 0, 1, 10, 11, and hundreds of historical reviews; multiple actionable documents from one thread; duplicate repository basenames; worktrees; forks; non-Git paths; missing metadata; and long localized labels.
 - Manually verify keyboard/focus behavior, VoiceOver labels, color-independent state, light/dark appearance, sidebar width bounds, #54 text-size bounds, and packaged Electron smoke.

@@ -74,6 +74,16 @@ test('core review controls expose names, relationships, states, and values', () 
   assert.ok(reviewContext)
   assert.equal(reviewContext.tagName, 'DIALOG')
   assert.equal(reviewContext.getAttribute('aria-labelledby'), 'review-context-title')
+
+  const reviewIdForm = document.querySelector('#review-id-activation')
+  const reviewIdInput = document.querySelector('#review-id-input')
+  const documentReviewId = document.querySelector('#document-review-id')
+  assert.ok(reviewIdForm)
+  assert.ok(reviewIdInput)
+  assert.ok(documentReviewId)
+  assert.equal(reviewIdInput.getAttribute('pattern'), 'mko_[A-Za-z0-9]{6,32}')
+  assert.equal(reviewIdInput.getAttribute('aria-describedby'), 'review-id-activation-hint')
+  assert.equal(documentReviewId.getAttribute('aria-label'), 'Copy review ID')
 })
 
 test('status changes and tree selection have a dedicated polite announcement path', () => {
@@ -129,13 +139,10 @@ test('keyboard access reaches native controls and retains an explicit pane short
   )
   assert.match(
     renderer,
-    /document-tab-overflow-trigger[\s\S]*aria-haspopup'[\s\S]*aria-expanded'[\s\S]*ArrowDown/
+    /reviewIdActivation\.addEventListener\('submit'[\s\S]*reviewIdInput\.reportValidity\(\)[\s\S]*activateReview\(reviewId\)/
   )
-  assert.match(
-    renderer,
-    /menu\.addEventListener\('keydown'[\s\S]*Home[\s\S]*End[\s\S]*ArrowDown[\s\S]*ArrowUp[\s\S]*\.focus\(\)/
-  )
-  assert.match(renderer, /closeTabOverflow\(true\)/)
+  assert.match(renderer, /documentReviewId\.addEventListener\('click'[\s\S]*bridge\.copyText\(state\.reviewId\)/)
+  assert.match(renderer, /reviewIdDescription\.textContent = `Review ID \$\{row\.reviewId\}`[\s\S]*button\.setAttribute\('aria-describedby', reviewIdDescription\.id\)/)
   assert.match(
     renderer,
     /const isAnnotated = hasAnnotation\(node\)[\s\S]*if \(wasAnnotated !== isAnnotated\) \{[\s\S]*annotationState\.textContent = isAnnotated/
@@ -167,17 +174,13 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
-    /function focusAfterInactiveReviewTrashed[\s\S]*!documentsListCollapsed[\s\S]*focusDocumentsList\(\)[\s\S]*\.document-tab\.is-active, \.document-tab-overflow-trigger[\s\S]*documentsListOpen[\s\S]*requestAnimationFrame\(focusAfterInactiveReviewTrashed\)/
-  )
-  assert.match(
-    renderer,
-    /async function closeDocumentTab[\s\S]*closeReviewTab\(reviewId\)[\s\S]*renderDocumentTabs\(\)[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*\.document-tab\.is-active, \.document-tab-overflow-trigger[\s\S]*\.focus\(\)/
+    /function focusAfterInactiveReviewTrashed[\s\S]*!documentsListCollapsed[\s\S]*focusDocumentsList\(\)[\s\S]*documentsListOpen\.focus\(\)[\s\S]*requestAnimationFrame\(focusAfterInactiveReviewTrashed\)/
   )
   assert.match(renderer, /handleReviewTrashed[\s\S]*previewPane\.focus\(\)[\s\S]*emptyOpenButton\.focus\(\)/)
   assert.match(renderer, /restoreReviewActivationFocus\(reviewId, focusSurface\)/)
   assert.match(
     renderer,
-    /function restoreReviewActivationFocus[\s\S]*surface === 'documents' && target[\s\S]*while \(ancestor && elements\.documentsListTree\.contains\(ancestor\)\)[\s\S]*ancestor instanceof HTMLDetailsElement[\s\S]*ancestor\.open = true[\s\S]*target\?\.focus/
+    /function restoreReviewActivationFocus[\s\S]*elements\.documentsListTree\.querySelector[\s\S]*while \(ancestor && elements\.documentsListTree\.contains\(ancestor\)\)[\s\S]*ancestor instanceof HTMLDetailsElement[\s\S]*ancestor\.open = true[\s\S]*target\?\.focus/
   )
   assert.match(
     renderer,
@@ -201,10 +204,6 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
-    /function documentTabsFocusPath[\s\S]*documentTabs\.contains\(active\)[\s\S]*path\.unshift\(Array\.from\(parent\.children\)\.indexOf\(current\)\)/
-  )
-  assert.match(
-    renderer,
     /function documentsListReviewFocus[\s\S]*closest<HTMLElement>\('\[data-review-id\]'\)[\s\S]*review-list-row-pr[\s\S]*'pull-request'[\s\S]*'open'/
   )
   assert.match(
@@ -213,19 +212,15 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
-    /function restoreDocumentTabsFocus[\s\S]*target\.closest<HTMLElement>\('\.document-tab-overflow'\)[\s\S]*classList\.add\('is-open'\)[\s\S]*target\.focus\(\{ preventScroll: true \}\)/
+    /function renderDocumentsListPreservingFocus[\s\S]*documentsReviewFocus = documentsListReviewFocus\(\)[\s\S]*documentsFocusPath = documentsReviewFocus[\s\S]*renderDocumentsList\(\)[\s\S]*restoreDocumentsListReviewFocus\(documentsReviewFocus\)[\s\S]*restoreDocumentsListFocus\(documentsFocusPath\)/
   )
   assert.match(
     renderer,
-    /function renderDocumentTabsPreservingFocus[\s\S]*documentsReviewFocus = documentsListReviewFocus\(\)[\s\S]*documentsFocusPath = documentsReviewFocus[\s\S]*tabsFocusPath = documentTabsFocusPath\(\)[\s\S]*renderDocumentTabs\(\)[\s\S]*restoreDocumentsListReviewFocus\(documentsReviewFocus\)[\s\S]*restoreDocumentsListFocus\(documentsFocusPath\)[\s\S]*restoreDocumentTabsFocus\(tabsFocusPath\)/
+    /onReviewUpdated[\s\S]*normalizeSessionWorkspaceState\(session\)[\s\S]*renderDocumentsListPreservingFocus\(\)/
   )
   assert.match(
     renderer,
-    /onReviewUpdated[\s\S]*normalizeSessionWorkspaceState\(session\)[\s\S]*renderDocumentTabsPreservingFocus\(\)/
-  )
-  assert.match(
-    renderer,
-    /onReviewStatus[\s\S]*renderDocumentTabsPreservingFocus\(\)/
+    /onReviewStatus[\s\S]*renderDocumentsListPreservingFocus\(\)/
   )
   assert.match(
     renderer,

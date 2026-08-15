@@ -32,7 +32,7 @@ test('development inbox fixture covers the selected review identities', async ()
   assert.ok(prototype.querySelector('.inbox-prototype-history'))
 })
 
-test('development inbox fixture includes projects, rollups, and a closeable working set', async () => {
+test('development inbox fixture includes projects, rollups, and exact-ID navigation', async () => {
   const document = await prototypeDocument()
   const prototype = document.querySelector<HTMLElement>('#inbox-prototype')
   assert.ok(prototype)
@@ -44,11 +44,12 @@ test('development inbox fixture includes projects, rollups, and a closeable work
   assert.match(projects.textContent || '', /Local reviews/)
   assert.ok(projects.querySelector('details:not([open])'))
 
-  const tabs = prototype.querySelectorAll('.inbox-prototype-document-tab')
-  assert.equal(tabs.length, 3)
-  for (const tab of tabs) {
-    assert.ok(tab.querySelector('[aria-label="Close tab"]'))
-  }
+  assert.ok(prototype.querySelector('.inbox-prototype-review-id-activation input'))
+  assert.match(
+    prototype.querySelector('.inbox-prototype-review-id')?.textContent || '',
+    /^mko_[A-Za-z0-9]{6,32}$/
+  )
+  assert.equal(prototype.querySelectorAll('[aria-label="Close tab"]').length, 0)
 })
 
 test('prototype styling is query-gated and has narrow and medium width bounds', async () => {

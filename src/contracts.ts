@@ -119,12 +119,11 @@ declare global {
 
   interface MarkoverWorkspaceState {
     format: 'markover-workspace'
-    version: 1
+    version: 2
     initialized: boolean
     navigationMode: WorkspaceNavigationMode
     projectExpansion: WorkspaceProjectExpansion[]
     threadExpansion: WorkspaceThreadExpansion[]
-    openReviewIds: string[]
     activeReviewId: string | null
     annotationPaneWidth: number | null
     reviews: Record<string, WorkspaceReviewViewState>

@@ -135,7 +135,7 @@ const elements = {
   copyTreeButton: requiredElement<HTMLButtonElement>('#copy-tree-button'),
   emptyOpenButton: requiredElement<HTMLButtonElement>('#empty-open-button'),
   emptyWorkspace: requiredElement('#empty-workspace'),
-  documentTabs: requiredElement('#document-tabs'),
+  documentReviewId: requiredElement<HTMLButtonElement>('#document-review-id'),
   durabilityWarning: requiredElement('#durability-warning'),
   imagePreview: requiredElement<HTMLDialogElement>('#image-preview'),
   imagePreviewClose: requiredElement<HTMLButtonElement>('#image-preview-close'),
@@ -191,6 +191,8 @@ const elements = {
   documentsListSidebar: requiredElement('#documents-list-sidebar'),
   documentsListTree: requiredElement('#documents-list-tree'),
   reviewInboxCount: requiredElement('#review-inbox-count'),
+  reviewIdActivation: requiredElement<HTMLFormElement>('#review-id-activation'),
+  reviewIdInput: requiredElement<HTMLInputElement>('#review-id-input'),
   reviewListCount: requiredElement('#review-list-count'),
   reviewNavigationInbox: requiredElement<HTMLButtonElement>('#review-navigation-inbox'),
   reviewNavigationProjects: requiredElement<HTMLButtonElement>('#review-navigation-projects'),
@@ -231,7 +233,6 @@ const state: RendererState = {
 const reviewSessions = new MarkoverReviewSessions.ReviewSessions()
 const reviewMutations = new MarkoverReviewSessions.ReviewMutationTracker()
 let incompatibleReviews: MarkoverIncompatibleReview[] = []
-const MAX_VISIBLE_TABS = 6
 const INBOX_HISTORY_PAGE_SIZE = 10
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let reviewHoverTimer: ReturnType<typeof setTimeout> | null = null
@@ -244,7 +245,6 @@ let inboxHistoryLimit = INBOX_HISTORY_PAGE_SIZE
 const projectExpansion = new Map<string, boolean>()
 const threadExpansion = new Map<string, boolean>()
 const projectFaviconLoads = new Map<string, Promise<string | null>>()
-let openReviewIds: string[] = []
 let workspaceStateReady = false
 let brandAssetSources: MarkoverBrandAssets | null = null
 let brandAssetLoad: Promise<MarkoverBrandAssets | null> | null = null
@@ -271,14 +271,6 @@ let incomingReviewNoticeSequence: number | null = null
 
 function threadExpansionKey(projectKey: string, threadKey: string): string {
   return JSON.stringify([projectKey, threadKey])
-}
-
-function openReviewTab(reviewId: string): void {
-  if (!openReviewIds.includes(reviewId)) openReviewIds.push(reviewId)
-}
-
-function closeReviewTab(reviewId: string): void {
-  openReviewIds = openReviewIds.filter((candidate) => candidate !== reviewId)
 }
 
 function reviewBlockIds(root: ReviewNode): string[] {
@@ -362,10 +354,7 @@ function workspaceSnapshot(): MarkoverWorkspaceState {
         ) ?? false
       }))
     )),
-    openReviewIds: openReviewIds.filter((reviewId) => (
-      reviewSessions.get(reviewId) !== null
-    )),
-    activeReviewId: state.reviewId && openReviewIds.includes(state.reviewId)
+    activeReviewId: state.reviewId && reviewSessions.get(state.reviewId)
       ? state.reviewId
       : null,
     annotationPaneWidth: annotationPaneWidth === null
@@ -421,7 +410,6 @@ function applyWorkspaceState(value: MarkoverWorkspaceState): MarkoverWorkspaceSt
     normalizeSessionWorkspaceState(session)
   }
   reviewNavigationMode = normalized.navigationMode
-  openReviewIds = [...normalized.openReviewIds]
   annotationPaneWidth = normalized.annotationPaneWidth
   return {
     ...normalized,
@@ -2205,11 +2193,32 @@ function addReviewContextField(label: string, value: unknown): void {
   elements.reviewContextFields.append(term, description)
 }
 
+function addReviewContextCopyField(label: string, value: string): void {
+  const term = document.createElement('dt')
+  term.textContent = label
+  const description = document.createElement('dd')
+  description.className = 'review-context-copy-value'
+  const code = document.createElement('code')
+  code.textContent = value
+  const copy = document.createElement('button')
+  copy.type = 'button'
+  copy.textContent = 'Copy'
+  copy.ariaLabel = `Copy ${label.toLowerCase()} ${value}`
+  copy.addEventListener('click', () => {
+    bridge.copyText(value)
+    showToast(`${label} copied`)
+  })
+  description.append(code, copy)
+  elements.reviewContextFields.append(term, description)
+}
+
 function renderReviewContext(): void {
   const tree = state.tree
   const review = tree && isReviewSessionTree(tree) ? tree.review : null
   elements.reviewContextButton.hidden = !review
+  elements.documentReviewId.hidden = !review
   if (!review) {
+    elements.documentReviewId.textContent = ''
     closeReviewContext(false)
     return
   }
@@ -2226,7 +2235,10 @@ function renderReviewContext(): void {
     review.contextSummary || ''
   )
   elements.reviewContextFields.replaceChildren()
-  addReviewContextField('Review ID', review.id)
+  elements.documentReviewId.textContent = review.id
+  elements.documentReviewId.ariaLabel = `Copy review ID ${review.id}`
+  elements.documentReviewId.title = `Copy review ID ${review.id}`
+  addReviewContextCopyField('Review ID', review.id)
   addReviewContextField('Status', reviewStatusLabel(review.status))
   addReviewContextField('Source', state.documentPath)
   addReviewContextField('Created', review.createdAt)
@@ -2367,54 +2379,18 @@ function restoreDocumentsListReviewFocus(focus: DocumentsListReviewFocus): void 
   target?.focus({ preventScroll: true })
 }
 
-function documentTabsFocusPath(): number[] | null {
-  const active = document.activeElement
-  if (!(active instanceof HTMLElement) || !elements.documentTabs.contains(active)) {
-    return null
-  }
-  const path: number[] = []
-  let current: Element = active
-  while (current !== elements.documentTabs) {
-    const parent = current.parentElement
-    if (!parent) return null
-    path.unshift(Array.from(parent.children).indexOf(current))
-    current = parent
-  }
-  return path
-}
-
-function restoreDocumentTabsFocus(path: number[]): void {
-  let target: Element = elements.documentTabs
-  for (const index of path) {
-    const child = target.children.item(index)
-    if (!child) return
-    target = child
-  }
-  if (!(target instanceof HTMLElement)) return
-  const overflow = target.closest<HTMLElement>('.document-tab-overflow')
-  if (overflow) {
-    overflow.classList.add('is-open')
-    overflow.querySelector<HTMLElement>('.document-tab-overflow-trigger')
-      ?.setAttribute('aria-expanded', 'true')
-  }
-  target.focus({ preventScroll: true })
-}
-
-function renderDocumentTabsPreservingFocus(): void {
+function renderDocumentsListPreservingFocus(): void {
   const documentsReviewFocus = documentsListReviewFocus()
   const documentsFocusPath = documentsReviewFocus
     ? null
     : documentsListFocusPath()
-  const tabsFocusPath = documentTabsFocusPath()
-  renderDocumentTabs()
-  if (!documentsReviewFocus && !documentsFocusPath && !tabsFocusPath) return
+  renderDocumentsList()
+  if (!documentsReviewFocus && !documentsFocusPath) return
   requestAnimationFrame(() => {
     if (documentsReviewFocus) {
       restoreDocumentsListReviewFocus(documentsReviewFocus)
     } else if (documentsFocusPath) {
       restoreDocumentsListFocus(documentsFocusPath)
-    } else if (tabsFocusPath) {
-      restoreDocumentTabsFocus(tabsFocusPath)
     }
   })
 }
@@ -2635,6 +2611,10 @@ function providerDescription(
 function reviewHoverModel(row: ReviewInboxRow): ReviewHoverModel {
   const entries: ReviewHoverEntry[] = [
     {
+      icon: 'hash',
+      text: row.reviewId
+    },
+    {
       text: row.projectName,
       visual: createProjectIcon(row.projectKey, row.projectName, row.reviewId)
     }
@@ -2698,7 +2678,6 @@ function openReviewContextMenu(
   const point = event instanceof MouseEvent
     ? pointerContextMenuPoint(event)
     : keyboardContextMenuPoint(anchor.getBoundingClientRect())
-  closeTabOverflow()
   void bridge.openReviewContextMenu({ reviewId, ...point })
     .then((result) => {
       if (result.outcome === 'copied') showToast('Review link copied')
@@ -2707,18 +2686,12 @@ function openReviewContextMenu(
       showToast(error instanceof Error ? error.message : String(error))
     })
     .finally(() => {
-      const anchorIsHiddenOverflowItem = (
-        anchor.classList.contains('document-tab-overflow-item') &&
-        !anchor.closest('.document-tab-overflow.is-open')
-      )
       const replacement = Array.from(
         document.querySelectorAll<HTMLElement>('[data-review-context-menu-focus]')
       ).find((candidate) => (
-        candidate.dataset.reviewContextMenuFocus === focusKey &&
-        !(candidate.classList.contains('document-tab-overflow-item') &&
-          !candidate.closest('.document-tab-overflow.is-open'))
+        candidate.dataset.reviewContextMenuFocus === focusKey
       ))
-      const focusTarget = anchor.isConnected && !anchorIsHiddenOverflowItem
+      const focusTarget = anchor.isConnected
         ? anchor
         : replacement || fallbackFocus?.()
       focusTarget?.focus({ preventScroll: true })
@@ -2757,6 +2730,11 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'review-list-row-open'
+  const reviewIdDescription = document.createElement('span')
+  reviewIdDescription.id = `review-list-id-${row.reviewId}`
+  reviewIdDescription.className = 'visually-hidden'
+  reviewIdDescription.textContent = `Review ID ${row.reviewId}`
+  button.setAttribute('aria-describedby', reviewIdDescription.id)
   if (row.reviewId === state.reviewId) button.setAttribute('aria-current', 'page')
 
   const favicon = createProjectIcon(row.projectKey, row.projectName, row.reviewId)
@@ -2824,7 +2802,7 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   container.addEventListener('contextmenu', (event) => {
     openReviewContextMenu(row.reviewId, event, button, contextMenuFocusKey)
   })
-  container.append(button)
+  container.append(button, reviewIdDescription)
   if (pr instanceof HTMLButtonElement) {
     container.append(pr)
     pr.addEventListener('click', (event) => {
@@ -2850,6 +2828,11 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'review-project-leaf-open'
+  const reviewIdDescription = document.createElement('span')
+  reviewIdDescription.id = `review-project-id-${row.reviewId}`
+  reviewIdDescription.className = 'visually-hidden'
+  reviewIdDescription.textContent = `Review ID ${row.reviewId}`
+  button.setAttribute('aria-describedby', reviewIdDescription.id)
   if (row.reviewId === state.reviewId) button.setAttribute('aria-current', 'page')
 
   const status = document.createElement('span')
@@ -2879,7 +2862,7 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
   container.addEventListener('contextmenu', (event) => {
     openReviewContextMenu(row.reviewId, event, button, contextMenuFocusKey)
   })
-  container.append(button)
+  container.append(button, reviewIdDescription)
   bindReviewHoverCard(container, () => reviewHoverModel(row))
   return container
 }
@@ -3510,10 +3493,7 @@ function focusAfterInactiveReviewTrashed(): void {
     focusDocumentsList()
     return
   }
-  const target = elements.documentTabs.querySelector<HTMLElement>(
-    '.document-tab.is-active, .document-tab-overflow-trigger'
-  ) || (!elements.documentsListOpen.hidden ? elements.documentsListOpen : null)
-  target?.focus()
+  if (!elements.documentsListOpen.hidden) elements.documentsListOpen.focus()
 }
 
 function focusPane(pane: WorkspacePane): void {
@@ -3604,238 +3584,6 @@ function resizeAnnotationPaneFromKeyboard(event: KeyboardEvent): void {
   persistWorkspaceState()
 }
 
-function closeTabOverflow(restoreFocus = false): void {
-  const overflow = elements.documentTabs.querySelector<HTMLElement>(
-    '.document-tab-overflow'
-  )
-  if (!overflow) return
-  const containedFocus = overflow.contains(document.activeElement)
-  overflow.classList.remove('is-open')
-  const trigger = overflow.querySelector<HTMLElement>(
-    '.document-tab-overflow-trigger'
-  )
-  trigger?.setAttribute('aria-expanded', 'false')
-  if (restoreFocus && containedFocus) trigger?.focus()
-}
-
-function openReviewSessions(): ReviewSession[] {
-  return openReviewIds
-    .map((reviewId) => reviewSessions.get(reviewId))
-    .filter((session): session is ReviewSession => session !== null)
-}
-
-async function closeDocumentTab(reviewId: string): Promise<void> {
-  const sessions = openReviewSessions()
-  if (reviewId === state.reviewId) {
-    const next = sessions.find((session) => session.reviewId !== reviewId)
-    if (!next) return
-    const outcome = await activateReview(next.reviewId)
-    if (outcome !== 'activated' && outcome !== 'already-active') return
-    closeReviewTab(reviewId)
-    renderDocumentTabs()
-    persistWorkspaceState()
-    return
-  }
-  closeReviewTab(reviewId)
-  renderDocumentTabs()
-  persistWorkspaceState()
-  requestAnimationFrame(() => {
-    elements.documentTabs
-      .querySelector<HTMLElement>(
-        '.document-tab.is-active, .document-tab-overflow-trigger'
-      )
-      ?.focus()
-  })
-}
-
-function createDocumentTab(session: ReviewSession): HTMLElement {
-  const shell = document.createElement('div')
-  shell.className = [
-    'document-tab-shell',
-    session.reviewId === state.reviewId ? 'is-active' : ''
-  ].filter(Boolean).join(' ')
-  const button = document.createElement('button')
-  button.type = 'button'
-  button.className = [
-    'document-tab',
-    session.reviewId === state.reviewId ? 'is-active' : ''
-  ].filter(Boolean).join(' ')
-  button.role = 'tab'
-  button.ariaSelected = String(session.reviewId === state.reviewId)
-  button.tabIndex = session.reviewId === state.reviewId ? 0 : -1
-  if (session.reviewId !== state.reviewId) {
-    button.title = `${session.documentName}\n${session.checksum}`
-  }
-
-  const name = document.createElement('span')
-  name.className = 'document-tab-name'
-  name.textContent = `${session.documentName} · ${session.reviewId.slice(4)}`
-  button.append(name)
-
-  const status = document.createElement('span')
-  status.className = [
-    'document-tab-status',
-    `is-${session.tree.review.status}`
-  ].filter(Boolean).join(' ')
-  status.textContent = reviewStatusLabel(session.tree.review.status)
-  button.append(status)
-
-  button.addEventListener('click', () => {
-    void activateReview(session.reviewId)
-  })
-  const contextMenuFocusKey = bindReviewContextMenuKeyboard(
-    button,
-    session.reviewId,
-    'document-tab'
-  )
-  button.addEventListener('contextmenu', (event) => {
-    openReviewContextMenu(session.reviewId, event, button, contextMenuFocusKey)
-  })
-  button.addEventListener('keydown', (event) => {
-    const offset = event.key === 'ArrowLeft'
-      ? -1
-      : event.key === 'ArrowRight'
-        ? 1
-        : 0
-    if (!offset) return
-    event.preventDefault()
-    const sessions = openReviewSessions()
-    const index = sessions.findIndex((candidate) => (
-      candidate.reviewId === session.reviewId
-    ))
-    const adjacent = sessions[index + offset]
-    if (!adjacent) return
-    void activateReview(adjacent.reviewId).then(() => {
-      requestAnimationFrame(() => {
-        elements.documentTabs
-          .querySelector<HTMLElement>(`[data-review-id="${adjacent.reviewId}"]`)
-          ?.focus()
-      })
-    })
-  })
-  button.dataset.reviewId = session.reviewId
-
-  const close = document.createElement('button')
-  close.type = 'button'
-  close.className = 'document-tab-close'
-  close.textContent = '×'
-  close.title = `Close ${session.documentName}`
-  close.ariaLabel = `Close ${session.documentName}`
-  close.disabled = openReviewIds.length === 1
-  close.addEventListener('click', (event) => {
-    event.stopPropagation()
-    void closeDocumentTab(session.reviewId)
-  })
-  shell.append(button, close)
-  return shell
-}
-
-function renderDocumentTabs(): void {
-  const sessions = openReviewSessions()
-  const visibleSessions = sessions.slice(0, MAX_VISIBLE_TABS)
-  const overflowSessions = sessions.slice(MAX_VISIBLE_TABS)
-  elements.documentTabs.replaceChildren()
-
-  for (const session of visibleSessions) {
-    elements.documentTabs.append(createDocumentTab(session))
-  }
-
-  if (overflowSessions.length) {
-    const overflow = document.createElement('div')
-    overflow.className = 'document-tab-overflow'
-
-    const trigger = document.createElement('button')
-    trigger.type = 'button'
-    trigger.className = 'document-tab-overflow-trigger'
-    trigger.textContent = '⋮'
-    trigger.title = `${overflowSessions.length} more reviews`
-    trigger.ariaLabel = `${overflowSessions.length} more reviews`
-    trigger.setAttribute('aria-haspopup', 'menu')
-    trigger.setAttribute('aria-expanded', 'false')
-    trigger.setAttribute('aria-controls', 'document-tab-overflow-menu')
-    trigger.addEventListener('click', (event) => {
-      event.stopPropagation()
-      const open = overflow.classList.toggle('is-open')
-      trigger.setAttribute('aria-expanded', String(open))
-    })
-    trigger.addEventListener('keydown', (event) => {
-      if (event.key !== 'ArrowDown') return
-      event.preventDefault()
-      overflow.classList.add('is-open')
-      trigger.setAttribute('aria-expanded', 'true')
-      requestAnimationFrame(() => {
-        overflow.querySelector<HTMLElement>('.document-tab-overflow-item')?.focus()
-      })
-    })
-    overflow.append(trigger)
-
-    const menu = document.createElement('div')
-    menu.className = 'document-tab-overflow-menu'
-    menu.id = 'document-tab-overflow-menu'
-    menu.setAttribute('role', 'menu')
-    for (const session of overflowSessions) {
-      const item = document.createElement('button')
-      item.type = 'button'
-      item.className = 'document-tab-overflow-item'
-      item.setAttribute('role', 'menuitem')
-      item.title = session.documentPath || session.documentName
-      item.dataset.reviewId = session.reviewId
-
-      const label = document.createElement('span')
-      label.textContent = `${session.documentName} · ${session.reviewId.slice(4)}`
-      item.append(label)
-
-      const context = document.createElement('small')
-      context.textContent = `${session.projectName} · ${reviewStatusLabel(session.tree.review.status)}`
-      item.append(context)
-      item.addEventListener('click', () => {
-        void activateReview(session.reviewId)
-      })
-      const restoreOverflowFocus = (): HTMLElement | null => (
-        elements.documentTabs.querySelector('.document-tab-overflow-trigger')
-      )
-      const contextMenuFocusKey = bindReviewContextMenuKeyboard(
-        item,
-        session.reviewId,
-        'document-tab-overflow',
-        restoreOverflowFocus
-      )
-      item.addEventListener('contextmenu', (event) => {
-        openReviewContextMenu(
-          session.reviewId,
-          event,
-          item,
-          contextMenuFocusKey,
-          restoreOverflowFocus
-        )
-      })
-      menu.append(item)
-    }
-    menu.addEventListener('keydown', (event) => {
-      const items = Array.from(
-        menu.querySelectorAll<HTMLElement>('.document-tab-overflow-item')
-      )
-      const currentIndex = items.indexOf(document.activeElement as HTMLElement)
-      const targetIndex = event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? items.length - 1
-          : event.key === 'ArrowDown'
-            ? (currentIndex + 1) % items.length
-            : event.key === 'ArrowUp'
-              ? (currentIndex - 1 + items.length) % items.length
-              : null
-      if (targetIndex === null) return
-      event.preventDefault()
-      items[targetIndex]?.focus()
-    })
-    overflow.append(menu)
-    elements.documentTabs.append(overflow)
-  }
-
-  renderDocumentsList()
-}
-
 function expandReviewAncestors(reviewId: string): void {
   const projection = projectReviewInbox(reviewSessions.list())
   for (const project of projection.projects) {
@@ -3848,12 +3596,11 @@ function expandReviewAncestors(reviewId: string): void {
   }
 }
 
-type ReviewActivationFocusSurface = 'documents' | 'tabs' | null
+type ReviewActivationFocusSurface = 'documents' | null
 
 function reviewActivationFocusSurface(): ReviewActivationFocusSurface {
   const active = document.activeElement
   if (elements.documentsListTree.contains(active)) return 'documents'
-  if (elements.documentTabs.contains(active)) return 'tabs'
   return null
 }
 
@@ -3864,17 +3611,11 @@ function restoreReviewActivationFocus(
   if (!surface) return
   requestAnimationFrame(() => {
     const escapedReviewId = CSS.escape(reviewId)
-    const target = surface === 'documents'
-      ? elements.documentsListTree.querySelector<HTMLElement>(
-          `[data-review-id="${escapedReviewId}"] > button, ` +
-          `[data-review-id="${escapedReviewId}"] .review-list-row-open`
-        )
-      : elements.documentTabs.querySelector<HTMLElement>(
-          `.document-tab[data-review-id="${escapedReviewId}"]`
-        ) || elements.documentTabs.querySelector<HTMLElement>(
-          '.document-tab-overflow-trigger'
-        )
-    if (surface === 'documents' && target) {
+    const target = elements.documentsListTree.querySelector<HTMLElement>(
+      `[data-review-id="${escapedReviewId}"] > button, ` +
+      `[data-review-id="${escapedReviewId}"] .review-list-row-open`
+    )
+    if (target) {
       let ancestor = target.parentElement
       while (ancestor && elements.documentsListTree.contains(ancestor)) {
         if (ancestor instanceof HTMLDetailsElement) ancestor.open = true
@@ -3892,10 +3633,9 @@ async function activateReview(
   const focusSurface = reviewActivationFocusSurface()
   setWorkspaceEmpty(false)
   if (!reviewSessions.get(reviewId)) return 'missing'
-  openReviewTab(reviewId)
   if (revealAncestors) expandReviewAncestors(reviewId)
   if (reviewId === state.reviewId) {
-    renderDocumentTabs()
+    renderDocumentsList()
     restoreReviewActivationFocus(reviewId, focusSurface)
     removeIncomingPrompts(reviewId)
     persistWorkspaceState()
@@ -3949,7 +3689,7 @@ async function activateReview(
 
   const selected = MarkoverTree.findNode(state.tree.root, state.selectedId)
   if (selected) renderAnnotation(selected)
-  renderDocumentTabs()
+  renderDocumentsList()
   restoreReviewActivationFocus(reviewId, focusSurface)
   renderReviewContext()
   removeIncomingPrompts(reviewId)
@@ -3962,7 +3702,6 @@ async function activateReview(
 
 async function handleReviewTrashed(reviewId: string): Promise<void> {
   removeIncomingPrompts(reviewId)
-  closeReviewTab(reviewId)
   const wasActive = state.reviewId === reviewId
   const removed = reviewSessions.remove(reviewId)
   if (!removed) return
@@ -3973,7 +3712,7 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
   removed.attachmentPreviewUrls.clear()
 
   if (!wasActive) {
-    renderDocumentTabs()
+    renderDocumentsList()
     persistWorkspaceState()
     announceStatus(`${deletedName} moved to Trash.`)
     requestAnimationFrame(focusAfterInactiveReviewTrashed)
@@ -3992,7 +3731,7 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
     await activateReview(next.reviewId)
     requestAnimationFrame(() => { elements.previewPane.focus() })
   } else {
-    renderDocumentTabs()
+    renderDocumentsList()
     setWorkspaceEmpty(true)
     persistWorkspaceState()
     requestAnimationFrame(() => { elements.emptyOpenButton.focus() })
@@ -4017,7 +3756,7 @@ function addManagedReview(
     session.selectedId = normalized.selectedId
   }
   if (activate) void activateReview(session.reviewId)
-  else renderDocumentTabs()
+  else renderDocumentsList()
   return session
 }
 
@@ -4415,6 +4154,35 @@ elements.reviewContextButton.addEventListener('click', () => {
 elements.reviewContextClose.addEventListener('click', () => {
   closeReviewContext()
 })
+elements.documentReviewId.addEventListener('click', () => {
+  if (!state.reviewId) return
+  bridge.copyText(state.reviewId)
+  showToast('Review ID copied')
+})
+elements.reviewIdInput.addEventListener('input', () => {
+  elements.reviewIdInput.setCustomValidity('')
+})
+elements.reviewIdActivation.addEventListener('submit', (event) => {
+  event.preventDefault()
+  const reviewId = elements.reviewIdInput.value.trim()
+  elements.reviewIdInput.value = reviewId
+  elements.reviewIdInput.setCustomValidity('')
+  if (!elements.reviewIdInput.reportValidity()) return
+  if (!reviewSessions.get(reviewId)) {
+    elements.reviewIdInput.setCustomValidity(
+      `No review with ID ${reviewId} is available in this Markover instance.`
+    )
+    elements.reviewIdInput.reportValidity()
+    return
+  }
+  void activateReview(reviewId).then((outcome) => {
+    if (outcome === 'activated' || outcome === 'already-active') {
+      elements.reviewIdInput.value = ''
+    } else if (outcome === 'blocked') {
+      showToast('Finish or cancel the source edit before opening another review')
+    }
+  })
+})
 elements.documentsListCollapse.addEventListener('click', () => {
   setDocumentsListCollapsed(true)
 })
@@ -4458,12 +4226,6 @@ window.addEventListener('resize', () => {
   updatePinnedSelection()
   MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
 })
-document.addEventListener('click', (event) => {
-  if (!(event.target instanceof Node) || !elements.documentTabs.contains(event.target)) {
-    closeTabOverflow()
-  }
-})
-
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Control') {
     document.body.classList.add('is-control-pressed')
@@ -4481,15 +4243,6 @@ document.addEventListener('keydown', (event) => {
     closeReviewContext()
     return
   }
-  if (
-    event.key === 'Escape' &&
-    elements.documentTabs.querySelector('.document-tab-overflow.is-open')
-  ) {
-    event.preventDefault()
-    closeTabOverflow(true)
-    return
-  }
-
   if (event.key === 'Tab' && event.ctrlKey && reviewSessions.list().length) {
     event.preventDefault()
     if (!state.reviewId) return
@@ -4751,7 +4504,7 @@ async function initialize(): Promise<void> {
     }
     if (!session) return
     normalizeSessionWorkspaceState(session)
-    renderDocumentTabsPreservingFocus()
+    renderDocumentsListPreservingFocus()
     if (session.reviewId === state.reviewId) {
       state.tree = session.tree
       state.selectedId = session.selectedId
@@ -4792,7 +4545,7 @@ async function initialize(): Promise<void> {
     if (!session) {
       throw new Error(`Cannot update missing review ${reviewId}.`)
     }
-    renderDocumentTabsPreservingFocus()
+    renderDocumentsListPreservingFocus()
     if (reviewId === state.reviewId) {
       const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
       if (selected) renderAnnotation(selected)
@@ -4841,7 +4594,7 @@ async function initialize(): Promise<void> {
     if (!session) throw new Error(`Cannot snapshot missing review ${reviewId}.`)
     if (purpose === 'handoff') {
       reviewSessions.updateStatus(reviewId, 'handoff-in-progress')
-      renderDocumentTabs()
+      renderDocumentsList()
       if (reviewId === state.reviewId) {
         const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
         if (selected) renderAnnotation(selected)
@@ -4877,7 +4630,6 @@ async function initialize(): Promise<void> {
       : null
     const activeReviewId = explicitlyActivatedReviewId ||
       restored.activeReviewId ||
-      openReviewIds[0] ||
       reviewSessions.recent(1)[0]?.reviewId ||
       null
     if (activeReviewId) {

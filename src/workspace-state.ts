@@ -1,5 +1,5 @@
 export const WORKSPACE_STATE_FORMAT = 'markover-workspace' as const
-export const WORKSPACE_STATE_VERSION = 1 as const
+export const WORKSPACE_STATE_VERSION = 2 as const
 
 export const DEFAULT_WORKSPACE_STATE: Readonly<MarkoverWorkspaceState> =
   Object.freeze({
@@ -9,7 +9,6 @@ export const DEFAULT_WORKSPACE_STATE: Readonly<MarkoverWorkspaceState> =
     navigationMode: 'inbox',
     projectExpansion: Object.freeze([]) as unknown as WorkspaceProjectExpansion[],
     threadExpansion: Object.freeze([]) as unknown as WorkspaceThreadExpansion[],
-    openReviewIds: Object.freeze([]) as unknown as string[],
     activeReviewId: null,
     annotationPaneWidth: null,
     reviews: Object.freeze({})
@@ -89,7 +88,6 @@ export function isWorkspaceState(value: unknown): value is MarkoverWorkspaceStat
     'navigationMode',
     'projectExpansion',
     'threadExpansion',
-    'openReviewIds',
     'activeReviewId',
     'annotationPaneWidth',
     'reviews'
@@ -105,7 +103,6 @@ export function isWorkspaceState(value: unknown): value is MarkoverWorkspaceStat
     !Array.isArray(value.threadExpansion) ||
     value.threadExpansion.length > MAX_COLLECTION_SIZE ||
     !value.threadExpansion.every(isThreadExpansion) ||
-    !uniqueStrings(value.openReviewIds, reviewId) ||
     (value.activeReviewId !== null && !reviewId(value.activeReviewId)) ||
     (
       value.annotationPaneWidth !== null &&
@@ -140,7 +137,6 @@ export function cloneWorkspaceState(
     navigationMode: value.navigationMode,
     projectExpansion: value.projectExpansion.map((project) => ({ ...project })),
     threadExpansion: value.threadExpansion.map((thread) => ({ ...thread })),
-    openReviewIds: [...value.openReviewIds],
     activeReviewId: value.activeReviewId,
     annotationPaneWidth: value.annotationPaneWidth,
     reviews: Object.fromEntries(Object.entries(value.reviews).map(([id, state]) => [
@@ -180,8 +176,7 @@ export function reconcileWorkspaceState(
   const threadKeys = new Set(scopes.map((scope) => (
     `${scope.projectKey}\0${scope.threadKey}`
   )))
-  const openReviewIds = value.openReviewIds.filter((id) => scopeByReview.has(id))
-  const activeReviewId = value.activeReviewId && openReviewIds.includes(
+  const activeReviewId = value.activeReviewId && scopeByReview.has(
     value.activeReviewId
   )
     ? value.activeReviewId
@@ -211,7 +206,6 @@ export function reconcileWorkspaceState(
     threadExpansion: value.threadExpansion.filter(({ projectKey, threadKey }) => (
       threadKeys.has(`${projectKey}\0${threadKey}`)
     )),
-    openReviewIds,
     activeReviewId,
     reviews
   }

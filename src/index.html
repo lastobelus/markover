@@ -78,16 +78,9 @@
           <label for="inbox-prototype-inbox" role="tab">Inbox <span>5</span></label>
           <label for="inbox-prototype-projects" role="tab">Projects</label>
         </div>
-        <div class="inbox-prototype-document-tabs" role="tablist" aria-label="Open review working set">
-          <button class="inbox-prototype-document-tab is-active" type="button" role="tab" aria-selected="true">
-            <span>Review inbox management</span><i>Editing</i><b aria-label="Close tab">×</b>
-          </button>
-          <button class="inbox-prototype-document-tab" type="button" role="tab" aria-selected="false">
-            <span>2026-08-09__review-inbox-layout-follow-up.md</span><i>Editing</i><b aria-label="Close tab">×</b>
-          </button>
-          <button class="inbox-prototype-document-tab" type="button" role="tab" aria-selected="false">
-            <span>product-notes.md</span><b aria-label="Close tab">×</b>
-          </button>
+        <div class="inbox-prototype-review-id-activation">
+          <input type="text" value="" placeholder="Exact review ID" aria-label="Open an exact review ID">
+          <button type="button">Open</button>
         </div>
       </div>
 
@@ -246,6 +239,7 @@
         <section class="inbox-prototype-document-pane">
           <header class="inbox-prototype-pane-header">
             <span class="eyebrow">Document tree</span>
+            <code class="inbox-prototype-review-id">mko_97a1b2c3</code>
             <span class="status-pill">4 of 19 blocks</span>
           </header>
           <div class="inbox-prototype-document-body">
@@ -334,7 +328,23 @@
           aria-pressed="false"
         >Projects</button>
       </nav>
-      <nav id="document-tabs" class="document-tabs" role="tablist" aria-label="Open reviews"></nav>
+      <form id="review-id-activation" class="review-id-activation">
+        <label class="visually-hidden" for="review-id-input">Open an exact review ID</label>
+        <input
+          id="review-id-input"
+          type="text"
+          inputmode="text"
+          autocomplete="off"
+          spellcheck="false"
+          pattern="mko_[A-Za-z0-9]{6,32}"
+          placeholder="Exact review ID"
+          aria-describedby="review-id-activation-hint"
+        >
+        <span id="review-id-activation-hint" class="visually-hidden">
+          Enter a complete review ID such as mko_8f3a2c.
+        </span>
+        <button type="submit">Open</button>
+      </form>
     </div>
 
     <main id="empty-workspace" class="empty-workspace">
@@ -397,6 +407,13 @@
             ></button>
             <span class="eyebrow">Document tree</span>
           </div>
+          <button
+            id="document-review-id"
+            class="document-review-id"
+            type="button"
+            aria-label="Copy review ID"
+            hidden
+          ></button>
           <div class="document-tree-header-actions">
             <div class="document-tree-view-toggle" role="group" aria-label="Document tree view">
               <button id="tree-view-all" class="is-active" type="button">All</button>
