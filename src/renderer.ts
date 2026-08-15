@@ -2193,7 +2193,10 @@ function addReviewContextField(label: string, value: unknown): void {
   elements.reviewContextFields.append(term, description)
 }
 
-function addReviewContextCopyField(label: string, value: string): void {
+function addReviewContextCopyField(
+  label: string,
+  value: string
+): HTMLButtonElement {
   const term = document.createElement('dt')
   term.textContent = label
   const description = document.createElement('dd')
@@ -2210,6 +2213,7 @@ function addReviewContextCopyField(label: string, value: string): void {
   })
   description.append(code, copy)
   elements.reviewContextFields.append(term, description)
+  return copy
 }
 
 function renderReviewContext(): void {
@@ -2234,11 +2238,14 @@ function renderReviewContext(): void {
   elements.reviewContextSummary.innerHTML = inlineMarkdown.render(
     review.contextSummary || ''
   )
+  const restoreReviewContextCopyFocus =
+    document.activeElement instanceof HTMLButtonElement &&
+    elements.reviewContextFields.contains(document.activeElement)
   elements.reviewContextFields.replaceChildren()
   elements.documentReviewId.textContent = review.id
   elements.documentReviewId.ariaLabel = `Copy review ID ${review.id}`
   elements.documentReviewId.title = `Copy review ID ${review.id}`
-  addReviewContextCopyField('Review ID', review.id)
+  const reviewIdCopy = addReviewContextCopyField('Review ID', review.id)
   addReviewContextField('Status', reviewStatusLabel(review.status))
   addReviewContextField('Source', state.documentPath)
   addReviewContextField('Created', review.createdAt)
@@ -2279,6 +2286,7 @@ function renderReviewContext(): void {
     'Thread-host machine',
     metadataString(threadHost, 'machine')
   )
+  if (restoreReviewContextCopyFocus) reviewIdCopy.focus()
 }
 
 function openReviewContext(): void {

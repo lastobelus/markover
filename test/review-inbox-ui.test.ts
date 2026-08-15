@@ -87,6 +87,10 @@ test('review activation uses one active review and exposes exact IDs', () => {
   )
   assert.match(renderer, /documentReviewId\.textContent = review\.id/)
   assert.match(renderer, /addReviewContextCopyField\('Review ID', review\.id\)/)
+  assert.match(
+    renderer,
+    /restoreReviewContextCopyFocus[\s\S]*reviewIdCopy = addReviewContextCopyField\('Review ID', review\.id\)[\s\S]*if \(restoreReviewContextCopyFocus\) reviewIdCopy\.focus\(\)/
+  )
   assert.match(renderer, /icon: 'hash',[\s\S]*text: row\.reviewId/)
   assert.match(renderer, /reviewIdDescription\.textContent = `Review ID \$\{row\.reviewId\}`[\s\S]*button\.setAttribute\('aria-describedby', reviewIdDescription\.id\)/)
   assert.match(html, /id="document-review-id"[\s\S]*aria-label="Copy review ID"/)
