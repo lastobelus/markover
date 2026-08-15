@@ -153,34 +153,21 @@ hide, mutate, or invalidate a portable review. No workspace, settings,
 credential, cache, or private enrichment property is returned by `get`, copied
 as a handoff, or accepted through an unknown portable extension.
 
-Private enrichment uses two independently versioned, strict JSON families:
-`enrichment.json` beside a managed review records a verified live-source and
-repository snapshot plus its current validation error, while
-`threads/<identity-digest>/enrichment.json` records requesting-thread-title
-observations shared by reviews with the same stable thread identity. The stable
-identity is `threadHost.kind` plus `threadHost.threadId` when the latter is
-present, otherwise `threadHost.kind` plus `agentThread.id`; provider never
-participates. The directory digest is SHA-256 of the UTF-8 bytes produced by
-`JSON.stringify([threadHostKind, threadId])` with no added whitespace.
+Markover has no active private-enrichment reader, writer, schema, projection,
+or lifecycle. Historical `reviews/<review-id>/enrichment.json` and
+`threads/<identity-digest>/enrichment.json` files from the unreleased prototype
+are opaque bytes: the application does not read, rewrite, migrate, or clean
+them up. Review deletion still moves the complete managed review directory to
+Trash, so a review-local sidecar follows that directory without changing its
+bytes; thread sidecars remain untouched.
 
-These files are app-private caches, not portable truth. Their validators reject
-unknown fields and unsupported versions. Missing state means no enrichment;
-malformed or incompatible bytes remain untouched and cannot invalidate or hide
-the portable review. Accepted writes use a same-directory temporary file,
-flush, and atomic replacement with user-only POSIX permissions where supported.
-Review snapshot writes are admitted only when the live canonical source still
-matches the portable checksum and any repository-relative path resolves to that
-same source. Equal-time conflicting observations are rejected rather than
-silently choosing a winner.
-
-Private mutation admission is paused and drained before Trash or managed
-shutdown. Deleting a review moves its review-local sidecar with the review
-directory. Shared thread enrichment is removed only after every remaining
-review can be read and none has the same stable thread identity; unreadable or
-incompatible remaining reviews make cleanup retain the file conservatively.
-Private write failures and invalid private state may appear in app-only
-projections, but their details never enter `review.json`, CLI output, clipboard
-handoffs, local-service responses, or future agent-visible surfaces.
+Markover creates no replacement cache or compatibility reader. A future real
+producer and UI consumer must establish the smallest private-state contract it
+actually needs. Until then, portable private-field rejection remains the
+enforced boundary, and Inbox/Projects use their existing portable and
+runtime-derived fallbacks. No private enrichment property enters `review.json`,
+CLI output, clipboard handoffs, local-service responses, or other agent-visible
+surfaces.
 
 ## Compatibility rules
 
