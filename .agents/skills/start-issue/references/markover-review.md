@@ -1,5 +1,9 @@
 # Markover instance selection
 
+The root `AGENTS.md` owns the Markover CLI contract, including the
+`pullRequestStatus` lookup and the terminal-friendly handoff. This branch adds
+instance selection only.
+
 Use canonical for reviews of plans, proposals, and other artifacts produced
 during the work. An open pull request does not by itself select its development
 instance.

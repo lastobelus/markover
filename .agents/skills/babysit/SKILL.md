@@ -47,15 +47,18 @@ formal review list is not a completed review. Check the PR body and trigger
 comments too. If review fails to start, trigger it once; do not duplicate an
 active request.
 
-Read every finding the completed review delivered, sort the whole set, then
-push one batch. Before acting on any finding, apply the repository's complexity
-tripwire; when it fires, pause and report the resumable state instead of
-opening another round.
+Read every finding the completed review delivered and sort the whole set. Then
+apply the repository's complexity tripwire before acting on any item. When it
+fires, pause and report the resumable state instead of opening another round.
+Push one batch only after the set clears it.
 
 Sort each finding into one verb:
 
 - **fix** — it breaks correctness, user data, or a stated acceptance criterion
   in supported use. Fix it this round.
+- **fold** — it improves the changed code, breaks nothing, and stays inside the
+  slice. Fold it into the batch this round is already pushing; when the round
+  has no batch, defer it rather than opening a round for polish.
 - **narrow** — it holds only because the change claims an open-ended property.
   Remove or narrow the claim instead of building machinery to satisfy it.
 - **defer** — real value, outside this slice. Record it in the reply and in the
@@ -66,7 +69,7 @@ Sort each finding into one verb:
   outside.
 
 Reply with evidence and resolve every thread you handled, including every
-narrow, defer, and decline.
+fold, narrow, defer, and decline.
 
 Diagnose red CI without waiting for the review to complete: fix code failures
 and rerun transient infrastructure failures. Rebase when behind or required,
@@ -79,9 +82,9 @@ resolutions.
 
 The pull request is green when the current head has green CI, zero unresolved
 threads, a clean mergeable state, and a completed current-head review whose
-findings are all dispositioned. A narrow that changed no file, a defer, and a
-decline disposition a finding without a new head, so they need no further
-review.
+findings are all dispositioned. A narrow that changed no file, a folded finding
+carried in an existing batch, a defer, and a decline disposition a finding
+without a new head, so they need no further review.
 
 Open at most three finding-bearing rounds against one boundary. Every fix and
 every file-changing narrow creates a new head and therefore opens the next
@@ -100,9 +103,9 @@ before the merge command.
 
 ## 6. Report
 
-Report the pull request and head, rounds used, the fixes and the narrowed,
-deferred, and declined findings with their reasons, rebases, validation, CI and
-review results, and the merge result when applicable. In merge mode, include
-the prepared next steps or archive readiness. If interrupted or paused, stop
-reads and mutations immediately, report the same state as a resumable
-checkpoint, and resume from a fresh snapshot.
+Report the pull request and head, rounds used, the fixes and the folded,
+narrowed, deferred, and declined findings with their reasons, rebases,
+validation, CI and review results, and the merge result when applicable. In
+merge mode, include the prepared next steps or archive readiness. If
+interrupted or paused, stop reads and mutations immediately, report the same
+state as a resumable checkpoint, and resume from a fresh snapshot.
