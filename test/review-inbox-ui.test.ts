@@ -37,6 +37,10 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   )
   assert.match(renderer, /historyGroup\.className = 'review-history-group'/)
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)
+  assert.match(
+    renderer,
+    /activeHistory = history\.find\([\s\S]*visibleHistory\.push\(activeHistory\)[\s\S]*historyGroup\.open = Boolean\(activeHistory\)/
+  )
   assert.match(renderer, /reviewStatusLabel\(row\.status\)/)
   assert.match(renderer, /row\.status === 'pending-agent'[\s\S]*'with-agent'[\s\S]*`is-\$\{row\.status\}`/)
   assert.match(renderer, /`is-\$\{row\.pullRequestStatus \|\| 'linked'\}`/)

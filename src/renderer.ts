@@ -2908,6 +2908,12 @@ function renderInboxReviews(
   historySummary.innerHTML = `<span>History</span><span>${history.length} reviews${latestHistory ? ` · latest ${reviewRowTime(latestHistory)}` : ''}</span>`
   historyGroup.append(historySummary)
   const visibleHistory = history.slice(0, inboxHistoryLimit)
+  const activeHistory = history.find((row) => row.reviewId === state.reviewId)
+  if (
+    activeHistory &&
+    !visibleHistory.some((row) => row.reviewId === activeHistory.reviewId)
+  ) visibleHistory.push(activeHistory)
+  historyGroup.open = Boolean(activeHistory)
   const historyList = document.createElement('div')
   historyList.className = 'review-list-rows is-history'
   historyList.append(...visibleHistory.map(createReviewListRow))
@@ -2915,11 +2921,11 @@ function renderInboxReviews(
     historyList.append(createEmptyReviewMessage('No review history yet.'))
   }
   historyGroup.append(historyList)
-  if (visibleHistory.length < history.length) {
+  if (inboxHistoryLimit < history.length) {
     const showMore = document.createElement('button')
     showMore.type = 'button'
     showMore.className = 'review-list-more'
-    showMore.textContent = `Show ${Math.min(INBOX_HISTORY_PAGE_SIZE, history.length - visibleHistory.length)} more`
+    showMore.textContent = `Show ${Math.min(INBOX_HISTORY_PAGE_SIZE, history.length - inboxHistoryLimit)} more`
     showMore.addEventListener('click', () => {
       inboxHistoryLimit += INBOX_HISTORY_PAGE_SIZE
       renderDocumentsList()

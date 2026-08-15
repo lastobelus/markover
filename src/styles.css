@@ -3550,6 +3550,16 @@ body.is-control-pressed .attachment-remove:hover {
       minmax(0, 1fr)
       var(--annotation-pane-column-width);
   }
+
+  .preview-pane > .pane-header {
+    padding-inline: 5px;
+    grid-template-columns: minmax(max-content, 1fr) auto;
+  }
+
+  .preview-pane > .pane-header .pane-header-leading,
+  .document-tree-header-actions .status-pill {
+    display: none;
+  }
 }
 
 /* Development-only #97 fixture. The startup gate exposes this static shell

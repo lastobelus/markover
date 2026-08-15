@@ -150,6 +150,10 @@ test('the working header aligns the brand and exact review identity', () => {
   assert.match(styles, /\.review-id-activation input \{[^}]*font: 10px\/1 ui-monospace/)
   assert.match(styles, /\.document-review-id \{[^}]*min-width: max-content;[^}]*font: 9px\/1\.2 ui-monospace/)
   assert.match(styles, /\.preview-pane > \.pane-header \{[^}]*grid-template-columns: auto minmax\(max-content, 1fr\) auto;/)
+  assert.match(
+    styles,
+    /@media \(max-width: 900px\)[\s\S]*\.preview-pane > \.pane-header \{[^}]*padding-inline: 5px;[^}]*grid-template-columns: minmax\(max-content, 1fr\) auto;[\s\S]*\.document-tree-header-actions \.status-pill \{\s*display: none;/
+  )
   assert.match(styles, /\.pane\.focus-within > \.pane-header::before \{[^}]*top: -1px;[^}]*height: 4px;/)
   assert.match(renderer, /documentReviewId\.textContent = review\.id/)
   assert.match(renderer, /documentReviewId\.ariaLabel = `Copy review ID \$\{review\.id\}`/)
