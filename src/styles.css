@@ -1543,9 +1543,7 @@ button.review-list-row-pr:hover {
 }
 
 .document-review-id {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  min-width: max-content;
   padding: 4px 7px;
   border: 0;
   border-radius: 5px;
@@ -1554,7 +1552,6 @@ button.review-list-row-pr:hover {
   cursor: copy;
   font: 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: nowrap;
-  transform: translate(-50%, -50%);
 }
 
 .document-review-id:hover {
@@ -1615,13 +1612,30 @@ button.review-list-row-pr:hover {
 }
 
 .document-tree-header-actions {
-  position: absolute;
-  top: 0;
-  right: 22px;
   display: flex;
   height: 100%;
   align-items: center;
   gap: 7px;
+}
+
+.preview-pane > .pane-header {
+  display: grid;
+  grid-template-columns: auto minmax(max-content, 1fr) auto;
+  column-gap: 4px;
+}
+
+.preview-pane > .pane-header .pane-header-leading {
+  position: static;
+  height: 22px;
+  justify-self: start;
+}
+
+.preview-pane > .pane-header .document-review-id {
+  justify-self: center;
+}
+
+.preview-pane > .pane-header .document-tree-header-actions {
+  justify-self: end;
 }
 
 .document-tree-header-actions .status-pill {
