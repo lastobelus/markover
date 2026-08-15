@@ -4,8 +4,6 @@ export interface ReviewContextMenuPoint {
 }
 
 export type ReviewContextMenuSurface =
-  | 'document-tab'
-  | 'document-tab-overflow'
   | 'project-review-list'
   | 'review-list'
 

@@ -23,7 +23,6 @@ function populatedWorkspace(): MarkoverWorkspaceState {
       threadKey: 'codex:thread-1',
       expanded: false
     }],
-    openReviewIds: ['mko_abcdef', 'mko_ghijkl'],
     activeReviewId: 'mko_ghijkl',
     annotationPaneWidth: 432,
     reviews: {
@@ -42,7 +41,11 @@ test('workspace state is independently versioned and exact', () => {
   const workspace = populatedWorkspace()
   assert.equal(isWorkspaceState(workspace), true)
   assert.deepEqual(parseWorkspaceState(workspace), workspace)
-  assert.equal(isWorkspaceState({ ...workspace, version: 2 }), false)
+  assert.equal(isWorkspaceState({ ...workspace, version: 3 }), false)
+  assert.equal(isWorkspaceState({
+    ...workspace,
+    openReviewIds: ['mko_abcdef', 'mko_ghijkl']
+  }), false)
   assert.equal(isWorkspaceState({ ...workspace, portableReview: {} }), false)
   assert.equal(isWorkspaceState({
     ...workspace,
@@ -125,7 +128,8 @@ test('missing, malformed, or incompatible private state never affects reviews', 
 
   await fs.writeFile(filePath, JSON.stringify({
     ...populatedWorkspace(),
-    version: 2
+    version: 1,
+    openReviewIds: ['mko_abcdef', 'mko_ghijkl']
   }), 'utf8')
   assert.deepEqual(await store.load(), defaultWorkspaceState())
   assert.match(store.lastRecoveryWarning || '', /incompatible/)
@@ -140,7 +144,6 @@ test('workspace reconciliation prunes stale references without rejecting reviews
     threadKey: 'gone:thread',
     expanded: true
   })
-  state.openReviewIds.push('mko_stale11')
   state.reviews.mko_stale11 = {
     selectedBlockId: null,
     annotatedOnly: false,
@@ -155,7 +158,6 @@ test('workspace reconciliation prunes stale references without rejecting reviews
     blockIds: ['block-1', 'block-2']
   }])
 
-  assert.deepEqual(reconciled.openReviewIds, ['mko_abcdef'])
   assert.equal(reconciled.activeReviewId, null)
   assert.deepEqual(Object.keys(reconciled.reviews), ['mko_abcdef'])
   assert.deepEqual(reconciled.reviews.mko_abcdef?.collapsedBlockIds, ['block-1'])
@@ -164,6 +166,26 @@ test('workspace reconciliation prunes stale references without rejecting reviews
     expanded: true
   }])
   assert.equal(reconciled.threadExpansion.length, 1)
+})
+
+test('workspace reconciliation restores one available active review without a tab set', () => {
+  const state = populatedWorkspace()
+  state.activeReviewId = 'mko_abcdef'
+  const reconciled = reconcileWorkspaceState(state, [{
+    reviewId: 'mko_abcdef',
+    projectKey: '/repo/markover',
+    threadKey: 'codex:thread-1',
+    blockIds: ['block-1', 'block-2']
+  }])
+
+  assert.equal(reconciled.activeReviewId, 'mko_abcdef')
+  assert.deepEqual(reconciled.reviews.mko_abcdef, {
+    selectedBlockId: 'block-2',
+    annotatedOnly: true,
+    annotationView: 'list',
+    sourceCollapsed: true,
+    collapsedBlockIds: ['block-1']
+  })
 })
 
 test('renderer restoration persists only confirmed private view state', async () => {
@@ -186,7 +208,6 @@ test('renderer restoration persists only confirmed private view state', async ()
     'navigationMode',
     'projectExpansion',
     'threadExpansion',
-    'openReviewIds',
     'activeReviewId',
     'annotationPaneWidth',
     'collapsedBlockIds'

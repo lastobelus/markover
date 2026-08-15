@@ -139,7 +139,7 @@ These #97 values belong in app-level `workspace.json`, outside the handoff artif
 
 - selected `Inbox` or `Projects` mode;
 - per-project and per-thread expansion state;
-- open document-tab review IDs and the active tab;
+- one active review ID;
 - selected review block, annotation view, pane widths, and view history;
 - per-review block collapse state currently represented by `node.collapsed`.
 
@@ -150,7 +150,7 @@ These values instead belong in settings, not `workspace.json`:
 
 Workspace invariants:
 
-- Open/active tabs and per-review view state are keyed by opaque review IDs.
+- The active review and per-review view state are keyed by opaque review IDs.
 - Project/thread expansion is keyed by normalized app-private grouping keys and may be pruned when those derived identities change.
 - Block collapse/selection is keyed by block IDs within one immutable review target.
 - Writes are atomic and may be debounced, but graceful shutdown must flush the latest accepted workspace state.

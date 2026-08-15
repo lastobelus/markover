@@ -9,13 +9,13 @@ const read = (relativePath: string): string => fs.readFileSync(
   'utf8'
 )
 
-test('production review navigation owns the sidebar side of the tab strip', () => {
+test('production review navigation shares the strip with exact-ID activation', () => {
   const html = read('src/index.html')
   const styles = read('src/styles.css')
 
   assert.match(
     html,
-    /id="review-tab-strip"[\s\S]*id="review-navigation-inbox"[\s\S]*id="review-navigation-projects"[\s\S]*id="document-tabs"/
+    /id="review-tab-strip"[\s\S]*id="review-navigation-inbox"[\s\S]*id="review-navigation-projects"[\s\S]*id="review-id-activation"[\s\S]*id="review-id-input"/
   )
   assert.match(
     styles,
@@ -37,6 +37,10 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   )
   assert.match(renderer, /historyGroup\.className = 'review-history-group'/)
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)
+  assert.match(
+    renderer,
+    /activeHistory = history\.find\([\s\S]*visibleHistory\.push\(activeHistory\)[\s\S]*historyGroup\.open = Boolean\(activeHistory\)/
+  )
   assert.match(renderer, /reviewStatusLabel\(row\.status\)/)
   assert.match(renderer, /row\.status === 'pending-agent'[\s\S]*'with-agent'[\s\S]*`is-\$\{row\.status\}`/)
   assert.match(renderer, /`is-\$\{row\.pullRequestStatus \|\| 'linked'\}`/)
@@ -72,20 +76,29 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   assert.match(renderer, /viewAll\.textContent = 'View all in Projects'/)
 })
 
-test('review activation opens a working-set tab without changing lifecycle state', () => {
+test('review activation uses one active review and exposes exact IDs', () => {
   const renderer = read('src/renderer.ts')
+  const html = read('src/index.html')
+  const workspace = read('src/workspace-state.ts')
 
   assert.match(
     renderer,
-    /async function activateReview\([\s\S]*openReviewTab\(reviewId\)/
+    /async function activateReview\([\s\S]*reviewSessions\.activate\(reviewId\)/
   )
   assert.match(
     renderer,
-    /function renderDocumentTabs\(\): void \{\s*const sessions = openReviewSessions\(\)/
+    /reviewIdActivation\.addEventListener\('submit'[\s\S]*reviewSessions\.get\(reviewId\)[\s\S]*activateReview\(reviewId\)/
   )
-  assert.match(renderer, /close\.className = 'document-tab-close'/)
-  assert.doesNotMatch(
+  assert.match(renderer, /documentReviewId\.textContent = review\.id/)
+  assert.match(renderer, /addReviewContextCopyField\('Review ID', review\.id\)/)
+  assert.match(
     renderer,
-    /closeDocumentTab[\s\S]{0,500}updateStatus/
+    /restoreReviewContextCopyFocus[\s\S]*reviewIdCopy = addReviewContextCopyField\('Review ID', review\.id\)[\s\S]*if \(restoreReviewContextCopyFocus\) reviewIdCopy\.focus\(\)/
   )
+  assert.match(renderer, /icon: 'hash',[\s\S]*text: row\.reviewId/)
+  assert.match(renderer, /reviewIdDescription\.textContent = `Review ID \$\{row\.reviewId\}`[\s\S]*button\.setAttribute\('aria-describedby', reviewIdDescription\.id\)/)
+  assert.match(html, /id="document-review-id"[\s\S]*aria-label="Copy review ID"/)
+  assert.doesNotMatch(html, /id="document-tabs"|document-tab-close/)
+  assert.doesNotMatch(renderer, /openReviewIds|closeDocumentTab|createDocumentTab/)
+  assert.doesNotMatch(workspace, /openReviewIds/)
 })
