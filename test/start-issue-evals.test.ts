@@ -171,6 +171,10 @@ test('a claim owns one slice, so disjoint slices of an issue run in parallel', (
   )
   assert.match(
     skillSource,
+    /reading its summary, touch points, `done-when`,\n`excludes`, and branch/
+  )
+  assert.match(
+    skillSource,
     /collides only when its slice overlaps or may overlap yours/
   )
   assert.match(

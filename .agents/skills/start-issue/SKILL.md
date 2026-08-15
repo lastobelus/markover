@@ -97,7 +97,8 @@ plausible overlap has been assessed or raised with the user.
 
 **When the target already carries an active claim** — any claim whose phase is
 not `completed` — compare its slice with the one you are taking before
-attaching or claiming anything, reading its summary, touch points, and branch:
+attaching or claiming anything, reading its summary, touch points, `done-when`,
+`excludes`, and branch:
 
 - Clearly separate slices: claim yours and continue. Another claim on the item
   is not by itself a reason to ask.
