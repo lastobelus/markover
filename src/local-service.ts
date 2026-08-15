@@ -25,7 +25,14 @@ export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
 
 interface ReviewRoute {
   reviewId: string
-  action: 'activate' | 'handoff' | 'edit' | 'revise' | null
+  action:
+    | 'activate'
+    | 'handoff'
+    | 'get-for-review'
+    | 'submit'
+    | 'edit'
+    | 'revise'
+    | null
 }
 
 export interface LocalService {
@@ -48,25 +55,36 @@ export interface LocalServiceOptions {
     | 'create'
     | 'doneReview'
     | 'edit'
+    | 'getForReview'
     | 'handoff'
     | 'list'
     | 'load'
     | 'matchingPullRequestReviews'
     | 'propagatePullRequestObservation'
     | 'revise'
+    | 'submitAgentReview'
   >
   beforeAction?: ((
     reviewId: string,
-    action: 'handoff' | 'edit' | 'done'
+    action: 'handoff' | 'get-for-review' | 'edit' | 'done'
   ) => Promise<undefined | (() => void | Promise<void>)>) | undefined
   onActivate?: ((reviewId: string) => Promise<ReviewActivationResult>) | undefined
   onChange?: ((
     artifact: ReviewArtifact,
-    action: 'created' | 'handoff' | 'edit' | 'revise' | 'done' | 'observed'
+    action:
+      | 'created'
+      | 'handoff'
+      | 'get-for-review'
+      | 'submit'
+      | 'edit'
+      | 'revise'
+      | 'done'
+      | 'observed'
   ) => void | Promise<void>) | undefined
   onQuit?: (() => void) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
   interpretationPolicy?: (() => string) | undefined
+  agentReviewMode?: (() => AgentReviewMode) | undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -136,19 +154,27 @@ function errorStatus(error: unknown): number {
   ) {
     return 400
   }
-  if (code === 'INVALID_TRANSITION' || code === 'NOT_EDITABLE') return 409
+  if (
+    code === 'CLAIM_CONFLICT' ||
+    code === 'INVALID_TRANSITION' ||
+    code === 'NOT_EDITABLE' ||
+    code === 'REVIEW_NOT_PRISTINE' ||
+    code === 'SOURCE_PROPOSALS_FORBIDDEN' ||
+    code === 'SUBMISSION_CONFLICT'
+  ) return 409
   if (code === 'SHUTTING_DOWN') return 503
+  if (code === 'REQUEST_UNCERTAIN') return 503
   if (code === 'BODY_TOO_LARGE') return 413
   return 500
 }
 
 export function reviewRoute(pathname: string): ReviewRoute | null {
-  const match = /^\/reviews\/([^/]+)(?:\/(activate|handoff|edit|revise))?$/.exec(pathname)
+  const match = /^\/reviews\/([^/]+)(?:\/(activate|handoff|get-for-review|submit|edit|revise))?$/.exec(pathname)
   if (!match) return null
   return {
     reviewId: decodeURIComponent(match[1] as string),
     action: (
-      match[2] as 'activate' | 'handoff' | 'edit' | 'revise' | undefined
+      match[2] as Exclude<ReviewRoute['action'], null> | undefined
     ) || null
   }
 }
@@ -164,7 +190,8 @@ export async function startLocalService({
   onChange = () => {},
   onQuit = () => {},
   onUnauthorized = () => {},
-  interpretationPolicy
+  interpretationPolicy,
+  agentReviewMode = () => 'annotation-only'
 }: LocalServiceOptions): Promise<LocalService> {
   if (
     !SERVICE_INSTANCE_PATTERN.test(identity.instanceId) ||
@@ -328,6 +355,105 @@ export async function startLocalService({
         sendJson(response, 200, await runMutation(() => (
           onActivate(route.reviewId)
         )))
+        return
+      }
+
+      if (
+        route &&
+        request.method === 'POST' &&
+        route.action === 'get-for-review'
+      ) {
+        const body = await readJson(request)
+        const record = isRecord(body) ? body : {}
+        const suppliedPullRequestStatus = record.pullRequestStatus
+        if (
+          suppliedPullRequestStatus !== undefined &&
+          suppliedPullRequestStatus !== null &&
+          !isPullRequestStatus(suppliedPullRequestStatus)
+        ) {
+          throw serviceError(
+            'INVALID_PULL_REQUEST_STATUS',
+            'Invalid pull request status.'
+          )
+        }
+        const pullRequestStatus = isPullRequestStatus(
+          suppliedPullRequestStatus
+        ) ? suppliedPullRequestStatus : undefined
+        const artifact = await runMutation(() => (
+          serializeReviewAction(route.reviewId, async () => {
+            const current = await store.load(route.reviewId)
+            let rollback: undefined | (() => void | Promise<void>)
+            if (current.review.status === 'editing') {
+              rollback = await beforeAction(route.reviewId, 'get-for-review')
+            }
+            let accepted = false
+            try {
+              const claimed = await store.getForReview(route.reviewId, {
+                mode: agentReviewMode(),
+                maximumSubmissionBytes: MAXIMUM_BODY_BYTES,
+                ...(Object.prototype.hasOwnProperty.call(record, 'agentThread')
+                  ? { agentThread: record.agentThread }
+                  : {}),
+                ...(pullRequestStatus ? { pullRequestStatus } : {})
+              })
+              accepted = true
+              await onChange(claimed, 'get-for-review')
+              if (current.review.status === 'editing') {
+                await propagateObservation(claimed)
+              }
+              return claimed
+            } catch (error) {
+              if (!accepted && rollback) await rollback()
+              if (accepted) {
+                throw serviceError(
+                  'REQUEST_UNCERTAIN',
+                  `Agent review ${route.reviewId} was claimed, but publication did not complete. Retry get-for-review with only the review ID.`
+                )
+              }
+              throw error
+            }
+          })
+        ))
+        sendJson(response, 200, artifact)
+        return
+      }
+
+      if (
+        route &&
+        request.method === 'POST' &&
+        route.action === 'submit'
+      ) {
+        const body = await readJson(request)
+        const record = isRecord(body) ? body : {}
+        const artifact = await runMutation(() => (
+          serializeReviewAction(route.reviewId, async () => {
+            let committed = false
+            try {
+              const submitted = await store.submitAgentReview(
+                route.reviewId,
+                record.artifact
+              )
+              committed = true
+              await onChange(submitted, 'submit')
+              return submitted
+            } catch (error) {
+              if (committed) {
+                throw serviceError(
+                  'REQUEST_UNCERTAIN',
+                  `Agent review ${route.reviewId} was accepted, but publication did not complete. Retry the exact submit command.`
+                )
+              }
+              throw error
+            }
+          })
+        ))
+        sendJson(response, 200, {
+          reviewId: artifact.review.id,
+          status: artifact.review.status === 'done' &&
+            artifact.review.agentReviewer
+            ? 'reviewed'
+            : artifact.review.status
+        })
         return
       }
 

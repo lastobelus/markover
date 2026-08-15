@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import { guidance } from './agent-guidance'
+import { reviewerGuidance } from './agent-reviewer-guidance'
 import {
   canonicalPullRequestMetadata,
   hasPullRequestObservationFields,
@@ -23,11 +25,19 @@ const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 const REVIEW_STATUSES = new Set<ReviewStatus>([
   'editing',
   'pending-agent',
+  'agent-reviewing',
+  'reviewed',
   'revised',
   'done'
 ])
 
-export type ReviewStatus = 'editing' | 'pending-agent' | 'revised' | 'done'
+export type ReviewStatus =
+  | 'editing'
+  | 'pending-agent'
+  | 'agent-reviewing'
+  | 'reviewed'
+  | 'revised'
+  | 'done'
 export type ReviewArtifact = Omit<ReviewTree, 'review'> & {
   review: ReviewEnvelope
 }
@@ -50,8 +60,16 @@ export interface DoneReviewsResult {
 }
 
 export interface ReviewStoreOptions {
+  claimIdFactory?: () => string
   idFactory?: () => string
   now?: () => string | number | Date
+}
+
+export interface AgentReviewClaimInput {
+  agentThread?: unknown
+  maximumSubmissionBytes?: number
+  mode: AgentReviewMode
+  pullRequestStatus?: PullRequestStatus
 }
 
 export interface ReviewListWarning {
@@ -128,6 +146,10 @@ export class ReviewStoreError extends Error {
 
 export function createReviewId(): string {
   return `mko_${randomBytes(4).toString('hex')}`
+}
+
+export function createReviewClaimId(): string {
+  return `mko_claim_${randomBytes(12).toString('hex')}`
 }
 
 function cloneJson<T>(value: T): T {
@@ -226,6 +248,109 @@ function assertSameReviewTarget(current: unknown, updated: unknown): void {
   }
 }
 
+function visitReviewNodes(
+  node: ReviewNode,
+  visitor: (node: ReviewNode) => void
+): void {
+  visitor(node)
+  for (const child of node.children) visitReviewNodes(child, visitor)
+}
+
+function assertPristineAgentReview(artifact: ReviewArtifact): void {
+  const containsReviewContent = (node: ReviewNode): boolean => (
+    Boolean(node.feedback.trim()) ||
+    (node.attachments?.length ?? 0) > 0 ||
+    node.sourceEdit !== undefined ||
+    node.children.some(containsReviewContent)
+  )
+  if (containsReviewContent(artifact.root)) {
+    throw new ReviewStoreError(
+      'REVIEW_NOT_PRISTINE',
+      `Review ${artifact.review.id} already contains human review content; open a new review for agent review.`
+    )
+  }
+}
+
+function withoutAgentReviewContent(artifact: ReviewArtifact): unknown {
+  const stripped = cloneJson(artifact)
+  visitReviewNodes(stripped.root, (node) => {
+    const record = node as unknown as Record<string, unknown>
+    delete record.feedback
+    delete record.sourceEdit
+  })
+  return stripped
+}
+
+function expectedAgentReviewSubmission(
+  current: ReviewArtifact,
+  submission: ReviewArtifact
+): ReviewArtifact | null {
+  const reviewer = current.review.agentReviewer
+  if (!reviewer) return null
+
+  const expected = cloneJson(current)
+  expected.review.status = 'agent-reviewing'
+  expected.review.updatedAt = reviewer.startedAt
+  expected.review.agentReviewer = {
+    ...reviewer,
+    completedAt: null
+  }
+
+  if (current.review.status === 'done') {
+    const currentIdentity = reviewPullRequestIdentity(
+      current.review.pullRequest,
+      current.review.git
+    )
+    const submittedIdentity = reviewPullRequestIdentity(
+      submission.review.pullRequest,
+      submission.review.git
+    )
+    if (
+      !currentIdentity ||
+      !submittedIdentity ||
+      !isDeepStrictEqual(currentIdentity, submittedIdentity)
+    ) return null
+
+    const pullRequest = cloneJson(current.review.pullRequest)
+    if (!isRecord(pullRequest)) return null
+    delete pullRequest.status
+    delete pullRequest.statusObservedAt
+    delete pullRequest.statusSource
+    const submittedObservation = pullRequestObservation(
+      submission.review.pullRequest
+    )
+    if (submittedObservation) Object.assign(pullRequest, submittedObservation)
+    expected.review.pullRequest = pullRequest
+  }
+
+  return expected
+}
+
+function assertAllowedAgentReviewContent(
+  artifact: ReviewArtifact,
+  mode: AgentReviewMode
+): void {
+  visitReviewNodes(artifact.root, (node) => {
+    if (node.sourceEdit === undefined) return
+    if (mode === 'annotation-only') {
+      throw new ReviewStoreError(
+        'SOURCE_PROPOSALS_FORBIDDEN',
+        'This agent review permits annotations only; remove every sourceEdit and retry.'
+      )
+    }
+    if (!isDeepStrictEqual(Object.keys(node.sourceEdit).sort(), ['current', 'original'])) {
+      throw new ReviewStoreError(
+        'INVALID_REVIEW',
+        `Source proposal ${node.id} may contain only original and current.`
+      )
+    }
+  })
+}
+
+function agentReviewSubmissionBytes(artifact: ReviewArtifact): number {
+  return Buffer.byteLength(JSON.stringify({ artifact }), 'utf8')
+}
+
 function assertNever(value: never): never {
   throw new ReviewStoreError('INVALID_STATUS', `Invalid review status: ${String(value)}`)
 }
@@ -236,6 +361,8 @@ export function reviewDeletionPolicy(
   switch (status) {
     case 'editing': return 'standard'
     case 'pending-agent': return 'pending-agent'
+    case 'agent-reviewing': return 'pending-agent'
+    case 'reviewed': return 'standard'
     case 'revised': return 'standard'
     case 'done': return 'standard'
     default: return assertNever(status)
@@ -285,6 +412,7 @@ function transitionAllowed(
   if (current === 'pending-agent') {
     return next === 'editing' || next === 'revised'
   }
+  if (current === 'agent-reviewing') return next === 'editing'
   return false
 }
 
@@ -319,12 +447,14 @@ function sameCandidates(
 
 export class ReviewStore {
   readonly directory: string
+  private readonly claimIdFactory: () => string
   private readonly idFactory: () => string
   private readonly now: () => string | number | Date
   private readonly queues = new Map<string, Promise<void>>()
 
   constructor(directory: string, options: ReviewStoreOptions = {}) {
     this.directory = path.resolve(directory)
+    this.claimIdFactory = options.claimIdFactory || createReviewClaimId
     this.idFactory = options.idFactory || createReviewId
     this.now = options.now || (() => new Date())
   }
@@ -741,6 +871,133 @@ export class ReviewStore {
     }
   }
 
+  async getForReview(
+    reviewId: string,
+    {
+      agentThread,
+      maximumSubmissionBytes,
+      mode,
+      pullRequestStatus
+    }: AgentReviewClaimInput
+  ): Promise<ReviewArtifact> {
+    assertReviewId(reviewId)
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      if (current.review.status === 'agent-reviewing') {
+        const reviewer = current.review.agentReviewer as ReviewAgentReviewer
+        if (
+          agentThread !== undefined &&
+          !isDeepStrictEqual(agentThread, reviewer.agentThread)
+        ) {
+          throw new ReviewStoreError(
+            'CLAIM_CONFLICT',
+            'This review is already claimed with different reviewer identity metadata.'
+          )
+        }
+        if (
+          pullRequestStatus !== undefined &&
+          current.review.pullRequest?.status !== pullRequestStatus
+        ) {
+          throw new ReviewStoreError(
+            'CLAIM_CONFLICT',
+            'This review is already claimed with a different pull request observation.'
+          )
+        }
+        return cloneJson(current)
+      }
+      if (current.review.status !== 'editing') {
+        throw new ReviewStoreError(
+          'INVALID_TRANSITION',
+          `Review ${reviewId} cannot be claimed from ${current.review.status}.`
+        )
+      }
+      assertPristineAgentReview(current)
+      const timestamp = this.mutationTimestamp(current.review)
+      const updated = cloneJson(current)
+      updated.review.status = 'agent-reviewing'
+      updated.review.updatedAt = timestamp
+      updated.review.pullRequest = observedPullRequest(
+        current.review.pullRequest,
+        pullRequestStatus,
+        timestamp
+      ) as ReviewPullRequest | null
+      updated.review.agentReviewer = {
+        mode,
+        claimId: this.claimIdFactory(),
+        agentThread: cloneJson(
+          agentThread === undefined ? null : agentThread
+        ) as ReviewAgentThread | null,
+        startedAt: timestamp,
+        completedAt: null,
+        agentGuidance: reviewerGuidance()
+      }
+      assertReviewArtifact(updated, reviewId)
+      if (
+        maximumSubmissionBytes !== undefined &&
+        agentReviewSubmissionBytes(updated) > maximumSubmissionBytes
+      ) {
+        throw new ReviewStoreError(
+          'BODY_TOO_LARGE',
+          `Review ${reviewId} is too large for the agent-review submission route.`
+        )
+      }
+      await this.write(reviewId, updated)
+      return cloneJson(updated)
+    })
+  }
+
+  async submitAgentReview(
+    reviewId: string,
+    submission: unknown
+  ): Promise<ReviewArtifact> {
+    assertReviewId(reviewId)
+    assertReviewArtifact(submission, reviewId)
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      if (
+        current.review.status === 'reviewed' ||
+        (current.review.status === 'done' && current.review.agentReviewer)
+      ) {
+        const expected = expectedAgentReviewSubmission(current, submission)
+        if (expected && isDeepStrictEqual(expected, submission)) {
+          return cloneJson(current)
+        }
+        throw new ReviewStoreError(
+          'SUBMISSION_CONFLICT',
+          'This agent review is already complete with different submitted content.'
+        )
+      }
+      if (current.review.status !== 'agent-reviewing') {
+        throw new ReviewStoreError(
+          'INVALID_TRANSITION',
+          `Review ${reviewId} cannot accept an agent submission from ${current.review.status}.`
+        )
+      }
+      if (!isDeepStrictEqual(
+        withoutAgentReviewContent(current),
+        withoutAgentReviewContent(submission)
+      )) {
+        throw new ReviewStoreError(
+          'REVIEW_MISMATCH',
+          'Agent review submission changed fields outside feedback and permitted source proposals.'
+        )
+      }
+      const reviewer = current.review.agentReviewer as ReviewAgentReviewer
+      assertAllowedAgentReviewContent(submission, reviewer.mode)
+      const completedAt = this.mutationTimestamp(current.review)
+      const updated = cloneJson(submission)
+      updated.review.status = 'reviewed'
+      updated.review.updatedAt = completedAt
+      updated.review.agentReviewer = {
+        ...reviewer,
+        completedAt
+      }
+      assertReviewArtifact(updated, reviewId)
+      await this.write(reviewId, updated)
+      return cloneJson(updated)
+    })
+  }
+
   async handoff(
     reviewId: string,
     pullRequestStatus?: PullRequestStatus
@@ -858,6 +1115,8 @@ export class ReviewStore {
         if (
           currentIdentity?.repository !== identity.repository ||
           currentIdentity.number !== identity.number ||
+          current.review.status === 'agent-reviewing' ||
+          current.review.status === 'reviewed' ||
           currentObservation && (
             currentObservation.statusObservedAt > observation.statusObservedAt ||
             currentObservation.statusObservedAt === observation.statusObservedAt &&
@@ -910,9 +1169,13 @@ export class ReviewStore {
         current.review.status === status &&
         pullRequestStatus === undefined
       ) return cloneJson(current)
+      if (current.review.status === 'agent-reviewing' && status === 'editing') {
+        assertPristineAgentReview(current)
+      }
 
       const updated = cloneJson(current)
       updated.review.status = status
+      if (status === 'editing') delete updated.review.agentReviewer
       const timestamp = this.mutationTimestamp(current.review)
       updated.review.updatedAt = timestamp
       if (current.review.status !== 'editing' && status === 'editing') {
@@ -942,6 +1205,7 @@ export class ReviewStore {
         candidate?.repository !== identity.repository ||
         candidate.number !== identity.number
       ) return null
+      if (current.review.status === 'agent-reviewing') return null
       if (
         current.review.status === 'done' &&
         isRecord(current.review.pullRequest) &&

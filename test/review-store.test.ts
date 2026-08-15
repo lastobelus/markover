@@ -26,6 +26,18 @@ function child(node: ReviewNode, index = 0): ReviewNode {
   return result
 }
 
+function nodeOfType(root: ReviewNode, type: ReviewNode['type']): ReviewNode {
+  if (root.type === type) return root
+  for (const nested of root.children) {
+    try {
+      return nodeOfType(nested, type)
+    } catch {
+      // Continue searching the remaining branches.
+    }
+  }
+  throw new Error(`Missing ${type} node.`)
+}
+
 function attachment(node: ReviewNode, index = 0): ReviewAttachment {
   const result = node.attachments?.[index]
   assert.ok(result)
@@ -34,6 +46,16 @@ function attachment(node: ReviewNode, index = 0): ReviewAttachment {
 
 function hasErrorCode(error: unknown, code: string): boolean {
   return error instanceof ReviewStoreError && error.code === code
+}
+
+function reverseJsonObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(reverseJsonObjectKeys)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .reverse()
+      .map(([key, nested]) => [key, reverseJsonObjectKeys(nested)])
+  )
 }
 
 async function temporaryStore(options: ReviewStoreOptions = {}) {
@@ -144,6 +166,271 @@ test('handoff freezes an idempotent snapshot', async (t) => {
   )
   assert.deepEqual(retry, handedOff)
   assert.deepEqual(await store.load(created.review.id), handedOff)
+})
+
+test('agent review claims are pristine, attributed, frozen, and recoverable', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    claimIdFactory: () => 'mko_claim_0123456789abcdef',
+    now: () => '2026-08-12T20:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const created = await store.create({
+    tree: tree('# Review\n\nParagraph.\n'),
+    contextSummary: 'Agent reviewer claim.'
+  })
+  const identity = {
+    id: 'reviewer-thread',
+    threadHost: { kind: 't3code', provider: 'codex' }
+  }
+  const claimed = await store.getForReview(created.review.id, {
+    mode: 'annotation-only',
+    agentThread: identity,
+    maximumSubmissionBytes: 1024 * 1024
+  })
+
+  assert.equal(claimed.review.status, 'agent-reviewing')
+  const reviewer = claimed.review.agentReviewer
+  assert.ok(reviewer)
+  assert.deepEqual(reviewer.agentThread, identity)
+  assert.equal(reviewer.mode, 'annotation-only')
+  assert.equal(
+    reviewer.claimId,
+    'mko_claim_0123456789abcdef'
+  )
+  assert.match(
+    reviewer.agentGuidance.fixedContract,
+    /sole reviewer/
+  )
+  assert.deepEqual(
+    await store.getForReview(created.review.id, { mode: 'annotation-only' }),
+    claimed
+  )
+  await assert.rejects(
+    store.getForReview(created.review.id, {
+      mode: 'annotation-only',
+      agentThread: null
+    }),
+    (error: unknown) => hasErrorCode(error, 'CLAIM_CONFLICT')
+  )
+})
+
+test('agent review claims reject human content and impossible submit sizes', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string,
+    claimIdFactory: () => 'mko_claim_0123456789abcdef'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const annotated = await store.create({
+    tree: tree(),
+    contextSummary: 'Reject existing feedback.'
+  })
+  const update = structuredClone(annotated)
+  child(update.root).feedback = 'Human feedback.'
+  await store.updateTree(annotated.review.id, update)
+  await assert.rejects(
+    store.getForReview(annotated.review.id, { mode: 'annotation-only' }),
+    (error: unknown) => hasErrorCode(error, 'REVIEW_NOT_PRISTINE')
+  )
+  assert.equal((await store.load(annotated.review.id)).review.status, 'editing')
+
+  const oversized = await store.create({
+    tree: tree(),
+    contextSummary: 'Reject impossible body.'
+  })
+  await assert.rejects(
+    store.getForReview(oversized.review.id, {
+      mode: 'annotation-only',
+      maximumSubmissionBytes: 1
+    }),
+    (error: unknown) => hasErrorCode(error, 'BODY_TOO_LARGE')
+  )
+  assert.equal((await store.load(oversized.review.id)).review.status, 'editing')
+})
+
+test('agent submissions are atomic, mode-limited, and exactly retryable', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    claimIdFactory: () => 'mko_claim_0123456789abcdef',
+    now: () => '2026-08-12T20:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const created = await store.create({
+    tree: tree('# Review\n\nParagraph.\n'),
+    contextSummary: 'Submit an agent review.'
+  })
+  const claimed = await store.getForReview(created.review.id, {
+    mode: 'annotation-only'
+  })
+  const forbidden = structuredClone(claimed)
+  const paragraph = nodeOfType(forbidden.root, 'paragraph')
+  paragraph.feedback = 'Clarify this paragraph.'
+  paragraph.sourceEdit = {
+    original: paragraph.raw,
+    current: 'Clearer paragraph.'
+  }
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, forbidden),
+    (error: unknown) => hasErrorCode(error, 'SOURCE_PROPOSALS_FORBIDDEN')
+  )
+  assert.equal((await store.load(created.review.id)).review.status, 'agent-reviewing')
+
+  const submission = structuredClone(claimed)
+  nodeOfType(submission.root, 'paragraph').feedback = 'Clarify this paragraph.'
+  const reviewed = await store.submitAgentReview(created.review.id, submission)
+  assert.equal(reviewed.review.status, 'reviewed')
+  assert.equal(reviewed.review.agentReviewer?.completedAt, reviewed.review.updatedAt)
+  assert.deepEqual(
+    await store.submitAgentReview(created.review.id, submission),
+    reviewed
+  )
+  assert.deepEqual(
+    await store.submitAgentReview(
+      created.review.id,
+      reverseJsonObjectKeys(submission)
+    ),
+    reviewed
+  )
+  const changedRetry = structuredClone(submission)
+  nodeOfType(changedRetry.root, 'paragraph').feedback = 'Different feedback.'
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, changedRetry),
+    (error: unknown) => hasErrorCode(error, 'SUBMISSION_CONFLICT')
+  )
+  await assert.rejects(
+    store.edit(created.review.id),
+    (error: unknown) => hasErrorCode(error, 'INVALID_TRANSITION')
+  )
+})
+
+test('cancel and same-clock reclaim reject a stale first claim', async (t) => {
+  const claimIds = [
+    'mko_claim_0123456789abcdef',
+    'mko_claim_fedcba9876543210'
+  ]
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    claimIdFactory: () => claimIds.shift() as string,
+    now: () => '2026-08-12T20:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Reject stale claims.'
+  })
+  const first = await store.getForReview(created.review.id, {
+    mode: 'annotation-only'
+  })
+  await store.edit(created.review.id)
+  const second = await store.getForReview(created.review.id, {
+    mode: 'annotation-only'
+  })
+  assert.notEqual(
+    first.review.agentReviewer?.claimId,
+    second.review.agentReviewer?.claimId
+  )
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, first),
+    (error: unknown) => hasErrorCode(error, 'REVIEW_MISMATCH')
+  )
+})
+
+test('source-proposal mode accepts valid proposals and preserves additive fields', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    claimIdFactory: () => 'mko_claim_0123456789abcdef'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const created = await store.create({
+    tree: tree('# Review\n\nParagraph.\n'),
+    contextSummary: 'Accept a source proposal.'
+  })
+  const extended = structuredClone(created)
+  Reflect.set(extended.review, 'fixtureAgentExtension', { preserved: true })
+  await store.write(created.review.id, extended)
+  const claimed = await store.getForReview(created.review.id, {
+    mode: 'annotations-and-source-proposals'
+  })
+  const submission = structuredClone(claimed)
+  const paragraph = nodeOfType(submission.root, 'paragraph')
+  paragraph.sourceEdit = {
+    original: paragraph.raw,
+    current: 'Replacement paragraph.'
+  }
+  const reviewed = await store.submitAgentReview(created.review.id, submission)
+  assert.deepEqual(
+    Reflect.get(reviewed.review, 'fixtureAgentExtension'),
+    { preserved: true }
+  )
+  assert.equal(
+    nodeOfType(reviewed.root, 'paragraph').sourceEdit?.current,
+    'Replacement paragraph.'
+  )
+
+  const changedExtension = structuredClone(claimed)
+  Reflect.set(changedExtension.review, 'fixtureAgentExtension', { preserved: false })
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, changedExtension),
+    (error: unknown) => hasErrorCode(error, 'SUBMISSION_CONFLICT')
+  )
+})
+
+test('PR completion skips inflight agent review and archives reviewed content', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    claimIdFactory: () => 'mko_claim_0123456789abcdef'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Do not archive inflight reviewer work.',
+    git: { repositoryUrl: 'https://github.com/lastobelus/markover.git' },
+    pullRequest: { number: 132 }
+  })
+  const claimed = await store.getForReview(created.review.id, {
+    mode: 'annotation-only'
+  })
+  assert.deepEqual(
+    (await store.done(
+      'https://github.com/lastobelus/markover/pull/132',
+      'merged'
+    )).reviews,
+    []
+  )
+  assert.equal(
+    (await store.load(created.review.id)).review.status,
+    'agent-reviewing'
+  )
+  await store.submitAgentReview(created.review.id, claimed)
+  const result = await store.done(
+    'https://github.com/lastobelus/markover/pull/132',
+    'merged'
+  )
+  const completed = result.reviews[0]
+  assert.ok(completed)
+  assert.equal(completed.review.status, 'done')
+  assert.equal(
+    completed.review.agentReviewer?.claimId,
+    'mko_claim_0123456789abcdef'
+  )
+  assert.deepEqual(
+    await store.submitAgentReview(created.review.id, claimed),
+    completed
+  )
+  const changedRetry = structuredClone(claimed)
+  child(changedRetry.root).feedback = 'Different feedback.'
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, changedRetry),
+    (error: unknown) => hasErrorCode(error, 'SUBMISSION_CONFLICT')
+  )
+  const changedExtension = structuredClone(claimed)
+  const pullRequest = changedExtension.review.pullRequest as Record<string, unknown>
+  pullRequest.fixtureExtension = 'changed'
+  await assert.rejects(
+    store.submitAgentReview(created.review.id, changedExtension),
+    (error: unknown) => hasErrorCode(error, 'SUBMISSION_CONFLICT')
+  )
 })
 
 test('edit returns a pending review to editing and is idempotent', async (t) => {
@@ -880,6 +1167,8 @@ test('review deletion policies cover every status and trash the exact directory'
 
   assert.equal(reviewDeletionPolicy('editing'), 'standard')
   assert.equal(reviewDeletionPolicy('pending-agent'), 'pending-agent')
+  assert.equal(reviewDeletionPolicy('agent-reviewing'), 'pending-agent')
+  assert.equal(reviewDeletionPolicy('reviewed'), 'standard')
   assert.equal(reviewDeletionPolicy('revised'), 'standard')
   assert.equal(reviewDeletionPolicy('done'), 'standard')
   assert.equal(

@@ -48,7 +48,7 @@ test('persisted review creation does not wait for renderer notification', () => 
   assert.match(onChange, /await sendManagedStatus\(artifact\)/)
   assert.match(
     onChange,
-    /await sendManagedStatus\(artifact\)[\s\S]*sendManagedUpdate\(artifact\)/
+    /await sendManagedUpdate\(artifact\)[\s\S]*sendManagedStatus\(artifact\)/
   )
 })
 
@@ -188,6 +188,22 @@ test('warning and notice UI keep the current review safe and target the latest a
     renderer,
     /if \(elements\.settingsDialog\.open \|\| elements\.incomingReviewDialog\.open\) return/
   )
+})
+
+test('completed agent reviews update full content and notify without activation', () => {
+  const renderer = read('src/renderer.ts')
+  const sessions = read('src/review-sessions.ts')
+  assert.match(
+    renderer,
+    /previousStatus === 'agent-reviewing'[\s\S]*session\.tree\.review\.status === 'reviewed'[\s\S]*showIncomingReviewNotice/
+  )
+  assert.match(renderer, /Agent review completed — no findings/)
+  assert.match(renderer, /Agent review completed —.*finding/)
+  assert.match(
+    renderer,
+    /status === 'reviewed'[\s\S]*This agent review is complete\. Open a new review for another feedback round\./
+  )
+  assert.match(sessions, /session\.tree = replacement/)
 })
 
 test('preload exposes one exact typed capability object', () => {

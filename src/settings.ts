@@ -24,6 +24,7 @@ import * as agentGuidance from './agent-guidance'
     incomingReviewIdleMinutes: 5,
     discoverAgentThreadFromLocalSessions: true,
     logRejectedApiRequests: false,
+    agentReviewMode: 'annotation-only',
     agentInterpretationPolicy: agentGuidance.DEFAULT_INTERPRETATION_POLICY,
     autosaveMaximumDelayMs: 2000
   })
@@ -36,7 +37,11 @@ import * as agentGuidance from './agent-guidance'
     zoomPercent: ZOOM_LEVELS,
     defaultTreeView: ['all', 'annotated'],
     incomingReviewActivationPolicy: ['never', 'always', 'warn', 'when-idle'],
-    reviewLinkActivationPolicy: ['never', 'always', 'warn', 'when-idle']
+    reviewLinkActivationPolicy: ['never', 'always', 'warn', 'when-idle'],
+    agentReviewMode: [
+      'annotation-only',
+      'annotations-and-source-proposals'
+    ]
   })
 
   const WINDOW_BACKGROUNDS: Readonly<{

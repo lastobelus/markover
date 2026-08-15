@@ -435,9 +435,17 @@ version-pinned rollback, and future Developer ID activation.
 - `open`, `get`, and `edit` must not steal focus from the user's current app.
 - `open` returns promptly with an opaque review ID; it does not wait or poll.
 - `get` freezes and returns one review snapshot. Repeating it is idempotent.
+- `get-for-review` freezes one pristine review in `agent-reviewing`, snapshots
+  the global permission and reviewer provenance, and returns the complete v1
+  artifact. Repeating it with only the review ID is a recovery read.
+- `submit` accepts that complete artifact atomically. It changes only feedback
+  and mode-authorized source proposals, transitions to `reviewed`, and is
+  exactly retryable after an uncertain response.
 - Reviews retain the exact Markdown source and SHA-256 checksum.
 - Every new review snapshots `review.agentGuidance.fixedContract` and
   `review.agentGuidance.interpretationPolicy`; `get` returns both unchanged.
+- Reviewer agents instead follow the dedicated
+  `review.agentReviewer.agentGuidance` contract returned by `get-for-review`.
 - Agent-facing instructions must preserve the contract's distinction among
   revisions, questions, discussion, context, and source-edit proposals,
   including substantive engagement with discussion and concerns.

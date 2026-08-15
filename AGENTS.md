@@ -62,10 +62,10 @@ or agent consumer, read
 `markover-review` schema, additive-field preservation, private-data boundary,
 version bumps, migration, and fail-closed behavior.
 
-Before `open`, `get`, `revise`, or `done` for a pull-request-associated review,
-follow the help payload's `pullRequestStatus` contract. That contract is the
-source of truth for the live `gh pr view` lookup, status mapping, command flags,
-and non-blocking lookup-failure behavior.
+Before `open`, `get`, `get-for-review`, `revise`, or `done` for a
+pull-request-associated review, follow the help payload's `pullRequestStatus`
+contract. That contract is the source of truth for the live `gh pr view`
+lookup, status mapping, command flags, and non-blocking lookup-failure behavior.
 
 The normal flow is `open` once, retain the returned `reviewId`, give the user a
 best-effort Markdown link whose target is the returned `reviewUrl`, include the
@@ -84,6 +84,16 @@ still with the agent, run `edit <reviewId>`. A later feedback round opens a new
 review rather than reopening a Revised review.
 Keep `--silent`: agent-facing success output is exactly one JSON value on
 stdout, while errors explain the relevant usage and recovery on stderr.
+
+When asked to act as the reviewer of an existing pristine review, run
+`get-for-review <review-id>` with the same truthful agent/thread-host metadata
+rules used by `open`. Follow `review.agentReviewer.agentGuidance` and the
+snapshotted `review.agentReviewer.mode`, add findings only to `feedback` and
+permitted `sourceEdit` fields, preserve every other field, and return the
+complete artifact with `submit <review-id> --input <path|->`. A response-uncertain
+claim is recovered by repeating `get-for-review` with only the review ID; a
+response-uncertain submission is recovered by repeating the exact `submit`.
+Never follow the author-agent `review.agentGuidance` while acting as reviewer.
 
 Whenever opening or later referencing a document in Markover for review, keep
 the best-effort Markdown link and raw review ID, and also include the returned

@@ -136,6 +136,54 @@ An authenticated `get` returns review content to the requesting local agent.
 Markover does not upload that handoff, but the receiving tool's storage,
 logging, sharing, and network behavior is outside Markover's boundary.
 
+An authenticated `get-for-review` returns the same portable artifact to an
+agent acting as reviewer and atomically freezes it in `agent-reviewing`.
+`submit` accepts that complete artifact as one JSON body and atomically records
+the validated result as `reviewed`. Both routes remain inside the same-user
+loopback capability boundary; reviewer provenance is descriptive and does not
+turn the capability into authenticated agent identity.
+
+## Agent-review service operations
+
+The authenticated routes are:
+
+```text
+POST /reviews/<review-id>/get-for-review
+POST /reviews/<review-id>/submit
+```
+
+The claim body may contain nullable `agentThread` and optional
+`pullRequestStatus`. The submit body contains one `artifact` property. The
+existing 16 MiB exact request-body limit applies. `get-for-review` rejects a
+baseline whose encoded submit body cannot fit that limit; the CLI preflights a
+file or buffered stdin body. If new annotations make the body too large, the
+review remains `agent-reviewing` and recovery is to shrink the annotations and
+retry or ask the human to cancel with `edit`.
+
+Claim, submit, edit, PR-driven done, and other operations for one review use
+the existing per-review service queue and store serialization. The renderer
+snapshot barrier runs before a first claim and may persist pre-existing human
+edits. An inflight `agent-reviewing` review is skipped by PR-driven done and
+uses the existing inflight-agent warning before Trash. A settings change cannot
+change an inflight claim because the effective mode is persisted in the
+portable artifact.
+
+The durable submit commit point is the atomic replacement of `review.json`
+with the validated `reviewed` artifact. After that commit, the main process
+publishes the complete artifact to the in-memory session and active renderer;
+status-only publication is insufficient because feedback and source proposals
+changed. Success is returned only after publication acknowledges. Any
+transport loss or publication failure after commit is `REQUEST_UNCERTAIN`.
+Repeating the exact submit republishes the accepted artifact and returns the
+original `{reviewId,status}` receipt; different content returns conflict. The
+same receipt is recoverable after PR-driven `done`: Markover republishes the
+immutable terminal artifact, returns the original `reviewed` status, and
+ignores only the lifecycle and pull-request observation fields that `done`
+changed while comparing the retry. Pull-request identity, claim identity,
+review content, and preserved additive fields must still match. The
+same uncertain rule applies when a claim commits but its artifact response or
+renderer publication is lost: retry `get-for-review` using only the review ID.
+
 ## Durability and recovery invariants
 
 Managed reviews use a per-review `ReviewAutosaveCoordinator`. Its default

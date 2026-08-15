@@ -173,6 +173,153 @@ test('status updates include the transient renderer handoff state', () => {
   assert.equal(review.tree.review.status, 'handoff-in-progress')
 })
 
+test('document updates replace returned review content while preserving presentation state', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_reviewed1', 'reviewed.md')
+  original.tree.review.status = 'agent-reviewing'
+  original.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: null,
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
+  const session = sessions.add(original)
+  const treeReference = session.tree
+  session.selectedId = firstNode(session).id
+  session.annotatedOnly = true
+  session.sourceCollapsed = true
+  session.sourceDrafts.set(firstNode(session).id, 'private draft')
+
+  const returned = structuredClone(original)
+  returned.tree.review.status = 'reviewed'
+  returned.tree.review.updatedAt = '2026-08-03T12:01:00.000Z'
+  returned.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: '2026-08-03T12:01:00.000Z',
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
+  const returnedFirst = returned.tree.root.children[0]
+  assert.ok(returnedFirst)
+  returnedFirst.feedback = 'Agent finding.'
+
+  const updated = sessions.updateDocument(returned)
+  assert.equal(updated, session)
+  assert.notEqual(session.tree, treeReference)
+  assert.equal(firstNode(session).feedback, 'Agent finding.')
+  assert.equal(session.tree.review.status, 'reviewed')
+  assert.equal(session.selectedId, firstNode(session).id)
+  assert.equal(session.annotatedOnly, true)
+  assert.equal(session.sourceCollapsed, true)
+  assert.equal(session.sourceDrafts.get(firstNode(session).id), 'private draft')
+})
+
+test('document observations preserve newer editable content', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_editing11', 'editing.md')
+  const session = sessions.add(original)
+  const treeReference = session.tree
+  firstNode(session).feedback = 'Unsaved human annotation.'
+
+  const observed = structuredClone(original)
+  observed.tree.review.updatedAt = '2026-08-03T12:01:00.000Z'
+  observed.tree.review.attentionRequestedAt = '2026-08-03T12:00:30.000Z'
+  observed.tree.review.pullRequest = {
+    number: 150,
+    url: 'https://github.com/lastobelus/markover/pull/150',
+    status: 'open',
+    statusObservedAt: '2026-08-03T12:01:00.000Z',
+    statusSource: 'agent'
+  }
+  const staleNode = observed.tree.root.children[0]
+  assert.ok(staleNode)
+  staleNode.feedback = ''
+
+  const updated = sessions.updateDocument(observed)
+  assert.equal(updated, session)
+  assert.equal(session.tree, treeReference)
+  assert.equal(firstNode(session).feedback, 'Unsaved human annotation.')
+  assert.equal(
+    session.tree.review.pullRequest?.statusObservedAt,
+    '2026-08-03T12:01:00.000Z'
+  )
+})
+
+test('agent review claims add reviewer metadata without replacing editable content', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_claimed11', 'claimed.md')
+  const session = sessions.add(original)
+  const treeReference = session.tree
+  firstNode(session).feedback = 'Preserve this annotation.'
+
+  const claimed = structuredClone(original)
+  claimed.tree.review.status = 'agent-reviewing'
+  claimed.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_0123456789abcdef',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: null,
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
+  const staleNode = claimed.tree.root.children[0]
+  assert.ok(staleNode)
+  staleNode.feedback = ''
+
+  sessions.updateDocument(claimed)
+  sessions.updateStatus(session.reviewId, 'agent-reviewing')
+
+  assert.equal(session.tree, treeReference)
+  assert.equal(firstNode(session).feedback, 'Preserve this annotation.')
+  assert.deepEqual(
+    session.tree.review.agentReviewer,
+    claimed.tree.review.agentReviewer
+  )
+})
+
+test('agent review cancellation removes reviewer metadata without replacing content', () => {
+  const sessions = new ReviewSessions()
+  const inflight = reviewDocument('mko_cancel111', 'cancel.md')
+  inflight.tree.review.status = 'agent-reviewing'
+  inflight.tree.review.agentReviewer = {
+    mode: 'annotation-only',
+    claimId: 'mko_claim_fedcba9876543210',
+    agentThread: null,
+    startedAt: '2026-08-03T12:00:30.000Z',
+    completedAt: null,
+    agentGuidance: {
+      fixedContract: 'Review the document.',
+      interpretationPolicy: 'Report useful findings.'
+    }
+  }
+  const session = sessions.add(inflight)
+  const treeReference = session.tree
+
+  const cancelled = structuredClone(inflight)
+  cancelled.tree.review.status = 'editing'
+  delete cancelled.tree.review.agentReviewer
+
+  sessions.updateDocument(cancelled)
+  sessions.updateStatus(session.reviewId, 'editing')
+
+  assert.equal(session.tree, treeReference)
+  assert.equal(session.tree.review.status, 'editing')
+  assert.equal(session.tree.review.agentReviewer, undefined)
+})
+
 test('adjacent review navigation wraps in either direction', () => {
   const sessions = new ReviewSessions()
   const first = sessions.add(reviewDocument('mko_first11', 'first.md'))

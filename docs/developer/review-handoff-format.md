@@ -41,9 +41,9 @@ makes a property invalid. Known properties have this contract.
 | `node.attachments` | Optional array. Each attachment requires `id`. Known image fields are optional `type`, `label`, `path`, `mimeType`, `url`, `checksum`, `width`, and `height`; bytes remain outside JSON. A future must-understand attachment variant is breaking. |
 | `node.sourceEdit` | Optional object requiring `original` and `current` strings. `original` equals immutable `raw`; `current` is nonblank and different. It is a proposal, not an instruction to apply blindly. |
 | `node.sourceEditable` | Optional boolean. `false` forbids `sourceEdit`; omission uses the node type's normal rule. |
-| `review` | Required envelope with `id`, `status`, `origin`, `createdAt`, `updatedAt`, `attentionRequestedAt`, `contextSummary`, `agentThread`, `git`, `pullRequest`, and `agentGuidance`. Known app-private session, checkout, and requesting-thread-title evidence is forbidden on the envelope as well as inside agent-thread metadata. |
+| `review` | Required envelope with `id`, `status`, `origin`, `createdAt`, `updatedAt`, `attentionRequestedAt`, `contextSummary`, `agentThread`, `git`, `pullRequest`, and `agentGuidance`. Lifecycle-conditional `agentReviewer` is defined below. Known app-private session, checkout, and requesting-thread-title evidence is forbidden on the envelope as well as inside agent-thread metadata. |
 | `review.id` | Required opaque `mko_...` ID. Together with source content and checksum it identifies this review target. |
-| `review.status` | Exactly `editing`, `pending-agent`, `revised`, or `done`. `editing` is mutable; the other states are read-only. `done` is terminal and requires a non-null pull request with a stored `merged` observation. Another feedback round creates an independent review. |
+| `review.status` | Exactly `editing`, `pending-agent`, `agent-reviewing`, `reviewed`, `revised`, or `done`. `editing` is mutable; the other states are read-only. Human handoff is `editing → pending-agent → revised`. Agent review is `editing → agent-reviewing → reviewed`. Both inflight states may return to `editing`; completed states cannot. `done` is terminal and requires a non-null pull request with a stored `merged` observation. PR completion skips `agent-reviewing` and may archive `reviewed`. Another feedback round creates an independent review. |
 | `review.origin` | Required nonblank open string, immutable for the review lifetime. v1 defines `agent` and `local`. Unknown values are valid, preserved, and lifecycle-neutral. `local` requires `agentThread: null`; `agent` may also use null when reliable identity is unavailable. |
 | `review.createdAt` | Required canonical UTC instant. It never changes. |
 | `review.updatedAt` | Required canonical UTC instant for the latest persisted portable change, including feedback, lifecycle, metadata, or pull-request observation. It does not control Inbox actionability. |
@@ -55,12 +55,69 @@ makes a property invalid. Known properties have this contract.
 | `review.agentThread.threadHost.machine` | Optional nonblank agent-reported hostname snapshot, normally obtained from local `hostname` when available. It is descriptive and never stable or identity-bearing. |
 | `review.git` | Required nullable opening-time snapshot. When non-null, known optional fields are sanitized nonblank network/scp-like `repositoryUrl`, nonblank `branch`, and nonblank `commit`. These hints are immutable, may become stale, and are not current Git truth, identity, or grouping keys. Credentials, `file:` URLs, and absolute or relative filesystem remotes are forbidden. |
 | `review.pullRequest` | Required nullable association. When non-null it requires a canonical GitHub `url` and matching positive integer `number`. Its optional observation tuple is all-or-none: `status` is `draft`, `open`, `merged`, or `closed`; `statusObservedAt` is canonical UTC no later than `review.updatedAt`; and `statusSource` is a nonblank open string. The latest successful observation is retained when a refresh fails. |
-| `review.agentGuidance` | Required object with string `fixedContract` and `interpretationPolicy`. Agents follow both snapshotted strings before acting. |
+| `review.agentGuidance` | Required object with string `fixedContract` and `interpretationPolicy`. It governs an author-agent receiving human feedback through `get`; it does not govern a reviewer agent. |
+| `review.agentReviewer` | Lifecycle-conditional object. It is required for `agent-reviewing` and `reviewed`, preserved when either completed agent review becomes `done`, and forbidden for `editing`, `pending-agent`, and `revised`. Required known fields are `mode`, `claimId`, `agentThread`, `startedAt`, `completedAt`, and `agentGuidance`. |
+| `review.agentReviewer.mode` | Required closed value `annotation-only` or `annotations-and-source-proposals`, snapshotted from the global setting when claimed. A later settings change cannot alter an inflight claim. |
+| `review.agentReviewer.claimId` | Required opaque `mko_claim_...` value generated uniquely for every claim. It rejects artifacts from cancelled claims even when timestamps and identity repeat. |
+| `review.agentReviewer.agentThread` | Required nullable reviewer-request snapshot using exactly the `review.agentThread` shape and private-data boundary. It is provenance, not authenticated identity, and is independent of the requesting-agent snapshot. |
+| `review.agentReviewer.startedAt` | Required canonical UTC claim time no later than `review.updatedAt`. |
+| `review.agentReviewer.completedAt` | Required null in `agent-reviewing`; required canonical UTC instant from `startedAt` through `review.updatedAt` in `reviewed` and its `done` descendant. |
+| `review.agentReviewer.agentGuidance` | Required reviewer-role `fixedContract` and `interpretationPolicy`. A `get-for-review` consumer follows these strings. They require a complete artifact return, permit feedback plus mode-authorized source proposals, preserve every other field, forbid attachments and source application, and direct the agent to review rather than revise the source. |
 | Unknown properties | Additive extension data. Readers ignore unknown properties and preserve them unchanged, including inside typed metadata containers. Unknown fields do not bypass privacy boundaries or override known-field invariants. Reserved private namespaces and known local-evidence fields are rejected at any depth, so relocation into an additive container cannot expose workspace/settings/credentials/cache/enrichment, requesting-thread-title, project/repository roots, Git discovery records, or session paths/ancestry. |
 
 Canonical UTC instants use JavaScript's canonical millisecond ISO form:
 `new Date(value).toISOString() === value`. Creation sets `createdAt`,
 `updatedAt`, and `attentionRequestedAt` equal.
+
+## Agent-review claim and submission
+
+`get-for-review <review-id>` is the sole entry into reviewer-agent ownership.
+Before claiming an `editing` review, Markover requests the latest renderer
+snapshot, validates it, and persists any existing UI edits. It then requires
+every feedback string to be blank and every attachment and source proposal to
+be absent. A failed pristine check makes no claim mutation, although the
+preceding barrier may persist the human's already-existing edits and advance
+`updatedAt`. There is no force or overwrite form.
+
+The first successful claim atomically snapshots the global review mode and
+reviewer metadata, generates a unique `claimId`, sets `startedAt`, and moves
+the review to `agent-reviewing`. A repeated `get-for-review` while already
+`agent-reviewing` is an idempotent recovery read: it returns the frozen
+artifact and republishes it to an active renderer without changing any portable
+field. It never reruns handoff-key discovery. Explicit retry identity must be
+omitted or structurally equal to the frozen snapshot. Pull-request observation
+uses the same optional live-observation contract as `get`.
+
+`submit <review-id> --input <path|->` accepts one complete v1 artifact. The
+submitted artifact must be recursively structurally equal to the frozen claim
+except for `node.feedback` and, in
+`annotations-and-source-proposals`, valid `node.sourceEdit` values. Object key
+order is irrelevant; array order and primitive types and values are
+significant. Unknown additive properties must remain structurally equal.
+Attachments, source/tree identity, lifecycle, attribution, guidance, request
+metadata, Git, and PR fields are immutable. `annotation-only` rejects any
+source proposal. Every failure rejects the whole artifact.
+
+On acceptance Markover reconstructs the completed artifact from the frozen
+claim and permitted content, sets server-owned `status: reviewed`,
+`completedAt`, and `updatedAt`, and atomically replaces `review.json`. The
+submitted completion fields are never trusted. An exact retry after acceptance
+compares the original submitted shape with the completed content, republishes
+the complete accepted artifact, and returns the original receipt. Different
+content conflicts and cannot overwrite the completed review.
+
+If PR-driven `done` archives the accepted review before a response-uncertain
+retry, the exact submission still returns the original `reviewed` receipt and
+republishes the immutable `done` artifact. The retry comparison ignores only
+the terminal lifecycle fields and pull-request observation changed by `done`;
+the pull-request identity, claim identity, review content, and every preserved
+additive field must still match. No retry can reopen or mutate the archived
+artifact.
+
+`edit` cancels a still-pristine `agent-reviewing` claim, removes
+`agentReviewer`, and returns to `editing`. A later claim always receives a new
+claim ID. `reviewed` is immutable; another human or agent feedback cycle opens
+as a new review.
 
 ## Identity and private-data boundaries
 
@@ -146,7 +203,10 @@ contract does not bump the version. Open-string domains such as `origin`,
 `threadHost.kind`, `threadHost.provider`, and `pullRequest.statusSource` accept
 new labels without a bump because unknown values remain valid and neutral.
 Closed domains such as lifecycle status, pull-request status, and node type
-require a new version for a new value.
+normally require a new version for a new value. The `agent-reviewing` and
+`reviewed` values and lifecycle-conditional `agentReviewer` shape were folded
+into v1 before v1 appeared in any release; no released predecessor or migration
+exists.
 
 Changing guidance text, recognizing more Markdown through existing node
 shapes, or extending optional metadata does not itself bump the schema.
@@ -187,7 +247,7 @@ than a lossy projection.
 | Managed `review.json` to store | Inspect the header before listing, restoration, activation, handoff, edit, deletion, or cleanup. v1 decodes directly. A recognized released predecessor migrates through the backed-up path. An unknown version is listed as incompatible without rewriting bytes. |
 | Store to service to CLI `get` | Decode before the service response; the CLI independently decodes successful JSON before stdout. Incompatibility exits nonzero, reports on stderr, and emits no handoff JSON on stdout. |
 | Main and renderer IPC | Reuse the shared predicate for review-bearing documents, snapshots, autosaves, attachment operations, and portable exports. Pass an incompatible review only as a separately typed, non-activatable header listing with its compatibility-catalog URL; never pass its body. IPC envelopes remain separately validated. |
-| Agent consumer | Inspect the header before fields. Accept v1, ignore and preserve additive properties, follow both guidance strings, and stop with a clear compatibility report for any other header. |
+| Agent consumer | Inspect the header before fields and accept only v1. An author-agent receiving `get` follows `review.agentGuidance`. A reviewer agent receiving `get-for-review` follows `review.agentReviewer.agentGuidance` and its snapshotted mode. Both ignore and preserve additive properties and stop with a clear compatibility report for any other header. |
 
 Error classification is ordered:
 

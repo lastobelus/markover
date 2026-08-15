@@ -52,7 +52,7 @@
 
       <section id="open">
         <h2>Open one review</h2>
-        <p>Run <code>markover help</code> before a pull-request-associated <code>open</code>, <code>get</code>, <code>revise</code>, or <code>done</code>. Its machine-readable <code>pullRequestStatus</code> contract is the source of truth for the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</p>
+        <p>Run <code>markover help</code> before a pull-request-associated <code>open</code>, <code>get</code>, <code>get-for-review</code>, <code>revise</code>, or <code>done</code>. Its machine-readable <code>pullRequestStatus</code> contract is the source of truth for the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</p>
         <p>Give Markover one Markdown path and a short summary of why the document exists and what feedback would help:</p>
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
@@ -114,11 +114,20 @@
         <p>Markover moves every matching local review to the terminal Done state. A pull request with no matching local reviews is a successful no-op.</p>
       </section>
 
+      <section id="agent-reviewer">
+        <h2>Use an agent as the reviewer</h2>
+        <p>In Settings → Agent Review, choose whether reviewer agents may add annotations only—the default—or may also propose source replacements. Markover freezes this global choice when an agent claims a review, so a later settings change does not alter work already in progress.</p>
+        <pre><code>markover get-for-review mko_8f3a2c &gt; review.json
+# The reviewer updates feedback and permitted sourceEdit fields in review.json.
+markover submit mko_8f3a2c --input review.json</code></pre>
+        <p>The review must be pristine when claimed: no existing feedback, attachments, or source proposals. The returned artifact contains dedicated reviewer instructions under <code>review.agentReviewer.agentGuidance</code>, the effective permission under <code>review.agentReviewer.mode</code>, and reviewer thread provenance when available. The agent returns the complete artifact as one atomic batch; Markover accepts all permitted findings or none.</p>
+        <p>While the agent is reviewing, the document is read only in Markover and labeled Agent reviewing. After submission it is labeled Reviewed, remains immutable, and appears in history. Markover shows a completion notice with an Open action, including explicit no-findings copy when the reviewer returned an empty result.</p>
+      </section>
+
       <section id="interpretation">
         <h2>Interpret feedback by intent</h2>
         <p>Annotations are free-form. One annotation can request a revision, ask a question, discuss a tradeoff, and provide context. Every handoff includes a fixed contract under <code>review.agentGuidance.fixedContract</code>: respond to each part by its apparent intent, substantively address discussion and concerns, explicitly acknowledge every question, and treat exact source edits as context-dependent proposals.</p>
         <p>The handoff also carries the review's snapshotted <code>review.agentGuidance.interpretationPolicy</code>. Follow both fields before acting. Markover carries this guidance; it does not classify annotations into rigid types or apply changes itself.</p>
-
         <h3>Default policy</h3>
         <pre><code>Use your judgment to respond to the review and make useful revisions. Ask for clarification when needed.</code></pre>
         <p>A question may reveal an obvious useful revision without requiring another round trip, but the response must still acknowledge the question. For example:</p>

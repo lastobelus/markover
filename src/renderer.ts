@@ -88,6 +88,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isReviewStatus(value: unknown): value is ReviewSessionStatus {
   return value === 'editing' ||
     value === 'pending-agent' ||
+    value === 'agent-reviewing' ||
+    value === 'reviewed' ||
     value === 'revised' ||
     value === 'done' ||
     value === 'handoff-in-progress'
@@ -1549,9 +1551,11 @@ function renderReviewEditability(): void {
       `${reviewStatusLabel(status)} · Read only`
     elements.annotationGuidance.textContent = status === 'revised'
       ? 'The agent has addressed this review. Open a new review for another feedback round.'
-      : status === 'done'
-        ? 'This review belongs to merged work and is retained as read-only history.'
-        : 'The agent has this review. Ask it to return the review to editing if you need to add more.'
+      : status === 'reviewed'
+        ? 'This agent review is complete. Open a new review for another feedback round.'
+        : status === 'done'
+          ? 'This review belongs to merged work and is retained as read-only history.'
+          : 'The agent has this review. Ask it to return the review to editing if you need to add more.'
   } else if (managed) {
     elements.annotationGuidance.textContent =
       'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
@@ -1927,9 +1931,21 @@ function scheduleIncomingReviewNoticeDismissal(): void {
 }
 
 function renderIncomingReviewNotice(session: ReviewSession): void {
-  elements.incomingReviewNoticeMessage.textContent = incomingReviewNoticeCount === 1
-    ? `Review ready: ${session.documentName}`
-    : `${String(incomingReviewNoticeCount)} reviews ready. Latest: ${session.documentName}`
+  if (session.tree.review.status === 'reviewed') {
+    let findings = 0
+    const countFindings = (node: ReviewNode): void => {
+      if (node.feedback.trim() || node.sourceEdit) findings += 1
+      for (const child of node.children) countFindings(child)
+    }
+    countFindings(session.tree.root)
+    elements.incomingReviewNoticeMessage.textContent = findings === 0
+      ? `Agent review completed — no findings: ${session.documentName}`
+      : `Agent review completed — ${String(findings)} finding${findings === 1 ? '' : 's'}: ${session.documentName}`
+  } else {
+    elements.incomingReviewNoticeMessage.textContent = incomingReviewNoticeCount === 1
+      ? `Review ready: ${session.documentName}`
+      : `${String(incomingReviewNoticeCount)} reviews ready. Latest: ${session.documentName}`
+  }
   elements.incomingReviewNotice.hidden = false
   scheduleIncomingReviewNoticeDismissal()
 }
@@ -2167,6 +2183,8 @@ function captureActiveSession(): void {
 function reviewStatusLabel(status: ReviewSessionStatus): string {
   if (status === 'handoff-in-progress') return 'Handing off'
   if (status === 'pending-agent') return 'With agent'
+  if (status === 'agent-reviewing') return 'Agent reviewing'
+  if (status === 'reviewed') return 'Reviewed'
   if (status === 'revised') return 'Revised'
   if (status === 'done') return 'Done'
   return 'Editing'
@@ -2199,6 +2217,9 @@ function renderReviewContext(): void {
   const git = metadataRecord(review.git)
   const pullRequest = metadataRecord(review.pullRequest)
   const agentThread = metadataRecord(review.agentThread)
+  const agentReviewer = metadataRecord(review.agentReviewer)
+  const reviewerThread = metadataRecord(agentReviewer.agentThread)
+  const reviewerThreadHost = metadataRecord(reviewerThread.threadHost)
   const threadHost = metadataRecord(agentThread.threadHost)
   elements.reviewContextTitle.textContent = state.documentName
   elements.reviewContextSummary.innerHTML = inlineMarkdown.render(
@@ -2209,6 +2230,14 @@ function renderReviewContext(): void {
   addReviewContextField('Status', reviewStatusLabel(review.status))
   addReviewContextField('Source', state.documentPath)
   addReviewContextField('Created', review.createdAt)
+  if (review.agentReviewer) {
+    addReviewContextField('Reviewer', 'Agent')
+    addReviewContextField('Agent review mode', metadataString(agentReviewer, 'mode'))
+    addReviewContextField('Reviewer thread', metadataString(reviewerThread, 'id'))
+    addReviewContextField('Reviewer host', metadataString(reviewerThreadHost, 'kind'))
+    addReviewContextField('Review started', metadataString(agentReviewer, 'startedAt'))
+    addReviewContextField('Review completed', metadataString(agentReviewer, 'completedAt'))
+  }
   addReviewContextField('Branch', metadataString(git, 'branch'))
   addReviewContextField('Commit', metadataString(git, 'commit'))
   addReviewContextField('Repository', metadataString(git, 'repositoryUrl'))
@@ -4713,6 +4742,8 @@ async function initialize(): Promise<void> {
   })
   bridge.onReviewUpdated((reviewDocument) => {
     const document = managedReviewDocument(reviewDocument)
+    const reviewId = document.reviewId || document.tree.review.id
+    const previousStatus = reviewSessions.get(reviewId)?.tree.review.status
     let session = reviewSessions.updateDocument(document)
     if (!session) {
       addManagedReview(document, false)
@@ -4721,7 +4752,19 @@ async function initialize(): Promise<void> {
     if (!session) return
     normalizeSessionWorkspaceState(session)
     renderDocumentTabsPreservingFocus()
-    if (session.reviewId === state.reviewId) renderReviewContext()
+    if (session.reviewId === state.reviewId) {
+      state.tree = session.tree
+      state.selectedId = session.selectedId
+      renderTree()
+      const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
+      if (selected) renderAnnotation(selected)
+      renderReviewContext()
+    } else if (
+      previousStatus === 'agent-reviewing' &&
+      session.tree.review.status === 'reviewed'
+    ) {
+      showIncomingReviewNotice(session, ++incomingReviewSequence)
+    }
     persistWorkspaceState()
   })
   bridge.onReviewTrashed(({ reviewId }) => {
