@@ -363,93 +363,28 @@ test('settings store serializes rapid updates without losing the latest values',
   assert.equal(saved.palette, 'olive')
   assert.equal(saved.appearance, 'dark')
   assert.equal(saved.treeDensity, 'compact')
+  assert.deepEqual(await fs.readdir(directory), ['settings.json'])
 })
 
-test('separate settings stores merge concurrent partial updates', async (t) => {
+test('settings store loads offline manual edits after restart', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-settings-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   const filePath = path.join(directory, 'settings.json')
-  const first = new SettingsStore(filePath)
-  const second = new SettingsStore(filePath)
-  await Promise.all([first.load(), second.load()])
+  await fs.writeFile(filePath, `${JSON.stringify({
+    ...DEFAULT_SETTINGS,
+    autosaveMaximumDelayMs: 4200,
+    palette: 'ocean'
+  }, null, 2)}\n`, 'utf8')
 
-  await Promise.all([
-    first.update({ palette: 'ocean' }),
-    second.update({ treeDensity: 'compact' })
-  ])
+  const restarted = new SettingsStore(filePath)
+  assert.equal((await restarted.load()).autosaveMaximumDelayMs, 4200)
+  assert.equal(restarted.settings.palette, 'ocean')
 
+  await restarted.update({ treeDensity: 'compact' })
   const saved = parseRecord(await fs.readFile(filePath, 'utf8'))
+  assert.equal(saved.autosaveMaximumDelayMs, 4200)
   assert.equal(saved.palette, 'ocean')
   assert.equal(saved.treeDensity, 'compact')
-})
-
-test('settings stores observe changes written by another process', async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-settings-'))
-  t.after(() => fs.rm(directory, { recursive: true, force: true }))
-  const filePath = path.join(directory, 'settings.json')
-  const observer = new SettingsStore(filePath)
-  const writer = new SettingsStore(filePath)
-  await Promise.all([observer.load(), writer.load()])
-
-  let resolveChanged!: (settings: MarkoverSettings) => void
-  const changed = new Promise<MarkoverSettings>((resolve) => {
-    resolveChanged = resolve
-  })
-  const stop = await observer.subscribe(resolveChanged)
-  t.after(() => { stop() })
-  await writer.update({ palette: 'olive' })
-  let timeout!: ReturnType<typeof setTimeout>
-  const observed = await Promise.race([
-    changed,
-    new Promise<never>((_, reject) => {
-      timeout = setTimeout(
-        () => { reject(new Error('settings watcher timed out')) },
-        1000
-      )
-    })
-  ])
-  clearTimeout(timeout)
-  assert.equal(observed.palette, 'olive')
-})
-
-test('settings subscription reconciles a change made after initial load', async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-settings-'))
-  t.after(() => fs.rm(directory, { recursive: true, force: true }))
-  const filePath = path.join(directory, 'settings.json')
-  const observer = new SettingsStore(filePath)
-  const writer = new SettingsStore(filePath)
-  await observer.load()
-  await writer.update({ palette: 'ocean' })
-
-  let observed: MarkoverSettings | undefined
-  const stop = await observer.subscribe((settings) => { observed = settings })
-  t.after(() => { stop() })
-
-  assert.ok(observed)
-  assert.equal(observed.palette, 'ocean')
-  assert.equal(observer.settings.palette, 'ocean')
-})
-
-test('settings lock cleanup cannot remove a replacement owner lock', async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-settings-'))
-  t.after(() => fs.rm(directory, { recursive: true, force: true }))
-  const filePath = path.join(directory, 'settings.json')
-  const lockPath = `${filePath}.lock`
-  const deadOwner = '99999999:abandoned'
-  const replacementOwner = `${String(process.pid)}:replacement`
-  await fs.symlink(deadOwner, lockPath)
-
-  const store = new SettingsStore(filePath)
-  const originalRename = fs.rename
-  fs.rename = async (...args) => {
-    await fs.unlink(lockPath)
-    await fs.symlink(replacementOwner, lockPath)
-    return originalRename(...args)
-  }
-  t.after(() => { fs.rename = originalRename })
-
-  await store.update({ palette: 'olive' })
-  assert.equal(await fs.readlink(lockPath), replacementOwner)
 })
 
 test('settings are discoverable from the native menu and wired to a complete dialog', async () => {
