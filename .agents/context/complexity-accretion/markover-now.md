@@ -22,17 +22,11 @@ The accepted strategy is **delete, trace, then rebuild vertically**.
 
 ## Current gate
 
-PR #150 merged exact reviewed head `d56869c7` into `main` as squash commit
-`909f136a` on 2026-08-14 PDT. Current-head GitHub CI was green, Codex reported
-no issues, all five finding threads were resolved, the full local gate passed
-lint, typecheck, notices, 732 tests, and packaged smoke, and manual macOS QA
-passed annotation-only, source-proposal, and zero-finding cycles with nine
-screenshots. The approved terminal-retry fix added no persisted field or state.
-Markover review `mko_afff51b3` is Done. Issue #132 and its work-intent claim are
-completed and closed. Agent document reviews no longer block the enrichment
-simplification sequence.
-
-PR: https://github.com/lastobelus/markover/pull/150
+Issue #97 and its accepted delete-trace-rebuild sequence are complete. PR #164
+has passed operational acceptance in canonical Markover at merge `479c89a2`;
+the finite evidence is recorded with the repository-grouping vertical below.
+Codex issue #166 and Claude issue #167 remain separate future title-adapter
+experiments, not unfinished #97 work.
 
 ## T3 renamed-title experiment — complete
 
@@ -85,7 +79,7 @@ into memory on the events above, degrades to the existing fallback on absence
 or failure, and lets the next event or manual refresh recover. The experiment
 and focused QA found no exact failure that justifies an atomic persisted value.
 
-## Work that can run now
+## Completed sequence
 
 PR B is complete. Issue #156 closed when PR #157 merged reviewed head
 `60af76ea` into `main` as squash commit `47a1cc62` on 2026-08-15 PDT. The
@@ -94,7 +88,7 @@ and zero review or thread sidecars across canonical and extant development
 roots. The full local gate passed 700 tests and Electron smoke; GitHub CI passed,
 Codex completed current-head review with a thumbs-up, and Markover `done` found
 zero matching local reviews. The `UI Enhancements` tracker item and work-intent
-claim are complete. #97 remains open.
+claim are complete. That slice left #97 open for the later PRs below.
 
 PR A is complete. PR #158 merged reviewed head `e0f1eb97` into `main` as squash
 commit `b597764d` on 2026-08-15 PDT after deterministic checks and human macOS
@@ -243,16 +237,27 @@ the isolated `dev` instance marked review `mko_a2c82e03` Done. Issue #97 and
 its repository-grouping claim are completed, and the project tracker item is
 Done.
 
-Live GitHub recheck after merge confirmed PR #164 merged at `479c89a2` on
-2026-08-15 PDT, issue #97 auto-closed one second later, the repository-grouping
-claim records `phase: completed`, and the `UI Enhancements` project item is
-Done. A subsequent read-only `canonical doctor` was healthy but reported both
-the configured canonical checkout and running build still at #162's merge
-`ebdae88e`. The only remaining in-thread finish is therefore operational:
-fast-forward the clean canonical checkout to `479c89a2`, run the documented
-canonical refresh, and verify the real Projects corpus now groups equivalent
-Markover worktrees while retaining distinct repositories and ordinary
-fallbacks. This is not a product-code slice and must not absorb #166 or #167.
+Operational acceptance completed on 2026-08-15 PDT. Live GitHub and
+`origin/main` both reported PR #164's squash merge `479c89a2`; issue #97 was
+closed as Completed, its repository-grouping claim records `phase: completed`,
+and its `UI Enhancements` project item is Done. Initial `canonical doctor`
+reported a clean, healthy canonical checkout, build, service, and routing still
+at #162's merge `ebdae88e`. The canonical checkout was three commits behind,
+clean, and an ancestor of `origin/main`, so it fast-forwarded non-destructively
+to `479c89a2`. Documented `canonical refresh` rebuilt and restarted it; the
+final doctor reports a clean `main` checkout and current build at `479c89a2`, a
+ready service, healthy exact `markover:` ownership, and no issues.
+
+The production resolver and Projects projection reproduced the finite corpus
+evidence without UI interaction. Across all 85 canonical review directories,
+31 checksum-verified Markover reviews from 10 live roots form one
+`remote:github.com/lastobelus/markover` project; seven Dragonlist reviews and
+one game-course review retain distinct repository keys; and 46 stale, missing,
+or otherwise unverifiable sources take the ordinary unassigned fallback. The
+32 currently loadable reviews project as 24 Markover reviews from five roots
+under that same single key plus eight unassigned fallbacks. No repository-
+grouping defect reproduced, so operational acceptance changed no product code
+and did not touch #166 or #167.
 
 PR #164: https://github.com/lastobelus/markover/pull/164
 
@@ -263,8 +268,9 @@ checkout was fast-forwarded to remote `main` at PR #162's squash merge
 `ebdae88e`, then documented `canonical refresh` rebuilt, restarted, and
 reconciled routing. Follow-up doctor reported a clean checkout, current build,
 ready service, and healthy exact `markover:` ownership, all at `ebdae88e`.
-Canonical Markover now runs the merge containing #162. The initial stale app
-explains the screenshot that prompted the audit.
+That pass established title behavior before #164's later operational
+acceptance. The initial stale app explains the screenshot that prompted the
+audit.
 
 Canonical now persists `t3ThreadTitlesEnabled: true` with a blank
 `t3MetadataDatabasePath`. An explicit **Refresh titles now** reported two
@@ -288,12 +294,15 @@ The audit categories are now finite: the original screenshot was **stale app**;
 the initial preference was **disabled integration** and is now enabled;
 rendered reviews without an effective ID are **missing stable identity** and
 show unavailable; and rendered T3 identities without a row are
-**missing/deleted T3 row**—specifically missing here—and show the ID. Current
-`ebdae88e` behavior has no **product defect**, so the audit changed no product
-code. A defect claim requires an active nonblank row for the exact effective ID
-while refreshed Projects still fails to show that title. Do not broaden
-repository grouping into another title adapter, cache, or fallback system
-without that finite reproduction.
+**missing/deleted T3 row**—specifically missing here—and show the ID. The
+post-#164 check at `479c89a2` still returned the same two authoritative titles
+for all 11 matching reviews: 10 under
+`#136: Agent Metadata Conformance Matrix` and one under
+`#134: Classify thread-hosts and providers`. Current behavior has no **product
+defect**, so the audits changed no product code. A defect claim requires an
+active nonblank row for the exact effective ID while refreshed Projects still
+fails to show that title. Do not broaden repository grouping into another
+title adapter, cache, or fallback system without that finite reproduction.
 
 Issue #97 is closed after these personally valuable outcomes. Original
 **Slice D — additional adapters** remains outside its finish line. Two
