@@ -985,6 +985,7 @@ export interface RefreshCanonicalOptions {
   ) => Promise<LinkHandlerMutationResult>
   resolve?: () => Promise<ResolvedInstance>
   timeoutMilliseconds?: number
+  terminateProcess?: (pid: number) => void
   wait?: (milliseconds: number) => Promise<void>
 }
 
@@ -1062,6 +1063,14 @@ function processIsAlive(pid: number): boolean {
     return true
   } catch (error) {
     return errorCode(error) !== 'ESRCH'
+  }
+}
+
+function terminateProcess(pid: number): void {
+  try {
+    process.kill(pid, 'SIGTERM')
+  } catch (error) {
+    if (errorCode(error) !== 'ESRCH') throw error
   }
 }
 
@@ -1150,6 +1159,7 @@ export async function refreshCanonicalInstance({
   ),
   resolve = () => resolveInstance('canonical'),
   timeoutMilliseconds = 30_000,
+  terminateProcess: terminate = terminateProcess,
   wait = delay
 }: RefreshCanonicalOptions = {}): Promise<CanonicalRefreshResult> {
   const initial = await resolve()
@@ -1290,7 +1300,19 @@ export async function refreshCanonicalInstance({
       try {
         if (replacementActive) {
           if (replacementPid !== null && isProcessAlive(replacementPid)) {
-            await quit(initial.service.endpointPath)
+            try {
+              await quit(initial.service.endpointPath)
+            } catch (quitError) {
+              try {
+                terminate(replacementPid)
+              } catch (terminationError) {
+                throw new AggregateError(
+                  [quitError, terminationError],
+                  `Could not stop replacement process ${String(replacementPid)} before rollback.`,
+                  { cause: terminationError }
+                )
+              }
+            }
             const rollbackDeadline = now() + timeoutMilliseconds
             while (
               isProcessAlive(replacementPid) &&

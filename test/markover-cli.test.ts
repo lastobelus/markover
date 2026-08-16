@@ -670,6 +670,82 @@ test('failed post-replacement health restores the previous installed app', async
   ])
 })
 
+test('canonical rollback terminates the captured PID when service quit is unavailable', async () => {
+  const stopped = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical',
+    process: { status: 'stopped' },
+    coldStart: { eligible: true, blockedBy: null },
+    service: { endpointPath: '/state/service.json' },
+    branding: { appName: 'Markover' }
+  } as unknown as ResolvedInstance
+  const running = {
+    ...stopped,
+    process: { status: 'running' },
+    coldStart: { eligible: false, blockedBy: 'already-running' }
+  } as ResolvedInstance
+  const resolved = [stopped, running]
+  const events: string[] = []
+  let alive = true
+  await assert.rejects(refreshCanonicalInstance({
+    build: () => Promise.resolve(canonicalBundle()),
+    checkoutIsClean: () => true,
+    doctor: () => Promise.resolve({
+      status: 'unhealthy',
+      window: { status: 'electron-hidden' },
+      application: application(),
+      issues: ['simulated health failure']
+    } as unknown as CanonicalDoctorResult),
+    isProcessAlive(pid) {
+      events.push(`alive:${String(pid)}`)
+      return alive
+    },
+    launch: () => Promise.resolve(456),
+    now: (() => {
+      let clock = 0
+      return () => clock++
+    })(),
+    prepareInstallation: () => Promise.resolve({
+      backupPath: '/Applications/.Markover.previous',
+      destinationPath: '/Applications/Markover.app',
+      stagedPath: '/Applications/.Markover.staged',
+      commit: () => Promise.resolve(),
+      discard: () => Promise.resolve(),
+      replace: () => Promise.resolve(),
+      rollback() {
+        events.push('rollback')
+        return Promise.resolve()
+      }
+    }),
+    quit() {
+      events.push('quit')
+      return Promise.reject(new Error('service endpoint unavailable'))
+    },
+    replaceHandler: () => Promise.resolve({
+      status: 'healthy'
+    } as unknown as LinkHandlerMutationResult),
+    resolve() {
+      const instance = resolved.shift()
+      assert.ok(instance)
+      return Promise.resolve(instance)
+    },
+    terminateProcess(pid) {
+      events.push(`terminate:${String(pid)}`)
+      alive = false
+    },
+    timeoutMilliseconds: 2,
+    wait: () => Promise.resolve()
+  }), /simulated health failure/)
+  assert.deepEqual(events, [
+    'alive:456',
+    'quit',
+    'terminate:456',
+    'alive:456',
+    'alive:456',
+    'rollback'
+  ])
+})
+
 test('canonical refresh waits for the old process after its service stops', async () => {
   const running = {
     identity: { kind: 'canonical', key: 'canonical' },
