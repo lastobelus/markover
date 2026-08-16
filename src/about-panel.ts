@@ -34,7 +34,7 @@ export function aboutPanelPackageMetadata(
 }
 
 export function aboutPanelBuildVersion(build: BuildIdentity): string {
-  const commit = build.commit === null ? 'unknown' : build.commit.slice(0, 7)
+  const commit = build.commit === null ? 'unknown' : build.commit
   return `${commit}${build.dirty ? '-dirty' : ''}`
 }
 
