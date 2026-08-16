@@ -88,6 +88,19 @@ test('development watch replacements appear without activating Markover', () => 
   assert.doesNotMatch(createWindow, /if \(showWithoutActivating\).*window\.show\(\)/)
 })
 
+test('normal macOS activation restores an initially inactive window', () => {
+  const main = read('src/main.ts')
+
+  assert.match(
+    main,
+    /const restoreApplicationWindow = \(\): void => \{[\s\S]*if \(smokeMode\) return[\s\S]*focusMainWindow\(\)[\s\S]*app\.on\('activate', restoreApplicationWindow\)[\s\S]*app\.on\('did-become-active', restoreApplicationWindow\)/
+  )
+  assert.match(
+    main,
+    /applicationMenuTemplate\(\{[\s\S]*onBringAllToFront: focusMainWindow/
+  )
+})
+
 test('incoming reviews are listed before the activation policy runs', () => {
   const renderer = read('src/renderer.ts')
   const handler = renderer.match(

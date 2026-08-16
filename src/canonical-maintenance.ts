@@ -34,7 +34,7 @@ export interface CanonicalDoctorResult {
     pid: number | null
   }
   window: {
-    status: 'visible' | 'hidden' | 'unknown' | 'absent'
+    status: 'electron-visible' | 'electron-hidden' | 'unknown' | 'absent'
   }
   build: {
     status: 'current' | 'mismatch' | 'unavailable'
@@ -224,9 +224,9 @@ export async function inspectCanonicalHealth(
       status: !service
         ? 'absent'
         : service.windowVisible === true
-          ? 'visible'
+          ? 'electron-visible'
           : service.windowVisible === false
-            ? 'hidden'
+            ? 'electron-hidden'
             : 'unknown'
     },
     build: {

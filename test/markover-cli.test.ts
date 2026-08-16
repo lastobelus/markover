@@ -249,7 +249,7 @@ test('canonical maintenance commands bypass review-service execution', async () 
       instanceId: 'instance-id',
       pid: 123
     },
-    window: { status: 'visible' as const },
+    window: { status: 'electron-visible' as const },
     build: {
       status: 'current' as const,
       commit: 'abc123',
@@ -324,7 +324,7 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
       instanceId: 'instance-id',
       pid: 123
     },
-    window: { status: 'visible' as const },
+    window: { status: 'electron-visible' as const },
     build: {
       status: 'current' as const,
       commit: 'abc123',
@@ -336,7 +336,7 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     repairCommand: null
   }
   const doctors = [
-    { ...doctor, window: { status: 'hidden' as const } },
+    { ...doctor, window: { status: 'electron-hidden' as const } },
     doctor
   ]
   const result = await refreshCanonicalInstance({
@@ -453,7 +453,7 @@ test('canonical refresh waits for the old process after its service stops', asyn
     checkoutIsClean: () => true,
     doctor: () => Promise.resolve({
       status: 'healthy',
-      window: { status: 'visible' },
+      window: { status: 'electron-visible' },
       issues: []
     } as unknown as CanonicalDoctorResult),
     isProcessAlive(pid) {

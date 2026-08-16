@@ -573,6 +573,7 @@ function installApplicationMenu(): void {
     canTrashReview: activeManagedReviewId !== null,
     canZoomIn: zoomIndex < ZOOM_LEVELS.length - 1,
     canZoomOut: zoomIndex > 0,
+    onBringAllToFront: focusMainWindow,
     onCleanUpAttachments: () => {
       void cleanUpUnusedAttachments().catch(showReviewOperationError)
     },
@@ -2260,12 +2261,12 @@ if (!hasSingleInstanceLock) {
       }
     })
 
-    app.on('activate', () => {
+    const restoreApplicationWindow = (): void => {
       if (smokeMode) return
-      if (BrowserWindow.getAllWindows().length === 0) createWindow()
-      mainWindow?.show()
-      mainWindow?.focus()
-    })
+      focusMainWindow()
+    }
+    app.on('activate', restoreApplicationWindow)
+    app.on('did-become-active', restoreApplicationWindow)
   }).catch((error: unknown) => {
     void (async () => {
       const stack = errorProperty(error, 'stack')
