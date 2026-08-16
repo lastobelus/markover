@@ -7,6 +7,7 @@ import { discoverRepositoryRoot } from './metadata-discovery'
 import { reviewChecksum } from './review-format'
 
 const execFileAsync = promisify(execFile)
+const MAXIMUM_PROJECT_DISCOVERIES = 4
 
 interface LiveRepositoryProject {
   root: string
@@ -103,6 +104,23 @@ export function normalizeRepositoryRemote(value: string | null): string | null {
   return `${username ? `${username}@` : ''}${host}${
     port ? `:${port}` : ''
   }/${repositoryPath}`
+}
+
+export async function restoreReviewProjectContexts(
+  artifacts: ReviewArtifact[],
+  discover: (artifact: ReviewArtifact) => Promise<ProjectIdentity | null>
+): Promise<Array<ProjectIdentity | null>> {
+  const contexts: Array<ProjectIdentity | null> = []
+  for (
+    let index = 0;
+    index < artifacts.length;
+    index += MAXIMUM_PROJECT_DISCOVERIES
+  ) {
+    contexts.push(...await Promise.all(
+      artifacts.slice(index, index + MAXIMUM_PROJECT_DISCOVERIES).map(discover)
+    ))
+  }
+  return contexts
 }
 
 function repositoryName(key: string): string {

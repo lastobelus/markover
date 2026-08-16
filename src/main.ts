@@ -69,7 +69,10 @@ import { type PublicLink, type PublicLinkId } from './public-links'
 import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
-import { discoverVerifiedReviewProjectContext } from './review-project-context'
+import {
+  discoverVerifiedReviewProjectContext,
+  restoreReviewProjectContexts
+} from './review-project-context'
 import { nativeContextMenuPoint } from './review-context-menu'
 import { copyCanonicalReviewLink } from './review-link-copy'
 import {
@@ -1262,9 +1265,13 @@ async function openReviewPullRequest(reviewId: string): Promise<void> {
 async function managedDocuments(
   artifacts: ReviewArtifact[]
 ): Promise<MarkoverDocument[]> {
-  return Promise.all(artifacts.map(async (artifact) => {
-    return managedDocument(artifact, await projectContextForReview(artifact))
-  }))
+  const projects = await restoreReviewProjectContexts(
+    artifacts,
+    projectContextForReview
+  )
+  return artifacts.map((artifact, index) => (
+    managedDocument(artifact, projects[index] ?? null)
+  ))
 }
 
 function flushPendingManagedReviewNotifications(): void {
