@@ -63,10 +63,10 @@ question.
 An open-ended promise needs a finite completion test — evidence whose
 exhaustion ends the concern; a concern without one is narrowed. A concern
 the brake has already caught once in this slice is also narrowed when it
-comes back: one follow-up variant of a safeguard is ordinary work, but a
-third variant is a ladder, and ladders have no top rung. Only a completion
-test recorded before the extensions began exempts a concern — that one is a
-bounded list; finish the list.
+comes back without meeting the fix test: one follow-up variant of a safeguard
+is ordinary work, but a third variant is a ladder, and ladders have no top
+rung. Only a completion test recorded before the extensions began exempts a
+concern — that one is a bounded list; finish the list.
 
 A reviewer's severity or “actionable” label ranks a finding; the boundary
 decides it. A finding with a reasoned verb is finished. Seek another
