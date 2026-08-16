@@ -1,0 +1,4 @@
+interface:
+  display_name: "Start Issue"
+  short_description: "Coordinate GitHub work before implementation"
+  default_prompt: "Use $start-issue to select tracking, coordinate inflight work, and interview before implementing a GitHub issue, pull request, or roadmap idea."

@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en" data-repo-doc-path="doc/plans/2026-08-13__issue-97-enrichment-simplification-path-eli5.html">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Issue #97: finish the feature, shrink the machinery</title>
+  <style>
+    :root {
+      --ink: #17211b;
+      --muted: #5e6b62;
+      --paper: #f5f0e6;
+      --card: #fffdf7;
+      --line: #cfc7b8;
+      --green: #315f49;
+      --green-soft: #dfe9df;
+      --amber: #9a621f;
+      --amber-soft: #f4e4c8;
+      --red: #8d3c32;
+      --red-soft: #f2dcd7;
+      --blue: #345a70;
+      --blue-soft: #dbe8ef;
+      --shadow: 0 14px 40px rgba(45, 52, 43, .10);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,.45)),
+        repeating-linear-gradient(0deg, transparent 0 27px, rgba(49,95,73,.035) 28px),
+        var(--paper);
+      font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 110px; }
+    h1, h2, h3 { font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif; line-height: 1.08; }
+    h1 { max-width: 900px; margin: 0; font-size: clamp(2.4rem, 6vw, 5rem); letter-spacing: -.045em; }
+    h2 { margin: 64px 0 18px; font-size: clamp(1.7rem, 3vw, 2.5rem); }
+    h3 { margin: 0 0 10px; font-size: 1.28rem; }
+    p { max-width: 76ch; }
+    a { color: var(--blue); text-underline-offset: 3px; }
+    code { font: .92em ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    .eyebrow { color: var(--green); font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .lede { max-width: 760px; margin: 22px 0 26px; color: var(--muted); font-size: 1.25rem; }
+    .verdict {
+      max-width: 900px;
+      margin: 28px 0;
+      padding: 22px 24px;
+      border-left: 6px solid var(--green);
+      background: var(--green-soft);
+      font-size: 1.15rem;
+    }
+
+    .truth, .card, .decision, .diagram-wrap {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,253,247,.94);
+      box-shadow: var(--shadow);
+    }
+    .truth { max-width: 900px; margin: 30px 0; }
+    .truth summary { cursor: pointer; padding: 16px 20px; font-weight: 800; }
+    .truth > div { padding: 0 20px 18px; color: var(--muted); }
+
+    .story, .two-up { display: grid; gap: 18px; }
+    .story { grid-template-columns: repeat(3, 1fr); }
+    .two-up { grid-template-columns: repeat(2, 1fr); }
+    .card { padding: 22px; }
+    .step {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 15px;
+      border-radius: 50%;
+      color: white;
+      background: var(--green);
+      font-weight: 900;
+    }
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+    .keep { border-top: 5px solid var(--green); }
+    .remove { border-top: 5px solid var(--red); }
+    .tag {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-size: .82rem;
+      font-weight: 800;
+    }
+
+    .diagram-wrap { overflow-x: auto; padding: 18px; }
+    svg { display: block; min-width: 930px; width: 100%; height: auto; }
+    .node { fill: var(--card); stroke: var(--green); stroke-width: 2; }
+    .node.gate { fill: var(--amber-soft); stroke: var(--amber); }
+    .node.proof { fill: var(--blue-soft); stroke: var(--blue); }
+    .node.finish { fill: var(--green-soft); }
+    .arrow { fill: none; stroke: var(--muted); stroke-width: 2.2; marker-end: url(#arrow); }
+    .svg-title { font: 700 15px ui-sans-serif, system-ui, sans-serif; fill: var(--ink); }
+    .svg-sub { font: 13px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
+
+    table { width: 100%; border-collapse: collapse; background: var(--card); }
+    th, td { padding: 13px 14px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--green-soft); }
+    .table-scroll { overflow-x: auto; border-radius: 14px; box-shadow: var(--shadow); }
+
+    .finish-lines details { border-top: 1px solid var(--line); padding: 15px 0; }
+    .finish-lines details:first-child { border-top: 0; }
+    .finish-lines summary { cursor: pointer; font-weight: 800; }
+    .finish-lines p, .finish-lines ul { color: var(--muted); }
+
+    .decision { margin-top: 24px; padding: 22px; }
+    .choice-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+    button {
+      border: 1px solid var(--green);
+      border-radius: 9px;
+      padding: 9px 13px;
+      color: var(--green);
+      background: white;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button[aria-pressed="true"] { color: white; background: var(--green); }
+    button.reject[aria-pressed="true"] { background: var(--red); border-color: var(--red); }
+    textarea {
+      width: 100%;
+      min-height: 92px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--ink);
+      background: white;
+      font: inherit;
+    }
+    .copy-bar {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 5;
+      padding: 12px 16px;
+      color: white;
+      background: var(--ink);
+      border-color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+    .copy-bar.copied { background: var(--green); }
+
+    .tripwire { border-left: 6px solid var(--amber); background: var(--amber-soft); }
+    footer { margin-top: 70px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+
+    @media (max-width: 760px) {
+      main { width: min(100% - 22px, 1120px); padding-top: 34px; }
+      .story, .two-up { grid-template-columns: 1fr; }
+      .copy-bar { left: 11px; right: 11px; bottom: 11px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Markover · issue #97</div>
+  <h1>Finish the feature by deleting the empty database first.</h1>
+  <p class="lede">Private enrichment has 2,000+ lines of runtime and direct tests, but no production title source and no UI consumer. The practical path is to deliver navigation now, remove that speculative machinery, prove where T3’s renamed title really lives, and rebuild only the narrow path the product uses.</p>
+
+  <details class="truth">
+    <summary>Where This Is True · Proposed · 13 Aug 2026</summary>
+    <div>
+      <p>This proposal targets <code>origin/main</code> at <code>a46ab164</code>. PR #150 is still the shared UI gate. PR #147’s private-enrichment store is wired into lifecycle code but has no production producer or projection consumer. This document charts work; it does not authorize implementation or claim issue #97.</p>
+    </div>
+  </details>
+
+  <div class="verdict"><strong>Recommended:</strong> clear PR #150; run navigation, enrichment deletion, and a read-only T3 title trace in parallel; then build the T3 title and repository-grouping features as two small, evidence-backed vertical slices.</div>
+
+  <section aria-labelledby="story-title">
+    <h2 id="story-title">The tiny story</h2>
+    <div class="story">
+      <article class="card">
+        <div class="step">1</div>
+        <h3>Give daily use a win</h3>
+        <p>Remove redundant document tabs and make exact review IDs visible, copyable, keyboard-usable, and directly activatable.</p>
+      </article>
+      <article class="card">
+        <div class="step">2</div>
+        <h3>Erase the guesswork</h3>
+        <p>Remove the unused enrichment store and its shutdown, Trash, retry, arbitration, and queue machinery. Leave any sidecar bytes untouched.</p>
+      </article>
+      <article class="card">
+        <div class="step">3</div>
+        <h3>Build from one fact</h3>
+        <p>Prove T3’s renamed-title contract, then connect that one source to that one UI. Add repository grouping afterward through the same small transport.</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="graph-title">
+    <h2 id="graph-title">How the work joins up</h2>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 980 430" role="img" aria-label="PR 150 unlocks parallel navigation and enrichment deletion work; a T3 title experiment feeds the title vertical, followed by repository grouping.">
+        <title id="svg-title">Issue 97 delivery graph</title>
+        <desc id="svg-desc">PR 150 unlocks two parallel pull requests: navigation and enrichment deletion. A parallel T3 experiment also feeds the T3 title vertical. Repository grouping follows the title vertical.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#5e6b62"></path>
+          </marker>
+        </defs>
+        <rect class="node gate" x="30" y="165" rx="14" width="155" height="82"></rect>
+        <text class="svg-title" x="108" y="198" text-anchor="middle">Clear PR #150</text>
+        <text class="svg-sub" x="108" y="221" text-anchor="middle">shared UI baseline</text>
+
+        <rect class="node" x="260" y="65" rx="14" width="200" height="92"></rect>
+        <text class="svg-title" x="360" y="100" text-anchor="middle">PR A · Navigation</text>
+        <text class="svg-sub" x="360" y="124" text-anchor="middle">tabs out; exact IDs in</text>
+
+        <rect class="node" x="260" y="260" rx="14" width="200" height="92"></rect>
+        <text class="svg-title" x="360" y="295" text-anchor="middle">PR B · Simplify</text>
+        <text class="svg-sub" x="360" y="319" text-anchor="middle">unused enrichment out</text>
+
+        <rect class="node proof" x="260" y="380" rx="14" width="200" height="40"></rect>
+        <text class="svg-title" x="360" y="405" text-anchor="middle">Read-only T3 trace</text>
+
+        <rect class="node finish" x="560" y="165" rx="14" width="200" height="92"></rect>
+        <text class="svg-title" x="660" y="199" text-anchor="middle">PR C · T3 title</text>
+        <text class="svg-sub" x="660" y="223" text-anchor="middle">one source → one UI</text>
+
+        <rect class="node finish" x="820" y="165" rx="14" width="140" height="92"></rect>
+        <text class="svg-title" x="890" y="199" text-anchor="middle">PR D · Group</text>
+        <text class="svg-sub" x="890" y="223" text-anchor="middle">real repositories</text>
+
+        <path class="arrow" d="M185 195 C215 195 225 111 260 111"></path>
+        <path class="arrow" d="M185 220 C215 220 225 306 260 306"></path>
+        <path class="arrow" d="M460 111 C505 111 510 190 560 200"></path>
+        <path class="arrow" d="M460 306 C505 306 510 232 560 220"></path>
+        <path class="arrow" d="M460 399 C535 399 520 250 580 235"></path>
+        <path class="arrow" d="M760 211 L820 211"></path>
+      </svg>
+    </div>
+  </section>
+
+  <section aria-labelledby="lanes-title">
+    <h2 id="lanes-title">Three or four threads, without four versions of the same file</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Lane</th><th>Job now</th><th>Done when</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag">1 · Gate</span></td><td>Fix the remaining #150 guidance defect, finish its QA, and babysit it through merge.</td><td>The exact reviewed head is merged.</td></tr>
+          <tr><td><span class="tag">2 · Evidence</span></td><td>Trace one completed T3 rename: title row, stable identity, failure shape, and sufficient refresh events. No product edits.</td><td>A compact source contract exists.</td></tr>
+          <tr><td><span class="tag">3 · Simplify</span></td><td>Inventory sidecars read-only, prove zero production callers, and prepare the delete/preserve boundary.</td><td>PR B can start cleanly after #150.</td></tr>
+          <tr><td><span class="tag">4 · Optional</span></td><td>Human QA for #150 or one navigation UX decision. Otherwise keep the slot free.</td><td>One real question is answered—not a new branch invented.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The Opus <code>start-issue</code> rewrite can remain a separate tooling session. After #150 merges, PR A and PR B may run in parallel because they own different product concerns.</p>
+  </section>
+
+  <section aria-labelledby="boundary-title">
+    <h2 id="boundary-title">What survives the cleanup</h2>
+    <div class="two-up">
+      <article class="card keep">
+        <h3>Keep the real safety boundaries</h3>
+        <ul>
+          <li>Portable/private data separation.</li>
+          <li>Agent-visible private-field rejection.</li>
+          <li>Primary review serialization and atomic writes.</li>
+          <li>Path containment and restrictive permissions.</li>
+          <li>Existing sidecar bytes, untouched.</li>
+        </ul>
+      </article>
+      <article class="card remove">
+        <h3>Remove machinery without a job</h3>
+        <ul>
+          <li>Generic enrichment store and strict disk protocols.</li>
+          <li>Pause owners, drains, quit flush, and Trash coupling.</li>
+          <li>Pending failures, retries, and equal-time arbitration.</li>
+          <li>Whole-store fail-closed cleanup.</li>
+          <li>Tests that exist only for those speculative states.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="finish-title">
+    <h2 id="finish-title">Finite finish lines</h2>
+    <div class="card finish-lines">
+      <details open>
+        <summary>PR A · Navigation and exact IDs</summary>
+        <p>No tab or close-tab model remains; one active review restores; view state, deep links, and previous/next work; the full ID can be copied and activated without a mouse.</p>
+      </details>
+      <details>
+        <summary>PR B · Remove unused enrichment</summary>
+        <p>No production enrichment lifecycle remains; primary review paths pass; sidecars are untouched; quit no longer waits on secondary metadata; no migration or replacement cache appears.</p>
+      </details>
+      <details>
+        <summary>PR C · T3 title vertical</summary>
+        <p>One renamed T3 title reaches the right UI through the proven identity and refresh events; failures fall back without blocking; private evidence never crosses the portable or agent boundary.</p>
+      </details>
+      <details>
+        <summary>PR D · Repository grouping</summary>
+        <p>Multiple worktrees and an equivalent clone group together, a fork stays separate, and a missing path degrades harmlessly. If current grouping is already good enough, defer this PR.</p>
+      </details>
+      <details>
+        <summary>Issue #97 · Stop here</summary>
+        <p>Close once navigation, exact IDs, the authoritative T3 title, honest identity labels, and actually-needed repository grouping work. Other agent adapters are follow-ups, not proof that #97 is incomplete.</p>
+      </details>
+    </div>
+  </section>
+
+  <section aria-labelledby="trip-title">
+    <h2 id="trip-title">The escape hatch</h2>
+    <article class="card tripwire">
+      <h3>Stop before adding another state machine</h3>
+      <p>If secondary metadata asks for a queue broader than one real key, retry state, migration, watcher, poller, ownership state, shutdown drain, provenance history, exact conflict protocol, or generic registry, pause. Name the reachable scenario, material consequence, ordinary recovery, and smallest alternative. “Fall back and rediscover” is the default for reconstructible metadata.</p>
+    </article>
+  </section>
+
+  <section aria-labelledby="trade-title">
+    <h2 id="trade-title">The honest tradeoff</h2>
+    <div class="two-up">
+      <article class="card keep">
+        <h3>Delete first <span class="tag">recommended</span></h3>
+        <p>The first title arrives one PR later. In return, the title feature does not inherit infrastructure written before anyone knew what its source or consumer required.</p>
+      </article>
+      <article class="card">
+        <h3>Reuse, then simplify</h3>
+        <p>A title can appear sooner, but each new consumer makes the speculative protocol harder to remove. Choose this only if first-title speed matters more than reducing complexity now.</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="decision-title">
+    <h2 id="decision-title">One decision before implementation</h2>
+    <div class="decision" data-decision="Delete the unused enrichment runtime before building the T3 title vertical">
+      <h3>Delete the unused enrichment runtime before building the T3 title vertical.</h3>
+      <p>This is the central sequencing choice. Everything else can be refined within the bounded PRs.</p>
+      <div class="choice-row" role="group" aria-label="Decision response">
+        <button type="button" data-choice="Approve" aria-pressed="false">Approve</button>
+        <button type="button" class="reject" data-choice="Reject" aria-pressed="false">Reject</button>
+      </div>
+      <label for="change-1"><strong>What I’d change</strong></label>
+      <textarea id="change-1" data-change aria-label="What I would change about the proposed sequence" placeholder="Optional: change the order, scope, or finish line…"></textarea>
+    </div>
+  </section>
+
+  <section aria-labelledby="refs-title">
+    <h2 id="refs-title">Read the source material</h2>
+    <ul>
+      <li><a href="#" data-repo-path="doc/plans/2026-08-13__issue-97-enrichment-simplification-path.md">Full execution plan</a></li>
+      <li><a href="#" data-repo-path="doc/explanations/2026-08-13__complexity-accretion-audit/03-local-app-hotspots.html#enrichment">Complexity audit: private enrichment</a></li>
+      <li><a href="#" data-repo-path="doc/plans/2026-08-12__app-private-review-enrichment-storage.md">Original enrichment storage plan</a></li>
+      <li><a href="https://github.com/lastobelus/markover/issues/97">GitHub issue #97</a></li>
+      <li><a href="https://github.com/lastobelus/markover/pull/150">Current gate: PR #150</a></li>
+    </ul>
+  </section>
+
+  <footer>
+    <p><strong>Prompt/context disclosure:</strong> prepared from the issue #97 remaining-work sequence, the complexity-accretion audit, current source/PR state, and four focused read-only agent investigations. Proposed planning artifact; no issue claim or implementation is implied.</p>
+  </footer>
+</main>
+
+<button type="button" class="copy-bar" id="copy-answers">Copy Answers</button>
+
+<script>
+  (() => {
+    const docPath = document.documentElement.dataset.repoDocPath || '';
+    const marker = '/doc/';
+    const markerAt = docPath.indexOf(marker);
+    const repoPrefix = markerAt >= 0 ? docPath.slice(0, markerAt + 1) : '';
+
+    document.querySelectorAll('[data-repo-path]').forEach((link) => {
+      const target = link.dataset.repoPath;
+      const hashAt = target.indexOf('#');
+      const pathOnly = hashAt >= 0 ? target.slice(0, hashAt) : target;
+      const fragment = hashAt >= 0 ? target.slice(hashAt) : '';
+      const from = docPath.split('/').slice(0, -1);
+      const to = (repoPrefix + pathOnly).split('/');
+      while (from.length && to.length && from[0] === to[0]) { from.shift(); to.shift(); }
+      link.href = '../'.repeat(from.length) + to.join('/') + fragment;
+    });
+
+    document.querySelectorAll('[data-decision]').forEach((decision) => {
+      decision.querySelectorAll('[data-choice]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const nowPressed = button.getAttribute('aria-pressed') !== 'true';
+          decision.querySelectorAll('[data-choice]').forEach((peer) => peer.setAttribute('aria-pressed', 'false'));
+          button.setAttribute('aria-pressed', String(nowPressed));
+        });
+      });
+    });
+
+    const copy = document.getElementById('copy-answers');
+    copy.addEventListener('click', async () => {
+      const answers = [...document.querySelectorAll('[data-decision]')].map((decision, index) => {
+        const selected = decision.querySelector('[data-choice][aria-pressed="true"]');
+        const change = decision.querySelector('[data-change]').value.trim();
+        return [
+          `${index + 1}. ${decision.dataset.decision}`,
+          `Decision: ${selected ? selected.dataset.choice : 'No selection'}`,
+          `What I'd change: ${change || '—'}`
+        ].join('\n');
+      }).join('\n\n');
+      try {
+        await navigator.clipboard.writeText(answers);
+        copy.textContent = 'Copied';
+        copy.classList.add('copied');
+        setTimeout(() => { copy.textContent = 'Copy Answers'; copy.classList.remove('copied'); }, 1600);
+      } catch (_) {
+        window.prompt('Copy these answers:', answers);
+      }
+    });
+  })();
+</script>
+</body>
+</html>
