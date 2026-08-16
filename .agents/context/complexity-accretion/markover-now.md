@@ -22,11 +22,14 @@ The accepted strategy is **delete, trace, then rebuild vertically**.
 
 ## Current gate
 
-Issue #97 and its accepted delete-trace-rebuild sequence are complete. PR #164
-has passed operational acceptance in canonical Markover at merge `479c89a2`;
-the finite evidence is recorded with the repository-grouping vertical below.
-Codex issue #166 and Claude issue #167 remain separate future title-adapter
-experiments, not unfinished #97 work.
+Issue #97 and its accepted delete-trace-rebuild sequence are complete. PR #164's
+repository-grouping behavior passed operational acceptance in canonical
+Markover at merge `479c89a2`; the finite corpus evidence is recorded with that
+vertical below. The acceptance run also reproduced a separate canonical
+maintenance defect: documented `canonical refresh` relaunches a healthy service
+with no visible window. Draft PR #168 owns that bounded follow-up. Codex issue
+#166 and Claude issue #167 remain separate future title-adapter experiments,
+not unfinished #97 work.
 
 ## T3 renamed-title experiment — complete
 
@@ -237,7 +240,7 @@ the isolated `dev` instance marked review `mko_a2c82e03` Done. Issue #97 and
 its repository-grouping claim are completed, and the project tracker item is
 Done.
 
-Operational acceptance completed on 2026-08-15 PDT. Live GitHub and
+Repository-grouping operational acceptance completed on 2026-08-15 PDT. Live GitHub and
 `origin/main` both reported PR #164's squash merge `479c89a2`; issue #97 was
 closed as Completed, its repository-grouping claim records `phase: completed`,
 and its `UI Enhancements` project item is Done. Initial `canonical doctor`
@@ -247,6 +250,31 @@ clean, and an ancestor of `origin/main`, so it fast-forwarded non-destructively
 to `479c89a2`. Documented `canonical refresh` rebuilt and restarted it; the
 final doctor reports a clean `main` checkout and current build at `479c89a2`, a
 ready service, healthy exact `markover:` ownership, and no issues.
+
+That final doctor result was incomplete as an operational signal. The user then
+reported that canonical Markover had no window, and process inspection preserved
+the exact reproduction: the `479c89a2` canonical process was launched by
+`canonical refresh` with `--markover-server`, its Electron window was hidden,
+and doctor still reported healthy because it checked only checkout, build,
+service, and routing. PR #145 introduced this behavior by reusing the intentional
+hidden automatic-cold-start mode for explicit refresh; its live validation then
+opened a review URI, which incidentally revealed the window and masked the
+post-refresh state.
+
+Draft PR #168 at head `4ac81ff1` distinguishes explicit refresh from automatic
+cold start, shows the replacement window without activating Markover, reports
+live window visibility through service health and doctor, and refuses refresh
+success until that window is visible. Automatic CLI cold starts remain hidden.
+The full local gate passed lint, typecheck, notices, 712 tests, and Electron
+smoke. A headless macOS A/B run reported `windowVisible: false` for automatic
+`--markover-server` and `windowVisible: true` for the explicit refresh launch;
+both left the user's frontmost app unchanged. T3 Code was full-screen during
+that probe, so the normal non-activating Markover window correctly remained off
+the active full-screen Space rather than overlaying it. The existing canonical
+checkout remains at `479c89a2`; do not call its maintenance acceptance complete
+until #168 lands, canonical refresh runs from the merged fix, and follow-up
+doctor reports window status `visible` with the existing checkout, build,
+service, and exact-routing checks healthy.
 
 The production resolver and Projects projection reproduced the finite corpus
 evidence without UI interaction. Across all 85 canonical review directories,
@@ -298,11 +326,12 @@ show unavailable; and rendered T3 identities without a row are
 post-#164 check at `479c89a2` still returned the same two authoritative titles
 for all 11 matching reviews: 10 under
 `#136: Agent Metadata Conformance Matrix` and one under
-`#134: Classify thread-hosts and providers`. Current behavior has no **product
-defect**, so the audits changed no product code. A defect claim requires an
-active nonblank row for the exact effective ID while refreshed Projects still
-fails to show that title. Do not broaden repository grouping into another
-title adapter, cache, or fallback system without that finite reproduction.
+`#134: Classify thread-hosts and providers`. Current title behavior has no
+**title product defect**, so the title audits changed no product code. A title
+defect claim requires an active nonblank row for the exact effective ID while
+refreshed Projects still fails to show that title. Do not broaden repository
+grouping into another title adapter, cache, or fallback system without that
+finite reproduction.
 
 Issue #97 is closed after these personally valuable outcomes. Original
 **Slice D — additional adapters** remains outside its finish line. Two
