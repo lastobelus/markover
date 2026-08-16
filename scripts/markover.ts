@@ -970,7 +970,10 @@ export interface RefreshCanonicalOptions {
   doctor?: (instance: ResolvedInstance) => Promise<CanonicalDoctorResult>
   install?: boolean
   isProcessAlive?: (pid: number) => boolean
-  launch?: (instance: ResolvedInstance, executablePath: string) => void
+  launch?: (
+    instance: ResolvedInstance,
+    executablePath: string
+  ) => Promise<void>
   now?: () => number
   prepareInstallation?: (
     bundle: AddressedDevelopmentBundle
@@ -1029,17 +1032,18 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
-function launchCanonicalApplication(
+export function launchCanonicalApplication(
   instance: ResolvedInstance,
-  executablePath: string
-): void {
+  executablePath: string,
+  spawnProcess: typeof spawn = spawn
+): Promise<void> {
   if (!instance.checkout) throw new Error('Canonical checkout is unavailable.')
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
     [RESOLVED_INSTANCE_ENVIRONMENT]: resolvedInstanceEnvironment(instance)
   }
   delete environment.ELECTRON_RUN_AS_NODE
-  const child = spawn(
+  const child = spawnProcess(
     executablePath,
     [
       '--markover-server',
@@ -1052,7 +1056,23 @@ function launchCanonicalApplication(
       stdio: 'ignore'
     }
   )
-  child.unref()
+  return new Promise<void>((resolve, reject) => {
+    let launched = false
+    child.once('error', (error) => {
+      if (!launched) {
+        reject(error)
+        return
+      }
+      process.stderr.write(
+        `markover canonical process error: ${errorMessage(error)}\n`
+      )
+    })
+    child.once('spawn', () => {
+      launched = true
+      child.unref()
+      resolve()
+    })
+  })
 }
 
 function sameCanonicalCheckout(
@@ -1172,7 +1192,7 @@ export async function refreshCanonicalInstance({
       await installation.replace()
       replacementActive = true
     }
-    launch(stopped, executablePath)
+    await launch(stopped, executablePath)
     let running = stopped
     while (running.process.status !== 'running' && now() < deadline) {
       await wait(100)

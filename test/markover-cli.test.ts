@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync, type spawn } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import fs from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
@@ -10,6 +11,7 @@ import {
   ensureService,
   executeCommand,
   helpPayload,
+  launchCanonicalApplication,
   parseCommandArguments,
   readSessionDiscoverySetting,
   refreshCanonicalInstance,
@@ -416,6 +418,7 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     },
     launch(_instance, executablePath) {
       events.push(`launch:${executablePath}`)
+      return Promise.resolve()
     },
     quit(endpointPath) {
       events.push(`quit:${endpointPath}`)
@@ -525,6 +528,29 @@ test('canonical refresh rejects dirty state before build or downtime', async () 
   assert.deepEqual(events, ['clean'])
 })
 
+test('canonical application launch surfaces an asynchronous spawn failure', async () => {
+  const child = Object.assign(new EventEmitter(), {
+    unref() {
+      throw new Error('a failed child must not be unreferenced')
+    }
+  }) as unknown as ReturnType<typeof spawn>
+  const instance = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical'
+  } as unknown as ResolvedInstance
+  await assert.rejects(
+    launchCanonicalApplication(
+      instance,
+      '/Applications/Markover.app/Contents/MacOS/Markover',
+      (() => {
+        setImmediate(() => child.emit('error', new Error('spawn EACCES')))
+        return child
+      }) as typeof spawn
+    ),
+    /spawn EACCES/
+  )
+})
+
 test('canonical refresh leaves the running and installed apps untouched when build fails', async () => {
   const events: string[] = []
   await assert.rejects(
@@ -593,6 +619,7 @@ test('failed post-replacement health restores the previous installed app', async
       },
       launch() {
         events.push('launch')
+        return Promise.resolve()
       },
       now: () => clock++,
       prepareInstallation: () => Promise.resolve({
@@ -659,6 +686,7 @@ test('canonical refresh waits for the old process after its service stops', asyn
     },
     launch(_instance, executablePath) {
       events.push(`launch:${executablePath}`)
+      return Promise.resolve()
     },
     quit: () => Promise.resolve(),
     readProcessPid: () => Promise.resolve(123),

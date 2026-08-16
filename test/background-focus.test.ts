@@ -361,7 +361,7 @@ test('automatic startup uses one-shot hidden background LaunchServices flags', (
   assert.match(cli, /\['start', '--', '--instance', selector, '--markover-server'\]/)
   assert.match(
     cli,
-    /launchCanonicalApplication[\s\S]*RESOLVED_INSTANCE_ENVIRONMENT[\s\S]*spawn\([\s\S]*executablePath,[\s\S]*'--markover-server',[\s\S]*'--markover-refresh-window'/
+    /launchCanonicalApplication[\s\S]*RESOLVED_INSTANCE_ENVIRONMENT[\s\S]*spawnProcess\([\s\S]*executablePath,[\s\S]*'--markover-server',[\s\S]*'--markover-refresh-window'/
   )
   assert.match(cli, /\{ encoding: 'utf8', env: environment \}/)
   assert.doesNotMatch(cli, /launchctl[\s\S]*submit/)
