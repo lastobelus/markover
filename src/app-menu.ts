@@ -10,6 +10,7 @@ interface ApplicationMenuOptions {
   canZoomIn?: boolean
   canZoomOut?: boolean
   isMac?: boolean
+  onBringAllToFront?: () => void
   onCleanUpAttachments?: () => void
   onOpen?: () => void
   onOpenPublicLink?: (id: PublicLinkId) => void
@@ -28,6 +29,7 @@ export function applicationMenuTemplate({
   canZoomIn = true,
   canZoomOut = true,
   isMac = process.platform === 'darwin',
+  onBringAllToFront,
   onCleanUpAttachments,
   onOpen,
   onOpenPublicLink,
@@ -139,7 +141,12 @@ export function applicationMenuTemplate({
     { role: 'zoom' }
   ]
   if (isMac) {
-    windowSubmenu.push({ type: 'separator' }, { role: 'front' })
+    windowSubmenu.push(
+      { type: 'separator' },
+      onBringAllToFront
+        ? { label: 'Bring All to Front', click: onBringAllToFront }
+        : { role: 'front' }
+    )
   }
   template.push({
     label: 'Window',

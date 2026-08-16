@@ -112,6 +112,25 @@ test('View menu exposes bounded persistent zoom commands', () => {
   assert.equal(typeof zoomOut.click, 'function')
 })
 
+test('macOS Bring All to Front delegates to main-window restoration', () => {
+  let restored = 0
+  const template = applicationMenuTemplate({
+    isMac: true,
+    onBringAllToFront: () => { restored += 1 }
+  })
+  const windowMenu = template.find((item) => item.label === 'Window')
+  assert.ok(windowMenu)
+  const bringAllToFront = submenu(windowMenu).find(
+    (item) => item.label === 'Bring All to Front'
+  )
+  assert.ok(bringAllToFront)
+  assert.equal(bringAllToFront.role, undefined)
+  const click = bringAllToFront.click as (() => void) | undefined
+  assert.ok(click)
+  click()
+  assert.equal(restored, 1)
+})
+
 test('main process applies persisted zoom before and after renderer load', () => {
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
   assert.match(

@@ -131,7 +131,7 @@ test('doctor requires a clean matching build and exact healthy URI owner', async
   })
   assert.equal(healthy.status, 'healthy')
   assert.equal(healthy.build.status, 'current')
-  assert.equal(healthy.window.status, 'visible')
+  assert.equal(healthy.window.status, 'electron-visible')
   assert.equal(healthy.repairCommand, null)
 
   const displaced = await inspectCanonicalHealth(instance, {
@@ -145,7 +145,7 @@ test('doctor requires a clean matching build and exact healthy URI owner', async
     })
   })
   assert.equal(displaced.status, 'unhealthy')
-  assert.equal(displaced.window.status, 'hidden')
+  assert.equal(displaced.window.status, 'electron-hidden')
   assert.match(displaced.issues.join(' '), /worktree\/dist\/Markover\.app/)
   assert.match(displaced.repairCommand || '', /canonical refresh/)
 })

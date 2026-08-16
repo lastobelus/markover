@@ -94,9 +94,11 @@ When rebuilding canonical Markover or repairing any canonical failure, run
 `canonical doctor` and `canonical refresh` through that CLI from the current
 checkout. The configured canonical descriptor selects the owning checkout;
 the agent's cwd does not. Refresh completion requires a healthy doctor result
-whose window status is `visible`; repair completion also requires the reported
-exact `markover:` URI selecting its review. Window visibility alone or manual
-review selection is not completion.
+whose window status is `electron-visible`; that status means Electron ordered
+the window visible, not that macOS placed it onscreen. Repair completion also
+requires the reported exact `markover:` URI selecting its review. Changes to
+canonical startup or activation require the native recovery QA in
+`docs/developer/development.md`.
 
 Before changing a portable review reader, writer, validator, persisted field,
 or agent consumer, read
