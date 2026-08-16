@@ -462,6 +462,10 @@ test('restart waits for the addressed process before launching the same target',
       isProcessAlive() {
         return running
       },
+      prepare(instance) {
+        events.push(`prepare:${instance.identity.key}`)
+        return Promise.resolve()
+      },
       quit(endpointPath) {
         events.push(`quit:${endpointPath}`)
         running = false
@@ -495,6 +499,7 @@ test('restart waits for the addressed process before launching the same target',
   await manager.restart()
 
   assert.deepEqual(events, [
+    'prepare:canonical',
     'quit:/state/markover/service.json',
     'launch:canonical:--example',
     'ready:/state/markover/service.json'

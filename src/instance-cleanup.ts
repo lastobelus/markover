@@ -4,7 +4,10 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import type { ResolvedInstance } from './instance'
+import {
+  developmentGeneratedRoot,
+  type ResolvedInstance
+} from './instance'
 
 export type SchemeHandlerLookup = (scheme: string) => Promise<string[]>
 export type SchemeHandlerCommandRunner = (
@@ -42,6 +45,7 @@ export class InstanceCleanupError extends Error {
     | 'HANDLER_STILL_INSTALLED'
     | 'INSTANCE_RUNNING'
     | 'INSTANCE_STATE_MISSING'
+    | 'OUT_OF_SCOPE_GENERATED_ROOT'
     | 'OUT_OF_SCOPE_STATE_ROOT'
     | 'PLATFORM_UNSUPPORTED'
     | 'TARGET_IDENTITY_MISMATCH'
@@ -243,6 +247,33 @@ export async function cleanupDevelopmentInstance(
     )
   }
 
+  const expectedGeneratedRoot = path.join(
+    developmentGeneratedRoot(checkoutRoot),
+    instance.identity.key
+  )
+  let actualGeneratedRoot: string | null = null
+  try {
+    const generatedStats = await fs.lstat(expectedGeneratedRoot)
+    if (!generatedStats.isDirectory() || generatedStats.isSymbolicLink()) {
+      throw new InstanceCleanupError(
+        'OUT_OF_SCOPE_GENERATED_ROOT',
+        'Development-generated artifacts must be a real directory.'
+      )
+    }
+    actualGeneratedRoot = await fs.realpath(expectedGeneratedRoot)
+    if (actualGeneratedRoot !== expectedGeneratedRoot) {
+      throw new InstanceCleanupError(
+        'OUT_OF_SCOPE_GENERATED_ROOT',
+        `Refusing generated artifacts outside ${expectedGeneratedRoot}.`
+      )
+    }
+  } catch (error) {
+    const code: unknown = error !== null && typeof error === 'object'
+      ? Reflect.get(error, 'code')
+      : null
+    if (code !== 'ENOENT') throw error
+  }
+
   const handlers = await handlersForScheme(instance.scheme)
   if (handlers.length) {
     throw new InstanceCleanupError(
@@ -258,6 +289,25 @@ export async function cleanupDevelopmentInstance(
     now,
     randomSuffix
   )
+  if (actualGeneratedRoot !== null) {
+    const stagedGeneratedRoot = path.join(
+      actualStateRoot,
+      '.generated-artifacts'
+    )
+    try {
+      await fs.lstat(stagedGeneratedRoot)
+      throw new InstanceCleanupError(
+        'OUT_OF_SCOPE_GENERATED_ROOT',
+        `Cleanup staging already exists at ${stagedGeneratedRoot}.`
+      )
+    } catch (error) {
+      const code: unknown = error !== null && typeof error === 'object'
+        ? Reflect.get(error, 'code')
+        : null
+      if (code !== 'ENOENT') throw error
+    }
+    await fs.rename(actualGeneratedRoot, stagedGeneratedRoot)
+  }
   await moveToTrash(actualStateRoot, recoveryPath)
   return {
     status: 'trashed',

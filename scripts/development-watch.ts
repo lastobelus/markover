@@ -15,6 +15,7 @@ import type { ResolvedInstance } from '../src/instance'
 import {
   launchResolvedInstance,
   parseStartArguments,
+  prepareResolvedInstance,
   resolveStartInstance,
   type ParsedStartArguments
 } from './start'
@@ -198,6 +199,7 @@ export interface DevelopmentInstanceManagerOptions {
   ) => DevelopmentProcess) | undefined
   now?: (() => number) | undefined
   pollMilliseconds?: number | undefined
+  prepare?: ((instance: ResolvedInstance) => Promise<void>) | undefined
   probe?: ((endpointPath: string) => Promise<unknown>) | undefined
   quit?: ((endpointPath: string) => Promise<void>) | undefined
   readProcessEndpoint?: ((endpointPath: string) => Promise<{ pid: number }>) | undefined
@@ -286,6 +288,7 @@ export class DevelopmentInstanceManager {
   ) => DevelopmentProcess
   private readonly now: () => number
   private readonly pollMilliseconds: number
+  private readonly prepare: (instance: ResolvedInstance) => Promise<void>
   private readonly probe: (endpointPath: string) => Promise<unknown>
   private readonly quit: (endpointPath: string) => Promise<void>
   private readonly readProcessEndpoint: (
@@ -316,6 +319,7 @@ export class DevelopmentInstanceManager {
       ),
       now = Date.now,
       pollMilliseconds = DEFAULT_POLL_MILLISECONDS,
+      prepare = prepareResolvedInstance,
       probe = probeService,
       quit = requestServiceQuit,
       readProcessEndpoint = readEndpoint,
@@ -330,6 +334,7 @@ export class DevelopmentInstanceManager {
     this.launch = launch
     this.now = now
     this.pollMilliseconds = pollMilliseconds
+    this.prepare = prepare
     this.probe = probe
     this.quit = quit
     this.readProcessEndpoint = readProcessEndpoint
@@ -348,6 +353,7 @@ export class DevelopmentInstanceManager {
   async restart(): Promise<void> {
     const current = await this.resolveExactInstance()
     this.assertRestartEligible(current)
+    await this.prepare(current)
     const activePid = this.liveActiveProcessPid()
     let stopped = current
     if (activePid !== null) {

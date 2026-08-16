@@ -118,6 +118,18 @@ export function addressedDevelopmentBundle(
   }
 }
 
+export function addressedDevelopmentExecutable(
+  instance: ResolvedInstance
+): string {
+  const address = addressedDevelopmentBundle(instance)
+  return path.join(
+    address.appPath,
+    'Contents',
+    'MacOS',
+    address.appName
+  )
+}
+
 function resolvedIconPath(instance: ResolvedInstance, checkout: string): string {
   return path.isAbsolute(instance.branding.iconIcnsPath)
     ? instance.branding.iconIcnsPath
