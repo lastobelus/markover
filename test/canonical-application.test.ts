@@ -117,3 +117,31 @@ test('failed staging leaves the installed application untouched', async (t) => {
     'old'
   )
 })
+
+test('backup cleanup failure cannot roll back the verified replacement', async (t) => {
+  const { address, destinationPath } = await fixture(t)
+  await fs.mkdir(path.join(destinationPath, 'Contents'), { recursive: true })
+  await fs.writeFile(path.join(destinationPath, 'Contents', 'build.txt'), 'old')
+  const backupPath = path.join(
+    path.dirname(destinationPath),
+    `.Markover.app.previous-${String(process.pid)}-cleanup`
+  )
+  const transaction = await stageCanonicalApplication(address, {
+    destinationPath,
+    randomSuffix: () => 'cleanup',
+    remove(filePath, options) {
+      if (filePath === backupPath) {
+        return Promise.reject(new Error('simulated cleanup failure'))
+      }
+      return fs.rm(filePath, options)
+    },
+    verify: acceptCopy
+  })
+  await transaction.replace()
+  await assert.rejects(transaction.commit(), /previous application cleanup failed/)
+  await transaction.rollback()
+  assert.equal(
+    await fs.readFile(path.join(destinationPath, 'Contents', 'build.txt'), 'utf8'),
+    'new'
+  )
+})

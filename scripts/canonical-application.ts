@@ -151,10 +151,17 @@ export async function stageCanonicalApplication(
       if (!replaced || closed) {
         throw new Error('Canonical application replacement is not active.')
       }
-      if (hadDestination) {
-        await remove(backupPath, { recursive: true, force: true })
-      }
       closed = true
+      if (hadDestination) {
+        try {
+          await remove(backupPath, { recursive: true, force: true })
+        } catch (error) {
+          throw new Error(
+            `Canonical replacement is healthy, but previous application cleanup failed at ${backupPath}: ${String(error)}`,
+            { cause: error }
+          )
+        }
+      }
     },
     async rollback() {
       if (closed) return

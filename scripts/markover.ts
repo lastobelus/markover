@@ -57,7 +57,7 @@ import {
 } from '../src/link-handler'
 import { MAXIMUM_BODY_BYTES } from '../src/local-service'
 import {
-  buildAddressedDevelopmentBundle,
+  addressedDevelopmentBundle,
   type AddressedDevelopmentBundle
 } from './development-bundle'
 import {
@@ -995,7 +995,7 @@ function commandFailure(result: ReturnType<typeof spawnSync>): string {
     `command exited ${String(result.status ?? 1)}`
 }
 
-async function buildCanonicalCheckout(
+function buildCanonicalCheckout(
   instance: ResolvedInstance
 ): Promise<AddressedDevelopmentBundle> {
   if (!instance.checkout) throw new Error('Canonical checkout is unavailable.')
@@ -1006,7 +1006,40 @@ async function buildCanonicalCheckout(
   if (result.error || result.status !== 0) {
     throw new Error(`Canonical build failed: ${commandFailure(result)}`)
   }
-  return buildAddressedDevelopmentBundle(instance)
+  const bundleResult = spawnSync(
+    process.execPath,
+    [path.join(instance.checkout, 'build', 'scripts', 'build-canonical-bundle.js')],
+    { cwd: instance.checkout, encoding: 'utf8' }
+  )
+  if (bundleResult.error || bundleResult.status !== 0) {
+    throw new Error(
+      `Canonical bundle build failed: ${commandFailure(bundleResult)}`
+    )
+  }
+  const expected = addressedDevelopmentBundle(instance)
+  let built: unknown
+  try {
+    built = JSON.parse(
+      typeof bundleResult.stdout === 'string' ? bundleResult.stdout : ''
+    ) as unknown
+  } catch (error) {
+    throw new Error('Canonical bundle build returned invalid JSON.', {
+      cause: error
+    })
+  }
+  if (
+    typeof built !== 'object' ||
+    built === null ||
+    Object.entries(expected).some(
+      ([key, value]) =>
+        (built as Record<string, unknown>)[key] !== value
+    )
+  ) {
+    throw new Error(
+      'Canonical bundle build returned an unexpected application address.'
+    )
+  }
+  return Promise.resolve(expected)
 }
 
 function canonicalCheckoutIsClean(checkout: string): boolean {
