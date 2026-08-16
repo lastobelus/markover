@@ -10,7 +10,7 @@ GitHub, the **tracker** the user reads, and a **claim** other agents can see on
 the slice you are taking. A claim owns one bounded slice rather than the whole
 item, so separate slices of one issue can run at the same time. The interview
 then fixes the **slice boundary** — the evidence that ends this slice and what
-it leaves out — so babysit and the tripwire have something finite to compare
+it leaves out — so babysit and the brake have something finite to compare
 against. Complete the stages in order.
 
 Enter this workflow when the user asks to start, take over, implement untracked

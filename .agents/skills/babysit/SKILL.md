@@ -49,10 +49,9 @@ formal review list is not a completed review. Check the PR body and trigger
 comments too. If review fails to start, trigger it once; do not duplicate an
 active request.
 
-Read every finding the completed review delivered and sort the whole set. Then
-apply the repository's complexity tripwire before acting on any item. When it
-fires, pause and report the resumable state instead of opening another round.
-Push one batch only after the set clears it.
+Read every finding the completed review delivered and sort the whole set;
+when a finding meets one of the brake's triggers, the brake chooses its verb.
+Then push one batch.
 
 Sort each finding into one verb:
 
@@ -88,12 +87,17 @@ findings are all dispositioned. A narrow that changed no file, a folded finding
 carried in an existing batch, a defer, and a decline disposition a finding
 without a new head, so they need no further review.
 
-Open at most three finding-bearing rounds against one boundary. Every fix and
-every file-changing narrow creates a new head and therefore opens the next
-round; a rebase or an infrastructure rerun that draws no findings does not
-spend the budget. A fourth finding-bearing round means review and boundary
-disagree, so report the surviving findings with their verbs and let the user
-decide instead of pushing again.
+Three finding-bearing rounds against one boundary are the freeze threshold.
+Every fix and every file-changing narrow creates a new head and therefore
+opens the next round; a rebase, an infrastructure rerun, or required
+housekeeping that draws no findings does not count. After the third round,
+the boundary freezes: narrow, defer, or decline what remains against it,
+adding no further review-driven safeguard or fold. A demonstrated defect in
+supported use still gets fixed. Disposition every later current-head review
+against the frozen boundary rather than searching for a no-issues verdict.
+Report to the user when a surviving finding cannot be dispositioned without
+exceeding the boundary: name the finding, the clause it crosses, and the
+real choices.
 
 **Complete when:** green mode reports the green head, or merge mode has
 completed [`references/merge.md`](references/merge.md).
