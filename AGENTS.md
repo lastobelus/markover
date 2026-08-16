@@ -93,9 +93,10 @@ npm --silent run markover -- help
 When rebuilding canonical Markover or repairing any canonical failure, run
 `canonical doctor` and `canonical refresh` through that CLI from the current
 checkout. The configured canonical descriptor selects the owning checkout;
-the agent's cwd does not. Completion requires a healthy doctor result and the
-reported exact `markover:` URI selecting its review. A visible window or manual
-review selection is diagnostic evidence, not completion.
+the agent's cwd does not. Refresh completion requires a healthy doctor result
+whose window status is `visible`; repair completion also requires the reported
+exact `markover:` URI selecting its review. Window visibility alone or manual
+review selection is not completion.
 
 Before changing a portable review reader, writer, validator, persisted field,
 or agent consumer, read

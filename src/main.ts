@@ -183,6 +183,9 @@ const appIconPath = path.isAbsolute(addressedInstance.branding.iconPngPath)
   : path.join(projectDirectory, addressedInstance.branding.iconPngPath)
 const smokeMode = process.argv.includes('--smoke')
 const developmentWatchMode = process.env[DEVELOPMENT_WATCH_ENVIRONMENT] === '1'
+const canonicalRefreshWindowMode = process.argv.includes(
+  '--markover-refresh-window'
+)
 const smokeStateDirectory = smokeMode
   ? path.join(os.tmpdir(), `markover-smoke-${String(process.pid)}`)
   : null
@@ -1037,9 +1040,13 @@ async function createManagedLocalReview(
 }
 
 function createWindow(
-  { show = !backgroundServerMode }: { show?: boolean } = {}
+  {
+    show = !backgroundServerMode || canonicalRefreshWindowMode
+  }: { show?: boolean } = {}
 ): BrowserWindow {
-  const showWithoutActivating = show && developmentWatchMode
+  const showWithoutActivating = show && (
+    developmentWatchMode || canonicalRefreshWindowMode
+  )
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
@@ -1600,7 +1607,8 @@ async function startAndPublishService(): Promise<void> {
       process.stderr.write(
         `markover authorization: ${event.method} ${event.pathname} (${event.reason})\n`
       )
-    }
+    },
+    windowVisible: () => mainWindow?.isVisible() === true
   })
   try {
     await publishServiceConnection({

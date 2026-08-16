@@ -33,6 +33,9 @@ export interface CanonicalDoctorResult {
     instanceId: string | null
     pid: number | null
   }
+  window: {
+    status: 'visible' | 'hidden' | 'unknown' | 'absent'
+  }
   build: {
     status: 'current' | 'mismatch' | 'unavailable'
     commit: string | null
@@ -66,6 +69,7 @@ interface ServiceProbeResult {
     instanceId: string
     pid: number
   }
+  windowVisible?: boolean | null
 }
 
 export interface InspectCanonicalHealthOptions {
@@ -215,6 +219,15 @@ export async function inspectCanonicalHealth(
       endpointPath: instance.service.endpointPath,
       instanceId: service?.endpoint.instanceId || null,
       pid: service?.endpoint.pid || null
+    },
+    window: {
+      status: !service
+        ? 'absent'
+        : service.windowVisible === true
+          ? 'visible'
+          : service.windowVisible === false
+            ? 'hidden'
+            : 'unknown'
     },
     build: {
       status: diagnostic

@@ -10,6 +10,7 @@ import { reviewChecksum } from '../src/review-format'
 
 import {
   LocalServiceError,
+  probeService,
   readServiceConnection,
   requestServiceQuit,
   requestJson
@@ -119,7 +120,8 @@ async function serviceFixture(
     onQuit: options.onQuit,
     onUnauthorized: options.onUnauthorized,
     interpretationPolicy: options.interpretationPolicy,
-    agentReviewMode: options.agentReviewMode
+    agentReviewMode: options.agentReviewMode,
+    windowVisible: options.windowVisible
   })
   await publishServiceConnection({
     endpointPath,
@@ -200,6 +202,7 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
   const activations: string[] = []
   const { changes, endpointPath, identity } = await serviceFixture(t, {
     interpretationPolicy: () => 'Use the policy captured at open.',
+    windowVisible: () => true,
     onActivate(reviewId) {
       activations.push(reviewId)
       return Promise.resolve({ reviewId, outcome: 'activated' })
@@ -208,8 +211,14 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
 
   assert.deepEqual(
     await requestJson(endpointPath, 'GET', '/health'),
-    { status: 'ok', version: 2, instanceId: identity.instanceId }
+    {
+      status: 'ok',
+      version: 2,
+      instanceId: identity.instanceId,
+      windowVisible: true
+    }
   )
+  assert.equal((await probeService(endpointPath)).windowVisible, true)
 
   const opened = await requestJson(endpointPath, 'POST', '/reviews', {
     tree: tree(),
@@ -789,7 +798,8 @@ test('gates every current non-health route with real HTTP', async (t) => {
   assert.deepEqual(health.body, {
     status: 'ok',
     version: 2,
-    instanceId: fixture.identity.instanceId
+    instanceId: fixture.identity.instanceId,
+    windowVisible: false
   })
   assert.deepEqual(await fixture.store.list(), [])
   assert.deepEqual(fixture.changes, [])
@@ -821,7 +831,8 @@ test('categorizes invalid, stale, and rejected service credentials', async (t) =
     {
       status: 'ok',
       version: 2,
-      instanceId: fixture.identity.instanceId
+      instanceId: fixture.identity.instanceId,
+      windowVisible: false
     }
   )
   await assert.rejects(
