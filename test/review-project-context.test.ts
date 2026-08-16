@@ -66,6 +66,18 @@ test('normalizes clone transports while preserving fork ownership', () => {
     normalizeRepositoryRemote('git@github.com:fork-owner/markover.git'),
     'github.com/fork-owner/markover'
   )
+  assert.equal(
+    normalizeRepositoryRemote('alice@example.com:project.git'),
+    'alice@example.com/project'
+  )
+  assert.equal(
+    normalizeRepositoryRemote('ssh://bob@example.com/project.git'),
+    'bob@example.com/project'
+  )
+  assert.notEqual(
+    normalizeRepositoryRemote('alice@example.com:project.git'),
+    normalizeRepositoryRemote('bob@example.com:project.git')
+  )
   assert.equal(normalizeRepositoryRemote('/repos/markover.git'), null)
   assert.equal(normalizeRepositoryRemote('file:///repos/markover.git'), null)
 })
