@@ -3,7 +3,10 @@ import fs from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 
-import { generateDevelopmentIcon } from './generate-development-icon'
+import {
+  addressedDevelopmentExecutable,
+  buildAddressedDevelopmentBundle
+} from './development-bundle'
 import { loadDevelopmentConfig } from '../src/development-config'
 import {
   publishRuntimeInstanceIdentity,
@@ -99,13 +102,49 @@ export async function resolveStartInstance(
   }
   if (instance.identity.kind === 'development') {
     await loadDevelopmentConfig(checkout)
-    await generateDevelopmentIcon({
-      checkout,
-      pullRequestNumber: instance.identity.pullRequestNumber
-    })
     await publishRuntimeInstanceIdentity(instance.stateRoot, instance.identity)
   }
   return instance
+}
+
+export type AddressedBundleBuilder = (
+  instance: ResolvedInstance
+) => Promise<unknown>
+
+export async function prepareResolvedInstance(
+  instance: ResolvedInstance,
+  buildBundle: AddressedBundleBuilder = buildAddressedDevelopmentBundle
+): Promise<void> {
+  if (instance.identity.kind === 'development') await buildBundle(instance)
+}
+
+export interface ResolvedLaunchTarget {
+  args: string[]
+  executable: string
+}
+
+function electronExecutable(): string {
+  const loadedElectron: unknown = loadModule('electron')
+  if (typeof loadedElectron !== 'string') {
+    throw new Error('Electron executable path is unavailable.')
+  }
+  return loadedElectron
+}
+
+export function resolvedLaunchTarget(
+  instance: ResolvedInstance,
+  appArguments: readonly string[],
+  rawElectronExecutable?: string
+): ResolvedLaunchTarget {
+  return instance.identity.kind === 'development'
+    ? {
+        executable: addressedDevelopmentExecutable(instance),
+        args: [...appArguments]
+      }
+    : {
+        executable: rawElectronExecutable || electronExecutable(),
+        args: [appDirectory, ...appArguments]
+      }
 }
 
 export interface LaunchResolvedInstanceOptions {
@@ -125,10 +164,7 @@ export function launchResolvedInstance(
     spawnProcess = spawn
   }: LaunchResolvedInstanceOptions = {}
 ): ChildProcess {
-  const loadedElectron: unknown = loadModule('electron')
-  if (typeof loadedElectron !== 'string') {
-    throw new Error('Electron executable path is unavailable.')
-  }
+  const target = resolvedLaunchTarget(instance, appArguments)
   const childEnvironment: NodeJS.ProcessEnv = {
     ...environment,
     [RESOLVED_INSTANCE_ENVIRONMENT]: resolvedInstanceEnvironment(instance)
@@ -136,8 +172,8 @@ export function launchResolvedInstance(
   delete childEnvironment.ELECTRON_RUN_AS_NODE
 
   return spawnProcess(
-    loadedElectron,
-    [appDirectory, ...appArguments],
+    target.executable,
+    target.args,
     {
       detached,
       env: childEnvironment,
@@ -151,6 +187,7 @@ export function launchResolvedInstance(
 export async function main(args = process.argv.slice(2)): Promise<void> {
   const parsed = parseStartArguments(args)
   const instance = await resolveStartInstance(parsed)
+  await prepareResolvedInstance(instance)
   const child = launchResolvedInstance(instance, parsed.appArguments)
   child.on('exit', (code) => {
     process.exit(code ?? 0)

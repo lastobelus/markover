@@ -131,12 +131,19 @@ function controlValue(
 
 export function developmentStartupControls(
   args: readonly string[],
-  packaged: boolean,
+  development: boolean,
   smoke: boolean
 ): Pick<StartupInfo, 'holdPhase' | 'failPhase'> {
-  if (packaged || smoke) return { holdPhase: null, failPhase: null }
+  if (!development || smoke) return { holdPhase: null, failPhase: null }
   return {
     holdPhase: controlValue(args, '--dev-hold-startup'),
     failPhase: controlValue(args, '--dev-fail-startup')
   }
+}
+
+export function isDevelopmentRuntime(
+  packaged: boolean,
+  resolvedInstanceEnvironment: string | undefined
+): boolean {
+  return !packaged || resolvedInstanceEnvironment !== undefined
 }

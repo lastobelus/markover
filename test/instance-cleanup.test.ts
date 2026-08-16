@@ -11,6 +11,7 @@ import {
   moveDirectoryToTrash
 } from '../src/instance-cleanup'
 import {
+  developmentGeneratedRoot,
   developmentStateRoot,
   resolveInstance,
   type ResolvedInstance
@@ -27,6 +28,15 @@ async function fixture(t: TestContext): Promise<{
   const stateFile = path.join(stateRoot, 'reviews', 'mko_test', 'review.json')
   await fs.mkdir(path.dirname(stateFile), { recursive: true })
   await fs.writeFile(stateFile, '{"preserved":true}\n')
+  const generatedFile = path.join(
+    developmentGeneratedRoot(checkout),
+    'pr-61',
+    'bundle',
+    'Markover-61.app',
+    'artifact'
+  )
+  await fs.mkdir(path.dirname(generatedFile), { recursive: true })
+  await fs.writeFile(generatedFile, 'generated')
   const instance = await resolveInstance('development', {
     checkoutDirectory: checkout,
     inspectPullRequest: () => Promise.resolve({ number: 61, state: 'closed' }),
@@ -90,6 +100,16 @@ test('cleanup moves one exact stopped PR root to a recoverable Trash path', asyn
       'review.json'
     ), 'utf8'),
     '{"preserved":true}\n'
+  )
+  assert.equal(
+    await fs.readFile(path.join(
+      result.recoveryPath,
+      '.generated-artifacts',
+      'bundle',
+      'Markover-61.app',
+      'artifact'
+    ), 'utf8'),
+    'generated'
   )
 })
 
@@ -201,4 +221,26 @@ test('cleanup refuses a symlinked or out-of-scope state root', async (t) => {
     }),
     errorCode('OUT_OF_SCOPE_STATE_ROOT')
   )
+})
+
+test('cleanup refuses symlinked generated artifacts and preserves state', async (t) => {
+  const { instance, stateFile, trash } = await fixture(t)
+  assert.ok(instance.checkout)
+  const generatedRoot = path.join(
+    developmentGeneratedRoot(instance.checkout),
+    'pr-61'
+  )
+  const outside = path.join(instance.checkout, 'outside-generated')
+  await fs.rm(generatedRoot, { recursive: true, force: true })
+  await fs.mkdir(outside)
+  await fs.symlink(outside, generatedRoot)
+  await assert.rejects(
+    cleanupDevelopmentInstance(instance, 'pr-61', {
+      handlersForScheme: () => Promise.resolve([]),
+      platform: 'darwin',
+      trashDirectory: trash
+    }),
+    errorCode('OUT_OF_SCOPE_GENERATED_ROOT')
+  )
+  await fs.access(stateFile)
 })

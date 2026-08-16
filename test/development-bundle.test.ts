@@ -6,6 +6,7 @@ import test, { type TestContext } from 'node:test'
 
 import {
   addressedDevelopmentBundle,
+  addressedDevelopmentExecutable,
   addressedPackagerOptions,
   assertAddressedBundleMetadata,
   buildAddressedDevelopmentBundle,
@@ -130,6 +131,10 @@ test('canonical and worktrees derive deterministic collision-free bundle address
       'bundle',
       'Markover-169.app'
     )
+  )
+  assert.equal(
+    addressedDevelopmentExecutable(development(checkout, 169)),
+    path.join(addresses[1].appPath, 'Contents', 'MacOS', 'Markover-169')
   )
 })
 

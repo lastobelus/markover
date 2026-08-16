@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import {
   developmentStartupControls,
+  isDevelopmentRuntime,
   STARTUP_PHASES,
   userFacingStartupWarnings
 } from '../src/startup-contract'
@@ -26,28 +27,34 @@ test('development startup controls accept only fixed phases', () => {
     developmentStartupControls([
       '--dev-hold-startup=restoring-reviews',
       '--dev-fail-startup=loading-brand'
-    ], false, false),
+    ], true, false),
     { holdPhase: 'restoring-reviews', failPhase: 'loading-brand' }
   )
   assert.deepEqual(
     developmentStartupControls([
       '--dev-hold-startup=restoring-reviews'
-    ], true, false),
+    ], false, false),
     { holdPhase: null, failPhase: null }
   )
   assert.deepEqual(
     developmentStartupControls([
       '--dev-hold-startup=restoring-reviews'
-    ], false, true),
+    ], true, true),
     { holdPhase: null, failPhase: null }
   )
   assert.throws(
     () => developmentStartupControls([
       '--dev-hold-startup=custom-phase'
-    ], false, false),
+    ], true, false),
     /known startup phase/
   )
   assert.deepEqual(STARTUP_PHASES.at(-1), 'ready')
+})
+
+test('addressed packaged bundles retain development behavior', () => {
+  assert.equal(isDevelopmentRuntime(false, undefined), true)
+  assert.equal(isDevelopmentRuntime(true, '{"version":1}'), true)
+  assert.equal(isDevelopmentRuntime(true, undefined), false)
 })
 
 test('user-facing recovery warnings exclude cosmetic brand fallback', () => {
