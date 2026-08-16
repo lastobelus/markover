@@ -27,9 +27,9 @@ repository-grouping behavior passed operational acceptance in canonical
 Markover at merge `479c89a2`; the finite corpus evidence is recorded with that
 vertical below. The acceptance run also reproduced a separate canonical
 maintenance defect: documented `canonical refresh` relaunches a healthy service
-with no visible window. Draft PR #168 owns that bounded follow-up. Codex issue
-#166 and Claude issue #167 remain separate future title-adapter experiments,
-not unfinished #97 work.
+with no visible window. PR #168 fixed that bounded follow-up and passed canonical
+operational acceptance at merge `a6455020`. Codex issue #166 and Claude issue
+#167 remain separate future title-adapter experiments, not unfinished #97 work.
 
 ## T3 renamed-title experiment — complete
 
@@ -261,20 +261,27 @@ hidden automatic-cold-start mode for explicit refresh; its live validation then
 opened a review URI, which incidentally revealed the window and masked the
 post-refresh state.
 
-Draft PR #168 at head `4ac81ff1` distinguishes explicit refresh from automatic
-cold start, shows the replacement window without activating Markover, reports
-live window visibility through service health and doctor, and refuses refresh
-success until that window is visible. Automatic CLI cold starts remain hidden.
-The full local gate passed lint, typecheck, notices, 712 tests, and Electron
-smoke. A headless macOS A/B run reported `windowVisible: false` for automatic
+PR #168 merged exact green head `4ac81ff1` as squash commit `a6455020` after one
+no-findings review round. It distinguishes explicit refresh from automatic cold
+start, shows the replacement window without activating Markover, reports live
+window visibility through service health and doctor, and refuses refresh success
+until that window is visible. Automatic CLI cold starts remain hidden. The full
+local gate passed lint, typecheck, notices, 712 tests, and Electron smoke; GitHub
+CI passed and the current-head Codex review returned a thumbs-up. Markover `done`
+found zero matching local reviews, the PR claim is completed, and the
+`Markover Announcement Readiness` project item is Done.
+
+The finite headless macOS A/B run reported `windowVisible: false` for automatic
 `--markover-server` and `windowVisible: true` for the explicit refresh launch;
 both left the user's frontmost app unchanged. T3 Code was full-screen during
 that probe, so the normal non-activating Markover window correctly remained off
-the active full-screen Space rather than overlaying it. The existing canonical
-checkout remains at `479c89a2`; do not call its maintenance acceptance complete
-until #168 lands, canonical refresh runs from the merged fix, and follow-up
-doctor reports window status `visible` with the existing checkout, build,
-service, and exact-routing checks healthy.
+the active full-screen Space rather than overlaying it. After merge, the clean,
+non-divergent canonical `main` checkout fast-forwarded from `479c89a2` to
+`a6455020`. Documented `canonical refresh` returned healthy, and the independent
+final doctor reported a clean checkout, current build, ready service, healthy
+exact `markover:` ownership, `window.status: visible`, and no issues. macOS also
+reported the canonical process unhidden, inactive, and not frontmost. Canonical
+maintenance operational acceptance is complete at `a6455020`.
 
 The production resolver and Projects projection reproduced the finite corpus
 evidence without UI interaction. Across all 85 canonical review directories,
