@@ -202,7 +202,7 @@ test('an overlapping slice is detected and handed to the user without an electio
   )
   assert.match(
     skillSource,
-    /Plausible overlap with any active claim that the live evidence does not\n  settle: show both slices and ask\./
+    /Plausible overlap with any active claim that the live evidence does not\n {2}settle: show both slices and ask\./
   )
   assert.match(
     skillSource,
