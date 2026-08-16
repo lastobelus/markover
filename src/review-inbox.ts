@@ -267,8 +267,10 @@ function projectProjection(
     .map(([threadKey, reviews]) => threadProjection(threadKey, reviews))
     .sort(compareActionable)
   const editing = rows.filter((row) => row.status === 'editing')
-  const firstSession = sessions.find((session) => session.projectKey === key)
+  const projectSessions = sessions.filter((session) => session.projectKey === key)
+  const firstSession = projectSessions[0]
   if (!firstSession) throw new Error(`Review project ${key} cannot be empty.`)
+  const roots = new Set(projectSessions.map((session) => session.projectRoot))
   return {
     editingCount: editing.length,
     key,
@@ -277,7 +279,7 @@ function projectProjection(
       ? Math.max(...editing.map((row) => row.attentionRequestedAt))
       : 0,
     name: firstSession.projectName,
-    root: firstSession.projectRoot,
+    root: roots.size === 1 ? firstSession.projectRoot : null,
     threads
   }
 }

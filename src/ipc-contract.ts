@@ -231,7 +231,7 @@ function isClipboardImage(value: unknown): value is MarkoverClipboardImage {
 function isDocument(value: unknown): value is MarkoverDocument {
   if (!hasExactKeys(value, ['name', 'path', 'source', 'checksum'], [
     'reviewId',
-    'projectRoot',
+    'project',
     'tree'
   ])) return false
   if (
@@ -240,10 +240,15 @@ function isDocument(value: unknown): value is MarkoverDocument {
     typeof value.source !== 'string' ||
     !isChecksum(value.checksum) ||
     (value.reviewId !== undefined && !isReviewId(value.reviewId)) ||
-    (
-      value.projectRoot !== undefined &&
-      !isStringOrNull(value.projectRoot)
-    ) ||
+    (value.project !== undefined && value.project !== null && !(
+      isRecord(value.project) &&
+      hasExactKeys(value.project, ['key', 'name', 'root']) &&
+      typeof value.project.key === 'string' &&
+      Boolean(value.project.key) &&
+      typeof value.project.name === 'string' &&
+      Boolean(value.project.name) &&
+      isStringOrNull(value.project.root)
+    )) ||
     (
       value.tree !== undefined &&
       (

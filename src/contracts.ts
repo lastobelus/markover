@@ -549,7 +549,7 @@ declare global {
     path: string | null
     source: string
     checksum: string
-    projectRoot?: unknown
+    project?: ProjectIdentity | null
     tree?: ReviewTree
   }
 
@@ -747,7 +747,7 @@ declare global {
     path?: string | null
     checksum: string
     tree: ReviewSessionTree
-    projectRoot?: string | null
+    project?: ProjectIdentity | null
   }
 
   interface ProjectIdentity {
@@ -913,7 +913,7 @@ declare global {
     isTreeEditable: (tree: unknown) => boolean
     projectIdentity: (document: {
       path?: unknown
-      projectRoot?: unknown
+      project?: unknown
       reviewId?: unknown
       tree?: unknown
     }) => ProjectIdentity

@@ -69,7 +69,10 @@ import { type PublicLink, type PublicLinkId } from './public-links'
 import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
-import { discoverVerifiedReviewProjectRoot } from './review-project-context'
+import {
+  discoverVerifiedReviewProjectContext,
+  restoreReviewProjectContexts
+} from './review-project-context'
 import { nativeContextMenuPoint } from './review-context-menu'
 import { copyCanonicalReviewLink } from './review-link-copy'
 import {
@@ -243,7 +246,7 @@ const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const pendingActivations = new Map<string, PendingActivation>()
 const pendingManagedReviewNotifications = new Map<string, MarkoverDocument>()
-const reviewProjectRoots = new Map<string, Promise<string | null>>()
+const reviewProjectContexts = new Map<string, Promise<ProjectIdentity | null>>()
 const projectFavicons = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
 const managedLocalReviewCreations = new AsyncMutationTracker()
@@ -1030,7 +1033,7 @@ async function createManagedLocalReview(
   const artifact = await persistLocalReview(candidate, tree, reviewStore, {
     interpretationPolicy: settingsStore.settings.agentInterpretationPolicy
   })
-  return managedDocument(artifact, await projectRootForReview(artifact))
+  return managedDocument(artifact, await projectContextForReview(artifact))
 }
 
 function createWindow(
@@ -1203,7 +1206,7 @@ function currentWindowFocusState(): MarkoverWindowFocusState {
 
 function managedDocument(
   artifact: ReviewArtifact,
-  projectRoot: string | null = null
+  project: ProjectIdentity | null = null
 ): MarkoverDocument {
   internalAttachments.replaceReview(artifact.review.id, artifact)
   return {
@@ -1212,27 +1215,27 @@ function managedDocument(
     path: artifact.sourceDocument.path,
     source: artifact.sourceDocument.content,
     checksum: artifact.sourceDocument.checksum,
-    projectRoot,
+    project,
     tree: artifact
   }
 }
 
-function projectRootForReview(
+function projectContextForReview(
   artifact: ReviewArtifact
-): Promise<string | null> {
+): Promise<ProjectIdentity | null> {
   const reviewId = artifact.review.id
-  if (!reviewProjectRoots.has(reviewId)) {
-    reviewProjectRoots.set(
+  if (!reviewProjectContexts.has(reviewId)) {
+    reviewProjectContexts.set(
       reviewId,
-      discoverVerifiedReviewProjectRoot(artifact)
+      discoverVerifiedReviewProjectContext(artifact)
     )
   }
-  return reviewProjectRoots.get(reviewId) as Promise<string | null>
+  return reviewProjectContexts.get(reviewId) as Promise<ProjectIdentity | null>
 }
 
 async function projectFavicon(reviewId: string): Promise<string | null> {
   const artifact = await requireReviewStore().load(reviewId)
-  const root = await projectRootForReview(artifact)
+  const root = (await projectContextForReview(artifact))?.root || null
   if (!root) return null
   const resolvedRoot = path.resolve(root)
   if (!projectFavicons.has(resolvedRoot)) {
@@ -1262,9 +1265,13 @@ async function openReviewPullRequest(reviewId: string): Promise<void> {
 async function managedDocuments(
   artifacts: ReviewArtifact[]
 ): Promise<MarkoverDocument[]> {
-  return Promise.all(artifacts.map(async (artifact) => {
-    return managedDocument(artifact, await projectRootForReview(artifact))
-  }))
+  const projects = await restoreReviewProjectContexts(
+    artifacts,
+    projectContextForReview
+  )
+  return artifacts.map((artifact, index) => (
+    managedDocument(artifact, projects[index] ?? null)
+  ))
 }
 
 function flushPendingManagedReviewNotifications(): void {
@@ -1294,11 +1301,11 @@ function flushPendingManagedReviewNotifications(): void {
 }
 
 function sendManagedReview(artifact: ReviewArtifact): void {
-  void projectRootForReview(artifact).then(async (projectRoot) => {
+  void projectContextForReview(artifact).then(async (project) => {
     const latestArtifact = await requireReviewStore().load(artifact.review.id)
     pendingManagedReviewNotifications.set(
       artifact.review.id,
-      managedDocument(latestArtifact, projectRoot)
+      managedDocument(latestArtifact, project)
     )
     installApplicationMenu()
     if (!mainWindow) createWindow({ show: false })
@@ -1319,7 +1326,7 @@ async function sendManagedUpdate(artifact: ReviewArtifact): Promise<void> {
   sendMainEvent(
     mainWindow.webContents,
     'review:updated',
-    managedDocument(artifact, await projectRootForReview(artifact))
+    managedDocument(artifact, await projectContextForReview(artifact))
   )
 }
 
@@ -1454,7 +1461,7 @@ async function activateManagedReview(
   const outcome = await requestRendererActivation(
     reviewId,
     artifact
-      ? managedDocument(artifact, await projectRootForReview(artifact))
+      ? managedDocument(artifact, await projectContextForReview(artifact))
       : null,
     focusState
   )
@@ -2122,7 +2129,7 @@ if (!hasSingleInstanceLock) {
     privilegedIpc.handle('review:initial-document', async () => (
       activeManagedReview && managedDocument(
         activeManagedReview,
-        await projectRootForReview(activeManagedReview)
+        await projectContextForReview(activeManagedReview)
       )
     ))
     privilegedIpc.handle('review:list', async () => {

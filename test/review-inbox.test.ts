@@ -45,7 +45,11 @@ function reviewDocument(
     reviewId,
     name,
     path,
-    projectRoot,
+    project: {
+      key: projectRoot,
+      name: projectRoot.split('/').pop() || 'Other',
+      root: projectRoot
+    },
     checksum: `sha256:${reviewId}`,
     tree: {
       ...parsed,
@@ -320,6 +324,31 @@ test('Local reviews use document identity and the synthetic Local reviews group'
   assert.equal(local.branch, 'main')
   assert.equal(local.pullRequestNumber, 88)
   assert.equal(projection.projects[0]?.threads[0]?.title, 'Local reviews')
+})
+
+test('a project shared by independent clones does not claim one clone root', () => {
+  const sessions = new ReviewSessions()
+  const cloneOne = reviewDocument('mko_clone111', 'one.md', {
+    createdAt: '2026-08-09T10:00:00.000Z',
+    projectRoot: '/clones/markover-one'
+  })
+  const cloneTwo = reviewDocument('mko_clone222', 'two.md', {
+    createdAt: '2026-08-09T11:00:00.000Z',
+    projectRoot: '/clones/markover-two'
+  })
+  for (const document of [cloneOne, cloneTwo]) {
+    document.project = {
+      key: 'remote:github.com/lastobelus/markover',
+      name: 'markover',
+      root: document.project?.root || null
+    }
+    sessions.add(document)
+  }
+
+  const project = projectReviewInbox(sessions.list()).projects[0]
+  assert.ok(project)
+  assert.equal(project.name, 'markover')
+  assert.equal(project.root, null)
 })
 
 test('PR observations remain distinct from the green PR-linked fallback', () => {
