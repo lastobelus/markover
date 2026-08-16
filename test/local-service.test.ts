@@ -215,10 +215,13 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
       status: 'ok',
       version: 2,
       instanceId: identity.instanceId,
+      executablePath: process.execPath,
       windowVisible: true
     }
   )
-  assert.equal((await probeService(endpointPath)).windowVisible, true)
+  const service = await probeService(endpointPath)
+  assert.equal(service.executablePath, process.execPath)
+  assert.equal(service.windowVisible, true)
 
   const opened = await requestJson(endpointPath, 'POST', '/reviews', {
     tree: tree(),
@@ -799,6 +802,7 @@ test('gates every current non-health route with real HTTP', async (t) => {
     status: 'ok',
     version: 2,
     instanceId: fixture.identity.instanceId,
+    executablePath: process.execPath,
     windowVisible: false
   })
   assert.deepEqual(await fixture.store.list(), [])
@@ -832,6 +836,7 @@ test('categorizes invalid, stale, and rejected service credentials', async (t) =
       status: 'ok',
       version: 2,
       instanceId: fixture.identity.instanceId,
+      executablePath: process.execPath,
       windowVisible: false
     }
   )

@@ -31,8 +31,11 @@ import {
 import {
   CANONICAL_INSTANCE_SCHEME,
   resolveInstance,
+  resolvedInstanceEnvironment,
+  RESOLVED_INSTANCE_ENVIRONMENT,
   type ResolvedInstance
 } from '../src/instance'
+import { canonicalApplicationAddress } from '../src/canonical-application'
 import { reviewUrl } from '../src/review-url'
 import {
   isPullRequestStatus,
@@ -53,6 +56,14 @@ import {
   type LinkHandlerMutationResult
 } from '../src/link-handler'
 import { MAXIMUM_BODY_BYTES } from '../src/local-service'
+import {
+  addressedDevelopmentBundle,
+  type AddressedDevelopmentBundle
+} from './development-bundle'
+import {
+  stageCanonicalApplication,
+  type CanonicalApplicationTransaction
+} from './canonical-application'
 
 const defaultEndpointPath = serviceEndpointPath()
 
@@ -74,7 +85,8 @@ interface ParsedInstanceTarget {
 
 export type ParsedCommand = ParsedInstanceTarget & (
   | { command: 'help' }
-  | { command: 'canonical'; action: 'doctor' | 'refresh' }
+  | { command: 'canonical'; action: 'doctor' }
+  | { command: 'canonical'; action: 'refresh'; install: boolean }
   | { command: 'cleanup'; expectedIdentity: `pr-${number}` }
   | { command: 'edit'; reviewId: string }
   | {
@@ -164,7 +176,7 @@ export function helpPayload() {
     workflow: [
       'Create the Markdown file before opening it.',
       'Canonical review creation verifies that the configured development handler exactly owns markover: before creating the review. If routing is unhealthy, run canonical refresh from any checkout and retry open.',
-      'Canonical refresh orders its replacement window visible in Electron without activating Markover and returns only after health reports electron-visible. Cmd-Tab and Window > Bring All to Front are the normal macOS recovery paths to make that inactive window onscreen. Automatic review cold starts remain hidden.',
+      'Canonical refresh builds one addressed canonical bundle and installs it at /Applications/Markover.app before launching it; pass --no-install to leave /Applications untouched and launch the same build from its owned generated path. It retains any replaced app until doctor proves the selected executable, bundle identity, build, service, electron-visible window, and routing. Cmd-Tab and Window > Bring All to Front are the normal macOS recovery paths to make that inactive window onscreen. Automatic review cold starts remain hidden.',
       'Run open once, then retain the returned reviewId in the agent thread.',
       'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
@@ -229,7 +241,7 @@ export function helpPayload() {
       },
       {
         name: 'canonical',
-        usage: 'canonical <doctor|refresh>',
+        usage: 'canonical doctor | canonical refresh [--no-install]',
         purpose: 'Inspect or rebuild the configured canonical instance and reconcile exact markover: ownership from any checkout.'
       },
       {
@@ -297,20 +309,23 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     if (instance) {
       throw commandError(
         'canonical maintenance does not accept --instance.',
-        'markover canonical <doctor|refresh>'
+        'markover canonical doctor | markover canonical refresh [--no-install]'
       )
     }
     const action = rest[0]
-    if (
-      rest.length !== 1 ||
-      (action !== 'doctor' && action !== 'refresh')
-    ) {
-      throw commandError(
-        'canonical requires doctor or refresh.',
-        'markover canonical <doctor|refresh>'
-      )
+    if (action === 'doctor' && rest.length === 1) {
+      return { command, action }
     }
-    return { command, action }
+    if (
+      action === 'refresh' &&
+      (rest.length === 1 || (rest.length === 2 && rest[1] === '--no-install'))
+    ) {
+      return { command, action, install: rest.length === 1 }
+    }
+    throw commandError(
+      'canonical requires doctor or refresh with only optional --no-install.',
+      'markover canonical doctor | markover canonical refresh [--no-install]'
+    )
   }
   if (
     command !== 'open' &&
@@ -929,7 +944,7 @@ export interface ExecuteCommandOptions {
   readSessionDiscoverySetting?: (settingsPath: string) => Promise<boolean>
   settingsPath?: string
   doctorCanonical?: () => Promise<CanonicalDoctorResult>
-  refreshCanonical?: () => Promise<CanonicalRefreshResult>
+  refreshCanonical?: (install: boolean) => Promise<CanonicalRefreshResult>
   verifyCanonicalRouting?: (instance: ResolvedInstance) => Promise<void>
 }
 
@@ -938,17 +953,31 @@ export interface CanonicalRefreshResult {
   version: 1
   status: 'healthy'
   checkout: string
+  application: {
+    mode: 'installed' | 'generated'
+    appPath: string
+    executablePath: string
+  }
   handler: LinkHandlerMutationResult
   doctor: CanonicalDoctorResult
 }
 
 export interface RefreshCanonicalOptions {
-  build?: (checkout: string) => Promise<void>
+  build?: (
+    instance: ResolvedInstance
+  ) => Promise<AddressedDevelopmentBundle>
   checkoutIsClean?: (checkout: string) => boolean
   doctor?: (instance: ResolvedInstance) => Promise<CanonicalDoctorResult>
+  install?: boolean
   isProcessAlive?: (pid: number) => boolean
-  launch?: (instance: ResolvedInstance) => void
+  launch?: (
+    instance: ResolvedInstance,
+    executablePath: string
+  ) => Promise<number | undefined>
   now?: () => number
+  prepareInstallation?: (
+    bundle: AddressedDevelopmentBundle
+  ) => Promise<CanonicalApplicationTransaction>
   quit?: (endpointPath: string) => Promise<void>
   readProcessPid?: (endpointPath: string) => Promise<number>
   replaceHandler?: (
@@ -956,6 +985,7 @@ export interface RefreshCanonicalOptions {
   ) => Promise<LinkHandlerMutationResult>
   resolve?: () => Promise<ResolvedInstance>
   timeoutMilliseconds?: number
+  terminateProcess?: (pid: number) => void
   wait?: (milliseconds: number) => Promise<void>
 }
 
@@ -966,15 +996,51 @@ function commandFailure(result: ReturnType<typeof spawnSync>): string {
     `command exited ${String(result.status ?? 1)}`
 }
 
-function buildCanonicalCheckout(checkout: string): Promise<void> {
+function buildCanonicalCheckout(
+  instance: ResolvedInstance
+): Promise<AddressedDevelopmentBundle> {
+  if (!instance.checkout) throw new Error('Canonical checkout is unavailable.')
   const result = spawnSync('npm', ['run', 'build', '--silent'], {
-    cwd: checkout,
+    cwd: instance.checkout,
     encoding: 'utf8'
   })
   if (result.error || result.status !== 0) {
     throw new Error(`Canonical build failed: ${commandFailure(result)}`)
   }
-  return Promise.resolve()
+  const bundleResult = spawnSync(
+    process.execPath,
+    [path.join(instance.checkout, 'build', 'scripts', 'build-canonical-bundle.js')],
+    { cwd: instance.checkout, encoding: 'utf8' }
+  )
+  if (bundleResult.error || bundleResult.status !== 0) {
+    throw new Error(
+      `Canonical bundle build failed: ${commandFailure(bundleResult)}`
+    )
+  }
+  const expected = addressedDevelopmentBundle(instance)
+  let built: unknown
+  try {
+    built = JSON.parse(
+      typeof bundleResult.stdout === 'string' ? bundleResult.stdout : ''
+    ) as unknown
+  } catch (error) {
+    throw new Error('Canonical bundle build returned invalid JSON.', {
+      cause: error
+    })
+  }
+  if (
+    typeof built !== 'object' ||
+    built === null ||
+    Object.entries(expected).some(
+      ([key, value]) =>
+        (built as Record<string, unknown>)[key] !== value
+    )
+  ) {
+    throw new Error(
+      'Canonical bundle build returned an unexpected application address.'
+    )
+  }
+  return Promise.resolve(expected)
 }
 
 function canonicalCheckoutIsClean(checkout: string): boolean {
@@ -1000,16 +1066,28 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
-function launchCanonicalCheckout(instance: ResolvedInstance): void {
+function terminateProcess(pid: number): void {
+  try {
+    process.kill(pid, 'SIGTERM')
+  } catch (error) {
+    if (errorCode(error) !== 'ESRCH') throw error
+  }
+}
+
+export function launchCanonicalApplication(
+  instance: ResolvedInstance,
+  executablePath: string,
+  spawnProcess: typeof spawn = spawn
+): Promise<number> {
   if (!instance.checkout) throw new Error('Canonical checkout is unavailable.')
-  const environment = { ...process.env }
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    [RESOLVED_INSTANCE_ENVIRONMENT]: resolvedInstanceEnvironment(instance)
+  }
   delete environment.ELECTRON_RUN_AS_NODE
-  const child = spawn(
-    process.execPath,
+  const child = spawnProcess(
+    executablePath,
     [
-      path.join(instance.checkout, 'build/scripts/start.js'),
-      '--instance',
-      'canonical',
       '--markover-server',
       '--markover-refresh-window'
     ],
@@ -1020,7 +1098,27 @@ function launchCanonicalCheckout(instance: ResolvedInstance): void {
       stdio: 'ignore'
     }
   )
-  child.unref()
+  return new Promise<number>((resolve, reject) => {
+    let launched = false
+    child.once('error', (error) => {
+      if (!launched) {
+        reject(error)
+        return
+      }
+      process.stderr.write(
+        `markover canonical process error: ${errorMessage(error)}\n`
+      )
+    })
+    child.once('spawn', () => {
+      launched = true
+      if (child.pid === undefined) {
+        reject(new Error('Canonical application launched without a process ID.'))
+        return
+      }
+      child.unref()
+      resolve(child.pid)
+    })
+  })
 }
 
 function sameCanonicalCheckout(
@@ -1038,9 +1136,11 @@ export async function refreshCanonicalInstance({
   build = buildCanonicalCheckout,
   checkoutIsClean = canonicalCheckoutIsClean,
   doctor = (instance) => inspectCanonicalHealth(instance),
+  install = true,
   isProcessAlive = processIsAlive,
-  launch = launchCanonicalCheckout,
+  launch = launchCanonicalApplication,
   now = Date.now,
+  prepareInstallation = stageCanonicalApplication,
   quit = requestServiceQuit,
   readProcessPid = async (endpointPath) => (
     await readEndpoint(endpointPath)
@@ -1059,6 +1159,7 @@ export async function refreshCanonicalInstance({
   ),
   resolve = () => resolveInstance('canonical'),
   timeoutMilliseconds = 30_000,
+  terminateProcess: terminate = terminateProcess,
   wait = delay
 }: RefreshCanonicalOptions = {}): Promise<CanonicalRefreshResult> {
   const initial = await resolve()
@@ -1075,84 +1176,170 @@ export async function refreshCanonicalInstance({
       `Cannot refresh canonical: the configured checkout is dirty (${initial.checkout}).`
     )
   }
-  await build(initial.checkout)
-  const deadline = now() + timeoutMilliseconds
-  const previousPid = initial.process.status === 'running'
-    ? await readProcessPid(initial.service.endpointPath)
+  const bundle = await build(initial)
+  const address = canonicalApplicationAddress(initial)
+  if (
+    bundle.identityKey !== 'canonical' ||
+    bundle.appBundleId !== address.bundleIdentifier ||
+    path.resolve(bundle.appPath) !== path.resolve(address.generatedAppPath)
+  ) {
+    throw new Error('Canonical build returned an unexpected addressed bundle.')
+  }
+  const installation = install
+    ? await prepareInstallation(bundle)
     : null
-  if (initial.process.status === 'running') {
-    await quit(initial.service.endpointPath)
-  }
-  let stopped = initial
-  while ((
-    stopped.process.status !== 'stopped' ||
-    (previousPid !== null && isProcessAlive(previousPid))
-  ) && now() < deadline) {
-    await wait(100)
-    stopped = await resolve()
-    if (!sameCanonicalCheckout(initial, stopped)) {
-      throw new Error('Canonical checkout identity changed during refresh.')
+  const appPath = install
+    ? address.installedAppPath
+    : address.generatedAppPath
+  const executablePath = install
+    ? address.installedExecutablePath
+    : address.generatedExecutablePath
+  const deadline = now() + timeoutMilliseconds
+  let replacementActive = false
+  let replacementPid: number | null = null
+  try {
+    const previousPid = initial.process.status === 'running'
+      ? await readProcessPid(initial.service.endpointPath)
+      : null
+    if (initial.process.status === 'running') {
+      await quit(initial.service.endpointPath)
     }
-  }
-  if (stopped.process.status !== 'stopped') {
-    throw new Error('Timed out waiting for canonical shutdown.')
-  }
-  if (previousPid !== null && isProcessAlive(previousPid)) {
-    throw new Error(
-      `Timed out waiting for canonical process ${String(previousPid)} to release its single-instance lock.`
-    )
-  }
-  if (!stopped.coldStart.eligible) {
-    stopped = {
-      ...stopped,
-      coldStart: stopped.coldStart.blockedBy === 'already-running'
-        ? { eligible: true, blockedBy: null }
-        : stopped.coldStart
+    let stopped = initial
+    while ((
+      stopped.process.status !== 'stopped' ||
+      (previousPid !== null && isProcessAlive(previousPid))
+    ) && now() < deadline) {
+      await wait(100)
+      stopped = await resolve()
+      if (!sameCanonicalCheckout(initial, stopped)) {
+        throw new Error('Canonical checkout identity changed during refresh.')
+      }
     }
-  }
-  if (!stopped.coldStart.eligible) {
-    throw new Error(
-      `Cannot relaunch canonical: ${stopped.coldStart.blockedBy || 'not eligible'}.`
-    )
-  }
-  launch(stopped)
-  let running = stopped
-  while (running.process.status !== 'running' && now() < deadline) {
-    await wait(100)
-    running = await resolve()
-    if (!sameCanonicalCheckout(initial, running)) {
-      throw new Error('Canonical checkout identity changed during relaunch.')
+    if (stopped.process.status !== 'stopped') {
+      throw new Error('Timed out waiting for canonical shutdown.')
     }
-  }
-  if (running.process.status !== 'running') {
-    throw new Error('Timed out waiting for canonical readiness.')
-  }
-  const handler = await replaceHandler(running)
-  let health = await doctor(running)
-  while ((
-    health.status !== 'healthy' ||
-    health.window.status !== 'electron-visible'
-  ) && now() < deadline) {
-    await wait(100)
-    health = await doctor(running)
-  }
-  if (health.status !== 'healthy') {
-    throw new Error(
-      `Canonical refresh completed but doctor remains unhealthy: ${health.issues.join(' ')}`
-    )
-  }
-  if (health.window.status !== 'electron-visible') {
-    throw new Error(
-      `Canonical refresh completed but its window is ${health.window.status}.`
-    )
-  }
-  return {
-    format: 'markover-canonical-refresh',
-    version: 1,
-    status: 'healthy',
-    checkout: initial.checkout,
-    handler,
-    doctor: health
+    if (previousPid !== null && isProcessAlive(previousPid)) {
+      throw new Error(
+        `Timed out waiting for canonical process ${String(previousPid)} to release its single-instance lock.`
+      )
+    }
+    if (!stopped.coldStart.eligible) {
+      stopped = {
+        ...stopped,
+        coldStart: stopped.coldStart.blockedBy === 'already-running'
+          ? { eligible: true, blockedBy: null }
+          : stopped.coldStart
+      }
+    }
+    if (!stopped.coldStart.eligible) {
+      throw new Error(
+        `Cannot relaunch canonical: ${stopped.coldStart.blockedBy || 'not eligible'}.`
+      )
+    }
+    if (installation) {
+      await installation.replace()
+      replacementActive = true
+    }
+    replacementPid = await launch(stopped, executablePath) ?? null
+    let running = stopped
+    while (running.process.status !== 'running' && now() < deadline) {
+      await wait(100)
+      running = await resolve()
+      if (!sameCanonicalCheckout(initial, running)) {
+        throw new Error('Canonical checkout identity changed during relaunch.')
+      }
+    }
+    if (running.process.status !== 'running') {
+      throw new Error('Timed out waiting for canonical readiness.')
+    }
+    const handler = await replaceHandler(running)
+    let health = await doctor(running)
+    while ((
+      health.status !== 'healthy' ||
+      health.window.status !== 'electron-visible' ||
+      health.application.status !== 'current' ||
+      health.application.executablePath !== executablePath
+    ) && now() < deadline) {
+      await wait(100)
+      health = await doctor(running)
+    }
+    if (health.status !== 'healthy') {
+      throw new Error(
+        `Canonical refresh completed but doctor remains unhealthy: ${health.issues.join(' ')}`
+      )
+    }
+    if (health.window.status !== 'electron-visible') {
+      throw new Error(
+        `Canonical refresh completed but its window is ${health.window.status}.`
+      )
+    }
+    if (
+      health.application.status !== 'current' ||
+      health.application.executablePath !== executablePath
+    ) {
+      throw new Error(
+        `Canonical refresh launched ${health.application.executablePath || 'an unknown executable'} instead of ${executablePath}.`
+      )
+    }
+    if (installation) await installation.commit()
+    return {
+      format: 'markover-canonical-refresh',
+      version: 1,
+      status: 'healthy',
+      checkout: initial.checkout,
+      application: {
+        mode: install ? 'installed' : 'generated',
+        appPath,
+        executablePath
+      },
+      handler,
+      doctor: health
+    }
+  } catch (error) {
+    if (installation) {
+      try {
+        if (replacementActive) {
+          if (replacementPid !== null && isProcessAlive(replacementPid)) {
+            try {
+              await quit(initial.service.endpointPath)
+            } catch (quitError) {
+              try {
+                terminate(replacementPid)
+              } catch (terminationError) {
+                throw new AggregateError(
+                  [quitError, terminationError],
+                  `Could not stop replacement process ${String(replacementPid)} before rollback.`,
+                  { cause: terminationError }
+                )
+              }
+            }
+            const rollbackDeadline = now() + timeoutMilliseconds
+            while (
+              isProcessAlive(replacementPid) &&
+              now() < rollbackDeadline
+            ) {
+              await wait(100)
+            }
+            if (isProcessAlive(replacementPid)) {
+              throw new Error(
+                `Timed out waiting for replacement process ${String(replacementPid)} before rollback.`,
+                { cause: error }
+              )
+            }
+          }
+          await installation.rollback()
+        } else {
+          await installation.discard()
+        }
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          `${errorMessage(error)} Canonical application recovery also failed: ${errorMessage(rollbackError)}`,
+          { cause: rollbackError }
+        )
+      }
+    }
+    throw error
   }
 }
 
@@ -1177,7 +1364,9 @@ export async function executeCommand(
     if (parsed.action === 'doctor') {
       return (options.doctorCanonical || inspectCanonicalHealth)()
     }
-    return (options.refreshCanonical || refreshCanonicalInstance)()
+    return options.refreshCanonical
+      ? options.refreshCanonical(parsed.install)
+      : refreshCanonicalInstance({ install: parsed.install })
   }
 
   const selector = parsed.instance || 'canonical'

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync, type spawn } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import fs from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
@@ -10,6 +11,7 @@ import {
   ensureService,
   executeCommand,
   helpPayload,
+  launchCanonicalApplication,
   parseCommandArguments,
   readSessionDiscoverySetting,
   refreshCanonicalInstance,
@@ -20,6 +22,7 @@ import {
 import type { ResolvedInstance } from '../src/instance'
 import type { CanonicalDoctorResult } from '../src/canonical-maintenance'
 import type { LinkHandlerMutationResult } from '../src/link-handler'
+import type { AddressedDevelopmentBundle } from '../scripts/development-bundle'
 import { guidance } from '../src/agent-guidance'
 import { LocalServiceError } from '../src/local-client'
 import { startLocalService, type LocalService } from '../src/local-service'
@@ -42,6 +45,38 @@ function child(node: ReviewNode, index = 0): ReviewNode {
   const result = node.children[index]
   assert.ok(result)
   return result
+}
+
+function canonicalBundle(checkout = '/canonical'): AddressedDevelopmentBundle {
+  const generatedRoot = path.join(checkout, '.markover', 'generated', 'canonical')
+  const bundleDirectory = path.join(generatedRoot, 'bundle')
+  return {
+    appBundleId: 'com.lastobelus.markover.development.canonical',
+    appName: 'Markover',
+    appPath: path.join(bundleDirectory, 'Markover.app'),
+    bundleDirectory,
+    generatedRoot,
+    helperBundleId: 'com.lastobelus.markover.development.canonical.helper',
+    identityKey: 'canonical',
+    scheme: 'markover'
+  }
+}
+
+function application(
+  source: 'installed' | 'generated' = 'installed'
+): CanonicalDoctorResult['application'] {
+  const installed = '/Applications/Markover.app/Contents/MacOS/Markover'
+  const generated = '/canonical/.markover/generated/canonical/bundle/Markover.app/Contents/MacOS/Markover'
+  const executablePath = source === 'installed' ? installed : generated
+  return {
+    status: 'current',
+    source,
+    executablePath,
+    bundlePath: path.dirname(path.dirname(path.dirname(executablePath))),
+    bundleIdentifier: 'com.lastobelus.markover.development.canonical',
+    expectedBundleIdentifier: 'com.lastobelus.markover.development.canonical',
+    expectedExecutablePaths: [installed, generated]
+  }
 }
 
 test('parses lifecycle commands and PR observations', () => {
@@ -183,7 +218,11 @@ test('canonical maintenance is explicit and instance-independent', () => {
   )
   assert.deepEqual(
     parseCommandArguments(['canonical', 'refresh']),
-    { command: 'canonical', action: 'refresh' }
+    { command: 'canonical', action: 'refresh', install: true }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['canonical', 'refresh', '--no-install']),
+    { command: 'canonical', action: 'refresh', install: false }
   )
   assert.throws(
     () => parseCommandArguments(['--instance', 'dev', 'canonical', 'doctor']),
@@ -192,6 +231,10 @@ test('canonical maintenance is explicit and instance-independent', () => {
   assert.throws(
     () => parseCommandArguments(['canonical', 'repair']),
     /requires doctor or refresh/
+  )
+  assert.throws(
+    () => parseCommandArguments(['canonical', 'doctor', '--no-install']),
+    /optional --no-install/
   )
 })
 
@@ -250,6 +293,7 @@ test('canonical maintenance commands bypass review-service execution', async () 
       pid: 123
     },
     window: { status: 'electron-visible' as const },
+    application: application(),
     build: {
       status: 'current' as const,
       commit: 'abc123',
@@ -278,6 +322,22 @@ test('canonical maintenance commands bypass review-service execution', async () 
       throw new Error('canonical doctor must not use review execution')
     }
   }), doctor)
+
+  let install: boolean | null = null
+  const refresh = { format: 'markover-canonical-refresh', status: 'healthy' }
+  assert.equal(await executeCommand({
+    command: 'canonical',
+    action: 'refresh',
+    install: false
+  }, {
+    refreshCanonical(selected) {
+      install = selected
+      return Promise.resolve(refresh as unknown as Awaited<ReturnType<
+        typeof refreshCanonicalInstance
+      >>)
+    }
+  }), refresh)
+  assert.equal(install, false)
 })
 
 test('canonical refresh builds, restarts, reclaims routing, and verifies health', async () => {
@@ -286,7 +346,8 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     checkout: '/canonical',
     process: { status: 'running' },
     coldStart: { eligible: false, blockedBy: 'already-running' },
-    service: { endpointPath: '/state/service.json' }
+    service: { endpointPath: '/state/service.json' },
+    branding: { appName: 'Markover' }
   } as unknown as ResolvedInstance
   const stopped = {
     ...running,
@@ -325,6 +386,7 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
       pid: 123
     },
     window: { status: 'electron-visible' as const },
+    application: application(),
     build: {
       status: 'current' as const,
       commit: 'abc123',
@@ -340,9 +402,9 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     doctor
   ]
   const result = await refreshCanonicalInstance({
-    build(checkout) {
-      events.push(`build:${checkout}`)
-      return Promise.resolve()
+    build(instance) {
+      events.push(`build:${String(instance.checkout)}`)
+      return Promise.resolve(canonicalBundle())
     },
     checkoutIsClean() {
       events.push('clean')
@@ -354,8 +416,9 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
       assert.ok(next)
       return Promise.resolve(next)
     },
-    launch() {
-      events.push('launch')
+    launch(_instance, executablePath) {
+      events.push(`launch:${executablePath}`)
+      return Promise.resolve(456)
     },
     quit(endpointPath) {
       events.push(`quit:${endpointPath}`)
@@ -379,23 +442,55 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     },
     wait() {
       return Promise.resolve()
+    },
+    prepareInstallation() {
+      events.push('stage-application')
+      return Promise.resolve({
+        backupPath: '/Applications/.Markover.previous',
+        destinationPath: '/Applications/Markover.app',
+        stagedPath: '/Applications/.Markover.staged',
+        commit() {
+          events.push('commit-application')
+          return Promise.resolve()
+        },
+        discard() {
+          events.push('discard-application')
+          return Promise.resolve()
+        },
+        replace() {
+          events.push('replace-application')
+          return Promise.resolve()
+        },
+        rollback() {
+          events.push('rollback-application')
+          return Promise.resolve()
+        }
+      })
     }
   })
   assert.deepEqual(events, [
     'clean',
     'build:/canonical',
+    'stage-application',
     'read-pid:/state/service.json',
     'quit:/state/service.json',
-    'launch',
+    'replace-application',
+    'launch:/Applications/Markover.app/Contents/MacOS/Markover',
     'replace-handler',
     'doctor',
-    'doctor'
+    'doctor',
+    'commit-application'
   ])
   assert.deepEqual(result, {
     format: 'markover-canonical-refresh',
     version: 1,
     status: 'healthy',
     checkout: '/canonical',
+    application: {
+      mode: 'installed',
+      appPath: '/Applications/Markover.app',
+      executablePath: '/Applications/Markover.app/Contents/MacOS/Markover'
+    },
     handler,
     doctor
   })
@@ -411,7 +506,7 @@ test('canonical refresh rejects dirty state before build or downtime', async () 
       },
       build() {
         events.push('build')
-        return Promise.resolve()
+        throw new Error('build must not run')
       },
       quit() {
         events.push('quit')
@@ -423,7 +518,8 @@ test('canonical refresh rejects dirty state before build or downtime', async () 
           checkout: '/canonical',
           process: { status: 'running' },
           coldStart: { eligible: false, blockedBy: 'already-running' },
-          service: { endpointPath: '/state/service.json' }
+          service: { endpointPath: '/state/service.json' },
+          branding: { appName: 'Markover' }
         } as unknown as ResolvedInstance)
       }
     }),
@@ -432,13 +528,232 @@ test('canonical refresh rejects dirty state before build or downtime', async () 
   assert.deepEqual(events, ['clean'])
 })
 
+test('canonical application launch surfaces an asynchronous spawn failure', async () => {
+  const child = Object.assign(new EventEmitter(), {
+    unref() {
+      throw new Error('a failed child must not be unreferenced')
+    }
+  }) as unknown as ReturnType<typeof spawn>
+  const instance = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical'
+  } as unknown as ResolvedInstance
+  await assert.rejects(
+    launchCanonicalApplication(
+      instance,
+      '/Applications/Markover.app/Contents/MacOS/Markover',
+      (() => {
+        setImmediate(() => child.emit('error', new Error('spawn EACCES')))
+        return child
+      }) as typeof spawn
+    ),
+    /spawn EACCES/
+  )
+})
+
+test('canonical refresh leaves the running and installed apps untouched when build fails', async () => {
+  const events: string[] = []
+  await assert.rejects(
+    refreshCanonicalInstance({
+      build() {
+        events.push('build')
+        return Promise.reject(new Error('simulated build failure'))
+      },
+      checkoutIsClean() {
+        events.push('clean')
+        return true
+      },
+      prepareInstallation() {
+        events.push('stage-application')
+        throw new Error('must not stage')
+      },
+      quit() {
+        events.push('quit')
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve({
+          identity: { kind: 'canonical', key: 'canonical' },
+          checkout: '/canonical',
+          process: { status: 'running' },
+          coldStart: { eligible: false, blockedBy: 'already-running' },
+          service: { endpointPath: '/state/service.json' },
+          branding: { appName: 'Markover' }
+        } as unknown as ResolvedInstance)
+      }
+    }),
+    /simulated build failure/
+  )
+  assert.deepEqual(events, ['clean', 'build'])
+})
+
+test('failed post-replacement health restores the previous installed app', async () => {
+  const stopped = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical',
+    process: { status: 'stopped' },
+    coldStart: { eligible: true, blockedBy: null },
+    service: { endpointPath: '/state/service.json' },
+    branding: { appName: 'Markover' }
+  } as unknown as ResolvedInstance
+  const running = {
+    ...stopped,
+    process: { status: 'running' },
+    coldStart: { eligible: false, blockedBy: 'already-running' }
+  } as ResolvedInstance
+  const resolved = [stopped, running]
+  const events: string[] = []
+  let clock = 0
+  await assert.rejects(
+    refreshCanonicalInstance({
+      build: () => Promise.resolve(canonicalBundle()),
+      checkoutIsClean: () => true,
+      doctor: () => {
+        events.push('doctor')
+        return Promise.resolve({
+          status: 'healthy',
+          window: { status: 'electron-visible' },
+          application: application('generated'),
+          issues: []
+        } as unknown as CanonicalDoctorResult)
+      },
+      launch() {
+        events.push('launch')
+        return Promise.resolve(456)
+      },
+      isProcessAlive(pid) {
+        events.push(`alive:${String(pid)}`)
+        return events.filter((event) => event === `alive:${String(pid)}`).length < 2
+      },
+      now: () => clock++,
+      prepareInstallation: () => Promise.resolve({
+        backupPath: '/Applications/.Markover.previous',
+        destinationPath: '/Applications/Markover.app',
+        stagedPath: '/Applications/.Markover.staged',
+        commit: () => Promise.resolve(),
+        discard: () => Promise.resolve(),
+        replace() {
+          events.push('replace')
+          return Promise.resolve()
+        },
+        rollback() {
+          events.push('rollback')
+          return Promise.resolve()
+        }
+      }),
+      quit() {
+        events.push('quit')
+        return Promise.resolve()
+      },
+      replaceHandler: () => Promise.resolve({
+        status: 'healthy'
+      } as unknown as LinkHandlerMutationResult),
+      resolve() {
+        const instance = resolved.shift()
+        assert.ok(instance)
+        return Promise.resolve(instance)
+      },
+      timeoutMilliseconds: 2,
+      wait: () => Promise.resolve()
+    }),
+    /instead of \/Applications\/Markover\.app/
+  )
+  assert.deepEqual(events, [
+    'replace',
+    'launch',
+    'doctor',
+    'alive:456',
+    'quit',
+    'alive:456',
+    'alive:456',
+    'rollback'
+  ])
+})
+
+test('canonical rollback terminates the captured PID when service quit is unavailable', async () => {
+  const stopped = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical',
+    process: { status: 'stopped' },
+    coldStart: { eligible: true, blockedBy: null },
+    service: { endpointPath: '/state/service.json' },
+    branding: { appName: 'Markover' }
+  } as unknown as ResolvedInstance
+  const running = {
+    ...stopped,
+    process: { status: 'running' },
+    coldStart: { eligible: false, blockedBy: 'already-running' }
+  } as ResolvedInstance
+  const resolved = [stopped, running]
+  const events: string[] = []
+  let alive = true
+  await assert.rejects(refreshCanonicalInstance({
+    build: () => Promise.resolve(canonicalBundle()),
+    checkoutIsClean: () => true,
+    doctor: () => Promise.resolve({
+      status: 'unhealthy',
+      window: { status: 'electron-hidden' },
+      application: application(),
+      issues: ['simulated health failure']
+    } as unknown as CanonicalDoctorResult),
+    isProcessAlive(pid) {
+      events.push(`alive:${String(pid)}`)
+      return alive
+    },
+    launch: () => Promise.resolve(456),
+    now: (() => {
+      let clock = 0
+      return () => clock++
+    })(),
+    prepareInstallation: () => Promise.resolve({
+      backupPath: '/Applications/.Markover.previous',
+      destinationPath: '/Applications/Markover.app',
+      stagedPath: '/Applications/.Markover.staged',
+      commit: () => Promise.resolve(),
+      discard: () => Promise.resolve(),
+      replace: () => Promise.resolve(),
+      rollback() {
+        events.push('rollback')
+        return Promise.resolve()
+      }
+    }),
+    quit() {
+      events.push('quit')
+      return Promise.reject(new Error('service endpoint unavailable'))
+    },
+    replaceHandler: () => Promise.resolve({
+      status: 'healthy'
+    } as unknown as LinkHandlerMutationResult),
+    resolve() {
+      const instance = resolved.shift()
+      assert.ok(instance)
+      return Promise.resolve(instance)
+    },
+    terminateProcess(pid) {
+      events.push(`terminate:${String(pid)}`)
+      alive = false
+    },
+    timeoutMilliseconds: 2,
+    wait: () => Promise.resolve()
+  }), /simulated health failure/)
+  assert.deepEqual(events, [
+    'alive:456',
+    'quit',
+    'terminate:456',
+    'alive:456',
+    'alive:456',
+    'rollback'
+  ])
+})
+
 test('canonical refresh waits for the old process after its service stops', async () => {
   const running = {
     identity: { kind: 'canonical', key: 'canonical' },
     checkout: '/canonical',
     process: { status: 'running' },
     coldStart: { eligible: false, blockedBy: 'already-running' },
-    service: { endpointPath: '/state/service.json' }
+    service: { endpointPath: '/state/service.json' },
+    branding: { appName: 'Markover' }
   } as unknown as ResolvedInstance
   const stopped = {
     ...running,
@@ -449,19 +764,22 @@ test('canonical refresh waits for the old process after its service stops', asyn
   const alive = [true, false, false]
   const events: string[] = []
   await refreshCanonicalInstance({
-    build: () => Promise.resolve(),
+    build: () => Promise.resolve(canonicalBundle()),
     checkoutIsClean: () => true,
     doctor: () => Promise.resolve({
       status: 'healthy',
       window: { status: 'electron-visible' },
+      application: application('generated'),
       issues: []
     } as unknown as CanonicalDoctorResult),
+    install: false,
     isProcessAlive(pid) {
       events.push(`alive:${String(pid)}`)
       return alive.shift() ?? false
     },
-    launch() {
-      events.push('launch')
+    launch(_instance, executablePath) {
+      events.push(`launch:${executablePath}`)
+      return Promise.resolve(456)
     },
     quit: () => Promise.resolve(),
     readProcessPid: () => Promise.resolve(123),
@@ -488,7 +806,7 @@ test('canonical refresh waits for the old process after its service stops', asyn
     'resolve:stopped',
     'alive:123',
     'alive:123',
-    'launch',
+    'launch:/canonical/.markover/generated/canonical/bundle/Markover.app/Contents/MacOS/Markover',
     'wait',
     'resolve:running'
   ])

@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { canonicalApplicationAddress } from './canonical-application'
 import {
   resolveInstance,
   type ResolvedInstance
@@ -36,6 +37,15 @@ export interface CanonicalDoctorResult {
   window: {
     status: 'electron-visible' | 'electron-hidden' | 'unknown' | 'absent'
   }
+  application: {
+    status: 'current' | 'mismatch' | 'unavailable'
+    source: 'installed' | 'generated' | null
+    executablePath: string | null
+    bundlePath: string | null
+    bundleIdentifier: string | null
+    expectedBundleIdentifier: string
+    expectedExecutablePaths: string[]
+  }
   build: {
     status: 'current' | 'mismatch' | 'unavailable'
     commit: string | null
@@ -69,6 +79,7 @@ interface ServiceProbeResult {
     instanceId: string
     pid: number
   }
+  executablePath?: string | null
   windowVisible?: boolean | null
 }
 
@@ -79,8 +90,38 @@ export interface InspectCanonicalHealthOptions {
   ) => Promise<LinkHandlerStatus>
   probe?: (endpointPath: string) => Promise<ServiceProbeResult>
   readFile?: typeof fs.readFile
+  readBundleIdentifier?: (appPath: string) => string | null
   resolve?: () => Promise<ResolvedInstance>
   runCommand?: typeof spawnSync
+}
+
+function applicationBundlePath(executablePath: string): string | null {
+  const macosDirectory = path.dirname(executablePath)
+  const contentsDirectory = path.dirname(macosDirectory)
+  const appPath = path.dirname(contentsDirectory)
+  return path.basename(macosDirectory) === 'MacOS' &&
+    path.basename(contentsDirectory) === 'Contents' &&
+    path.extname(appPath) === '.app'
+    ? appPath
+    : null
+}
+
+function readApplicationBundleIdentifier(appPath: string): string | null {
+  const result = spawnSync(
+    '/usr/bin/plutil',
+    [
+      '-extract',
+      'CFBundleIdentifier',
+      'raw',
+      '-o',
+      '-',
+      path.join(appPath, 'Contents', 'Info.plist')
+    ],
+    { encoding: 'utf8' }
+  )
+  return !result.error && result.status === 0
+    ? result.stdout.trim() || null
+    : null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -144,6 +185,7 @@ export async function inspectCanonicalHealth(
   {
     inspectHandler = inspectLinkHandler,
     probe = probeService,
+    readBundleIdentifier = readApplicationBundleIdentifier,
     readFile = fs.readFile,
     resolve = () => resolveInstance('canonical'),
     runCommand = spawnSync
@@ -171,6 +213,29 @@ export async function inspectCanonicalHealth(
   )
   const service = await probe(instance.service.endpointPath).catch(() => null)
   const handler = await inspectHandler(instance.scheme, instance)
+  const applicationAddress = checkoutPath
+    ? canonicalApplicationAddress(instance)
+    : null
+  const executablePath = service?.executablePath || null
+  const bundlePath = executablePath
+    ? applicationBundlePath(executablePath)
+    : null
+  const source = applicationAddress && executablePath ===
+    applicationAddress.installedExecutablePath
+    ? 'installed' as const
+    : applicationAddress && executablePath ===
+      applicationAddress.generatedExecutablePath
+      ? 'generated' as const
+      : null
+  const bundleIdentifier = bundlePath
+    ? readBundleIdentifier(bundlePath)
+    : null
+  const applicationCurrent = Boolean(
+    applicationAddress &&
+    service &&
+    source &&
+    bundleIdentifier === applicationAddress.bundleIdentifier
+  )
   const buildCurrent = Boolean(
     checkoutPath &&
     clean &&
@@ -191,6 +256,11 @@ export async function inspectCanonicalHealth(
     issues.push(`Canonical checkout invalid: ${instance.coldStart.blockedBy}.`)
   }
   if (!service) issues.push('Canonical service is not ready.')
+  if (service && !applicationCurrent) {
+    issues.push(
+      `Running canonical executable ${executablePath || 'unknown'} is not an exact addressed canonical application with bundle identifier ${applicationAddress?.bundleIdentifier || 'unknown'}.`
+    )
+  }
   if (!diagnostic) {
     issues.push('Canonical startup diagnostic is unavailable or invalid.')
   } else if (!buildCurrent) {
@@ -228,6 +298,23 @@ export async function inspectCanonicalHealth(
           : service.windowVisible === false
             ? 'electron-hidden'
             : 'unknown'
+    },
+    application: {
+      status: !service || !executablePath
+        ? 'unavailable'
+        : applicationCurrent ? 'current' : 'mismatch',
+      source,
+      executablePath,
+      bundlePath,
+      bundleIdentifier,
+      expectedBundleIdentifier: applicationAddress?.bundleIdentifier ||
+        'com.lastobelus.markover.development.canonical',
+      expectedExecutablePaths: applicationAddress
+        ? [
+            applicationAddress.installedExecutablePath,
+            applicationAddress.generatedExecutablePath
+          ]
+        : []
     },
     build: {
       status: diagnostic

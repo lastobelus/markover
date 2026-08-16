@@ -21,11 +21,12 @@ import {
   parseMacosArchitecture
 } from './macos-release-contract'
 import {
+  DEVELOPMENT_BUNDLE_ID_PREFIX,
   developmentGeneratedRoot,
   type ResolvedInstance
 } from '../src/instance'
 
-export const DEVELOPMENT_BUNDLE_ID_PREFIX = 'com.lastobelus.markover.development'
+export { DEVELOPMENT_BUNDLE_ID_PREFIX } from '../src/instance'
 
 const APP_CATEGORY = 'public.app-category.developer-tools'
 const helperSuffixes = ['', ' (GPU)', ' (Plugin)', ' (Renderer)'] as const

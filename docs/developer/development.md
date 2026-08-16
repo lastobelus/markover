@@ -73,19 +73,32 @@ Inspect or refresh canonical development state from any checkout:
 ```sh
 npm --silent run markover -- canonical doctor
 npm --silent run markover -- canonical refresh
+# Leave /Applications untouched for this refresh:
+npm --silent run markover -- canonical refresh --no-install
 ```
 
 `doctor` is read-only and reports one JSON value covering the configured
 checkout and HEAD, running service identity, Electron window visibility,
-startup build identity, and exact LaunchServices owner for `markover:`. It exits
-nonzero when checkout, build, service, or routing is unhealthy. `refresh`
-builds the configured checkout before downtime, asks the running canonical app
-to quit through its managed durability barrier, relaunches that checkout with
-its window ordered visible without activating Markover, explicitly replaces
-the canonical development handler, and returns only after `doctor` is healthy
-and reports the window `electron-visible`. Neither command fetches, pulls,
-switches branches, installs dependencies, or derives canonical identity from
-the caller's worktree. `electron-visible` reports
+startup build identity, exact running executable and bundle identifier, and
+exact LaunchServices owner for `markover:`. It exits nonzero when checkout,
+application identity, build, service, or routing is unhealthy.
+
+`refresh` builds and verifies one addressed canonical bundle before downtime,
+then asks the running canonical app to quit through its managed durability
+barrier. By default it stages and atomically replaces
+`/Applications/Markover.app`, keeps the prior app until doctor succeeds, and
+launches the exact installed executable. `--no-install` leaves `/Applications`
+untouched and launches the same build from its owned
+`.markover/generated/canonical` path. A failed build or staged-copy verification
+changes neither the running app nor `/Applications`; a failed post-replacement
+health check restores the prior app. Both modes order the replacement window
+visible without activating Markover, explicitly replace the canonical
+development handler, and return only after `doctor` proves the selected
+executable, bundle identity, build commit, service, `electron-visible` window,
+and routing.
+
+Neither command fetches, pulls, switches branches, installs dependencies, or
+derives canonical identity from the caller's worktree. `electron-visible` reports
 `BrowserWindow.isVisible()`; it does not prove the window is onscreen in the
 active macOS Space. Automatic CLI cold starts remain hidden.
 
@@ -113,12 +126,12 @@ bundle executable directly when the canonical development handler must retain
 independently of the app-level suppression. Link-handler QA must inspect and
 restore the exact prior owner after an explicit LaunchServices exercise.
 
-`npm start` performs a deterministic one-shot build, verifies the
-exact staged layout under `build/app/`, and launches Electron from that stage.
-Additional command-line arguments and environment variables are forwarded to
-Electron unchanged, except `ELECTRON_RUN_AS_NODE` is removed. Paths beneath
-`build/app/` are private build details; other development tooling should depend
-only on the staging root.
+`npm start` performs a deterministic one-shot build, verifies the exact staged
+layout under `build/app/`, builds the selected instance's addressed application
+bundle, and launches that bundle's exact executable. Additional command-line
+arguments and environment variables are forwarded unchanged, except
+`ELECTRON_RUN_AS_NODE` is removed. Paths beneath `build/app/` are private build
+details; development launchers consume the verified addressed bundle instead.
 
 For repeated visual or interaction QA, keep the addressed instance on the
 development loop instead:

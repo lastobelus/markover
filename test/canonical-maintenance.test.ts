@@ -10,6 +10,7 @@ import {
   inspectCanonicalHealth,
   parseStartupDiagnosticSnapshot
 } from '../src/canonical-maintenance'
+import { canonicalApplicationAddress } from '../src/canonical-application'
 import type { ResolvedInstance } from '../src/instance'
 import type { LinkHandlerStatus } from '../src/link-handler'
 
@@ -122,14 +123,19 @@ test('doctor requires a clean matching build and exact healthy URI owner', async
     })
   )
   const instance = canonicalInstance(checkout, stateRoot)
+  const application = canonicalApplicationAddress(instance)
   const healthy = await inspectCanonicalHealth(instance, {
     inspectHandler: () => Promise.resolve(handler('healthy')),
     probe: () => Promise.resolve({
       endpoint: { instanceId: 'instance-id', pid: 123 },
+      executablePath: application.generatedExecutablePath,
       windowVisible: true
-    })
+    }),
+    readBundleIdentifier: () => application.bundleIdentifier
   })
   assert.equal(healthy.status, 'healthy')
+  assert.equal(healthy.application.status, 'current')
+  assert.equal(healthy.application.source, 'generated')
   assert.equal(healthy.build.status, 'current')
   assert.equal(healthy.window.status, 'electron-visible')
   assert.equal(healthy.repairCommand, null)
@@ -141,13 +147,66 @@ test('doctor requires a clean matching build and exact healthy URI owner', async
     )),
     probe: () => Promise.resolve({
       endpoint: { instanceId: 'instance-id', pid: 123 },
+      executablePath: application.generatedExecutablePath,
       windowVisible: false
-    })
+    }),
+    readBundleIdentifier: () => application.bundleIdentifier
   })
   assert.equal(displaced.status, 'unhealthy')
   assert.equal(displaced.window.status, 'electron-hidden')
   assert.match(displaced.issues.join(' '), /worktree\/dist\/Markover\.app/)
   assert.match(displaced.repairCommand || '', /canonical refresh/)
+})
+
+test('doctor rejects a raw or wrongly identified canonical executable', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-runtime-doctor-'))
+  const checkout = path.join(directory, 'main')
+  const stateRoot = path.join(directory, 'state')
+  await fs.mkdir(checkout)
+  await fs.mkdir(stateRoot)
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  assert.equal(spawnSync('git', ['init', '-b', 'main'], {
+    cwd: checkout,
+    encoding: 'utf8'
+  }).status, 0)
+  await fs.writeFile(path.join(checkout, 'README.md'), 'Markover\n')
+  assert.equal(spawnSync('git', ['add', 'README.md'], {
+    cwd: checkout,
+    encoding: 'utf8'
+  }).status, 0)
+  assert.equal(spawnSync('git', [
+    '-c', 'user.name=Markover Test',
+    '-c', 'user.email=markover@example.test',
+    'commit', '-m', 'initial'
+  ], { cwd: checkout, encoding: 'utf8' }).status, 0)
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: checkout,
+    encoding: 'utf8'
+  }).stdout.trim()
+  await fs.writeFile(path.join(stateRoot, 'startup-diagnostic.json'), JSON.stringify({
+    format: 'markover-startup-diagnostic',
+    version: 1,
+    status: 'ready',
+    build: {
+      version: '0.1.3',
+      commit: head,
+      dirty: false,
+      rendererSha256: 'sha256'
+    }
+  }))
+  const instance = canonicalInstance(checkout, stateRoot)
+  const raw = await inspectCanonicalHealth(instance, {
+    inspectHandler: () => Promise.resolve(handler('healthy')),
+    probe: () => Promise.resolve({
+      endpoint: { instanceId: 'instance-id', pid: 123 },
+      executablePath: '/Applications/Electron.app/Contents/MacOS/Electron',
+      windowVisible: true
+    }),
+    readBundleIdentifier: () => 'com.github.Electron'
+  })
+  assert.equal(raw.status, 'unhealthy')
+  assert.equal(raw.application.status, 'mismatch')
+  assert.match(raw.issues.join(' '), /not an exact addressed canonical application/)
 })
 
 test('canonical review creation fails before returning a broken URI', async () => {

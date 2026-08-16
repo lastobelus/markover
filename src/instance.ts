@@ -13,6 +13,8 @@ import {
 
 export const CANONICAL_INSTANCE_KEY = 'canonical'
 export const CANONICAL_INSTANCE_SCHEME = 'markover'
+export const DEVELOPMENT_BUNDLE_ID_PREFIX =
+  'com.lastobelus.markover.development'
 export const CANONICAL_DESCRIPTOR_NAME = 'canonical-instance.json'
 export const RUNTIME_INSTANCE_NAME = 'addressed-instance.json'
 export const RESOLVED_INSTANCE_ENVIRONMENT = 'MARKOVER_RESOLVED_INSTANCE'
