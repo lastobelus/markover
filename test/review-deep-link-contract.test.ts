@@ -16,7 +16,7 @@ test('main captures packaged links early and routes them through acknowledged ac
   assert.ok(openUrl >= 0 && openUrl < ready)
   assert.match(
     main,
-    /parseReviewUrl\(value, CANONICAL_INSTANCE_SCHEME\)[\s\S]*reviewUrlDispatcher\.receive\(\{[\s\S]*focusState: currentWindowFocusState\(\),[\s\S]*parsed[\s\S]*\}\)/
+    /parseReviewUrl\(value, addressedInstance\.scheme\)[\s\S]*reviewUrlDispatcher\.receive\(\{[\s\S]*focusState: currentWindowFocusState\(\),[\s\S]*parsed[\s\S]*\}\)/
   )
   assert.match(
     main,

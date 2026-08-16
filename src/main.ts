@@ -38,6 +38,7 @@ import {
 } from './durability-shutdown'
 import {
   CANONICAL_INSTANCE_SCHEME,
+  RESOLVED_INSTANCE_ENVIRONMENT,
   runtimeInstanceFromEnvironment
 } from './instance'
 import {
@@ -104,6 +105,7 @@ import { WorkspaceStore } from './workspace-store'
 import { smokeReviewTree } from './smoke-fixture'
 import {
   developmentStartupControls,
+  isDevelopmentRuntime,
   isStartupPhase,
   isStartupWarning,
   type BuildIdentity,
@@ -170,6 +172,10 @@ function errorMessage(error: unknown): string {
 }
 
 const addressedInstance = runtimeInstanceFromEnvironment()
+const developmentRuntime = isDevelopmentRuntime(
+  app.isPackaged,
+  process.env[RESOLVED_INSTANCE_ENVIRONMENT]
+)
 app.setName(addressedInstance.branding.appName)
 process.title = addressedInstance.branding.appName
 process.on('message', (message) => {
@@ -276,7 +282,7 @@ const privilegedIpc = new PrivilegedIpc(ipcMain, {
 if (process.platform === 'darwin' && app.isPackaged && !smokeMode) {
   app.on('open-url', (event, value) => {
     event.preventDefault()
-    const parsed = parseReviewUrl(value, CANONICAL_INSTANCE_SCHEME)
+    const parsed = parseReviewUrl(value, addressedInstance.scheme)
     if (!parsed) return
     reviewUrlDispatcher.receive({
       focusState: currentWindowFocusState(),
@@ -1851,11 +1857,11 @@ if (!hasSingleInstanceLock) {
     await configureAboutPanel(build)
     const controls = developmentStartupControls(
       process.argv,
-      app.isPackaged,
+      developmentRuntime,
       smokeMode
     )
     startupInfo = {
-      development: !app.isPackaged,
+      development: developmentRuntime,
       diagnosticPath: startupDiagnosticPath,
       smoke: smokeMode,
       ...controls
@@ -1864,7 +1870,7 @@ if (!hasSingleInstanceLock) {
     await secureServiceDirectory(applicationDataDirectory)
     if (
       process.platform === 'darwin' &&
-      app.isPackaged &&
+      !developmentRuntime &&
       !smokeMode
     ) {
       await registerProtocolOnFirstLaunch({
@@ -1877,7 +1883,7 @@ if (!hasSingleInstanceLock) {
         suppressed: process.env[SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT] === '1'
       })
     }
-    if (process.platform === 'darwin' && !app.isPackaged && !smokeMode) {
+    if (process.platform === 'darwin' && developmentRuntime && !smokeMode) {
       if (!app.dock) {
         throw new Error('The macOS application dock is unavailable.')
       }
