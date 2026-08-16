@@ -30,7 +30,7 @@ test('native About options use addressed name and authoritative metadata', () =>
   assert.deepEqual(developmentOptions, {
     applicationName: 'Markover-63',
     applicationVersion: '0.1.3',
-    version: '46e17d9',
+    version: '46e17d9327143c4194a6e9df60bc1ff735b03b79',
     copyright: 'Copyright © 2026 Michael Johnston (lastobelus)',
     credits: 'Created by Michael Johnston (lastobelus). Free and open-source software under the MIT License.'
   })
@@ -41,7 +41,10 @@ test('native About options use addressed name and authoritative metadata', () =>
 })
 
 test('native About build version marks modified development builds', () => {
-  assert.equal(aboutPanelBuildVersion({ ...cleanBuild, dirty: true }), '46e17d9-dirty')
+  assert.equal(
+    aboutPanelBuildVersion({ ...cleanBuild, dirty: true }),
+    '46e17d9327143c4194a6e9df60bc1ff735b03b79-dirty'
+  )
   assert.equal(
     aboutPanelBuildVersion({ ...cleanBuild, commit: null, dirty: true }),
     'unknown-dirty'
