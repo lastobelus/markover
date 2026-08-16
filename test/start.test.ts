@@ -68,7 +68,7 @@ function instance(
   }
 }
 
-test('only development startup prepares an addressed bundle', async () => {
+test('canonical and worktree startup prepare addressed bundles', async () => {
   const prepared: string[] = []
   const build = (target: ResolvedInstance) => {
     prepared.push(target.identity.key)
@@ -76,13 +76,13 @@ test('only development startup prepares an addressed bundle', async () => {
   }
   await prepareResolvedInstance(instance('canonical'), build)
   await prepareResolvedInstance(instance('development'), build)
-  assert.deepEqual(prepared, ['pr-169'])
+  assert.deepEqual(prepared, ['canonical', 'pr-169'])
 })
 
-test('development launches its app executable while canonical stays raw', () => {
+test('canonical and development launch their addressed app executables', () => {
   const appArguments = ['--markover-server']
   assert.deepEqual(
-    resolvedLaunchTarget(instance('development'), appArguments, '/Electron'),
+    resolvedLaunchTarget(instance('development'), appArguments),
     {
       executable: path.join(
         '/checkouts/markover',
@@ -99,10 +99,20 @@ test('development launches its app executable while canonical stays raw', () => 
     }
   )
   assert.deepEqual(
-    resolvedLaunchTarget(instance('canonical'), appArguments, '/Electron'),
+    resolvedLaunchTarget(instance('canonical'), appArguments),
     {
-      executable: '/Electron',
-      args: [path.join(process.cwd(), 'build', 'app'), ...appArguments]
+      executable: path.join(
+        '/checkouts/markover',
+        '.markover',
+        'generated',
+        'canonical',
+        'bundle',
+        'Markover.app',
+        'Contents',
+        'MacOS',
+        'Markover'
+      ),
+      args: appArguments
     }
   )
 })

@@ -60,6 +60,12 @@ An inline annotation token such as `[!img-2]` that refers to an attachment label
 
 The attachment array is authoritative; the textual reference is a convenience for discussion.
 
+## addressed application bundle::
+
+A generated macOS `.app` whose application name, bundle identifier, helper identities, icon, URL scheme, state, and service all identify one addressed Markover instance.
+
+Canonical and PR worktree bundles are addressed application bundles; production release identity remains a separate packaging contract. Runtime branding such as `app.setName()` does not substitute for bundle addressing.
+
 ## audience root::
 
 One of the two top-level documentation boundaries: `docs/user` for the public product workflow and `docs/developer` for contributor implementation and operations.

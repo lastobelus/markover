@@ -1,6 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import {
@@ -16,9 +15,7 @@ import {
   type ResolvedInstance
 } from '../src/instance'
 
-const loadModule = createRequire(__filename)
 const projectDirectory = path.resolve(__dirname, '../..')
-const appDirectory = path.resolve(__dirname, '../app')
 
 export interface ParsedStartArguments {
   selector: 'canonical' | 'development' | null
@@ -115,7 +112,7 @@ export async function prepareResolvedInstance(
   instance: ResolvedInstance,
   buildBundle: AddressedBundleBuilder = buildAddressedDevelopmentBundle
 ): Promise<void> {
-  if (instance.identity.kind === 'development') await buildBundle(instance)
+  await buildBundle(instance)
 }
 
 export interface ResolvedLaunchTarget {
@@ -123,28 +120,14 @@ export interface ResolvedLaunchTarget {
   executable: string
 }
 
-function electronExecutable(): string {
-  const loadedElectron: unknown = loadModule('electron')
-  if (typeof loadedElectron !== 'string') {
-    throw new Error('Electron executable path is unavailable.')
-  }
-  return loadedElectron
-}
-
 export function resolvedLaunchTarget(
   instance: ResolvedInstance,
-  appArguments: readonly string[],
-  rawElectronExecutable?: string
+  appArguments: readonly string[]
 ): ResolvedLaunchTarget {
-  return instance.identity.kind === 'development'
-    ? {
-        executable: addressedDevelopmentExecutable(instance),
-        args: [...appArguments]
-      }
-    : {
-        executable: rawElectronExecutable || electronExecutable(),
-        args: [appDirectory, ...appArguments]
-      }
+  return {
+    executable: addressedDevelopmentExecutable(instance),
+    args: [...appArguments]
+  }
 }
 
 export interface LaunchResolvedInstanceOptions {

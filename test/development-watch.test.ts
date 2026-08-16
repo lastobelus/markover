@@ -607,6 +607,7 @@ test('a watcher-owned process without a service quits through its control channe
       isProcessAlive() {
         return running
       },
+      prepare: () => Promise.resolve(),
       launch() {
         launches += 1
         running = true
@@ -654,6 +655,7 @@ test('an owned process falls back to control when its quit route fails', async (
       isProcessAlive() {
         return running
       },
+      prepare: () => Promise.resolve(),
       launch() {
         launches += 1
         running = true
@@ -710,6 +712,7 @@ test('stop owns a pre-service process before unavailable PR resolution', async (
       isProcessAlive() {
         return running
       },
+      prepare: () => Promise.resolve(),
       launch() {
         running = true
         return {
@@ -763,6 +766,7 @@ test('restart validates remote inputs before stopping the accepted process', asy
       isProcessAlive() {
         return running
       },
+      prepare: () => Promise.resolve(),
       launch() {
         running = true
         return {
@@ -811,6 +815,7 @@ test('an asynchronous spawn error stays inside the recoverable cycle', async () 
     [],
     {
       checkoutDirectory: '/checkouts/markover',
+      prepare: () => Promise.resolve(),
       launch() {
         launches += 1
         if (launches === 1) {

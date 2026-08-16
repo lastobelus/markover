@@ -81,6 +81,7 @@ interface ServiceRecords {
 }
 
 interface ServiceConnection extends ServiceRecords {
+  executablePath: string | null
   windowVisible: boolean | null
 }
 
@@ -276,6 +277,9 @@ export async function probeService(
   const health = await readHealth(connection.endpoint)
   return {
     ...connection,
+    executablePath: isRecord(health) && typeof health.executablePath === 'string'
+      ? health.executablePath
+      : null,
     windowVisible: isRecord(health) && typeof health.windowVisible === 'boolean'
       ? health.windowVisible
       : null

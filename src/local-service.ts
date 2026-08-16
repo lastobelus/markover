@@ -246,6 +246,7 @@ export async function startLocalService({
           status: 'ok',
           version: 2,
           instanceId: identity.instanceId,
+          executablePath: process.execPath,
           windowVisible: windowVisible()
         })
         return
