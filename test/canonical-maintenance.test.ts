@@ -125,11 +125,13 @@ test('doctor requires a clean matching build and exact healthy URI owner', async
   const healthy = await inspectCanonicalHealth(instance, {
     inspectHandler: () => Promise.resolve(handler('healthy')),
     probe: () => Promise.resolve({
-      endpoint: { instanceId: 'instance-id', pid: 123 }
+      endpoint: { instanceId: 'instance-id', pid: 123 },
+      windowVisible: true
     })
   })
   assert.equal(healthy.status, 'healthy')
   assert.equal(healthy.build.status, 'current')
+  assert.equal(healthy.window.status, 'visible')
   assert.equal(healthy.repairCommand, null)
 
   const displaced = await inspectCanonicalHealth(instance, {
@@ -138,10 +140,12 @@ test('doctor requires a clean matching build and exact healthy URI owner', async
       '/worktree/dist/Markover.app'
     )),
     probe: () => Promise.resolve({
-      endpoint: { instanceId: 'instance-id', pid: 123 }
+      endpoint: { instanceId: 'instance-id', pid: 123 },
+      windowVisible: false
     })
   })
   assert.equal(displaced.status, 'unhealthy')
+  assert.equal(displaced.window.status, 'hidden')
   assert.match(displaced.issues.join(' '), /worktree\/dist\/Markover\.app/)
   assert.match(displaced.repairCommand || '', /canonical refresh/)
 })

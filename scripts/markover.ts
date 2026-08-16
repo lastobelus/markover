@@ -164,6 +164,7 @@ export function helpPayload() {
     workflow: [
       'Create the Markdown file before opening it.',
       'Canonical review creation verifies that the configured development handler exactly owns markover: before creating the review. If routing is unhealthy, run canonical refresh from any checkout and retry open.',
+      'Canonical refresh shows its replacement window without activating Markover and returns only after health reports that window visible. Automatic review cold starts remain hidden.',
       'Run open once, then retain the returned reviewId in the agent thread.',
       'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
@@ -1009,7 +1010,8 @@ function launchCanonicalCheckout(instance: ResolvedInstance): void {
       path.join(instance.checkout, 'build/scripts/start.js'),
       '--instance',
       'canonical',
-      '--markover-server'
+      '--markover-server',
+      '--markover-refresh-window'
     ],
     {
       cwd: instance.checkout,
@@ -1127,13 +1129,21 @@ export async function refreshCanonicalInstance({
   }
   const handler = await replaceHandler(running)
   let health = await doctor(running)
-  while (health.status !== 'healthy' && now() < deadline) {
+  while ((
+    health.status !== 'healthy' ||
+    health.window.status !== 'visible'
+  ) && now() < deadline) {
     await wait(100)
     health = await doctor(running)
   }
   if (health.status !== 'healthy') {
     throw new Error(
       `Canonical refresh completed but doctor remains unhealthy: ${health.issues.join(' ')}`
+    )
+  }
+  if (health.window.status !== 'visible') {
+    throw new Error(
+      `Canonical refresh completed but its window is ${health.window.status}.`
     )
   }
   return {

@@ -76,21 +76,24 @@ npm --silent run markover -- canonical refresh
 ```
 
 `doctor` is read-only and reports one JSON value covering the configured
-checkout and HEAD, running service identity, startup build identity, and exact
-LaunchServices owner for `markover:`. It exits nonzero when any part is
-unhealthy. `refresh` builds the configured checkout before downtime, asks the
-running canonical app to quit through its managed durability barrier,
-relaunches that checkout, explicitly replaces the canonical development
-handler, and returns only after `doctor` is healthy. Neither command fetches,
-pulls, switches branches, installs dependencies, or derives canonical identity
-from the caller's worktree.
+checkout and HEAD, running service identity, live window visibility, startup
+build identity, and exact LaunchServices owner for `markover:`. It exits
+nonzero when checkout, build, service, or routing is unhealthy. `refresh`
+builds the configured checkout before downtime, asks the running canonical app
+to quit through its managed durability barrier, relaunches that checkout with
+its window visible without activating Markover, explicitly replaces the
+canonical development handler, and returns only after `doctor` is healthy and
+reports the window visible. Neither command fetches, pulls, switches branches,
+installs dependencies, or derives canonical identity from the caller's
+worktree. Automatic CLI cold starts remain hidden.
 
 Canonical review creation checks this exact URI ownership after the service is
 ready and before it creates the review. A displaced or missing handler fails
 with the `canonical refresh` recovery command instead of returning a broken
-`reviewUrl`. A canonical repair is complete when `doctor` is healthy and an
-exact known `markover://review/<review-id>` URI selects that review; window
-visibility and manual selection are supporting diagnostics only.
+`reviewUrl`. A canonical repair is complete when `doctor` is healthy with a
+visible window and an exact known `markover://review/<review-id>` URI selects
+that review. Window visibility alone and manual selection remain insufficient
+routing evidence.
 
 When manually launching a packaged build for QA, set
 `MARKOVER_SUPPRESS_PROTOCOL_REGISTRATION=1` so the app skips its explicit claim

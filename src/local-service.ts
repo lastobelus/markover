@@ -85,6 +85,7 @@ export interface LocalServiceOptions {
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
   interpretationPolicy?: (() => string) | undefined
   agentReviewMode?: (() => AgentReviewMode) | undefined
+  windowVisible?: (() => boolean) | undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -191,7 +192,8 @@ export async function startLocalService({
   onQuit = () => {},
   onUnauthorized = () => {},
   interpretationPolicy,
-  agentReviewMode = () => 'annotation-only'
+  agentReviewMode = () => 'annotation-only',
+  windowVisible = () => false
 }: LocalServiceOptions): Promise<LocalService> {
   if (
     !SERVICE_INSTANCE_PATTERN.test(identity.instanceId) ||
@@ -243,7 +245,8 @@ export async function startLocalService({
         sendJson(response, 200, {
           status: 'ok',
           version: 2,
-          instanceId: identity.instanceId
+          instanceId: identity.instanceId,
+          windowVisible: windowVisible()
         })
         return
       }

@@ -75,9 +75,13 @@ async function readCredential(endpointPath: string): Promise<ServiceCredential> 
   return credential
 }
 
-interface ServiceConnection {
+interface ServiceRecords {
   credential: ServiceCredential
   endpoint: ServiceEndpoint
+}
+
+interface ServiceConnection extends ServiceRecords {
+  windowVisible: boolean | null
 }
 
 export interface ReadServiceConnectionOptions {
@@ -99,7 +103,7 @@ export async function readServiceConnection(
     retryDelaysMilliseconds = DEFAULT_RECORD_RETRY_DELAYS,
     wait = delay
   }: ReadServiceConnectionOptions = {}
-): Promise<ServiceConnection> {
+): Promise<ServiceRecords> {
   let lastError: unknown = null
   for (const [index, delayMilliseconds] of retryDelaysMilliseconds.entries()) {
     if (index > 0 && delayMilliseconds > 0) await wait(delayMilliseconds)
@@ -269,8 +273,13 @@ export async function probeService(
   options?: ReadServiceConnectionOptions
 ): Promise<ServiceConnection> {
   const connection = await readServiceConnection(endpointPath, options)
-  await readHealth(connection.endpoint)
-  return connection
+  const health = await readHealth(connection.endpoint)
+  return {
+    ...connection,
+    windowVisible: isRecord(health) && typeof health.windowVisible === 'boolean'
+      ? health.windowVisible
+      : null
+  }
 }
 
 export async function requestJson(

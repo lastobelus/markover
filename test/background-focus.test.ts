@@ -81,7 +81,7 @@ test('development watch replacements appear without activating Markover', () => 
   )
   assert.match(
     createWindow,
-    /showWithoutActivating = show && developmentWatchMode/
+    /showWithoutActivating = show && \([\s\S]*developmentWatchMode \|\| canonicalRefreshWindowMode/
   )
   assert.match(createWindow, /show: show && !showWithoutActivating/)
   assert.match(createWindow, /if \(showWithoutActivating\) window\.showInactive\(\)/)
@@ -222,7 +222,7 @@ test('background startup stays hidden and background notifications repair record
 
   assert.match(
     main,
-    /function createWindow\([\s\S]*show = !backgroundServerMode[\s\S]*showWithoutActivating = show && developmentWatchMode[\s\S]*new BrowserWindow\(\{[\s\S]*show: show && !showWithoutActivating/
+    /canonicalRefreshWindowMode = process\.argv\.includes\([\s\S]*--markover-refresh-window[\s\S]*function createWindow\([\s\S]*show = !backgroundServerMode \|\| canonicalRefreshWindowMode[\s\S]*showWithoutActivating = show && \([\s\S]*developmentWatchMode \|\| canonicalRefreshWindowMode[\s\S]*new BrowserWindow\(\{[\s\S]*show: show && !showWithoutActivating[\s\S]*window\.showInactive\(\)/
   )
   assert.match(
     main,
@@ -346,6 +346,10 @@ test('automatic startup uses one-shot hidden background LaunchServices flags', (
   assert.doesNotMatch(cli, /projectDirectory,[\s\S]*'dist',[\s\S]*`Markover-darwin-/)
   assert.match(cli, /packagedApp,[\s\S]*'--args',[\s\S]*'--markover-server'/)
   assert.match(cli, /\['start', '--', '--instance', selector, '--markover-server'\]/)
+  assert.match(
+    cli,
+    /launchCanonicalCheckout[\s\S]*'canonical',[\s\S]*'--markover-server',[\s\S]*'--markover-refresh-window'/
+  )
   assert.match(cli, /\{ encoding: 'utf8', env: environment \}/)
   assert.doesNotMatch(cli, /launchctl[\s\S]*submit/)
   assert.doesNotMatch(cli, /replaceStale/)

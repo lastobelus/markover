@@ -249,6 +249,7 @@ test('canonical maintenance commands bypass review-service execution', async () 
       instanceId: 'instance-id',
       pid: 123
     },
+    window: { status: 'visible' as const },
     build: {
       status: 'current' as const,
       commit: 'abc123',
@@ -323,6 +324,7 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
       instanceId: 'instance-id',
       pid: 123
     },
+    window: { status: 'visible' as const },
     build: {
       status: 'current' as const,
       commit: 'abc123',
@@ -333,6 +335,10 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     issues: [],
     repairCommand: null
   }
+  const doctors = [
+    { ...doctor, window: { status: 'hidden' as const } },
+    doctor
+  ]
   const result = await refreshCanonicalInstance({
     build(checkout) {
       events.push(`build:${checkout}`)
@@ -344,7 +350,9 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     },
     doctor() {
       events.push('doctor')
-      return Promise.resolve(doctor)
+      const next = doctors.shift()
+      assert.ok(next)
+      return Promise.resolve(next)
     },
     launch() {
       events.push('launch')
@@ -380,6 +388,7 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     'quit:/state/service.json',
     'launch',
     'replace-handler',
+    'doctor',
     'doctor'
   ])
   assert.deepEqual(result, {
@@ -444,6 +453,7 @@ test('canonical refresh waits for the old process after its service stops', asyn
     checkoutIsClean: () => true,
     doctor: () => Promise.resolve({
       status: 'healthy',
+      window: { status: 'visible' },
       issues: []
     } as unknown as CanonicalDoctorResult),
     isProcessAlive(pid) {
