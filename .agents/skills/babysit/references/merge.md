@@ -13,15 +13,17 @@ URL. Run `done` so every matching local review reaches Done; zero matching
 reviews is success. Report a lookup or Markover failure without weakening the
 verified GitHub merge result.
 
-When the merged pull request carries a work-intent claim, it completes with the
-merge, so set its phase to `completed`. Then refresh the issue conversation for
-comments added during the merge before recommending next steps or closing it,
-and account for every remaining adjunct item. If work remains, prepare concrete
-next steps for the report; the issue's own claim stays as it is. If the issue
-is complete, perform the remaining state-only housekeeping, set its claim to
-`completed` as well, verify the issue and its trackers reflect completion, and
-prepare an archive-ready conclusion.
+Complete the claim for the merged slice: the pull request's own claim when it
+carries one, otherwise the claim on the addressed issue whose slice this pull
+request delivered. Set that claim's phase to `completed` and leave every
+sibling claim alone — other slices of the same issue may still be running.
+
+Then refresh the issue conversation for comments added during the merge before
+recommending next steps or closing it, and account for every remaining adjunct
+item. If work remains, prepare concrete next steps for the report. If the issue
+is complete, perform the remaining state-only housekeeping, verify the issue and
+its trackers reflect completion, and prepare an archive-ready conclusion.
 
 **Complete when:** the merge is verified, matching Markover reviews are Done,
-every completed claim says so, and the issue and its trackers match the real
-state.
+the merged slice's claim says `completed` with its siblings untouched, and the
+issue and its trackers match the real state.
