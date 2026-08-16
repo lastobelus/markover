@@ -973,7 +973,7 @@ export interface RefreshCanonicalOptions {
   launch?: (
     instance: ResolvedInstance,
     executablePath: string
-  ) => Promise<void>
+  ) => Promise<number | undefined>
   now?: () => number
   prepareInstallation?: (
     bundle: AddressedDevelopmentBundle
@@ -1069,7 +1069,7 @@ export function launchCanonicalApplication(
   instance: ResolvedInstance,
   executablePath: string,
   spawnProcess: typeof spawn = spawn
-): Promise<void> {
+): Promise<number> {
   if (!instance.checkout) throw new Error('Canonical checkout is unavailable.')
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
@@ -1089,7 +1089,7 @@ export function launchCanonicalApplication(
       stdio: 'ignore'
     }
   )
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<number>((resolve, reject) => {
     let launched = false
     child.once('error', (error) => {
       if (!launched) {
@@ -1102,8 +1102,12 @@ export function launchCanonicalApplication(
     })
     child.once('spawn', () => {
       launched = true
+      if (child.pid === undefined) {
+        reject(new Error('Canonical application launched without a process ID.'))
+        return
+      }
       child.unref()
-      resolve()
+      resolve(child.pid)
     })
   })
 }
@@ -1182,6 +1186,7 @@ export async function refreshCanonicalInstance({
     : address.generatedExecutablePath
   const deadline = now() + timeoutMilliseconds
   let replacementActive = false
+  let replacementPid: number | null = null
   try {
     const previousPid = initial.process.status === 'running'
       ? await readProcessPid(initial.service.endpointPath)
@@ -1225,7 +1230,7 @@ export async function refreshCanonicalInstance({
       await installation.replace()
       replacementActive = true
     }
-    await launch(stopped, executablePath)
+    replacementPid = await launch(stopped, executablePath) ?? null
     let running = stopped
     while (running.process.status !== 'running' && now() < deadline) {
       await wait(100)
@@ -1283,8 +1288,27 @@ export async function refreshCanonicalInstance({
   } catch (error) {
     if (installation) {
       try {
-        if (replacementActive) await installation.rollback()
-        else await installation.discard()
+        if (replacementActive) {
+          if (replacementPid !== null && isProcessAlive(replacementPid)) {
+            await quit(initial.service.endpointPath)
+            const rollbackDeadline = now() + timeoutMilliseconds
+            while (
+              isProcessAlive(replacementPid) &&
+              now() < rollbackDeadline
+            ) {
+              await wait(100)
+            }
+            if (isProcessAlive(replacementPid)) {
+              throw new Error(
+                `Timed out waiting for replacement process ${String(replacementPid)} before rollback.`,
+                { cause: error }
+              )
+            }
+          }
+          await installation.rollback()
+        } else {
+          await installation.discard()
+        }
       } catch (rollbackError) {
         throw new AggregateError(
           [error, rollbackError],

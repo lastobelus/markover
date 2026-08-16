@@ -418,7 +418,7 @@ test('canonical refresh builds, restarts, reclaims routing, and verifies health'
     },
     launch(_instance, executablePath) {
       events.push(`launch:${executablePath}`)
-      return Promise.resolve()
+      return Promise.resolve(456)
     },
     quit(endpointPath) {
       events.push(`quit:${endpointPath}`)
@@ -619,7 +619,11 @@ test('failed post-replacement health restores the previous installed app', async
       },
       launch() {
         events.push('launch')
-        return Promise.resolve()
+        return Promise.resolve(456)
+      },
+      isProcessAlive(pid) {
+        events.push(`alive:${String(pid)}`)
+        return events.filter((event) => event === `alive:${String(pid)}`).length < 2
       },
       now: () => clock++,
       prepareInstallation: () => Promise.resolve({
@@ -637,6 +641,10 @@ test('failed post-replacement health restores the previous installed app', async
           return Promise.resolve()
         }
       }),
+      quit() {
+        events.push('quit')
+        return Promise.resolve()
+      },
       replaceHandler: () => Promise.resolve({
         status: 'healthy'
       } as unknown as LinkHandlerMutationResult),
@@ -650,7 +658,16 @@ test('failed post-replacement health restores the previous installed app', async
     }),
     /instead of \/Applications\/Markover\.app/
   )
-  assert.deepEqual(events, ['replace', 'launch', 'doctor', 'rollback'])
+  assert.deepEqual(events, [
+    'replace',
+    'launch',
+    'doctor',
+    'alive:456',
+    'quit',
+    'alive:456',
+    'alive:456',
+    'rollback'
+  ])
 })
 
 test('canonical refresh waits for the old process after its service stops', async () => {
@@ -686,7 +703,7 @@ test('canonical refresh waits for the old process after its service stops', asyn
     },
     launch(_instance, executablePath) {
       events.push(`launch:${executablePath}`)
-      return Promise.resolve()
+      return Promise.resolve(456)
     },
     quit: () => Promise.resolve(),
     readProcessPid: () => Promise.resolve(123),
