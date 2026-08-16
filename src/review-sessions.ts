@@ -29,7 +29,7 @@
   function projectIdentity(
     document: {
       path?: unknown
-      projectRoot?: unknown
+      project?: unknown
       reviewId?: unknown
       tree?: unknown
     }
@@ -38,12 +38,22 @@
       ? document.tree.review
       : null
     const git = review && isRecord(review.git) ? review.git : null
-    const configuredRoot = typeof document.projectRoot === 'string'
-      ? document.projectRoot
+    const configuredProject = isRecord(document.project) &&
+      typeof document.project.key === 'string' &&
+      Boolean(document.project.key) &&
+      typeof document.project.name === 'string' &&
+      Boolean(document.project.name) &&
+      (typeof document.project.root === 'string' || document.project.root === null)
+      ? {
+          key: document.project.key,
+          name: document.project.name,
+          root: document.project.root
+        }
       : null
+    if (configuredProject) return configuredProject
     const managed = typeof document.reviewId === 'string' && Boolean(document.reviewId)
     const fallbackRoot = managed ? null : dirname(document.path)
-    const root = (configuredRoot || fallbackRoot || '')
+    const root = (fallbackRoot || '')
       .replace(/[\\/]+$/, '') || null
     return {
       key: root || 'unassigned',

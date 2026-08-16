@@ -3890,8 +3890,8 @@ function managedReviewDocument(
     path: documentData.path,
     checksum: documentData.checksum,
     tree: documentData.tree,
-    ...(typeof documentData.projectRoot === 'string'
-      ? { projectRoot: documentData.projectRoot }
+    ...(documentData.project
+      ? { project: documentData.project }
       : {})
   }
 }
@@ -3925,8 +3925,8 @@ async function loadDocument(documentData: MarkoverDocument): Promise<void> {
       path: documentData.path,
       checksum,
       tree: documentData.tree,
-      ...(typeof documentData.projectRoot === 'string'
-        ? { projectRoot: documentData.projectRoot }
+      ...(documentData.project
+        ? { project: documentData.project }
         : {})
     }, false)
     await activateReview(session.reviewId)

@@ -22,7 +22,7 @@ function sessionTreeFromArtifact(tree: ReviewArtifact): ReviewSessionTree {
 function reviewDocument(
   reviewId: string,
   name: string,
-  projectRoot: string | null = null
+  projectValue: string | ProjectIdentity | null = null
 ): ReviewSessionDocument {
   const parsed = parseMarkdown(`# ${name}\n\n- One\n- Two\n`, `sha256:${reviewId}`, {
     name,
@@ -53,7 +53,16 @@ function reviewDocument(
     path: `/tmp/${name}`,
     checksum: `sha256:${reviewId}`,
     tree,
-    projectRoot
+    project: typeof projectValue === 'string'
+      ? (() => {
+          const root = projectValue.replace(/[\\/]+$/, '')
+          return {
+            key: root,
+            name: root.split('/').pop() || 'Other',
+            root
+          }
+        })()
+      : projectValue
   }
 }
 
@@ -434,7 +443,11 @@ test('project identity falls back to the source directory and then Other', () =>
   assert.deepEqual(
     projectIdentity({
       path: '/tmp/project/notes.md',
-      projectRoot: '/Users/example/.t3/worktrees/markover/t3code-b7c2aba1',
+      project: {
+        key: 'remote:github.com/lastobelus/markover',
+        name: 'markover',
+        root: '/Users/example/.t3/worktrees/markover/t3code-b7c2aba1'
+      },
       tree: {
         review: {
           git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' }
@@ -442,7 +455,7 @@ test('project identity falls back to the source directory and then Other', () =>
       }
     }),
     {
-      key: '/Users/example/.t3/worktrees/markover/t3code-b7c2aba1',
+      key: 'remote:github.com/lastobelus/markover',
       name: 'markover',
       root: '/Users/example/.t3/worktrees/markover/t3code-b7c2aba1'
     }
@@ -450,11 +463,15 @@ test('project identity falls back to the source directory and then Other', () =>
   assert.deepEqual(
     projectIdentity({
       path: '/tmp/fallback/notes.md',
-      projectRoot: '/Users/example/projects/markover',
+      project: {
+        key: 'root:/Users/example/projects/markover',
+        name: 'markover',
+        root: '/Users/example/projects/markover'
+      },
       tree: {}
     }),
     {
-      key: '/Users/example/projects/markover',
+      key: 'root:/Users/example/projects/markover',
       name: 'markover',
       root: '/Users/example/projects/markover'
     }
@@ -467,7 +484,7 @@ test('project identity falls back to the source directory and then Other', () =>
     projectIdentity({
       reviewId: 'mko_stale01',
       path: '/tmp/stale-checkout/notes.md',
-      projectRoot: null,
+      project: null,
       tree: { review: { git: null } }
     }),
     { key: 'unassigned', name: 'Other', root: null }
@@ -482,7 +499,7 @@ test('project identity falls back to the source directory and then Other', () =>
   assert.deepEqual(
     projectIdentity({
       path: '/tmp/project/notes.md',
-      projectRoot: { invalid: true },
+      project: { invalid: true },
       tree: { review: { git: { repositoryRoot: 42 } } }
     }),
     { key: '/tmp/project', name: 'project', root: '/tmp/project' }

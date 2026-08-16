@@ -209,6 +209,11 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
     path: tree.sourceDocument.path,
     source: tree.sourceDocument.content,
     checksum: tree.sourceDocument.checksum,
+    project: {
+      key: 'remote:github.com/lastobelus/markover',
+      name: 'markover',
+      root: '/tmp/markover'
+    },
     tree: managedTree
   }
   assert.doesNotThrow(() => {

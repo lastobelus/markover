@@ -45,7 +45,11 @@ function reviewDocument(
     reviewId,
     name,
     path,
-    projectRoot,
+    project: {
+      key: projectRoot,
+      name: projectRoot.split('/').pop() || 'Other',
+      root: projectRoot
+    },
     checksum: `sha256:${reviewId}`,
     tree: {
       ...parsed,
