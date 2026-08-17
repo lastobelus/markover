@@ -1,7 +1,7 @@
 # Codex CLI × Codex exercise
 
-Run this exercise through the installed Codex CLI, not through T3 Code or the
-ChatGPT desktop app.
+Run this exercise through the installed Codex CLI, not through T3 Code or
+ChatGPT.
 
 1. Capture `codex --version`, then start a persisted non-interactive Codex CLI
    session rooted at this checkout whose agent reads

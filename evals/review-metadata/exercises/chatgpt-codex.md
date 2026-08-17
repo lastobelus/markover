@@ -1,7 +1,7 @@
-# ChatGPT desktop Codex exercise
+# ChatGPT Codex exercise
 
-Run this exercise in a real Codex coding thread inside the installed ChatGPT
-desktop app, rooted at this checkout.
+Run this exercise in a real Codex coding thread inside ChatGPT, rooted at this
+checkout.
 
 1. Record the exact ChatGPT app version and build, then ask the Codex agent to
    read `npm --silent run markover -- help`.
@@ -21,5 +21,5 @@ desktop app, rooted at this checkout.
    `agentThread: null`, record the exact app/build and unavailable bounded
    provider store; do not broaden discovery or guess an ID.
 
-Complete when every route the app exposes is recorded and the required
+Complete when every route ChatGPT exposes is recorded and the required
 handoff-key route recovers the exact provider session ID.

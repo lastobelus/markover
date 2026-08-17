@@ -81,7 +81,7 @@ test('live matrix names every required CLI, desktop, and T3 combination', () => 
     't3code-claude',
     'claude-code-claude',
     'codex-cli-codex',
-    'chatgpt-desktop-codex',
+    'chatgpt-codex',
     'claude-desktop-claude'
   ])
   assert.deepEqual(
@@ -107,7 +107,7 @@ test('live matrix names every required CLI, desktop, and T3 combination', () => 
         requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
       },
       {
-        id: 'chatgpt-desktop-codex',
+        id: 'chatgpt-codex',
         requiredIdentityRoutes: ['handoff-key']
       },
       {

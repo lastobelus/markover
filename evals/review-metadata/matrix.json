@@ -76,8 +76,8 @@
       ]
     },
     {
-      "id": "chatgpt-desktop-codex",
-      "hostProduct": "ChatGPT desktop, Codex view",
+      "id": "chatgpt-codex",
+      "hostProduct": "ChatGPT, Codex view",
       "providerProduct": "Codex",
       "threadHost": {
         "kind": "chatgpt",
@@ -88,7 +88,7 @@
         "handoff-key"
       ],
       "availability": "available",
-      "exercise": "exercises/chatgpt-desktop-codex.md",
+      "exercise": "exercises/chatgpt-codex.md",
       "evidence": []
     },
     {

@@ -91,7 +91,7 @@ surfaces:
 | Combination | Existing runtime evidence | Checkpoint 5 state |
 | --- | --- | --- |
 | Codex CLI × Codex | Codex CLI `0.147.0`; model and provider service version not exposed | Current explicit and handoff runs pass. |
-| ChatGPT desktop Codex view × Codex | None | Handoff run required; explicit run also required if the app exposes `CODEX_THREAD_ID`. |
+| ChatGPT Codex view × Codex | None | Handoff run required; explicit run also required if the app exposes `CODEX_THREAD_ID`. |
 | T3 Code × Codex | T3 Code Nightly `0.0.34-nightly.20260817.1113`; `gpt-5.6-sol`; provider runtime version not exposed | Current explicit and handoff runs pass. |
 | T3 Code × Claude | `claude-sonnet-5`; Claude Agent SDK 0.3.227; T3 Code version not exposed | Replace baseline with current explicit and handoff runs. |
 | Claude Code × Claude | Claude Code `2.1.234`; `claude-sonnet-5`; provider service version not exposed | Current explicit and handoff runs pass. |
