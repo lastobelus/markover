@@ -1,0 +1,60 @@
+{
+  "checks": {
+    "threadHostIdAccepted": true,
+    "guessedValuesAbsent": true,
+    "machineAttempted": true,
+    "nullFallbackTruthful": true,
+    "portableV1Valid": true,
+    "requiredFieldsObserved": true,
+    "supportedCombination": true
+  },
+  "discovery": {
+    "hostKind": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostProvider": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostThreadId": {
+      "source": "thread-host-runtime",
+      "status": "observed"
+    },
+    "machine": {
+      "source": "hostname-command",
+      "status": "observed"
+    },
+    "providerThreadId": {
+      "source": "local-session-handoff",
+      "status": "observed"
+    }
+  },
+  "evidenceId": "2026-08-17__t3code-claude-handoff__27c5f782",
+  "exercisedAt": "2026-08-17T23:18:50.541Z",
+  "identityRoute": "handoff-key",
+  "limitations": [],
+  "matrixEntryId": "t3code-claude",
+  "relationships": {
+    "identity": "identified",
+    "threadHostId": "distinct"
+  },
+  "runtime": {
+    "hostVersion": null,
+    "hostVersionSource": "not-exposed",
+    "providerModel": null,
+    "providerModelSource": "not-exposed",
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
+  },
+  "agentThread": {
+    "id": "<thread-id>",
+    "threadHost": {
+      "kind": "t3code",
+      "provider": "claude",
+      "threadId": "<thread-host-id>",
+      "machine": "<machine>"
+    }
+  },
+  "schemaVersion": 2
+}

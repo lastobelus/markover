@@ -18,8 +18,8 @@
       "status": "observed"
     },
     "hostThreadId": {
-      "source": "not-exposed",
-      "status": "unavailable"
+      "source": "thread-host-runtime",
+      "status": "observed"
     },
     "machine": {
       "source": "hostname-command",
@@ -30,31 +30,29 @@
       "status": "observed"
     }
   },
-  "evidenceId": "2026-08-12__t3code-claude__2e5faa61",
-  "exercisedAt": "2026-08-12T19:35:49.000Z",
+  "evidenceId": "2026-08-17__t3code-claude-explicit__cd3082d4",
+  "exercisedAt": "2026-08-17T23:18:48.608Z",
   "identityRoute": "explicit-runtime",
-  "limitations": [
-    "T3 Code did not expose a distinct host-owned thread identifier.",
-    "T3 Code did not expose a product version through the agent environment or CLI."
-  ],
+  "limitations": [],
   "matrixEntryId": "t3code-claude",
   "relationships": {
     "identity": "identified",
-    "threadHostId": "omitted"
+    "threadHostId": "distinct"
   },
   "runtime": {
     "hostVersion": null,
     "hostVersionSource": "not-exposed",
-    "providerModel": "claude-sonnet-5",
-    "providerModelSource": "runtime-context",
-    "providerVersion": "Claude Agent SDK 0.3.227",
-    "providerVersionSource": "runtime-context"
+    "providerModel": null,
+    "providerModelSource": "not-exposed",
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
   },
   "agentThread": {
     "id": "<thread-id>",
     "threadHost": {
       "kind": "t3code",
       "provider": "claude",
+      "threadId": "<thread-host-id>",
       "machine": "<machine>"
     }
   },

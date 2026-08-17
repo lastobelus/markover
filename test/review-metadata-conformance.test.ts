@@ -154,13 +154,13 @@ test('matrix rows require a nonempty identity-route checklist', () => {
 
 test('corpus validation tracks both identity routes for every initial row', () => {
   const expected = {
-    evidenceCount: 7,
+    evidenceCount: 8,
     matrixEntryCount: 6
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
   assert.throws(
     () => validateMetadataCorpus(root, true),
-    /t3code-claude is missing live evidence for: handoff-key/
+    /chatgpt-codex has no committed live evidence/
   )
 })
 
