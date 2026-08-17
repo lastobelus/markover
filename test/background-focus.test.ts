@@ -17,7 +17,7 @@ test('agent review events update the renderer without showing or focusing it', (
 
   assert.match(
     managedReview,
-    /projectContextForReview\(artifact\)\.then\(async \(project\) => \{[\s\S]*requireReviewStore\(\)\.load\(artifact\.review\.id\)[\s\S]*pendingManagedReviewNotifications\.set\([\s\S]*managedDocument\(latestArtifact, project\)/
+    /projectContextForReview\(artifact\)\.then\(async \(context\) => \{[\s\S]*requireReviewStore\(\)\.load\(artifact\.review\.id\)[\s\S]*pendingManagedReviewNotifications\.set\([\s\S]*managedDocument\(latestArtifact, context\.project\)/
   )
   assert.match(managedReview, /createWindow\(\{ show: false \}\)/)
   assert.match(managedReview, /flushPendingManagedReviewNotifications\(\)/)

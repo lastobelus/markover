@@ -138,13 +138,23 @@ Stable requesting-thread identity is the two-element tuple of
 not participate. Equal agent and host IDs produce the same identity and require
 no special handling.
 
-Before deriving an app-private project root or favicon from a portable
-`sourceDocument.path`, Markover must read the live file and verify it against
-the snapshot checksum. A missing or changed file yields no live repository
-evidence. Newly created and restored reviews use the same verified private
-project-root path before their first renderer publication. A managed review
-with no verified project root remains unassigned; only unmanaged documents may
-fall back to their current source directory for grouping.
+App-private project identity and source freshness are independent observations.
+Markover discovers current Git evidence from the portable opening-time
+`sourceDocument.path` while separately reading the live file and comparing it
+with the immutable snapshot checksum. A changed file therefore remains in its
+live repository project and is marked changed; a missing file may retain its
+project when the recorded path's parent still supplies current Git evidence.
+Markover does not search for or relink a moved source. When normalized opening
+and live repository origins are both available and conflict, the managed review
+remains unassigned. Without live repository evidence it also remains
+unassigned; only unmanaged documents may fall back to their current source
+directory for grouping.
+
+The derived project identity, project-evidence result, source-freshness state,
+canonical paths, and favicon remain app-private and in memory. They never alter
+the opening-time path or checksum, enter `review.json`, or appear in agent-facing
+`get` output. This private derivation correction does not change portable v1 and
+requires no version bump, migration, or compatibility reader.
 
 `workspace.json` is the separate private `markover-workspace` family. It owns
 navigation and presentation state, including collapsed block IDs. Missing,
@@ -257,7 +267,9 @@ Decoder, compatibility, extension-preservation, reader-boundary, and metadata
 guidance coverage lives in `test/review-format.test.ts`,
 `test/review-store.test.ts`, `test/ipc-security.test.ts`,
 `test/local-service.test.ts`, `test/markover-cli.test.ts`, and
-`test/review-metadata-evals.test.ts`.
+`test/review-metadata-evals.test.ts`. App-private project identity and source
+freshness are covered by `test/review-project-context.test.ts` and
+`test/review-project-restoration.test.ts`.
 
 Before the first post-v1 breaking release, add migration fixtures for backup,
 working-copy validation, atomic replacement, rollback, attachment preservation,
