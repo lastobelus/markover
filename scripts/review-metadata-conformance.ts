@@ -340,6 +340,16 @@ function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
   if (!exercisePathPattern.test(exercise)) {
     throw new Error(`${label}.exercise must name a Markdown file under exercises.`)
   }
+  const requiredIdentityRoutes: IdentityRoute[] = stringArray(
+    item.requiredIdentityRoutes,
+    `${label}.requiredIdentityRoutes`
+  ).map((route, index) => oneOf<IdentityRoute>(route, [
+    'explicit-runtime',
+    'handoff-key'
+  ], `${label}.requiredIdentityRoutes[${index}]`))
+  if (requiredIdentityRoutes.length === 0) {
+    throw new Error(`${label}.requiredIdentityRoutes must not be empty.`)
+  }
   return {
     availability: 'available',
     evidence: stringArray(item.evidence, `${label}.evidence`),
@@ -350,13 +360,7 @@ function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
       'required', 'unavailable-allowed'
     ], `${label}.identityExpectation`),
     providerProduct: nonblank(item.providerProduct, `${label}.providerProduct`),
-    requiredIdentityRoutes: stringArray(
-      item.requiredIdentityRoutes,
-      `${label}.requiredIdentityRoutes`
-    ).map((route, index) => oneOf(route, [
-      'explicit-runtime',
-      'handoff-key'
-    ], `${label}.requiredIdentityRoutes[${index}]`)),
+    requiredIdentityRoutes,
     threadHost: {
       kind: nonblank(threadHost.kind, `${label}.threadHost.kind`),
       provider: nonblank(threadHost.provider, `${label}.threadHost.provider`)
@@ -402,6 +406,17 @@ function matrixEntry(matrix: MetadataMatrix, id: string): MatrixEntry {
   const entry = matrix.entries.find((candidate) => candidate.id === id)
   if (entry === undefined) throw new Error(`Unknown metadata matrix entry: ${id}.`)
   return entry
+}
+
+function assertDeclaredIdentityRoute(
+  entry: MatrixEntry,
+  identityRoute: IdentityRoute
+): void {
+  if (!entry.requiredIdentityRoutes.includes(identityRoute)) {
+    throw new Error(
+      `${entry.id} does not declare the ${identityRoute} identity route.`
+    )
+  }
 }
 
 function assertObserved(
@@ -494,6 +509,7 @@ export function buildEvidenceFixture(
   const observation = parseCaptureObservation(observationValue)
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
+  assertDeclaredIdentityRoute(entry, observation.identityRoute)
   const thread = artifact.review.agentThread
   const liveValues: string[] = []
   const exerciseSource = fs.readFileSync(
@@ -616,6 +632,7 @@ export function validateEvidenceFixture(
   })
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
+  assertDeclaredIdentityRoute(entry, observation.identityRoute)
   assertMachineAttempted(observation.discovery)
   const relationships = record(item.relationships, 'Evidence relationships')
   assertExactKeys(relationships, ['identity', 'threadHostId'], 'Evidence relationships')

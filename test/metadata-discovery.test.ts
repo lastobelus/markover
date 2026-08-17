@@ -316,14 +316,20 @@ test('routes handoff discovery by provider and keeps explicit ID precedence', as
     handoffKey: key
   }
 
-  for (const provider of ['codex', 'openai']) {
+  for (const provider of ['codex', 'openai', 'Open AI']) {
     const metadata = await discoverReviewMetadata({
       ...input,
       threadHostProvider: provider
     }, options)
     assert.equal(metadata.agentThread?.id, 'codex-session')
   }
-  for (const provider of ['claude', 'anthropic', 'claudeagent']) {
+  for (const provider of [
+    'claude',
+    'anthropic',
+    'claudeagent',
+    'Claude Agent',
+    'claude-agent'
+  ]) {
     const metadata = await discoverReviewMetadata({
       ...input,
       threadHostProvider: provider

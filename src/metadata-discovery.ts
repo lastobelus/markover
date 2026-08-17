@@ -458,7 +458,8 @@ export async function discoverClaudeThread(
 function localSessionProvider(
   provider: string | null | undefined
 ): 'codex' | 'claude' | null {
-  switch (provider?.trim().toLowerCase()) {
+  const normalized = provider?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+  switch (normalized) {
     case 'codex':
     case 'openai':
       return 'codex'

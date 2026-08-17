@@ -103,6 +103,20 @@ test('matrix exercise paths name maintained Markdown exercise files', () => {
   }
 })
 
+test('matrix rows require a nonempty identity-route checklist', () => {
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.requiredIdentityRoutes = []
+  assert.throws(
+    () => parseMetadataMatrix(matrix),
+    /requiredIdentityRoutes must not be empty/
+  )
+})
+
 test('corpus validation tracks both identity routes for every initial row', () => {
   const expected = {
     evidenceCount: 3,
@@ -177,6 +191,23 @@ test('capture distinguishes explicit runtime and handoff-key evidence', () => {
       json('evals/review-metadata/matrix.json')
     ),
     /identityRoute explicit-runtime contradicts providerThreadId source local-session-handoff/
+  )
+})
+
+test('capture rejects evidence for a route its matrix row does not declare', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.requiredIdentityRoutes = ['handoff-key']
+
+  assert.throws(
+    () => buildEvidenceFixture(artifact, observation(), matrix),
+    /t3code-codex does not declare the explicit-runtime identity route/
   )
 })
 

@@ -199,7 +199,7 @@ Claude session discovery rather than Codex alone.
 | Host surface | Provider | Preferred explicit ID | Required fallback and result |
 | --- | --- | --- | --- |
 | Codex CLI | Codex | `CODEX_THREAD_ID` | Exact key in Codex sessions recovers the same provider ID. |
-| Codex app | Codex | `CODEX_THREAD_ID` when exposed | Exact key in the app's Codex session record recovers the provider ID. |
+| ChatGPT desktop, Codex view | Codex | `CODEX_THREAD_ID` when exposed | Exact key in the app's Codex session record recovers the provider ID. |
 | T3 Code | Codex | `CODEX_THREAD_ID` | Codex exact-key recovery, then private T3 host/title correlation. |
 | Claude Code CLI | Claude | `CLAUDE_CODE_SESSION_ID` | Exact key in a root Claude project session recovers the provider ID. |
 | Installed Claude coding desktop surface; exact product/build recorded by the audit | Claude | Proven explicit variable, if any | A proven local exact-key source must recover the provider ID. |
