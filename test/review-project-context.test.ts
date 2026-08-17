@@ -134,7 +134,7 @@ test('groups independent clones, keeps forks distinct, and falls back finitely',
   )
   assert.equal(linkedOne.project?.key, linkedTwo.project?.key)
   assert.equal(linkedOne.project?.key, 'git:/repos/local/.git')
-  assert.equal(linkedOne.project?.name, 'local')
+  assert.equal(linkedOne.project.name, 'local')
   assert.equal(
     (await project('/clones/root-only', null, null)).project?.key,
     'root:/clones/root-only'
