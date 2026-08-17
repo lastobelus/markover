@@ -90,7 +90,9 @@
       ],
       "availability": "available",
       "exercise": "exercises/chatgpt-codex.md",
-      "evidence": []
+      "evidence": [
+        "2026-08-17__chatgpt-codex-handoff__515f8c1a"
+      ]
     },
     {
       "id": "claude-desktop-claude",
