@@ -88,7 +88,31 @@ integration refresh. It must not leave one fulfilled promise cached
 indefinitely. This slice adds no watcher, poller, relinker, or private identity
 store.
 
-### 2. T3 resolves provider sessions to host threads
+### 2. Metadata completeness is visible
+
+The review-row hover card and active review information drawer present the same
+standard metadata inventory with the established label and icon for each
+field: project, source path and state, repository, branch, commit, pull request
+and observed status, requesting thread and resolved title, thread host,
+provider, distinct host thread, machine, review status, and relevant dates.
+
+- Keep every standard field in the inventory instead of omitting absent values.
+- Render a concrete status such as “Missing,” “Unavailable,” “Not observed,” or
+  “Not applicable.” Missing, unavailable, inconsistent, and error values use
+  the existing error text color; a contractually inapplicable field is neutral.
+- Add a final error-colored summary whenever the inventory contains one of
+  those problems or the review has another metadata/source/project conflict
+  that is not itself a standard displayed field. The summary names the
+  actionable facts rather than emitting a generic warning.
+- Use the same status derivation for hover and drawer so they cannot disagree.
+  Preserve accessible labels and descriptions for every icon, status, and
+  summary.
+
+Focused projection and renderer tests cover complete, missing, unavailable,
+inconsistent, hidden-conflict, and local-review not-applicable cases on both
+surfaces.
+
+### 3. T3 resolves provider sessions to host threads
 
 The existing T3 SQLite source remains private, read-only, and main-process
 only.
@@ -120,7 +144,7 @@ Claude's cursor `threadId` is the T3 host ID, not the Claude provider session;
 the provider session is `resume`. No recovered T3 UUID or title is copied into
 portable review data.
 
-### 3. Explicit requester identity first, handoff key always as fallback
+### 4. Explicit requester identity first, handoff key always as fallback
 
 Before publishing product-specific guidance, record the exact installed
 product/build and which of `CODEX_THREAD_ID`, `CLAUDE_CODE_SESSION_ID`, or a
@@ -211,7 +235,9 @@ decision; it is not treated as “not applicable” by implementation fiat.
   unassigned identity exactly `Other` / `unassigned`.
 - `src/review-inbox.ts`, `src/renderer.ts`, `src/styles.css`: show a compact,
   accessible per-review source-state marker in Inbox, Projects, and active
-  review context; do not roll it up into project identity or lifecycle status.
+  review context; show the complete standard metadata inventory and its
+  fact-specific error summary in hover and the information drawer; do not roll
+  source state up into project identity or lifecycle status.
 - `docs/developer/review-handoff-format.md`: make live Git evidence the source
   of app-private project identity and checksum comparison the source of
   freshness only. This is a private derivation correction, so portable v1
@@ -261,9 +287,12 @@ decision; it is not treated as “not applicable” by implementation fiat.
    paths.
 5. Prove a changed source stays in the same project, displays its changed
    state, and does not mutate the stored checksum or portable output.
-6. Prove no private path, matched log content, T3 UUID, derived title, project
+6. Prove hover and the information drawer list the same standard metadata,
+   visibly mark missing/unavailable/inconsistent values, and summarize every
+   displayed or hidden metadata conflict with accessible error text.
+7. Prove no private path, matched log content, T3 UUID, derived title, project
    key, or source state leaks through portable `review.json` or agent `get`.
-7. Run `npm run ci:local` and one focused macOS QA pass across Inbox, Projects,
+8. Run `npm run ci:local` and one focused macOS QA pass across Inbox, Projects,
    active review metadata, settings copy, and restart/refresh recovery.
 
 ## Deterministic acceptance matrix
@@ -277,6 +306,9 @@ decision; it is not treated as “not applicable” by implementation fiat.
 | Opening and live normalized origins conflict | `Other` / `unassigned`; source state remains independent. |
 | Equivalent clone/worktree | Existing shared project identity is preserved. |
 | Distinct fork | Distinct project identity is preserved. |
+| Standard metadata missing, unavailable, inconsistent, or errored | Field remains listed in error text; fact-specific summary appears last in hover and drawer. |
+| Metadata field is contractually inapplicable | Field remains listed as `Not applicable` without creating an error summary. |
+| Conflict is not represented by a standard field | Fact-specific error summary still appears last in hover and drawer. |
 | Explicit T3 host ID | Direct current nondeleted T3 title wins. |
 | Codex provider session ID | Exact `cursor.threadId` mapping resolves one T3 host/title. |
 | Claude provider session ID | Exact `cursor.resume` mapping resolves one T3 host/title. |
