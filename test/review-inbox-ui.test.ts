@@ -160,6 +160,10 @@ test('thread-title integrations expose source-specific settings and event refres
   assert.match(renderer, /t3ThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /codexThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /refreshRequestingThreadTitles[\s\S]*bridge\.getReviews\(\)/)
+  assert.match(
+    renderer,
+    /requestingThreadTitleRefresh = requestingThreadTitleRefresh\.then\(\s*refresh,\s*refresh\s*\)/
+  )
   assert.match(renderer, /onWindowFocusChanged\([\s\S]*focusState\.focused\) void refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /function queueIncomingReview[\s\S]*handleIncomingReview\(reviewDocument\)[\s\S]*refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /onReviewUpdated\([\s\S]*refreshRequestingThreadTitles\(\)/)

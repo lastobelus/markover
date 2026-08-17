@@ -138,6 +138,10 @@ test('picker cancellation and failed creation cannot reuse a pending candidate',
   )
   assert.match(
     renderer,
+    /async function loadDocument[\s\S]*addManagedReview\(managedReviewDocument\(\{[\s\S]*\.\.\.documentData,[\s\S]*checksum[\s\S]*\}\), false\)/
+  )
+  assert.match(
+    renderer,
     /if \(!finishActiveSourceEdit\(\)\) return 'blocked'[\s\S]*bridge\.activateReview\(reviewId\)/
   )
 })

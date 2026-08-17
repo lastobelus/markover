@@ -277,6 +277,7 @@ let codexThreadTitles: CodexThreadTitleSnapshot = {
   titles: []
 }
 let codexThreadTitleRefresh: Promise<void> = Promise.resolve()
+let requestingThreadTitleRefresh: Promise<void> = Promise.resolve()
 let windowFocusState: MarkoverWindowFocusState = {
   focused: false,
   blurredAt: Date.now()
@@ -3564,23 +3565,30 @@ function refreshCodexThreadTitles(): Promise<void> {
   return codexThreadTitleRefresh
 }
 
-async function refreshRequestingThreadTitles(): Promise<void> {
-  try {
-    const documents = captureReviewList(await bridge.getReviews())
-    for (const document of documents) {
-      const managed = managedReviewDocument(document)
-      if (!reviewSessions.updateDocument(managed)) {
-        addManagedReview(managed, false)
+function refreshRequestingThreadTitles(): Promise<void> {
+  const refresh = async (): Promise<void> => {
+    try {
+      const documents = captureReviewList(await bridge.getReviews())
+      for (const document of documents) {
+        const managed = managedReviewDocument(document)
+        if (!reviewSessions.updateDocument(managed)) {
+          addManagedReview(managed, false)
+        }
       }
+    } catch (error) {
+      console.error('Failed to refresh review metadata', error)
     }
-  } catch (error) {
-    console.error('Failed to refresh review metadata', error)
+    await Promise.all([
+      refreshT3ThreadTitles(),
+      refreshCodexThreadTitles()
+    ])
+    if (state.reviewId) renderReviewContext()
   }
-  await Promise.all([
-    refreshT3ThreadTitles(),
-    refreshCodexThreadTitles()
-  ])
-  if (state.reviewId) renderReviewContext()
+  requestingThreadTitleRefresh = requestingThreadTitleRefresh.then(
+    refresh,
+    refresh
+  )
+  return requestingThreadTitleRefresh
 }
 
 function applySettings(
@@ -4097,16 +4105,10 @@ async function loadDocument(documentData: MarkoverDocument): Promise<void> {
     documentData.tree &&
     isReviewSessionTree(documentData.tree)
   ) {
-    const session = addManagedReview({
-      reviewId: documentData.reviewId,
-      name: documentData.name,
-      path: documentData.path,
-      checksum,
-      tree: documentData.tree,
-      ...(documentData.project
-        ? { project: documentData.project }
-        : {})
-    }, false)
+    const session = addManagedReview(managedReviewDocument({
+      ...documentData,
+      checksum
+    }), false)
     await activateReview(session.reviewId)
     return
   }
