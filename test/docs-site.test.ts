@@ -237,6 +237,7 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   assert.match(privacy, /makes no network request/)
   assert.match(privacy, /Discover agent thread from local session logs/)
   assert.match(privacy, /Read current titles from T3/)
+  assert.match(privacy, /Read current titles from Codex/)
   assert.match(privacy, /Titles are kept in memory only/)
   assert.match(privacy, /it does not poll or watch the database/)
   assert.match(privacy, /local repository roots stay out of the handoff/)

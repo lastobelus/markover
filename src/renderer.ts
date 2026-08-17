@@ -208,6 +208,8 @@ const elements = {
   settingsDialog: requiredElement<HTMLDialogElement>('#settings-dialog'),
   settingsForm: requiredElement<HTMLFormElement>('#settings-form'),
   settingsReset: requiredElement<HTMLButtonElement>('#settings-reset'),
+  codexThreadTitleStatus: requiredElement('#codex-thread-title-status'),
+  codexThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#codex-thread-titles-refresh'),
   t3ThreadTitleStatus: requiredElement('#t3-thread-title-status'),
   t3ThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#t3-thread-titles-refresh'),
   workspace: requiredElement('#workspace')
@@ -265,6 +267,12 @@ let t3ThreadTitles: T3ThreadTitleSnapshot = {
   titles: []
 }
 let t3ThreadTitleRefresh: Promise<void> = Promise.resolve()
+let codexThreadTitles: CodexThreadTitleSnapshot = {
+  status: 'disabled',
+  detail: 'Codex requesting-thread titles are disabled.',
+  titles: []
+}
+let codexThreadTitleRefresh: Promise<void> = Promise.resolve()
 let windowFocusState: MarkoverWindowFocusState = {
   focused: false,
   blurredAt: Date.now()
@@ -282,8 +290,11 @@ function reviewInboxProjection(
 ): ReturnType<typeof projectReviewInbox> {
   return projectReviewInbox(
     sessions,
-    t3ThreadTitles.titles,
-    preferences.inboxTitlePreference
+    {
+      codexThreadTitles: codexThreadTitles.titles,
+      t3ThreadTitles: t3ThreadTitles.titles,
+      titlePreference: preferences.inboxTitlePreference
+    }
   )
 }
 
@@ -2150,11 +2161,11 @@ function queueIncomingReview(reviewDocument: MarkoverDocument): Promise<void> {
   incomingReviewQueue = incomingReviewQueue.then(
     async () => {
       await handleIncomingReview(reviewDocument)
-      await refreshT3ThreadTitles()
+      await refreshRequestingThreadTitles()
     },
     async () => {
       await handleIncomingReview(reviewDocument)
-      await refreshT3ThreadTitles()
+      await refreshRequestingThreadTitles()
     }
   ).catch((error: unknown) => {
     console.error('Failed to add incoming review', error)
@@ -3155,7 +3166,7 @@ function setReviewNavigationMode(
   renderDocumentsList()
   if (persist) {
     persistWorkspaceState()
-    void refreshT3ThreadTitles()
+    void refreshRequestingThreadTitles()
   }
 }
 
@@ -3398,6 +3409,18 @@ function updateT3ThreadTitleStatus(refreshing = false): void {
     refreshing || !preferences.t3ThreadTitlesEnabled
 }
 
+function updateCodexThreadTitleStatus(refreshing = false): void {
+  elements.codexThreadTitleStatus.textContent = refreshing
+    ? 'Refreshing Codex requesting-thread titles…'
+    : codexThreadTitles.detail
+  elements.codexThreadTitleStatus.dataset.status = refreshing
+    ? 'refreshing'
+    : codexThreadTitles.status
+  elements.codexThreadTitleStatus.setAttribute('aria-busy', String(refreshing))
+  elements.codexThreadTitlesRefresh.disabled =
+    refreshing || !preferences.codexThreadTitlesEnabled
+}
+
 function refreshT3ThreadTitles(): Promise<void> {
   const refresh = async (): Promise<void> => {
     updateT3ThreadTitleStatus(true)
@@ -3418,6 +3441,33 @@ function refreshT3ThreadTitles(): Promise<void> {
   return t3ThreadTitleRefresh
 }
 
+function refreshCodexThreadTitles(): Promise<void> {
+  const refresh = async (): Promise<void> => {
+    updateCodexThreadTitleStatus(true)
+    try {
+      codexThreadTitles = await bridge.getCodexThreadTitles()
+    } catch (error) {
+      console.error('Failed to refresh Codex requesting-thread titles', error)
+      codexThreadTitles = {
+        status: 'unavailable',
+        detail: 'Codex app-server is temporarily unavailable.',
+        titles: []
+      }
+    }
+    updateCodexThreadTitleStatus()
+    renderDocumentsListPreservingFocus()
+  }
+  codexThreadTitleRefresh = codexThreadTitleRefresh.then(refresh, refresh)
+  return codexThreadTitleRefresh
+}
+
+async function refreshRequestingThreadTitles(): Promise<void> {
+  await Promise.all([
+    refreshT3ThreadTitles(),
+    refreshCodexThreadTitles()
+  ])
+}
+
 function applySettings(
   next: unknown,
   options: { initial?: boolean } = {}
@@ -3432,6 +3482,7 @@ function applySettings(
   resolvedAppearance = applied.appearance
   void themeBrandAssets()
   updateT3ThreadTitleStatus()
+  updateCodexThreadTitleStatus()
 
   if (MarkoverSettings.sidebarPreferenceChanged(
     previous,
@@ -3454,6 +3505,15 @@ function applySettings(
     )
   ) {
     void refreshT3ThreadTitles()
+  }
+  if (
+    !options.initial &&
+    (
+      previous.codexThreadTitlesEnabled !== preferences.codexThreadTitlesEnabled ||
+      previous.codexExecutablePath !== preferences.codexExecutablePath
+    )
+  ) {
+    void refreshCodexThreadTitles()
   }
 }
 
@@ -3510,6 +3570,9 @@ elements.settingsReset.addEventListener('click', () => {
 })
 elements.t3ThreadTitlesRefresh.addEventListener('click', () => {
   void refreshT3ThreadTitles()
+})
+elements.codexThreadTitlesRefresh.addEventListener('click', () => {
+  void refreshCodexThreadTitles()
 })
 elements.settingsForm.addEventListener('change', (event) => {
   const control = event.target
@@ -4586,7 +4649,7 @@ async function initialize(): Promise<void> {
     windowFocusStateVersion += 1
     windowFocusState = focusState
     scheduleIncomingReviewNoticeDismissal()
-    if (focusState.focused) void refreshT3ThreadTitles()
+    if (focusState.focused) void refreshRequestingThreadTitles()
   })
   const initialFocusStateVersion = windowFocusStateVersion
   const initialFocusState = await bridge.getWindowFocusState()
@@ -4620,7 +4683,7 @@ async function initialize(): Promise<void> {
     if (!session) return
     normalizeSessionWorkspaceState(session)
     renderDocumentsListPreservingFocus()
-    void refreshT3ThreadTitles()
+    void refreshRequestingThreadTitles()
     if (session.reviewId === state.reviewId) {
       state.tree = session.tree
       state.selectedId = session.selectedId
@@ -4759,7 +4822,7 @@ async function initialize(): Promise<void> {
     workspaceStateReady = true
     persistWorkspaceState()
     renderDocumentsList()
-    void refreshT3ThreadTitles()
+    void refreshRequestingThreadTitles()
     if (state.reviewId) elements.previewPane.focus()
     else if (incompatibleReviews.length) {
       elements.documentsListTree.querySelector<HTMLButtonElement>(

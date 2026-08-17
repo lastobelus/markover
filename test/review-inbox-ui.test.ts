@@ -30,7 +30,7 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   const registry = read('src/review-icon-registry.ts')
   const styles = read('src/styles.css')
 
-  assert.match(renderer, /projectReviewInbox\([\s\S]*t3ThreadTitles\.titles,[\s\S]*preferences\.inboxTitlePreference/)
+  assert.match(renderer, /projectReviewInbox\([\s\S]*codexThreadTitles: codexThreadTitles\.titles,[\s\S]*t3ThreadTitles: t3ThreadTitles\.titles,[\s\S]*titlePreference: preferences\.inboxTitlePreference/)
   assert.match(
     renderer,
     /renderInboxReviews\(projection\.editing, projection\.history\)/
@@ -105,7 +105,7 @@ test('review activation uses one active review and exposes exact IDs', () => {
   assert.doesNotMatch(workspace, /openReviewIds/)
 })
 
-test('T3 titles expose explicit settings, status, and only event-driven refreshes', () => {
+test('thread-title integrations expose source-specific settings and event refreshes', () => {
   const html = read('src/index.html')
   const renderer = read('src/renderer.ts')
 
@@ -114,11 +114,17 @@ test('T3 titles expose explicit settings, status, and only event-driven refreshe
   assert.match(html, /name="inboxTitlePreference"[\s\S]*value="review-purpose"[\s\S]*value="requesting-thread-title"/)
   assert.match(html, /id="t3-thread-title-status"[^>]*role="status"[^>]*aria-live="polite"/)
   assert.match(html, /id="t3-thread-titles-refresh"[\s\S]*Refresh titles now/)
+  assert.match(html, /name="codexThreadTitlesEnabled"[^>]*role="switch"/)
+  assert.match(html, /name="codexExecutablePath"[\s\S]*\/opt\/homebrew\/bin\/codex/)
+  assert.match(html, /id="codex-thread-title-status"[^>]*role="status"[^>]*aria-live="polite"/)
+  assert.match(html, /id="codex-thread-titles-refresh"[\s\S]*Refresh Codex titles now/)
   assert.match(renderer, /t3ThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshT3ThreadTitles\(\)/)
-  assert.match(renderer, /onWindowFocusChanged\([\s\S]*focusState\.focused\) void refreshT3ThreadTitles\(\)/)
-  assert.match(renderer, /function queueIncomingReview[\s\S]*handleIncomingReview\(reviewDocument\)[\s\S]*refreshT3ThreadTitles\(\)/)
-  assert.match(renderer, /onReviewUpdated\([\s\S]*refreshT3ThreadTitles\(\)/)
-  assert.match(renderer, /function setReviewNavigationMode[\s\S]*void refreshT3ThreadTitles\(\)/)
-  assert.match(renderer, /restoring-workspace[\s\S]*renderDocumentsList\(\)[\s\S]*void refreshT3ThreadTitles\(\)/)
+  assert.match(renderer, /codexThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshCodexThreadTitles\(\)/)
+  assert.match(renderer, /onWindowFocusChanged\([\s\S]*focusState\.focused\) void refreshRequestingThreadTitles\(\)/)
+  assert.match(renderer, /function queueIncomingReview[\s\S]*handleIncomingReview\(reviewDocument\)[\s\S]*refreshRequestingThreadTitles\(\)/)
+  assert.match(renderer, /onReviewUpdated\([\s\S]*refreshRequestingThreadTitles\(\)/)
+  assert.match(renderer, /function setReviewNavigationMode[\s\S]*void refreshRequestingThreadTitles\(\)/)
+  assert.match(renderer, /restoring-workspace[\s\S]*renderDocumentsList\(\)[\s\S]*void refreshRequestingThreadTitles\(\)/)
   assert.doesNotMatch(renderer, /setInterval\([^)]*refreshT3ThreadTitles/)
+  assert.doesNotMatch(renderer, /setInterval\([^)]*refreshCodexThreadTitles/)
 })

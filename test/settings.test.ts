@@ -48,6 +48,8 @@ test('settings defaults cover the persisted preferences', () => {
     'discoverAgentThreadFromLocalSessions',
     't3ThreadTitlesEnabled',
     't3MetadataDatabasePath',
+    'codexThreadTitlesEnabled',
+    'codexExecutablePath',
     'inboxTitlePreference',
     'logRejectedApiRequests',
     'agentReviewMode',
@@ -73,6 +75,8 @@ test('settings normalization accepts known choices and rejects unknown values', 
     discoverAgentThreadFromLocalSessions: false,
     t3ThreadTitlesEnabled: true,
     t3MetadataDatabasePath: ' /tmp/t3.sqlite ',
+    codexThreadTitlesEnabled: true,
+    codexExecutablePath: ' /opt/homebrew/bin/codex ',
     inboxTitlePreference: 'requesting-thread-title',
     logRejectedApiRequests: true,
     agentReviewMode: 'annotations-and-source-proposals',
@@ -95,6 +99,8 @@ test('settings normalization accepts known choices and rejects unknown values', 
     discoverAgentThreadFromLocalSessions: false,
     t3ThreadTitlesEnabled: true,
     t3MetadataDatabasePath: '/tmp/t3.sqlite',
+    codexThreadTitlesEnabled: true,
+    codexExecutablePath: '/opt/homebrew/bin/codex',
     inboxTitlePreference: 'requesting-thread-title',
     logRejectedApiRequests: true,
     agentReviewMode: 'annotations-and-source-proposals',
@@ -213,6 +219,8 @@ test('renderer settings apply immediately and reset through the same path', () =
       <input name="discoverAgentThreadFromLocalSessions" type="checkbox">
       <input name="t3ThreadTitlesEnabled" type="checkbox">
       <input name="t3MetadataDatabasePath" type="text">
+      <input name="codexThreadTitlesEnabled" type="checkbox">
+      <input name="codexExecutablePath" type="text">
       <select name="inboxTitlePreference"><option value="review-purpose">Purpose</option><option value="requesting-thread-title">Thread</option></select>
       <input name="logRejectedApiRequests" type="checkbox">
       <textarea name="agentInterpretationPolicy"></textarea>
@@ -267,15 +275,24 @@ test('renderer settings apply immediately and reset through the same path', () =
     | null
   assert.ok(t3PathControl)
   assert.equal(t3PathControl.disabled, true)
+  const codexPathControl = view.form.elements.namedItem('codexExecutablePath') as
+    | HTMLInputElement
+    | null
+  assert.ok(codexPathControl)
+  assert.equal(codexPathControl.disabled, true)
 
   applySettingsToView({
     ...DEFAULT_SETTINGS,
     t3ThreadTitlesEnabled: true,
     t3MetadataDatabasePath: '/tmp/t3.sqlite',
+    codexThreadTitlesEnabled: true,
+    codexExecutablePath: '/opt/homebrew/bin/codex',
     resolvedAppearance: 'light'
   }, view)
   assert.equal(t3PathControl.value, '/tmp/t3.sqlite')
   assert.equal(t3PathControl.disabled, false)
+  assert.equal(codexPathControl.value, '/opt/homebrew/bin/codex')
+  assert.equal(codexPathControl.disabled, false)
 
   applySettingsToView({
     ...DEFAULT_SETTINGS,

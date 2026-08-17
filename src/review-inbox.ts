@@ -2,6 +2,7 @@ import {
   pullRequestObservation,
   type PullRequestStatus
 } from './pull-request'
+import { isCodexProvider } from './provider-identity'
 
 export type ReviewTitleSource =
   | 'thread-title'
@@ -64,6 +65,12 @@ export interface ReviewInboxProjection {
   editing: ReviewInboxRow[]
   history: ReviewInboxRow[]
   projects: ReviewInboxProject[]
+}
+
+export interface ReviewInboxTitleSources {
+  codexThreadTitles?: readonly CodexThreadTitle[]
+  t3ThreadTitles?: readonly T3ThreadTitle[]
+  titlePreference?: InboxTitlePreference
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -131,6 +138,7 @@ function rowTitle(
 function rowFromSession(
   session: ReviewSession,
   t3Titles: ReadonlyMap<string, string>,
+  codexTitles: ReadonlyMap<string, string>,
   titlePreference: InboxTitlePreference
 ): ReviewInboxRow {
   const review = session.tree.review
@@ -143,10 +151,15 @@ function rowFromSession(
   const agentThreadId = stringField(agentThread, ['id'])
   const threadHostThreadId = stringField(threadHost, ['threadId'])
   const requestingThreadId = threadHostThreadId || agentThreadId
-  const requestingThreadTitle = (
+  const threadHostTitle = (
     threadHostKind?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 't3code' &&
     requestingThreadId
   ) ? t3Titles.get(requestingThreadId) || null : null
+  const providerTitle = (
+    isCodexProvider(provider) &&
+    agentThreadId
+  ) ? codexTitles.get(agentThreadId) || null : null
+  const requestingThreadTitle = threadHostTitle || providerTitle
   const machine = stringField(threadHost, ['machine'])
   const local = review.origin === 'local'
   const title = rowTitle(
@@ -286,14 +299,20 @@ function projectProjection(
 
 export function projectReviewInbox(
   sessions: ReviewSession[],
-  t3ThreadTitles: readonly T3ThreadTitle[] = [],
-  titlePreference: InboxTitlePreference = 'review-purpose'
+  {
+    codexThreadTitles = [],
+    t3ThreadTitles = [],
+    titlePreference = 'review-purpose'
+  }: ReviewInboxTitleSources = {}
 ): ReviewInboxProjection {
-  const titles = new Map(
+  const t3Titles = new Map(
     t3ThreadTitles.map(({ threadId, title }) => [threadId, title])
   )
+  const codexTitles = new Map(
+    codexThreadTitles.map(({ threadId, title }) => [threadId, title])
+  )
   const rows = sessions.map((session) => (
-    rowFromSession(session, titles, titlePreference)
+    rowFromSession(session, t3Titles, codexTitles, titlePreference)
   ))
   const byProject = new Map<string, ReviewInboxRow[]>()
   for (const row of rows) {

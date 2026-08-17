@@ -99,6 +99,32 @@ test('T3 title IPC accepts only the strict private snapshot', () => {
   })
 })
 
+test('Codex title IPC accepts only the strict private snapshot', () => {
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('review:codex-thread-titles:get', [])
+    assertRendererInvokeResult('review:codex-thread-titles:get', {
+      status: 'available',
+      detail: 'One Codex title is available.',
+      titles: [{ threadId: 'codex-thread-1', title: 'Renamed thread' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:codex-thread-titles:get', {
+      status: 'unavailable',
+      detail: 'Unavailable.',
+      titles: [{ threadId: 'codex-thread-1', title: 'Stale title' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:codex-thread-titles:get', {
+      status: 'available',
+      detail: 'Available.',
+      titles: [],
+      executablePath: '/private/codex'
+    })
+  })
+})
+
 test('workspace IPC accepts only the exact private workspace format', () => {
   const workspace = defaultWorkspaceState()
   assert.doesNotThrow(() => {
@@ -466,6 +492,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:activation-response',
     'review:autosave',
     'review:autosave-status:get',
+    'review:codex-thread-titles:get',
     'review:context-menu:open',
     'review:create-local',
     'review:initial-document',
