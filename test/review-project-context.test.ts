@@ -75,18 +75,41 @@ test('normalizes clone transports while preserving fork ownership', () => {
   )
   assert.equal(
     normalizeRepositoryRemote('alice@example.com:project.git'),
-    'alice@example.com/project'
+    'example.com/project'
   )
   assert.equal(
     normalizeRepositoryRemote('ssh://bob@example.com/project.git'),
-    'bob@example.com/project'
+    'example.com/project'
   )
-  assert.notEqual(
+  assert.equal(
     normalizeRepositoryRemote('alice@example.com:project.git'),
     normalizeRepositoryRemote('bob@example.com:project.git')
   )
   assert.equal(normalizeRepositoryRemote('/repos/markover.git'), null)
   assert.equal(normalizeRepositoryRemote('file:///repos/markover.git'), null)
+})
+
+test('sanitized and live URL-form SSH origins retain one project', async () => {
+  const review = artifact('# Original\n')
+  review.review.git = {
+    repositoryUrl: 'ssh://gitlab.com/group/repo.git'
+  }
+  assert.deepEqual(await discoverReviewProjectContext(review, {
+    readSource: () => Promise.resolve('# Original\n'),
+    discoverRepository: () => Promise.resolve({
+      root: '/worktrees/repo',
+      remoteUrl: 'ssh://git@gitlab.com/group/repo.git',
+      commonGitDirectory: '/worktrees/repo/.git'
+    })
+  }), {
+    project: {
+      key: 'remote:gitlab.com/group/repo',
+      name: 'repo',
+      root: '/worktrees/repo'
+    },
+    projectEvidence: 'verified',
+    sourceState: 'unchanged'
+  })
 })
 
 test('groups independent clones, keeps forks distinct, and falls back finitely', async () => {

@@ -80,14 +80,12 @@ export function normalizeRepositoryRemote(value: string | null): string | null {
   if (!candidate || candidate.startsWith('file:')) return null
 
   let host: string
-  let username = ''
   let port = ''
   let repositoryPath: string
   const scp = candidate.includes('://')
     ? null
     : /^(?:([^@/]+)@)?([^:/]+):(.+)$/.exec(candidate)
   if (scp) {
-    username = scp[1] || ''
     host = scp[2] as string
     repositoryPath = scp[3] as string
   } else {
@@ -99,7 +97,6 @@ export function normalizeRepositoryRemote(value: string | null): string | null {
     }
     if (!remote.hostname) return null
     host = remote.hostname
-    if (remote.protocol === 'ssh:') username = remote.username
     port = remote.port
     repositoryPath = remote.pathname
   }
@@ -111,12 +108,9 @@ export function normalizeRepositoryRemote(value: string | null): string | null {
     .replace(/\.git$/i, '')
   if (!repositoryPath) return null
   if (host === 'github.com') {
-    username = ''
     repositoryPath = repositoryPath.toLowerCase()
   }
-  return `${username ? `${username}@` : ''}${host}${
-    port ? `:${port}` : ''
-  }/${repositoryPath}`
+  return `${host}${port ? `:${port}` : ''}/${repositoryPath}`
 }
 
 export async function restoreReviewProjectContexts(
