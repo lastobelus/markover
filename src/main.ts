@@ -1047,7 +1047,7 @@ async function createManagedLocalReview(
   })
   return managedDocument(
     artifact,
-    (await projectContextForReview(artifact)).project
+    await projectContextForReview(artifact, true)
   )
 }
 
@@ -1225,7 +1225,7 @@ function currentWindowFocusState(): MarkoverWindowFocusState {
 
 function managedDocument(
   artifact: ReviewArtifact,
-  project: ProjectIdentity | null = null
+  context: ReviewProjectContext
 ): MarkoverDocument {
   internalAttachments.replaceReview(artifact.review.id, artifact)
   return {
@@ -1234,15 +1234,19 @@ function managedDocument(
     path: artifact.sourceDocument.path,
     source: artifact.sourceDocument.content,
     checksum: artifact.sourceDocument.checksum,
-    project,
+    project: context.project,
+    projectEvidence: context.projectEvidence,
+    sourceState: context.sourceState,
     tree: artifact
   }
 }
 
 function projectContextForReview(
-  artifact: ReviewArtifact
+  artifact: ReviewArtifact,
+  refresh = false
 ): Promise<ReviewProjectContext> {
   const reviewId = artifact.review.id
+  if (refresh) reviewProjectContexts.delete(reviewId)
   if (!reviewProjectContexts.has(reviewId)) {
     reviewProjectContexts.set(
       reviewId,
@@ -1286,11 +1290,13 @@ async function managedDocuments(
 ): Promise<MarkoverDocument[]> {
   const projects = await restoreReviewProjectContexts(
     artifacts,
-    projectContextForReview
+    (artifact) => projectContextForReview(artifact, true)
   )
-  return artifacts.map((artifact, index) => (
-    managedDocument(artifact, projects[index]?.project ?? null)
-  ))
+  return artifacts.map((artifact, index) => {
+    const context = projects[index]
+    if (!context) throw new Error(`Missing project context for ${artifact.review.id}.`)
+    return managedDocument(artifact, context)
+  })
 }
 
 function flushPendingManagedReviewNotifications(): void {
@@ -1320,11 +1326,11 @@ function flushPendingManagedReviewNotifications(): void {
 }
 
 function sendManagedReview(artifact: ReviewArtifact): void {
-  void projectContextForReview(artifact).then(async (context) => {
+  void projectContextForReview(artifact, true).then(async (context) => {
     const latestArtifact = await requireReviewStore().load(artifact.review.id)
     pendingManagedReviewNotifications.set(
       artifact.review.id,
-      managedDocument(latestArtifact, context.project)
+      managedDocument(latestArtifact, context)
     )
     installApplicationMenu()
     if (!mainWindow) createWindow({ show: false })
@@ -1347,7 +1353,7 @@ async function sendManagedUpdate(artifact: ReviewArtifact): Promise<void> {
     'review:updated',
     managedDocument(
       artifact,
-      (await projectContextForReview(artifact)).project
+      await projectContextForReview(artifact, true)
     )
   )
 }
@@ -1485,7 +1491,7 @@ async function activateManagedReview(
     artifact
       ? managedDocument(
           artifact,
-          (await projectContextForReview(artifact)).project
+          await projectContextForReview(artifact, true)
         )
       : null,
     focusState
@@ -2155,7 +2161,7 @@ if (!hasSingleInstanceLock) {
     privilegedIpc.handle('review:initial-document', async () => (
       activeManagedReview && managedDocument(
         activeManagedReview,
-        (await projectContextForReview(activeManagedReview)).project
+        await projectContextForReview(activeManagedReview, true)
       )
     ))
     privilegedIpc.handle('review:list', async () => {

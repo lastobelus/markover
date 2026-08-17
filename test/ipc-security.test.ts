@@ -240,6 +240,8 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
       name: 'markover',
       root: '/tmp/markover'
     },
+    projectEvidence: 'verified',
+    sourceState: 'unchanged',
     tree: managedTree
   }
   assert.doesNotThrow(() => {
@@ -256,6 +258,8 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
       path: tree.sourceDocument.path,
       source: tree.sourceDocument.content,
       checksum: tree.sourceDocument.checksum,
+      projectEvidence: 'verified',
+      sourceState: 'unchanged',
       tree: managedTree
     })
     assertRendererSendArguments('review:snapshot-response', [{
@@ -342,6 +346,17 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
     })
   })
 
+  assert.throws(() => {
+    assertRendererInvokeResult('review:initial-document', {
+      ...document,
+      sourceState: 'dirty'
+    })
+  })
+  assert.throws(() => {
+    const missingEvidence = structuredClone(document)
+    Reflect.deleteProperty(missingEvidence, 'projectEvidence')
+    assertMainEventArguments('review:opened', [missingEvidence])
+  })
   assert.throws(() => {
     assertRendererInvokeArguments('document:checksum', ['source', 'extra'])
   })

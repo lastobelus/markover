@@ -11,9 +11,12 @@ export type ReviewTitleSource =
   | 'document-name'
 
 export interface ReviewInboxRow {
+  agentThreadId: string | null
   attentionRequestedAt: number
   branch: string | null
+  commit: string | null
   contextPath: string | null
+  createdAt: string
   documentName: string
   lifecycleActivityAt: number
   local: boolean
@@ -21,19 +24,27 @@ export interface ReviewInboxRow {
   projectKey: string
   projectName: string
   projectRoot: string | null
+  projectEvidence: ReviewProjectEvidence
   provider: string | null
   pullRequestNumber: number | null
+  pullRequestUrl: string | null
   pullRequestStatus: PullRequestStatus | null
   pullRequestStatusObservedAt: string | null
   pullRequestStatusSource: string | null
   reviewId: string
   requestingThreadId: string | null
   requestingThreadTitle: string | null
+  requestingThreadTitleStatus: 'available' | 'unavailable' | 'not-observed' | 'not-applicable'
+  repositoryUrl: string | null
+  sourcePath: string | null
+  sourceState: ReviewSourceState
   status: ReviewSessionStatus
   threadKey: string
   threadHostKind: string | null
+  threadHostThreadId: string | null
   title: string
   titleSource: ReviewTitleSource
+  updatedAt: string
 }
 
 export interface ReviewInboxThread {
@@ -67,8 +78,42 @@ export interface ReviewInboxProjection {
   projects: ReviewInboxProject[]
 }
 
+export type ReviewMetadataKey =
+  | 'project'
+  | 'source-path'
+  | 'source-state'
+  | 'repository'
+  | 'branch'
+  | 'commit'
+  | 'pull-request'
+  | 'pull-request-status'
+  | 'requesting-thread'
+  | 'requesting-thread-title'
+  | 'thread-host'
+  | 'provider'
+  | 'host-thread'
+  | 'machine'
+  | 'review-status'
+  | 'created'
+  | 'updated'
+  | 'attention-requested'
+
+export interface ReviewMetadataField {
+  error: boolean
+  key: ReviewMetadataKey
+  label: string
+  value: string
+}
+
+export interface ReviewMetadataInventory {
+  fields: ReviewMetadataField[]
+  issues: string[]
+}
+
 export interface ReviewInboxTitleSources {
+  codexThreadTitleStatus?: CodexThreadTitleStatus
   codexThreadTitles?: readonly CodexThreadTitle[]
+  t3ThreadTitleStatus?: T3ThreadTitleStatus
   t3ThreadTitles?: readonly T3ThreadTitle[]
   titlePreference?: InboxTitlePreference
 }
@@ -97,6 +142,154 @@ function numberField(value: unknown, key: string): number | null {
   return Number.isInteger(candidate) && Number(candidate) > 0
     ? Number(candidate)
     : null
+}
+
+function dateValue(value: string | number): string | null {
+  const timestamp = typeof value === 'number' ? value : Date.parse(value)
+  return Number.isFinite(timestamp) && timestamp > 0
+    ? new Date(timestamp).toISOString()
+    : null
+}
+
+export function reviewMetadataInventory(
+  row: ReviewInboxRow
+): ReviewMetadataInventory {
+  const fields: ReviewMetadataField[] = []
+  const issues: string[] = []
+  const add = (
+    key: ReviewMetadataKey,
+    label: string,
+    value: string | null,
+    absent: 'missing' | 'unavailable' | 'not-observed' | 'not-applicable' = 'missing',
+    error = false
+  ): void => {
+    const absentValue = absent === 'not-applicable'
+      ? 'Not applicable'
+      : absent === 'not-observed'
+        ? 'Not observed'
+        : absent === 'unavailable'
+          ? 'Unavailable'
+          : 'Missing'
+    const fieldError = error || (!value && absent !== 'not-applicable')
+    fields.push({ key, label, value: value || absentValue, error: fieldError })
+    if (!value && fieldError) {
+      issues.push(`${label} is ${absentValue.toLowerCase()}.`)
+    }
+  }
+
+  add(
+    'project',
+    'Project',
+    row.projectName,
+    'unavailable',
+    row.projectEvidence !== 'verified'
+  )
+  add('source-path', 'Source path', row.sourcePath)
+  const sourceState = row.sourceState === 'unchanged'
+    ? 'Unchanged since review opened'
+    : row.sourceState === 'changed'
+      ? 'Source changed since review opened'
+      : row.sourceState === 'missing'
+        ? 'Source is missing at its recorded path'
+        : 'Source status unavailable'
+  add(
+    'source-state',
+    'Source state',
+    sourceState,
+    'unavailable',
+    row.sourceState !== 'unchanged'
+  )
+  add('repository', 'Repository', row.repositoryUrl)
+  add(
+    'branch',
+    'Branch',
+    row.branch,
+    row.repositoryUrl ? 'missing' : 'not-applicable'
+  )
+  add(
+    'commit',
+    'Commit',
+    row.commit,
+    row.repositoryUrl ? 'missing' : 'not-applicable'
+  )
+  add(
+    'pull-request',
+    'Pull request',
+    row.pullRequestNumber
+      ? `#${String(row.pullRequestNumber)}${row.pullRequestUrl ? ` · ${row.pullRequestUrl}` : ''}`
+      : null,
+    'not-applicable'
+  )
+  add(
+    'pull-request-status',
+    'Pull request status',
+    row.pullRequestStatus
+      ? `${row.pullRequestStatus}${row.pullRequestStatusSource ? ` via ${row.pullRequestStatusSource}` : ''}${row.pullRequestStatusObservedAt ? ` · ${row.pullRequestStatusObservedAt}` : ''}`
+      : null,
+    row.pullRequestNumber ? 'not-observed' : 'not-applicable'
+  )
+  add(
+    'requesting-thread',
+    'Requesting thread',
+    row.local ? null : row.agentThreadId,
+    row.local ? 'not-applicable' : 'missing'
+  )
+  add(
+    'requesting-thread-title',
+    'Requesting thread title',
+    row.requestingThreadTitle,
+    row.requestingThreadTitleStatus === 'available'
+      ? 'unavailable'
+      : row.requestingThreadTitleStatus
+  )
+  add(
+    'thread-host',
+    'Thread host',
+    row.local ? null : row.threadHostKind,
+    row.local ? 'not-applicable' : 'missing'
+  )
+  add(
+    'provider',
+    'Provider',
+    row.local ? null : row.provider,
+    row.local ? 'not-applicable' : 'missing'
+  )
+  add(
+    'host-thread',
+    'Distinct host thread',
+    row.local ? null : row.threadHostThreadId,
+    'not-applicable'
+  )
+  add(
+    'machine',
+    'Machine',
+    row.local ? null : row.machine,
+    row.local ? 'not-applicable' : 'missing'
+  )
+  add('review-status', 'Review status', row.status)
+  add('created', 'Created', dateValue(row.createdAt))
+  add('updated', 'Updated', dateValue(row.updatedAt))
+  add(
+    'attention-requested',
+    'Attention requested',
+    dateValue(row.attentionRequestedAt),
+    row.status === 'editing' ? 'missing' : 'not-applicable'
+  )
+
+  if (row.projectEvidence === 'conflict') {
+    issues.unshift('Source now belongs to a different repository.')
+  } else if (row.projectEvidence === 'unavailable') {
+    issues.unshift('Live repository evidence is unavailable.')
+  }
+  if (row.sourceState === 'changed') {
+    issues.unshift('Source changed since review opened.')
+  } else if (row.sourceState === 'missing') {
+    issues.unshift('Source is missing at its recorded path.')
+  } else if (row.sourceState === 'unavailable') {
+    issues.unshift('Source status is unavailable.')
+  }
+
+  return { fields, issues: [...new Set(issues)] }
 }
 
 function relativeDocumentPath(session: ReviewSession): string | null {
@@ -139,6 +332,8 @@ function rowFromSession(
   session: ReviewSession,
   t3Titles: ReadonlyMap<string, string>,
   codexTitles: ReadonlyMap<string, string>,
+  t3ThreadTitleStatus: T3ThreadTitleStatus,
+  codexThreadTitleStatus: CodexThreadTitleStatus,
   titlePreference: InboxTitlePreference
 ): ReviewInboxRow {
   const review = session.tree.review
@@ -171,6 +366,19 @@ function rowFromSession(
   const branch = stringField(review.git, ['branch'])
   const pullRequestNumber = numberField(review.pullRequest, 'number')
   const pullRequestState = pullRequestObservation(review.pullRequest)
+  const titleSources = [
+    threadHostKind?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 't3code'
+      ? t3ThreadTitleStatus
+      : null,
+    isCodexProvider(provider) ? codexThreadTitleStatus : null
+  ].filter((status): status is T3ThreadTitleStatus | CodexThreadTitleStatus => Boolean(status))
+  const requestingThreadTitleStatus = local
+    ? 'not-applicable'
+    : requestingThreadTitle
+      ? 'available'
+      : titleSources.includes('available')
+        ? 'not-observed'
+        : 'unavailable'
   const threadKey = local
     ? `local:${session.projectKey}`
     : threadHostThreadId
@@ -180,9 +388,12 @@ function rowFromSession(
       : `review:${session.reviewId}`
 
   return {
+    agentThreadId,
     attentionRequestedAt: session.attentionRequestedAt,
     branch,
+    commit: stringField(review.git, ['commit']),
     contextPath: relativeDocumentPath(session),
+    createdAt: review.createdAt,
     documentName: session.documentName,
     lifecycleActivityAt: session.lifecycleActivityAt,
     local,
@@ -190,17 +401,25 @@ function rowFromSession(
     projectKey: session.projectKey,
     projectName: session.projectName,
     projectRoot: session.projectRoot,
+    projectEvidence: session.projectEvidence,
     provider,
     pullRequestNumber,
+    pullRequestUrl: stringField(review.pullRequest, ['url']),
     pullRequestStatus: pullRequestState?.status ?? null,
     pullRequestStatusObservedAt: pullRequestState?.statusObservedAt ?? null,
     pullRequestStatusSource: pullRequestState?.statusSource ?? null,
     reviewId: session.reviewId,
     requestingThreadId,
     requestingThreadTitle,
+    requestingThreadTitleStatus,
+    repositoryUrl: stringField(review.git, ['repositoryUrl']),
+    sourcePath: session.documentPath,
+    sourceState: session.sourceState,
     status: review.status,
     threadKey,
     threadHostKind,
+    threadHostThreadId,
+    updatedAt: review.updatedAt,
     ...title
   }
 }
@@ -300,7 +519,9 @@ function projectProjection(
 export function projectReviewInbox(
   sessions: ReviewSession[],
   {
+    codexThreadTitleStatus = 'disabled',
     codexThreadTitles = [],
+    t3ThreadTitleStatus = 'disabled',
     t3ThreadTitles = [],
     titlePreference = 'review-purpose'
   }: ReviewInboxTitleSources = {}
@@ -312,7 +533,14 @@ export function projectReviewInbox(
     codexThreadTitles.map(({ threadId, title }) => [threadId, title])
   )
   const rows = sessions.map((session) => (
-    rowFromSession(session, t3Titles, codexTitles, titlePreference)
+    rowFromSession(
+      session,
+      t3Titles,
+      codexTitles,
+      t3ThreadTitleStatus,
+      codexThreadTitleStatus,
+      titlePreference
+    )
   ))
   const byProject = new Map<string, ReviewInboxRow[]>()
   for (const row of rows) {

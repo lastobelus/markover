@@ -40,6 +40,8 @@ import {
 } from './review-icon-registry'
 import {
   projectReviewInbox,
+  reviewMetadataInventory,
+  type ReviewMetadataField,
   type ReviewInboxProject,
   type ReviewInboxRow,
   type ReviewInboxThread
@@ -150,6 +152,7 @@ const elements = {
   incomingReviewNoticeOpen: requiredElement<HTMLButtonElement>('#incoming-review-notice-open'),
   keyboardHelp: requiredElement('.keyboard-help'),
   name: requiredElement('#document-name'),
+  sourceState: requiredElement('#document-source-state'),
   openButton: requiredElement<HTMLButtonElement>('#open-button'),
   parseStatus: requiredElement('#parse-status'),
   pinnedSelection: requiredElement('#pinned-selection'),
@@ -182,6 +185,7 @@ const elements = {
   reviewContextClose: requiredElement<HTMLButtonElement>('#review-context-close'),
   reviewContextDrawer: requiredElement<HTMLDialogElement>('#review-context-drawer'),
   reviewContextFields: requiredElement('#review-context-fields'),
+  reviewContextIssues: requiredElement('#review-context-issues'),
   reviewContextSummary: requiredElement('#review-context-summary'),
   reviewContextTitle: requiredElement('#review-context-title'),
   reviewHoverCard: requiredElement('#review-hover-card'),
@@ -292,7 +296,9 @@ function reviewInboxProjection(
     sessions,
     {
       codexThreadTitles: codexThreadTitles.titles,
+      codexThreadTitleStatus: codexThreadTitles.status,
       t3ThreadTitles: t3ThreadTitles.titles,
+      t3ThreadTitleStatus: t3ThreadTitles.status,
       titlePreference: preferences.inboxTitlePreference
     }
   )
@@ -2213,7 +2219,70 @@ function reviewStatusLabel(status: ReviewSessionStatus): string {
   return 'Editing'
 }
 
-function addReviewContextField(label: string, value: unknown): void {
+function reviewRowById(reviewId: string): ReviewInboxRow | null {
+  const projection = reviewInboxProjection()
+  return [...projection.editing, ...projection.history]
+    .find((row) => row.reviewId === reviewId) || null
+}
+
+function reviewMetadataIcon(field: ReviewMetadataField): MarkoverIconName {
+  if (field.key === 'project' || field.key === 'repository') return 'folder'
+  if (field.key === 'source-path' || field.key === 'source-state') return 'file-text'
+  if (field.key === 'branch') return 'git-branch'
+  if (field.key === 'pull-request' || field.key === 'pull-request-status') {
+    return 'git-pull-request'
+  }
+  if (field.key === 'requesting-thread') return 'messages-square'
+  if (field.key === 'requesting-thread-title') return 'message-square'
+  if (field.key === 'thread-host' || field.key === 'machine') return 'server'
+  if (
+    field.key === 'review-status' ||
+    field.key === 'created' ||
+    field.key === 'updated' ||
+    field.key === 'attention-requested'
+  ) return 'clock'
+  return 'hash'
+}
+
+function reviewMetadataVisual(
+  field: ReviewMetadataField,
+  row: ReviewInboxRow
+): Element {
+  if (field.key === 'project') {
+    return createProjectIcon(row.projectKey, row.projectName, row.reviewId)
+  }
+  if (field.key === 'provider') return hoverProviderVisual(row)
+  return markoverIcon(reviewMetadataIcon(field))
+}
+
+function metadataStateLabel(row: ReviewInboxRow): string | null {
+  if (row.projectEvidence === 'conflict') return 'Repository conflict'
+  if (row.sourceState === 'changed') return 'Source changed'
+  if (row.sourceState === 'missing') return 'Source missing'
+  if (row.sourceState === 'unavailable') return 'Source unavailable'
+  if (row.projectEvidence === 'unavailable') return 'Repository unavailable'
+  return null
+}
+
+function renderActiveMetadataState(
+  row: ReviewInboxRow,
+  issues: readonly string[]
+): void {
+  const stateLabel = metadataStateLabel(row)
+  elements.sourceState.hidden = !stateLabel
+  elements.sourceState.textContent = stateLabel || ''
+  elements.sourceState.title = issues.join(' ')
+  elements.reviewContextButton.classList.toggle('has-metadata-error', issues.length > 0)
+  elements.reviewContextButton.ariaLabel = issues.length
+    ? `Show review context. ${issues.join(' ')}`
+    : 'Show review context'
+}
+
+function addReviewContextField(
+  label: string,
+  value: unknown,
+  options: { error?: boolean; visual?: Element } = {}
+): void {
   if (value === null || value === undefined || value === '') return
   let text: string
   if (typeof value === 'string') text = value
@@ -2222,9 +2291,15 @@ function addReviewContextField(label: string, value: unknown): void {
   else if (typeof value === 'bigint') text = value.toString()
   else return
   const term = document.createElement('dt')
-  term.textContent = label
+  if (options.visual) {
+    options.visual.classList.add('review-context-field-icon')
+    const labelText = document.createElement('span')
+    labelText.textContent = label
+    term.append(options.visual, labelText)
+  } else term.textContent = label
   const description = document.createElement('dd')
   description.textContent = text
+  description.classList.toggle('is-error', options.error === true)
   elements.reviewContextFields.append(term, description)
 }
 
@@ -2233,7 +2308,10 @@ function addReviewContextCopyField(
   value: string
 ): HTMLButtonElement {
   const term = document.createElement('dt')
-  term.textContent = label
+  const visual = markoverIcon('hash', 'review-context-field-icon')
+  const labelText = document.createElement('span')
+  labelText.textContent = label
+  term.append(visual, labelText)
   const description = document.createElement('dd')
   description.className = 'review-context-copy-value'
   const code = document.createElement('code')
@@ -2258,17 +2336,16 @@ function renderReviewContext(): void {
   elements.documentReviewId.hidden = !review
   if (!review) {
     elements.documentReviewId.textContent = ''
+    elements.sourceState.hidden = true
+    elements.reviewContextIssues.hidden = true
+    elements.reviewContextButton.classList.remove('has-metadata-error')
     closeReviewContext(false)
     return
   }
 
-  const git = metadataRecord(review.git)
-  const pullRequest = metadataRecord(review.pullRequest)
-  const agentThread = metadataRecord(review.agentThread)
   const agentReviewer = metadataRecord(review.agentReviewer)
   const reviewerThread = metadataRecord(agentReviewer.agentThread)
   const reviewerThreadHost = metadataRecord(reviewerThread.threadHost)
-  const threadHost = metadataRecord(agentThread.threadHost)
   elements.reviewContextTitle.textContent = state.documentName
   elements.reviewContextSummary.innerHTML = inlineMarkdown.render(
     review.contextSummary || ''
@@ -2281,9 +2358,25 @@ function renderReviewContext(): void {
   elements.documentReviewId.ariaLabel = `Copy review ID ${review.id}`
   elements.documentReviewId.title = `Copy review ID ${review.id}`
   const reviewIdCopy = addReviewContextCopyField('Review ID', review.id)
-  addReviewContextField('Status', reviewStatusLabel(review.status))
-  addReviewContextField('Source', state.documentPath)
-  addReviewContextField('Created', review.createdAt)
+  const row = reviewRowById(review.id)
+  const inventory = row ? reviewMetadataInventory(row) : null
+  if (row && inventory) {
+    for (const field of inventory.fields) {
+      addReviewContextField(field.label, field.value, {
+        error: field.error,
+        visual: reviewMetadataVisual(field, row)
+      })
+    }
+    elements.reviewContextIssues.hidden = inventory.issues.length === 0
+    elements.reviewContextIssues.textContent = inventory.issues.join(' ')
+    renderActiveMetadataState(row, inventory.issues)
+  } else {
+    elements.reviewContextIssues.hidden = true
+    elements.reviewContextIssues.textContent = ''
+    elements.sourceState.hidden = true
+    elements.reviewContextButton.classList.remove('has-metadata-error')
+    elements.reviewContextButton.ariaLabel = 'Show review context'
+  }
   if (review.agentReviewer) {
     addReviewContextField('Reviewer', 'Agent')
     addReviewContextField('Agent review mode', metadataString(agentReviewer, 'mode'))
@@ -2292,35 +2385,6 @@ function renderReviewContext(): void {
     addReviewContextField('Review started', metadataString(agentReviewer, 'startedAt'))
     addReviewContextField('Review completed', metadataString(agentReviewer, 'completedAt'))
   }
-  addReviewContextField('Branch', metadataString(git, 'branch'))
-  addReviewContextField('Commit', metadataString(git, 'commit'))
-  addReviewContextField('Repository', metadataString(git, 'repositoryUrl'))
-  const pullRequestNumber = pullRequest.number
-  const pullRequestUrl = metadataString(pullRequest, 'url')
-  addReviewContextField(
-    'Pull request',
-    typeof pullRequestNumber === 'number'
-      ? `#${pullRequestNumber}`
-      : pullRequestUrl
-  )
-  addReviewContextField('Pull request URL', pullRequestUrl)
-  const threadId = metadataString(agentThread, 'id')
-  const threadProvider = metadataString(threadHost, 'provider')
-  addReviewContextField(
-    'Agent thread',
-    threadId
-      ? [threadProvider, threadId].filter(Boolean).join(' · ')
-      : null
-  )
-  addReviewContextField('Thread-host', metadataString(threadHost, 'kind'))
-  addReviewContextField(
-    'Thread-host thread',
-    metadataString(threadHost, 'threadId')
-  )
-  addReviewContextField(
-    'Thread-host machine',
-    metadataString(threadHost, 'machine')
-  )
   if (restoreReviewContextCopyFocus) reviewIdCopy.focus()
 }
 
@@ -2580,13 +2644,15 @@ function createProjectIcon(
 }
 
 interface ReviewHoverEntry {
-  icon?: MarkoverIconName
+  error: boolean
+  label: string
   text: string
-  visual?: Element
+  visual: Element
 }
 
 interface ReviewHoverModel {
   entries: ReviewHoverEntry[]
+  issues: string[]
   title: string
 }
 
@@ -2610,14 +2676,22 @@ function showReviewHoverCard(
   for (const entry of model.entries) {
     const row = document.createElement('div')
     row.className = 'review-hover-entry'
-    const visual = entry.visual || markoverIcon(entry.icon || 'message-square')
+    row.classList.toggle('is-error', entry.error)
+    const visual = entry.visual
     visual.classList.add('review-hover-entry-icon')
+    const label = document.createElement('span')
+    label.className = 'review-hover-entry-label'
+    label.textContent = entry.label
     const value = document.createElement('span')
     value.textContent = entry.text
-    row.append(visual, value)
+    row.append(visual, label, value)
     entries.append(row)
   }
-  elements.reviewHoverCard.replaceChildren(title, entries)
+  const issues = document.createElement('div')
+  issues.className = 'review-hover-issues'
+  issues.hidden = model.issues.length === 0
+  issues.textContent = model.issues.join(' ')
+  elements.reviewHoverCard.replaceChildren(title, entries, issues)
   elements.reviewHoverCard.hidden = false
   const anchorRect = anchor.getBoundingClientRect()
   const hoverRect = elements.reviewHoverCard.getBoundingClientRect()
@@ -2674,40 +2748,25 @@ function providerDescription(
 }
 
 function reviewHoverModel(row: ReviewInboxRow): ReviewHoverModel {
-  const entries: ReviewHoverEntry[] = [
-    {
-      icon: 'hash',
-      text: row.reviewId
-    },
-    {
-      text: row.projectName,
-      visual: createProjectIcon(row.projectKey, row.projectName, row.reviewId)
-    }
-  ]
-  if (row.machine) entries.push({ icon: 'server', text: row.machine })
-  if (row.branch) entries.push({ icon: 'git-branch', text: row.branch })
-  entries.push({
-    text: providerDescription(row.provider, row.threadHostKind),
-    visual: hoverProviderVisual(row)
-  })
-  entries.push({
-    icon: 'file-text',
-    text: row.contextPath || row.documentName
-  })
-  if (row.pullRequestNumber) {
-    const observation = row.pullRequestStatus
-      ? ` · ${row.pullRequestStatus}${row.pullRequestStatusSource ? ` via ${row.pullRequestStatusSource}` : ''}`
-      : ' · linked'
-    entries.push({
-      icon: 'git-pull-request',
-      text: `PR #${row.pullRequestNumber}${observation}`
-    })
+  const inventory = reviewMetadataInventory(row)
+  return {
+    entries: [
+      {
+        error: false,
+        label: 'Review ID',
+        text: row.reviewId,
+        visual: markoverIcon('hash')
+      },
+      ...inventory.fields.map((field) => ({
+        error: field.error,
+        label: field.label,
+        text: field.value,
+        visual: reviewMetadataVisual(field, row)
+      }))
+    ],
+    issues: inventory.issues,
+    title: row.title
   }
-  entries.push({
-    icon: 'clock',
-    text: `${reviewStatusLabel(row.status)} · ${reviewRowTime(row)}`
-  })
-  return { entries, title: row.title }
 }
 
 function reviewRowContext(row: ReviewInboxRow): string {
@@ -2779,6 +2838,17 @@ function bindReviewContextMenuKeyboard(
   return focusKey
 }
 
+function createMetadataStateMarker(row: ReviewInboxRow): HTMLElement | null {
+  const label = metadataStateLabel(row)
+  if (!label) return null
+  const marker = document.createElement('span')
+  marker.className = 'review-metadata-state-marker'
+  marker.title = label
+  marker.setAttribute('aria-label', label)
+  marker.append(markoverIcon('message-square'))
+  return marker
+}
+
 function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   const container = document.createElement('div')
   container.className = [
@@ -2835,6 +2905,8 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   const titleText = document.createElement('span')
   titleText.textContent = row.title
   title.append(titleText)
+  const metadataMarker = createMetadataStateMarker(row)
+  if (metadataMarker) title.append(metadataMarker)
 
   const bottom = document.createElement('span')
   bottom.className = 'review-list-row-line review-list-row-meta'
@@ -2906,7 +2978,11 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
 
   const title = document.createElement('span')
   title.className = 'review-project-leaf-title'
-  title.textContent = row.title
+  const titleText = document.createElement('span')
+  titleText.textContent = row.title
+  title.append(titleText)
+  const metadataMarker = createMetadataStateMarker(row)
+  if (metadataMarker) title.append(metadataMarker)
 
   const age = document.createElement('span')
   age.className = 'review-project-leaf-age'
@@ -3038,16 +3114,25 @@ function projectHoverModel(project: ReviewInboxProject): ReviewHoverModel {
     0
   )
   const entries: ReviewHoverEntry[] = []
-  if (project.root) entries.push({ icon: 'folder', text: project.root })
-  entries.push({
-    icon: 'list-tree',
-    text: `${project.threads.length} thread${project.threads.length === 1 ? '' : 's'} · ${reviewCount} review${reviewCount === 1 ? '' : 's'}`
+  if (project.root) entries.push({
+    error: false,
+    label: 'Project root',
+    text: project.root,
+    visual: markoverIcon('folder')
   })
   entries.push({
-    icon: 'clock',
-    text: `${project.editingCount} need review · latest ${MarkoverReviewSessions.formatRelativeTime(project.latestActivityAt)}`
+    error: false,
+    label: 'Contents',
+    text: `${project.threads.length} thread${project.threads.length === 1 ? '' : 's'} · ${reviewCount} review${reviewCount === 1 ? '' : 's'}`,
+    visual: markoverIcon('list-tree')
   })
-  return { entries, title: project.name }
+  entries.push({
+    error: false,
+    label: 'Activity',
+    text: `${project.editingCount} need review · latest ${MarkoverReviewSessions.formatRelativeTime(project.latestActivityAt)}`,
+    visual: markoverIcon('clock')
+  })
+  return { entries, issues: [], title: project.name }
 }
 
 function createDetailsDisclosure(): HTMLElement {
@@ -3067,27 +3152,45 @@ function threadHoverModel(
   const iconReviewId = thread.reviews[0]?.reviewId || ''
   const entries: ReviewHoverEntry[] = [
     {
+      error: false,
+      label: 'Project',
       text: project.name,
       visual: createProjectIcon(project.key, project.name, iconReviewId)
     }
   ]
   if (thread.requestingThreadId) {
-    entries.push({ icon: 'message-square', text: thread.requestingThreadId })
+    entries.push({
+      error: false,
+      label: 'Requesting thread',
+      text: thread.requestingThreadId,
+      visual: markoverIcon('message-square')
+    })
   }
-  if (thread.machine) entries.push({ icon: 'server', text: thread.machine })
+  if (thread.machine) entries.push({
+    error: false,
+    label: 'Machine',
+    text: thread.machine,
+    visual: markoverIcon('server')
+  })
   entries.push({
+    error: false,
+    label: 'Provider',
     text: providerDescription(thread.provider, thread.threadHostKind),
     visual: hoverProviderVisual(thread)
   })
   entries.push({
-    icon: 'list-tree',
-    text: `${thread.reviews.length} review${thread.reviews.length === 1 ? '' : 's'} · ${thread.editingCount} need review`
+    error: false,
+    label: 'Reviews',
+    text: `${thread.reviews.length} review${thread.reviews.length === 1 ? '' : 's'} · ${thread.editingCount} need review`,
+    visual: markoverIcon('list-tree')
   })
   entries.push({
-    icon: 'clock',
-    text: `Latest activity ${MarkoverReviewSessions.formatRelativeTime(thread.latestActivityAt)}`
+    error: false,
+    label: 'Activity',
+    text: `Latest activity ${MarkoverReviewSessions.formatRelativeTime(thread.latestActivityAt)}`,
+    visual: markoverIcon('clock')
   })
-  return { entries, title: thread.title }
+  return { entries, issues: [], title: thread.title }
 }
 
 function threadSummary(
@@ -3462,10 +3565,22 @@ function refreshCodexThreadTitles(): Promise<void> {
 }
 
 async function refreshRequestingThreadTitles(): Promise<void> {
+  try {
+    const documents = captureReviewList(await bridge.getReviews())
+    for (const document of documents) {
+      const managed = managedReviewDocument(document)
+      if (!reviewSessions.updateDocument(managed)) {
+        addManagedReview(managed, false)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to refresh review metadata', error)
+  }
   await Promise.all([
     refreshT3ThreadTitles(),
     refreshCodexThreadTitles()
   ])
+  if (state.reviewId) renderReviewContext()
 }
 
 function applySettings(
@@ -3569,10 +3684,10 @@ elements.settingsReset.addEventListener('click', () => {
   void bridge.updateSettings(MarkoverSettings.DEFAULT_SETTINGS).then(applySettings)
 })
 elements.t3ThreadTitlesRefresh.addEventListener('click', () => {
-  void refreshT3ThreadTitles()
+  void refreshRequestingThreadTitles()
 })
 elements.codexThreadTitlesRefresh.addEventListener('click', () => {
-  void refreshCodexThreadTitles()
+  void refreshRequestingThreadTitles()
 })
 elements.settingsForm.addEventListener('change', (event) => {
   const control = event.target
@@ -3953,9 +4068,9 @@ function managedReviewDocument(
     path: documentData.path,
     checksum: documentData.checksum,
     tree: documentData.tree,
-    ...(documentData.project
-      ? { project: documentData.project }
-      : {})
+    project: documentData.project || null,
+    projectEvidence: documentData.projectEvidence || 'unavailable',
+    sourceState: documentData.sourceState || 'unavailable'
   }
 }
 

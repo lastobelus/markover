@@ -485,7 +485,11 @@ test('project identity falls back to the source directory and then Other', () =>
       reviewId: 'mko_stale01',
       path: '/tmp/stale-checkout/notes.md',
       project: null,
-      tree: { review: { git: null } }
+      tree: {
+        review: {
+          git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' }
+        }
+      }
     }),
     { key: 'unassigned', name: 'Other', root: null }
   )
@@ -507,6 +511,43 @@ test('project identity falls back to the source directory and then Other', () =>
   assert.deepEqual(
     projectIdentity({ path: null, tree: {} }),
     { key: 'unassigned', name: 'Other', root: null }
+  )
+})
+
+test('managed refresh replaces private project and source context', () => {
+  const sessions = new ReviewSessions()
+  const document = reviewDocument(
+    'mko_context1',
+    'context.md',
+    '/projects/markover'
+  )
+  document.projectEvidence = 'verified'
+  document.sourceState = 'unchanged'
+  const session = sessions.add(document)
+  assert.equal(session.projectEvidence, 'verified')
+  assert.equal(session.sourceState, 'unchanged')
+
+  const refreshed = structuredClone(document)
+  refreshed.project = null
+  refreshed.projectEvidence = 'conflict'
+  refreshed.sourceState = 'changed'
+  const updated = sessions.updateDocument(refreshed)
+  assert.ok(updated)
+  assert.deepEqual(
+    {
+      key: updated.projectKey,
+      name: updated.projectName,
+      root: updated.projectRoot,
+      evidence: updated.projectEvidence,
+      source: updated.sourceState
+    },
+    {
+      key: 'unassigned',
+      name: 'Other',
+      root: null,
+      evidence: 'conflict',
+      source: 'changed'
+    }
   )
 })
 

@@ -17,7 +17,7 @@ test('agent review events update the renderer without showing or focusing it', (
 
   assert.match(
     managedReview,
-    /projectContextForReview\(artifact\)\.then\(async \(context\) => \{[\s\S]*requireReviewStore\(\)\.load\(artifact\.review\.id\)[\s\S]*pendingManagedReviewNotifications\.set\([\s\S]*managedDocument\(latestArtifact, context\.project\)/
+    /projectContextForReview\(artifact, true\)\.then\(async \(context\) => \{[\s\S]*requireReviewStore\(\)\.load\(artifact\.review\.id\)[\s\S]*pendingManagedReviewNotifications\.set\([\s\S]*managedDocument\(latestArtifact, context\)/
   )
   assert.match(managedReview, /createWindow\(\{ show: false \}\)/)
   assert.match(managedReview, /flushPendingManagedReviewNotifications\(\)/)
@@ -49,6 +49,26 @@ test('persisted review creation does not wait for renderer notification', () => 
   assert.match(
     onChange,
     /await sendManagedUpdate\(artifact\)[\s\S]*sendManagedStatus\(artifact\)/
+  )
+})
+
+test('managed publication refreshes and transports private project context', () => {
+  const main = read('src/main.ts')
+  assert.match(
+    main,
+    /function managedDocument[\s\S]*project: context\.project,[\s\S]*projectEvidence: context\.projectEvidence,[\s\S]*sourceState: context\.sourceState/
+  )
+  assert.match(
+    main,
+    /function projectContextForReview[\s\S]*refresh = false[\s\S]*if \(refresh\) reviewProjectContexts\.delete\(reviewId\)/
+  )
+  assert.match(
+    main,
+    /sendManagedUpdate[\s\S]*projectContextForReview\(artifact, true\)/
+  )
+  assert.match(
+    main,
+    /activateManagedReview[\s\S]*projectContextForReview\(artifact, true\)/
   )
 })
 
