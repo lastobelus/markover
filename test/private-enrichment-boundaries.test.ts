@@ -44,7 +44,7 @@ test('private enrichment remains absent from runtime and agent-visible transport
   ]) {
     assert.doesNotMatch(
       read(relativePath),
-      /T3ThreadTitle|requestingThreadTitle|t3MetadataDatabasePath/,
+      /T3ThreadTitle|CodexThreadTitle|requestingThreadTitle|t3MetadataDatabasePath|codexExecutablePath/,
       relativePath
     )
   }
@@ -52,4 +52,12 @@ test('private enrichment remains absent from runtime and agent-visible transport
   const adapter = read('src/t3-thread-titles.ts')
   assert.match(adapter, /new DatabaseSync\(databasePath, \{[\s\S]*readOnly: true,[\s\S]*timeout: 100/)
   assert.doesNotMatch(adapter, /setInterval|watchFile|createWriteStream/)
+
+  const codexAdapter = read('src/codex-thread-titles.ts')
+  assert.match(codexAdapter, /spawn\(executable, \['app-server', '--stdio'\]/)
+  assert.match(codexAdapter, /request\('thread\/read', \{[\s\S]*threadId,[\s\S]*includeTurns: false/)
+  assert.doesNotMatch(
+    codexAdapter,
+    /thread\/list|setInterval|watchFile|createWriteStream|shell: true/
+  )
 })

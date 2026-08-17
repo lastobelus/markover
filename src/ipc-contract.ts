@@ -33,6 +33,8 @@ const SETTINGS_KEYS = [
   'discoverAgentThreadFromLocalSessions',
   't3ThreadTitlesEnabled',
   't3MetadataDatabasePath',
+  'codexThreadTitlesEnabled',
+  'codexExecutablePath',
   'inboxTitlePreference',
   'logRejectedApiRequests',
   'agentReviewMode',
@@ -89,6 +91,7 @@ export interface RendererInvokeArguments {
   'review:initial-document': []
   'review:list': []
   'review:t3-thread-titles:get': []
+  'review:codex-thread-titles:get': []
   'review:project-favicon:get': [string]
   'review:pull-request:open': [string]
   'review:context-menu:open': [ReviewContextMenuRequest]
@@ -118,6 +121,7 @@ export interface RendererInvokeResults {
   'review:initial-document': MarkoverDocument | null
   'review:list': MarkoverReviewListItem[]
   'review:t3-thread-titles:get': T3ThreadTitleSnapshot
+  'review:codex-thread-titles:get': CodexThreadTitleSnapshot
   'review:project-favicon:get': string | null
   'review:pull-request:open': undefined
   'review:context-menu:open': ReviewContextMenuResult
@@ -435,10 +439,12 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'confirmAttachmentRemoval':
     case 'discoverAgentThreadFromLocalSessions':
     case 't3ThreadTitlesEnabled':
+    case 'codexThreadTitlesEnabled':
     case 'logRejectedApiRequests':
       return typeof value === 'boolean'
     case 'agentInterpretationPolicy': return typeof value === 'string'
     case 't3MetadataDatabasePath': return typeof value === 'string'
+    case 'codexExecutablePath': return typeof value === 'string'
     case 'autosaveMaximumDelayMs':
       return typeof value === 'number' &&
         Number.isInteger(value) &&
@@ -488,6 +494,29 @@ function isT3ThreadTitleSnapshot(
     typeof value.detail === 'string' &&
     Array.isArray(value.titles) &&
     value.titles.every(isT3ThreadTitle) &&
+    (value.status === 'available' || value.titles.length === 0)
+}
+
+function isCodexThreadTitle(value: unknown): value is CodexThreadTitle {
+  return hasExactKeys(value, ['threadId', 'title']) &&
+    typeof value.threadId === 'string' &&
+    Boolean(value.threadId.trim()) &&
+    typeof value.title === 'string' &&
+    Boolean(value.title.trim())
+}
+
+function isCodexThreadTitleSnapshot(
+  value: unknown
+): value is CodexThreadTitleSnapshot {
+  return hasExactKeys(value, ['status', 'detail', 'titles']) &&
+    (
+      value.status === 'disabled' ||
+      value.status === 'available' ||
+      value.status === 'unavailable'
+    ) &&
+    typeof value.detail === 'string' &&
+    Array.isArray(value.titles) &&
+    value.titles.every(isCodexThreadTitle) &&
     (value.status === 'available' || value.titles.length === 0)
 }
 
@@ -654,6 +683,7 @@ export function assertRendererInvokeArguments(
     case 'review:initial-document':
     case 'review:list':
     case 'review:t3-thread-titles:get':
+    case 'review:codex-thread-titles:get':
       valid = noArguments(args)
       break
     case 'review:project-favicon:get':
@@ -771,6 +801,9 @@ export function assertRendererInvokeResult(
       break
     case 'review:t3-thread-titles:get':
       valid = isT3ThreadTitleSnapshot(value)
+      break
+    case 'review:codex-thread-titles:get':
+      valid = isCodexThreadTitleSnapshot(value)
       break
     case 'review:project-favicon:get':
       valid = value === null || (

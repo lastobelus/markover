@@ -27,6 +27,7 @@ import { pathToFileURL } from 'node:url'
 import { aboutPanelOptions } from './about-panel'
 import { applicationMenuTemplate } from './app-menu'
 import { AsyncMutationTracker } from './async-mutation-tracker'
+import { codexThreadTitleSnapshot } from './codex-thread-titles'
 import {
   DEVELOPMENT_WATCH_ENVIRONMENT,
   isDevelopmentControlQuit
@@ -2176,6 +2177,15 @@ if (!hasSingleInstanceLock) {
       }
       const result = await requireReviewStore().listWithWarnings()
       return t3ThreadTitleSnapshot(store.settings, result.reviews)
+    })
+    privilegedIpc.handle('review:codex-thread-titles:get', async () => {
+      if (!store.settings.codexThreadTitlesEnabled) {
+        return codexThreadTitleSnapshot(store.settings, [])
+      }
+      const result = await requireReviewStore().listWithWarnings()
+      return codexThreadTitleSnapshot(store.settings, result.reviews, {
+        clientVersion: app.getVersion()
+      })
     })
     privilegedIpc.handle('review:project-favicon:get', (
       _event: IpcMainInvokeEvent,

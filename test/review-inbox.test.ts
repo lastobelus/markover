@@ -182,8 +182,7 @@ test('T3 titles name Projects while Inbox independently follows its preference',
 
   const purposeFirst = projectReviewInbox(
     sessions.list(),
-    titles,
-    'review-purpose'
+    { t3ThreadTitles: titles, titlePreference: 'review-purpose' }
   )
   const purposeRow = purposeFirst.editing[0]
   const projectThread = purposeFirst.projects[0]?.threads[0]
@@ -196,13 +195,64 @@ test('T3 titles name Projects while Inbox independently follows its preference',
 
   const titleFirst = projectReviewInbox(
     sessions.list(),
-    titles,
-    'requesting-thread-title'
+    { t3ThreadTitles: titles, titlePreference: 'requesting-thread-title' }
   )
   const titleRow = titleFirst.editing[0]
   assert.ok(titleRow)
   assert.equal(titleRow.title, 'Renamed T3 thread')
   assert.equal(titleRow.titleSource, 'thread-title')
+})
+
+test('thread-host titles outrank Codex provider titles and provider fills gaps', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_authority1', 'host-title.md', {
+    agentThread: {
+      id: 'codex-provider-1',
+      threadHost: {
+        kind: 't3code',
+        threadId: 't3-host-1',
+        provider: 'codex'
+      }
+    },
+    createdAt: '2026-08-09T12:30:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+  sessions.add(reviewDocument('mko_authority2', 'provider-title.md', {
+    agentThread: {
+      id: 'codex-provider-2',
+      threadHost: {
+        kind: 't3code',
+        threadId: 't3-host-2',
+        provider: 'codex'
+      }
+    },
+    createdAt: '2026-08-09T12:31:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+  sessions.add(reviewDocument('mko_authority3', 'other-provider.md', {
+    agentThread: {
+      id: 'claude-provider-1',
+      threadHost: { kind: 'claude', provider: 'claude' }
+    },
+    createdAt: '2026-08-09T12:32:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+
+  const projection = projectReviewInbox(sessions.list(), {
+    codexThreadTitles: [
+      { threadId: 'codex-provider-1', title: 'Codex provider title 1' },
+      { threadId: 'codex-provider-2', title: 'Codex provider title 2' },
+      { threadId: 'claude-provider-1', title: 'Incorrect Codex title' }
+    ],
+    t3ThreadTitles: [{ threadId: 't3-host-1', title: 'T3 host title' }],
+    titlePreference: 'requesting-thread-title'
+  })
+  const rows = new Map(
+    projection.editing.map((row) => [row.reviewId, row.requestingThreadTitle])
+  )
+  assert.equal(rows.get('mko_authority1'), 'T3 host title')
+  assert.equal(rows.get('mko_authority2'), 'Codex provider title 2')
+  assert.equal(rows.get('mko_authority3'), null)
 })
 
 test('agent-session fallback identity uses thread-host kind and never provider', () => {

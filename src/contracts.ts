@@ -77,6 +77,8 @@ declare global {
     discoverAgentThreadFromLocalSessions: boolean
     t3ThreadTitlesEnabled: boolean
     t3MetadataDatabasePath: string
+    codexThreadTitlesEnabled: boolean
+    codexExecutablePath: string
     inboxTitlePreference: InboxTitlePreference
     logRejectedApiRequests: boolean
     agentReviewMode: AgentReviewMode
@@ -633,6 +635,19 @@ declare global {
     titles: T3ThreadTitle[]
   }
 
+  type CodexThreadTitleStatus = 'disabled' | 'available' | 'unavailable'
+
+  interface CodexThreadTitle {
+    threadId: string
+    title: string
+  }
+
+  interface CodexThreadTitleSnapshot {
+    status: CodexThreadTitleStatus
+    detail: string
+    titles: CodexThreadTitle[]
+  }
+
   interface MarkoverBridge {
     getStartupInfo: () => Promise<StartupInfo>
     reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
@@ -669,6 +684,7 @@ declare global {
     getInitialReview: () => Promise<MarkoverDocument | null>
     getReviews: () => Promise<MarkoverReviewListItem[]>
     getT3ThreadTitles: () => Promise<T3ThreadTitleSnapshot>
+    getCodexThreadTitles: () => Promise<CodexThreadTitleSnapshot>
     getProjectFavicon: (reviewId: string) => Promise<string | null>
     openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: {

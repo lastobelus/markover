@@ -25,6 +25,8 @@ import * as agentGuidance from './agent-guidance'
     discoverAgentThreadFromLocalSessions: true,
     t3ThreadTitlesEnabled: false,
     t3MetadataDatabasePath: '',
+    codexThreadTitlesEnabled: false,
+    codexExecutablePath: '',
     inboxTitlePreference: 'review-purpose',
     logRejectedApiRequests: false,
     agentReviewMode: 'annotation-only',
@@ -114,6 +116,7 @@ import * as agentGuidance from './agent-guidance'
       'confirmAttachmentRemoval',
       'discoverAgentThreadFromLocalSessions',
       't3ThreadTitlesEnabled',
+      'codexThreadTitlesEnabled',
       'logRejectedApiRequests'
     ] as const) {
       if (typeof input[key] === 'boolean') normalized[key] = input[key]
@@ -123,6 +126,9 @@ import * as agentGuidance from './agent-guidance'
     }
     if (typeof input.t3MetadataDatabasePath === 'string') {
       normalized.t3MetadataDatabasePath = input.t3MetadataDatabasePath.trim()
+    }
+    if (typeof input.codexExecutablePath === 'string') {
+      normalized.codexExecutablePath = input.codexExecutablePath.trim()
     }
     const incomingReviewIdleMinutes = input.incomingReviewIdleMinutes
     if (
@@ -234,6 +240,12 @@ import * as agentGuidance from './agent-guidance'
     )
     if (t3MetadataDatabasePath && 'disabled' in t3MetadataDatabasePath) {
       t3MetadataDatabasePath.disabled = !normalized.t3ThreadTitlesEnabled
+    }
+    const codexExecutablePath = view.form.elements.namedItem(
+      'codexExecutablePath'
+    )
+    if (codexExecutablePath && 'disabled' in codexExecutablePath) {
+      codexExecutablePath.disabled = !normalized.codexThreadTitlesEnabled
     }
     return { appearance, preferences: normalized }
   }
