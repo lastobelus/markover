@@ -1136,7 +1136,12 @@ test('executes CLI commands against the local service', async (t) => {
   const sourcePath = path.join(directory, 'plan.md')
   await fs.writeFile(sourcePath, '# Plan\r\n\r\nKeep this exact.\r\n', 'utf8')
 
-  const reviewIds = ['mko_aaa11111', 'mko_bbb22222', 'mko_ccc33333']
+  const reviewIds = [
+    'mko_aaa11111',
+    'mko_bbb22222',
+    'mko_ccc33333',
+    'mko_ddd44444'
+  ]
   const store = new ReviewStore(reviewsDirectory, {
     idFactory: () => reviewIds.shift() || 'mko_unexpected'
   })
@@ -1334,6 +1339,30 @@ test('executes CLI commands against the local service', async (t) => {
   assert.deepEqual(
     await executeCommand({
       command: 'open',
+      sourcePath,
+      contextSummary: 'Review before the source disappears.'
+    }, options),
+    {
+      reviewId: 'mko_ccc33333',
+      status: 'editing',
+      reviewUrl: 'markover://review/mko_ccc33333'
+    }
+  )
+  await fs.rm(sourcePath)
+  const identityFreeClaim = await executeCommand({
+    command: 'get-for-review',
+    reviewId: 'mko_ccc33333',
+    handoffKey: 'mko_handoff_abcdef0123456789',
+    threadHostKind: 't3code',
+    threadHostProvider: 'claude'
+  }, options)
+  assertReviewArtifact(identityFreeClaim, 'mko_ccc33333')
+  assert.equal(identityFreeClaim.review.status, 'agent-reviewing')
+  assert.equal(identityFreeClaim.review.agentReviewer?.agentThread, null)
+  await fs.writeFile(sourcePath, '# Plan\r\n\r\nKeep this exact.\r\n', 'utf8')
+  assert.deepEqual(
+    await executeCommand({
+      command: 'open',
       instance: 'development',
       sourcePath,
       contextSummary: 'Review in this PR instance.'
@@ -1361,16 +1390,17 @@ test('executes CLI commands against the local service', async (t) => {
       }
     }),
     {
-      reviewId: 'mko_ccc33333',
+      reviewId: 'mko_ddd44444',
       status: 'editing',
-      reviewUrl: 'markover-76://review/mko_ccc33333'
+      reviewUrl: 'markover-76://review/mko_ddd44444'
     }
   )
   assert.deepEqual(discoveredHandoffKeys, [
     'mko_handoff_0123456789abcdef',
+    null,
     null
   ])
-  assert.equal(discoverySettingReads, 1)
+  assert.equal(discoverySettingReads, 2)
 })
 
 test('waits for internally started service without external polling', async (t) => {

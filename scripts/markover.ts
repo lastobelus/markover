@@ -1575,40 +1575,42 @@ export async function executeCommand(
           'markover get-for-review <review-id>'
         )
       }
-      const sourcePath = current.sourceDocument.path
-      if (!sourcePath) {
-        throw commandError(
-          'Handoff-key discovery requires a verified live source path; use explicit --thread-id metadata or omit reviewer identity.',
-          'markover get-for-review <review-id> [--thread-id <provider-id>]'
-        )
-      }
-      let source: string
-      try {
-        source = await fs.readFile(sourcePath, 'utf8')
-      } catch {
-        throw commandError(
-          'Handoff-key discovery requires the stored source path to exist and match the review snapshot.',
-          'markover get-for-review <review-id> [--thread-id <provider-id>]'
-        )
-      }
-      if (checksum(source) !== current.sourceDocument.checksum) {
-        throw commandError(
-          'Handoff-key discovery requires the stored source path to match the review snapshot.',
-          'markover get-for-review <review-id> [--thread-id <provider-id>]'
-        )
-      }
       const discoveryEnabled = await readDiscoverySetting(settingsPath)
-      agentThread = discoveryEnabled
-        ? (await discoverMetadata({
-            sourcePath,
-            threadId: null,
-            threadHostKind: parsed.threadHostKind ?? null,
-            threadHostProvider: parsed.threadHostProvider ?? null,
-            threadHostThreadId: parsed.threadHostThreadId ?? null,
-            threadHostMachine: parsed.threadHostMachine ?? null,
-            handoffKey: parsed.handoffKey
-          })).agentThread
-        : null
+      if (!discoveryEnabled) {
+        agentThread = null
+      } else {
+        const sourcePath = current.sourceDocument.path
+        if (!sourcePath) {
+          throw commandError(
+            'Handoff-key discovery requires a verified live source path; use explicit --thread-id metadata or omit reviewer identity.',
+            'markover get-for-review <review-id> [--thread-id <provider-id>]'
+          )
+        }
+        let source: string
+        try {
+          source = await fs.readFile(sourcePath, 'utf8')
+        } catch {
+          throw commandError(
+            'Handoff-key discovery requires the stored source path to exist and match the review snapshot.',
+            'markover get-for-review <review-id> [--thread-id <provider-id>]'
+          )
+        }
+        if (checksum(source) !== current.sourceDocument.checksum) {
+          throw commandError(
+            'Handoff-key discovery requires the stored source path to match the review snapshot.',
+            'markover get-for-review <review-id> [--thread-id <provider-id>]'
+          )
+        }
+        agentThread = (await discoverMetadata({
+          sourcePath,
+          threadId: null,
+          threadHostKind: parsed.threadHostKind ?? null,
+          threadHostProvider: parsed.threadHostProvider ?? null,
+          threadHostThreadId: parsed.threadHostThreadId ?? null,
+          threadHostMachine: parsed.threadHostMachine ?? null,
+          handoffKey: parsed.handoffKey
+        })).agentThread
+      }
     } else if (current.review.status === 'editing') {
       agentThread = null
     }
