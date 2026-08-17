@@ -602,13 +602,14 @@ test('metadata inventory is complete and reports source and repository conflicts
     pullRequestStatusObservedAt: '2026-08-09T12:05:00.000Z',
     pullRequestStatusSource: 'gh',
     repositoryUrl: 'https://github.com/lastobelus/markover',
-    sourceState: 'changed'
+    sourceState: 'changed',
+    status: 'pending-agent'
   }))
 
   const row = projectReviewInbox(sessions.list(), {
     t3ThreadTitleStatus: 'available',
     t3ThreadTitles: [{ threadId: 't3-thread-1', title: 'Current T3 title' }]
-  }).editing[0]
+  }).history[0]
   assert.ok(row)
   const inventory = reviewMetadataInventory(row)
   assert.deepEqual(
@@ -637,6 +638,10 @@ test('metadata inventory is complete and reports source and repository conflicts
   assert.equal(
     inventory.fields.find((field) => field.label === 'Source state')?.error,
     true
+  )
+  assert.equal(
+    inventory.fields.find((field) => field.label === 'Review status')?.value,
+    'With agent'
   )
   assert.ok(inventory.issues.includes('Source changed since review opened.'))
   assert.ok(inventory.issues.includes('Source now belongs to a different repository.'))

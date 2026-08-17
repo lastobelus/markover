@@ -96,6 +96,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   const styles = read('src/styles.css')
   const main = read('src/main.ts')
   const renderer = read('src/renderer.ts')
+  const reviewInbox = read('src/review-inbox.ts')
 
   for (const token of [
     '--markover-primary: #c94e1f',
@@ -129,8 +130,8 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   assert.match(styles, /data-palette="olive"\]:not\(\[data-appearance="dark"\]\)[\s\S]*--app-header-bg: #dde1d2;[\s\S]*--review-navigation-bg: #e8eadf;[\s\S]*--document-tree-bg: #fff;/)
   assert.match(styles, /\.review-tab-strip \{[^}]*border-top: 1px solid var\(--line\);/)
   assert.doesNotMatch(styles, /\.review-tab-strip \{[^}]*border-bottom:/)
-  assert.match(renderer, /if \(status === 'revised'\) return 'Revised'/)
-  assert.match(renderer, /if \(status === 'done'\) return 'Done'/)
+  assert.match(reviewInbox, /if \(status === 'revised'\) return 'Revised'/)
+  assert.match(reviewInbox, /if \(status === 'done'\) return 'Done'/)
   assert.doesNotMatch(styles, /\.review-list-row::before/)
   assert.match(styles, /--status-progress: #d89b35;/)
   assert.match(styles, /data-appearance="dark"[\s\S]*--status-editing: color-mix\(in srgb, var\(--markover-primary\) 70%, white\);/)

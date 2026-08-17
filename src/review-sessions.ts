@@ -177,7 +177,7 @@
       if (!reviewId) throw new Error('A managed review requires a review ID.')
 
       const existing = this.byId.get(reviewId)
-      if (existing) return existing
+      if (existing) return this.updateDocument(document) || existing
 
       const project = projectIdentity(document)
       const reviewedAt = Date.parse(

@@ -41,6 +41,7 @@ import {
 import {
   projectReviewInbox,
   reviewMetadataInventory,
+  reviewStatusLabel,
   type ReviewMetadataField,
   type ReviewInboxProject,
   type ReviewInboxRow,
@@ -2210,16 +2211,6 @@ function captureActiveSession(): void {
   session.attachmentPreviewUrls = state.attachmentPreviewUrls
 }
 
-function reviewStatusLabel(status: ReviewSessionStatus): string {
-  if (status === 'handoff-in-progress') return 'Handing off'
-  if (status === 'pending-agent') return 'With agent'
-  if (status === 'agent-reviewing') return 'Agent reviewing'
-  if (status === 'reviewed') return 'Reviewed'
-  if (status === 'revised') return 'Revised'
-  if (status === 'done') return 'Done'
-  return 'Editing'
-}
-
 function reviewRowById(reviewId: string): ReviewInboxRow | null {
   const projection = reviewInboxProjection()
   return [...projection.editing, ...projection.history]
@@ -3936,6 +3927,7 @@ async function activateReview(
   if (revealAncestors) expandReviewAncestors(reviewId)
   if (reviewId === state.reviewId) {
     renderDocumentsList()
+    renderReviewContext()
     restoreReviewActivationFocus(reviewId, focusSurface)
     removeIncomingPrompts(reviewId)
     persistWorkspaceState()

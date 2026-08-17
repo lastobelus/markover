@@ -551,6 +551,29 @@ test('managed refresh replaces private project and source context', () => {
   )
 })
 
+test('adding an existing managed review applies refreshed private context', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_refresh2', 'refresh.md', {
+    key: 'repo:before',
+    name: 'Before',
+    root: '/tmp/before'
+  })
+  original.projectEvidence = 'verified'
+  original.sourceState = 'unchanged'
+  const session = sessions.add(original)
+
+  const refreshed = reviewDocument('mko_refresh2', 'refresh.md', null)
+  refreshed.projectEvidence = 'conflict'
+  refreshed.sourceState = 'changed'
+  const returned = sessions.add(refreshed)
+
+  assert.equal(returned, session)
+  assert.equal(session.projectKey, 'unassigned')
+  assert.equal(session.projectName, 'Other')
+  assert.equal(session.projectEvidence, 'conflict')
+  assert.equal(session.sourceState, 'changed')
+})
+
 test('persisted review artifacts satisfy the browser session boundary', () => {
   const source = reviewDocument('mko_stored11', 'stored.md').tree
   const artifact = {

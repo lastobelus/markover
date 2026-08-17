@@ -118,6 +118,16 @@ export interface ReviewInboxTitleSources {
   titlePreference?: InboxTitlePreference
 }
 
+export function reviewStatusLabel(status: ReviewSessionStatus): string {
+  if (status === 'handoff-in-progress') return 'Handing off'
+  if (status === 'pending-agent') return 'With agent'
+  if (status === 'agent-reviewing') return 'Agent reviewing'
+  if (status === 'reviewed') return 'Reviewed'
+  if (status === 'revised') return 'Revised'
+  if (status === 'done') return 'Done'
+  return 'Editing'
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -266,7 +276,7 @@ export function reviewMetadataInventory(
     row.local ? null : row.machine,
     row.local ? 'not-applicable' : 'missing'
   )
-  add('review-status', 'Review status', row.status)
+  add('review-status', 'Review status', reviewStatusLabel(row.status))
   add('created', 'Created', dateValue(row.createdAt))
   add('updated', 'Updated', dateValue(row.updatedAt))
   add(
