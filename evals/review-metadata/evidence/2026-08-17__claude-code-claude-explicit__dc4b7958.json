@@ -18,8 +18,8 @@
       "status": "observed"
     },
     "hostThreadId": {
-      "source": "not-applicable",
-      "status": "not-applicable"
+      "source": "not-exposed",
+      "status": "unavailable"
     },
     "machine": {
       "source": "hostname-command",
@@ -30,8 +30,8 @@
       "status": "observed"
     }
   },
-  "evidenceId": "2026-08-12__claude-code-claude__4e2259ed",
-  "exercisedAt": "2026-08-12T19:31:45.000Z",
+  "evidenceId": "2026-08-17__claude-code-claude-explicit__dc4b7958",
+  "exercisedAt": "2026-08-17T22:01:08.000Z",
   "identityRoute": "explicit-runtime",
   "limitations": [
     "Direct Claude Code has no distinct host-owned thread identifier in addition to its provider session ID.",
@@ -43,7 +43,7 @@
     "threadHostId": "omitted"
   },
   "runtime": {
-    "hostVersion": "2.1.228",
+    "hostVersion": "2.1.234",
     "hostVersionSource": "command",
     "providerModel": "claude-sonnet-5",
     "providerModelSource": "runtime-context",

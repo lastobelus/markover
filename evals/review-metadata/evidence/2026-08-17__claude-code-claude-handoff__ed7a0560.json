@@ -1,0 +1,62 @@
+{
+  "checks": {
+    "threadHostIdAccepted": true,
+    "guessedValuesAbsent": true,
+    "machineAttempted": true,
+    "nullFallbackTruthful": true,
+    "portableV1Valid": true,
+    "requiredFieldsObserved": true,
+    "supportedCombination": true
+  },
+  "discovery": {
+    "hostKind": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostProvider": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostThreadId": {
+      "source": "not-exposed",
+      "status": "unavailable"
+    },
+    "machine": {
+      "source": "hostname-command",
+      "status": "observed"
+    },
+    "providerThreadId": {
+      "source": "local-session-handoff",
+      "status": "observed"
+    }
+  },
+  "evidenceId": "2026-08-17__claude-code-claude-handoff__ed7a0560",
+  "exercisedAt": "2026-08-17T22:01:08.000Z",
+  "identityRoute": "handoff-key",
+  "limitations": [
+    "Direct Claude Code has no distinct host-owned thread identifier in addition to its provider session ID.",
+    "The Claude runtime did not expose a separate provider service version."
+  ],
+  "matrixEntryId": "claude-code-claude",
+  "relationships": {
+    "identity": "identified",
+    "threadHostId": "omitted"
+  },
+  "runtime": {
+    "hostVersion": "2.1.234",
+    "hostVersionSource": "command",
+    "providerModel": "claude-sonnet-5",
+    "providerModelSource": "runtime-context",
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
+  },
+  "agentThread": {
+    "id": "<thread-id>",
+    "threadHost": {
+      "kind": "claude-code",
+      "provider": "claude",
+      "machine": "<machine>"
+    }
+  },
+  "schemaVersion": 2
+}

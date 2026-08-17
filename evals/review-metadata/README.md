@@ -81,17 +81,21 @@ fixture when the prior result is no longer representative. Add new combinations
 only after exercising them. Matrix product strings remain observational evidence;
 issue #134 owns normative classification and aliases.
 
-## Initial evidence
+## Current evidence
 
-The 2026-08-12 baseline exercises the explicit-runtime route for all three
-initial rows. The handoff-key route is now required and remains incomplete until
-the current checkpoint's live exercises are recorded:
+The three 2026-08-12 fixtures predate the current explicit-ID-or-fresh-key
+guidance. They keep the corpus structurally valid while checkpoint 5 replaces
+them with current explicit and fallback runs and exercises all six required
+surfaces:
 
-| Combination | Runtime evidence | Result |
+| Combination | Existing runtime evidence | Checkpoint 5 state |
 | --- | --- | --- |
-| T3 Code × Codex | `gpt-5.6-sol`; T3 Code and provider versions not exposed | Pass |
-| T3 Code × Claude | `claude-sonnet-5`; Claude Agent SDK 0.3.227; T3 Code version not exposed | Pass |
-| Claude Code × Claude | Claude Code 2.1.228; `claude-sonnet-5`; provider service version not exposed | Pass |
+| Codex CLI × Codex | Codex CLI `0.147.0`; model and provider service version not exposed | Current explicit and handoff runs pass. |
+| ChatGPT desktop Codex view × Codex | None | Handoff run required; explicit run also required if the app exposes `CODEX_THREAD_ID`. |
+| T3 Code × Codex | T3 Code Nightly `0.0.34-nightly.20260817.1113`; `gpt-5.6-sol`; provider runtime version not exposed | Current explicit and handoff runs pass. |
+| T3 Code × Claude | `claude-sonnet-5`; Claude Agent SDK 0.3.227; T3 Code version not exposed | Replace baseline with current explicit and handoff runs. |
+| Claude Code × Claude | Claude Code `2.1.234`; `claude-sonnet-5`; provider service version not exposed | Current explicit and handoff runs pass. |
+| Claude desktop × Claude | None | Handoff run required; explicit run also required if the app exposes `CLAUDE_CODE_SESSION_ID`. |
 
 Each fixture retains discovery limitations and ID relationships. The particular
 thread IDs and machine name from the live run are represented by obvious

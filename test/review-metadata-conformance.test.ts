@@ -74,13 +74,48 @@ function agentThread(value: Record<string, unknown>): void {
   }
 }
 
-test('initial live matrix contains only the three exercised combinations', () => {
+test('live matrix names every required CLI, desktop, and T3 combination', () => {
   const matrix = parseMetadataMatrix(json('evals/review-metadata/matrix.json'))
   assert.deepEqual(matrix.entries.map(({ id }) => id), [
     't3code-codex',
     't3code-claude',
-    'claude-code-claude'
+    'claude-code-claude',
+    'codex-cli-codex',
+    'chatgpt-desktop-codex',
+    'claude-desktop-claude'
   ])
+  assert.deepEqual(
+    matrix.entries.map(({ id, requiredIdentityRoutes }) => ({
+      id,
+      requiredIdentityRoutes
+    })),
+    [
+      {
+        id: 't3code-codex',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 't3code-claude',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 'claude-code-claude',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 'codex-cli-codex',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 'chatgpt-desktop-codex',
+        requiredIdentityRoutes: ['handoff-key']
+      },
+      {
+        id: 'claude-desktop-claude',
+        requiredIdentityRoutes: ['handoff-key']
+      }
+    ]
+  )
   assert.deepEqual(matrix.classification, {
     authorityIssue: 134,
     status: 'observational-evidence'
@@ -119,13 +154,13 @@ test('matrix rows require a nonempty identity-route checklist', () => {
 
 test('corpus validation tracks both identity routes for every initial row', () => {
   const expected = {
-    evidenceCount: 3,
-    matrixEntryCount: 3
+    evidenceCount: 7,
+    matrixEntryCount: 6
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
   assert.throws(
     () => validateMetadataCorpus(root, true),
-    /t3code-codex is missing live evidence for: handoff-key/
+    /t3code-claude is missing live evidence for: handoff-key/
   )
 })
 
