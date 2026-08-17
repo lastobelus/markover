@@ -625,7 +625,7 @@ test('null fallback rejects an observed host thread identity', () => {
   )
 })
 
-test('documentation defines reruns, fixture placeholders, and schema-defect routing', () => {
+test('documentation defines private capture, reruns, and schema-defect routing', () => {
   const readme = fs.readFileSync(
     path.join(root, 'evals/review-metadata/README.md'),
     'utf8'
@@ -634,7 +634,9 @@ test('documentation defines reruns, fixture placeholders, and schema-defect rout
     path.join(root, 'evals/review-metadata/rubric.md'),
     'utf8'
   )
-  assert.match(readme, /placeholders for the particular thread IDs and machine name/)
+  assert.match(readme, /writes a mode-0600 bundle/)
+  assert.match(readme, /never enumerates the environment or edits tracked evidence/)
+  assert.match(readme, /represented by obvious\nplaceholders/)
   assert.match(readme, /Rerun an affected row when Markover's metadata guidance/)
   assert.match(rubric, /contract defect descended from issue #99/)
   assert.match(rubric, /rather than by\nweakening this rubric/)
