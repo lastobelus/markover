@@ -5,12 +5,27 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  discoverClaudeThread,
   discoverCodexThread,
   discoverGitMetadata,
   discoverRepositoryRoot,
   discoverReviewMetadata,
   sanitizeRemoteUrl
 } from '../src/metadata-discovery'
+
+async function writeClaudeSession(
+  projectsDirectory: string,
+  project: string,
+  name: string,
+  records: unknown[]
+): Promise<string> {
+  const logPath = path.join(projectsDirectory, project, `${name}.jsonl`)
+  await fs.mkdir(path.dirname(logPath), { recursive: true })
+  await fs.writeFile(logPath, records.map((record) => (
+    typeof record === 'string' ? record : JSON.stringify(record)
+  )).join('\n'))
+  return logPath
+}
 
 test('discovers a repository root with one Git query', async () => {
   const calls: Array<{ args: string[]; cwd: string }> = []
@@ -162,6 +177,171 @@ test('rejects substring and ambiguous handoff-key matches', async (t) => {
     }),
     null
   )
+})
+
+test('finds a root Claude session without assuming a first metadata record', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-claude-discovery-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const key = 'mko_handoff_0123456789abcdef'
+  const logPath = await writeClaudeSession(directory, '-repo', 'session', [
+    { type: 'queue-operation', operation: 'enqueue' },
+    { type: 'user', sessionId: 'claude-session-123', cwd: '/repo', message: key },
+    { type: 'assistant', sessionId: 'claude-session-123', cwd: '/later' }
+  ])
+
+  assert.deepEqual(await discoverClaudeThread(key, {
+    projectsDirectory: directory
+  }), {
+    provider: 'claude',
+    id: 'claude-session-123',
+    discovery: 'handoff-key',
+    cwd: '/repo',
+    logPath
+  })
+})
+
+test('Claude discovery ignores subagents and fails closed on conflicting identity', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-claude-boundary-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const key = 'mko_handoff_0123456789abcdef'
+  await writeClaudeSession(directory, '-repo/subagents', 'child', [
+    { sessionId: 'subagent-session', cwd: '/repo', message: key }
+  ])
+  assert.equal(await discoverClaudeThread(key, {
+    projectsDirectory: directory
+  }), null)
+
+  await writeClaudeSession(directory, '-repo', 'conflicting', [
+    { sessionId: 'claude-session-1', cwd: '/repo', message: key },
+    { sessionId: 'claude-session-2', cwd: '/repo' }
+  ])
+  assert.equal(await discoverClaudeThread(key, {
+    projectsDirectory: directory
+  }), null)
+})
+
+test('Claude discovery rejects matched records without one usable session ID', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-claude-malformed-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const key = 'mko_handoff_0123456789abcdef'
+  await writeClaudeSession(directory, '-repo', 'malformed', [
+    '{not json',
+    { sessionId: '   ', cwd: '/repo', message: key },
+    { sessionId: 42, cwd: '/repo' }
+  ])
+
+  assert.equal(await discoverClaudeThread(key, {
+    projectsDirectory: directory
+  }), null)
+})
+
+test('Claude discovery keeps exact matching, workspace preference, and bounds', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-claude-selection-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const key = 'mko_handoff_0123456789abcdef'
+  await writeClaudeSession(directory, '-other', 'other', [
+    { sessionId: 'other-session', cwd: '/other', message: key }
+  ])
+  await writeClaudeSession(directory, '-repo', 'repo', [
+    '{truncated',
+    { sessionId: 'repo-session', cwd: '/repo', message: key }
+  ])
+  await writeClaudeSession(directory, '-substring', 'substring', [
+    { sessionId: 'substring-session', cwd: '/repo', message: `${key}extra` }
+  ])
+
+  const selected = await discoverClaudeThread(key, {
+    projectsDirectory: directory,
+    expectedPath: '/repo/doc/plan.md'
+  })
+  assert.ok(selected)
+  assert.equal(selected.id, 'repo-session')
+  assert.equal(await discoverClaudeThread(key, {
+    projectsDirectory: directory
+  }), null)
+  assert.equal(await discoverClaudeThread(key, {
+    projectsDirectory: directory,
+    maximumLogs: 0
+  }), null)
+  assert.equal(await discoverClaudeThread(key, {
+    projectsDirectory: directory,
+    maximumBytes: 0
+  }), null)
+  assert.equal(await discoverClaudeThread(key, {
+    projectsDirectory: directory,
+    tailBytes: key.length - 1,
+    expectedPath: '/repo/doc/plan.md'
+  }), null)
+})
+
+test('routes handoff discovery by provider and keeps explicit ID precedence', async (t) => {
+  const codexDirectory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-provider-codex-')
+  )
+  const claudeDirectory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-provider-claude-')
+  )
+  t.after(() => Promise.all([
+    fs.rm(codexDirectory, { recursive: true, force: true }),
+    fs.rm(claudeDirectory, { recursive: true, force: true })
+  ]))
+  const key = 'mko_handoff_0123456789abcdef'
+  const codexLog = path.join(codexDirectory, 'session.jsonl')
+  await fs.writeFile(codexLog, [
+    JSON.stringify({
+      type: 'session_meta',
+      payload: { id: 'codex-session', cwd: '/repo' }
+    }),
+    JSON.stringify({ message: key })
+  ].join('\n'))
+  await writeClaudeSession(claudeDirectory, '-repo', 'session', [
+    { sessionId: 'claude-session', cwd: '/repo', message: key }
+  ])
+  const options = {
+    git: { runGit: () => Promise.resolve(null) },
+    codex: { sessionsDirectory: codexDirectory },
+    claude: { projectsDirectory: claudeDirectory }
+  }
+  const input = {
+    sourcePath: '/repo/plan.md',
+    threadHostKind: 't3code',
+    handoffKey: key
+  }
+
+  for (const provider of ['codex', 'openai']) {
+    const metadata = await discoverReviewMetadata({
+      ...input,
+      threadHostProvider: provider
+    }, options)
+    assert.equal(metadata.agentThread?.id, 'codex-session')
+  }
+  for (const provider of ['claude', 'anthropic', 'claudeagent']) {
+    const metadata = await discoverReviewMetadata({
+      ...input,
+      threadHostProvider: provider
+    }, options)
+    assert.equal(metadata.agentThread?.id, 'claude-session')
+  }
+  assert.equal((await discoverReviewMetadata({
+    ...input,
+    threadHostProvider: 'unknown'
+  }, options)).agentThread, null)
+  assert.equal((await discoverReviewMetadata({
+    ...input,
+    threadId: 'explicit-session',
+    threadHostProvider: 'claude'
+  }, {
+    ...options,
+    claude: { projectsDirectory: '/does/not/exist' }
+  })).agentThread?.id, 'explicit-session')
 })
 
 test('explicit metadata overrides discovered values', async () => {

@@ -32,6 +32,7 @@
   },
   "evidenceId": "2026-08-12__claude-code-claude__4e2259ed",
   "exercisedAt": "2026-08-12T19:31:45.000Z",
+  "identityRoute": "explicit-runtime",
   "limitations": [
     "Direct Claude Code has no distinct host-owned thread identifier in addition to its provider session ID.",
     "The Claude runtime did not expose a separate provider service version."
@@ -57,5 +58,5 @@
       "machine": "<machine>"
     }
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

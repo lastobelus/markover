@@ -35,9 +35,10 @@ function observation(
   overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     evidenceId: '2026-08-12__t3code-codex__1234abcd',
     matrixEntryId: 't3code-codex',
+    identityRoute: 'explicit-runtime',
     exercisedAt: '2026-08-12T12:34:56.789Z',
     runtime: {
       hostVersion: null,
@@ -102,13 +103,16 @@ test('matrix exercise paths name maintained Markdown exercise files', () => {
   }
 })
 
-test('corpus validation requires and finds evidence for every initial row', () => {
+test('corpus validation tracks both identity routes for every initial row', () => {
   const expected = {
     evidenceCount: 3,
     matrixEntryCount: 3
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
-  assert.deepEqual(validateMetadataCorpus(root, true), expected)
+  assert.throws(
+    () => validateMetadataCorpus(root, true),
+    /t3code-codex is missing live evidence for: handoff-key/
+  )
 })
 
 test('capture validates a live review and writes fixture placeholders', () => {
@@ -132,6 +136,7 @@ test('capture validates a live review and writes fixture placeholders', () => {
     identity: 'identified',
     threadHostId: 'distinct'
   })
+  assert.equal(evidence.identityRoute, 'explicit-runtime')
   assert.equal(Object.values(evidence.checks).every(Boolean), true)
   const source = JSON.stringify(evidence)
   for (const liveValue of [
@@ -147,6 +152,31 @@ test('capture validates a live review and writes fixture placeholders', () => {
       json('evals/review-metadata/matrix.json')
     ),
     evidence
+  )
+})
+
+test('capture distinguishes explicit runtime and handoff-key evidence', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = {
+    status: 'observed',
+    source: 'local-session-handoff'
+  }
+  const evidence = buildEvidenceFixture(
+    artifact,
+    observation({ identityRoute: 'handoff-key', discovery }),
+    json('evals/review-metadata/matrix.json')
+  )
+  assert.equal(evidence.identityRoute, 'handoff-key')
+
+  assert.throws(
+    () => buildEvidenceFixture(
+      artifact,
+      observation({ identityRoute: 'explicit-runtime', discovery }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /identityRoute explicit-runtime contradicts providerThreadId source local-session-handoff/
   )
 })
 

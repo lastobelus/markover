@@ -5,9 +5,14 @@ into truthful portable `review.agentThread` snapshots. The bounded structural
 fixtures in `cases.json` remain contract tests; the matrix and evidence directory
 record live product behavior.
 
+The current installed-product and environment-probe baseline is recorded in
+[`capability-audit.md`](capability-audit.md). It separates installation from a
+proven invocation path and never records literal session identifiers.
+
 ## Workflow
 
-1. Select an exact host/provider row from `matrix.json` and follow its exercise.
+1. Select an exact host/provider row and identity route from `matrix.json`, then
+   follow its exercise.
 2. Keep the retrieved review and capture observation under ignored `tmp/`.
 3. Run `npm run eval:metadata:record --` with those two inputs. The command first
    applies the shared v1 decoder and the rubric, then writes a fixture containing
@@ -35,9 +40,10 @@ observed in the live run:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "evidenceId": "2026-08-12__t3code-codex__1234abcd",
   "matrixEntryId": "t3code-codex",
+  "identityRoute": "explicit-runtime",
   "exercisedAt": "2026-08-12T12:34:56.789Z",
   "runtime": {
     "hostVersion": null,
@@ -61,7 +67,9 @@ observed in the live run:
 
 Allowed version sources are `command`, `runtime-context`, and `not-exposed`.
 Allowed discovery sources are `agent-runtime`, `thread-context`,
-`thread-host-runtime`, `hostname-command`, `not-exposed`, and `not-applicable`.
+`thread-host-runtime`, `local-session-handoff`, `hostname-command`, `not-exposed`,
+and `not-applicable`. Use `agent-runtime` for the `explicit-runtime` route and
+`local-session-handoff` for the `handoff-key` route.
 
 ## Rerun triggers
 
@@ -75,7 +83,9 @@ issue #134 owns normative classification and aliases.
 
 ## Initial evidence
 
-The 2026-08-12 baseline exercises all three initial rows:
+The 2026-08-12 baseline exercises the explicit-runtime route for all three
+initial rows. The handoff-key route is now required and remains incomplete until
+the current checkpoint's live exercises are recorded:
 
 | Combination | Runtime evidence | Result |
 | --- | --- | --- |

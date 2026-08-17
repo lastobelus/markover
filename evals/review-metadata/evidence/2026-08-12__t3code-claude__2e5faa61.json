@@ -32,6 +32,7 @@
   },
   "evidenceId": "2026-08-12__t3code-claude__2e5faa61",
   "exercisedAt": "2026-08-12T19:35:49.000Z",
+  "identityRoute": "explicit-runtime",
   "limitations": [
     "T3 Code did not expose a distinct host-owned thread identifier.",
     "T3 Code did not expose a product version through the agent environment or CLI."
@@ -57,5 +58,5 @@
       "machine": "<machine>"
     }
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

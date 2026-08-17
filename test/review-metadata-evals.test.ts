@@ -50,8 +50,9 @@ test('bounded metadata cases cover direct, delegated, unavailable, and invalid p
   }
 })
 
-test('machine-readable guidance requests truthful thread-host metadata', () => {
+test('agent guidance requires an explicit runtime ID or fresh handoff key', () => {
   const help = JSON.stringify(helpPayload())
+  const agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
   for (const field of [
     '--thread-id',
     '--thread-host-kind',
@@ -61,10 +62,18 @@ test('machine-readable guidance requests truthful thread-host metadata', () => {
   ]) {
     assert.match(help, new RegExp(field))
   }
-  assert.match(help, /best observable requesting-thread or session ID/)
+  assert.match(help, /read only CODEX_THREAD_ID/)
+  assert.match(help, /read only CLAUDE_CODE_SESSION_ID/)
+  assert.match(help, /If that applicable value is nonblank, pass it as --thread-id/)
+  assert.match(help, /fresh mko_handoff_ value with 16–64 random letters or digits/)
+  assert.match(help, /pass it as --handoff-key in the same command/)
   assert.match(help, /LLM provider or model family/)
   assert.match(help, /not an intermediate harness/)
-  assert.match(help, /only a distinct host-owned ID/)
+  assert.match(help, /only for a distinct host-owned ID you actually observe/)
   assert.match(help, /local hostname result/)
-  assert.match(help, /omit unavailable values rather than guessing/)
+  assert.match(help, /never guess a T3 thread ID/)
+  assert.match(agents, /nonblank `CODEX_THREAD_ID`/)
+  assert.match(agents, /nonblank `CLAUDE_CODE_SESSION_ID`/)
+  assert.match(agents, /fresh high-entropy/)
+  assert.match(agents, /Use the same decision for `get-for-review`/)
 })

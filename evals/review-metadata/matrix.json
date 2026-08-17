@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "classification": {
     "status": "observational-evidence",
     "authorityIssue": 134
@@ -14,6 +14,7 @@
         "provider": "codex"
       },
       "identityExpectation": "required",
+      "requiredIdentityRoutes": ["explicit-runtime", "handoff-key"],
       "availability": "available",
       "exercise": "exercises/t3code-codex.md",
       "evidence": [
@@ -29,6 +30,7 @@
         "provider": "claude"
       },
       "identityExpectation": "required",
+      "requiredIdentityRoutes": ["explicit-runtime", "handoff-key"],
       "availability": "available",
       "exercise": "exercises/t3code-claude.md",
       "evidence": [
@@ -44,6 +46,7 @@
         "provider": "claude"
       },
       "identityExpectation": "required",
+      "requiredIdentityRoutes": ["explicit-runtime", "handoff-key"],
       "availability": "available",
       "exercise": "exercises/claude-code-claude.md",
       "evidence": [
