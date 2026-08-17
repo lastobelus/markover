@@ -223,7 +223,7 @@ test('thread-host titles outrank Codex provider titles and provider fills gaps',
       threadHost: {
         kind: 't3code',
         threadId: 't3-host-2',
-        provider: 'codex'
+        provider: 'openai'
       }
     },
     createdAt: '2026-08-09T12:31:00.000Z',

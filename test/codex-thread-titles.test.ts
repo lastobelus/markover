@@ -89,9 +89,10 @@ test('Codex identities use provider-owned IDs only for the Codex provider', () =
   assert.deepEqual(codexRequestingThreadIds([
     artifact('codex-provider-1', 't3code', 'codex', 't3-host-1'),
     artifact('codex-provider-2', 'codex', 'Codex'),
+    artifact('codex-provider-3', 't3code', 'OpenAI', 't3-host-3'),
     artifact('ignored-provider', 't3code', 'claude', 't3-host-2'),
     artifact('codex-provider-1', 'codex', 'codex')
-  ]), ['codex-provider-1', 'codex-provider-2'])
+  ]), ['codex-provider-1', 'codex-provider-2', 'codex-provider-3'])
 })
 
 test('exact-ID app-server reads return renamed nonblank Codex titles', async (t) => {

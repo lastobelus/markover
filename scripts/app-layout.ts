@@ -26,6 +26,7 @@ export const runtimeModuleNames = [
   'metadata-discovery',
   'protocol-registration',
   'project-favicon',
+  'provider-identity',
   'pull-request',
   'public-link-opener',
   'public-links',

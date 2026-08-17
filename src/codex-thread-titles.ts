@@ -3,6 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { createInterface } from 'node:readline'
 
+import { isCodexProvider } from './provider-identity'
+
 const DEFAULT_CODEX_APP_SERVER_TIMEOUT_MS = 3_000
 const CODEX_CLIENT_INFO = {
   name: 'markover',
@@ -28,10 +30,6 @@ export interface CodexThreadTitleReadOptions {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function normalizedProvider(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
 function jsonRpcResponse(value: unknown): JsonRpcResponse | null {
@@ -67,7 +65,7 @@ export function codexRequestingThreadIds(
     const agentThread = artifact.review.agentThread
     if (
       !agentThread ||
-      normalizedProvider(agentThread.threadHost.provider) !== 'codex'
+      !isCodexProvider(agentThread.threadHost.provider)
     ) continue
     const id = agentThread.id.trim()
     if (id) ids.add(id)

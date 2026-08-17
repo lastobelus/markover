@@ -2,6 +2,7 @@ import {
   pullRequestObservation,
   type PullRequestStatus
 } from './pull-request'
+import { isCodexProvider } from './provider-identity'
 
 export type ReviewTitleSource =
   | 'thread-title'
@@ -155,7 +156,7 @@ function rowFromSession(
     requestingThreadId
   ) ? t3Titles.get(requestingThreadId) || null : null
   const providerTitle = (
-    provider?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 'codex' &&
+    isCodexProvider(provider) &&
     agentThreadId
   ) ? codexTitles.get(agentThreadId) || null : null
   const requestingThreadTitle = threadHostTitle || providerTitle
