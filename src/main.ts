@@ -2264,7 +2264,8 @@ if (!hasSingleInstanceLock) {
     ) => {
       const managedStore = requireReviewStore()
       activeManagedReviewId = reviewId
-      managedStore.load(reviewId).then((artifact) => {
+      managedStore.load(reviewId).then(async (artifact) => {
+        await sendManagedUpdate(artifact)
         if (activeManagedReviewId === reviewId) {
           activeManagedReview = artifact
           installApplicationMenu()

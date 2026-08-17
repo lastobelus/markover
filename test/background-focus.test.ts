@@ -70,6 +70,10 @@ test('managed publication refreshes and transports private project context', () 
     main,
     /activateManagedReview[\s\S]*projectContextForReview\(artifact, true\)/
   )
+  assert.match(
+    main,
+    /privilegedIpc\.on\('review:activate',[\s\S]*managedStore\.load\(reviewId\)\.then\(async \(artifact\) => \{[\s\S]*await sendManagedUpdate\(artifact\)/
+  )
 })
 
 test('native window focus state reaches the renderer without activating Markover', () => {
