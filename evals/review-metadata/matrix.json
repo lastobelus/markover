@@ -110,6 +110,7 @@
       "availability": "available",
       "exercise": "exercises/claude-desktop-claude.md",
       "evidence": [
+        "2026-08-18__claude-desktop-claude-explicit__9abc08b7",
         "2026-08-18__claude-desktop-claude-handoff__527fe8b2"
       ]
     }

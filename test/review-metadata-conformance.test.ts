@@ -154,14 +154,11 @@ test('matrix rows require a nonempty identity-route checklist', () => {
 
 test('corpus validation tracks both identity routes for every initial row', () => {
   const expected = {
-    evidenceCount: 10,
+    evidenceCount: 11,
     matrixEntryCount: 6
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
-  assert.throws(
-    () => validateMetadataCorpus(root, true),
-    /claude-desktop-claude is missing live evidence for: explicit-runtime/
-  )
+  assert.deepEqual(validateMetadataCorpus(root, true), expected)
 })
 
 test('capture validates a live review and writes fixture placeholders', () => {

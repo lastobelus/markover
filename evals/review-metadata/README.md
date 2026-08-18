@@ -101,10 +101,8 @@ issue #134 owns normative classification and aliases.
 
 ## Current evidence
 
-The three 2026-08-12 fixtures predate the current explicit-ID-or-fresh-key
-guidance. They keep the corpus structurally valid while checkpoint 5 replaces
-them with current explicit and fallback runs and exercises all six required
-surfaces:
+The current corpus exercises every required identity route across all six
+installed surfaces:
 
 | Combination | Existing runtime evidence | Checkpoint 5 state |
 | --- | --- | --- |
@@ -113,7 +111,7 @@ surfaces:
 | T3 Code × Codex | T3 Code Nightly `0.0.34-nightly.20260817.1113`; `gpt-5.6-sol`; provider runtime version not exposed | Current explicit and handoff runs pass. |
 | T3 Code × Claude | Current explicit and handoff captures recover one Claude session plus its distinct T3 host thread; versions were not exposed to the helper | Current explicit and handoff runs pass. |
 | Claude Code × Claude | Claude Code `2.1.234`; `claude-sonnet-5`; provider service version not exposed | Current explicit and handoff runs pass. |
-| Claude desktop × Claude | Claude `1.30096.5`; current handoff capture recovers the exact persisted session; `CLAUDE_CODE_SESSION_ID` is nonblank inside the agent | Handoff passes; the now-proven explicit route is required. |
+| Claude desktop × Claude | Claude `1.30096.5`; explicit and handoff captures recover the same persisted session; `CLAUDE_CODE_SESSION_ID` is nonblank inside the agent | Current explicit and handoff runs pass. |
 
 Each fixture retains discovery limitations and ID relationships. The particular
 thread IDs and machine name from the live run are represented by obvious

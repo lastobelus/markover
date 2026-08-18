@@ -1,0 +1,59 @@
+{
+  "checks": {
+    "threadHostIdAccepted": true,
+    "guessedValuesAbsent": true,
+    "machineAttempted": true,
+    "nullFallbackTruthful": true,
+    "portableV1Valid": true,
+    "requiredFieldsObserved": true,
+    "supportedCombination": true
+  },
+  "discovery": {
+    "hostKind": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostProvider": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostThreadId": {
+      "source": "not-exposed",
+      "status": "unavailable"
+    },
+    "machine": {
+      "source": "hostname-command",
+      "status": "observed"
+    },
+    "providerThreadId": {
+      "source": "agent-runtime",
+      "status": "observed"
+    }
+  },
+  "evidenceId": "2026-08-18__claude-desktop-claude-explicit__9abc08b7",
+  "exercisedAt": "2026-08-18T00:36:18.774Z",
+  "identityRoute": "explicit-runtime",
+  "limitations": [],
+  "matrixEntryId": "claude-desktop-claude",
+  "relationships": {
+    "identity": "identified",
+    "threadHostId": "omitted"
+  },
+  "runtime": {
+    "hostVersion": "1.30096.5",
+    "hostVersionSource": "runtime-context",
+    "providerModel": null,
+    "providerModelSource": "not-exposed",
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
+  },
+  "agentThread": {
+    "id": "<thread-id>",
+    "threadHost": {
+      "kind": "claude",
+      "provider": "claude",
+      "machine": "<machine>"
+    }
+  },
+  "schemaVersion": 2
+}
