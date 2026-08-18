@@ -104,11 +104,14 @@
       },
       "identityExpectation": "required",
       "requiredIdentityRoutes": [
+        "explicit-runtime",
         "handoff-key"
       ],
       "availability": "available",
       "exercise": "exercises/claude-desktop-claude.md",
-      "evidence": []
+      "evidence": [
+        "2026-08-18__claude-desktop-claude-handoff__527fe8b2"
+      ]
     }
   ]
 }

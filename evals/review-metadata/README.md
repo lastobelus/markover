@@ -113,7 +113,7 @@ surfaces:
 | T3 Code × Codex | T3 Code Nightly `0.0.34-nightly.20260817.1113`; `gpt-5.6-sol`; provider runtime version not exposed | Current explicit and handoff runs pass. |
 | T3 Code × Claude | Current explicit and handoff captures recover one Claude session plus its distinct T3 host thread; versions were not exposed to the helper | Current explicit and handoff runs pass. |
 | Claude Code × Claude | Claude Code `2.1.234`; `claude-sonnet-5`; provider service version not exposed | Current explicit and handoff runs pass. |
-| Claude desktop × Claude | None | Handoff run required; explicit run also required if the app exposes `CLAUDE_CODE_SESSION_ID`. |
+| Claude desktop × Claude | Claude `1.30096.5`; current handoff capture recovers the exact persisted session; `CLAUDE_CODE_SESSION_ID` is nonblank inside the agent | Handoff passes; the now-proven explicit route is required. |
 
 Each fixture retains discovery limitations and ID relationships. The particular
 thread IDs and machine name from the live run are represented by obvious

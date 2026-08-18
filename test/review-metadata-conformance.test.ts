@@ -112,7 +112,7 @@ test('live matrix names every required CLI, desktop, and T3 combination', () => 
       },
       {
         id: 'claude-desktop-claude',
-        requiredIdentityRoutes: ['handoff-key']
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
       }
     ]
   )
@@ -154,13 +154,13 @@ test('matrix rows require a nonempty identity-route checklist', () => {
 
 test('corpus validation tracks both identity routes for every initial row', () => {
   const expected = {
-    evidenceCount: 9,
+    evidenceCount: 10,
     matrixEntryCount: 6
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
   assert.throws(
     () => validateMetadataCorpus(root, true),
-    /claude-desktop-claude has no committed live evidence/
+    /claude-desktop-claude is missing live evidence for: explicit-runtime/
   )
 })
 
