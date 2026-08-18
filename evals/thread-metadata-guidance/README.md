@@ -40,7 +40,10 @@ work.
 
 ## Recorded outcome
 
-The authorized run passed the candidate gate. See
+The authorized run passed the candidate gate for `open`, the command exercised
+by every matrix case. Review subsequently identified that `get-for-review`
+persists reviewer metadata at a different portable path; the decision therefore
+does not accept or plan that untested part of the frozen candidate. See
 [`decision.md`](decision.md) for the decision and focused implementation plan,
 and
 [`results/20260818T050906142Z__ded16636__e01830eb`](results/20260818T050906142Z__ded16636__e01830eb/README.md)

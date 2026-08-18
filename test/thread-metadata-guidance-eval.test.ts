@@ -85,6 +85,19 @@ test('configuration expands to the finite authorized 24-trial matrix', () => {
   }
 })
 
+test('recorded decision stays within the evaluated open-command boundary', () => {
+  assert.ok(cases.length > 0)
+  assert.ok(cases.every(({ command }) => command === 'open'))
+
+  const decision = fs.readFileSync(
+    path.join(evaluationDirectory, 'decision.md'),
+    'utf8'
+  )
+  assert.match(decision, /threadMetadata\.commands\.open/)
+  assert.match(decision, /review\.agentReviewer\.agentThread/)
+  assert.match(decision, /broader candidate statement is not accepted/)
+})
+
 test('candidate is additive and the neutral output schema hides the nested shape', () => {
   const baseline = helpPayload() as unknown as JsonObject
   const baselineCondition = conditionPayload(
