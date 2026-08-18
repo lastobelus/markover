@@ -1,8 +1,8 @@
 # Structured thread-metadata guidance decision
 
-**Status:** Accepted for a future focused implementation.  
-**Issue:** #146.  
-**Evidence:** [`20260818T050906142Z__ded16636__e01830eb`](results/20260818T050906142Z__ded16636__e01830eb/README.md).
+- **Status:** Accepted for a future focused implementation.
+- **Issue:** #146.
+- **Evidence:** [`20260818T050906142Z__ded16636__e01830eb`](results/20260818T050906142Z__ded16636__e01830eb/README.md).
 
 ## Decision
 
