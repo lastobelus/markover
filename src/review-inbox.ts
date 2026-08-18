@@ -2,7 +2,10 @@ import {
   pullRequestObservation,
   type PullRequestStatus
 } from './pull-request'
-import { isClaudeProvider, isCodexProvider } from './provider-identity'
+import {
+  isClaudeCodeThreadHost,
+  isCodexProvider
+} from './provider-identity'
 
 export type ReviewTitleSource =
   | 'thread-title'
@@ -368,7 +371,7 @@ function rowFromSession(
     agentThreadId && isCodexProvider(provider)
   )
     ? codexTitles.get(agentThreadId) || null
-    : agentThreadId && isClaudeProvider(provider)
+    : agentThreadId && isClaudeCodeThreadHost(threadHostKind, provider)
       ? claudeTitles.get(agentThreadId) || null
       : null
   const requestingThreadTitle = threadHostTitle || providerTitle
@@ -388,7 +391,9 @@ function rowFromSession(
       ? t3ThreadTitleStatus
       : null,
     isCodexProvider(provider) ? codexThreadTitleStatus : null,
-    isClaudeProvider(provider) ? claudeThreadTitleStatus : null
+    isClaudeCodeThreadHost(threadHostKind, provider)
+      ? claudeThreadTitleStatus
+      : null
   ].filter((status): status is T3ThreadTitleStatus | CodexThreadTitleStatus | ClaudeThreadTitleStatus => Boolean(status))
   const requestingThreadTitleStatus = local
     ? 'not-applicable'

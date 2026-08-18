@@ -53,12 +53,13 @@ async function writeSession(
   return logPath
 }
 
-test('Claude identities use provider-owned IDs only for Claude providers', () => {
+test('Claude Code identities use provider-owned IDs for its host and T3 correlation', () => {
   assert.deepEqual(claudeRequestingThreadIds([
     artifact('claude-provider-1', 't3code', 'claude', 't3-host-1'),
-    artifact('claude-provider-2', 'claude-code', 'Anthropic'),
+    artifact('claude-provider-2', 'claude-code', 'kimi'),
     artifact('claude-provider-3', 't3code', 'claudeAgent', 't3-host-3'),
     artifact('ignored-provider', 't3code', 'codex', 't3-host-2'),
+    artifact('ignored-product', 'claude-desktop', 'claude'),
     artifact('claude-provider-1', 'claude-code', 'claude')
   ]), ['claude-provider-1', 'claude-provider-2', 'claude-provider-3'])
 })

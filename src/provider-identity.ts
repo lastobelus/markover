@@ -13,3 +13,12 @@ export function isClaudeProvider(value: string | null | undefined): boolean {
     provider === 'anthropic' ||
     provider === 'claudeagent'
 }
+
+export function isClaudeCodeThreadHost(
+  kind: string | null | undefined,
+  provider: string | null | undefined
+): boolean {
+  const host = normalizedProvider(kind ?? '')
+  return host === 'claudecode' ||
+    (host === 't3code' && isClaudeProvider(provider))
+}

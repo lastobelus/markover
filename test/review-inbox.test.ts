@@ -251,7 +251,7 @@ test('thread-host titles outrank provider titles and providers fill gaps', () =>
   sessions.add(reviewDocument('mko_authority3', 'other-provider.md', {
     agentThread: {
       id: 'claude-provider-1',
-      threadHost: { kind: 'claude', provider: 'claude' }
+      threadHost: { kind: 'claude-code', provider: 'kimi' }
     },
     createdAt: '2026-08-09T12:32:00.000Z',
     projectRoot: '/projects/markover'
@@ -289,6 +289,31 @@ test('thread-host titles outrank provider titles and providers fill gaps', () =>
   assert.equal(rows.get('mko_authority2'), 'Codex provider title 2')
   assert.equal(rows.get('mko_authority3'), 'Claude provider title 1')
   assert.equal(rows.get('mko_authority4'), 'Claude provider title 2')
+})
+
+test('Claude Code title projection excludes other Claude products', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_claude_product', 'claude-product.md', {
+    agentThread: {
+      id: 'claude-product-session',
+      threadHost: { kind: 'claude-desktop', provider: 'claude' }
+    },
+    createdAt: '2026-08-09T12:32:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
+
+  const row = projectReviewInbox(sessions.list(), {
+    claudeThreadTitleStatus: 'available',
+    claudeThreadTitles: [{
+      threadId: 'claude-product-session',
+      title: 'Wrong Claude product title'
+    }],
+    titlePreference: 'requesting-thread-title'
+  }).editing[0]
+
+  assert.ok(row)
+  assert.equal(row.requestingThreadTitle, null)
+  assert.equal(row.requestingThreadTitleStatus, 'unavailable')
 })
 
 test('agent-session fallback identity uses thread-host kind and never provider', () => {

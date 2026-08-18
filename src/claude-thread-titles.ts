@@ -5,7 +5,7 @@ import path from 'node:path'
 import { createInterface } from 'node:readline'
 
 import { claudeSessionLogPaths } from './metadata-discovery'
-import { isClaudeProvider } from './provider-identity'
+import { isClaudeCodeThreadHost } from './provider-identity'
 
 export interface ClaudeThreadTitleReadOptions {
   projectsDirectory?: string
@@ -23,7 +23,10 @@ export function claudeRequestingThreadIds(
     const agentThread = artifact.review.agentThread
     if (
       !agentThread ||
-      !isClaudeProvider(agentThread.threadHost.provider)
+      !isClaudeCodeThreadHost(
+        agentThread.threadHost.kind,
+        agentThread.threadHost.provider
+      )
     ) continue
     const id = agentThread.id.trim()
     if (id) ids.add(id)
