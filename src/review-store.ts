@@ -160,7 +160,8 @@ function sameRequestingThread(
     return stored.threadHost.kind === query.threadHost.kind &&
       stored.threadHost.threadId === queryHostId
   }
-  return stored.id === query.id &&
+  return stored.threadHost.threadId === undefined &&
+    stored.id === query.id &&
     stored.threadHost.kind === query.threadHost.kind &&
     stored.threadHost.provider === query.threadHost.provider
 }

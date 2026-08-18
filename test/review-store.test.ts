@@ -123,7 +123,8 @@ test('pending queries return every unresolved review for the exact requesting th
     'mko_aaa11111',
     'mko_bbb22222',
     'mko_ccc33333',
-    'mko_ddd44444'
+    'mko_ddd44444',
+    'mko_eee55555'
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => ids.shift() as string,
@@ -168,6 +169,17 @@ test('pending queries return every unresolved review for the exact requesting th
       }
     }
   })
+  const providerOnly = await store.create({
+    tree: tree('# Provider only\n'),
+    contextSummary: 'Provider-session fallback review.',
+    agentThread: {
+      id: 'provider-session-1',
+      threadHost: {
+        kind: 't3code',
+        provider: 'codex'
+      }
+    }
+  })
   await store.handoff(second.review.id)
   await store.resolve(completed.review.id, 'accepted-unreviewed')
   await store.handoff(other.review.id)
@@ -181,6 +193,13 @@ test('pending queries return every unresolved review for the exact requesting th
       [second.review.id, 'pending-agent'],
       [first.review.id, 'editing']
     ]
+  )
+  assert.deepEqual(
+    (await store.pendingForThread({
+      id: 'provider-session-1',
+      threadHost: { kind: 't3code', provider: 'codex' }
+    })).map((artifact) => artifact.review.id),
+    [providerOnly.review.id]
   )
 })
 
