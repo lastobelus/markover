@@ -374,7 +374,7 @@ function main(): void {
     return
   }
   throw new Error(
-    'Usage: review-metadata-exercise <prepare --entry ID [--routes ROUTES] [--thread-host-thread-id ID] | capture --run RUN_ID>'
+    'Usage: review-metadata-exercise <prepare --entry ID [--routes ROUTES] [--thread-host-thread-id ID] [--host-version VERSION] [--provider-version VERSION] [--provider-model MODEL] [--limitation TEXT] | capture --run RUN_ID>'
   )
 }
 

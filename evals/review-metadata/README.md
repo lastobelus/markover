@@ -36,18 +36,24 @@ checked-in fixture corpus.
 npm --silent run eval:metadata:exercise -- prepare \
   --entry MATRIX_ENTRY \
   [--routes explicit-runtime,handoff-key] \
-  [--thread-host-thread-id OBSERVED_DISTINCT_HOST_ID]
+  [--thread-host-thread-id OBSERVED_DISTINCT_HOST_ID] \
+  [--host-version OBSERVED_HOST_VERSION] \
+  [--provider-version OBSERVED_PROVIDER_VERSION] \
+  [--provider-model OBSERVED_PROVIDER_MODEL]
 ```
 
 `prepare` deliberately emits the fresh handoff marker once so the provider log
 can persist it. Run the returned `captureCommand` exactly. Its result names only
 the route, evidence ID, and private bundle paths; it does not repeat the marker
 or expose review IDs, provider-session IDs, host IDs, or machine names.
+Supply version and model flags only for values observed from the product,
+runtime context, or a version command; omitting one records that fact as not
+exposed.
 
 ```sh
 npm run eval:metadata:record -- \
-  --review tmp/review-metadata/raw-review.json \
-  --observation tmp/review-metadata/observation.json \
+  --review CAPTURE_RESULT_RAW_REVIEW_PATH \
+  --observation CAPTURE_RESULT_OBSERVATION_PATH \
   --output evals/review-metadata/evidence/EVIDENCE_ID.json
 ```
 
