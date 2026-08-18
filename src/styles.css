@@ -875,6 +875,18 @@ p {
   font-weight: 750;
 }
 
+.review-batch-actions button:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.review-batch-actions .review-batch-close {
+  width: 23px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
 .review-selection {
   position: absolute;
   top: 8px;
@@ -1437,6 +1449,7 @@ button.review-list-row-pr:hover {
 }
 
 .review-project-leaf {
+  position: relative;
   min-width: 0;
   margin-right: 4px;
   border: 1px solid transparent;

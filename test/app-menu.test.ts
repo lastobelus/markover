@@ -59,26 +59,43 @@ test('Review menu keeps deletion and cleanup extensible and state-aware', () => 
     isMac: true,
     canCleanUpAttachments: true,
     canTrashReview: true,
+    onBatchSetStatus: () => {},
     onCleanUpAttachments: () => {},
     onTrashReview: () => {}
   })
   const reviewMenu = template.find((item) => item.label === 'Review')
   assert.ok(reviewMenu)
   const items = submenu(reviewMenu)
+  const batch = items.find((item) => item.id === 'review.batch-set-status')
   const trash = items.find((item) => item.id === 'review.move-to-trash')
   const cleanup = items.find(
     (item) => item.id === 'review.clean-up-unused-attachments'
   )
+  assert.equal(batch?.enabled, true)
   assert.equal(trash?.enabled, true)
   assert.equal(cleanup?.enabled, true)
+  assert.equal(typeof batch.click, 'function')
   assert.equal(typeof trash.click, 'function')
   assert.equal(typeof cleanup.click, 'function')
 
   const disabled = applicationMenuTemplate({ isMac: true })
   const disabledReview = disabled.find((item) => item.label === 'Review')
   assert.ok(disabledReview)
-  assert.equal(submenu(disabledReview)[0]?.enabled, false)
-  assert.equal(submenu(disabledReview)[2]?.enabled, false)
+  const disabledItems = submenu(disabledReview)
+  assert.equal(
+    disabledItems.find((item) => item.id === 'review.batch-set-status')?.enabled,
+    false
+  )
+  assert.equal(
+    disabledItems.find((item) => item.id === 'review.move-to-trash')?.enabled,
+    false
+  )
+  assert.equal(
+    disabledItems.find(
+      (item) => item.id === 'review.clean-up-unused-attachments'
+    )?.enabled,
+    false
+  )
 })
 
 test('View menu exposes bounded persistent zoom commands', () => {

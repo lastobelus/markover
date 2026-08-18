@@ -11,6 +11,7 @@ interface ApplicationMenuOptions {
   canZoomOut?: boolean
   isMac?: boolean
   onBringAllToFront?: () => void
+  onBatchSetStatus?: () => void
   onCleanUpAttachments?: () => void
   onOpen?: () => void
   onOpenPublicLink?: (id: PublicLinkId) => void
@@ -30,6 +31,7 @@ export function applicationMenuTemplate({
   canZoomOut = true,
   isMac = process.platform === 'darwin',
   onBringAllToFront,
+  onBatchSetStatus,
   onCleanUpAttachments,
   onOpen,
   onOpenPublicLink,
@@ -90,6 +92,13 @@ export function applicationMenuTemplate({
   template.push({
     label: 'Review',
     submenu: [
+      {
+        id: 'review.batch-set-status',
+        label: 'Batch Set Status…',
+        enabled: Boolean(onBatchSetStatus),
+        ...(onBatchSetStatus ? { click: onBatchSetStatus } : {})
+      },
+      { type: 'separator' },
       {
         id: 'review.move-to-trash',
         label: 'Move Review to Trash…',

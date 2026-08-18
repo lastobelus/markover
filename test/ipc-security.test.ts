@@ -511,6 +511,12 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
 
 test('review resolution IPC carries exact selections and preserved feedback summaries', () => {
   assert.doesNotThrow(() => {
+    assertMainEventArguments('review:batch-mode-request', [])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('review:batch-mode-request', [true])
+  })
+  assert.doesNotThrow(() => {
     assertRendererInvokeArguments('review:resolve', [{
       reviewIds: ['mko_abcdef'],
       outcome: 'accepted-unreviewed'

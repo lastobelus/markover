@@ -744,6 +744,7 @@ declare global {
     openMarkdown: () => Promise<MarkoverDocument | null>
     createLocalReview: (tree: ReviewTree) => Promise<MarkoverDocument>
     onOpenMarkdownRequested: (callback: () => void) => void
+    onReviewBatchModeRequested: (callback: () => void) => void
     checksum: (source: string) => Promise<string>
     copyText: (text: string) => void
     readClipboardImage: () => Promise<MarkoverClipboardImage | null>

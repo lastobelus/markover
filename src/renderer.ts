@@ -201,7 +201,7 @@ const elements = {
   reviewInboxCount: requiredElement('#review-inbox-count'),
   reviewBatchAccept: requiredElement<HTMLButtonElement>('#review-batch-accept'),
   reviewBatchActions: requiredElement('#review-batch-actions'),
-  reviewBatchClear: requiredElement<HTMLButtonElement>('#review-batch-clear'),
+  reviewBatchClose: requiredElement<HTMLButtonElement>('#review-batch-close'),
   reviewBatchCount: requiredElement('#review-batch-count'),
   reviewBatchNoNotes: requiredElement<HTMLButtonElement>('#review-batch-no-notes'),
   reviewFilter: requiredElement<HTMLSelectElement>('#review-filter'),
@@ -268,6 +268,7 @@ let documentsListWidth = 390
 let annotationPaneWidth: number | null = null
 let reviewNavigationMode: 'inbox' | 'projects' = 'inbox'
 let reviewFilter: ReviewInboxFilter = 'needs-me'
+let batchResolutionMode = false
 const selectedReviewIds = new Set<string>()
 let inboxHistoryLimit = INBOX_HISTORY_PAGE_SIZE
 const projectExpansion = new Map<string, boolean>()
@@ -556,6 +557,7 @@ const BRIDGE_METHODS = [
   'openPullRequest',
   'openReviewContextMenu',
   'onReviewResolutionConfirmation',
+  'onReviewBatchModeRequested',
   'readClipboardImage',
   'reportRendererInitialized',
   'reportSmokeResult',
@@ -2880,8 +2882,10 @@ function createMetadataStateMarker(row: ReviewInboxRow): HTMLElement | null {
 
 function renderReviewBatchActions(): void {
   const count = selectedReviewIds.size
-  elements.reviewBatchActions.hidden = count === 0
+  elements.reviewBatchActions.hidden = !batchResolutionMode
   elements.reviewBatchCount.textContent = `${String(count)} selected`
+  elements.reviewBatchNoNotes.disabled = count === 0
+  elements.reviewBatchAccept.disabled = count === 0
 }
 
 function finishResolutionConfirmation(confirmed: boolean): void {
@@ -2980,6 +2984,7 @@ function showReviewResolutionConfirmation(
 
 function reviewSelectionControl(row: ReviewInboxRow): HTMLInputElement | null {
   if (
+    !batchResolutionMode ||
     !reviewMatchesFilter(row, reviewFilter) ||
     (row.status !== 'editing' && row.status !== 'pending-agent')
   ) return null
@@ -2987,7 +2992,8 @@ function reviewSelectionControl(row: ReviewInboxRow): HTMLInputElement | null {
   selection.type = 'checkbox'
   selection.className = 'review-selection'
   selection.checked = selectedReviewIds.has(row.reviewId)
-  selection.ariaLabel = `Select ${row.title}`
+  selection.ariaLabel = `Select ${row.title} for completion`
+  selection.title = 'Select for completion'
   selection.addEventListener('click', (event) => {
     event.stopPropagation()
   })
@@ -3130,7 +3136,7 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
       })
     })
   }
-  bindReviewHoverCard(container, () => reviewHoverModel(row))
+  bindReviewHoverCard(button, () => reviewHoverModel(row))
   return container
 }
 
@@ -3190,7 +3196,7 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
   if (selection) container.append(selection)
   const returnToNeedsMe = returnToNeedsMeControl(row)
   if (returnToNeedsMe) container.append(returnToNeedsMe)
-  bindReviewHoverCard(container, () => reviewHoverModel(row))
+  bindReviewHoverCard(button, () => reviewHoverModel(row))
   return container
 }
 
@@ -4803,7 +4809,8 @@ elements.reviewBatchNoNotes.addEventListener('click', () => {
 elements.reviewBatchAccept.addEventListener('click', () => {
   void resolveSelectedReviews('accepted-unreviewed')
 })
-elements.reviewBatchClear.addEventListener('click', () => {
+elements.reviewBatchClose.addEventListener('click', () => {
+  batchResolutionMode = false
   selectedReviewIds.clear()
   renderDocumentsList()
   elements.reviewFilter.focus()
@@ -5159,6 +5166,16 @@ async function initialize(): Promise<void> {
   bridge.onReviewResolutionConfirmation((request) => (
     showReviewResolutionConfirmation(request)
   ))
+  bridge.onReviewBatchModeRequested(() => {
+    if (!batchResolutionMode) {
+      batchResolutionMode = true
+      selectedReviewIds.clear()
+      renderDocumentsList()
+    }
+    requestAnimationFrame(() => {
+      elements.reviewBatchClose.focus()
+    })
+  })
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)
     if (!session) {

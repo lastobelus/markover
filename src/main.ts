@@ -564,7 +564,7 @@ function sendMainEvent(
 }
 
 function sendRendererEvent(
-  channel: 'document:open-request' | 'settings:open'
+  channel: 'document:open-request' | 'settings:open' | 'review:batch-mode-request'
 ): void {
   if (!mainWindow || mainWindow.isDestroyed()) createWindow()
   if (!mainWindow) throw new Error('Markover window could not be created.')
@@ -594,6 +594,9 @@ function installApplicationMenu(): void {
     canZoomIn: zoomIndex < ZOOM_LEVELS.length - 1,
     canZoomOut: zoomIndex > 0,
     onBringAllToFront: focusMainWindow,
+    onBatchSetStatus: () => {
+      sendRendererEvent('review:batch-mode-request')
+    },
     onCleanUpAttachments: () => {
       void cleanUpUnusedAttachments().catch(showReviewOperationError)
     },

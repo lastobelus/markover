@@ -149,6 +149,7 @@ export interface RendererSendArguments {
 export interface MainEventArguments {
   'document:open-request': []
   'settings:open': []
+  'review:batch-mode-request': []
   'settings:changed': [MarkoverSettingsEnvelope]
   'window:focus-state': [MarkoverWindowFocusState]
   'review:opened': [MarkoverDocument]
@@ -991,6 +992,7 @@ export function assertMainEventArguments(
   switch (channel) {
     case 'document:open-request':
     case 'settings:open':
+    case 'review:batch-mode-request':
       valid = noArguments(args)
       break
     case 'settings:changed': valid = singleArgument(args, isSettingsEnvelope); break

@@ -158,6 +158,11 @@ const bridge = {
       callback()
     })
   },
+  onReviewBatchModeRequested: (callback) => {
+    listen('review:batch-mode-request', () => {
+      callback()
+    })
+  },
   checksum: (source) => invoke('document:checksum', source),
   copyText: (text) => {
     send('clipboard:write', text)
