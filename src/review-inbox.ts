@@ -39,6 +39,7 @@ export interface ReviewInboxRow {
   requestingThreadTitle: string | null
   requestingThreadTitleStatus: 'available' | 'unavailable' | 'not-observed' | 'not-applicable'
   repositoryUrl: string | null
+  resolution: ReviewResolution | null
   sourcePath: string | null
   sourceState: ReviewSourceState
   status: ReviewSessionStatus
@@ -77,8 +78,28 @@ export interface ReviewInboxProject {
 
 export interface ReviewInboxProjection {
   editing: ReviewInboxRow[]
+  filterCounts: Record<ReviewInboxFilter, number>
   history: ReviewInboxRow[]
   projects: ReviewInboxProject[]
+}
+
+export type ReviewInboxFilter = 'needs-me' | 'with-agent' | 'completed' | 'all'
+
+export function reviewMatchesFilter(
+  row: Pick<ReviewInboxRow, 'resolution' | 'status'>,
+  filter: ReviewInboxFilter
+): boolean {
+  if (filter === 'all') return true
+  if (filter === 'needs-me') return row.status === 'editing'
+  if (filter === 'with-agent') {
+    return row.status === 'pending-agent' ||
+      row.status === 'agent-reviewing' ||
+      row.status === 'handoff-in-progress'
+  }
+  return row.resolution !== null ||
+    row.status === 'revised' ||
+    row.status === 'reviewed' ||
+    row.status === 'done'
 }
 
 export type ReviewMetadataKey =
@@ -97,6 +118,7 @@ export type ReviewMetadataKey =
   | 'host-thread'
   | 'machine'
   | 'review-status'
+  | 'review-resolution'
   | 'created'
   | 'updated'
   | 'attention-requested'
@@ -131,6 +153,17 @@ export function reviewStatusLabel(status: ReviewSessionStatus): string {
   if (status === 'revised') return 'Revised'
   if (status === 'done') return 'Done'
   return 'Editing'
+}
+
+export function reviewResolutionLabel(
+  resolution: ReviewResolution | null
+): string | null {
+  if (!resolution) return null
+  if (resolution.outcome === 'feedback-addressed') return 'Feedback addressed'
+  if (resolution.outcome === 'reviewed-no-notes') return 'Reviewed · no notes'
+  if (resolution.outcome === 'accepted-unreviewed') return 'Accepted unreviewed'
+  if (resolution.outcome === 'feedback-abandoned') return 'Feedback abandoned'
+  return 'Merged unresolved'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -282,6 +315,14 @@ export function reviewMetadataInventory(
     row.local ? 'not-applicable' : 'missing'
   )
   add('review-status', 'Review status', reviewStatusLabel(row.status))
+  add(
+    'review-resolution',
+    'Resolution',
+    reviewResolutionLabel(row.resolution),
+    row.status === 'revised' || row.status === 'done'
+      ? 'not-observed'
+      : 'not-applicable'
+  )
   add('created', 'Created', dateValue(row.createdAt))
   add('updated', 'Updated', dateValue(row.updatedAt))
   add(
@@ -438,6 +479,7 @@ function rowFromSession(
     requestingThreadTitle,
     requestingThreadTitleStatus,
     repositoryUrl: stringField(review.git, ['repositoryUrl']),
+    resolution: review.resolution ?? null,
     sourcePath: session.documentPath,
     sourceState: session.sourceState,
     status: review.status,
@@ -551,7 +593,9 @@ export function projectReviewInbox(
     t3ThreadTitleStatus = 'disabled',
     t3ThreadTitles = [],
     titlePreference = 'review-purpose'
-  }: ReviewInboxTitleSources = {}
+  }: ReviewInboxTitleSources = {},
+  filter: ReviewInboxFilter = 'all',
+  alwaysIncludeReviewId: string | null = null
 ): ReviewInboxProjection {
   const t3Titles = new Map(
     t3ThreadTitles.map(({ threadId, title }) => [threadId, title])
@@ -574,17 +618,27 @@ export function projectReviewInbox(
       titlePreference
     )
   ))
+  const filterCounts: Record<ReviewInboxFilter, number> = {
+    'needs-me': rows.filter((row) => reviewMatchesFilter(row, 'needs-me')).length,
+    'with-agent': rows.filter((row) => reviewMatchesFilter(row, 'with-agent')).length,
+    completed: rows.filter((row) => reviewMatchesFilter(row, 'completed')).length,
+    all: rows.length
+  }
+  const visibleRows = rows.filter((row) => (
+    reviewMatchesFilter(row, filter) || row.reviewId === alwaysIncludeReviewId
+  ))
   const byProject = new Map<string, ReviewInboxRow[]>()
-  for (const row of rows) {
+  for (const row of visibleRows) {
     const projectRows = byProject.get(row.projectKey) || []
     projectRows.push(row)
     byProject.set(row.projectKey, projectRows)
   }
   return {
-    editing: rows
+    editing: visibleRows
       .filter((row) => row.status === 'editing')
       .sort(compareRows),
-    history: rows
+    filterCounts,
+    history: visibleRows
       .filter((row) => row.status !== 'editing')
       .sort(compareRows),
     projects: [...byProject.entries()]

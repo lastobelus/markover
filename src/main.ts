@@ -85,6 +85,7 @@ import {
 } from './protocol-registration'
 import {
   reviewDeletionPolicy,
+  reviewHasFeedbackArtifacts,
   ReviewStore,
   type ReviewArtifact,
   type ReviewDeletionPolicy,
@@ -152,6 +153,11 @@ interface PendingActivation {
   reject: (reason?: unknown) => void
   resolve: (outcome: ReviewActivationOutcome) => void
   reviewId: string
+  timeout: ReturnType<typeof setTimeout>
+}
+
+interface PendingResolutionConfirmation {
+  resolve: (confirmed: boolean) => void
   timeout: ReturnType<typeof setTimeout>
 }
 
@@ -236,6 +242,7 @@ let managedAutosave: ReviewAutosave | null = null
 let snapshotSequence = 0
 let statusSequence = 0
 let activationSequence = 0
+let resolutionSequence = 0
 let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
 let startupDiagnostic: StartupDiagnostic | null = null
 let startupBuildIdentity: BuildIdentity | null = null
@@ -257,6 +264,10 @@ let startupFailureDialogShown = false
 const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const pendingActivations = new Map<string, PendingActivation>()
+const pendingResolutionConfirmations = new Map<
+  string,
+  PendingResolutionConfirmation
+>()
 const pendingManagedReviewNotifications = new Map<string, MarkoverDocument>()
 const reviewProjectContexts = new Map<string, Promise<ReviewProjectContext>>()
 const projectFavicons = new Map<string, Promise<string | null>>()
@@ -1474,6 +1485,63 @@ async function requestRendererActivation(
   })
 }
 
+function reviewResolutionSummary(
+  artifact: ReviewArtifact
+): ReviewResolutionSummary {
+  const blocks: ReviewResolutionSummaryBlock[] = []
+  const visit = (node: ReviewNode): void => {
+    const attachments = (node.attachments || []).map((attachment) => (
+      attachment.label?.trim() || attachment.id
+    ))
+    if (node.feedback.trim() || attachments.length || node.sourceEdit) {
+      blocks.push({
+        nodeId: node.id,
+        title: node.text.trim() || `${node.type} at line ${String(node.lineStart)}`,
+        feedback: node.feedback,
+        attachments,
+        sourceEdit: node.sourceEdit
+          ? {
+              original: node.sourceEdit.original,
+              current: node.sourceEdit.current
+            }
+          : null
+      })
+    }
+    for (const child of node.children) visit(child)
+  }
+  visit(artifact.root)
+  return {
+    reviewId: artifact.review.id,
+    documentName: artifact.sourceDocument.name || 'Untitled review',
+    contextSummary: artifact.review.contextSummary,
+    blocks
+  }
+}
+
+async function requestReviewResolutionConfirmation(
+  artifacts: readonly ReviewArtifact[],
+  outcome: ManualReviewResolutionRequestOutcome
+): Promise<boolean> {
+  focusMainWindow()
+  const window = mainWindow
+  if (!window) throw new Error('Markover window could not be created.')
+  await waitForRendererReady(window)
+  resolutionSequence += 1
+  const requestId = `resolution-${String(resolutionSequence)}`
+  return new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => {
+      pendingResolutionConfirmations.delete(requestId)
+      resolve(false)
+    }, 5 * 60 * 1000)
+    pendingResolutionConfirmations.set(requestId, { resolve, timeout })
+    sendMainEvent(window.webContents, 'review:resolution-confirmation-request', {
+      requestId,
+      outcome,
+      reviews: artifacts.map(reviewResolutionSummary)
+    } satisfies ReviewResolutionConfirmationRequest)
+  })
+}
+
 async function activateManagedReview(
   reviewId: string,
   focusState = currentWindowFocusState()
@@ -1561,7 +1629,7 @@ function requireWorkspaceStore(): WorkspaceStore {
 
 async function flushManagedReview(
   reviewId: string,
-  action: 'handoff' | 'get-for-review' | 'edit' | 'done'
+  action: 'handoff' | 'get-for-review' | 'edit' | 'done' | 'resolve'
 ): Promise<() => Promise<void>> {
   const store = requireReviewStore()
   try {
@@ -1579,6 +1647,63 @@ async function flushManagedReview(
   }
   return async () => {
     await sendManagedStatus(await store.load(reviewId))
+  }
+}
+
+async function resolveManagedReviews(
+  request: ReviewResolutionRequest
+): Promise<ReviewResolutionResult> {
+  await pauseManagedMutations()
+  try {
+    await captureEditableManagedReviews()
+    managedAttachmentSavesBlocked = true
+    await managedAttachmentMutations.wait()
+    await requireManagedAutosave().flushAll()
+    const store = requireReviewStore()
+    const artifacts = await Promise.all(
+      request.reviewIds.map((reviewId) => store.load(reviewId))
+    )
+    const confirmed = await requestReviewResolutionConfirmation(
+      artifacts,
+      request.outcome
+    )
+    if (!confirmed) {
+      return {
+        outcome: 'cancelled',
+        reviews: artifacts.map((artifact) => ({
+          reviewId: artifact.review.id,
+          status: artifact.review.status,
+          ...(artifact.review.resolution
+            ? { resolution: artifact.review.resolution }
+            : {})
+        }))
+      }
+    }
+
+    const resolved: ReviewArtifact[] = []
+    for (const artifact of artifacts) {
+      const changed = await store.resolve(
+        artifact.review.id,
+        reviewHasFeedbackArtifacts(artifact.root)
+          ? 'feedback-abandoned'
+          : request.outcome
+      )
+      resolved.push(changed)
+      await sendManagedUpdate(changed)
+      await sendManagedStatus(changed)
+    }
+    return {
+      outcome: 'resolved',
+      reviews: resolved.map((artifact) => ({
+        reviewId: artifact.review.id,
+        status: artifact.review.status,
+        ...(artifact.review.resolution
+          ? { resolution: artifact.review.resolution }
+          : {})
+      }))
+    }
+  } finally {
+    resumeManagedMutationsUnlessShuttingDown()
   }
 }
 
@@ -1605,6 +1730,9 @@ async function startAndPublishService(): Promise<void> {
     interpretationPolicy: () => store.settings.agentInterpretationPolicy,
     agentReviewMode: () => store.settings.agentReviewMode,
     beforeAction: flushManagedReview,
+    confirmFeedbackAbandonment: (artifacts, outcome) => (
+      requestReviewResolutionConfirmation(artifacts, outcome)
+    ),
     onActivate: activateManagedReview,
     onQuit() {
       app.quit()
@@ -2223,6 +2351,19 @@ if (!hasSingleInstanceLock) {
       event: IpcMainInvokeEvent,
       request: ReviewContextMenuRequest
     ) => openReviewContextMenu(event, request))
+    privilegedIpc.handle('review:resolve', (
+      _event: IpcMainInvokeEvent,
+      request: ReviewResolutionRequest
+    ) => resolveManagedReviews(request))
+    privilegedIpc.handle('review:unresolve', async (
+      _event: IpcMainInvokeEvent,
+      reviewId: string
+    ) => {
+      const artifact = await requireReviewStore().unresolve(reviewId)
+      await sendManagedUpdate(artifact)
+      await sendManagedStatus(artifact)
+      return { reviewId, status: 'editing' as const }
+    })
     privilegedIpc.on('review:snapshot-response', (
       _event: IpcMainEvent,
       response: ReviewSnapshotResponse
@@ -2262,6 +2403,16 @@ if (!hasSingleInstanceLock) {
         pending.resolve(response.outcome)
       }
       else pending.reject(new Error('Renderer omitted the activation outcome.'))
+    })
+    privilegedIpc.on('review:resolution-confirmation-response', (
+      _event: IpcMainEvent,
+      response: ReviewResolutionConfirmationResponse
+    ) => {
+      const pending = pendingResolutionConfirmations.get(response.requestId)
+      if (!pending) return
+      clearTimeout(pending.timeout)
+      pendingResolutionConfirmations.delete(response.requestId)
+      pending.resolve(response.confirmed)
     })
     privilegedIpc.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
       clipboard.writeText(text)

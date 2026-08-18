@@ -34,6 +34,13 @@ const REVIEW_STATUSES = new Set<ReviewStatus>([
   'revised',
   'done'
 ])
+const REVIEW_RESOLUTION_OUTCOMES = new Set<ReviewResolutionOutcome>([
+  'feedback-addressed',
+  'reviewed-no-notes',
+  'accepted-unreviewed',
+  'feedback-abandoned',
+  'merged-unresolved'
+])
 const PRIVATE_EXTENSION_NAMESPACES = new Set([
   'appPrivate',
   'cache',
@@ -584,6 +591,33 @@ function assertPullRequest(
   }
 }
 
+function assertResolution(
+  value: unknown,
+  status: ReviewStatus,
+  createdAt: string,
+  updatedAt: string
+): asserts value is ReviewResolution | undefined {
+  if (value === undefined) return
+  if (!isRecord(value)) invalid('review.resolution must be an object when present.')
+  requireKeys(value, ['outcome', 'resolvedAt'])
+  if (!REVIEW_RESOLUTION_OUTCOMES.has(value.outcome as ReviewResolutionOutcome)) {
+    invalid(`Unsupported review resolution outcome: ${String(value.outcome)}.`)
+  }
+  if (
+    !isCanonicalReviewTimestamp(value.resolvedAt) ||
+    value.resolvedAt < createdAt ||
+    value.resolvedAt > updatedAt
+  ) {
+    invalid('review.resolution.resolvedAt must be a canonical UTC instant from review.createdAt through review.updatedAt.')
+  }
+  if (status !== 'revised' && status !== 'done') {
+    invalid('Only Revised or Done reviews may carry review.resolution.')
+  }
+  if (value.outcome === 'merged-unresolved' && status !== 'done') {
+    invalid('The merged-unresolved outcome requires Done status.')
+  }
+}
+
 function assertEnvelope(
   value: unknown,
   expectedReviewId?: string
@@ -639,6 +673,12 @@ function assertEnvelope(
     invalid('Pull request observations must not be newer than review.updatedAt.')
   }
   assertAgentGuidance(value.agentGuidance, 'review.agentGuidance')
+  assertResolution(
+    value.resolution,
+    value.status as ReviewStatus,
+    value.createdAt,
+    value.updatedAt
+  )
   assertAgentReviewer(
     value.agentReviewer,
     value.status as ReviewStatus,

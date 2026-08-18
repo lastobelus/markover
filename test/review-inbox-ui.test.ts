@@ -24,7 +24,7 @@ test('production review navigation shares the strip with exact-ID activation', (
   assert.match(styles, /\.review-list-row-meta \{[^}]*font-size: 10px;/)
 })
 
-test('production inbox renders Editing separately from lifecycle-aware collapsed history', () => {
+test('production inbox shares responsibility filters and retains All history', () => {
   const renderer = read('src/renderer.ts')
   const icons = read('src/lucide-icons.ts')
   const registry = read('src/review-icon-registry.ts')
@@ -33,8 +33,14 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   assert.match(renderer, /projectReviewInbox\([\s\S]*codexThreadTitles: codexThreadTitles\.titles,[\s\S]*claudeThreadTitles: claudeThreadTitles\.titles,[\s\S]*t3ThreadTitles: t3ThreadTitles\.titles,[\s\S]*titlePreference: preferences\.inboxTitlePreference/)
   assert.match(
     renderer,
-    /renderInboxReviews\(projection\.editing, projection\.history\)/
+    /renderInboxReviews\(projection\.editing, projection\.history, reviewFilter\)/
   )
+  assert.match(renderer, /let reviewFilter: ReviewInboxFilter = 'needs-me'/)
+  assert.match(renderer, /projection\.filterCounts\['needs-me'\]/)
+  assert.match(renderer, /elements\.reviewFilter\.addEventListener\('change'/)
+  assert.match(renderer, /selectedReviewIds\.clear\(\)[\s\S]*setReviewNavigationMode\('projects'\)/)
+  assert.match(read('src/index.html'), /id="review-filter"[\s\S]*value="needs-me"[\s\S]*value="with-agent"[\s\S]*value="completed"[\s\S]*value="all"/)
+  assert.match(styles, /\.review-filter \{/)
   assert.match(renderer, /historyGroup\.className = 'review-history-group'/)
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)
   assert.match(
@@ -76,6 +82,13 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   assert.match(renderer, /bridge\.openPullRequest\(row\.reviewId\)/)
   assert.match(renderer, /const INBOX_HISTORY_PAGE_SIZE = 10/)
   assert.match(renderer, /viewAll\.textContent = 'View all in Projects'/)
+  assert.match(renderer, /reviewSelectionControl\(row\)/)
+  assert.match(renderer, /bridge\.resolveReviews\(\{ reviewIds, outcome \}\)/)
+  assert.match(renderer, /showReviewResolutionConfirmation/)
+  assert.match(renderer, /review\.blocks\[0\][\s\S]*resolutionBlockPreview/)
+  assert.match(renderer, /Abandon feedback in \$\{String\(feedbackReviewCount\)\}/)
+  assert.match(renderer, /document\.createElement\('details'\)/)
+  assert.match(renderer, /bridge\.unresolveReview\(row\.reviewId\)/)
 })
 
 test('review activation uses one active review and exposes exact IDs', () => {

@@ -330,6 +330,19 @@ declare global {
     | 'revised'
     | 'done'
 
+  type ReviewResolutionOutcome =
+    | 'feedback-addressed'
+    | 'reviewed-no-notes'
+    | 'accepted-unreviewed'
+    | 'feedback-abandoned'
+    | 'merged-unresolved'
+
+  interface ReviewResolution {
+    [key: string]: unknown
+    outcome: ReviewResolutionOutcome
+    resolvedAt: string
+  }
+
   interface ReviewThreadHost {
     [key: string]: unknown
     kind: string
@@ -382,6 +395,7 @@ declare global {
     agentThread: ReviewAgentThread | null
     git: ReviewGitSnapshot | null
     pullRequest: ReviewPullRequest | null
+    resolution?: ReviewResolution
     agentGuidance: AgentGuidance
     agentReviewer?: ReviewAgentReviewer
   }
@@ -594,6 +608,55 @@ declare global {
     failedReviewIds: string[]
   }
 
+  type ManualReviewResolutionRequestOutcome =
+    | 'reviewed-no-notes'
+    | 'accepted-unreviewed'
+
+  interface ReviewResolutionRequest {
+    reviewIds: string[]
+    outcome: ManualReviewResolutionRequestOutcome
+  }
+
+  interface ReviewResolutionResult {
+    outcome: 'cancelled' | 'resolved'
+    reviews: Array<{
+      reviewId: string
+      status: ReviewSessionStatus
+      resolution?: ReviewResolution
+    }>
+  }
+
+  interface ReviewUnresolveResult {
+    reviewId: string
+    status: 'editing'
+  }
+
+  interface ReviewResolutionSummaryBlock {
+    nodeId: string
+    title: string
+    feedback: string
+    attachments: string[]
+    sourceEdit: { original: string; current: string } | null
+  }
+
+  interface ReviewResolutionSummary {
+    reviewId: string
+    documentName: string
+    contextSummary: string
+    blocks: ReviewResolutionSummaryBlock[]
+  }
+
+  interface ReviewResolutionConfirmationRequest {
+    requestId: string
+    outcome: ManualReviewResolutionRequestOutcome
+    reviews: ReviewResolutionSummary[]
+  }
+
+  interface ReviewResolutionConfirmationResponse {
+    requestId: string
+    confirmed: boolean
+  }
+
   type ReviewActivationOutcome =
     | 'activated'
     | 'already-active'
@@ -697,6 +760,10 @@ declare global {
       attachmentId: string
       outcome: 'cancelled' | 'trashed'
     }>
+    resolveReviews: (
+      request: ReviewResolutionRequest
+    ) => Promise<ReviewResolutionResult>
+    unresolveReview: (reviewId: string) => Promise<ReviewUnresolveResult>
     getInitialReview: () => Promise<MarkoverDocument | null>
     getReviews: () => Promise<MarkoverReviewListItem[]>
     getT3ThreadTitles: () => Promise<T3ThreadTitleSnapshot>
@@ -728,6 +795,11 @@ declare global {
     ) => void
     onReviewAutosaveStatus: (
       callback: (status: ReviewAutosaveStatus) => void
+    ) => void
+    onReviewResolutionConfirmation: (
+      callback: (
+        request: ReviewResolutionConfirmationRequest
+      ) => boolean | Promise<boolean>
     ) => void
     getReviewAutosaveStatus: () => Promise<ReviewAutosaveStatus>
     onReviewShutdownState: (callback: (paused: boolean) => void) => void
@@ -766,6 +838,7 @@ declare global {
     agentThread: ReviewAgentThread | null
     git: ReviewGitSnapshot | null
     pullRequest: ReviewPullRequest | null
+    resolution?: ReviewResolution
     agentGuidance: AgentGuidance
     agentReviewer?: ReviewAgentReviewer
   }

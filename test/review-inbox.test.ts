@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   projectReviewInbox,
+  reviewMatchesFilter,
   reviewMetadataInventory
 } from '../src/review-inbox'
 
@@ -148,6 +149,56 @@ test('Inbox exposes every Editing review in attention order without thread group
     ]
   )
   assert.equal(projection.projects[0]?.threads[0]?.editingCount, 2)
+})
+
+test('responsibility filters share one predicate, live counts, and exact-target visibility', () => {
+  const sessions = new ReviewSessions()
+  const common = {
+    createdAt: '2026-08-09T12:00:00.000Z',
+    projectRoot: '/projects/markover'
+  }
+  sessions.add(reviewDocument('mko_needs111', 'needs.md', common))
+  sessions.add(reviewDocument('mko_agent222', 'agent.md', {
+    ...common,
+    status: 'pending-agent'
+  }))
+  sessions.add(reviewDocument('mko_done3333', 'done.md', {
+    ...common,
+    status: 'revised'
+  }))
+
+  const needsMe = projectReviewInbox(
+    sessions.list(),
+    {},
+    'needs-me',
+    'mko_done3333'
+  )
+  assert.deepEqual(needsMe.filterCounts, {
+    'needs-me': 1,
+    'with-agent': 1,
+    completed: 1,
+    all: 3
+  })
+  assert.deepEqual(
+    [...needsMe.editing, ...needsMe.history].map((row) => row.reviewId),
+    ['mko_needs111', 'mko_done3333']
+  )
+  const selectedOutsideFilter = needsMe.history[0]
+  assert.ok(selectedOutsideFilter)
+  assert.equal(reviewMatchesFilter(selectedOutsideFilter, 'needs-me'), false)
+
+  const withAgent = projectReviewInbox(sessions.list(), {}, 'with-agent')
+  assert.deepEqual(withAgent.editing, [])
+  assert.deepEqual(
+    withAgent.history.map((row) => row.reviewId),
+    ['mko_agent222']
+  )
+  assert.deepEqual(
+    withAgent.projects.flatMap((project) => (
+      project.threads.flatMap((thread) => thread.reviews.map((row) => row.reviewId))
+    )),
+    ['mko_agent222']
+  )
 })
 
 test('thread-host packets expose nested provider and thread-host registry keys', () => {
@@ -672,6 +723,7 @@ test('metadata inventory is complete and reports source and repository conflicts
       'Distinct host thread',
       'Machine',
       'Review status',
+      'Resolution',
       'Created',
       'Updated',
       'Attention requested'

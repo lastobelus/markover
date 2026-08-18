@@ -30,6 +30,11 @@ const REVIEW_STATUSES = new Set<ReviewStatus>([
   'revised',
   'done'
 ])
+const MANUAL_REVIEW_RESOLUTION_OUTCOMES = new Set<ManualReviewResolutionOutcome>([
+  'reviewed-no-notes',
+  'accepted-unreviewed',
+  'feedback-abandoned'
+])
 
 export type ReviewStatus =
   | 'editing'
@@ -58,6 +63,13 @@ export interface DoneReviewsResult {
   reviews: ReviewArtifact[]
   status: 'done'
 }
+
+export type ManualReviewResolutionOutcome =
+  | 'reviewed-no-notes'
+  | 'accepted-unreviewed'
+  | 'feedback-abandoned'
+
+export type PendingReviewResponsibility = 'needs-me' | 'with-agent'
 
 export interface ReviewStoreOptions {
   claimIdFactory?: () => string
@@ -115,6 +127,52 @@ export type TrashItem = (filePath: string) => Promise<void>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function nonblankString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function assertThreadQuery(value: unknown): asserts value is ReviewAgentThread {
+  if (
+    !isRecord(value) ||
+    !nonblankString(value.id) ||
+    !isRecord(value.threadHost) ||
+    !nonblankString(value.threadHost.kind) ||
+    !nonblankString(value.threadHost.provider) ||
+    (value.threadHost.threadId !== undefined &&
+      !nonblankString(value.threadHost.threadId))
+  ) {
+    throw new ReviewStoreError(
+      'INVALID_THREAD',
+      'A pending-review query requires a complete requesting-thread identity.'
+    )
+  }
+}
+
+function sameRequestingThread(
+  stored: ReviewAgentThread | null,
+  query: ReviewAgentThread
+): boolean {
+  if (!stored) return false
+  const queryHostId = query.threadHost.threadId
+  if (queryHostId) {
+    return stored.threadHost.kind === query.threadHost.kind &&
+      stored.threadHost.threadId === queryHostId
+  }
+  return stored.id === query.id &&
+    stored.threadHost.kind === query.threadHost.kind &&
+    stored.threadHost.provider === query.threadHost.provider
+}
+
+export function pendingReviewResponsibility(
+  status: ReviewStatus
+): PendingReviewResponsibility | null {
+  if (status === 'editing') return 'needs-me'
+  if (status === 'pending-agent' || status === 'agent-reviewing') {
+    return 'with-agent'
+  }
+  return null
 }
 
 function errorCode(error: unknown): unknown {
@@ -254,6 +312,18 @@ function visitReviewNodes(
 ): void {
   visitor(node)
   for (const child of node.children) visitReviewNodes(child, visitor)
+}
+
+export function reviewHasFeedbackArtifacts(root: ReviewNode): boolean {
+  let found = false
+  visitReviewNodes(root, (node) => {
+    if (
+      node.feedback.trim() ||
+      (node.attachments?.length ?? 0) > 0 ||
+      node.sourceEdit !== undefined
+    ) found = true
+  })
+  return found
 }
 
 function assertPristineAgentReview(artifact: ReviewArtifact): void {
@@ -661,6 +731,20 @@ export class ReviewStore {
     return { reviews: sorted, incompatible, warnings }
   }
 
+  async pendingForThread(agentThread: unknown): Promise<ReviewArtifact[]> {
+    assertThreadQuery(agentThread)
+    return (await this.list())
+      .filter((artifact) => (
+        pendingReviewResponsibility(artifact.review.status) !== null &&
+        sameRequestingThread(artifact.review.agentThread, agentThread)
+      ))
+      .sort((left, right) => (
+        right.review.attentionRequestedAt.localeCompare(
+          left.review.attentionRequestedAt
+        ) || right.review.id.localeCompare(left.review.id)
+      ))
+  }
+
   async updateTree(reviewId: string, tree: unknown): Promise<ReviewArtifact> {
     assertReviewId(reviewId)
     assertReviewTree(tree)
@@ -1016,6 +1100,79 @@ export class ReviewStore {
     return this.transition(reviewId, 'revised', pullRequestStatus)
   }
 
+  async resolve(
+    reviewId: string,
+    outcome: ManualReviewResolutionOutcome
+  ): Promise<ReviewArtifact> {
+    assertReviewId(reviewId)
+    if (!MANUAL_REVIEW_RESOLUTION_OUTCOMES.has(outcome)) {
+      throw new ReviewStoreError(
+        'INVALID_RESOLUTION',
+        `Invalid manual review resolution: ${outcome}`
+      )
+    }
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      if (
+        current.review.status !== 'editing' &&
+        current.review.status !== 'pending-agent'
+      ) {
+        throw new ReviewStoreError(
+          'INVALID_TRANSITION',
+          `Review ${reviewId} cannot be resolved from ${current.review.status}.`
+        )
+      }
+      const hasFeedback = reviewHasFeedbackArtifacts(current.root)
+      if (outcome === 'feedback-abandoned' && !hasFeedback) {
+        throw new ReviewStoreError(
+          'FEEDBACK_REQUIRED',
+          `Review ${reviewId} has no feedback to abandon.`
+        )
+      }
+      if (outcome !== 'feedback-abandoned' && hasFeedback) {
+        throw new ReviewStoreError(
+          'FEEDBACK_REQUIRES_ABANDONMENT',
+          `Review ${reviewId} contains feedback; abandon it explicitly or leave the review unresolved.`
+        )
+      }
+
+      const timestamp = this.mutationTimestamp(current.review)
+      const updated = cloneJson(current)
+      updated.review.status = 'revised'
+      updated.review.updatedAt = timestamp
+      updated.review.resolution = { outcome, resolvedAt: timestamp }
+      await this.write(reviewId, updated)
+      return cloneJson(updated)
+    })
+  }
+
+  async unresolve(reviewId: string): Promise<ReviewArtifact> {
+    assertReviewId(reviewId)
+    return this.serialize(reviewId, async () => {
+      const current = await this.read(reviewId)
+      const outcome = current.review.resolution?.outcome
+      if (
+        current.review.status !== 'revised' ||
+        outcome === undefined ||
+        outcome === 'feedback-addressed' ||
+        outcome === 'merged-unresolved'
+      ) {
+        throw new ReviewStoreError(
+          'INVALID_TRANSITION',
+          `Review ${reviewId} cannot return to Needs me from its current resolution.`
+        )
+      }
+      const timestamp = this.mutationTimestamp(current.review)
+      const updated = cloneJson(current)
+      updated.review.status = 'editing'
+      updated.review.updatedAt = timestamp
+      updated.review.attentionRequestedAt = timestamp
+      delete updated.review.resolution
+      await this.write(reviewId, updated)
+      return cloneJson(updated)
+    })
+  }
+
   async done(
     pullRequestUrl: string,
     pullRequestStatus: PullRequestStatus
@@ -1175,9 +1332,18 @@ export class ReviewStore {
 
       const updated = cloneJson(current)
       updated.review.status = status
-      if (status === 'editing') delete updated.review.agentReviewer
+      if (status === 'editing') {
+        delete updated.review.agentReviewer
+        delete updated.review.resolution
+      }
       const timestamp = this.mutationTimestamp(current.review)
       updated.review.updatedAt = timestamp
+      if (status === 'revised') {
+        updated.review.resolution = {
+          outcome: 'feedback-addressed',
+          resolvedAt: timestamp
+        }
+      }
       if (current.review.status !== 'editing' && status === 'editing') {
         updated.review.attentionRequestedAt = timestamp
       }
@@ -1216,6 +1382,15 @@ export class ReviewStore {
       const updated = cloneJson(current)
       updated.review.status = 'done'
       updated.review.updatedAt = timestamp
+      if (
+        updated.review.resolution === undefined &&
+        (current.review.status === 'editing' || current.review.status === 'pending-agent')
+      ) {
+        updated.review.resolution = {
+          outcome: 'merged-unresolved',
+          resolvedAt: timestamp
+        }
+      }
       updated.review.pullRequest = observedPullRequest(
         current.review.pullRequest,
         'merged',
