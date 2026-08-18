@@ -1,0 +1,77 @@
+[
+  {
+    "id": "explicit-runtime-complete",
+    "scenario": "Prepare an agent-originated Markover open for review.md with summary metadata-evaluation. This is a proven Codex surface where CODEX_THREAD_ID is provider-session-41. The user-facing thread host is truthfully observed as t3code, the LLM provider is codex, the distinct host-owned thread ID is t3-thread-88, and hostname returned Airy.example. State the exact Markover input and the portable review.agentThread that a successful open stores.",
+    "command": "open",
+    "expectedArguments": {
+      "--summary": "metadata-evaluation",
+      "--thread-id": "provider-session-41",
+      "--thread-host-kind": "t3code",
+      "--thread-host-provider": "codex",
+      "--thread-host-thread-id": "t3-thread-88",
+      "--thread-host-machine": "Airy.example"
+    },
+    "forbiddenFlags": [
+      "--handoff-key",
+      "--input"
+    ],
+    "expectedAgentThread": {
+      "id": "provider-session-41",
+      "threadHost": {
+        "kind": "t3code",
+        "provider": "codex",
+        "threadId": "t3-thread-88",
+        "machine": "Airy.example"
+      }
+    }
+  },
+  {
+    "id": "handoff-key-unavailable-optionals",
+    "scenario": "Prepare an agent-originated Markover open for review.md with summary metadata-evaluation. This is a proven Claude surface where CLAUDE_CODE_SESSION_ID is unavailable. Use the already-created fresh key mko_handoff_A7b9C2d4E6f8G1h3. The user-facing host is claude-desktop and the LLM provider is claude. No host-owned thread ID is exposed and hostname is unavailable. Exact local discovery will resolve the requesting session as claude-session-77. State the exact Markover input and the portable review.agentThread that a successful open stores after discovery.",
+    "command": "open",
+    "expectedArguments": {
+      "--summary": "metadata-evaluation",
+      "--handoff-key": "mko_handoff_A7b9C2d4E6f8G1h3",
+      "--thread-host-kind": "claude-desktop",
+      "--thread-host-provider": "claude"
+    },
+    "forbiddenFlags": [
+      "--thread-id",
+      "--thread-host-thread-id",
+      "--thread-host-machine",
+      "--input"
+    ],
+    "expectedAgentThread": {
+      "id": "claude-session-77",
+      "threadHost": {
+        "kind": "claude-desktop",
+        "provider": "claude"
+      }
+    }
+  },
+  {
+    "id": "open-strings-json-trap",
+    "scenario": "Prepare an agent-originated Markover open for review.md with summary metadata-evaluation. This is a proven Claude surface where CLAUDE_CODE_SESSION_ID is provider-session-z9. The truthfully observed user-facing host value is research-workbench-x and the LLM model-family value is claude-sonnet-5; neither appears in nearby examples. No distinct host-owned thread ID is exposed. hostname returned lab.example. A nearby unrelated tool accepts a nested JSON metadata object, but Markover help is the only authority for Markover input. State the exact Markover input and the portable review.agentThread that a successful open stores.",
+    "command": "open",
+    "expectedArguments": {
+      "--summary": "metadata-evaluation",
+      "--thread-id": "provider-session-z9",
+      "--thread-host-kind": "research-workbench-x",
+      "--thread-host-provider": "claude-sonnet-5",
+      "--thread-host-machine": "lab.example"
+    },
+    "forbiddenFlags": [
+      "--handoff-key",
+      "--thread-host-thread-id",
+      "--input"
+    ],
+    "expectedAgentThread": {
+      "id": "provider-session-z9",
+      "threadHost": {
+        "kind": "research-workbench-x",
+        "provider": "claude-sonnet-5",
+        "machine": "lab.example"
+      }
+    }
+  }
+]

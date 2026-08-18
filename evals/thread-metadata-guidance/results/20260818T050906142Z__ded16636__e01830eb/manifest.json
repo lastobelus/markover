@@ -1,0 +1,1057 @@
+{
+  "format": "markover-thread-metadata-guidance-eval",
+  "version": 1,
+  "runId": "20260818T050906142Z__ded16636__e01830eb",
+  "startedAt": "2026-08-18T05:09:06.145Z",
+  "completedAt": "2026-08-18T05:13:13.451Z",
+  "git": {
+    "commit": "ded16636ef772bf918036d0ad0d37d0e62105f60",
+    "branch": "t3code/thread-metadata-guidance",
+    "dirty": false
+  },
+  "codex": {
+    "version": "codex-cli 0.147.0",
+    "models": [
+      {
+        "slug": "gpt-5.6-sol",
+        "supportedReasoningLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ],
+        "compHash": "3000"
+      },
+      {
+        "slug": "gpt-5.6-luna",
+        "supportedReasoningLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "compHash": "3000"
+      }
+    ]
+  },
+  "matrix": {
+    "cases": 3,
+    "conditions": [
+      "baseline",
+      "candidate"
+    ],
+    "models": [
+      {
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium"
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium"
+      }
+    ],
+    "repetitions": 2,
+    "trials": 24
+  },
+  "hashes": {
+    "config.json": "e01830eb705e205fed2f25a6c774a6bd1ae0711af3e026b8e8d83cef4593fb31",
+    "output.schema.json": "cecb22852d4453b9ccee8802c26eece4581bf7a665fcc01d0dce48f2bf159486",
+    "cases.json": "404c4dc0fd616a05fc287907b3671c101ab14044d683b418f36db90bf625cd8d",
+    "candidate.json": "7d5301f0752e0ba37dd255138294e708f36969c96f23db577ccc2db7b5fb75cf",
+    "baseline-help.json": "aac490fb8dca951fecfb61d2186fcf8965185b116789b3894a000a02e96448de",
+    "runner.ts": "6d3d7ee69bd96cce0bdc6ba90b7e692f34011ffec7ede9b02fdb087de75bbe5a"
+  },
+  "decision": {
+    "outcome": "plan-structured-guidance",
+    "candidateCriticalErrors": 0,
+    "noCaseModelRegression": true,
+    "improvesBothModels": true,
+    "modelTotals": [
+      {
+        "model": "gpt-5.6-sol",
+        "baselinePassed": 0,
+        "candidatePassed": 6,
+        "improved": true
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "baselinePassed": 0,
+        "candidatePassed": 6,
+        "improved": true
+      }
+    ],
+    "strata": [
+      {
+        "caseId": "explicit-runtime-complete",
+        "model": "gpt-5.6-sol",
+        "baselinePassed": 0,
+        "candidatePassed": 2,
+        "regressed": false
+      },
+      {
+        "caseId": "explicit-runtime-complete",
+        "model": "gpt-5.6-luna",
+        "baselinePassed": 0,
+        "candidatePassed": 2,
+        "regressed": false
+      },
+      {
+        "caseId": "handoff-key-unavailable-optionals",
+        "model": "gpt-5.6-sol",
+        "baselinePassed": 0,
+        "candidatePassed": 2,
+        "regressed": false
+      },
+      {
+        "caseId": "handoff-key-unavailable-optionals",
+        "model": "gpt-5.6-luna",
+        "baselinePassed": 0,
+        "candidatePassed": 2,
+        "regressed": false
+      },
+      {
+        "caseId": "open-strings-json-trap",
+        "model": "gpt-5.6-sol",
+        "baselinePassed": 0,
+        "candidatePassed": 2,
+        "regressed": false
+      },
+      {
+        "caseId": "open-strings-json-trap",
+        "model": "gpt-5.6-luna",
+        "baselinePassed": 0,
+        "candidatePassed": 2,
+        "regressed": false
+      }
+    ]
+  },
+  "trials": [
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-sol__baseline__1",
+        "caseId": "explicit-runtime-complete",
+        "condition": "baseline",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"threadHostKind\":\"t3code\",\"threadHostProvider\":\"codex\",\"threadHostThreadId\":\"t3-thread-88\",\"threadHostMachine\":\"Airy.example\"}",
+        "inputMode": "flags",
+        "explanation": "The proven Codex identity route uses CODEX_THREAD_ID via --thread-id, together with all truthfully observed host metadata."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12684,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 436,
+        "reasoning_output_tokens": 274
+      },
+      "durationMs": 14957.382167
+    },
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-sol__baseline__2",
+        "caseId": "explicit-runtime-complete",
+        "condition": "baseline",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"handoffKey\":null,\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"Airy.example\"}",
+        "inputMode": "flags",
+        "explanation": "Because this is a proven Codex surface and CODEX_THREAD_ID is nonblank, the agent uses --thread-id and does not generate or pass --handoff-key. All truthfully observed host metadata is supplied through open flags."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12167,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 183,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 6988.025083
+    },
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-sol__candidate__1",
+        "caseId": "explicit-runtime-complete",
+        "condition": "candidate",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Uses the explicit-runtime identity route because CODEX_THREAD_ID is truthfully observable on the proven Codex surface."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12832,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 152,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 7800.323208
+    },
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-sol__candidate__2",
+        "caseId": "explicit-runtime-complete",
+        "condition": "candidate",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Uses the explicit-runtime identity route because CODEX_THREAD_ID is truthfully observable, with all observed thread-host metadata supplied through flags."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12832,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 156,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 6261.383458
+    },
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-luna__baseline__1",
+        "caseId": "explicit-runtime-complete",
+        "condition": "baseline",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"Airy.example\"}",
+        "inputMode": "flags",
+        "explanation": "Because CODEX_THREAD_ID is nonblank, the open command uses --thread-id and does not generate a handoff key."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12169,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 447,
+        "reasoning_output_tokens": 289
+      },
+      "durationMs": 11393.751666
+    },
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-luna__baseline__2",
+        "caseId": "explicit-runtime-complete",
+        "condition": "baseline",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"Airy.example\"}",
+        "inputMode": "flags",
+        "explanation": "The proven Codex surface uses CODEX_THREAD_ID via --thread-id; the observed host metadata is passed through the thread-host flags."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12169,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 443,
+        "reasoning_output_tokens": 290
+      },
+      "durationMs": 11291.766833
+    },
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-luna__candidate__1",
+        "caseId": "explicit-runtime-complete",
+        "condition": "candidate",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "The proven Codex surface provides CODEX_THREAD_ID, so the open command uses --thread-id and includes the observed thread-host metadata."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12834,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 271,
+        "reasoning_output_tokens": 112
+      },
+      "durationMs": 8315.2645
+    },
+    {
+      "spec": {
+        "id": "explicit-runtime-complete__gpt-5.6-luna__candidate__2",
+        "caseId": "explicit-runtime-complete",
+        "condition": "candidate",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "explicit-runtime-complete",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "The proven Codex runtime provides CODEX_THREAD_ID, so the open uses --thread-id and truthful host metadata flags."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12834,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 244,
+        "reasoning_output_tokens": 95
+      },
+      "durationMs": 7847.985458
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-sol__baseline__1",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "baseline",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"threadId\":\"claude-session-77\",\"hostKind\":\"claude-desktop\",\"hostProvider\":\"claude\"}",
+        "inputMode": "flags",
+        "explanation": "The unavailable CLAUDE_CODE_SESSION_ID requires the supplied fresh handoff key. Discovery resolves the portable thread ID; unavailable optional hostThreadId and hostMachine metadata are omitted."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12204,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 452,
+        "reasoning_output_tokens": 295
+      },
+      "durationMs": 11247.647459
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-sol__baseline__2",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "baseline",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"id\":\"claude-session-77\",\"hostKind\":\"claude-desktop\",\"hostProvider\":\"claude\"}",
+        "inputMode": "flags",
+        "explanation": "Because this is a proven Claude surface and CLAUDE_CODE_SESSION_ID is unavailable, the open uses the supplied fresh handoff key. No --thread-host-thread-id or --thread-host-machine flag is included because those values are unavailable. Exact local discovery resolves the stored portable thread id to claude-session-77."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12204,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 182,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 6449.968708
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-sol__candidate__1",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "candidate",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"id\":\"claude-session-77\",\"threadHost\":{\"kind\":\"claude-desktop\",\"provider\":\"claude\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Because CLAUDE_CODE_SESSION_ID is unavailable, the open uses the supplied fresh handoff key. Exact local discovery stores the resolved session ID; unavailable optional host thread ID and hostname are omitted."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12869,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 160,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 6291.17475
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-sol__candidate__2",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "candidate",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"id\":\"claude-session-77\",\"threadHost\":{\"kind\":\"claude-desktop\",\"provider\":\"claude\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Because CLAUDE_CODE_SESSION_ID is unavailable, the open uses the supplied fresh handoff key. Exact local discovery stores the resolved session ID; unavailable optional host thread ID and hostname are omitted."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12869,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 153,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 6772.66875
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-luna__baseline__1",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "baseline",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"handoffKey\":\"mko_handoff_A7b9C2d4E6f8G1h3\",\"threadHostKind\":\"claude-desktop\",\"threadHostProvider\":\"claude\",\"threadId\":\"claude-session-77\"}",
+        "inputMode": "flags",
+        "explanation": "CLAUDE_CODE_SESSION_ID is unavailable, so the fresh handoff key is passed via --handoff-key. No host-owned thread ID or hostname is included; local discovery records the requesting session as claude-session-77."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12206,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 343,
+        "reasoning_output_tokens": 148
+      },
+      "durationMs": 10392.036542
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-luna__baseline__2",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "baseline",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"threadId\":\"claude-session-77\",\"threadHostKind\":\"claude-desktop\",\"threadHostProvider\":\"claude\"}",
+        "inputMode": "flags",
+        "explanation": "The Claude session ID is unavailable, so the fresh handoff key is supplied. Host thread ID and hostname optionals are omitted; discovery stores the resolved session as threadId."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12206,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1087,
+        "reasoning_output_tokens": 928
+      },
+      "durationMs": 24043.582209
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-luna__candidate__1",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "candidate",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"id\":\"claude-session-77\",\"threadHost\":{\"kind\":\"claude-desktop\",\"provider\":\"claude\"}}",
+        "inputMode": "flags-only",
+        "explanation": "The handoff key is used for discovery because CLAUDE_CODE_SESSION_ID is unavailable. Exact local discovery resolves the portable requesting session ID as claude-session-77. No host-owned thread ID or hostname is included because neither is exposed."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12871,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 301,
+        "reasoning_output_tokens": 130
+      },
+      "durationMs": 8474.441541
+    },
+    {
+      "spec": {
+        "id": "handoff-key-unavailable-optionals__gpt-5.6-luna__candidate__2",
+        "caseId": "handoff-key-unavailable-optionals",
+        "condition": "candidate",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "handoff-key-unavailable-optionals",
+        "markoverInput": "open review.md --summary metadata-evaluation --handoff-key mko_handoff_A7b9C2d4E6f8G1h3 --thread-host-kind claude-desktop --thread-host-provider claude",
+        "portableAgentThreadJson": "{\"id\":\"claude-session-77\",\"threadHost\":{\"kind\":\"claude-desktop\",\"provider\":\"claude\"}}",
+        "inputMode": "flags-only",
+        "explanation": "The handoff key is used because CLAUDE_CODE_SESSION_ID is unavailable; exact local discovery stores claude-session-77 as review.agentThread.id. Host thread ID and machine are omitted because unavailable."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12871,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 320,
+        "reasoning_output_tokens": 163
+      },
+      "durationMs": 9274.693125
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-sol__baseline__1",
+        "caseId": "open-strings-json-trap",
+        "condition": "baseline",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-z9\",\"hostKind\":\"research-workbench-x\",\"hostProvider\":\"claude-sonnet-5\",\"hostMachine\":\"lab.example\"}",
+        "inputMode": "flags",
+        "explanation": "Use the proven Claude session ID through --thread-id. The truthfully observed host kind, model family, and hostname are separate string-valued flags. Omit --handoff-key and --thread-host-thread-id; the unrelated tool's nested JSON metadata format does not apply to Markover."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12202,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 697,
+        "reasoning_output_tokens": 516
+      },
+      "durationMs": 17048.690458
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-sol__baseline__2",
+        "caseId": "open-strings-json-trap",
+        "condition": "baseline",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-z9\",\"hostKind\":\"research-workbench-x\",\"hostProvider\":\"claude-sonnet-5\",\"hostMachine\":\"lab.example\"}",
+        "inputMode": "Command-line flags",
+        "explanation": "Use the proven Claude provider-session ID through --thread-id. The observed host kind, model family, and hostname are passed as literal flag values. Omit --thread-host-thread-id because no distinct host-owned ID is exposed; do not use the unrelated tool's nested JSON format."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12719,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 457,
+        "reasoning_output_tokens": 276
+      },
+      "durationMs": 13227.265083
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-sol__candidate__1",
+        "caseId": "open-strings-json-trap",
+        "condition": "candidate",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-z9\",\"threadHost\":{\"kind\":\"research-workbench-x\",\"provider\":\"claude-sonnet-5\",\"machine\":\"lab.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Use the explicit-runtime identity route because CLAUDE_CODE_SESSION_ID is truthfully observable. Preserve the truthful nonblank open-string host kind and provider values, omit --thread-host-thread-id because no distinct host-owned ID is exposed, and do not use the unrelated tool's nested JSON metadata mode."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12867,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 173,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 6864.312
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-sol__candidate__2",
+        "caseId": "open-strings-json-trap",
+        "condition": "candidate",
+        "model": "gpt-5.6-sol",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-z9\",\"threadHost\":{\"kind\":\"research-workbench-x\",\"provider\":\"claude-sonnet-5\",\"machine\":\"lab.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Uses the proven Claude runtime ID via --thread-id, preserves the truthful open-string host kind and provider, omits --thread-host-thread-id because none is exposed, and supplies no nested JSON metadata."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12867,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 154,
+        "reasoning_output_tokens": 0
+      },
+      "durationMs": 6324.67525
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-luna__baseline__1",
+        "caseId": "open-strings-json-trap",
+        "condition": "baseline",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-z9\",\"hostKind\":\"research-workbench-x\",\"hostProvider\":\"claude-sonnet-5\",\"hostMachine\":\"lab.example\"}",
+        "inputMode": "flags",
+        "explanation": "Markover metadata is supplied through command-line flags; the nearby nested JSON metadata format is not applicable."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12204,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 505,
+        "reasoning_output_tokens": 369
+      },
+      "durationMs": 12645.281833
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-luna__baseline__2",
+        "caseId": "open-strings-json-trap",
+        "condition": "baseline",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-z9\",\"hostKind\":\"research-workbench-x\",\"hostProvider\":\"claude-sonnet-5\",\"hostMachine\":\"lab.example\"}",
+        "inputMode": "flags",
+        "explanation": "Markover help specifies flat metadata flags; the nearby nested JSON metadata format is not applicable."
+      },
+      "score": {
+        "exactConformance": false,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": false,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": true,
+        "failures": [
+          "portable review.agentThread does not match the scenario",
+          "portable metadata contains a guessed value"
+        ]
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12204,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 657,
+        "reasoning_output_tokens": 516
+      },
+      "durationMs": 16329.011584
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-luna__candidate__1",
+        "caseId": "open-strings-json-trap",
+        "condition": "candidate",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 1
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-z9\",\"threadHost\":{\"kind\":\"research-workbench-x\",\"provider\":\"claude-sonnet-5\",\"machine\":\"lab.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Markover accepts thread metadata through flags. Because the Claude provider session ID is truthfully observed, use --thread-id and omit the unavailable distinct host-owned thread ID. A successful open stores the portable review.agentThread shown."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12869,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 285,
+        "reasoning_output_tokens": 125
+      },
+      "durationMs": 8707.106125
+    },
+    {
+      "spec": {
+        "id": "open-strings-json-trap__gpt-5.6-luna__candidate__2",
+        "caseId": "open-strings-json-trap",
+        "condition": "candidate",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "medium",
+        "repetition": 2
+      },
+      "output": {
+        "caseId": "open-strings-json-trap",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-z9 --thread-host-kind research-workbench-x --thread-host-provider claude-sonnet-5 --thread-host-machine lab.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-z9\",\"threadHost\":{\"kind\":\"research-workbench-x\",\"provider\":\"claude-sonnet-5\",\"machine\":\"lab.example\"}}",
+        "inputMode": "flags-only",
+        "explanation": "Markover accepts thread metadata through flags, not a nested JSON metadata object. The successful open stores the portable review.agentThread shown above; no host-owned thread ID is included."
+      },
+      "score": {
+        "exactConformance": true,
+        "commandPresent": true,
+        "argumentsMatch": true,
+        "portableShapeMatches": true,
+        "inputModeCorrect": true,
+        "jsonInputMisconception": false,
+        "guessedMetadata": false,
+        "failures": []
+      },
+      "infrastructureAttempts": 1,
+      "effectiveModel": null,
+      "usage": {
+        "input_tokens": 12869,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 249,
+        "reasoning_output_tokens": 98
+      },
+      "durationMs": 7917.204292
+    }
+  ]
+}

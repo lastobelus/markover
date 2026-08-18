@@ -37,6 +37,8 @@
     "eval:metadata:record": "npm run build --silent && node build/scripts/review-metadata-conformance.js record",
     "eval:metadata:exercise": "npm run build --silent && node build/scripts/review-metadata-exercise.js",
     "eval:metadata:validate": "npm run build --silent && node build/scripts/review-metadata-conformance.js validate",
+    "eval:metadata-guidance": "npm run build --silent && node build/scripts/thread-metadata-guidance-eval.js run",
+    "eval:metadata-guidance:validate": "npm run build --silent && node build/scripts/thread-metadata-guidance-eval.js validate",
     "decision-gardener": "npm run build --silent && node build/scripts/decision-gardener-run.js",
     "decision-gardener:host": "node build/scripts/decision-gardener-host.js",
     "check": "npm run lint && npm run typecheck && npm run notices:check",
