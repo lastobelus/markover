@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caseId",
+    "markoverInput",
+    "portableAgentThreadJson",
+    "inputMode",
+    "explanation"
+  ],
+  "properties": {
+    "caseId": {
+      "type": "string"
+    },
+    "markoverInput": {
+      "type": "string"
+    },
+    "portableAgentThreadJson": {
+      "type": "string"
+    },
+    "inputMode": {
+      "type": "string"
+    },
+    "explanation": {
+      "type": "string"
+    }
+  }
+}
