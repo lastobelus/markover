@@ -222,7 +222,7 @@ test('T3 titles name Projects while Inbox independently follows its preference',
   assert.equal(titleRow.titleSource, 'thread-title')
 })
 
-test('thread-host titles outrank Codex provider titles and provider fills gaps', () => {
+test('thread-host titles outrank provider titles and providers fill gaps', () => {
   const sessions = new ReviewSessions()
   sessions.add(reviewDocument('mko_authority1', 'host-title.md', {
     agentThread: {
@@ -256,12 +256,28 @@ test('thread-host titles outrank Codex provider titles and provider fills gaps',
     createdAt: '2026-08-09T12:32:00.000Z',
     projectRoot: '/projects/markover'
   }))
+  sessions.add(reviewDocument('mko_authority4', 'claude-provider.md', {
+    agentThread: {
+      id: 'claude-provider-2',
+      threadHost: {
+        kind: 't3code',
+        threadId: 't3-host-4',
+        provider: 'claude'
+      }
+    },
+    createdAt: '2026-08-09T12:33:00.000Z',
+    projectRoot: '/projects/markover'
+  }))
 
   const projection = projectReviewInbox(sessions.list(), {
     codexThreadTitles: [
       { threadId: 'codex-provider-1', title: 'Codex provider title 1' },
       { threadId: 'codex-provider-2', title: 'Codex provider title 2' },
       { threadId: 'claude-provider-1', title: 'Incorrect Codex title' }
+    ],
+    claudeThreadTitles: [
+      { threadId: 'claude-provider-1', title: 'Claude provider title 1' },
+      { threadId: 'claude-provider-2', title: 'Claude provider title 2' }
     ],
     t3ThreadTitles: [{ threadId: 't3-host-1', title: 'T3 host title' }],
     titlePreference: 'requesting-thread-title'
@@ -271,7 +287,8 @@ test('thread-host titles outrank Codex provider titles and provider fills gaps',
   )
   assert.equal(rows.get('mko_authority1'), 'T3 host title')
   assert.equal(rows.get('mko_authority2'), 'Codex provider title 2')
-  assert.equal(rows.get('mko_authority3'), null)
+  assert.equal(rows.get('mko_authority3'), 'Claude provider title 1')
+  assert.equal(rows.get('mko_authority4'), 'Claude provider title 2')
 })
 
 test('agent-session fallback identity uses thread-host kind and never provider', () => {

@@ -814,6 +814,20 @@
               disabled
             >Refresh Codex titles now</button>
           </div>
+          <h3 class="settings-section-title">Claude Code requesting-thread titles</h3>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Read current titles from Claude Code</strong><small>Use exact session IDs and Claude Code's local custom-title records to show names set through Claude Code. This integration is off by default and keeps titles in memory only.</small></span>
+            <input name="claudeThreadTitlesEnabled" type="checkbox" role="switch">
+          </label>
+          <div class="settings-field settings-integration-status">
+            <span id="claude-thread-title-status" role="status" aria-live="polite">Claude Code requesting-thread titles are disabled.</span>
+            <button
+              id="claude-thread-titles-refresh"
+              class="button button-secondary"
+              type="button"
+              disabled
+            >Refresh Claude Code titles now</button>
+          </div>
           <h3 class="settings-section-title">Thread-title display</h3>
           <label class="settings-field">
             <span><strong>Inbox title</strong><small>Choose whether Inbox leads with the review purpose or the current requesting-thread title. Projects always names the requesting thread when available.</small></span>

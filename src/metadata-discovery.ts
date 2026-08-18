@@ -188,7 +188,7 @@ async function sessionLogPaths(directory: string): Promise<string[]> {
   return nested.flat()
 }
 
-async function claudeSessionLogPaths(directory: string): Promise<string[]> {
+export async function claudeSessionLogPaths(directory: string): Promise<string[]> {
   let projects: Dirent[]
   try {
     projects = await fs.readdir(directory, { withFileTypes: true })

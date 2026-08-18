@@ -27,6 +27,7 @@ import { pathToFileURL } from 'node:url'
 import { aboutPanelOptions } from './about-panel'
 import { applicationMenuTemplate } from './app-menu'
 import { AsyncMutationTracker } from './async-mutation-tracker'
+import { claudeThreadTitleSnapshot } from './claude-thread-titles'
 import { codexThreadTitleSnapshot } from './codex-thread-titles'
 import {
   DEVELOPMENT_WATCH_ENVIRONMENT,
@@ -2202,6 +2203,13 @@ if (!hasSingleInstanceLock) {
       return codexThreadTitleSnapshot(store.settings, result.reviews, {
         clientVersion: app.getVersion()
       })
+    })
+    privilegedIpc.handle('review:claude-thread-titles:get', async () => {
+      if (!store.settings.claudeThreadTitlesEnabled) {
+        return claudeThreadTitleSnapshot(store.settings, [])
+      }
+      const result = await requireReviewStore().listWithWarnings()
+      return claudeThreadTitleSnapshot(store.settings, result.reviews)
     })
     privilegedIpc.handle('review:project-favicon:get', (
       _event: IpcMainInvokeEvent,

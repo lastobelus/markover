@@ -157,6 +157,7 @@ const bridge = {
   getReviews: () => invoke('review:list'),
   getT3ThreadTitles: () => invoke('review:t3-thread-titles:get'),
   getCodexThreadTitles: () => invoke('review:codex-thread-titles:get'),
+  getClaudeThreadTitles: () => invoke('review:claude-thread-titles:get'),
   getProjectFavicon: (reviewId) => (
     invoke('review:project-favicon:get', reviewId)
   ),

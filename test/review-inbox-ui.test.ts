@@ -30,7 +30,7 @@ test('production inbox renders Editing separately from lifecycle-aware collapsed
   const registry = read('src/review-icon-registry.ts')
   const styles = read('src/styles.css')
 
-  assert.match(renderer, /projectReviewInbox\([\s\S]*codexThreadTitles: codexThreadTitles\.titles,[\s\S]*t3ThreadTitles: t3ThreadTitles\.titles,[\s\S]*titlePreference: preferences\.inboxTitlePreference/)
+  assert.match(renderer, /projectReviewInbox\([\s\S]*codexThreadTitles: codexThreadTitles\.titles,[\s\S]*claudeThreadTitles: claudeThreadTitles\.titles,[\s\S]*t3ThreadTitles: t3ThreadTitles\.titles,[\s\S]*titlePreference: preferences\.inboxTitlePreference/)
   assert.match(
     renderer,
     /renderInboxReviews\(projection\.editing, projection\.history\)/
@@ -157,8 +157,12 @@ test('thread-title integrations expose source-specific settings and event refres
   assert.match(html, /name="codexExecutablePath"[\s\S]*\/opt\/homebrew\/bin\/codex/)
   assert.match(html, /id="codex-thread-title-status"[^>]*role="status"[^>]*aria-live="polite"/)
   assert.match(html, /id="codex-thread-titles-refresh"[\s\S]*Refresh Codex titles now/)
+  assert.match(html, /name="claudeThreadTitlesEnabled"[^>]*role="switch"/)
+  assert.match(html, /id="claude-thread-title-status"[^>]*role="status"[^>]*aria-live="polite"/)
+  assert.match(html, /id="claude-thread-titles-refresh"[\s\S]*Refresh Claude Code titles now/)
   assert.match(renderer, /t3ThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /codexThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshRequestingThreadTitles\(\)/)
+  assert.match(renderer, /claudeThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /refreshRequestingThreadTitles[\s\S]*bridge\.getReviews\(\)/)
   assert.match(
     renderer,
@@ -171,4 +175,5 @@ test('thread-title integrations expose source-specific settings and event refres
   assert.match(renderer, /restoring-workspace[\s\S]*renderDocumentsList\(\)[\s\S]*void refreshRequestingThreadTitles\(\)/)
   assert.doesNotMatch(renderer, /setInterval\([^)]*refreshT3ThreadTitles/)
   assert.doesNotMatch(renderer, /setInterval\([^)]*refreshCodexThreadTitles/)
+  assert.doesNotMatch(renderer, /setInterval\([^)]*refreshClaudeThreadTitles/)
 })

@@ -50,6 +50,7 @@ test('settings defaults cover the persisted preferences', () => {
     't3MetadataDatabasePath',
     'codexThreadTitlesEnabled',
     'codexExecutablePath',
+    'claudeThreadTitlesEnabled',
     'inboxTitlePreference',
     'logRejectedApiRequests',
     'agentReviewMode',
@@ -77,6 +78,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     t3MetadataDatabasePath: ' /tmp/t3.sqlite ',
     codexThreadTitlesEnabled: true,
     codexExecutablePath: ' /opt/homebrew/bin/codex ',
+    claudeThreadTitlesEnabled: true,
     inboxTitlePreference: 'requesting-thread-title',
     logRejectedApiRequests: true,
     agentReviewMode: 'annotations-and-source-proposals',
@@ -101,6 +103,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     t3MetadataDatabasePath: '/tmp/t3.sqlite',
     codexThreadTitlesEnabled: true,
     codexExecutablePath: '/opt/homebrew/bin/codex',
+    claudeThreadTitlesEnabled: true,
     inboxTitlePreference: 'requesting-thread-title',
     logRejectedApiRequests: true,
     agentReviewMode: 'annotations-and-source-proposals',
@@ -221,6 +224,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <input name="t3MetadataDatabasePath" type="text">
       <input name="codexThreadTitlesEnabled" type="checkbox">
       <input name="codexExecutablePath" type="text">
+      <input name="claudeThreadTitlesEnabled" type="checkbox">
       <select name="inboxTitlePreference"><option value="review-purpose">Purpose</option><option value="requesting-thread-title">Thread</option></select>
       <input name="logRejectedApiRequests" type="checkbox">
       <textarea name="agentInterpretationPolicy"></textarea>
@@ -287,6 +291,7 @@ test('renderer settings apply immediately and reset through the same path', () =
     t3MetadataDatabasePath: '/tmp/t3.sqlite',
     codexThreadTitlesEnabled: true,
     codexExecutablePath: '/opt/homebrew/bin/codex',
+    claudeThreadTitlesEnabled: true,
     resolvedAppearance: 'light'
   }, view)
   assert.equal(t3PathControl.value, '/tmp/t3.sqlite')

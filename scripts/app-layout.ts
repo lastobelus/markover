@@ -10,6 +10,7 @@ export const runtimeModuleNames = [
   'agent-reviewer-guidance',
   'app-menu',
   'async-mutation-tracker',
+  'claude-thread-titles',
   'codex-thread-titles',
   'development-control',
   'development-config',
