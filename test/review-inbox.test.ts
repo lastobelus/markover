@@ -251,7 +251,7 @@ test('thread-host titles outrank provider titles and providers fill gaps', () =>
   sessions.add(reviewDocument('mko_authority3', 'other-provider.md', {
     agentThread: {
       id: 'claude-provider-1',
-      threadHost: { kind: 'claude-code', provider: 'kimi' }
+      threadHost: { kind: 'claude-code', provider: 'codex' }
     },
     createdAt: '2026-08-09T12:32:00.000Z',
     projectRoot: '/projects/markover'

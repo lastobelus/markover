@@ -363,16 +363,18 @@ function rowFromSession(
   const agentThreadId = stringField(agentThread, ['id'])
   const threadHostThreadId = stringField(threadHost, ['threadId'])
   const requestingThreadId = threadHostThreadId || agentThreadId
+  const claudeCodeTitleSource = isClaudeCodeThreadHost(threadHostKind, provider)
+  const codexTitleSource = !claudeCodeTitleSource && isCodexProvider(provider)
   const threadHostTitle = (
     threadHostKind?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 't3code' &&
     requestingThreadId
   ) ? t3Titles.get(requestingThreadId) || null : null
   const providerTitle = (
-    agentThreadId && isCodexProvider(provider)
+    agentThreadId && claudeCodeTitleSource
   )
-    ? codexTitles.get(agentThreadId) || null
-    : agentThreadId && isClaudeCodeThreadHost(threadHostKind, provider)
-      ? claudeTitles.get(agentThreadId) || null
+    ? claudeTitles.get(agentThreadId) || null
+    : agentThreadId && codexTitleSource
+      ? codexTitles.get(agentThreadId) || null
       : null
   const requestingThreadTitle = threadHostTitle || providerTitle
   const machine = stringField(threadHost, ['machine'])
@@ -390,8 +392,8 @@ function rowFromSession(
     threadHostKind?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 't3code'
       ? t3ThreadTitleStatus
       : null,
-    isCodexProvider(provider) ? codexThreadTitleStatus : null,
-    isClaudeCodeThreadHost(threadHostKind, provider)
+    codexTitleSource ? codexThreadTitleStatus : null,
+    claudeCodeTitleSource
       ? claudeThreadTitleStatus
       : null
   ].filter((status): status is T3ThreadTitleStatus | CodexThreadTitleStatus | ClaudeThreadTitleStatus => Boolean(status))
