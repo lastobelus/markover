@@ -79,6 +79,7 @@ declare global {
     t3MetadataDatabasePath: string
     codexThreadTitlesEnabled: boolean
     codexExecutablePath: string
+    claudeThreadTitlesEnabled: boolean
     inboxTitlePreference: InboxTitlePreference
     logRejectedApiRequests: boolean
     agentReviewMode: AgentReviewMode
@@ -329,6 +330,19 @@ declare global {
     | 'revised'
     | 'done'
 
+  type ReviewResolutionOutcome =
+    | 'feedback-addressed'
+    | 'reviewed-no-notes'
+    | 'accepted-unreviewed'
+    | 'feedback-abandoned'
+    | 'merged-unresolved'
+
+  interface ReviewResolution {
+    [key: string]: unknown
+    outcome: ReviewResolutionOutcome
+    resolvedAt: string
+  }
+
   interface ReviewThreadHost {
     [key: string]: unknown
     kind: string
@@ -381,6 +395,7 @@ declare global {
     agentThread: ReviewAgentThread | null
     git: ReviewGitSnapshot | null
     pullRequest: ReviewPullRequest | null
+    resolution?: ReviewResolution
     agentGuidance: AgentGuidance
     agentReviewer?: ReviewAgentReviewer
   }
@@ -593,6 +608,55 @@ declare global {
     failedReviewIds: string[]
   }
 
+  type ManualReviewResolutionRequestOutcome =
+    | 'reviewed-no-notes'
+    | 'accepted-unreviewed'
+
+  interface ReviewResolutionRequest {
+    reviewIds: string[]
+    outcome: ManualReviewResolutionRequestOutcome
+  }
+
+  interface ReviewResolutionResult {
+    outcome: 'cancelled' | 'resolved'
+    reviews: Array<{
+      reviewId: string
+      status: ReviewSessionStatus
+      resolution?: ReviewResolution
+    }>
+  }
+
+  interface ReviewUnresolveResult {
+    reviewId: string
+    status: 'editing'
+  }
+
+  interface ReviewResolutionSummaryBlock {
+    nodeId: string
+    title: string
+    feedback: string
+    attachments: string[]
+    sourceEdit: { original: string; current: string } | null
+  }
+
+  interface ReviewResolutionSummary {
+    reviewId: string
+    documentName: string
+    contextSummary: string
+    blocks: ReviewResolutionSummaryBlock[]
+  }
+
+  interface ReviewResolutionConfirmationRequest {
+    requestId: string
+    outcome: ManualReviewResolutionRequestOutcome
+    reviews: ReviewResolutionSummary[]
+  }
+
+  interface ReviewResolutionConfirmationResponse {
+    requestId: string
+    confirmed: boolean
+  }
+
   type ReviewActivationOutcome =
     | 'activated'
     | 'already-active'
@@ -650,6 +714,19 @@ declare global {
     titles: CodexThreadTitle[]
   }
 
+  type ClaudeThreadTitleStatus = 'disabled' | 'available' | 'unavailable'
+
+  interface ClaudeThreadTitle {
+    threadId: string
+    title: string
+  }
+
+  interface ClaudeThreadTitleSnapshot {
+    status: ClaudeThreadTitleStatus
+    detail: string
+    titles: ClaudeThreadTitle[]
+  }
+
   interface MarkoverBridge {
     getStartupInfo: () => Promise<StartupInfo>
     reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
@@ -667,6 +744,7 @@ declare global {
     openMarkdown: () => Promise<MarkoverDocument | null>
     createLocalReview: (tree: ReviewTree) => Promise<MarkoverDocument>
     onOpenMarkdownRequested: (callback: () => void) => void
+    onReviewBatchModeRequested: (callback: () => void) => void
     checksum: (source: string) => Promise<string>
     copyText: (text: string) => void
     readClipboardImage: () => Promise<MarkoverClipboardImage | null>
@@ -683,10 +761,15 @@ declare global {
       attachmentId: string
       outcome: 'cancelled' | 'trashed'
     }>
+    resolveReviews: (
+      request: ReviewResolutionRequest
+    ) => Promise<ReviewResolutionResult>
+    unresolveReview: (reviewId: string) => Promise<ReviewUnresolveResult>
     getInitialReview: () => Promise<MarkoverDocument | null>
     getReviews: () => Promise<MarkoverReviewListItem[]>
     getT3ThreadTitles: () => Promise<T3ThreadTitleSnapshot>
     getCodexThreadTitles: () => Promise<CodexThreadTitleSnapshot>
+    getClaudeThreadTitles: () => Promise<ClaudeThreadTitleSnapshot>
     getProjectFavicon: (reviewId: string) => Promise<string | null>
     openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: {
@@ -713,6 +796,11 @@ declare global {
     ) => void
     onReviewAutosaveStatus: (
       callback: (status: ReviewAutosaveStatus) => void
+    ) => void
+    onReviewResolutionConfirmation: (
+      callback: (
+        request: ReviewResolutionConfirmationRequest
+      ) => boolean | Promise<boolean>
     ) => void
     getReviewAutosaveStatus: () => Promise<ReviewAutosaveStatus>
     onReviewShutdownState: (callback: (paused: boolean) => void) => void
@@ -751,6 +839,7 @@ declare global {
     agentThread: ReviewAgentThread | null
     git: ReviewGitSnapshot | null
     pullRequest: ReviewPullRequest | null
+    resolution?: ReviewResolution
     agentGuidance: AgentGuidance
     agentReviewer?: ReviewAgentReviewer
   }

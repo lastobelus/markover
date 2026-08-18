@@ -90,6 +90,21 @@ export type ParsedCommand = ParsedInstanceTarget & (
   | { command: 'cleanup'; expectedIdentity: `pr-${number}` }
   | { command: 'edit'; reviewId: string }
   | {
+      command: 'resolve'
+      reviewId: string
+      outcome: 'reviewed-no-notes' | 'accepted-unreviewed'
+    }
+  | { command: 'unresolve'; reviewId: string }
+  | {
+      command: 'pending'
+      handoffKey?: string | null
+      threadId?: string | null
+      threadHostKind: string
+      threadHostProvider: string
+      threadHostThreadId?: string | null
+      threadHostMachine?: string | null
+    }
+  | {
       command: 'get' | 'revise'
       reviewId: string
       pullRequestStatus?: PullRequestStatus | null
@@ -184,6 +199,9 @@ export function helpPayload() {
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'For every agent-originated open or get-for-review, use one truthful identity route. On a proven Codex surface, read only CODEX_THREAD_ID; on a proven Claude surface, read only CLAUDE_CODE_SESSION_ID. If that applicable value is nonblank, pass it as --thread-id. Otherwise create one fresh mko_handoff_ value with 16–64 random letters or digits and pass it as --handoff-key in the same command. With either route, pass --thread-host-kind for the user-facing product or lookup namespace, --thread-host-provider for the LLM provider or model family, not an intermediate harness, and the local hostname result as --thread-host-machine when available. Pass --thread-host-thread-id only for a distinct host-owned ID you actually observe; never guess a T3 thread ID.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
+      'If the user asks about pending Markover reviews, run pending with the same truthful current-thread identity rules as open. Return every listed review; an empty list is the only no-pending result.',
+      'Unresolved reviews are a soft gate: planning and implementation may continue, but before merging or declaring the agent thread complete, run pending and surface every result for an explicit disposition. Do not infer acceptance from silence or from a merged pull request.',
+      'When the user chooses reviewed with no notes or accepted unreviewed, run resolve with that exact outcome. If feedback exists, Markover shows its preserved summary and requires the user to choose Abandon feedback. A cancellation leaves the review unresolved. Use unresolve to return a manual resolution to Needs me before Done.',
       'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, get-for-review, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get, get-for-review, or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get, get-for-review, or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
       'If the user wants to add feedback before revise, run edit before asking them to continue. After revise, open a new review for a later feedback round.',
@@ -238,6 +256,21 @@ export function helpPayload() {
         name: 'edit',
         usage: 'edit <review-id>',
         purpose: 'Return a frozen review to editing so the user can add or change feedback.'
+      },
+      {
+        name: 'pending',
+        usage: 'pending [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider> [--thread-host-thread-id <distinct-id>] [--thread-host-machine <hostname>]',
+        purpose: 'List metadata for every unresolved review opened by the exact current requesting thread.'
+      },
+      {
+        name: 'resolve',
+        usage: 'resolve <review-id> --outcome <reviewed-no-notes|accepted-unreviewed>',
+        purpose: 'Record an explicit manual outcome; feedback requires Markover confirmation before it is abandoned.'
+      },
+      {
+        name: 'unresolve',
+        usage: 'unresolve <review-id>',
+        purpose: 'Return a reversible manual resolution to Needs me before Done.'
       },
       {
         name: 'canonical',
@@ -335,6 +368,9 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     command !== 'revise' &&
     command !== 'done' &&
     command !== 'edit' &&
+    command !== 'pending' &&
+    command !== 'resolve' &&
+    command !== 'unresolve' &&
     command !== 'cleanup'
   ) {
     if (command === 'check') {
@@ -351,7 +387,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       `Unknown command: ${command}`,
-      'markover <open|get|get-for-review|submit|revise|done|edit|canonical|cleanup|help> ...'
+      'markover <open|get|get-for-review|submit|revise|done|edit|pending|resolve|unresolve|canonical|cleanup|help> ...'
     )
   }
 
@@ -418,6 +454,99 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
       )
     }
     return targeted({ command, reviewId, inputPath: rest[2] })
+  }
+
+  if (command === 'resolve') {
+    const reviewId = rest[0]
+    const outcome = rest[2]
+    if (
+      rest.length !== 3 ||
+      !reviewId ||
+      reviewId.startsWith('--') ||
+      rest[1] !== '--outcome' ||
+      (outcome !== 'reviewed-no-notes' && outcome !== 'accepted-unreviewed')
+    ) {
+      throw commandError(
+        'resolve requires one review ID and an explicit manual outcome.',
+        'markover resolve <review-id> --outcome <reviewed-no-notes|accepted-unreviewed>'
+      )
+    }
+    return targeted({ command, reviewId, outcome })
+  }
+
+  if (command === 'unresolve') {
+    const reviewId = rest[0]
+    if (rest.length !== 1 || !reviewId || reviewId.startsWith('--')) {
+      throw commandError(
+        'unresolve requires exactly one review ID.',
+        'markover unresolve <review-id>'
+      )
+    }
+    return targeted({ command, reviewId })
+  }
+
+  if (command === 'pending') {
+    let handoffKey: string | null = null
+    let threadId: string | null = null
+    let threadHostKind: string | null = null
+    let threadHostProvider: string | null = null
+    let threadHostThreadId: string | null = null
+    let threadHostMachine: string | null = null
+    for (let index = 0; index < rest.length; index += 2) {
+      const option = rest[index]
+      const value = rest[index + 1]
+      if (!option || !value || value.startsWith('--')) {
+        throw commandError(
+          `${option || 'Pending query option'} requires a value.`,
+          'markover pending [current-thread identity options]'
+        )
+      }
+      if (option === '--handoff-key') handoffKey = value
+      else if (option === '--thread-id') threadId = value
+      else if (option === '--thread-host-kind') threadHostKind = value
+      else if (option === '--thread-host-provider') threadHostProvider = value
+      else if (option === '--thread-host-thread-id') threadHostThreadId = value
+      else if (option === '--thread-host-machine') threadHostMachine = value
+      else {
+        throw commandError(
+          `Unknown option for pending: ${option}`,
+          'markover pending [current-thread identity options]'
+        )
+      }
+    }
+    handoffKey = handoffKey?.trim() || null
+    threadId = threadId?.trim() || null
+    threadHostKind = threadHostKind?.trim() || null
+    threadHostProvider = threadHostProvider?.trim() || null
+    threadHostThreadId = threadHostThreadId?.trim() || null
+    threadHostMachine = threadHostMachine?.trim() || null
+    if (handoffKey && !HANDOFF_KEY_PATTERN.test(handoffKey)) {
+      throw commandError(
+        '--handoff-key must match mko_handoff_ followed by 16–64 letters or digits.',
+        'markover pending --handoff-key <key> --thread-host-kind <kind> --thread-host-provider <provider>'
+      )
+    }
+    if ((!threadId && !handoffKey) || (threadId && handoffKey)) {
+      throw commandError(
+        'pending requires exactly one of --thread-id or --handoff-key.',
+        'markover pending [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+      )
+    }
+    if (!threadHostKind || !threadHostProvider) {
+      throw commandError(
+        'pending requires --thread-host-kind and --thread-host-provider.',
+        'markover pending [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+      )
+    }
+    return targeted({
+      command,
+      handoffKey,
+      threadId,
+      threadHostKind,
+      threadHostProvider,
+      threadHostThreadId,
+      threadHostMachine
+    })
   }
 
   if (command === 'get-for-review') {
@@ -1481,6 +1610,107 @@ export async function executeCommand(
   }
 
   await ensure()
+  if (parsed.command === 'pending') {
+    let agentThread: ReviewAgentThread | null
+    if (parsed.threadId) {
+      agentThread = {
+        id: parsed.threadId,
+        threadHost: {
+          kind: parsed.threadHostKind,
+          provider: parsed.threadHostProvider,
+          ...(parsed.threadHostThreadId
+            ? { threadId: parsed.threadHostThreadId }
+            : {}),
+          ...(parsed.threadHostMachine
+            ? { machine: parsed.threadHostMachine }
+            : {})
+        }
+      }
+    } else {
+      if (!await readDiscoverySetting(settingsPath)) {
+        throw commandError(
+          'Handoff-key discovery is disabled; use an explicit --thread-id.',
+          'markover pending --thread-id <provider-id> --thread-host-kind <kind> --thread-host-provider <provider>'
+        )
+      }
+      agentThread = (await discoverMetadata({
+        sourcePath: path.join(process.cwd(), '.markover-pending-query'),
+        threadId: null,
+        threadHostKind: parsed.threadHostKind,
+        threadHostProvider: parsed.threadHostProvider,
+        threadHostThreadId: parsed.threadHostThreadId ?? null,
+        threadHostMachine: parsed.threadHostMachine ?? null,
+        handoffKey: parsed.handoffKey ?? null
+      })).agentThread
+      if (!agentThread) {
+        throw commandError(
+          'The current requesting thread could not be resolved from the handoff key.',
+          'markover pending [--thread-id <provider-id> | --handoff-key <key>] --thread-host-kind <kind> --thread-host-provider <provider>'
+        )
+      }
+    }
+    const response = await requestJson(
+      endpointPath,
+      'POST',
+      '/reviews/pending',
+      { agentThread }
+    )
+    if (
+      !response ||
+      typeof response !== 'object' ||
+      Array.isArray(response) ||
+      Reflect.get(response, 'format') !== 'markover-pending-reviews' ||
+      Reflect.get(response, 'version') !== 1 ||
+      !Array.isArray(Reflect.get(response, 'reviews'))
+    ) {
+      throw new LocalServiceError(
+        'INCOMPATIBLE_SERVICE',
+        'Markover returned an invalid pending-review response.'
+      )
+    }
+    const reviews = Reflect.get(response, 'reviews') as unknown[]
+    return {
+      format: 'markover-pending-reviews',
+      version: 1,
+      reviews: reviews.map((review) => {
+        if (
+          !review ||
+          typeof review !== 'object' ||
+          Array.isArray(review) ||
+          typeof Reflect.get(review, 'reviewId') !== 'string'
+        ) {
+          throw new LocalServiceError(
+            'INCOMPATIBLE_SERVICE',
+            'Markover returned an invalid pending-review item.'
+          )
+        }
+        const reviewId = Reflect.get(review, 'reviewId') as string
+        return {
+          ...review,
+          reviewUrl: reviewUrl(
+            instance?.scheme || CANONICAL_INSTANCE_SCHEME,
+            reviewId
+          )
+        }
+      })
+    }
+  }
+  if (parsed.command === 'resolve') {
+    return requestJson(
+      endpointPath,
+      'POST',
+      `/reviews/${encodeURIComponent(parsed.reviewId)}/resolve`,
+      { outcome: parsed.outcome },
+      { timeoutMilliseconds: 5 * 60 * 1000 }
+    )
+  }
+  if (parsed.command === 'unresolve') {
+    return requestJson(
+      endpointPath,
+      'POST',
+      `/reviews/${encodeURIComponent(parsed.reviewId)}/unresolve`
+    )
+  }
   if (parsed.command === 'submit') {
     let contents: string
     try {

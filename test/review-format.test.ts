@@ -158,6 +158,15 @@ test('human and agent lifecycle values and open-string origins are valid', () =>
   review(local).origin = 'local'
   review(local).agentThread = null
   assert.equal(decodeReviewArtifact(local), local)
+
+  const resolved = cloneFixture()
+  review(resolved).status = 'revised'
+  review(resolved).resolution = {
+    outcome: 'feedback-addressed',
+    resolvedAt: '2026-08-11T12:05:00.000Z',
+    fixtureResolutionExtension: 'preserve me'
+  }
+  assert.equal(decodeReviewArtifact(resolved), resolved)
 })
 
 test('lifecycle, timestamp, and pull-request invariants reject invalid envelopes', () => {
@@ -189,6 +198,37 @@ test('lifecycle, timestamp, and pull-request invariants reject invalid envelopes
   const unmergedDone = cloneFixture()
   review(unmergedDone).status = 'done'
   assertFormatCode(() => decodeReviewArtifact(unmergedDone), 'INVALID_REVIEW')
+
+  const resolutionWhileEditing = cloneFixture()
+  review(resolutionWhileEditing).resolution = {
+    outcome: 'accepted-unreviewed',
+    resolvedAt: '2026-08-11T12:05:00.000Z'
+  }
+  assertFormatCode(() => decodeReviewArtifact(resolutionWhileEditing), 'INVALID_REVIEW')
+
+  const unknownResolution = cloneFixture()
+  review(unknownResolution).status = 'revised'
+  review(unknownResolution).resolution = {
+    outcome: 'archived',
+    resolvedAt: '2026-08-11T12:05:00.000Z'
+  }
+  assertFormatCode(() => decodeReviewArtifact(unknownResolution), 'INVALID_REVIEW')
+
+  const earlyResolution = cloneFixture()
+  review(earlyResolution).status = 'revised'
+  review(earlyResolution).resolution = {
+    outcome: 'accepted-unreviewed',
+    resolvedAt: '2026-08-11T11:59:59.999Z'
+  }
+  assertFormatCode(() => decodeReviewArtifact(earlyResolution), 'INVALID_REVIEW')
+
+  const unresolvedBeforeMerge = cloneFixture()
+  review(unresolvedBeforeMerge).status = 'revised'
+  review(unresolvedBeforeMerge).resolution = {
+    outcome: 'merged-unresolved',
+    resolvedAt: '2026-08-11T12:05:00.000Z'
+  }
+  assertFormatCode(() => decodeReviewArtifact(unresolvedBeforeMerge), 'INVALID_REVIEW')
 
   const missingReviewer = cloneFixture()
   review(missingReviewer).status = 'agent-reviewing'

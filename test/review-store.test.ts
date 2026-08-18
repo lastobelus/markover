@@ -118,6 +118,91 @@ test('creates distinct sessions with exact source and metadata', async (t) => {
   ])
 })
 
+test('pending queries return every unresolved review for the exact requesting thread', async (t) => {
+  const ids = [
+    'mko_aaa11111',
+    'mko_bbb22222',
+    'mko_ccc33333',
+    'mko_ddd44444',
+    'mko_eee55555'
+  ]
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string,
+    now: () => '2026-08-10T00:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const hostThread = {
+    id: 'provider-session-1',
+    threadHost: {
+      kind: 't3code',
+      provider: 'codex',
+      threadId: 'host-thread-1'
+    }
+  }
+  const first = await store.create({
+    tree: tree('# First\n'),
+    contextSummary: 'First pending review.',
+    agentThread: hostThread
+  })
+  const second = await store.create({
+    tree: tree('# Second\n'),
+    contextSummary: 'Same host thread, different provider session.',
+    agentThread: {
+      ...hostThread,
+      id: 'provider-session-2'
+    }
+  })
+  const completed = await store.create({
+    tree: tree('# Completed\n'),
+    contextSummary: 'Completed review.',
+    agentThread: hostThread
+  })
+  const other = await store.create({
+    tree: tree('# Other\n'),
+    contextSummary: 'Other thread.',
+    agentThread: {
+      id: 'provider-session-3',
+      threadHost: {
+        kind: 't3code',
+        provider: 'codex',
+        threadId: 'host-thread-2'
+      }
+    }
+  })
+  const providerOnly = await store.create({
+    tree: tree('# Provider only\n'),
+    contextSummary: 'Provider-session fallback review.',
+    agentThread: {
+      id: 'provider-session-1',
+      threadHost: {
+        kind: 't3code',
+        provider: 'codex'
+      }
+    }
+  })
+  await store.handoff(second.review.id)
+  await store.resolve(completed.review.id, 'accepted-unreviewed')
+  await store.handoff(other.review.id)
+
+  assert.deepEqual(
+    (await store.pendingForThread(hostThread)).map((artifact) => [
+      artifact.review.id,
+      artifact.review.status
+    ]),
+    [
+      [second.review.id, 'pending-agent'],
+      [first.review.id, 'editing']
+    ]
+  )
+  assert.deepEqual(
+    (await store.pendingForThread({
+      id: 'provider-session-1',
+      threadHost: { kind: 't3code', provider: 'codex' }
+    })).map((artifact) => artifact.review.id),
+    [providerOnly.review.id]
+  )
+})
+
 test('snapshots a custom interpretation policy when the review is created', async (t) => {
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111'
@@ -517,6 +602,10 @@ test('revise completes a handoff and rejects backward transitions', async (t) =>
 
   assert.equal(revised.review.status, 'revised')
   assert.equal(revised.review.updatedAt, '2026-08-10T01:02:00.000Z')
+  assert.deepEqual(revised.review.resolution, {
+    outcome: 'feedback-addressed',
+    resolvedAt: '2026-08-10T01:02:00.000Z'
+  })
   assert.deepEqual(retry, revised)
   await assert.rejects(
     store.edit(created.review.id),
@@ -528,11 +617,78 @@ test('revise completes a handoff and rejects backward transitions', async (t) =>
   )
 })
 
+test('manual no-note resolution is explicit, content-safe, and reversible', async (t) => {
+  const timestamps = [
+    '2026-08-10T01:10:00.000Z',
+    '2026-08-10T01:11:00.000Z',
+    '2026-08-10T01:12:00.000Z'
+  ]
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => timestamps.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Resolve without notes.'
+  })
+  const resolved = await store.resolve(created.review.id, 'reviewed-no-notes')
+  assert.equal(resolved.review.status, 'revised')
+  assert.deepEqual(resolved.review.resolution, {
+    outcome: 'reviewed-no-notes',
+    resolvedAt: '2026-08-10T01:11:00.000Z'
+  })
+
+  const editing = await store.unresolve(created.review.id)
+  assert.equal(editing.review.status, 'editing')
+  assert.equal(editing.review.attentionRequestedAt, '2026-08-10T01:12:00.000Z')
+  assert.equal(editing.review.resolution, undefined)
+})
+
+test('feedback-bearing resolution requires explicit abandonment and preserves content', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111',
+    now: () => '2026-08-10T01:20:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree('# Review\n\nKeep this feedback.\n'),
+    contextSummary: 'Preserve abandoned feedback.'
+  })
+  const annotated = structuredClone(created)
+  const paragraph = nodeOfType(annotated.root, 'paragraph')
+  paragraph.feedback = 'This should remain visible in history.'
+  paragraph.sourceEdit = {
+    original: paragraph.raw,
+    current: 'A proposed replacement.'
+  }
+  await store.updateTree(created.review.id, annotated)
+
+  await assert.rejects(
+    store.resolve(created.review.id, 'accepted-unreviewed'),
+    (error: unknown) => hasErrorCode(error, 'FEEDBACK_REQUIRES_ABANDONMENT')
+  )
+  const resolved = await store.resolve(created.review.id, 'feedback-abandoned')
+  assert.equal(resolved.review.status, 'revised')
+  assert.equal(resolved.review.resolution?.outcome, 'feedback-abandoned')
+  assert.equal(
+    nodeOfType(resolved.root, 'paragraph').feedback,
+    'This should remain visible in history.'
+  )
+  assert.equal(
+    nodeOfType(resolved.root, 'paragraph').sourceEdit?.current,
+    'A proposed replacement.'
+  )
+})
+
 test('stores successful agent PR observations with transition receipt time', async (t) => {
   const timestamps = [
     '2026-08-10T02:00:00.000Z',
     '2026-08-10T02:01:00.000Z',
-    '2026-08-10T02:02:00.000Z'
+    '2026-08-10T02:02:00.000Z',
+    '2026-08-10T02:03:00.000Z'
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111',
@@ -575,6 +731,24 @@ test('stores successful agent PR observations with transition receipt time', asy
     statusObservedAt: '2026-08-10T02:02:00.000Z',
     statusSource: 'agent'
   })
+  const persisted = await store.load(created.review.id)
+  assert.ok(persisted.review.resolution)
+  persisted.review.resolution.fixtureExtension = 'preserve me'
+  await fs.writeFile(
+    store.reviewPath(created.review.id),
+    `${JSON.stringify(persisted, null, 2)}\n`,
+    'utf8'
+  )
+  const retry = await store.revise(created.review.id, 'open')
+  assert.deepEqual(retry.review.resolution, {
+    outcome: 'feedback-addressed',
+    resolvedAt: '2026-08-10T02:02:00.000Z',
+    fixtureExtension: 'preserve me'
+  })
+  assert.equal(
+    retry.review.pullRequest?.statusObservedAt,
+    '2026-08-10T02:03:00.000Z'
+  )
 })
 
 test('an omitted PR observation preserves the last successful value', async (t) => {
@@ -780,6 +954,16 @@ test('done matches repository and PR identity and is retry-safe', async (t) => {
       'https://github.com/lastobelus/markover/pull/123'
     )
   }
+  assert.equal(
+    completed.reviews.find((review) => review.review.id === first.review.id)
+      ?.review.resolution?.outcome,
+    'merged-unresolved'
+  )
+  assert.equal(
+    completed.reviews.find((review) => review.review.id === second.review.id)
+      ?.review.resolution?.outcome,
+    'feedback-addressed'
+  )
   assert.equal((await store.load(otherPr.review.id)).review.status, 'editing')
   assert.equal(
     (await store.load(otherRepository.review.id)).review.status,

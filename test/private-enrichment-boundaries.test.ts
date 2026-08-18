@@ -45,7 +45,7 @@ test('private enrichment remains absent from runtime and agent-visible transport
   ]) {
     assert.doesNotMatch(
       read(relativePath),
-      /T3ThreadTitle|CodexThreadTitle|requestingThreadTitle|t3MetadataDatabasePath|codexExecutablePath/,
+      /T3ThreadTitle|CodexThreadTitle|ClaudeThreadTitle|requestingThreadTitle|t3MetadataDatabasePath|codexExecutablePath|claudeThreadTitlesEnabled/,
       relativePath
     )
   }
@@ -77,5 +77,14 @@ test('private enrichment remains absent from runtime and agent-visible transport
   assert.doesNotMatch(
     codexAdapter,
     /thread\/list|setInterval|watchFile|createWriteStream|shell: true/
+  )
+
+  const claudeAdapter = read('src/claude-thread-titles.ts')
+  assert.match(claudeAdapter, /path\.basename\(logPath, '\.jsonl'\)/)
+  assert.match(claudeAdapter, /parsed\.type !== 'custom-title'/)
+  assert.match(claudeAdapter, /parsed\.sessionId !== threadId/)
+  assert.doesNotMatch(
+    claudeAdapter,
+    /message|prompt|summary|setInterval|watchFile|createWriteStream/
   )
 })

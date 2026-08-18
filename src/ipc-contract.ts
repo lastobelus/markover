@@ -14,7 +14,7 @@ import { isWorkspaceState } from './workspace-state'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 const ATTACHMENT_ID_PATTERN = /^img-[1-9]\d*$/
-const REQUEST_ID_PATTERN = /^(?:activation|snapshot|status)-[1-9]\d*$/
+const REQUEST_ID_PATTERN = /^(?:activation|resolution|snapshot|status)-[1-9]\d*$/
 const CHECKSUM_PATTERN = /^sha256:[a-f0-9]{64}$/
 
 const SETTINGS_KEYS = [
@@ -35,6 +35,7 @@ const SETTINGS_KEYS = [
   't3MetadataDatabasePath',
   'codexThreadTitlesEnabled',
   'codexExecutablePath',
+  'claudeThreadTitlesEnabled',
   'inboxTitlePreference',
   'logRejectedApiRequests',
   'agentReviewMode',
@@ -92,9 +93,12 @@ export interface RendererInvokeArguments {
   'review:list': []
   'review:t3-thread-titles:get': []
   'review:codex-thread-titles:get': []
+  'review:claude-thread-titles:get': []
   'review:project-favicon:get': [string]
   'review:pull-request:open': [string]
   'review:context-menu:open': [ReviewContextMenuRequest]
+  'review:resolve': [ReviewResolutionRequest]
+  'review:unresolve': [string]
   'attachment:remove': [AttachmentRemoveRequest]
 }
 
@@ -122,9 +126,12 @@ export interface RendererInvokeResults {
   'review:list': MarkoverReviewListItem[]
   'review:t3-thread-titles:get': T3ThreadTitleSnapshot
   'review:codex-thread-titles:get': CodexThreadTitleSnapshot
+  'review:claude-thread-titles:get': ClaudeThreadTitleSnapshot
   'review:project-favicon:get': string | null
   'review:pull-request:open': undefined
   'review:context-menu:open': ReviewContextMenuResult
+  'review:resolve': ReviewResolutionResult
+  'review:unresolve': ReviewUnresolveResult
   'attachment:remove': AttachmentRemoveResult
 }
 
@@ -133,6 +140,7 @@ export interface RendererSendArguments {
   'review:snapshot-response': [ReviewSnapshotResponse]
   'review:status-response': [ReviewStatusResponse]
   'review:activation-response': [ReviewActivationResponse]
+  'review:resolution-confirmation-response': [ReviewResolutionConfirmationResponse]
   'clipboard:write': [string]
   'review:activate': [string]
   'review:autosave': [string, ReviewTree]
@@ -141,6 +149,7 @@ export interface RendererSendArguments {
 export interface MainEventArguments {
   'document:open-request': []
   'settings:open': []
+  'review:batch-mode-request': []
   'settings:changed': [MarkoverSettingsEnvelope]
   'window:focus-state': [MarkoverWindowFocusState]
   'review:opened': [MarkoverDocument]
@@ -150,6 +159,7 @@ export interface MainEventArguments {
   'review:autosave-status': [ReviewAutosaveStatus]
   'review:shutdown-state': [boolean]
   'review:activation-request': [ReviewActivationRequest]
+  'review:resolution-confirmation-request': [ReviewResolutionConfirmationRequest]
   'review:trashed': [ReviewTrashedEvent]
 }
 
@@ -457,6 +467,7 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'discoverAgentThreadFromLocalSessions':
     case 't3ThreadTitlesEnabled':
     case 'codexThreadTitlesEnabled':
+    case 'claudeThreadTitlesEnabled':
     case 'logRejectedApiRequests':
       return typeof value === 'boolean'
     case 'agentInterpretationPolicy': return typeof value === 'string'
@@ -537,6 +548,29 @@ function isCodexThreadTitleSnapshot(
     (value.status === 'available' || value.titles.length === 0)
 }
 
+function isClaudeThreadTitle(value: unknown): value is ClaudeThreadTitle {
+  return hasExactKeys(value, ['threadId', 'title']) &&
+    typeof value.threadId === 'string' &&
+    Boolean(value.threadId.trim()) &&
+    typeof value.title === 'string' &&
+    Boolean(value.title.trim())
+}
+
+function isClaudeThreadTitleSnapshot(
+  value: unknown
+): value is ClaudeThreadTitleSnapshot {
+  return hasExactKeys(value, ['status', 'detail', 'titles']) &&
+    (
+      value.status === 'disabled' ||
+      value.status === 'available' ||
+      value.status === 'unavailable'
+    ) &&
+    typeof value.detail === 'string' &&
+    Array.isArray(value.titles) &&
+    value.titles.every(isClaudeThreadTitle) &&
+    (value.status === 'available' || value.titles.length === 0)
+}
+
 function isWindowFocusState(value: unknown): value is MarkoverWindowFocusState {
   if (!hasExactKeys(value, ['focused', 'blurredAt'])) return false
   if (typeof value.focused !== 'boolean') return false
@@ -595,6 +629,107 @@ function isReviewAutosaveStatus(value: unknown): value is ReviewAutosaveStatus {
   return hasExactKeys(value, ['failedReviewIds']) &&
     Array.isArray(value.failedReviewIds) &&
     value.failedReviewIds.every(isReviewId)
+}
+
+function isManualResolutionOutcome(
+  value: unknown
+): value is ManualReviewResolutionRequestOutcome {
+  return value === 'reviewed-no-notes' || value === 'accepted-unreviewed'
+}
+
+function isReviewResolutionRequest(
+  value: unknown
+): value is ReviewResolutionRequest {
+  return hasExactKeys(value, ['reviewIds', 'outcome']) &&
+    Array.isArray(value.reviewIds) &&
+    value.reviewIds.length > 0 &&
+    value.reviewIds.every(isReviewId) &&
+    new Set(value.reviewIds).size === value.reviewIds.length &&
+    isManualResolutionOutcome(value.outcome)
+}
+
+function isResolution(value: unknown): value is ReviewResolution {
+  return hasExactKeys(value, ['outcome', 'resolvedAt']) &&
+    (
+      value.outcome === 'feedback-addressed' ||
+      value.outcome === 'reviewed-no-notes' ||
+      value.outcome === 'accepted-unreviewed' ||
+      value.outcome === 'feedback-abandoned' ||
+      value.outcome === 'merged-unresolved'
+    ) &&
+    typeof value.resolvedAt === 'string' &&
+    Number.isFinite(Date.parse(value.resolvedAt))
+}
+
+function isReviewResolutionResult(
+  value: unknown
+): value is ReviewResolutionResult {
+  return hasExactKeys(value, ['outcome', 'reviews']) &&
+    (value.outcome === 'cancelled' || value.outcome === 'resolved') &&
+    Array.isArray(value.reviews) &&
+    value.reviews.every((review) => (
+      hasExactKeys(review, ['reviewId', 'status'], ['resolution']) &&
+      isReviewId(review.reviewId) &&
+      isReviewStatusRequest({
+        requestId: 'status-1',
+        reviewId: review.reviewId,
+        status: review.status
+      }) &&
+      (review.resolution === undefined || isResolution(review.resolution))
+    ))
+}
+
+function isResolutionSummaryBlock(value: unknown): boolean {
+  return hasExactKeys(value, [
+    'nodeId',
+    'title',
+    'feedback',
+    'attachments',
+    'sourceEdit'
+  ]) &&
+    typeof value.nodeId === 'string' &&
+    typeof value.title === 'string' &&
+    typeof value.feedback === 'string' &&
+    Array.isArray(value.attachments) &&
+    value.attachments.every((item) => typeof item === 'string') &&
+    (value.sourceEdit === null || (
+      hasExactKeys(value.sourceEdit, ['original', 'current']) &&
+      typeof value.sourceEdit.original === 'string' &&
+      typeof value.sourceEdit.current === 'string'
+    ))
+}
+
+function isResolutionSummary(value: unknown): boolean {
+  return hasExactKeys(value, [
+    'reviewId',
+    'documentName',
+    'contextSummary',
+    'blocks'
+  ]) &&
+    isReviewId(value.reviewId) &&
+    typeof value.documentName === 'string' &&
+    typeof value.contextSummary === 'string' &&
+    Array.isArray(value.blocks) &&
+    value.blocks.every(isResolutionSummaryBlock)
+}
+
+function isResolutionConfirmationRequest(
+  value: unknown
+): value is ReviewResolutionConfirmationRequest {
+  return hasExactKeys(value, ['requestId', 'outcome', 'reviews']) &&
+    isRequestId(value.requestId) &&
+    isManualResolutionOutcome(value.outcome) &&
+    Array.isArray(value.reviews) &&
+    value.reviews.length > 0 &&
+    value.reviews.every(isResolutionSummary)
+}
+
+function isResolutionConfirmationResponse(
+  value: unknown
+): value is ReviewResolutionConfirmationResponse {
+  return hasExactKeys(value, ['requestId', 'confirmed']) &&
+    isRequestId(value.requestId) &&
+    typeof value.confirmed === 'boolean'
 }
 
 function isActivationOutcome(value: unknown): value is ReviewActivationOutcome {
@@ -701,10 +836,12 @@ export function assertRendererInvokeArguments(
     case 'review:list':
     case 'review:t3-thread-titles:get':
     case 'review:codex-thread-titles:get':
+    case 'review:claude-thread-titles:get':
       valid = noArguments(args)
       break
     case 'review:project-favicon:get':
     case 'review:pull-request:open':
+    case 'review:unresolve':
       valid = singleArgument(args, isReviewId)
       break
     case 'startup:phase': valid = singleArgument(args, isStartupPhaseEvent); break
@@ -726,6 +863,9 @@ export function assertRendererInvokeArguments(
     case 'workspace:update': valid = singleArgument(args, isWorkspaceState); break
     case 'review:context-menu:open':
       valid = singleArgument(args, isContextMenuRequest)
+      break
+    case 'review:resolve':
+      valid = singleArgument(args, isReviewResolutionRequest)
       break
     case 'attachment:remove':
       valid = singleArgument(args, isAttachmentRemoveRequest)
@@ -751,6 +891,9 @@ export function assertRendererSendArguments(
       break
     case 'review:activation-response':
       valid = singleArgument(args, isActivationResponse)
+      break
+    case 'review:resolution-confirmation-response':
+      valid = singleArgument(args, isResolutionConfirmationResponse)
       break
     case 'clipboard:write':
       valid = singleArgument(args, (value) => typeof value === 'string')
@@ -781,6 +924,12 @@ export function assertRendererInvokeResult(
       valid = value === undefined
       break
     case 'review:context-menu:open': valid = isContextMenuResult(value); break
+    case 'review:resolve': valid = isReviewResolutionResult(value); break
+    case 'review:unresolve':
+      valid = hasExactKeys(value, ['reviewId', 'status']) &&
+        isReviewId(value.reviewId) &&
+        value.status === 'editing'
+      break
     case 'startup:renderer-initialized': valid = isStartupReady(value); break
     case 'startup:failure':
       valid = hasExactKeys(value, ['diagnosticAvailable']) &&
@@ -822,6 +971,9 @@ export function assertRendererInvokeResult(
     case 'review:codex-thread-titles:get':
       valid = isCodexThreadTitleSnapshot(value)
       break
+    case 'review:claude-thread-titles:get':
+      valid = isClaudeThreadTitleSnapshot(value)
+      break
     case 'review:project-favicon:get':
       valid = value === null || (
         typeof value === 'string' &&
@@ -840,6 +992,7 @@ export function assertMainEventArguments(
   switch (channel) {
     case 'document:open-request':
     case 'settings:open':
+    case 'review:batch-mode-request':
       valid = noArguments(args)
       break
     case 'settings:changed': valid = singleArgument(args, isSettingsEnvelope); break
@@ -860,6 +1013,9 @@ export function assertMainEventArguments(
       break
     case 'review:activation-request':
       valid = singleArgument(args, isActivationRequest)
+      break
+    case 'review:resolution-confirmation-request':
+      valid = singleArgument(args, isResolutionConfirmationRequest)
       break
     case 'review:trashed': valid = singleArgument(args, isReviewTrashedEvent); break
   }

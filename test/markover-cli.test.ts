@@ -177,6 +177,45 @@ test('parses lifecycle commands and PR observations', () => {
     parseCommandArguments(['edit', 'mko_aaa11111']),
     { command: 'edit', reviewId: 'mko_aaa11111' }
   )
+  assert.deepEqual(
+    parseCommandArguments([
+      'pending',
+      '--thread-id',
+      'provider-thread',
+      '--thread-host-kind',
+      't3code',
+      '--thread-host-provider',
+      'codex',
+      '--thread-host-thread-id',
+      'host-thread'
+    ]),
+    {
+      command: 'pending',
+      handoffKey: null,
+      threadId: 'provider-thread',
+      threadHostKind: 't3code',
+      threadHostProvider: 'codex',
+      threadHostThreadId: 'host-thread',
+      threadHostMachine: null
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments([
+      'resolve',
+      'mko_aaa11111',
+      '--outcome',
+      'accepted-unreviewed'
+    ]),
+    {
+      command: 'resolve',
+      reviewId: 'mko_aaa11111',
+      outcome: 'accepted-unreviewed'
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['unresolve', 'mko_aaa11111']),
+    { command: 'unresolve', reviewId: 'mko_aaa11111' }
+  )
 })
 
 test('development targeting is worktree-local and cleanup requires an exact identity', () => {
@@ -875,6 +914,9 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
     /add feedback before revise, run edit.*After revise, open a new review/
   )
   assert.match(helpPayload().workflow.join(' '), /--pr-status merged/)
+  assert.match(helpPayload().workflow.join(' '), /soft gate/i)
+  assert.match(helpPayload().workflow.join(' '), /before merging.*run pending/i)
+  assert.match(helpPayload().workflow.join(' '), /Abandon feedback/)
   assert.match(
     helpPayload().workflow.join(' '),
     /review\.agentReviewer\.agentGuidance/
@@ -888,7 +930,7 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(misuse.stderr, /Unknown command: wat/)
   assert.match(
     misuse.stderr,
-    /Usage: markover <open\|get\|get-for-review\|submit\|revise\|done\|edit\|canonical\|cleanup\|help>/
+    /Usage: markover <open\|get\|get-for-review\|submit\|revise\|done\|edit\|pending\|resolve\|unresolve\|canonical\|cleanup\|help>/
   )
   assert.match(
     misuse.stderr,
@@ -1255,6 +1297,47 @@ test('executes CLI commands against the local service', async (t) => {
       reviewId: 'mko_aaa11111'
     }, options),
     { reviewId: 'mko_aaa11111', status: 'editing' }
+  )
+
+  const pending = await executeCommand({
+    command: 'pending',
+    threadId: 'thread-123',
+    threadHostKind: 't3code',
+    threadHostProvider: 'codex',
+    threadHostThreadId: 't3-thread-456'
+  }, options) as Record<string, unknown>
+  assert.equal(pending.format, 'markover-pending-reviews')
+  const pendingReviews = pending.reviews as Array<Record<string, unknown>>
+  assert.equal(pendingReviews.length, 1)
+  const pendingReview = pendingReviews[0]
+  assert.ok(pendingReview)
+  assert.equal(pendingReview.reviewId, 'mko_aaa11111')
+  assert.equal(pendingReview.responsibility, 'needs-me')
+  assert.equal(
+    pendingReview.reviewUrl,
+    'markover://review/mko_aaa11111'
+  )
+
+  const resolved = await executeCommand({
+    command: 'resolve',
+    reviewId: 'mko_aaa11111',
+    outcome: 'accepted-unreviewed'
+  }, options) as Record<string, unknown>
+  assert.equal(resolved.outcome, 'resolved')
+  assert.equal(
+    (resolved.resolution as Record<string, unknown>).outcome,
+    'accepted-unreviewed'
+  )
+  assert.deepEqual(
+    await executeCommand({
+      command: 'unresolve',
+      reviewId: 'mko_aaa11111'
+    }, options),
+    {
+      reviewId: 'mko_aaa11111',
+      status: 'editing',
+      outcome: 'unresolved'
+    }
   )
 
   const observedHandoff = await executeCommand({

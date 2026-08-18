@@ -125,6 +125,32 @@ test('Codex title IPC accepts only the strict private snapshot', () => {
   })
 })
 
+test('Claude title IPC accepts only the strict private snapshot', () => {
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('review:claude-thread-titles:get', [])
+    assertRendererInvokeResult('review:claude-thread-titles:get', {
+      status: 'available',
+      detail: 'One Claude Code title is available.',
+      titles: [{ threadId: 'claude-thread-1', title: 'Renamed thread' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:claude-thread-titles:get', {
+      status: 'unavailable',
+      detail: 'Unavailable.',
+      titles: [{ threadId: 'claude-thread-1', title: 'Stale title' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:claude-thread-titles:get', {
+      status: 'available',
+      detail: 'Available.',
+      titles: [],
+      projectsDirectory: '/private/claude'
+    })
+  })
+})
+
 test('workspace IPC accepts only the exact private workspace format', () => {
   const workspace = defaultWorkspaceState()
   assert.doesNotThrow(() => {
@@ -483,6 +509,65 @@ test('IPC payload contracts share the additive v1 review decoder', () => {
   })
 })
 
+test('review resolution IPC carries exact selections and preserved feedback summaries', () => {
+  assert.doesNotThrow(() => {
+    assertMainEventArguments('review:batch-mode-request', [])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('review:batch-mode-request', [true])
+  })
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('review:resolve', [{
+      reviewIds: ['mko_abcdef'],
+      outcome: 'accepted-unreviewed'
+    }])
+  })
+  assert.throws(() => {
+    assertRendererInvokeArguments('review:resolve', [{
+      reviewIds: ['mko_abcdef', 'mko_abcdef'],
+      outcome: 'accepted-unreviewed'
+    }])
+  })
+  const confirmation = {
+    requestId: 'resolution-1',
+    outcome: 'accepted-unreviewed' as const,
+    reviews: [{
+      reviewId: 'mko_abcdef',
+      documentName: 'plan.md',
+      contextSummary: 'Review the plan.',
+      blocks: [{
+        nodeId: 'block-1',
+        title: 'Plan',
+        feedback: 'Keep this note.',
+        attachments: ['diagram'],
+        sourceEdit: { original: 'Old', current: 'New' }
+      }]
+    }]
+  }
+  assert.doesNotThrow(() => {
+    assertMainEventArguments('review:resolution-confirmation-request', [confirmation])
+  })
+  assert.doesNotThrow(() => {
+    assertRendererSendArguments('review:resolution-confirmation-response', [{
+      requestId: 'resolution-1',
+      confirmed: true
+    }])
+  })
+  assert.doesNotThrow(() => {
+    assertRendererInvokeResult('review:resolve', {
+      outcome: 'resolved',
+      reviews: [{
+        reviewId: 'mko_abcdef',
+        status: 'revised',
+        resolution: {
+          outcome: 'feedback-abandoned',
+          resolvedAt: '2026-08-18T00:00:00.000Z'
+        }
+      }]
+    })
+  })
+})
+
 test('application IPC uses only the centralized registration and bridge paths', () => {
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
   const preload = fs.readFileSync(path.join(root, 'src/preload.ts'), 'utf8')
@@ -507,6 +592,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:activation-response',
     'review:autosave',
     'review:autosave-status:get',
+    'review:claude-thread-titles:get',
     'review:codex-thread-titles:get',
     'review:context-menu:open',
     'review:create-local',
@@ -514,9 +600,12 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:list',
     'review:project-favicon:get',
     'review:pull-request:open',
+    'review:resolution-confirmation-response',
+    'review:resolve',
     'review:snapshot-response',
     'review:status-response',
     'review:t3-thread-titles:get',
+    'review:unresolve',
     'settings:get',
     'settings:update',
     'smoke:result',

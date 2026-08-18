@@ -41,9 +41,9 @@ makes a property invalid. Known properties have this contract.
 | `node.attachments` | Optional array. Each attachment requires `id`. Known image fields are optional `type`, `label`, `path`, `mimeType`, `url`, `checksum`, `width`, and `height`; bytes remain outside JSON. A future must-understand attachment variant is breaking. |
 | `node.sourceEdit` | Optional object requiring `original` and `current` strings. `original` equals immutable `raw`; `current` is nonblank and different. It is a proposal, not an instruction to apply blindly. |
 | `node.sourceEditable` | Optional boolean. `false` forbids `sourceEdit`; omission uses the node type's normal rule. |
-| `review` | Required envelope with `id`, `status`, `origin`, `createdAt`, `updatedAt`, `attentionRequestedAt`, `contextSummary`, `agentThread`, `git`, `pullRequest`, and `agentGuidance`. Lifecycle-conditional `agentReviewer` is defined below. Known app-private session, checkout, and requesting-thread-title evidence is forbidden on the envelope as well as inside agent-thread metadata. |
+| `review` | Required envelope with `id`, `status`, `origin`, `createdAt`, `updatedAt`, `attentionRequestedAt`, `contextSummary`, `agentThread`, `git`, `pullRequest`, and `agentGuidance`. Optional `resolution` and lifecycle-conditional `agentReviewer` are defined below. Known app-private session, checkout, and requesting-thread-title evidence is forbidden on the envelope as well as inside agent-thread metadata. |
 | `review.id` | Required opaque `mko_...` ID. Together with source content and checksum it identifies this review target. |
-| `review.status` | Exactly `editing`, `pending-agent`, `agent-reviewing`, `reviewed`, `revised`, or `done`. `editing` is mutable; the other states are read-only. Human handoff is `editing → pending-agent → revised`. Agent review is `editing → agent-reviewing → reviewed`. Both inflight states may return to `editing`; completed states cannot. `done` is terminal and requires a non-null pull request with a stored `merged` observation. PR completion skips `agent-reviewing` and may archive `reviewed`. Another feedback round creates an independent review. |
+| `review.status` | Exactly `editing`, `pending-agent`, `agent-reviewing`, `reviewed`, `revised`, or `done`. `editing` is mutable; the other states are read-only. Human handoff is `editing → pending-agent → revised`. Agent review is `editing → agent-reviewing → reviewed`. Both inflight states may return to `editing`. A `revised` review carrying a reversible manual resolution may also return to `editing`; agent-addressed `revised`, `reviewed`, and `done` reviews cannot. `done` is terminal and requires a non-null pull request with a stored `merged` observation. PR completion skips `agent-reviewing` and may complete `reviewed`. Another feedback round creates an independent review. |
 | `review.origin` | Required nonblank open string, immutable for the review lifetime. v1 defines `agent` and `local`. Unknown values are valid, preserved, and lifecycle-neutral. `local` requires `agentThread: null`; `agent` may also use null when reliable identity is unavailable. |
 | `review.createdAt` | Required canonical UTC instant. It never changes. |
 | `review.updatedAt` | Required canonical UTC instant for the latest persisted portable change, including feedback, lifecycle, metadata, or pull-request observation. It does not control Inbox actionability. |
@@ -55,6 +55,9 @@ makes a property invalid. Known properties have this contract.
 | `review.agentThread.threadHost.machine` | Optional nonblank agent-reported hostname snapshot, normally obtained from local `hostname` when available. It is descriptive and never stable or identity-bearing. |
 | `review.git` | Required nullable opening-time snapshot. When non-null, known optional fields are sanitized nonblank network/scp-like `repositoryUrl`, nonblank `branch`, and nonblank `commit`. These hints are immutable, may become stale, and are not current Git truth, identity, or grouping keys. Credentials, `file:` URLs, and absolute or relative filesystem remotes are forbidden. |
 | `review.pullRequest` | Required nullable association. When non-null it requires a canonical GitHub `url` and matching positive integer `number`. Its optional observation tuple is all-or-none: `status` is `draft`, `open`, `merged`, or `closed`; `statusObservedAt` is canonical UTC no later than `review.updatedAt`; and `statusSource` is a nonblank open string. The latest successful observation is retained when a refresh fails. |
+| `review.resolution` | Optional durable outcome object with required `outcome` and `resolvedAt`. It is valid only on `revised` or `done`. Omission means no outcome was recorded; readers do not infer or backfill one. Unknown additive properties are preserved. |
+| `review.resolution.outcome` | Exactly `feedback-addressed`, `reviewed-no-notes`, `accepted-unreviewed`, `feedback-abandoned`, or `merged-unresolved`. `merged-unresolved` requires `done`. |
+| `review.resolution.resolvedAt` | Required canonical UTC instant from `review.createdAt` through `review.updatedAt`. `done` preserves an existing resolution and its original time. |
 | `review.agentGuidance` | Required object with string `fixedContract` and `interpretationPolicy`. It governs an author-agent receiving human feedback through `get`; it does not govern a reviewer agent. |
 | `review.agentReviewer` | Lifecycle-conditional object. It is required for `agent-reviewing` and `reviewed`, preserved when either completed agent review becomes `done`, and forbidden for `editing`, `pending-agent`, and `revised`. Required known fields are `mode`, `claimId`, `agentThread`, `startedAt`, `completedAt`, and `agentGuidance`. |
 | `review.agentReviewer.mode` | Required closed value `annotation-only` or `annotations-and-source-proposals`, snapshotted from the global setting when claimed. A later settings change cannot alter an inflight claim. |
@@ -68,6 +71,38 @@ makes a property invalid. Known properties have this contract.
 Canonical UTC instants use JavaScript's canonical millisecond ISO form:
 `new Date(value).toISOString() === value`. Creation sets `createdAt`,
 `updatedAt`, and `attentionRequestedAt` equal.
+
+## Resolution and pending queries
+
+`revise` completes a `pending-agent` handoff with
+`resolution.outcome: feedback-addressed`. A human may instead resolve an
+`editing` or `pending-agent` review as `reviewed-no-notes` or
+`accepted-unreviewed` only while the tree contains no nonblank feedback,
+attachments, or source-edit proposals. If any such artifact exists, Markover
+shows the complete preserved summary and the only completing choice is
+`feedback-abandoned`; cancellation leaves the review unresolved. Abandoned
+content remains unchanged and read-only in completed history and is not handed
+to an agent for action.
+
+These three manual outcomes use `status: revised` and may return to `editing`
+before Done. Returning removes `resolution`, advances `attentionRequestedAt`,
+and preserves all review content. `feedback-addressed` is agent-owned and does
+not return; another feedback round opens another review.
+
+A verified merged pull request moves matching `editing`, `pending-agent`,
+`reviewed`, or `revised` reviews to `done`; `agent-reviewing` remains untouched.
+Done preserves an existing resolution. A review still `editing` or
+`pending-agent` receives `merged-unresolved`, which records that merge occurred
+without claiming acceptance. Older completed artifacts that omit `resolution`
+remain valid and are displayed as outcome not recorded.
+
+The `pending` command matches the exact requesting-thread identity: the
+`threadHost.kind` plus distinct `threadHost.threadId` when present, otherwise
+the kind, provider, and `agentThread.id`. It returns every `editing`,
+`pending-agent`, and `agent-reviewing` match as metadata only: review identity
+and URL, document and purpose, responsibility, timestamps, and pull-request
+association. It never activates or mutates a review and never returns draft
+feedback, attachments, source proposals, or the review tree.
 
 ## Agent-review claim and submission
 
@@ -201,9 +236,9 @@ contract does not bump the version. Open-string domains such as `origin`,
 new labels without a bump because unknown values remain valid and neutral.
 Closed domains such as lifecycle status, pull-request status, and node type
 normally require a new version for a new value. The `agent-reviewing` and
-`reviewed` values and lifecycle-conditional `agentReviewer` shape were folded
-into v1 before v1 appeared in any release; no released predecessor or migration
-exists.
+`reviewed` values, lifecycle-conditional `agentReviewer` shape, and optional
+`resolution` outcome were folded into v1 before v1 appeared in any release; no
+released predecessor or migration exists.
 
 Changing guidance text, recognizing more Markdown through existing node
 shapes, or extending optional metadata does not itself bump the schema.

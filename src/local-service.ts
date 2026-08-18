@@ -7,9 +7,14 @@ import type { AddressInfo } from 'node:net'
 
 import { AsyncMutationTracker } from './async-mutation-tracker'
 import type {
+  ManualReviewResolutionOutcome,
   ReviewArtifact,
   ReviewCreateInput,
   ReviewStore
+} from './review-store'
+import {
+  pendingReviewResponsibility,
+  reviewHasFeedbackArtifacts
 } from './review-store'
 import {
   CAPABILITY_TOKEN_PATTERN,
@@ -31,6 +36,8 @@ interface ReviewRoute {
     | 'get-for-review'
     | 'submit'
     | 'edit'
+    | 'resolve'
+    | 'unresolve'
     | 'revise'
     | null
 }
@@ -60,14 +67,21 @@ export interface LocalServiceOptions {
     | 'list'
     | 'load'
     | 'matchingPullRequestReviews'
+    | 'pendingForThread'
     | 'propagatePullRequestObservation'
+    | 'resolve'
     | 'revise'
     | 'submitAgentReview'
+    | 'unresolve'
   >
   beforeAction?: ((
     reviewId: string,
-    action: 'handoff' | 'get-for-review' | 'edit' | 'done'
+    action: 'handoff' | 'get-for-review' | 'edit' | 'done' | 'resolve'
   ) => Promise<undefined | (() => void | Promise<void>)>) | undefined
+  confirmFeedbackAbandonment?: ((
+    artifacts: readonly ReviewArtifact[],
+    outcome: Exclude<ManualReviewResolutionOutcome, 'feedback-abandoned'>
+  ) => Promise<boolean>) | undefined
   onActivate?: ((reviewId: string) => Promise<ReviewActivationResult>) | undefined
   onChange?: ((
     artifact: ReviewArtifact,
@@ -77,6 +91,8 @@ export interface LocalServiceOptions {
       | 'get-for-review'
       | 'submit'
       | 'edit'
+      | 'resolve'
+      | 'unresolve'
       | 'revise'
       | 'done'
       | 'observed'
@@ -149,7 +165,9 @@ function errorStatus(error: unknown): number {
     code === 'INVALID_JSON' ||
     code === 'INVALID_PULL_REQUEST' ||
     code === 'INVALID_PULL_REQUEST_STATUS' ||
+    code === 'INVALID_RESOLUTION' ||
     code === 'INVALID_REVIEW' ||
+    code === 'INVALID_THREAD' ||
     code === 'PULL_REQUEST_REQUIRED' ||
     code === 'REVIEW_MISMATCH'
   ) {
@@ -157,6 +175,8 @@ function errorStatus(error: unknown): number {
   }
   if (
     code === 'CLAIM_CONFLICT' ||
+    code === 'FEEDBACK_REQUIRED' ||
+    code === 'FEEDBACK_REQUIRES_ABANDONMENT' ||
     code === 'INVALID_TRANSITION' ||
     code === 'NOT_EDITABLE' ||
     code === 'REVIEW_NOT_PRISTINE' ||
@@ -170,7 +190,7 @@ function errorStatus(error: unknown): number {
 }
 
 export function reviewRoute(pathname: string): ReviewRoute | null {
-  const match = /^\/reviews\/([^/]+)(?:\/(activate|handoff|get-for-review|submit|edit|revise))?$/.exec(pathname)
+  const match = /^\/reviews\/([^/]+)(?:\/(activate|handoff|get-for-review|submit|edit|resolve|unresolve|revise))?$/.exec(pathname)
   if (!match) return null
   return {
     reviewId: decodeURIComponent(match[1] as string),
@@ -184,6 +204,7 @@ export async function startLocalService({
   identity,
   store,
   beforeAction = () => Promise.resolve(undefined),
+  confirmFeedbackAbandonment = () => Promise.resolve(false),
   onActivate = () => Promise.reject(serviceError(
     'ACTIVATION_UNAVAILABLE',
     'Review activation is unavailable.'
@@ -315,6 +336,35 @@ export async function startLocalService({
 
       if (request.method === 'GET' && url.pathname === '/reviews') {
         sendJson(response, 200, { reviews: await store.list() })
+        return
+      }
+
+      if (request.method === 'POST' && url.pathname === '/reviews/pending') {
+        const body = await readJson(request)
+        const record = isRecord(body) ? body : {}
+        const reviews = await store.pendingForThread(record.agentThread)
+        sendJson(response, 200, {
+          format: 'markover-pending-reviews',
+          version: 1,
+          reviews: reviews.map((artifact) => ({
+            reviewId: artifact.review.id,
+            responsibility: pendingReviewResponsibility(artifact.review.status),
+            status: artifact.review.status,
+            documentName: artifact.sourceDocument.name,
+            contextSummary: artifact.review.contextSummary,
+            createdAt: artifact.review.createdAt,
+            attentionRequestedAt: artifact.review.attentionRequestedAt,
+            pullRequest: artifact.review.pullRequest
+              ? {
+                  number: artifact.review.pullRequest.number,
+                  url: artifact.review.pullRequest.url,
+                  ...(artifact.review.pullRequest.status
+                    ? { status: artifact.review.pullRequest.status }
+                    : {})
+                }
+              : null
+          }))
+        })
         return
       }
 
@@ -540,6 +590,73 @@ export async function startLocalService({
           pullRequestUrl: result.pullRequestUrl,
           reviewIds: result.reviews.map((artifact) => artifact.review.id),
           status: result.status
+        })
+        return
+      }
+
+      if (
+        route &&
+        request.method === 'POST' &&
+        (route.action === 'resolve' || route.action === 'unresolve')
+      ) {
+        const action = route.action
+        const body = await readJson(request)
+        const record = isRecord(body) ? body : {}
+        const outcome = record.outcome
+        if (
+          action === 'resolve' &&
+          outcome !== 'reviewed-no-notes' &&
+          outcome !== 'accepted-unreviewed'
+        ) {
+          throw serviceError(
+            'INVALID_RESOLUTION',
+            'Resolve requires reviewed-no-notes or accepted-unreviewed.'
+          )
+        }
+        const result = await runMutation(() => (
+          serializeReviewAction(route.reviewId, async () => {
+            let rollback: undefined | (() => void | Promise<void>)
+            let current = await store.load(route.reviewId)
+            if (action === 'resolve' && current.review.status === 'editing') {
+              rollback = await beforeAction(route.reviewId, 'resolve')
+              current = await store.load(route.reviewId)
+            }
+            if (action === 'unresolve') {
+              const changed = await store.unresolve(route.reviewId)
+              await onChange(changed, 'unresolve')
+              return { artifact: changed, outcome: 'unresolved' as const }
+            }
+            let resolution = outcome as ManualReviewResolutionOutcome
+            if (reviewHasFeedbackArtifacts(current.root)) {
+              if (!await confirmFeedbackAbandonment(
+                [current],
+                resolution as Exclude<
+                  ManualReviewResolutionOutcome,
+                  'feedback-abandoned'
+                >
+              )) {
+                if (rollback) await rollback()
+                return { artifact: current, outcome: 'cancelled' as const }
+              }
+              resolution = 'feedback-abandoned'
+            }
+            try {
+              const changed = await store.resolve(route.reviewId, resolution)
+              await onChange(changed, 'resolve')
+              return { artifact: changed, outcome: 'resolved' as const }
+            } catch (error) {
+              if (rollback) await rollback()
+              throw error
+            }
+          })
+        ))
+        sendJson(response, 200, {
+          reviewId: result.artifact.review.id,
+          status: result.artifact.review.status,
+          outcome: result.outcome,
+          ...(result.artifact.review.resolution
+            ? { resolution: result.artifact.review.resolution }
+            : {})
         })
         return
       }

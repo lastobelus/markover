@@ -143,6 +143,7 @@ interface HttpRequestOptions {
   requestPath: string
   requestFailureCode: 'REQUEST_UNCERTAIN' | 'SERVICE_UNAVAILABLE'
   requestFailureMessage: string
+  timeoutMilliseconds?: number
 }
 
 async function sendHttpJson({
@@ -152,7 +153,8 @@ async function sendHttpJson({
   method,
   requestPath,
   requestFailureCode,
-  requestFailureMessage
+  requestFailureMessage,
+  timeoutMilliseconds = 2000
 }: HttpRequestOptions): Promise<unknown> {
   const contents = body === null ? null : JSON.stringify(body)
   const headers: Record<string, string | number> = {}
@@ -186,7 +188,7 @@ async function sendHttpJson({
       method,
       path: requestPath,
       headers,
-      timeout: 2000
+      timeout: timeoutMilliseconds
     }, (response: IncomingMessage) => {
       response.setEncoding('utf8')
       let responseBody = ''
@@ -290,7 +292,8 @@ export async function requestJson(
   endpointPath: string,
   method: string,
   requestPath: string,
-  body: unknown = null
+  body: unknown = null,
+  options: { timeoutMilliseconds?: number } = {}
 ): Promise<unknown> {
   const isPublicHealth = method === 'GET' && requestPath === '/health'
   if (isPublicHealth) {
@@ -308,7 +311,10 @@ export async function requestJson(
     requestFailureCode: 'REQUEST_UNCERTAIN',
     requestFailureMessage: (
       'The Markover request may not have completed. Inspect Markover before retrying.'
-    )
+    ),
+    ...(options.timeoutMilliseconds === undefined
+      ? {}
+      : { timeoutMilliseconds: options.timeoutMilliseconds })
   })
 }
 

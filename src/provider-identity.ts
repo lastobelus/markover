@@ -6,3 +6,19 @@ export function isCodexProvider(value: string | null | undefined): boolean {
   const provider = normalizedProvider(value ?? '')
   return provider === 'codex' || provider === 'openai'
 }
+
+export function isClaudeProvider(value: string | null | undefined): boolean {
+  const provider = normalizedProvider(value ?? '')
+  return provider === 'claude' ||
+    provider === 'anthropic' ||
+    provider === 'claudeagent'
+}
+
+export function isClaudeCodeThreadHost(
+  kind: string | null | undefined,
+  provider: string | null | undefined
+): boolean {
+  const host = normalizedProvider(kind ?? '')
+  return host === 'claudecode' ||
+    (host === 't3code' && isClaudeProvider(provider))
+}
