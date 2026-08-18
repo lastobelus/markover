@@ -215,6 +215,8 @@ const elements = {
   settingsReset: requiredElement<HTMLButtonElement>('#settings-reset'),
   codexThreadTitleStatus: requiredElement('#codex-thread-title-status'),
   codexThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#codex-thread-titles-refresh'),
+  claudeThreadTitleStatus: requiredElement('#claude-thread-title-status'),
+  claudeThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#claude-thread-titles-refresh'),
   t3ThreadTitleStatus: requiredElement('#t3-thread-title-status'),
   t3ThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#t3-thread-titles-refresh'),
   workspace: requiredElement('#workspace')
@@ -278,6 +280,12 @@ let codexThreadTitles: CodexThreadTitleSnapshot = {
   titles: []
 }
 let codexThreadTitleRefresh: Promise<void> = Promise.resolve()
+let claudeThreadTitles: ClaudeThreadTitleSnapshot = {
+  status: 'disabled',
+  detail: 'Claude Code requesting-thread titles are disabled.',
+  titles: []
+}
+let claudeThreadTitleRefresh: Promise<void> = Promise.resolve()
 let requestingThreadTitleRefresh: Promise<void> = Promise.resolve()
 let windowFocusState: MarkoverWindowFocusState = {
   focused: false,
@@ -299,6 +307,8 @@ function reviewInboxProjection(
     {
       codexThreadTitles: codexThreadTitles.titles,
       codexThreadTitleStatus: codexThreadTitles.status,
+      claudeThreadTitles: claudeThreadTitles.titles,
+      claudeThreadTitleStatus: claudeThreadTitles.status,
       t3ThreadTitles: t3ThreadTitles.titles,
       t3ThreadTitleStatus: t3ThreadTitles.status,
       titlePreference: preferences.inboxTitlePreference
@@ -3516,6 +3526,18 @@ function updateCodexThreadTitleStatus(refreshing = false): void {
     refreshing || !preferences.codexThreadTitlesEnabled
 }
 
+function updateClaudeThreadTitleStatus(refreshing = false): void {
+  elements.claudeThreadTitleStatus.textContent = refreshing
+    ? 'Refreshing Claude Code requesting-thread titles…'
+    : claudeThreadTitles.detail
+  elements.claudeThreadTitleStatus.dataset.status = refreshing
+    ? 'refreshing'
+    : claudeThreadTitles.status
+  elements.claudeThreadTitleStatus.setAttribute('aria-busy', String(refreshing))
+  elements.claudeThreadTitlesRefresh.disabled =
+    refreshing || !preferences.claudeThreadTitlesEnabled
+}
+
 function refreshT3ThreadTitles(): Promise<void> {
   const refresh = async (): Promise<void> => {
     updateT3ThreadTitleStatus(true)
@@ -3556,6 +3578,26 @@ function refreshCodexThreadTitles(): Promise<void> {
   return codexThreadTitleRefresh
 }
 
+function refreshClaudeThreadTitles(): Promise<void> {
+  const refresh = async (): Promise<void> => {
+    updateClaudeThreadTitleStatus(true)
+    try {
+      claudeThreadTitles = await bridge.getClaudeThreadTitles()
+    } catch (error) {
+      console.error('Failed to refresh Claude Code requesting-thread titles', error)
+      claudeThreadTitles = {
+        status: 'unavailable',
+        detail: 'Claude Code session artifacts are temporarily unavailable.',
+        titles: []
+      }
+    }
+    updateClaudeThreadTitleStatus()
+    renderDocumentsListPreservingFocus()
+  }
+  claudeThreadTitleRefresh = claudeThreadTitleRefresh.then(refresh, refresh)
+  return claudeThreadTitleRefresh
+}
+
 function refreshRequestingThreadTitles(): Promise<void> {
   const refresh = async (): Promise<void> => {
     try {
@@ -3571,7 +3613,8 @@ function refreshRequestingThreadTitles(): Promise<void> {
     }
     await Promise.all([
       refreshT3ThreadTitles(),
-      refreshCodexThreadTitles()
+      refreshCodexThreadTitles(),
+      refreshClaudeThreadTitles()
     ])
     if (state.reviewId) renderReviewContext()
   }
@@ -3597,6 +3640,7 @@ function applySettings(
   void themeBrandAssets()
   updateT3ThreadTitleStatus()
   updateCodexThreadTitleStatus()
+  updateClaudeThreadTitleStatus()
 
   if (MarkoverSettings.sidebarPreferenceChanged(
     previous,
@@ -3628,6 +3672,12 @@ function applySettings(
     )
   ) {
     void refreshCodexThreadTitles()
+  }
+  if (
+    !options.initial &&
+    previous.claudeThreadTitlesEnabled !== preferences.claudeThreadTitlesEnabled
+  ) {
+    void refreshClaudeThreadTitles()
   }
 }
 
@@ -3686,6 +3736,9 @@ elements.t3ThreadTitlesRefresh.addEventListener('click', () => {
   void refreshRequestingThreadTitles()
 })
 elements.codexThreadTitlesRefresh.addEventListener('click', () => {
+  void refreshRequestingThreadTitles()
+})
+elements.claudeThreadTitlesRefresh.addEventListener('click', () => {
   void refreshRequestingThreadTitles()
 })
 elements.settingsForm.addEventListener('change', (event) => {

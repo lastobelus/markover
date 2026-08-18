@@ -27,6 +27,7 @@ import * as agentGuidance from './agent-guidance'
     t3MetadataDatabasePath: '',
     codexThreadTitlesEnabled: false,
     codexExecutablePath: '',
+    claudeThreadTitlesEnabled: false,
     inboxTitlePreference: 'review-purpose',
     logRejectedApiRequests: false,
     agentReviewMode: 'annotation-only',
@@ -117,6 +118,7 @@ import * as agentGuidance from './agent-guidance'
       'discoverAgentThreadFromLocalSessions',
       't3ThreadTitlesEnabled',
       'codexThreadTitlesEnabled',
+      'claudeThreadTitlesEnabled',
       'logRejectedApiRequests'
     ] as const) {
       if (typeof input[key] === 'boolean') normalized[key] = input[key]

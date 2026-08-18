@@ -2,7 +2,10 @@ import {
   pullRequestObservation,
   type PullRequestStatus
 } from './pull-request'
-import { isCodexProvider } from './provider-identity'
+import {
+  isClaudeCodeThreadHost,
+  isCodexProvider
+} from './provider-identity'
 
 export type ReviewTitleSource =
   | 'thread-title'
@@ -111,6 +114,8 @@ export interface ReviewMetadataInventory {
 }
 
 export interface ReviewInboxTitleSources {
+  claudeThreadTitleStatus?: ClaudeThreadTitleStatus
+  claudeThreadTitles?: readonly ClaudeThreadTitle[]
   codexThreadTitleStatus?: CodexThreadTitleStatus
   codexThreadTitles?: readonly CodexThreadTitle[]
   t3ThreadTitleStatus?: T3ThreadTitleStatus
@@ -342,8 +347,10 @@ function rowFromSession(
   session: ReviewSession,
   t3Titles: ReadonlyMap<string, string>,
   codexTitles: ReadonlyMap<string, string>,
+  claudeTitles: ReadonlyMap<string, string>,
   t3ThreadTitleStatus: T3ThreadTitleStatus,
   codexThreadTitleStatus: CodexThreadTitleStatus,
+  claudeThreadTitleStatus: ClaudeThreadTitleStatus,
   titlePreference: InboxTitlePreference
 ): ReviewInboxRow {
   const review = session.tree.review
@@ -356,14 +363,19 @@ function rowFromSession(
   const agentThreadId = stringField(agentThread, ['id'])
   const threadHostThreadId = stringField(threadHost, ['threadId'])
   const requestingThreadId = threadHostThreadId || agentThreadId
+  const claudeCodeTitleSource = isClaudeCodeThreadHost(threadHostKind, provider)
+  const codexTitleSource = !claudeCodeTitleSource && isCodexProvider(provider)
   const threadHostTitle = (
     threadHostKind?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 't3code' &&
     requestingThreadId
   ) ? t3Titles.get(requestingThreadId) || null : null
   const providerTitle = (
-    isCodexProvider(provider) &&
-    agentThreadId
-  ) ? codexTitles.get(agentThreadId) || null : null
+    agentThreadId && claudeCodeTitleSource
+  )
+    ? claudeTitles.get(agentThreadId) || null
+    : agentThreadId && codexTitleSource
+      ? codexTitles.get(agentThreadId) || null
+      : null
   const requestingThreadTitle = threadHostTitle || providerTitle
   const machine = stringField(threadHost, ['machine'])
   const local = review.origin === 'local'
@@ -380,8 +392,11 @@ function rowFromSession(
     threadHostKind?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') === 't3code'
       ? t3ThreadTitleStatus
       : null,
-    isCodexProvider(provider) ? codexThreadTitleStatus : null
-  ].filter((status): status is T3ThreadTitleStatus | CodexThreadTitleStatus => Boolean(status))
+    codexTitleSource ? codexThreadTitleStatus : null,
+    claudeCodeTitleSource
+      ? claudeThreadTitleStatus
+      : null
+  ].filter((status): status is T3ThreadTitleStatus | CodexThreadTitleStatus | ClaudeThreadTitleStatus => Boolean(status))
   const requestingThreadTitleStatus = local
     ? 'not-applicable'
     : requestingThreadTitle
@@ -529,6 +544,8 @@ function projectProjection(
 export function projectReviewInbox(
   sessions: ReviewSession[],
   {
+    claudeThreadTitleStatus = 'disabled',
+    claudeThreadTitles = [],
     codexThreadTitleStatus = 'disabled',
     codexThreadTitles = [],
     t3ThreadTitleStatus = 'disabled',
@@ -542,13 +559,18 @@ export function projectReviewInbox(
   const codexTitles = new Map(
     codexThreadTitles.map(({ threadId, title }) => [threadId, title])
   )
+  const claudeTitles = new Map(
+    claudeThreadTitles.map(({ threadId, title }) => [threadId, title])
+  )
   const rows = sessions.map((session) => (
     rowFromSession(
       session,
       t3Titles,
       codexTitles,
+      claudeTitles,
       t3ThreadTitleStatus,
       codexThreadTitleStatus,
+      claudeThreadTitleStatus,
       titlePreference
     )
   ))

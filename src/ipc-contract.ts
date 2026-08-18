@@ -35,6 +35,7 @@ const SETTINGS_KEYS = [
   't3MetadataDatabasePath',
   'codexThreadTitlesEnabled',
   'codexExecutablePath',
+  'claudeThreadTitlesEnabled',
   'inboxTitlePreference',
   'logRejectedApiRequests',
   'agentReviewMode',
@@ -92,6 +93,7 @@ export interface RendererInvokeArguments {
   'review:list': []
   'review:t3-thread-titles:get': []
   'review:codex-thread-titles:get': []
+  'review:claude-thread-titles:get': []
   'review:project-favicon:get': [string]
   'review:pull-request:open': [string]
   'review:context-menu:open': [ReviewContextMenuRequest]
@@ -122,6 +124,7 @@ export interface RendererInvokeResults {
   'review:list': MarkoverReviewListItem[]
   'review:t3-thread-titles:get': T3ThreadTitleSnapshot
   'review:codex-thread-titles:get': CodexThreadTitleSnapshot
+  'review:claude-thread-titles:get': ClaudeThreadTitleSnapshot
   'review:project-favicon:get': string | null
   'review:pull-request:open': undefined
   'review:context-menu:open': ReviewContextMenuResult
@@ -457,6 +460,7 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'discoverAgentThreadFromLocalSessions':
     case 't3ThreadTitlesEnabled':
     case 'codexThreadTitlesEnabled':
+    case 'claudeThreadTitlesEnabled':
     case 'logRejectedApiRequests':
       return typeof value === 'boolean'
     case 'agentInterpretationPolicy': return typeof value === 'string'
@@ -534,6 +538,29 @@ function isCodexThreadTitleSnapshot(
     typeof value.detail === 'string' &&
     Array.isArray(value.titles) &&
     value.titles.every(isCodexThreadTitle) &&
+    (value.status === 'available' || value.titles.length === 0)
+}
+
+function isClaudeThreadTitle(value: unknown): value is ClaudeThreadTitle {
+  return hasExactKeys(value, ['threadId', 'title']) &&
+    typeof value.threadId === 'string' &&
+    Boolean(value.threadId.trim()) &&
+    typeof value.title === 'string' &&
+    Boolean(value.title.trim())
+}
+
+function isClaudeThreadTitleSnapshot(
+  value: unknown
+): value is ClaudeThreadTitleSnapshot {
+  return hasExactKeys(value, ['status', 'detail', 'titles']) &&
+    (
+      value.status === 'disabled' ||
+      value.status === 'available' ||
+      value.status === 'unavailable'
+    ) &&
+    typeof value.detail === 'string' &&
+    Array.isArray(value.titles) &&
+    value.titles.every(isClaudeThreadTitle) &&
     (value.status === 'available' || value.titles.length === 0)
 }
 
@@ -701,6 +728,7 @@ export function assertRendererInvokeArguments(
     case 'review:list':
     case 'review:t3-thread-titles:get':
     case 'review:codex-thread-titles:get':
+    case 'review:claude-thread-titles:get':
       valid = noArguments(args)
       break
     case 'review:project-favicon:get':
@@ -821,6 +849,9 @@ export function assertRendererInvokeResult(
       break
     case 'review:codex-thread-titles:get':
       valid = isCodexThreadTitleSnapshot(value)
+      break
+    case 'review:claude-thread-titles:get':
+      valid = isClaudeThreadTitleSnapshot(value)
       break
     case 'review:project-favicon:get':
       valid = value === null || (

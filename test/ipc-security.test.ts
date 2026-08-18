@@ -125,6 +125,32 @@ test('Codex title IPC accepts only the strict private snapshot', () => {
   })
 })
 
+test('Claude title IPC accepts only the strict private snapshot', () => {
+  assert.doesNotThrow(() => {
+    assertRendererInvokeArguments('review:claude-thread-titles:get', [])
+    assertRendererInvokeResult('review:claude-thread-titles:get', {
+      status: 'available',
+      detail: 'One Claude Code title is available.',
+      titles: [{ threadId: 'claude-thread-1', title: 'Renamed thread' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:claude-thread-titles:get', {
+      status: 'unavailable',
+      detail: 'Unavailable.',
+      titles: [{ threadId: 'claude-thread-1', title: 'Stale title' }]
+    })
+  })
+  assert.throws(() => {
+    assertRendererInvokeResult('review:claude-thread-titles:get', {
+      status: 'available',
+      detail: 'Available.',
+      titles: [],
+      projectsDirectory: '/private/claude'
+    })
+  })
+})
+
 test('workspace IPC accepts only the exact private workspace format', () => {
   const workspace = defaultWorkspaceState()
   assert.doesNotThrow(() => {
@@ -507,6 +533,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:activation-response',
     'review:autosave',
     'review:autosave-status:get',
+    'review:claude-thread-titles:get',
     'review:codex-thread-titles:get',
     'review:context-menu:open',
     'review:create-local',

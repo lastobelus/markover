@@ -79,6 +79,7 @@ declare global {
     t3MetadataDatabasePath: string
     codexThreadTitlesEnabled: boolean
     codexExecutablePath: string
+    claudeThreadTitlesEnabled: boolean
     inboxTitlePreference: InboxTitlePreference
     logRejectedApiRequests: boolean
     agentReviewMode: AgentReviewMode
@@ -650,6 +651,19 @@ declare global {
     titles: CodexThreadTitle[]
   }
 
+  type ClaudeThreadTitleStatus = 'disabled' | 'available' | 'unavailable'
+
+  interface ClaudeThreadTitle {
+    threadId: string
+    title: string
+  }
+
+  interface ClaudeThreadTitleSnapshot {
+    status: ClaudeThreadTitleStatus
+    detail: string
+    titles: ClaudeThreadTitle[]
+  }
+
   interface MarkoverBridge {
     getStartupInfo: () => Promise<StartupInfo>
     reportStartupPhase: (event: StartupPhaseEvent) => Promise<void>
@@ -687,6 +701,7 @@ declare global {
     getReviews: () => Promise<MarkoverReviewListItem[]>
     getT3ThreadTitles: () => Promise<T3ThreadTitleSnapshot>
     getCodexThreadTitles: () => Promise<CodexThreadTitleSnapshot>
+    getClaudeThreadTitles: () => Promise<ClaudeThreadTitleSnapshot>
     getProjectFavicon: (reviewId: string) => Promise<string | null>
     openPullRequest: (reviewId: string) => Promise<void>
     openReviewContextMenu: (request: {
