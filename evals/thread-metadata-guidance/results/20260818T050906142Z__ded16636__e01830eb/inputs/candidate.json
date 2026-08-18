@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "inputMode": "flags-only",
+  "authority": {
+    "portableSemantics": "markover-review version 1 schema and decoder",
+    "commandSyntax": "commands[].usage",
+    "exampleNormative": false
+  },
+  "identityRoutes": [
+    {
+      "name": "explicit-runtime",
+      "useWhen": "The applicable requesting-thread or provider-session ID is truthfully observable.",
+      "flag": "--thread-id"
+    },
+    {
+      "name": "handoff-key",
+      "useWhen": "The applicable runtime ID is unavailable.",
+      "flag": "--handoff-key",
+      "value": "A fresh mko_handoff_ value with 16 to 64 random letters or digits."
+    }
+  ],
+  "fields": [
+    {
+      "flag": "--thread-id",
+      "portablePath": "review.agentThread.id",
+      "required": "Exactly one identity route is required for an agent-originated open or get-for-review.",
+      "value": "The best truthfully observed requesting-thread or provider-session ID."
+    },
+    {
+      "flag": "--handoff-key",
+      "portablePath": "review.agentThread.id after exact local discovery",
+      "required": "Use instead of --thread-id when the applicable runtime ID is unavailable.",
+      "value": "Discovery input only; the handoff key itself is not portable metadata."
+    },
+    {
+      "flag": "--thread-host-kind",
+      "portablePath": "review.agentThread.threadHost.kind",
+      "required": true,
+      "value": "Nonblank open string naming the user-facing product or lookup namespace."
+    },
+    {
+      "flag": "--thread-host-provider",
+      "portablePath": "review.agentThread.threadHost.provider",
+      "required": true,
+      "value": "Nonblank open string naming the LLM provider or model family, not an intermediate harness."
+    },
+    {
+      "flag": "--thread-host-thread-id",
+      "portablePath": "review.agentThread.threadHost.threadId",
+      "required": false,
+      "value": "A distinct, truthfully observed host-owned ID; omit when unavailable."
+    },
+    {
+      "flag": "--thread-host-machine",
+      "portablePath": "review.agentThread.threadHost.machine",
+      "required": false,
+      "value": "The observed local hostname; omit when unavailable."
+    }
+  ],
+  "unknownValues": "Preserve truthful nonblank kind and provider strings. Examples are not an enum.",
+  "example": {
+    "exampleVersion": 1,
+    "normative": false,
+    "values": "illustrative",
+    "arguments": "--thread-id provider-session-example --thread-host-kind workbench-example --thread-host-provider model-family-example --thread-host-thread-id host-thread-example --thread-host-machine host.example",
+    "portableAgentThread": {
+      "id": "provider-session-example",
+      "threadHost": {
+        "kind": "workbench-example",
+        "provider": "model-family-example",
+        "threadId": "host-thread-example",
+        "machine": "host.example"
+      }
+    }
+  }
+}

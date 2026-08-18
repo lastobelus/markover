@@ -37,3 +37,11 @@ gate retains the current simpler help.
 This is a one-time comparison, not a recurring conformance program. The runner
 remains reproducible evidence, but rerunning it requires separately authorized
 work.
+
+## Recorded outcome
+
+The authorized run passed the candidate gate. See
+[`decision.md`](decision.md) for the decision and focused implementation plan,
+and
+[`results/20260818T050906142Z__ded16636__e01830eb`](results/20260818T050906142Z__ded16636__e01830eb/README.md)
+for retained evidence.
