@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "classification": {
     "status": "observational-evidence",
     "authorityIssue": 134
@@ -14,10 +14,12 @@
         "provider": "codex"
       },
       "identityExpectation": "required",
+      "requiredIdentityRoutes": ["explicit-runtime", "handoff-key"],
       "availability": "available",
       "exercise": "exercises/t3code-codex.md",
       "evidence": [
-        "2026-08-12__t3code-codex__63d3f9fc"
+        "2026-08-17__t3code-codex-explicit__21de0d21",
+        "2026-08-17__t3code-codex-handoff__292de280"
       ]
     },
     {
@@ -29,10 +31,12 @@
         "provider": "claude"
       },
       "identityExpectation": "required",
+      "requiredIdentityRoutes": ["explicit-runtime", "handoff-key"],
       "availability": "available",
       "exercise": "exercises/t3code-claude.md",
       "evidence": [
-        "2026-08-12__t3code-claude__2e5faa61"
+        "2026-08-17__t3code-claude-explicit__cd3082d4",
+        "2026-08-17__t3code-claude-handoff__27c5f782"
       ]
     },
     {
@@ -44,10 +48,70 @@
         "provider": "claude"
       },
       "identityExpectation": "required",
+      "requiredIdentityRoutes": ["explicit-runtime", "handoff-key"],
       "availability": "available",
       "exercise": "exercises/claude-code-claude.md",
       "evidence": [
-        "2026-08-12__claude-code-claude__4e2259ed"
+        "2026-08-17__claude-code-claude-explicit__dc4b7958",
+        "2026-08-17__claude-code-claude-handoff__ed7a0560"
+      ]
+    },
+    {
+      "id": "codex-cli-codex",
+      "hostProduct": "Codex CLI",
+      "providerProduct": "Codex",
+      "threadHost": {
+        "kind": "codex-cli",
+        "provider": "codex"
+      },
+      "identityExpectation": "required",
+      "requiredIdentityRoutes": [
+        "explicit-runtime",
+        "handoff-key"
+      ],
+      "availability": "available",
+      "exercise": "exercises/codex-cli-codex.md",
+      "evidence": [
+        "2026-08-17__codex-cli-codex-explicit__ec356d91",
+        "2026-08-17__codex-cli-codex-handoff__5675dc91"
+      ]
+    },
+    {
+      "id": "chatgpt-codex",
+      "hostProduct": "ChatGPT, Codex view",
+      "providerProduct": "Codex",
+      "threadHost": {
+        "kind": "chatgpt",
+        "provider": "codex"
+      },
+      "identityExpectation": "required",
+      "requiredIdentityRoutes": [
+        "handoff-key"
+      ],
+      "availability": "available",
+      "exercise": "exercises/chatgpt-codex.md",
+      "evidence": [
+        "2026-08-17__chatgpt-codex-handoff__515f8c1a"
+      ]
+    },
+    {
+      "id": "claude-desktop-claude",
+      "hostProduct": "Claude desktop",
+      "providerProduct": "Claude",
+      "threadHost": {
+        "kind": "claude",
+        "provider": "claude"
+      },
+      "identityExpectation": "required",
+      "requiredIdentityRoutes": [
+        "explicit-runtime",
+        "handoff-key"
+      ],
+      "availability": "available",
+      "exercise": "exercises/claude-desktop-claude.md",
+      "evidence": [
+        "2026-08-18__claude-desktop-claude-explicit__9abc08b7",
+        "2026-08-18__claude-desktop-claude-handoff__527fe8b2"
       ]
     }
   ]

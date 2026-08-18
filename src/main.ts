@@ -72,8 +72,9 @@ import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
 import {
-  discoverVerifiedReviewProjectContext,
-  restoreReviewProjectContexts
+  discoverReviewProjectContext,
+  restoreReviewProjectContexts,
+  type ReviewProjectContext
 } from './review-project-context'
 import { nativeContextMenuPoint } from './review-context-menu'
 import { copyCanonicalReviewLink } from './review-link-copy'
@@ -256,7 +257,7 @@ const pendingSnapshots = new Map<string, PendingSnapshot>()
 const pendingStatuses = new Map<string, PendingStatus>()
 const pendingActivations = new Map<string, PendingActivation>()
 const pendingManagedReviewNotifications = new Map<string, MarkoverDocument>()
-const reviewProjectContexts = new Map<string, Promise<ProjectIdentity | null>>()
+const reviewProjectContexts = new Map<string, Promise<ReviewProjectContext>>()
 const projectFavicons = new Map<string, Promise<string | null>>()
 const managedAttachmentMutations = new AsyncMutationTracker()
 const managedLocalReviewCreations = new AsyncMutationTracker()
@@ -1044,7 +1045,10 @@ async function createManagedLocalReview(
   const artifact = await persistLocalReview(candidate, tree, reviewStore, {
     interpretationPolicy: settingsStore.settings.agentInterpretationPolicy
   })
-  return managedDocument(artifact, await projectContextForReview(artifact))
+  return managedDocument(
+    artifact,
+    await projectContextForReview(artifact, true)
+  )
 }
 
 function createWindow(
@@ -1221,7 +1225,7 @@ function currentWindowFocusState(): MarkoverWindowFocusState {
 
 function managedDocument(
   artifact: ReviewArtifact,
-  project: ProjectIdentity | null = null
+  context: ReviewProjectContext
 ): MarkoverDocument {
   internalAttachments.replaceReview(artifact.review.id, artifact)
   return {
@@ -1230,27 +1234,31 @@ function managedDocument(
     path: artifact.sourceDocument.path,
     source: artifact.sourceDocument.content,
     checksum: artifact.sourceDocument.checksum,
-    project,
+    project: context.project,
+    projectEvidence: context.projectEvidence,
+    sourceState: context.sourceState,
     tree: artifact
   }
 }
 
 function projectContextForReview(
-  artifact: ReviewArtifact
-): Promise<ProjectIdentity | null> {
+  artifact: ReviewArtifact,
+  refresh = false
+): Promise<ReviewProjectContext> {
   const reviewId = artifact.review.id
+  if (refresh) reviewProjectContexts.delete(reviewId)
   if (!reviewProjectContexts.has(reviewId)) {
     reviewProjectContexts.set(
       reviewId,
-      discoverVerifiedReviewProjectContext(artifact)
+      discoverReviewProjectContext(artifact)
     )
   }
-  return reviewProjectContexts.get(reviewId) as Promise<ProjectIdentity | null>
+  return reviewProjectContexts.get(reviewId) as Promise<ReviewProjectContext>
 }
 
 async function projectFavicon(reviewId: string): Promise<string | null> {
   const artifact = await requireReviewStore().load(reviewId)
-  const root = (await projectContextForReview(artifact))?.root || null
+  const root = (await projectContextForReview(artifact)).project?.root || null
   if (!root) return null
   const resolvedRoot = path.resolve(root)
   if (!projectFavicons.has(resolvedRoot)) {
@@ -1282,11 +1290,13 @@ async function managedDocuments(
 ): Promise<MarkoverDocument[]> {
   const projects = await restoreReviewProjectContexts(
     artifacts,
-    projectContextForReview
+    (artifact) => projectContextForReview(artifact, true)
   )
-  return artifacts.map((artifact, index) => (
-    managedDocument(artifact, projects[index] ?? null)
-  ))
+  return artifacts.map((artifact, index) => {
+    const context = projects[index]
+    if (!context) throw new Error(`Missing project context for ${artifact.review.id}.`)
+    return managedDocument(artifact, context)
+  })
 }
 
 function flushPendingManagedReviewNotifications(): void {
@@ -1316,11 +1326,11 @@ function flushPendingManagedReviewNotifications(): void {
 }
 
 function sendManagedReview(artifact: ReviewArtifact): void {
-  void projectContextForReview(artifact).then(async (project) => {
+  void projectContextForReview(artifact, true).then(async (context) => {
     const latestArtifact = await requireReviewStore().load(artifact.review.id)
     pendingManagedReviewNotifications.set(
       artifact.review.id,
-      managedDocument(latestArtifact, project)
+      managedDocument(latestArtifact, context)
     )
     installApplicationMenu()
     if (!mainWindow) createWindow({ show: false })
@@ -1341,7 +1351,10 @@ async function sendManagedUpdate(artifact: ReviewArtifact): Promise<void> {
   sendMainEvent(
     mainWindow.webContents,
     'review:updated',
-    managedDocument(artifact, await projectContextForReview(artifact))
+    managedDocument(
+      artifact,
+      await projectContextForReview(artifact, true)
+    )
   )
 }
 
@@ -1476,7 +1489,10 @@ async function activateManagedReview(
   const outcome = await requestRendererActivation(
     reviewId,
     artifact
-      ? managedDocument(artifact, await projectContextForReview(artifact))
+      ? managedDocument(
+          artifact,
+          await projectContextForReview(artifact, true)
+        )
       : null,
     focusState
   )
@@ -2145,7 +2161,7 @@ if (!hasSingleInstanceLock) {
     privilegedIpc.handle('review:initial-document', async () => (
       activeManagedReview && managedDocument(
         activeManagedReview,
-        await projectContextForReview(activeManagedReview)
+        await projectContextForReview(activeManagedReview, true)
       )
     ))
     privilegedIpc.handle('review:list', async () => {
@@ -2248,7 +2264,8 @@ if (!hasSingleInstanceLock) {
     ) => {
       const managedStore = requireReviewStore()
       activeManagedReviewId = reviewId
-      managedStore.load(reviewId).then((artifact) => {
+      managedStore.load(reviewId).then(async (artifact) => {
+        await sendManagedUpdate(artifact)
         if (activeManagedReviewId === reviewId) {
           activeManagedReview = artifact
           installApplicationMenu()

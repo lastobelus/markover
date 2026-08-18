@@ -97,12 +97,51 @@ test('review activation uses one active review and exposes exact IDs', () => {
     renderer,
     /restoreReviewContextCopyFocus[\s\S]*reviewIdCopy = addReviewContextCopyField\('Review ID', review\.id\)[\s\S]*if \(restoreReviewContextCopyFocus\) reviewIdCopy\.focus\(\)/
   )
-  assert.match(renderer, /icon: 'hash',[\s\S]*text: row\.reviewId/)
+  assert.match(renderer, /label: 'Review ID',[\s\S]*text: row\.reviewId[\s\S]*markoverIcon\('hash'\)/)
   assert.match(renderer, /reviewIdDescription\.textContent = `Review ID \$\{row\.reviewId\}`[\s\S]*button\.setAttribute\('aria-describedby', reviewIdDescription\.id\)/)
   assert.match(html, /id="document-review-id"[\s\S]*aria-label="Copy review ID"/)
   assert.doesNotMatch(html, /id="document-tabs"|document-tab-close/)
   assert.doesNotMatch(renderer, /openReviewIds|closeDocumentTab|createDocumentTab/)
   assert.doesNotMatch(workspace, /openReviewIds/)
+})
+
+test('hover and review information share complete metadata and error presentation', () => {
+  const renderer = read('src/renderer.ts')
+  const inbox = read('src/review-inbox.ts')
+  const html = read('src/index.html')
+  const styles = read('src/styles.css')
+
+  for (const label of [
+    'Project',
+    'Source path',
+    'Source state',
+    'Repository',
+    'Branch',
+    'Commit',
+    'Pull request',
+    'Pull request status',
+    'Requesting thread',
+    'Requesting thread title',
+    'Thread host',
+    'Provider',
+    'Distinct host thread',
+    'Machine',
+    'Review status',
+    'Created',
+    'Updated',
+    'Attention requested'
+  ]) assert.match(inbox, new RegExp(`'${label}'`))
+
+  assert.match(renderer, /reviewHoverModel[\s\S]*reviewMetadataInventory\(row\)/)
+  assert.match(renderer, /renderReviewContext[\s\S]*reviewMetadataInventory\(row\)/)
+  assert.match(renderer, /inventory\.fields[\s\S]*reviewMetadataVisual/)
+  assert.match(renderer, /review-hover-issues[\s\S]*inventory\.issues/)
+  assert.match(renderer, /reviewContextIssues\.textContent = inventory\.issues\.join/)
+  assert.match(renderer, /createMetadataStateMarker\(row\)/)
+  assert.match(html, /id="document-source-state"/)
+  assert.match(html, /id="review-context-issues"[\s\S]*role="status"/)
+  assert.match(styles, /\.review-hover-entry\.is-error,[\s\S]*var\(--source-error\)/)
+  assert.match(styles, /\.review-context-fields dd\.is-error,[\s\S]*var\(--source-error\)/)
 })
 
 test('thread-title integrations expose source-specific settings and event refreshes', () => {
@@ -118,8 +157,13 @@ test('thread-title integrations expose source-specific settings and event refres
   assert.match(html, /name="codexExecutablePath"[\s\S]*\/opt\/homebrew\/bin\/codex/)
   assert.match(html, /id="codex-thread-title-status"[^>]*role="status"[^>]*aria-live="polite"/)
   assert.match(html, /id="codex-thread-titles-refresh"[\s\S]*Refresh Codex titles now/)
-  assert.match(renderer, /t3ThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshT3ThreadTitles\(\)/)
-  assert.match(renderer, /codexThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshCodexThreadTitles\(\)/)
+  assert.match(renderer, /t3ThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshRequestingThreadTitles\(\)/)
+  assert.match(renderer, /codexThreadTitlesRefresh\.addEventListener\('click',[\s\S]*refreshRequestingThreadTitles\(\)/)
+  assert.match(renderer, /refreshRequestingThreadTitles[\s\S]*bridge\.getReviews\(\)/)
+  assert.match(
+    renderer,
+    /requestingThreadTitleRefresh = requestingThreadTitleRefresh\.then\(\s*refresh,\s*refresh\s*\)/
+  )
   assert.match(renderer, /onWindowFocusChanged\([\s\S]*focusState\.focused\) void refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /function queueIncomingReview[\s\S]*handleIncomingReview\(reviewDocument\)[\s\S]*refreshRequestingThreadTitles\(\)/)
   assert.match(renderer, /onReviewUpdated\([\s\S]*refreshRequestingThreadTitles\(\)/)

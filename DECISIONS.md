@@ -817,11 +817,13 @@ each choice from that baseline without duplicating the live decisions below.
     [authorization smoke tests](test/smoke-auth.test.ts).
 18. **Local session discovery is visible and controllable.** The default-on
     “Discover agent thread from local session logs” setting controls only
-    handoff-key-based Codex session scanning. Explicit thread IDs and Git
-    provenance remain available. The CLI reads the shared per-user setting
-    without adding a service route; a missing file uses the default, while an
-    existing malformed or unreadable file skips scanning. Opt-out is silent and
-    never prevents a review from opening.
+    handoff-key-based Codex or Claude session scanning. Known provider aliases
+    select one concrete bounded reader; unknown providers do not trigger a
+    scan. Explicit thread IDs and Git provenance remain available. The CLI reads
+    the shared per-user setting without adding a service route; a missing file
+    uses the default, while an existing malformed or unreadable file skips
+    scanning. Opt-out is silent and never prevents a review from opening or a
+    reviewer claim from proceeding.
 19. **Public privacy claims distinguish local storage from safe sharing.** The
     public page names stored review content, attachments, local paths, Git and
     agent provenance, storage locations, recoverable in-app managed-review

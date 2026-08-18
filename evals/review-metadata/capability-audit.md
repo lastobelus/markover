@@ -1,0 +1,18 @@
+# Installed metadata capability audit
+
+Recorded 2026-08-17 on the machine used for the #171 implementation. Session
+identifiers are intentionally recorded only as present or absent.
+
+| Surface | Installed build | Runtime identity evidence | Checkpoint consequence |
+| --- | --- | --- | --- |
+| T3 Code Nightly with Codex | T3 Code `0.0.34-nightly.20260817.1113`; Codex CLI `0.147.0` | The active T3/Codex agent process exposes a nonblank `CODEX_THREAD_ID`. | Guidance may name that one variable; checkpoint 5 must exercise both the explicit and forced-key routes. |
+| T3 Code Alpha | T3 Code `0.0.28` | Installed, but not the active host for this audit. | Do not infer an environment contract from installation alone. |
+| T3 Code with Claude | Current live explicit and handoff captures recover the same provider session plus its distinct T3 host thread; T3's installed Claude adapter uses `CLAUDE_CODE_SESSION_ID`. | Both routes are proven for this host/provider integration without recording live identifiers. | Guidance may name that one variable; the checkpoint 5 T3-Claude identity gate passes. |
+| Claude Code CLI | `2.1.234` | Installed; direct-session exposure is not established by this Codex-hosted process. | Checkpoint 5 must launch the CLI exercise and record whether `CLAUDE_CODE_SESSION_ID` is nonblank there. |
+| Claude desktop | Claude.app `1.30096.5` | Live explicit and handoff captures recover the same persisted Claude session; the agent reports a nonblank `CLAUDE_CODE_SESSION_ID`, while the GUI does not expose that ID directly. | Both required routes pass. |
+| ChatGPT with Codex | ChatGPT `26.810.52044` (build `6662`); bundle ID `com.openai.codex` | A live handoff capture recovered the exact ChatGPT Codex thread; `CODEX_THREAD_ID` was not exposed to that agent. [Official OpenAI documentation](https://developers.openai.com/) confirms that ChatGPT and Codex now share one app. | The required handoff route passes; no explicit route is declared for the observed build. |
+
+The audit used product version commands, application bundle metadata, and
+presence-only environment checks. It does not infer desktop capability from a
+CLI installation, copy literal thread IDs, or treat a missing variable in one
+host process as evidence about a different product surface.

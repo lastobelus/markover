@@ -32,6 +32,14 @@ export interface CodexThread {
   forkedFromId?: string | null
 }
 
+export interface ClaudeThread {
+  provider: 'claude'
+  id: string
+  discovery: 'handoff-key'
+  cwd?: string | null
+  logPath?: string
+}
+
 interface SessionLog {
   logPath: string
   modifiedAt: number
@@ -46,6 +54,14 @@ interface CodexDiscoveryOptions {
   expectedPath?: string
 }
 
+interface ClaudeDiscoveryOptions {
+  projectsDirectory?: string
+  maximumLogs?: number
+  tailBytes?: number
+  maximumBytes?: number
+  expectedPath?: string
+}
+
 interface GitDiscoveryOptions {
   runGit?: GitRunner
 }
@@ -53,6 +69,7 @@ interface GitDiscoveryOptions {
 export interface ReviewMetadataOptions {
   git?: GitDiscoveryOptions
   codex?: CodexDiscoveryOptions
+  claude?: ClaudeDiscoveryOptions
 }
 
 export interface ReviewMetadataInput {
@@ -171,6 +188,30 @@ async function sessionLogPaths(directory: string): Promise<string[]> {
   return nested.flat()
 }
 
+async function claudeSessionLogPaths(directory: string): Promise<string[]> {
+  let projects: Dirent[]
+  try {
+    projects = await fs.readdir(directory, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const logs = await Promise.all(projects.map(async (project) => {
+    if (!project.isDirectory() || project.name === 'subagents') return []
+    const projectPath = path.join(directory, project.name)
+    let entries: Dirent[]
+    try {
+      entries = await fs.readdir(projectPath, { withFileTypes: true })
+    } catch {
+      return []
+    }
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+      .map((entry) => path.join(projectPath, entry.name))
+  }))
+  return logs.flat()
+}
+
 export function containsHandoffKey(contents: string, key: string): boolean {
   let index = contents.indexOf(key)
   while (index !== -1) {
@@ -253,18 +294,34 @@ export function sessionMetadata(
   return null
 }
 
-export async function discoverCodexThread(
-  handoffKey: string | null | undefined,
-  options: CodexDiscoveryOptions = {}
-): Promise<CodexThread | null> {
-  const key = handoffKey?.trim()
-  if (!key || !HANDOFF_KEY_PATTERN.test(key)) return null
-  const directory = options.sessionsDirectory || path.join(
-    os.homedir(),
-    '.codex',
-    'sessions'
-  )
-  const paths = await sessionLogPaths(directory)
+function claudeSessionMetadata(
+  contents: string
+): { id: string; cwd: string | null } | null {
+  const sessionIds = new Set<string>()
+  let cwd: string | null = null
+  for (const line of contents.split('\n')) {
+    if (!line.trim()) continue
+    let record: unknown
+    try {
+      record = JSON.parse(line)
+    } catch {
+      // A bounded tail can begin in the middle of a record.
+      continue
+    }
+    if (!isRecord(record)) continue
+    if (typeof record.sessionId === 'string' && record.sessionId.trim()) {
+      sessionIds.add(record.sessionId.trim())
+    }
+    if (cwd === null && typeof record.cwd === 'string' && record.cwd.trim()) {
+      cwd = record.cwd
+    }
+  }
+  if (sessionIds.size !== 1) return null
+  const [id] = sessionIds
+  return id ? { id, cwd } : null
+}
+
+async function recentSessionLogs(paths: string[]): Promise<SessionLog[]> {
   const logs = (await Promise.all(paths.map(async (logPath) => {
     try {
       const stats = await fs.stat(logPath)
@@ -278,6 +335,41 @@ export async function discoverCodexThread(
     }
   }))).filter((log): log is SessionLog => log !== null)
   logs.sort((left, right) => right.modifiedAt - left.modifiedAt)
+  return logs
+}
+
+function oneWorkspaceCandidate<T extends { cwd?: string | null }>(
+  matches: T[],
+  expectedPath: string | undefined
+): T | null {
+  const resolvedExpectedPath = expectedPath ? path.resolve(expectedPath) : null
+  const matchingWorkspace = resolvedExpectedPath
+    ? matches.filter((match) => {
+        if (!match.cwd) return false
+        const relative = path.relative(path.resolve(match.cwd), resolvedExpectedPath)
+        return relative === '' || (
+          !relative.startsWith('..') &&
+          !path.isAbsolute(relative)
+        )
+      })
+    : []
+  const candidates = matchingWorkspace.length ? matchingWorkspace : matches
+  return candidates.length === 1 ? candidates[0] ?? null : null
+}
+
+export async function discoverCodexThread(
+  handoffKey: string | null | undefined,
+  options: CodexDiscoveryOptions = {}
+): Promise<CodexThread | null> {
+  const key = handoffKey?.trim()
+  if (!key || !HANDOFF_KEY_PATTERN.test(key)) return null
+  const directory = options.sessionsDirectory || path.join(
+    os.homedir(),
+    '.codex',
+    'sessions'
+  )
+  const paths = await sessionLogPaths(directory)
+  const logs = await recentSessionLogs(paths)
 
   const maximumLogs = options.maximumLogs ?? 50
   const tailBytes = options.tailBytes ?? 512 * 1024
@@ -320,21 +412,64 @@ export async function discoverCodexThread(
     })
   }
 
-  const expectedPath = options.expectedPath
-    ? path.resolve(options.expectedPath)
-    : null
-  const matchingWorkspace = expectedPath
-    ? matches.filter((match) => {
-        if (!match.cwd) return false
-        const relative = path.relative(path.resolve(match.cwd), expectedPath)
-        return relative === '' || (
-          !relative.startsWith('..') &&
-          !path.isAbsolute(relative)
-        )
-      })
-    : []
-  const candidates = matchingWorkspace.length ? matchingWorkspace : matches
-  return candidates.length === 1 ? candidates[0] ?? null : null
+  return oneWorkspaceCandidate(matches, options.expectedPath)
+}
+
+export async function discoverClaudeThread(
+  handoffKey: string | null | undefined,
+  options: ClaudeDiscoveryOptions = {}
+): Promise<ClaudeThread | null> {
+  const key = handoffKey?.trim()
+  if (!key || !HANDOFF_KEY_PATTERN.test(key)) return null
+  const directory = options.projectsDirectory || path.join(
+    os.homedir(),
+    '.claude',
+    'projects'
+  )
+  const logs = await recentSessionLogs(await claudeSessionLogPaths(directory))
+  const maximumLogs = options.maximumLogs ?? 50
+  const tailBytes = options.tailBytes ?? 512 * 1024
+  let remainingBytes = options.maximumBytes ?? 16 * 1024 * 1024
+  const matches: ClaudeThread[] = []
+  for (const log of logs.slice(0, maximumLogs)) {
+    const bytesToRead = Math.min(log.size, tailBytes, remainingBytes)
+    if (bytesToRead <= 0) break
+    remainingBytes -= bytesToRead
+    let contents: string
+    try {
+      contents = await readTail(log.logPath, log.size, bytesToRead)
+    } catch {
+      continue
+    }
+    if (!containsHandoffKey(contents, key)) continue
+    const metadata = claudeSessionMetadata(contents)
+    if (!metadata) continue
+    matches.push({
+      provider: 'claude',
+      id: metadata.id,
+      discovery: 'handoff-key',
+      cwd: metadata.cwd,
+      logPath: log.logPath
+    })
+  }
+  return oneWorkspaceCandidate(matches, options.expectedPath)
+}
+
+function localSessionProvider(
+  provider: string | null | undefined
+): 'codex' | 'claude' | null {
+  const normalized = provider?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+  switch (normalized) {
+    case 'codex':
+    case 'openai':
+      return 'codex'
+    case 'claude':
+    case 'anthropic':
+    case 'claudeagent':
+      return 'claude'
+    default:
+      return null
+  }
 }
 
 export async function discoverReviewMetadata({
@@ -360,13 +495,18 @@ export async function discoverReviewMetadata({
 
   let providerThreadId = threadId
   if (!providerThreadId && handoffKey) {
-    const discoveredThread = await discoverCodexThread(
-      handoffKey,
-      {
-        ...options.codex,
-        expectedPath: sourcePath
-      }
-    ).catch(() => null)
+    const provider = localSessionProvider(threadHostProvider)
+    const discoveredThread = provider === 'codex'
+      ? await discoverCodexThread(handoffKey, {
+          ...options.codex,
+          expectedPath: sourcePath
+        }).catch(() => null)
+      : provider === 'claude'
+        ? await discoverClaudeThread(handoffKey, {
+            ...options.claude,
+            expectedPath: sourcePath
+          }).catch(() => null)
+        : null
     providerThreadId = discoveredThread?.id || null
   }
   const agentThread: ReviewAgentThread | null =

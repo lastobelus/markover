@@ -182,7 +182,7 @@ export function helpPayload() {
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
       'Before interpreting a returned review, require format markover-review and version 1. For any other header, preserve the artifact, consult the official compatibility catalog named by the diagnostic, recommend the compatible Markover release when listed, and never guess at the body.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
-      'For agent-originated reviews, provide truthful thread metadata when observable: --thread-id is the best observable requesting-thread or session ID; --thread-host-kind is the user-facing product or lookup namespace where the user would look for the thread; --thread-host-provider is the LLM provider or model family in use, not an intermediate harness; --thread-host-thread-id is only a distinct host-owned ID; and --thread-host-machine should use the local hostname result when available. Use recommended product values when they match observable facts, preserve truthful unknown values, and omit unavailable values rather than guessing.',
+      'For every agent-originated open or get-for-review, use one truthful identity route. On a proven Codex surface, read only CODEX_THREAD_ID; on a proven Claude surface, read only CLAUDE_CODE_SESSION_ID. If that applicable value is nonblank, pass it as --thread-id. Otherwise create one fresh mko_handoff_ value with 16–64 random letters or digits and pass it as --handoff-key in the same command. With either route, pass --thread-host-kind for the user-facing product or lookup namespace, --thread-host-provider for the LLM provider or model family, not an intermediate harness, and the local hostname result as --thread-host-machine when available. Pass --thread-host-thread-id only for a distinct host-owned ID you actually observe; never guess a T3 thread ID.',
       'After acting on every part of the review, run revise once so Markover records the completed handoff.',
       'For a pull-request-associated review, attempt the pullRequestStatus lookup immediately before open, get, get-for-review, revise, and done. On open, pass its canonical url with --pr-url and its mapped status with --pr-status; on get, get-for-review, or revise, pass --pr-status. After a failed lookup, omit --pr-status and report the failure. On open, retain --pr and a known canonical --pr-url; when no canonical identity is known, omit the PR association. On get, get-for-review, or revise, preserving the review ID also preserves the last successful observation.',
       'After verifying a pull request merged, run done with its canonical URL and --pr-status merged; Markover marks every matching local review Done.',
@@ -1575,40 +1575,42 @@ export async function executeCommand(
           'markover get-for-review <review-id>'
         )
       }
-      const sourcePath = current.sourceDocument.path
-      if (!sourcePath) {
-        throw commandError(
-          'Handoff-key discovery requires a verified live source path; use explicit --thread-id metadata or omit reviewer identity.',
-          'markover get-for-review <review-id> [--thread-id <provider-id>]'
-        )
-      }
-      let source: string
-      try {
-        source = await fs.readFile(sourcePath, 'utf8')
-      } catch {
-        throw commandError(
-          'Handoff-key discovery requires the stored source path to exist and match the review snapshot.',
-          'markover get-for-review <review-id> [--thread-id <provider-id>]'
-        )
-      }
-      if (checksum(source) !== current.sourceDocument.checksum) {
-        throw commandError(
-          'Handoff-key discovery requires the stored source path to match the review snapshot.',
-          'markover get-for-review <review-id> [--thread-id <provider-id>]'
-        )
-      }
       const discoveryEnabled = await readDiscoverySetting(settingsPath)
-      agentThread = discoveryEnabled
-        ? (await discoverMetadata({
-            sourcePath,
-            threadId: null,
-            threadHostKind: parsed.threadHostKind ?? null,
-            threadHostProvider: parsed.threadHostProvider ?? null,
-            threadHostThreadId: parsed.threadHostThreadId ?? null,
-            threadHostMachine: parsed.threadHostMachine ?? null,
-            handoffKey: parsed.handoffKey
-          })).agentThread
-        : null
+      if (!discoveryEnabled) {
+        agentThread = null
+      } else {
+        const sourcePath = current.sourceDocument.path
+        if (!sourcePath) {
+          throw commandError(
+            'Handoff-key discovery requires a verified live source path; use explicit --thread-id metadata or omit reviewer identity.',
+            'markover get-for-review <review-id> [--thread-id <provider-id>]'
+          )
+        }
+        let source: string
+        try {
+          source = await fs.readFile(sourcePath, 'utf8')
+        } catch {
+          throw commandError(
+            'Handoff-key discovery requires the stored source path to exist and match the review snapshot.',
+            'markover get-for-review <review-id> [--thread-id <provider-id>]'
+          )
+        }
+        if (checksum(source) !== current.sourceDocument.checksum) {
+          throw commandError(
+            'Handoff-key discovery requires the stored source path to match the review snapshot.',
+            'markover get-for-review <review-id> [--thread-id <provider-id>]'
+          )
+        }
+        agentThread = (await discoverMetadata({
+          sourcePath,
+          threadId: null,
+          threadHostKind: parsed.threadHostKind ?? null,
+          threadHostProvider: parsed.threadHostProvider ?? null,
+          threadHostThreadId: parsed.threadHostThreadId ?? null,
+          threadHostMachine: parsed.threadHostMachine ?? null,
+          handoffKey: parsed.handoffKey
+        })).agentThread
+      }
     } else if (current.review.status === 'editing') {
       agentThread = null
     }

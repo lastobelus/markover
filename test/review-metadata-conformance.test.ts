@@ -35,9 +35,10 @@ function observation(
   overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     evidenceId: '2026-08-12__t3code-codex__1234abcd',
     matrixEntryId: 't3code-codex',
+    identityRoute: 'explicit-runtime',
     exercisedAt: '2026-08-12T12:34:56.789Z',
     runtime: {
       hostVersion: null,
@@ -73,13 +74,48 @@ function agentThread(value: Record<string, unknown>): void {
   }
 }
 
-test('initial live matrix contains only the three exercised combinations', () => {
+test('live matrix names every required CLI, desktop, and T3 combination', () => {
   const matrix = parseMetadataMatrix(json('evals/review-metadata/matrix.json'))
   assert.deepEqual(matrix.entries.map(({ id }) => id), [
     't3code-codex',
     't3code-claude',
-    'claude-code-claude'
+    'claude-code-claude',
+    'codex-cli-codex',
+    'chatgpt-codex',
+    'claude-desktop-claude'
   ])
+  assert.deepEqual(
+    matrix.entries.map(({ id, requiredIdentityRoutes }) => ({
+      id,
+      requiredIdentityRoutes
+    })),
+    [
+      {
+        id: 't3code-codex',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 't3code-claude',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 'claude-code-claude',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 'codex-cli-codex',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      },
+      {
+        id: 'chatgpt-codex',
+        requiredIdentityRoutes: ['handoff-key']
+      },
+      {
+        id: 'claude-desktop-claude',
+        requiredIdentityRoutes: ['explicit-runtime', 'handoff-key']
+      }
+    ]
+  )
   assert.deepEqual(matrix.classification, {
     authorityIssue: 134,
     status: 'observational-evidence'
@@ -102,10 +138,24 @@ test('matrix exercise paths name maintained Markdown exercise files', () => {
   }
 })
 
-test('corpus validation requires and finds evidence for every initial row', () => {
+test('matrix rows require a nonempty identity-route checklist', () => {
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.requiredIdentityRoutes = []
+  assert.throws(
+    () => parseMetadataMatrix(matrix),
+    /requiredIdentityRoutes must not be empty/
+  )
+})
+
+test('corpus validation tracks both identity routes for every initial row', () => {
   const expected = {
-    evidenceCount: 3,
-    matrixEntryCount: 3
+    evidenceCount: 11,
+    matrixEntryCount: 6
   }
   assert.deepEqual(validateMetadataCorpus(root), expected)
   assert.deepEqual(validateMetadataCorpus(root, true), expected)
@@ -132,6 +182,7 @@ test('capture validates a live review and writes fixture placeholders', () => {
     identity: 'identified',
     threadHostId: 'distinct'
   })
+  assert.equal(evidence.identityRoute, 'explicit-runtime')
   assert.equal(Object.values(evidence.checks).every(Boolean), true)
   const source = JSON.stringify(evidence)
   for (const liveValue of [
@@ -147,6 +198,48 @@ test('capture validates a live review and writes fixture placeholders', () => {
       json('evals/review-metadata/matrix.json')
     ),
     evidence
+  )
+})
+
+test('capture distinguishes explicit runtime and handoff-key evidence', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const discovery = observation().discovery as Record<string, unknown>
+  discovery.providerThreadId = {
+    status: 'observed',
+    source: 'local-session-handoff'
+  }
+  const evidence = buildEvidenceFixture(
+    artifact,
+    observation({ identityRoute: 'handoff-key', discovery }),
+    json('evals/review-metadata/matrix.json')
+  )
+  assert.equal(evidence.identityRoute, 'handoff-key')
+
+  assert.throws(
+    () => buildEvidenceFixture(
+      artifact,
+      observation({ identityRoute: 'explicit-runtime', discovery }),
+      json('evals/review-metadata/matrix.json')
+    ),
+    /identityRoute explicit-runtime contradicts providerThreadId source local-session-handoff/
+  )
+})
+
+test('capture rejects evidence for a route its matrix row does not declare', () => {
+  const artifact = fixture()
+  agentThread(artifact)
+  const matrix = structuredClone(
+    json('evals/review-metadata/matrix.json')
+  ) as Record<string, unknown>
+  const entries = matrix.entries as Array<Record<string, unknown>>
+  const entry = entries[0]
+  assert.ok(entry)
+  entry.requiredIdentityRoutes = ['handoff-key']
+
+  assert.throws(
+    () => buildEvidenceFixture(artifact, observation(), matrix),
+    /t3code-codex does not declare the explicit-runtime identity route/
   )
 })
 
@@ -529,7 +622,7 @@ test('null fallback rejects an observed host thread identity', () => {
   )
 })
 
-test('documentation defines reruns, fixture placeholders, and schema-defect routing', () => {
+test('documentation defines private capture, reruns, and schema-defect routing', () => {
   const readme = fs.readFileSync(
     path.join(root, 'evals/review-metadata/README.md'),
     'utf8'
@@ -538,7 +631,9 @@ test('documentation defines reruns, fixture placeholders, and schema-defect rout
     path.join(root, 'evals/review-metadata/rubric.md'),
     'utf8'
   )
-  assert.match(readme, /placeholders for the particular thread IDs and machine name/)
+  assert.match(readme, /writes a mode-0600 bundle/)
+  assert.match(readme, /never enumerates the environment or edits tracked evidence/)
+  assert.match(readme, /represented by obvious\nplaceholders/)
   assert.match(readme, /Rerun an affected row when Markover's metadata guidance/)
   assert.match(rubric, /contract defect descended from issue #99/)
   assert.match(rubric, /rather than by\nweakening this rubric/)

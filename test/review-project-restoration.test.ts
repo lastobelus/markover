@@ -18,16 +18,20 @@ test('review restoration bounds project discovery and preserves order', async ()
       await new Promise<void>((resolve) => setImmediate(resolve))
       active -= 1
       return {
-        key: artifact.review.id,
-        name: artifact.review.id,
-        root: null
+        project: {
+          key: artifact.review.id,
+          name: artifact.review.id,
+          root: null
+        },
+        projectEvidence: 'verified',
+        sourceState: 'unchanged'
       }
     }
   )
 
   assert.equal(maximumActive, 4)
   assert.deepEqual(
-    contexts.map((context) => context?.key),
+    contexts.map((context) => context.project?.key),
     artifacts.map((artifact) => artifact.review.id)
   )
 })

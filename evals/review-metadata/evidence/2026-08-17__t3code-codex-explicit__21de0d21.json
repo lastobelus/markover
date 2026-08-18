@@ -30,32 +30,33 @@
       "status": "observed"
     }
   },
-  "evidenceId": "2026-08-12__t3code-claude__2e5faa61",
-  "exercisedAt": "2026-08-12T19:35:49.000Z",
+  "evidenceId": "2026-08-17__t3code-codex-explicit__21de0d21",
+  "exercisedAt": "2026-08-17T21:53:47.000Z",
+  "identityRoute": "explicit-runtime",
   "limitations": [
     "T3 Code did not expose a distinct host-owned thread identifier.",
-    "T3 Code did not expose a product version through the agent environment or CLI."
+    "The active Codex provider runtime version was not exposed."
   ],
-  "matrixEntryId": "t3code-claude",
+  "matrixEntryId": "t3code-codex",
   "relationships": {
     "identity": "identified",
     "threadHostId": "omitted"
   },
   "runtime": {
-    "hostVersion": null,
-    "hostVersionSource": "not-exposed",
-    "providerModel": "claude-sonnet-5",
+    "hostVersion": "0.0.34-nightly.20260817.1113",
+    "hostVersionSource": "runtime-context",
+    "providerModel": "gpt-5.6-sol",
     "providerModelSource": "runtime-context",
-    "providerVersion": "Claude Agent SDK 0.3.227",
-    "providerVersionSource": "runtime-context"
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
   },
   "agentThread": {
     "id": "<thread-id>",
     "threadHost": {
       "kind": "t3code",
-      "provider": "claude",
+      "provider": "codex",
       "machine": "<machine>"
     }
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

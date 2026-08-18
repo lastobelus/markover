@@ -22,6 +22,19 @@ interface ReviewProjectContextOptions {
   readSource?: (sourcePath: string) => Promise<string>
 }
 
+export type ReviewProjectEvidence = 'verified' | 'conflict' | 'unavailable'
+export type ReviewSourceState =
+  | 'unchanged'
+  | 'changed'
+  | 'missing'
+  | 'unavailable'
+
+export interface ReviewProjectContext {
+  project: ProjectIdentity | null
+  projectEvidence: ReviewProjectEvidence
+  sourceState: ReviewSourceState
+}
+
 async function gitValue(
   workingDirectory: string,
   args: string[]
@@ -67,14 +80,12 @@ export function normalizeRepositoryRemote(value: string | null): string | null {
   if (!candidate || candidate.startsWith('file:')) return null
 
   let host: string
-  let username = ''
   let port = ''
   let repositoryPath: string
   const scp = candidate.includes('://')
     ? null
     : /^(?:([^@/]+)@)?([^:/]+):(.+)$/.exec(candidate)
   if (scp) {
-    username = scp[1] || ''
     host = scp[2] as string
     repositoryPath = scp[3] as string
   } else {
@@ -86,7 +97,6 @@ export function normalizeRepositoryRemote(value: string | null): string | null {
     }
     if (!remote.hostname) return null
     host = remote.hostname
-    if (remote.protocol === 'ssh:') username = remote.username
     port = remote.port
     repositoryPath = remote.pathname
   }
@@ -98,19 +108,16 @@ export function normalizeRepositoryRemote(value: string | null): string | null {
     .replace(/\.git$/i, '')
   if (!repositoryPath) return null
   if (host === 'github.com') {
-    username = ''
     repositoryPath = repositoryPath.toLowerCase()
   }
-  return `${username ? `${username}@` : ''}${host}${
-    port ? `:${port}` : ''
-  }/${repositoryPath}`
+  return `${host}${port ? `:${port}` : ''}/${repositoryPath}`
 }
 
 export async function restoreReviewProjectContexts(
   artifacts: ReviewArtifact[],
-  discover: (artifact: ReviewArtifact) => Promise<ProjectIdentity | null>
-): Promise<Array<ProjectIdentity | null>> {
-  const contexts: Array<ProjectIdentity | null> = []
+  discover: (artifact: ReviewArtifact) => Promise<ReviewProjectContext>
+): Promise<ReviewProjectContext[]> {
+  const contexts: ReviewProjectContext[] = []
   for (
     let index = 0;
     index < artifacts.length;
@@ -140,48 +147,98 @@ function commonRepositoryName(commonGitDirectory: string): string {
   return candidate || 'Other'
 }
 
-export async function discoverVerifiedReviewProjectContext(
+async function sourceState(
+  artifact: ReviewArtifact,
+  sourcePath: string,
+  readSource: (sourcePath: string) => Promise<string>
+): Promise<ReviewSourceState> {
+  try {
+    const currentSource = await readSource(sourcePath)
+    return reviewChecksum(currentSource) === artifact.sourceDocument.checksum
+      ? 'unchanged'
+      : 'changed'
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error
+      ? error.code
+      : null
+    return code === 'ENOENT' || code === 'ENOTDIR'
+      ? 'missing'
+      : 'unavailable'
+  }
+}
+
+async function projectIdentity(
+  repository: LiveRepositoryProject
+): Promise<ProjectIdentity> {
+  const root = await canonicalPath(repository.root)
+  const remote = normalizeRepositoryRemote(repository.remoteUrl)
+  if (remote) {
+    return {
+      key: `remote:${remote}`,
+      name: repositoryName(remote),
+      root
+    }
+  }
+  if (repository.commonGitDirectory) {
+    const commonGitDirectory = await canonicalPath(
+      repository.commonGitDirectory
+    )
+    return {
+      key: `git:${commonGitDirectory}`,
+      name: commonRepositoryName(commonGitDirectory),
+      root
+    }
+  }
+  return {
+    key: `root:${root}`,
+    name: path.basename(root) || 'Other',
+    root
+  }
+}
+
+export async function discoverReviewProjectContext(
   artifact: ReviewArtifact,
   {
     discoverRepository = discoverLiveRepositoryProject,
     readSource = (sourcePath) => fs.readFile(sourcePath, 'utf8')
   }: ReviewProjectContextOptions = {}
-): Promise<ProjectIdentity | null> {
+): Promise<ReviewProjectContext> {
   const snapshotPath = artifact.sourceDocument.path
-  if (!snapshotPath) return null
-  const sourcePath = path.resolve(snapshotPath)
-  try {
-    const currentSource = await readSource(sourcePath)
-    if (reviewChecksum(currentSource) !== artifact.sourceDocument.checksum) {
-      return null
-    }
-    const repository = await discoverRepository(sourcePath)
-    if (!repository) return null
-    const root = await canonicalPath(repository.root)
-    const remote = normalizeRepositoryRemote(repository.remoteUrl)
-    if (remote) {
-      return {
-        key: `remote:${remote}`,
-        name: repositoryName(remote),
-        root
-      }
-    }
-    if (repository.commonGitDirectory) {
-      const commonGitDirectory = await canonicalPath(
-        repository.commonGitDirectory
-      )
-      return {
-        key: `git:${commonGitDirectory}`,
-        name: commonRepositoryName(commonGitDirectory),
-        root
-      }
-    }
+  if (!snapshotPath) {
     return {
-      key: `root:${root}`,
-      name: path.basename(root) || 'Other',
-      root
+      project: null,
+      projectEvidence: 'unavailable',
+      sourceState: 'unavailable'
     }
-  } catch {
-    return null
+  }
+  const sourcePath = path.resolve(snapshotPath)
+  const [currentSourceState, repository] = await Promise.all([
+    sourceState(artifact, sourcePath, readSource),
+    discoverRepository(sourcePath).catch(() => null)
+  ])
+  if (!repository) {
+    return {
+      project: null,
+      projectEvidence: 'unavailable',
+      sourceState: currentSourceState
+    }
+  }
+
+  const openingRemote = normalizeRepositoryRemote(
+    artifact.review.git?.repositoryUrl || null
+  )
+  const liveRemote = normalizeRepositoryRemote(repository.remoteUrl)
+  if (openingRemote && liveRemote && openingRemote !== liveRemote) {
+    return {
+      project: null,
+      projectEvidence: 'conflict',
+      sourceState: currentSourceState
+    }
+  }
+
+  return {
+    project: await projectIdentity(repository),
+    projectEvidence: 'verified',
+    sourceState: currentSourceState
   }
 }

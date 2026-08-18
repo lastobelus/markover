@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { projectReviewInbox } from '../src/review-inbox'
+import {
+  projectReviewInbox,
+  reviewMetadataInventory
+} from '../src/review-inbox'
 
 const { ReviewSessions } = require('../src/review-sessions') as MarkoverReviewSessionsApi
 const { parseMarkdown } = require('../src/tree') as MarkoverTreeApi
@@ -10,14 +13,18 @@ interface ReviewFixtureOptions {
   agentThread?: ReviewAgentThread | null
   attentionRequestedAt?: string
   branch?: string
+  commit?: string
   contextSummary?: string
   createdAt: string
   origin?: string
   projectRoot: string
+  projectEvidence?: ReviewProjectEvidence
   pullRequestNumber?: number
   pullRequestStatus?: 'draft' | 'open' | 'merged' | 'closed'
   pullRequestStatusObservedAt?: string
   pullRequestStatusSource?: string
+  repositoryUrl?: string
+  sourceState?: ReviewSourceState
   status?: ReviewSessionStatus
 }
 
@@ -27,15 +34,19 @@ function reviewDocument(
   {
     agentThread = null,
     branch,
+    commit,
     contextSummary = 'Review this document.',
     createdAt,
     origin = 'agent',
     attentionRequestedAt = createdAt,
     projectRoot,
+    projectEvidence = 'verified',
     pullRequestNumber,
     pullRequestStatus,
     pullRequestStatusObservedAt,
     pullRequestStatusSource,
+    repositoryUrl,
+    sourceState = 'unchanged',
     status = 'editing'
   }: ReviewFixtureOptions
 ): ReviewSessionDocument {
@@ -50,6 +61,8 @@ function reviewDocument(
       name: projectRoot.split('/').pop() || 'Other',
       root: projectRoot
     },
+    projectEvidence,
+    sourceState,
     checksum: `sha256:${reviewId}`,
     tree: {
       ...parsed,
@@ -62,7 +75,13 @@ function reviewDocument(
         attentionRequestedAt,
         contextSummary,
         agentThread,
-        git: branch ? { branch } : null,
+        git: branch || commit || repositoryUrl
+          ? {
+              ...(branch ? { branch } : {}),
+              ...(commit ? { commit } : {}),
+              ...(repositoryUrl ? { repositoryUrl } : {})
+            }
+          : null,
         pullRequest: pullRequestNumber
           ? {
               number: pullRequestNumber,
@@ -559,4 +578,95 @@ test('restoring an Editing review preserves attention time across later autosave
     refreshed.attentionRequestedAt,
     Date.parse('2026-08-09T12:00:00.000Z')
   )
+})
+
+test('metadata inventory is complete and reports source and repository conflicts', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_metadata1', 'metadata.md', {
+    agentThread: {
+      id: 'codex-session-1',
+      threadHost: {
+        kind: 't3code',
+        provider: 'openai',
+        threadId: 't3-thread-1',
+        machine: 'Airy.local'
+      }
+    },
+    branch: 't3code/metadata',
+    commit: 'abcdef123456',
+    createdAt: '2026-08-09T12:00:00.000Z',
+    projectRoot: '/projects/markover',
+    projectEvidence: 'conflict',
+    pullRequestNumber: 173,
+    pullRequestStatus: 'open',
+    pullRequestStatusObservedAt: '2026-08-09T12:05:00.000Z',
+    pullRequestStatusSource: 'gh',
+    repositoryUrl: 'https://github.com/lastobelus/markover',
+    sourceState: 'changed',
+    status: 'pending-agent'
+  }))
+
+  const row = projectReviewInbox(sessions.list(), {
+    t3ThreadTitleStatus: 'available',
+    t3ThreadTitles: [{ threadId: 't3-thread-1', title: 'Current T3 title' }]
+  }).history[0]
+  assert.ok(row)
+  const inventory = reviewMetadataInventory(row)
+  assert.deepEqual(
+    inventory.fields.map((field) => field.label),
+    [
+      'Project',
+      'Source path',
+      'Source state',
+      'Repository',
+      'Branch',
+      'Commit',
+      'Pull request',
+      'Pull request status',
+      'Requesting thread',
+      'Requesting thread title',
+      'Thread host',
+      'Provider',
+      'Distinct host thread',
+      'Machine',
+      'Review status',
+      'Created',
+      'Updated',
+      'Attention requested'
+    ]
+  )
+  assert.equal(
+    inventory.fields.find((field) => field.label === 'Source state')?.error,
+    true
+  )
+  assert.equal(
+    inventory.fields.find((field) => field.label === 'Review status')?.value,
+    'With agent'
+  )
+  assert.ok(inventory.issues.includes('Source changed since review opened.'))
+  assert.ok(inventory.issues.includes('Source now belongs to a different repository.'))
+})
+
+test('local metadata uses neutral not-applicable agent fields', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_localmeta', 'local.md', {
+    createdAt: '2026-08-09T12:00:00.000Z',
+    origin: 'local',
+    projectRoot: '/projects/notes'
+  }))
+  const row = projectReviewInbox(sessions.list()).editing[0]
+  assert.ok(row)
+  const inventory = reviewMetadataInventory(row)
+  for (const label of [
+    'Requesting thread',
+    'Requesting thread title',
+    'Thread host',
+    'Provider',
+    'Distinct host thread',
+    'Machine'
+  ]) {
+    const field = inventory.fields.find((candidate) => candidate.label === label)
+    assert.equal(field?.value, 'Not applicable')
+    assert.equal(field.error, false)
+  }
 })

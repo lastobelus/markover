@@ -57,7 +57,9 @@
       .replace(/[\\/]+$/, '') || null
     return {
       key: root || 'unassigned',
-      name: repositoryName(git?.repositoryUrl) || basename(root) || 'Other',
+      name: managed
+        ? 'Other'
+        : repositoryName(git?.repositoryUrl) || basename(root) || 'Other',
       root
     }
   }
@@ -175,7 +177,7 @@
       if (!reviewId) throw new Error('A managed review requires a review ID.')
 
       const existing = this.byId.get(reviewId)
-      if (existing) return existing
+      if (existing) return this.updateDocument(document) || existing
 
       const project = projectIdentity(document)
       const reviewedAt = Date.parse(
@@ -208,6 +210,8 @@
         projectKey: project.key,
         projectName: project.name,
         projectRoot: project.root,
+        projectEvidence: document.projectEvidence || 'unavailable',
+        sourceState: document.sourceState || 'unavailable',
         attentionRequestedAt: Number.isFinite(requestedAt) ? requestedAt : 0,
         lifecycleActivityAt,
         lastViewedOrder: ++this.viewSequence,
@@ -279,6 +283,12 @@
       if (!reviewId) return null
       const session = this.get(reviewId)
       if (!session) return null
+      const project = projectIdentity(document)
+      session.projectKey = project.key
+      session.projectName = project.name
+      session.projectRoot = project.root
+      session.projectEvidence = document.projectEvidence || 'unavailable'
+      session.sourceState = document.sourceState || 'unavailable'
       if (
         session.tree.review.status === 'agent-reviewing' &&
         document.tree.review.status === 'reviewed'

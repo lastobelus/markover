@@ -2,20 +2,11 @@
 
 Run this exercise through the installed Claude Code CLI, not through T3 Code.
 
-1. Capture `claude --version`, then start a non-interactive Claude Code session
-   whose agent reads `npm --silent run markover -- help`.
-2. Let that live agent obtain the best observable requesting-thread/session ID
-   from the Claude Code runtime. Record `claude-code` as host kind and `claude`
-   as the LLM provider/model family. The direct host has no separate host-owned
-   thread ID, so omit it.
-3. Let the agent run `hostname`, open the maintained exercise source in canonical
-   Markover, and return the review ID. Retrieve the review beneath ignored
-   `tmp/review-metadata/`. The source is
-   `evals/review-metadata/exercise-source.md`.
-4. Record the Claude Code version and any model identifier emitted by the live
-   session. Use null plus `not-exposed` for unavailable version fields.
-5. Create the capture observation, record the fixture, and inspect its obvious
-   placeholders for the run-specific thread ID and machine name.
+1. From the checkout being evaluated, run `eval:metadata:exercise prepare` for
+   `claude-code-claude`. Add the observed product/model versions when available.
+2. Run the returned `captureCommand` exactly as the next agent tool call.
+3. Give the private bundle paths to the coordinator; leave tracked evidence and
+   `matrix.json` unchanged.
 
-Complete when the recorder accepts the review and the matrix references the new
-evidence fixture ID.
+Complete when both routes produce recorder-valid fixture candidates and the
+coordinator records them from the private bundles.

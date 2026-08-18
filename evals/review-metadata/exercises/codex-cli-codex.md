@@ -1,10 +1,10 @@
-# T3 Code × Codex exercise
+# Codex CLI × Codex exercise
 
-Run this exercise inside the T3 Code Codex thread being evaluated.
+Run this exercise through a persisted Codex CLI session, not through T3 Code or
+ChatGPT.
 
 1. From the checkout being evaluated, run `eval:metadata:exercise prepare` for
-   `t3code-codex`. Pass `--thread-host-thread-id` only when T3 exposes the exact
-   distinct host-owned ID.
+   `codex-cli-codex`. Add the observed product/model versions when available.
 2. Run the returned `captureCommand` exactly as the next agent tool call.
 3. Give the private bundle paths to the coordinator; leave tracked evidence and
    `matrix.json` unchanged.

@@ -211,6 +211,15 @@ function isChecksum(value: unknown): value is string {
   return typeof value === 'string' && CHECKSUM_PATTERN.test(value)
 }
 
+function isProjectEvidence(value: unknown): value is ReviewProjectEvidence {
+  return value === 'verified' || value === 'conflict' || value === 'unavailable'
+}
+
+function isSourceState(value: unknown): value is ReviewSourceState {
+  return value === 'unchanged' || value === 'changed' ||
+    value === 'missing' || value === 'unavailable'
+}
+
 function isReviewAttachment(value: unknown): value is ReviewAttachment {
   if (!isRecord(value) || !isAttachmentId(value.id)) return false
   if (value.type !== undefined && value.type !== 'image') return false
@@ -236,6 +245,8 @@ function isDocument(value: unknown): value is MarkoverDocument {
   if (!hasExactKeys(value, ['name', 'path', 'source', 'checksum'], [
     'reviewId',
     'project',
+    'projectEvidence',
+    'sourceState',
     'tree'
   ])) return false
   if (
@@ -244,6 +255,8 @@ function isDocument(value: unknown): value is MarkoverDocument {
     typeof value.source !== 'string' ||
     !isChecksum(value.checksum) ||
     (value.reviewId !== undefined && !isReviewId(value.reviewId)) ||
+    (value.projectEvidence !== undefined && !isProjectEvidence(value.projectEvidence)) ||
+    (value.sourceState !== undefined && !isSourceState(value.sourceState)) ||
     (value.project !== undefined && value.project !== null && !(
       isRecord(value.project) &&
       hasExactKeys(value.project, ['key', 'name', 'root']) &&
@@ -263,6 +276,10 @@ function isDocument(value: unknown): value is MarkoverDocument {
     )
   ) return false
   if (value.reviewId !== undefined && value.tree === undefined) return false
+  if (value.reviewId !== undefined && (
+    !isProjectEvidence(value.projectEvidence) ||
+    !isSourceState(value.sourceState)
+  )) return false
   const tree = value.tree as ReviewTree | undefined
   if (tree && (
     tree.sourceDocument.content !== value.source ||

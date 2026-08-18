@@ -161,16 +161,19 @@ Markdown artifact:
 3. For plans, use `doc/plans/YYYY-MM-DD__descriptive-name.md`.
 4. Open the saved Markdown file with the durable command
    `npm --silent run markover -- open <path> --summary "<why this review is useful>"`
-   unless the user says not to. Pass an explicit `--thread-id` when available;
-   otherwise include a unique high-entropy
-   `--handoff-key mko_handoff_<16-to-64-alphanumeric-characters>`. With either
-   identity, pass truthful `--thread-host-kind` and
+   unless the user says not to. On a proven Codex surface, read only the
+   nonblank `CODEX_THREAD_ID`; on a proven Claude surface, read only the
+   nonblank `CLAUDE_CODE_SESSION_ID`, and pass the applicable value as
+   `--thread-id`. When that value is unavailable, generate a fresh high-entropy
+   `--handoff-key mko_handoff_<16-to-64-random-alphanumeric-characters>` for
+   this command. Use the same decision for `get-for-review`. With either
+   identity route, pass truthful `--thread-host-kind` and
    `--thread-host-provider`; they name separate dimensions but may have the
    same value. Here provider means the LLM provider or model family, not an
    intermediate harness. Pass `--thread-host-thread-id` only for a distinct
-   host-owned identifier. Run `hostname` when available
-   and pass its output as `--thread-host-machine`. Omit optional values rather
-   than guessing.
+   host-owned identifier you actually observe; never guess a T3 thread ID. Run
+   `hostname` when available and pass its output as `--thread-host-machine`.
+   Omit optional values rather than guessing.
 5. Report a best-effort Markdown link using the returned `reviewUrl`, the raw
    review ID, the standalone Terminal command required above, and the persisted
    review path

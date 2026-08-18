@@ -54,12 +54,14 @@ const PRIVATE_TOP_LEVEL_FIELDS = new Set([
   'forkedFromId',
   'logPath',
   'parentThreadId',
+  'projectEvidence',
   'projectKey',
   'projectRoot',
   'repositoryRelativePath',
   'repositoryRoot',
   'requestingThreadTitle',
   'sources',
+  'sourceState',
   'titleObservations',
   'verifiedChecksum'
 ])

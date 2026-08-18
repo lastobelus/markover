@@ -6,8 +6,8 @@ import {
   isCanonicalReviewTimestamp
 } from '../src/review-format'
 
-const evidenceSchemaVersion = 1
-const matrixSchemaVersion = 1
+const evidenceSchemaVersion = 2
+const matrixSchemaVersion = 2
 const evidenceIdPattern = /^\d{4}-\d{2}-\d{2}__[a-z0-9]+(?:-[a-z0-9]+)*__[a-z0-9]{8}$/
 const exercisePathPattern = /^exercises\/[a-z0-9]+(?:-[a-z0-9]+)*\.md$/
 const fixtureThreadId = '<thread-id>'
@@ -18,11 +18,13 @@ type DiscoveryStatus = 'not-applicable' | 'observed' | 'unavailable'
 type DiscoverySource =
   | 'agent-runtime'
   | 'hostname-command'
+  | 'local-session-handoff'
   | 'not-exposed'
   | 'not-applicable'
   | 'thread-context'
   | 'thread-host-runtime'
 type IdentityExpectation = 'required' | 'unavailable-allowed'
+type IdentityRoute = 'explicit-runtime' | 'handoff-key'
 type VersionSource = 'command' | 'not-exposed' | 'runtime-context'
 
 interface DiscoveryObservation {
@@ -38,6 +40,7 @@ interface MatrixEntry {
   id: string
   identityExpectation: IdentityExpectation
   providerProduct: string
+  requiredIdentityRoutes: IdentityRoute[]
   threadHost: {
     kind: string
     provider: string
@@ -72,6 +75,7 @@ export interface CaptureObservation {
   }
   evidenceId: string
   exercisedAt: string
+  identityRoute: IdentityRoute
   limitations: string[]
   matrixEntryId: string
   runtime: RuntimeObservation
@@ -94,6 +98,7 @@ export interface EvidenceFixture {
   discovery: CaptureObservation['discovery']
   evidenceId: string
   exercisedAt: string
+  identityRoute: IdentityRoute
   limitations: string[]
   matrixEntryId: string
   relationships: {
@@ -184,7 +189,8 @@ function parseDiscovery(value: unknown, label: string): DiscoveryObservation {
       'not-exposed',
       'not-applicable',
       'thread-context',
-      'thread-host-runtime'
+      'thread-host-runtime',
+      'local-session-handoff'
     ], `${label}.source`)
   const status = oneOf(item.status, [
       'not-applicable',
@@ -247,6 +253,7 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
     'discovery',
     'evidenceId',
     'exercisedAt',
+    'identityRoute',
     'limitations',
     'matrixEntryId',
     'runtime',
@@ -285,6 +292,10 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
       'discovery.providerThreadId'
     )
   }
+  const identityRoute = oneOf(item.identityRoute, [
+    'explicit-runtime',
+    'handoff-key'
+  ], 'Capture observation identityRoute')
   for (const field of [
     'hostKind',
     'hostProvider',
@@ -295,10 +306,22 @@ export function parseCaptureObservation(value: unknown): CaptureObservation {
       throw new Error(`hostname-command is not a valid discovery source for ${field}.`)
     }
   }
+  const providerSource = parsedDiscovery.providerThreadId.source
+  if (
+    parsedDiscovery.providerThreadId.status === 'observed' && (
+      (identityRoute === 'explicit-runtime' && providerSource !== 'agent-runtime') ||
+      (identityRoute === 'handoff-key' && providerSource !== 'local-session-handoff')
+    )
+  ) {
+    throw new Error(
+      `Capture observation identityRoute ${identityRoute} contradicts providerThreadId source ${providerSource}.`
+    )
+  }
   return {
     discovery: parsedDiscovery,
     evidenceId,
     exercisedAt,
+    identityRoute,
     limitations: stringArray(item.limitations, 'Capture observation limitations'),
     matrixEntryId: nonblank(item.matrixEntryId, 'Capture observation matrixEntryId'),
     runtime: parseRuntime(item.runtime, 'Capture observation runtime'),
@@ -317,6 +340,16 @@ function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
   if (!exercisePathPattern.test(exercise)) {
     throw new Error(`${label}.exercise must name a Markdown file under exercises.`)
   }
+  const requiredIdentityRoutes: IdentityRoute[] = stringArray(
+    item.requiredIdentityRoutes,
+    `${label}.requiredIdentityRoutes`
+  ).map((route, index) => oneOf<IdentityRoute>(route, [
+    'explicit-runtime',
+    'handoff-key'
+  ], `${label}.requiredIdentityRoutes[${index}]`))
+  if (requiredIdentityRoutes.length === 0) {
+    throw new Error(`${label}.requiredIdentityRoutes must not be empty.`)
+  }
   return {
     availability: 'available',
     evidence: stringArray(item.evidence, `${label}.evidence`),
@@ -327,6 +360,7 @@ function parseMatrixEntry(value: unknown, label: string): MatrixEntry {
       'required', 'unavailable-allowed'
     ], `${label}.identityExpectation`),
     providerProduct: nonblank(item.providerProduct, `${label}.providerProduct`),
+    requiredIdentityRoutes,
     threadHost: {
       kind: nonblank(threadHost.kind, `${label}.threadHost.kind`),
       provider: nonblank(threadHost.provider, `${label}.threadHost.provider`)
@@ -372,6 +406,17 @@ function matrixEntry(matrix: MetadataMatrix, id: string): MatrixEntry {
   const entry = matrix.entries.find((candidate) => candidate.id === id)
   if (entry === undefined) throw new Error(`Unknown metadata matrix entry: ${id}.`)
   return entry
+}
+
+function assertDeclaredIdentityRoute(
+  entry: MatrixEntry,
+  identityRoute: IdentityRoute
+): void {
+  if (!entry.requiredIdentityRoutes.includes(identityRoute)) {
+    throw new Error(
+      `${entry.id} does not declare the ${identityRoute} identity route.`
+    )
+  }
 }
 
 function assertObserved(
@@ -464,6 +509,7 @@ export function buildEvidenceFixture(
   const observation = parseCaptureObservation(observationValue)
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
+  assertDeclaredIdentityRoute(entry, observation.identityRoute)
   const thread = artifact.review.agentThread
   const liveValues: string[] = []
   const exerciseSource = fs.readFileSync(
@@ -522,6 +568,7 @@ export function buildEvidenceFixture(
     discovery: observation.discovery,
     evidenceId: observation.evidenceId,
     exercisedAt: observation.exercisedAt,
+    identityRoute: observation.identityRoute,
     limitations: observation.limitations,
     matrixEntryId: observation.matrixEntryId,
     relationships: { identity, threadHostId },
@@ -562,6 +609,7 @@ export function validateEvidenceFixture(
     'discovery',
     'evidenceId',
     'exercisedAt',
+    'identityRoute',
     'limitations',
     'matrixEntryId',
     'relationships',
@@ -575,6 +623,7 @@ export function validateEvidenceFixture(
     discovery: item.discovery,
     evidenceId: item.evidenceId,
     exercisedAt: item.exercisedAt,
+    identityRoute: item.identityRoute,
     limitations: item.limitations,
     matrixEntryId: item.matrixEntryId,
     runtime: item.runtime,
@@ -583,6 +632,7 @@ export function validateEvidenceFixture(
   })
   const matrix = parseMetadataMatrix(matrixValue)
   const entry = matrixEntry(matrix, observation.matrixEntryId)
+  assertDeclaredIdentityRoute(entry, observation.identityRoute)
   assertMachineAttempted(observation.discovery)
   const relationships = record(item.relationships, 'Evidence relationships')
   assertExactKeys(relationships, ['identity', 'threadHostId'], 'Evidence relationships')
@@ -663,6 +713,7 @@ export function validateEvidenceFixture(
     discovery: observation.discovery,
     evidenceId: observation.evidenceId,
     exercisedAt: observation.exercisedAt,
+    identityRoute: observation.identityRoute,
     limitations: observation.limitations,
     matrixEntryId: observation.matrixEntryId,
     relationships: { identity, threadHostId },
@@ -706,6 +757,15 @@ export function validateMetadataCorpus(
     }
     if (requireComplete && entry.evidence.length === 0) {
       throw new Error(`${entry.id} has no committed live evidence.`)
+    }
+    if (requireComplete) {
+      const routes = new Set(entry.evidence.map((evidenceId) => (
+        evidenceById.get(evidenceId)?.identityRoute
+      )))
+      const missing = entry.requiredIdentityRoutes.filter((route) => !routes.has(route))
+      if (missing.length > 0) {
+        throw new Error(`${entry.id} is missing live evidence for: ${missing.join(', ')}.`)
+      }
     }
     for (const evidenceId of entry.evidence) {
       const evidence = evidenceById.get(evidenceId)

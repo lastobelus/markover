@@ -568,6 +568,12 @@ p {
   white-space: nowrap;
 }
 
+.document-meta .document-source-state {
+  color: var(--source-error);
+  font-family: ui-sans-serif, sans-serif;
+  font-weight: 750;
+}
+
 .review-context-button {
   display: grid;
   width: 28px;
@@ -587,6 +593,11 @@ p {
   border-color: var(--accent);
   color: var(--accent-deep);
   background: var(--input);
+}
+
+.review-context-button.has-metadata-error {
+  border-color: var(--source-error);
+  color: var(--source-error);
 }
 
 .button {
@@ -1099,7 +1110,7 @@ p {
 
 .review-list-row-identity,
 .review-list-row-context,
-.review-list-row-title > span:last-child,
+.review-list-row-title > span:first-child,
 .review-group-label strong {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1404,11 +1415,31 @@ button.review-list-row-pr:hover {
 }
 
 .review-project-leaf-title {
+  display: flex;
   overflow: hidden;
+  align-items: center;
+  gap: 4px;
   font-size: 10px;
   font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.review-project-leaf-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-metadata-state-marker {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--source-error);
+}
+
+.review-metadata-state-marker svg {
+  width: 12px;
+  height: 12px;
 }
 
 .review-project-leaf-age {
@@ -1993,7 +2024,7 @@ button.review-list-row-pr:hover {
   position: fixed;
   z-index: 94;
   width: min(340px, calc(100vw - 20px));
-  max-height: min(360px, calc(100vh - 20px));
+  max-height: calc(100vh - 20px);
   overflow: hidden;
   padding: 11px 12px 12px;
   box-sizing: border-box;
@@ -2024,7 +2055,7 @@ button.review-list-row-pr:hover {
 .review-hover-entry {
   display: grid;
   min-width: 0;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: 20px minmax(86px, auto) minmax(0, 1fr);
   align-items: center;
   gap: 7px;
   color: var(--muted);
@@ -2032,10 +2063,28 @@ button.review-list-row-pr:hover {
   line-height: 1.3;
 }
 
+.review-hover-entry.is-error,
+.review-hover-issues {
+  color: var(--source-error);
+}
+
+.review-hover-entry-label {
+  color: inherit;
+  font-weight: 750;
+}
+
 .review-hover-entry > span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.review-hover-issues {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid currentcolor;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .review-hover-entry-icon {
@@ -3185,14 +3234,37 @@ body.is-control-pressed .attachment-remove:hover {
 }
 
 .review-context-fields dt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   padding-right: 16px;
   color: var(--muted);
   font-weight: 750;
 }
 
+.review-context-field-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
 .review-context-fields dd {
   overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.review-context-fields dd.is-error,
+.review-context-issues {
+  color: var(--source-error);
+}
+
+.review-context-issues {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid currentcolor;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .review-context-copy-value {

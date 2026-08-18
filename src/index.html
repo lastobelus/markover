@@ -288,6 +288,7 @@
         <div class="document-meta">
           <strong id="document-name">sample.md</strong>
           <span id="document-checksum">Loading…</span>
+          <span id="document-source-state" class="document-source-state" hidden></span>
         </div>
         <button
           id="review-context-button"
@@ -628,6 +629,12 @@
       </header>
       <div id="review-context-summary" class="review-context-summary"></div>
       <dl id="review-context-fields" class="review-context-fields"></dl>
+      <div
+        id="review-context-issues"
+        class="review-context-issues"
+        role="status"
+        hidden
+      ></div>
     </dialog>
     <div id="annotation-sneak-peek" class="annotation-sneak-peek" hidden></div>
     <div
@@ -756,7 +763,7 @@
           </label>
           <h3 class="settings-section-title">Privacy</h3>
           <label class="settings-field settings-switch-field">
-            <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex session records for the review's handoff key. Nothing is uploaded.</small></span>
+            <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex or Claude session records for the review's handoff key. Nothing is uploaded.</small></span>
             <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
           </label>
           <h3 class="settings-section-title">T3 requesting-thread titles</h3>

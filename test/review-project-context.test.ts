@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import { reviewChecksum } from '../src/review-format'
 import {
-  discoverVerifiedReviewProjectContext,
+  discoverReviewProjectContext,
   normalizeRepositoryRemote
 } from '../src/review-project-context'
 
@@ -22,10 +22,13 @@ function artifact(
   } as ReviewArtifact
 }
 
-test('derives private remote identity only from a matching live source', async () => {
+test('derives live project identity and source freshness independently', async () => {
   const calls: string[] = []
   const review = artifact('# Plan\n')
-  assert.deepEqual(await discoverVerifiedReviewProjectContext(review, {
+  review.review.git = {
+    repositoryUrl: 'https://github.com/lastobelus/markover/'
+  }
+  assert.deepEqual(await discoverReviewProjectContext(review, {
     readSource(sourcePath) {
       calls.push(`read:${sourcePath}`)
       return Promise.resolve('# Plan\n')
@@ -39,9 +42,13 @@ test('derives private remote identity only from a matching live source', async (
       })
     }
   }), {
-    key: 'remote:github.com/lastobelus/markover',
-    name: 'markover',
-    root: '/worktrees/markover-one'
+    project: {
+      key: 'remote:github.com/lastobelus/markover',
+      name: 'markover',
+      root: '/worktrees/markover-one'
+    },
+    projectEvidence: 'verified',
+    sourceState: 'unchanged'
   })
   assert.deepEqual(calls, [
     'read:/repo/docs/plan.md',
@@ -68,18 +75,41 @@ test('normalizes clone transports while preserving fork ownership', () => {
   )
   assert.equal(
     normalizeRepositoryRemote('alice@example.com:project.git'),
-    'alice@example.com/project'
+    'example.com/project'
   )
   assert.equal(
     normalizeRepositoryRemote('ssh://bob@example.com/project.git'),
-    'bob@example.com/project'
+    'example.com/project'
   )
-  assert.notEqual(
+  assert.equal(
     normalizeRepositoryRemote('alice@example.com:project.git'),
     normalizeRepositoryRemote('bob@example.com:project.git')
   )
   assert.equal(normalizeRepositoryRemote('/repos/markover.git'), null)
   assert.equal(normalizeRepositoryRemote('file:///repos/markover.git'), null)
+})
+
+test('sanitized and live URL-form SSH origins retain one project', async () => {
+  const review = artifact('# Original\n')
+  review.review.git = {
+    repositoryUrl: 'ssh://gitlab.com/group/repo.git'
+  }
+  assert.deepEqual(await discoverReviewProjectContext(review, {
+    readSource: () => Promise.resolve('# Original\n'),
+    discoverRepository: () => Promise.resolve({
+      root: '/worktrees/repo',
+      remoteUrl: 'ssh://git@gitlab.com/group/repo.git',
+      commonGitDirectory: '/worktrees/repo/.git'
+    })
+  }), {
+    project: {
+      key: 'remote:gitlab.com/group/repo',
+      name: 'repo',
+      root: '/worktrees/repo'
+    },
+    projectEvidence: 'verified',
+    sourceState: 'unchanged'
+  })
 })
 
 test('groups independent clones, keeps forks distinct, and falls back finitely', async () => {
@@ -88,7 +118,7 @@ test('groups independent clones, keeps forks distinct, and falls back finitely',
     root: string,
     remoteUrl: string | null,
     commonGitDirectory: string | null
-  ) => discoverVerifiedReviewProjectContext(review, {
+  ) => discoverReviewProjectContext(review, {
     readSource: () => Promise.resolve('# Plan\n'),
     discoverRepository: () => Promise.resolve({
       root,
@@ -112,8 +142,8 @@ test('groups independent clones, keeps forks distinct, and falls back finitely',
     'git@github.com:fork-owner/markover.git',
     '/clones/markover-fork/.git'
   )
-  assert.equal(cloneOne?.key, cloneTwo?.key)
-  assert.notEqual(cloneOne?.key, fork?.key)
+  assert.equal(cloneOne.project?.key, cloneTwo.project?.key)
+  assert.notEqual(cloneOne.project?.key, fork.project?.key)
 
   const linkedOne = await project(
     '/worktrees/local-one',
@@ -125,16 +155,16 @@ test('groups independent clones, keeps forks distinct, and falls back finitely',
     '/repos/local.git',
     '/repos/local/.git'
   )
-  assert.equal(linkedOne?.key, linkedTwo?.key)
-  assert.equal(linkedOne?.key, 'git:/repos/local/.git')
-  assert.equal(linkedOne.name, 'local')
+  assert.equal(linkedOne.project?.key, linkedTwo.project?.key)
+  assert.equal(linkedOne.project?.key, 'git:/repos/local/.git')
+  assert.equal(linkedOne.project.name, 'local')
   assert.equal(
-    (await project('/clones/root-only', null, null))?.key,
+    (await project('/clones/root-only', null, null)).project?.key,
     'root:/clones/root-only'
   )
 })
 
-test('stale, missing, and non-file source locators yield no project evidence', async () => {
+test('changed and missing sources retain live project evidence', async () => {
   let discoveryCalls = 0
   const discoverRepository = () => {
     discoveryCalls += 1
@@ -144,17 +174,110 @@ test('stale, missing, and non-file source locators yield no project evidence', a
       commonGitDirectory: null
     })
   }
-  assert.equal(await discoverVerifiedReviewProjectContext(artifact('# Original\n'), {
+  assert.deepEqual(await discoverReviewProjectContext(artifact('# Original\n'), {
     readSource: () => Promise.resolve('# Replaced\n'),
     discoverRepository
-  }), null)
-  assert.equal(await discoverVerifiedReviewProjectContext(artifact('# Original\n'), {
-    readSource: () => Promise.reject(new Error('missing')),
+  }), {
+    project: {
+      key: 'root:/unrelated',
+      name: 'unrelated',
+      root: '/unrelated'
+    },
+    projectEvidence: 'verified',
+    sourceState: 'changed'
+  })
+  const missing = Object.assign(new Error('missing'), { code: 'ENOENT' })
+  assert.deepEqual(await discoverReviewProjectContext(artifact('# Original\n'), {
+    readSource: () => Promise.reject(missing),
     discoverRepository
-  }), null)
-  assert.equal(await discoverVerifiedReviewProjectContext(
+  }), {
+    project: {
+      key: 'root:/unrelated',
+      name: 'unrelated',
+      root: '/unrelated'
+    },
+    projectEvidence: 'verified',
+    sourceState: 'missing'
+  })
+  assert.deepEqual(await discoverReviewProjectContext(
     artifact('# Original\n', null),
     { discoverRepository }
-  ), null)
-  assert.equal(discoveryCalls, 0)
+  ), {
+    project: null,
+    projectEvidence: 'unavailable',
+    sourceState: 'unavailable'
+  })
+  assert.equal(discoveryCalls, 2)
+})
+
+test('unreadable source retains live project evidence', async () => {
+  const review = artifact('# Original\n')
+  assert.deepEqual(await discoverReviewProjectContext(review, {
+    readSource: () => Promise.reject(new Error('permission denied')),
+    discoverRepository: () => Promise.resolve({
+      root: '/worktrees/markover',
+      remoteUrl: 'git@github.com:lastobelus/markover.git',
+      commonGitDirectory: '/worktrees/markover/.git'
+    })
+  }), {
+    project: {
+      key: 'remote:github.com/lastobelus/markover',
+      name: 'markover',
+      root: '/worktrees/markover'
+    },
+    projectEvidence: 'verified',
+    sourceState: 'unavailable'
+  })
+})
+
+test('keeps source state truthful when live repository evidence is unavailable', async () => {
+  assert.deepEqual(await discoverReviewProjectContext(artifact('# Original\n'), {
+    readSource: () => Promise.resolve('# Replaced\n'),
+    discoverRepository: () => Promise.resolve(null)
+  }), {
+    project: null,
+    projectEvidence: 'unavailable',
+    sourceState: 'changed'
+  })
+})
+
+test('fails closed when opening and live repository origins conflict', async () => {
+  const review = artifact('# Original\n')
+  review.review.git = {
+    repositoryUrl: 'git@github.com:lastobelus/markover.git'
+  }
+  assert.deepEqual(await discoverReviewProjectContext(review, {
+    readSource: () => Promise.resolve('# Replaced\n'),
+    discoverRepository: () => Promise.resolve({
+      root: '/worktrees/replacement',
+      remoteUrl: 'https://github.com/other/replacement.git',
+      commonGitDirectory: '/worktrees/replacement/.git'
+    })
+  }), {
+    project: null,
+    projectEvidence: 'conflict',
+    sourceState: 'changed'
+  })
+})
+
+test('a null source locator performs no source or repository I/O', async () => {
+  let calls = 0
+  assert.deepEqual(await discoverReviewProjectContext(
+    artifact('# Original\n', null),
+    {
+      readSource: () => {
+        calls += 1
+        return Promise.resolve('# Original\n')
+      },
+      discoverRepository: () => {
+        calls += 1
+        return Promise.resolve(null)
+      }
+    }
+  ), {
+    project: null,
+    projectEvidence: 'unavailable',
+    sourceState: 'unavailable'
+  })
+  assert.equal(calls, 0)
 })

@@ -30,22 +30,22 @@
       "status": "observed"
     }
   },
-  "evidenceId": "2026-08-12__t3code-codex__63d3f9fc",
-  "exercisedAt": "2026-08-12T19:28:42.000Z",
+  "evidenceId": "2026-08-17__claude-code-claude-explicit__dc4b7958",
+  "exercisedAt": "2026-08-17T22:01:08.000Z",
+  "identityRoute": "explicit-runtime",
   "limitations": [
-    "T3 Code did not expose a distinct host-owned thread identifier.",
-    "T3 Code did not expose a product version.",
-    "The Codex runtime did not expose a provider CLI or service version."
+    "Direct Claude Code has no distinct host-owned thread identifier in addition to its provider session ID.",
+    "The Claude runtime did not expose a separate provider service version."
   ],
-  "matrixEntryId": "t3code-codex",
+  "matrixEntryId": "claude-code-claude",
   "relationships": {
     "identity": "identified",
     "threadHostId": "omitted"
   },
   "runtime": {
-    "hostVersion": null,
-    "hostVersionSource": "not-exposed",
-    "providerModel": "gpt-5.6-sol",
+    "hostVersion": "2.1.234",
+    "hostVersionSource": "command",
+    "providerModel": "claude-sonnet-5",
     "providerModelSource": "runtime-context",
     "providerVersion": null,
     "providerVersionSource": "not-exposed"
@@ -53,10 +53,10 @@
   "agentThread": {
     "id": "<thread-id>",
     "threadHost": {
-      "kind": "t3code",
-      "provider": "codex",
+      "kind": "claude-code",
+      "provider": "claude",
       "machine": "<machine>"
     }
   },
-  "schemaVersion": 1
+  "schemaVersion": 2
 }

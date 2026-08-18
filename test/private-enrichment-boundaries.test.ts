@@ -40,7 +40,8 @@ test('private enrichment remains absent from runtime and agent-visible transport
   for (const relativePath of [
     'src/local-client.ts',
     'src/local-service.ts',
-    'src/review-link-copy.ts'
+    'src/review-link-copy.ts',
+    'scripts/markover.ts'
   ]) {
     assert.doesNotMatch(
       read(relativePath),
@@ -48,6 +49,23 @@ test('private enrichment remains absent from runtime and agent-visible transport
       relativePath
     )
   }
+
+  for (const relativePath of [
+    'src/local-client.ts',
+    'src/local-service.ts',
+    'scripts/markover.ts'
+  ]) {
+    assert.doesNotMatch(
+      read(relativePath),
+      /projectEvidence|sourceState/,
+      relativePath
+    )
+  }
+
+  assert.match(
+    read('src/review-format.ts'),
+    /PRIVATE_TOP_LEVEL_FIELDS[\s\S]*'projectEvidence'[\s\S]*'sourceState'/
+  )
 
   const adapter = read('src/t3-thread-titles.ts')
   assert.match(adapter, /new DatabaseSync\(databasePath, \{[\s\S]*readOnly: true,[\s\S]*timeout: 100/)

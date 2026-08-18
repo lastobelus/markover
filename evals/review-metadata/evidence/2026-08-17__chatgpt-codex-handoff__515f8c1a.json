@@ -1,0 +1,59 @@
+{
+  "checks": {
+    "threadHostIdAccepted": true,
+    "guessedValuesAbsent": true,
+    "machineAttempted": true,
+    "nullFallbackTruthful": true,
+    "portableV1Valid": true,
+    "requiredFieldsObserved": true,
+    "supportedCombination": true
+  },
+  "discovery": {
+    "hostKind": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostProvider": {
+      "source": "thread-context",
+      "status": "observed"
+    },
+    "hostThreadId": {
+      "source": "not-exposed",
+      "status": "unavailable"
+    },
+    "machine": {
+      "source": "hostname-command",
+      "status": "observed"
+    },
+    "providerThreadId": {
+      "source": "local-session-handoff",
+      "status": "observed"
+    }
+  },
+  "evidenceId": "2026-08-17__chatgpt-codex-handoff__515f8c1a",
+  "exercisedAt": "2026-08-17T23:39:46.217Z",
+  "identityRoute": "handoff-key",
+  "limitations": [],
+  "matrixEntryId": "chatgpt-codex",
+  "relationships": {
+    "identity": "identified",
+    "threadHostId": "omitted"
+  },
+  "runtime": {
+    "hostVersion": "26.810.52044",
+    "hostVersionSource": "runtime-context",
+    "providerModel": null,
+    "providerModelSource": "not-exposed",
+    "providerVersion": null,
+    "providerVersionSource": "not-exposed"
+  },
+  "agentThread": {
+    "id": "<thread-id>",
+    "threadHost": {
+      "kind": "chatgpt",
+      "provider": "codex",
+      "machine": "<machine>"
+    }
+  },
+  "schemaVersion": 2
+}

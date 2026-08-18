@@ -485,7 +485,11 @@ test('project identity falls back to the source directory and then Other', () =>
       reviewId: 'mko_stale01',
       path: '/tmp/stale-checkout/notes.md',
       project: null,
-      tree: { review: { git: null } }
+      tree: {
+        review: {
+          git: { repositoryUrl: 'git@github.com:lastobelus/markover.git' }
+        }
+      }
     }),
     { key: 'unassigned', name: 'Other', root: null }
   )
@@ -508,6 +512,66 @@ test('project identity falls back to the source directory and then Other', () =>
     projectIdentity({ path: null, tree: {} }),
     { key: 'unassigned', name: 'Other', root: null }
   )
+})
+
+test('managed refresh replaces private project and source context', () => {
+  const sessions = new ReviewSessions()
+  const document = reviewDocument(
+    'mko_context1',
+    'context.md',
+    '/projects/markover'
+  )
+  document.projectEvidence = 'verified'
+  document.sourceState = 'unchanged'
+  const session = sessions.add(document)
+  assert.equal(session.projectEvidence, 'verified')
+  assert.equal(session.sourceState, 'unchanged')
+
+  const refreshed = structuredClone(document)
+  refreshed.project = null
+  refreshed.projectEvidence = 'conflict'
+  refreshed.sourceState = 'changed'
+  const updated = sessions.updateDocument(refreshed)
+  assert.ok(updated)
+  assert.deepEqual(
+    {
+      key: updated.projectKey,
+      name: updated.projectName,
+      root: updated.projectRoot,
+      evidence: updated.projectEvidence,
+      source: updated.sourceState
+    },
+    {
+      key: 'unassigned',
+      name: 'Other',
+      root: null,
+      evidence: 'conflict',
+      source: 'changed'
+    }
+  )
+})
+
+test('adding an existing managed review applies refreshed private context', () => {
+  const sessions = new ReviewSessions()
+  const original = reviewDocument('mko_refresh2', 'refresh.md', {
+    key: 'repo:before',
+    name: 'Before',
+    root: '/tmp/before'
+  })
+  original.projectEvidence = 'verified'
+  original.sourceState = 'unchanged'
+  const session = sessions.add(original)
+
+  const refreshed = reviewDocument('mko_refresh2', 'refresh.md', null)
+  refreshed.projectEvidence = 'conflict'
+  refreshed.sourceState = 'changed'
+  const returned = sessions.add(refreshed)
+
+  assert.equal(returned, session)
+  assert.equal(session.projectKey, 'unassigned')
+  assert.equal(session.projectName, 'Other')
+  assert.equal(session.projectEvidence, 'conflict')
+  assert.equal(session.sourceState, 'changed')
 })
 
 test('persisted review artifacts satisfy the browser session boundary', () => {

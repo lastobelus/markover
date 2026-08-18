@@ -35,6 +35,7 @@
     "eval:annotation": "npm run build --silent && node build/scripts/annotation-interpretation-eval.js run",
     "eval:annotation:validate": "npm run build --silent && node build/scripts/annotation-interpretation-eval.js validate",
     "eval:metadata:record": "npm run build --silent && node build/scripts/review-metadata-conformance.js record",
+    "eval:metadata:exercise": "npm run build --silent && node build/scripts/review-metadata-exercise.js",
     "eval:metadata:validate": "npm run build --silent && node build/scripts/review-metadata-conformance.js validate",
     "decision-gardener": "npm run build --silent && node build/scripts/decision-gardener-run.js",
     "decision-gardener:host": "node build/scripts/decision-gardener-host.js",

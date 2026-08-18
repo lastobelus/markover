@@ -552,6 +552,8 @@ declare global {
     source: string
     checksum: string
     project?: ProjectIdentity | null
+    projectEvidence?: ReviewProjectEvidence
+    sourceState?: ReviewSourceState
     tree?: ReviewTree
   }
 
@@ -764,7 +766,13 @@ declare global {
     checksum: string
     tree: ReviewSessionTree
     project?: ProjectIdentity | null
+    projectEvidence?: ReviewProjectEvidence
+    sourceState?: ReviewSourceState
   }
+
+  type ReviewProjectEvidence = 'verified' | 'conflict' | 'unavailable'
+
+  type ReviewSourceState = 'unchanged' | 'changed' | 'missing' | 'unavailable'
 
   interface ProjectIdentity {
     key: string
@@ -781,6 +789,8 @@ declare global {
     projectKey: string
     projectName: string
     projectRoot: string | null
+    projectEvidence: ReviewProjectEvidence
+    sourceState: ReviewSourceState
     attentionRequestedAt: number
     lifecycleActivityAt: number
     lastViewedOrder: number
