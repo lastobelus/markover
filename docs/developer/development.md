@@ -467,6 +467,14 @@ version-pinned rollback, and future Developer ID activation.
 - `submit` accepts that complete artifact atomically. It changes only feedback
   and mode-authorized source proposals, transitions to `reviewed`, and is
   exactly retryable after an uncertain response.
+- `pending` returns metadata for every unresolved review opened by the exact
+  current requesting thread. It does not activate, freeze, or expose review
+  content.
+- `resolve` records reviewed-with-no-notes or accepted-unreviewed. Existing
+  feedback requires the shared Markover summary and explicit Abandon feedback
+  confirmation; `unresolve` returns a reversible manual outcome to Editing.
+- Before merge or final thread completion, agents treat a nonempty `pending`
+  result as a soft gate and ask the user for an explicit disposition.
 - Reviews retain the exact Markdown source and SHA-256 checksum.
 - Every new review snapshots `review.agentGuidance.fixedContract` and
   `review.agentGuidance.interpretationPolicy`; `get` returns both unchanged.

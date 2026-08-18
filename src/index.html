@@ -368,6 +368,13 @@
             <span class="eyebrow">Reviews</span>
             <span id="review-list-count" class="review-list-count"></span>
           </div>
+          <label class="visually-hidden" for="review-filter">Filter reviews</label>
+          <select id="review-filter" class="review-filter" aria-label="Filter reviews">
+            <option value="needs-me">Needs me</option>
+            <option value="with-agent">With agent</option>
+            <option value="completed">Completed</option>
+            <option value="all">All</option>
+          </select>
           <button
             id="documents-list-collapse"
             class="documents-list-disclosure"
@@ -377,6 +384,12 @@
             aria-expanded="true"
           ></button>
         </header>
+        <div id="review-batch-actions" class="review-batch-actions" hidden>
+          <span id="review-batch-count">0 selected</span>
+          <button id="review-batch-no-notes" type="button" disabled>No notes</button>
+          <button id="review-batch-accept" type="button" disabled>Accept unreviewed</button>
+          <button id="review-batch-close" class="review-batch-close" type="button" aria-label="Exit batch status mode" title="Exit batch status mode">×</button>
+        </div>
         <div id="documents-list-tree" class="documents-list-tree"></div>
         <div
           id="documents-list-resizer"
@@ -900,6 +913,30 @@
         </div>
         <footer class="settings-footer fixed-contract-footer">
           <button id="fixed-contract-done" class="button button-primary" type="button">Done</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog
+      id="review-resolution-dialog"
+      class="settings-dialog review-resolution-dialog"
+      aria-labelledby="review-resolution-title"
+      aria-describedby="review-resolution-message"
+    >
+      <div class="review-resolution-layout">
+        <header class="settings-header">
+          <div>
+            <span class="eyebrow">Complete reviews</span>
+            <h2 id="review-resolution-title">Resolve selected reviews?</h2>
+          </div>
+        </header>
+        <div class="settings-content review-resolution-content">
+          <p id="review-resolution-message"></p>
+          <div id="review-resolution-summaries" class="review-resolution-summaries"></div>
+        </div>
+        <footer class="settings-footer">
+          <button id="review-resolution-cancel" class="button button-secondary" type="button">Cancel</button>
+          <button id="review-resolution-confirm" class="button button-primary" type="button">Resolve</button>
         </footer>
       </div>
     </dialog>

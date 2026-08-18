@@ -40,9 +40,12 @@ import {
 } from './review-icon-registry'
 import {
   projectReviewInbox,
+  reviewMatchesFilter,
   reviewMetadataInventory,
+  reviewResolutionLabel,
   reviewStatusLabel,
   type ReviewMetadataField,
+  type ReviewInboxFilter,
   type ReviewInboxProject,
   type ReviewInboxRow,
   type ReviewInboxThread
@@ -196,11 +199,23 @@ const elements = {
   documentsListSidebar: requiredElement('#documents-list-sidebar'),
   documentsListTree: requiredElement('#documents-list-tree'),
   reviewInboxCount: requiredElement('#review-inbox-count'),
+  reviewBatchAccept: requiredElement<HTMLButtonElement>('#review-batch-accept'),
+  reviewBatchActions: requiredElement('#review-batch-actions'),
+  reviewBatchClose: requiredElement<HTMLButtonElement>('#review-batch-close'),
+  reviewBatchCount: requiredElement('#review-batch-count'),
+  reviewBatchNoNotes: requiredElement<HTMLButtonElement>('#review-batch-no-notes'),
+  reviewFilter: requiredElement<HTMLSelectElement>('#review-filter'),
   reviewIdActivation: requiredElement<HTMLFormElement>('#review-id-activation'),
   reviewIdInput: requiredElement<HTMLInputElement>('#review-id-input'),
   reviewListCount: requiredElement('#review-list-count'),
   reviewNavigationInbox: requiredElement<HTMLButtonElement>('#review-navigation-inbox'),
   reviewNavigationProjects: requiredElement<HTMLButtonElement>('#review-navigation-projects'),
+  reviewResolutionCancel: requiredElement<HTMLButtonElement>('#review-resolution-cancel'),
+  reviewResolutionConfirm: requiredElement<HTMLButtonElement>('#review-resolution-confirm'),
+  reviewResolutionDialog: requiredElement<HTMLDialogElement>('#review-resolution-dialog'),
+  reviewResolutionMessage: requiredElement('#review-resolution-message'),
+  reviewResolutionSummaries: requiredElement('#review-resolution-summaries'),
+  reviewResolutionTitle: requiredElement('#review-resolution-title'),
   reviewTabStrip: requiredElement('#review-tab-strip'),
   emptyWorkspaceLockup: requiredElement<HTMLImageElement>('#empty-workspace-lockup'),
   fixedContractClose: requiredElement<HTMLButtonElement>('#fixed-contract-close'),
@@ -252,6 +267,9 @@ let localOpenInProgress = false
 let documentsListWidth = 390
 let annotationPaneWidth: number | null = null
 let reviewNavigationMode: 'inbox' | 'projects' = 'inbox'
+let reviewFilter: ReviewInboxFilter = 'needs-me'
+let batchResolutionMode = false
+const selectedReviewIds = new Set<string>()
 let inboxHistoryLimit = INBOX_HISTORY_PAGE_SIZE
 const projectExpansion = new Map<string, boolean>()
 const threadExpansion = new Map<string, boolean>()
@@ -266,6 +284,7 @@ let sourceDiffRenderer: DiffRenderer | null = null
 let paneResizeLayoutFrame: number | null = null
 let statusAnnouncementFrame: number | null = null
 let imagePreviewReturnFocus: HTMLElement | null = null
+let resolutionDialogCompletion: ((confirmed: boolean) => void) | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
 let t3ThreadTitles: T3ThreadTitleSnapshot = {
@@ -300,7 +319,9 @@ let incomingReviewNoticePrompts: IncomingReviewPrompt[] = []
 let incomingReviewNoticeSequence: number | null = null
 
 function reviewInboxProjection(
-  sessions = reviewSessions.list()
+  sessions = reviewSessions.list(),
+  filter: ReviewInboxFilter = reviewFilter,
+  alwaysIncludeReviewId: string | null = state.reviewId
 ): ReturnType<typeof projectReviewInbox> {
   return projectReviewInbox(
     sessions,
@@ -312,7 +333,9 @@ function reviewInboxProjection(
       t3ThreadTitles: t3ThreadTitles.titles,
       t3ThreadTitleStatus: t3ThreadTitles.status,
       titlePreference: preferences.inboxTitlePreference
-    }
+    },
+    filter,
+    alwaysIncludeReviewId
   )
 }
 
@@ -339,7 +362,7 @@ function workspaceReviewScopes(): Array<{
   blockIds: string[]
 }> {
   const sessions = reviewSessions.list()
-  const projection = reviewInboxProjection(sessions)
+  const projection = reviewInboxProjection(sessions, 'all', null)
   const rows = [...projection.editing, ...projection.history]
   const rowById = new Map(rows.map((row) => [row.reviewId, row]))
   return sessions.map((session) => ({
@@ -373,7 +396,7 @@ function normalizeSessionWorkspaceState(session: ReviewSession): void {
 function workspaceSnapshot(): MarkoverWorkspaceState {
   captureActiveSession()
   const sessions = reviewSessions.list()
-  const projection = reviewInboxProjection(sessions)
+  const projection = reviewInboxProjection(sessions, 'all', null)
   const reviews: Record<string, WorkspaceReviewViewState> = {}
   for (const session of sessions) {
     reviews[session.reviewId] = {
@@ -422,7 +445,7 @@ function persistWorkspaceState(): void {
 
 function applyWorkspaceState(value: MarkoverWorkspaceState): MarkoverWorkspaceState {
   const normalized = reconcileWorkspaceState(value, workspaceReviewScopes())
-  const projection = reviewInboxProjection()
+  const projection = reviewInboxProjection(reviewSessions.list(), 'all', null)
   projectExpansion.clear()
   threadExpansion.clear()
   for (const item of normalized.projectExpansion) {
@@ -533,6 +556,8 @@ const BRIDGE_METHODS = [
   'openMarkdown',
   'openPullRequest',
   'openReviewContextMenu',
+  'onReviewResolutionConfirmation',
+  'onReviewBatchModeRequested',
   'readClipboardImage',
   'reportRendererInitialized',
   'reportSmokeResult',
@@ -541,9 +566,11 @@ const BRIDGE_METHODS = [
   'revealStartupDiagnostic',
   'saveAttachment',
   'removeAttachment',
+  'resolveReviews',
   'quitStartup',
   'updateSettings',
-  'updateWorkspaceState'
+  'updateWorkspaceState',
+  'unresolveReview'
 ] as const satisfies ReadonlyArray<keyof MarkoverBridge>
 
 function requireBridge(candidate: MarkoverBridge | undefined): MarkoverBridge {
@@ -1956,6 +1983,7 @@ function scheduleIncomingReviewNoticeDismissal(): void {
     elements.incomingReviewDialog.open ||
     elements.settingsDialog.open ||
     elements.fixedContractDialog.open ||
+    elements.reviewResolutionDialog.open ||
     elements.imagePreview.open ||
     elements.reviewContextDrawer.open ||
     document.activeElement === elements.incomingReviewNoticeOpen
@@ -2239,6 +2267,7 @@ function reviewMetadataIcon(field: ReviewMetadataField): MarkoverIconName {
   if (field.key === 'thread-host' || field.key === 'machine') return 'server'
   if (
     field.key === 'review-status' ||
+    field.key === 'review-resolution' ||
     field.key === 'created' ||
     field.key === 'updated' ||
     field.key === 'attention-requested'
@@ -2851,6 +2880,158 @@ function createMetadataStateMarker(row: ReviewInboxRow): HTMLElement | null {
   return marker
 }
 
+function renderReviewBatchActions(): void {
+  const count = selectedReviewIds.size
+  elements.reviewBatchActions.hidden = !batchResolutionMode
+  elements.reviewBatchCount.textContent = `${String(count)} selected`
+  elements.reviewBatchNoNotes.disabled = count === 0
+  elements.reviewBatchAccept.disabled = count === 0
+}
+
+function finishResolutionConfirmation(confirmed: boolean): void {
+  const complete = resolutionDialogCompletion
+  if (!complete) return
+  resolutionDialogCompletion = null
+  if (elements.reviewResolutionDialog.open) {
+    elements.reviewResolutionDialog.close()
+  }
+  complete(confirmed)
+}
+
+function resolutionBlockPreview(
+  block: ReviewResolutionSummaryBlock
+): string {
+  const feedback = block.feedback.trim().replace(/\s+/g, ' ')
+  if (feedback) return feedback.length > 120
+    ? `${feedback.slice(0, 117)}…`
+    : feedback
+  if (block.attachments.length) {
+    return `${String(block.attachments.length)} attachment${block.attachments.length === 1 ? '' : 's'}`
+  }
+  return block.sourceEdit ? 'Source edit proposal' : 'Feedback artifact'
+}
+
+function showReviewResolutionConfirmation(
+  request: ReviewResolutionConfirmationRequest
+): Promise<boolean> {
+  if (resolutionDialogCompletion) finishResolutionConfirmation(false)
+  elements.reviewResolutionSummaries.replaceChildren()
+  const feedbackReviewCount = request.reviews.filter(
+    (review) => review.blocks.length > 0
+  ).length
+  elements.reviewResolutionTitle.textContent = request.reviews.length === 1
+    ? 'Complete this review?'
+    : `Complete ${String(request.reviews.length)} reviews?`
+  elements.reviewResolutionMessage.textContent = feedbackReviewCount
+    ? 'The feedback below will remain in completed history as read-only context and will not be sent to the agent for action.'
+    : request.outcome === 'reviewed-no-notes'
+      ? 'Record that you reviewed the selected reviews and have no notes.'
+      : 'Record that the selected reviews were accepted without review.'
+  for (const review of request.reviews) {
+    const details = document.createElement('details')
+    details.className = 'review-resolution-summary'
+    details.open = request.reviews.length === 1
+    const summary = document.createElement('summary')
+    const title = document.createElement('strong')
+    title.textContent = review.documentName
+    const description = document.createElement('span')
+    const preview = review.blocks[0]
+      ? resolutionBlockPreview(review.blocks[0])
+      : 'No feedback artifacts'
+    description.textContent = `${review.contextSummary} · ${String(review.blocks.length)} feedback block${review.blocks.length === 1 ? '' : 's'} · ${preview}`
+    summary.append(title, description)
+    details.append(summary)
+    const blocks = document.createElement('div')
+    blocks.className = 'review-resolution-blocks'
+    for (const block of review.blocks) {
+      const item = document.createElement('section')
+      item.className = 'review-resolution-block'
+      const heading = document.createElement('strong')
+      heading.textContent = block.title
+      item.append(heading)
+      if (block.feedback.trim()) {
+        const feedback = document.createElement('p')
+        feedback.textContent = block.feedback
+        item.append(feedback)
+      }
+      if (block.attachments.length) {
+        const attachments = document.createElement('p')
+        attachments.textContent = `Attachments: ${block.attachments.join(', ')}`
+        item.append(attachments)
+      }
+      if (block.sourceEdit) {
+        const sourceEdit = document.createElement('pre')
+        sourceEdit.textContent = `Source proposal\n− ${block.sourceEdit.original}\n+ ${block.sourceEdit.current}`
+        item.append(sourceEdit)
+      }
+      blocks.append(item)
+    }
+    if (!review.blocks.length) {
+      blocks.append(createEmptyReviewMessage('No feedback will be abandoned.'))
+    }
+    details.append(blocks)
+    elements.reviewResolutionSummaries.append(details)
+  }
+  elements.reviewResolutionConfirm.textContent = feedbackReviewCount
+    ? `Abandon feedback in ${String(feedbackReviewCount)} review${feedbackReviewCount === 1 ? '' : 's'}`
+    : `Resolve ${String(request.reviews.length)} review${request.reviews.length === 1 ? '' : 's'}`
+  elements.reviewResolutionDialog.showModal()
+  elements.reviewResolutionCancel.focus()
+  return new Promise<boolean>((resolve) => {
+    resolutionDialogCompletion = resolve
+  })
+}
+
+function reviewSelectionControl(row: ReviewInboxRow): HTMLInputElement | null {
+  if (
+    !batchResolutionMode ||
+    !reviewMatchesFilter(row, reviewFilter) ||
+    (row.status !== 'editing' && row.status !== 'pending-agent')
+  ) return null
+  const selection = document.createElement('input')
+  selection.type = 'checkbox'
+  selection.className = 'review-selection'
+  selection.checked = selectedReviewIds.has(row.reviewId)
+  selection.ariaLabel = `Select ${row.title} for completion`
+  selection.title = 'Select for completion'
+  selection.addEventListener('click', (event) => {
+    event.stopPropagation()
+  })
+  selection.addEventListener('change', () => {
+    if (selection.checked) selectedReviewIds.add(row.reviewId)
+    else selectedReviewIds.delete(row.reviewId)
+    renderReviewBatchActions()
+  })
+  return selection
+}
+
+function returnToNeedsMeControl(
+  row: ReviewInboxRow
+): HTMLButtonElement | null {
+  const outcome = row.resolution?.outcome
+  if (
+    row.status !== 'revised' ||
+    (outcome !== 'reviewed-no-notes' &&
+      outcome !== 'accepted-unreviewed' &&
+      outcome !== 'feedback-abandoned')
+  ) return null
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'review-return-needs-me'
+  button.textContent = 'Needs me'
+  button.ariaLabel = `Return ${row.title} to Needs me`
+  button.addEventListener('click', (event) => {
+    event.stopPropagation()
+    void bridge.unresolveReview(row.reviewId).then(() => {
+      selectedReviewIds.delete(row.reviewId)
+      showToast('Review returned to Needs me')
+    }).catch((error: unknown) => {
+      showToast(error instanceof Error ? error.message : String(error))
+    })
+  })
+  return button
+}
+
 function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   const container = document.createElement('div')
   container.className = [
@@ -2896,7 +3077,7 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
   ].filter(Boolean).join(' ')
   time.textContent = row.status === 'editing'
     ? reviewRowTime(row)
-    : reviewStatusLabel(row.status)
+    : reviewResolutionLabel(row.resolution) || reviewStatusLabel(row.status)
   time.title = new Date(
     row.status === 'editing' ? row.attentionRequestedAt : row.lifecycleActivityAt
   ).toLocaleString()
@@ -2942,6 +3123,10 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
     openReviewContextMenu(row.reviewId, event, button, contextMenuFocusKey)
   })
   container.append(button, reviewIdDescription)
+  const selection = reviewSelectionControl(row)
+  if (selection) container.append(selection)
+  const returnToNeedsMe = returnToNeedsMeControl(row)
+  if (returnToNeedsMe) container.append(returnToNeedsMe)
   if (pr instanceof HTMLButtonElement) {
     container.append(pr)
     pr.addEventListener('click', (event) => {
@@ -2951,7 +3136,7 @@ function createReviewListRow(row: ReviewInboxRow): HTMLElement {
       })
     })
   }
-  bindReviewHoverCard(container, () => reviewHoverModel(row))
+  bindReviewHoverCard(button, () => reviewHoverModel(row))
   return container
 }
 
@@ -2977,6 +3162,7 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
   const status = document.createElement('span')
   status.className = 'review-project-leaf-status'
   status.ariaHidden = 'true'
+  status.title = reviewResolutionLabel(row.resolution) || reviewStatusLabel(row.status)
 
   const title = document.createElement('span')
   title.className = 'review-project-leaf-title'
@@ -3006,7 +3192,11 @@ function createProjectReviewRow(row: ReviewInboxRow): HTMLElement {
     openReviewContextMenu(row.reviewId, event, button, contextMenuFocusKey)
   })
   container.append(button, reviewIdDescription)
-  bindReviewHoverCard(container, () => reviewHoverModel(row))
+  const selection = reviewSelectionControl(row)
+  if (selection) container.append(selection)
+  const returnToNeedsMe = returnToNeedsMeControl(row)
+  if (returnToNeedsMe) container.append(returnToNeedsMe)
+  bindReviewHoverCard(button, () => reviewHoverModel(row))
   return container
 }
 
@@ -3019,8 +3209,30 @@ function createEmptyReviewMessage(message: string): HTMLElement {
 
 function renderInboxReviews(
   editing: ReviewInboxRow[],
-  history: ReviewInboxRow[]
+  history: ReviewInboxRow[],
+  filter: ReviewInboxFilter
 ): DocumentFragment {
+  if (filter !== 'all') {
+    const fragment = document.createDocumentFragment()
+    const heading = document.createElement('div')
+    heading.className = 'review-list-section-heading'
+    const label = filter === 'needs-me'
+      ? 'Needs me'
+      : filter === 'with-agent'
+        ? 'With agent'
+        : 'Completed'
+    const rows = [...editing, ...history]
+    heading.innerHTML = `<strong>${label}</strong><span>${String(rows.length)} shown</span>`
+    fragment.append(heading)
+    const list = document.createElement('div')
+    list.className = 'review-list-rows'
+    list.append(...rows.map(createReviewListRow))
+    if (!rows.length) {
+      list.append(createEmptyReviewMessage(`No ${label.toLowerCase()} reviews.`))
+    }
+    fragment.append(list)
+    return fragment
+  }
   const fragment = document.createDocumentFragment()
   const heading = document.createElement('div')
   heading.className = 'review-list-section-heading'
@@ -3322,16 +3534,39 @@ function renderDocumentsList(): void {
   const sessions = reviewSessions.list()
   const hasReviews = sessions.length > 0 || incompatibleReviews.length > 0
   const projection = reviewInboxProjection(sessions)
+  const visibleSelectableIds = new Set(
+    [...projection.editing, ...projection.history]
+      .filter((row) => (
+        reviewMatchesFilter(row, reviewFilter) &&
+        (row.status === 'editing' || row.status === 'pending-agent')
+      ))
+      .map((row) => row.reviewId)
+  )
+  for (const reviewId of selectedReviewIds) {
+    if (!visibleSelectableIds.has(reviewId)) selectedReviewIds.delete(reviewId)
+  }
+  renderReviewBatchActions()
   scheduleDocumentsListClockRefresh(sessions)
   elements.documentsListSidebar.hidden = !hasReviews
   elements.documentsListCollapse.hidden = sessions.length === 0
   elements.documentsListOpen.hidden = !hasReviews || !documentsListCollapsed
   elements.workspace.classList.toggle('has-documents-list', hasReviews)
   elements.reviewTabStrip.hidden = sessions.length === 0
-  elements.reviewInboxCount.textContent = String(projection.editing.length)
-  elements.reviewInboxCount.hidden = projection.editing.length === 0
+  elements.reviewInboxCount.textContent = String(projection.filterCounts['needs-me'])
+  elements.reviewInboxCount.hidden = projection.filterCounts['needs-me'] === 0
+  const filterLabels: Record<ReviewInboxFilter, string> = {
+    'needs-me': 'Needs me',
+    'with-agent': 'With agent',
+    completed: 'Completed',
+    all: 'All'
+  }
+  for (const option of elements.reviewFilter.options) {
+    const value = option.value as ReviewInboxFilter
+    option.textContent = `${filterLabels[value]} (${String(projection.filterCounts[value])})`
+  }
+  elements.reviewFilter.value = reviewFilter
   elements.reviewListCount.textContent = reviewNavigationMode === 'inbox'
-    ? `${projection.editing.length} need review${incompatibleReviews.length
+    ? `${projection.filterCounts[reviewFilter]} ${filterLabels[reviewFilter].toLowerCase()}${incompatibleReviews.length
       ? ` · ${incompatibleReviews.length} incompatible`
       : ''}`
     : `${projection.projects.length} projects${incompatibleReviews.length
@@ -3343,7 +3578,7 @@ function renderDocumentsList(): void {
   if (sessions.length) {
     elements.documentsListTree.append(
       reviewNavigationMode === 'inbox'
-        ? renderInboxReviews(projection.editing, projection.history)
+        ? renderInboxReviews(projection.editing, projection.history, reviewFilter)
         : renderProjects(projection.projects)
     )
   }
@@ -4529,10 +4764,65 @@ elements.documentsListOpen.addEventListener('click', () => {
   setDocumentsListCollapsed(false)
 })
 elements.reviewNavigationInbox.addEventListener('click', () => {
+  selectedReviewIds.clear()
   setReviewNavigationMode('inbox')
 })
 elements.reviewNavigationProjects.addEventListener('click', () => {
+  selectedReviewIds.clear()
   setReviewNavigationMode('projects')
+})
+elements.reviewFilter.addEventListener('change', () => {
+  const value = elements.reviewFilter.value
+  if (
+    value !== 'needs-me' &&
+    value !== 'with-agent' &&
+    value !== 'completed' &&
+    value !== 'all'
+  ) return
+  reviewFilter = value
+  selectedReviewIds.clear()
+  inboxHistoryLimit = INBOX_HISTORY_PAGE_SIZE
+  renderDocumentsList()
+  requestAnimationFrame(() => {
+    elements.reviewFilter.focus()
+  })
+})
+async function resolveSelectedReviews(
+  outcome: ManualReviewResolutionRequestOutcome
+): Promise<void> {
+  const reviewIds = [...selectedReviewIds]
+  if (!reviewIds.length) return
+  try {
+    const result = await bridge.resolveReviews({ reviewIds, outcome })
+    if (result.outcome === 'resolved') {
+      selectedReviewIds.clear()
+      showToast(`${String(result.reviews.length)} review${result.reviews.length === 1 ? '' : 's'} completed`)
+    }
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : String(error))
+  }
+  renderDocumentsList()
+}
+elements.reviewBatchNoNotes.addEventListener('click', () => {
+  void resolveSelectedReviews('reviewed-no-notes')
+})
+elements.reviewBatchAccept.addEventListener('click', () => {
+  void resolveSelectedReviews('accepted-unreviewed')
+})
+elements.reviewBatchClose.addEventListener('click', () => {
+  batchResolutionMode = false
+  selectedReviewIds.clear()
+  renderDocumentsList()
+  elements.reviewFilter.focus()
+})
+elements.reviewResolutionCancel.addEventListener('click', () => {
+  finishResolutionConfirmation(false)
+})
+elements.reviewResolutionConfirm.addEventListener('click', () => {
+  finishResolutionConfirmation(true)
+})
+elements.reviewResolutionDialog.addEventListener('close', () => {
+  finishResolutionConfirmation(false)
 })
 elements.documentsListResizer.addEventListener(
   'pointerdown',
@@ -4872,6 +5162,19 @@ async function initialize(): Promise<void> {
       return 'missing'
     }
     return handleReviewLink(document, focusState)
+  })
+  bridge.onReviewResolutionConfirmation((request) => (
+    showReviewResolutionConfirmation(request)
+  ))
+  bridge.onReviewBatchModeRequested(() => {
+    if (!batchResolutionMode) {
+      batchResolutionMode = true
+      selectedReviewIds.clear()
+      renderDocumentsList()
+    }
+    requestAnimationFrame(() => {
+      elements.reviewBatchClose.focus()
+    })
   })
   bridge.onReviewStatus(async ({ reviewId, status }) => {
     let session = reviewSessions.updateStatus(reviewId, status)

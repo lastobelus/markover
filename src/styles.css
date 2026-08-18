@@ -821,6 +821,111 @@ p {
   margin-right: auto;
 }
 
+.review-filter {
+  max-width: 116px;
+  height: 24px;
+  margin-right: 4px;
+  padding: 0 22px 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background-color: rgb(var(--surface-rgb) / 78%);
+  font: 700 9px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.review-filter:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.review-batch-actions {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+}
+
+.review-batch-actions[hidden] {
+  display: none;
+}
+
+.review-batch-actions span {
+  min-width: 0;
+  margin-right: auto;
+  color: var(--accent-deep);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.review-batch-actions button {
+  min-height: 23px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.review-batch-actions button:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.review-batch-actions .review-batch-close {
+  width: 23px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.review-selection {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent-deep);
+}
+
+.review-list-row:has(.review-selection) .review-list-row-open {
+  padding-left: 28px;
+}
+
+.review-project-leaf:has(.review-selection) .review-project-leaf-open {
+  padding-left: 27px;
+}
+
+.review-return-needs-me {
+  position: absolute;
+  right: 58px;
+  bottom: 6px;
+  z-index: 2;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--accent-deep);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.review-project-leaf > .review-return-needs-me {
+  top: 5px;
+  right: 6px;
+  bottom: auto;
+}
+
 .review-list-count {
   overflow: hidden;
   color: var(--muted);
@@ -1344,6 +1449,7 @@ button.review-list-row-pr:hover {
 }
 
 .review-project-leaf {
+  position: relative;
   min-width: 0;
   margin-right: 4px;
   border: 1px solid transparent;
@@ -3485,6 +3591,65 @@ body.is-control-pressed .attachment-remove:hover {
 
 .fixed-contract-dialog {
   width: min(540px, calc(100vw - 64px));
+}
+
+.review-resolution-dialog {
+  width: min(680px, calc(100vw - 40px));
+  max-height: min(760px, calc(100vh - 40px));
+}
+
+.review-resolution-layout {
+  display: flex;
+  max-height: inherit;
+  flex-direction: column;
+}
+
+.review-resolution-content {
+  overflow: auto;
+}
+
+.review-resolution-summaries {
+  display: grid;
+  gap: 8px;
+}
+
+.review-resolution-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(var(--surface-rgb) / 66%);
+}
+
+.review-resolution-summary > summary {
+  display: grid;
+  padding: 9px 11px;
+  cursor: pointer;
+  gap: 3px;
+}
+
+.review-resolution-summary > summary span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-resolution-blocks {
+  display: grid;
+  gap: 7px;
+  padding: 0 11px 11px;
+}
+
+.review-resolution-block {
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--input);
+}
+
+.review-resolution-block :is(pre, p) {
+  margin: 5px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .incoming-review-dialog {

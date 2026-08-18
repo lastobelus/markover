@@ -126,6 +126,16 @@ After acting on every part of the feedback, run `revise <reviewId>` before
 reporting completion. If the user needs to change feedback while the review is
 still with the agent, run `edit <reviewId>`. A later feedback round opens a new
 review rather than reopening a Revised review.
+When the user asks whether this thread has pending Markover reviews, run
+`pending` with the same truthful current-thread identity route used by `open`
+and return every result. Planning and implementation may continue around an
+unresolved review, but before merge or final thread completion run `pending`
+as a soft gate and ask for an explicit disposition for every result. Silence
+and PR merge never imply acceptance. Use `resolve --outcome
+reviewed-no-notes` or `resolve --outcome accepted-unreviewed` only after the
+user chooses it; Markover itself summarizes any existing feedback and requires
+the user to choose Abandon feedback. A cancelled confirmation leaves the review
+unresolved, and `unresolve` returns a manual outcome to Needs me before Done.
 Keep `--silent`: agent-facing success output is exactly one JSON value on
 stdout, while errors explain the relevant usage and recovery on stderr.
 

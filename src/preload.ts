@@ -117,6 +117,24 @@ async function respondToReviewActivation(
   }
 }
 
+async function respondToReviewResolutionConfirmation(
+  callback: (
+    request: ReviewResolutionConfirmationRequest
+  ) => boolean | Promise<boolean>,
+  request: ReviewResolutionConfirmationRequest
+): Promise<void> {
+  let confirmed = false
+  try {
+    confirmed = await callback(request)
+  } catch (error) {
+    console.error('Markover could not show review resolution confirmation.', error)
+  }
+  send('review:resolution-confirmation-response', {
+    requestId: request.requestId,
+    confirmed
+  } satisfies ReviewResolutionConfirmationResponse)
+}
+
 const bridge = {
   getStartupInfo: () => invoke('startup:info'),
   reportStartupPhase: (event) => invoke('startup:phase', event),
@@ -140,6 +158,11 @@ const bridge = {
       callback()
     })
   },
+  onReviewBatchModeRequested: (callback) => {
+    listen('review:batch-mode-request', () => {
+      callback()
+    })
+  },
   checksum: (source) => invoke('document:checksum', source),
   copyText: (text) => {
     send('clipboard:write', text)
@@ -151,6 +174,8 @@ const bridge = {
     invoke('attachment:save', attachment, reviewId)
   ),
   removeAttachment: (request) => invoke('attachment:remove', request),
+  resolveReviews: (request) => invoke('review:resolve', request),
+  unresolveReview: (reviewId) => invoke('review:unresolve', reviewId),
   getInitialReview: () => (
     invoke('review:initial-document')
   ),
@@ -215,6 +240,14 @@ const bridge = {
     listen('review:activation-request', (request: ReviewActivationRequest) => {
       void respondToReviewActivation(callback, request)
     })
+  },
+  onReviewResolutionConfirmation: (callback) => {
+    listen(
+      'review:resolution-confirmation-request',
+      (request: ReviewResolutionConfirmationRequest) => {
+        void respondToReviewResolutionConfirmation(callback, request)
+      }
+    )
   },
   activateReview: (reviewId) => {
     send('review:activate', reviewId)

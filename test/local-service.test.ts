@@ -100,6 +100,8 @@ async function serviceFixture(
       | 'get-for-review'
       | 'submit'
       | 'edit'
+      | 'resolve'
+      | 'unresolve'
       | 'revise'
       | 'done'
       | 'observed'
@@ -112,6 +114,7 @@ async function serviceFixture(
     identity,
     store,
     beforeAction: options.beforeAction,
+    confirmFeedbackAbandonment: options.confirmFeedbackAbandonment,
     async onChange(artifact, action) {
       changes.push({ artifact, action })
       await options.onChange?.(artifact, action)
@@ -536,6 +539,96 @@ test('persists PR observations through revise and PR-scoped done', async (t) => 
       reviewIds: [],
       status: 'done'
     }
+  )
+})
+
+test('pending review lookup returns only metadata for the exact unresolved thread', async (t) => {
+  const { endpointPath } = await serviceFixture(t, {
+    reviewIds: ['mko_aaa11111', 'mko_bbb22222']
+  })
+  const agentThread = {
+    id: 'provider-thread-1',
+    threadHost: { kind: 't3code', provider: 'codex' }
+  }
+  await requestJson(endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: {
+      contextSummary: 'Pending review metadata.',
+      agentThread
+    }
+  })
+  await requestJson(endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: {
+      contextSummary: 'Another thread.',
+      agentThread: {
+        id: 'provider-thread-2',
+        threadHost: { kind: 't3code', provider: 'codex' }
+      }
+    }
+  })
+
+  const result = expectRecord(await requestJson(
+    endpointPath,
+    'POST',
+    '/reviews/pending',
+    { agentThread }
+  ))
+  assert.equal(result.format, 'markover-pending-reviews')
+  assert.deepEqual(result.reviews, [{
+    reviewId: 'mko_aaa11111',
+    responsibility: 'needs-me',
+    status: 'editing',
+    documentName: 'review.md',
+    contextSummary: 'Pending review metadata.',
+    createdAt: (result.reviews as Array<Record<string, unknown>>)[0]?.createdAt,
+    attentionRequestedAt:
+      (result.reviews as Array<Record<string, unknown>>)[0]?.attentionRequestedAt,
+    pullRequest: null
+  }])
+  assert.doesNotMatch(JSON.stringify(result), /sourceDocument|feedback|root/)
+})
+
+test('manual resolution confirms and preserves feedback, then can return to Needs me', async (t) => {
+  let summarized: readonly ReviewArtifact[] = []
+  const { changes, endpointPath, store } = await serviceFixture(t, {
+    confirmFeedbackAbandonment(artifacts) {
+      summarized = artifacts
+      return Promise.resolve(true)
+    }
+  })
+  await requestJson(endpointPath, 'POST', '/reviews', {
+    tree: tree(),
+    metadata: { contextSummary: 'Resolve preserved feedback.' }
+  })
+  const current = await store.load('mko_aaa11111')
+  child(current.root).feedback = 'Preserve this note.'
+  await store.updateTree('mko_aaa11111', current)
+
+  const resolved = expectRecord(await requestJson(
+    endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/resolve',
+    { outcome: 'reviewed-no-notes' }
+  ))
+  assert.equal(resolved.outcome, 'resolved')
+  assert.equal(expectRecord(resolved.resolution).outcome, 'feedback-abandoned')
+  assert.equal(child(summarized[0]?.root as ReviewNode).feedback, 'Preserve this note.')
+  assert.equal(
+    child((await store.load('mko_aaa11111')).root).feedback,
+    'Preserve this note.'
+  )
+
+  const reopened = expectRecord(await requestJson(
+    endpointPath,
+    'POST',
+    '/reviews/mko_aaa11111/unresolve'
+  ))
+  assert.equal(reopened.outcome, 'unresolved')
+  assert.equal(reopened.status, 'editing')
+  assert.deepEqual(
+    changes.map((change) => change.action),
+    ['created', 'resolve', 'unresolve']
   )
 })
 

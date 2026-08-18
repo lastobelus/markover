@@ -105,13 +105,24 @@
         <p>Revised reviews remain read-only. If another feedback round is useful, open the revised document as a new independent review.</p>
       </section>
 
+      <section id="pending-reviews">
+        <h2>Check and resolve pending reviews</h2>
+        <p>At any point, an agent can ask Markover for every unresolved review opened by its exact current requesting thread. The result contains review links, document purpose, responsibility, age timestamps, and pull-request association without exposing draft feedback or changing review state.</p>
+        <pre><code>markover pending --thread-id THREAD_ID --thread-host-kind t3code --thread-host-provider codex</code></pre>
+        <p>Pending reviews are a soft gate: planning and implementation can continue, but the agent surfaces every result before merge or final thread completion. Silence and merge do not imply acceptance.</p>
+        <pre><code>markover resolve mko_8f3a2c --outcome reviewed-no-notes
+markover resolve mko_8f3a2c --outcome accepted-unreviewed
+markover unresolve mko_8f3a2c</code></pre>
+        <p>If the review contains feedback, attachments, or source proposals, Markover first shows the preserved feedback summary. Completion then requires the explicit Abandon feedback button; cancellation leaves the review unresolved. Manual outcomes can return to Needs me until Done.</p>
+      </section>
+
       <section id="done">
         <h2>Complete reviews after merge</h2>
         <p>After verifying a pull request merged, use its canonical URL and the verified merged observation:</p>
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover done https://github.com/OWNER/REPOSITORY/pull/123 --pr-status merged</code></pre>
-        <p>Markover moves every matching local review to the terminal Done state. A pull request with no matching local reviews is a successful no-op.</p>
+        <p>Markover moves every matching local review to the terminal Done state. It preserves an explicit resolution; an Editing or With agent review is recorded as Merged unresolved rather than inferred as accepted. A pull request with no matching local reviews is a successful no-op.</p>
       </section>
 
       <section id="agent-reviewer">
