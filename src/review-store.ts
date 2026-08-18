@@ -1338,7 +1338,7 @@ export class ReviewStore {
       }
       const timestamp = this.mutationTimestamp(current.review)
       updated.review.updatedAt = timestamp
-      if (status === 'revised') {
+      if (status === 'revised' && current.review.status !== 'revised') {
         updated.review.resolution = {
           outcome: 'feedback-addressed',
           resolvedAt: timestamp

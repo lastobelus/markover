@@ -668,7 +668,8 @@ test('stores successful agent PR observations with transition receipt time', asy
   const timestamps = [
     '2026-08-10T02:00:00.000Z',
     '2026-08-10T02:01:00.000Z',
-    '2026-08-10T02:02:00.000Z'
+    '2026-08-10T02:02:00.000Z',
+    '2026-08-10T02:03:00.000Z'
   ]
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111',
@@ -711,6 +712,24 @@ test('stores successful agent PR observations with transition receipt time', asy
     statusObservedAt: '2026-08-10T02:02:00.000Z',
     statusSource: 'agent'
   })
+  const persisted = await store.load(created.review.id)
+  assert.ok(persisted.review.resolution)
+  persisted.review.resolution.fixtureExtension = 'preserve me'
+  await fs.writeFile(
+    store.reviewPath(created.review.id),
+    `${JSON.stringify(persisted, null, 2)}\n`,
+    'utf8'
+  )
+  const retry = await store.revise(created.review.id, 'open')
+  assert.deepEqual(retry.review.resolution, {
+    outcome: 'feedback-addressed',
+    resolvedAt: '2026-08-10T02:02:00.000Z',
+    fixtureExtension: 'preserve me'
+  })
+  assert.equal(
+    retry.review.pullRequest?.statusObservedAt,
+    '2026-08-10T02:03:00.000Z'
+  )
 })
 
 test('an omitted PR observation preserves the last successful value', async (t) => {
