@@ -262,6 +262,10 @@ async function sendRemoteJson(
               rejectInvalidResponse(invalidResponse(statusCode))
               return
             }
+            if (mutation && mutationSent && statusCode === 502) {
+              rejectOnce(uncertain())
+              return
+            }
             rejectOnce(new RemoteClientError(
               serviceError.code,
               serviceError.message,

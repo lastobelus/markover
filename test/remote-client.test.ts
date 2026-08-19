@@ -308,6 +308,35 @@ test('remote client does not follow redirects and preserves structured service e
     (error: unknown) => hasRemoteError(error, 'REDIRECT', 307)
   )
   assert.equal(redirect.captured.length, 1)
+
+  const uncertain = fakeTransport([{
+    statusCode: 502,
+    body: {
+      error: {
+        code: 'REMOTE_GATEWAY_FAILURE',
+        message: 'The gateway lost the canonical response.'
+      }
+    }
+  }])
+  await assert.rejects(
+    requestRemoteJson(profile, 'POST', '/reviews/pending', {}, {
+      preflight: false,
+      request: uncertain.request
+    }),
+    (error: unknown) => hasRemoteError(error, 'REQUEST_UNCERTAIN')
+  )
+
+  const notFound = fakeTransport([{
+    statusCode: 404,
+    body: { error: { code: 'NOT_FOUND', message: 'Review not found.' } }
+  }])
+  await assert.rejects(
+    requestRemoteJson(profile, 'POST', '/reviews/mko_missing/edit', {}, {
+      preflight: false,
+      request: notFound.request
+    }),
+    (error: unknown) => hasRemoteError(error, 'NOT_FOUND', 404)
+  )
 })
 
 test('remote client rejects malformed JSON, content types, errors, and request bodies', async () => {
