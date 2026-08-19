@@ -989,7 +989,7 @@ test('parses explicit review metadata', () => {
       '--thread-host-thread-id',
       't3-thread-456',
       '--thread-host-machine',
-      'Airy.local'
+      'canonical-host.local'
     ]),
     {
       command: 'open',
@@ -1004,7 +1004,7 @@ test('parses explicit review metadata', () => {
       threadHostKind: 't3code',
       threadHostProvider: 'codex',
       threadHostThreadId: 't3-thread-456',
-      threadHostMachine: 'Airy.local'
+      threadHostMachine: 'canonical-host.local'
     }
   )
   assert.throws(
@@ -1158,7 +1158,7 @@ test('local session discovery defaults on and fails closed for damaged settings'
 test('remote profile routes all author commands without resolving or starting a local app', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-remote-cli-'))
   const sourcePath = path.join(directory, 'plan.md')
-  const source = '# Remote plan\n\nReview this on Airy.\n'
+  const source = '# Remote plan\n\nReview this on the canonical host.\n'
   await fs.writeFile(sourcePath, source, 'utf8')
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
 
@@ -1178,7 +1178,7 @@ test('remote profile routes all author commands without resolving or starting a 
   let discoveryCalls = 0
   const options: ExecuteCommandOptions = {
     loadRemoteProfile: () => Promise.resolve({
-      baseUrl: 'https://airy.example.ts.net/'
+      baseUrl: 'https://canonical.example.ts.net/'
     }),
     readRemoteHealth() {
       healthReads += 1
@@ -1198,7 +1198,7 @@ test('remote profile routes all author commands without resolving or starting a 
       throw new Error('remote commands must not start a local app')
     },
     readSessionDiscoverySetting() {
-      throw new Error('remote commands must not read Airy settings locally')
+      throw new Error('remote commands must not read the canonical host settings locally')
     },
     discoverMetadata(input) {
       discoveryCalls += 1
@@ -1312,7 +1312,7 @@ test('uncertain remote open recovers by key before rereading the source', async 
   let discoveryCalls = 0
   const options: ExecuteCommandOptions = {
     loadRemoteProfile: () => Promise.resolve({
-      baseUrl: 'https://airy.example.ts.net/'
+      baseUrl: 'https://canonical.example.ts.net/'
     }),
     readRemoteHealth: () => Promise.resolve({
       status: 'ok',
@@ -1377,7 +1377,7 @@ test('remote open recovers a delayed own attempt through digest history', async 
   let discoveryCalls = 0
   const options: ExecuteCommandOptions = {
     loadRemoteProfile: () => Promise.resolve({
-      baseUrl: 'https://airy.example.ts.net/'
+      baseUrl: 'https://canonical.example.ts.net/'
     }),
     readRemoteHealth: () => Promise.resolve({
       status: 'ok',
@@ -1559,7 +1559,7 @@ test('executes CLI commands against the local service', async (t) => {
       threadHostKind: 't3code',
       threadHostProvider: 'codex',
       threadHostThreadId: 't3-thread-456',
-      threadHostMachine: 'Airy.local'
+      threadHostMachine: 'canonical-host.local'
     }, options),
     {
       reviewId: 'mko_aaa11111',
@@ -1591,7 +1591,7 @@ test('executes CLI commands against the local service', async (t) => {
       kind: 't3code',
       provider: 'codex',
       threadId: 't3-thread-456',
-      machine: 'Airy.local'
+      machine: 'canonical-host.local'
     }
   })
 

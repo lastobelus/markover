@@ -211,9 +211,9 @@ export function helpPayload() {
       installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first local use. Configured remote author commands do not download or launch a local app.'
     },
     remoteCanonical: {
-      configuration: `Set ${REMOTE_PROFILE_ENVIRONMENT_VARIABLE} to a JSON file containing exactly {"baseUrl":"https://<airy-host>.ts.net/"}.`,
+      configuration: `Set ${REMOTE_PROFILE_ENVIRONMENT_VARIABLE} to a JSON file containing exactly {"baseUrl":"https://<canonical-host>.ts.net/"}.`,
       commands: ['open', 'pending', 'get', 'edit', 'revise', 'done'],
-      behavior: 'A valid profile uses Airy’s canonical Markover without downloading, launching, or storing a second Markover app on the client Mac. Thread and Git discovery remain local; attachments and reviewer mode are unavailable.'
+      behavior: 'A valid profile uses canonical Markover on the configured host without downloading, launching, or storing a second Markover app on the client Mac. Thread and Git discovery remain local; attachments and reviewer mode are unavailable.'
     },
     workflow: [
       'Create the Markdown file before opening it.',

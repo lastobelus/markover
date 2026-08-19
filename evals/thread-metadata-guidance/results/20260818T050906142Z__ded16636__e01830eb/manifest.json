@@ -140,8 +140,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"threadHostKind\":\"t3code\",\"threadHostProvider\":\"codex\",\"threadHostThreadId\":\"t3-thread-88\",\"threadHostMachine\":\"Airy.example\"}",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"threadHostKind\":\"t3code\",\"threadHostProvider\":\"codex\",\"threadHostThreadId\":\"t3-thread-88\",\"threadHostMachine\":\"canonical-host.example\"}",
         "inputMode": "flags",
         "explanation": "The proven Codex identity route uses CODEX_THREAD_ID via --thread-id, together with all truthfully observed host metadata."
       },
@@ -180,8 +180,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"handoffKey\":null,\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"Airy.example\"}",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"handoffKey\":null,\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"canonical-host.example\"}",
         "inputMode": "flags",
         "explanation": "Because this is a proven Codex surface and CODEX_THREAD_ID is nonblank, the agent uses --thread-id and does not generate or pass --handoff-key. All truthfully observed host metadata is supplied through open flags."
       },
@@ -220,8 +220,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"canonical-host.example\"}}",
         "inputMode": "flags-only",
         "explanation": "Uses the explicit-runtime identity route because CODEX_THREAD_ID is truthfully observable on the proven Codex surface."
       },
@@ -257,8 +257,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"canonical-host.example\"}}",
         "inputMode": "flags-only",
         "explanation": "Uses the explicit-runtime identity route because CODEX_THREAD_ID is truthfully observable, with all observed thread-host metadata supplied through flags."
       },
@@ -294,8 +294,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"Airy.example\"}",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"canonical-host.example\"}",
         "inputMode": "flags",
         "explanation": "Because CODEX_THREAD_ID is nonblank, the open command uses --thread-id and does not generate a handoff key."
       },
@@ -334,8 +334,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"Airy.example\"}",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"threadId\":\"provider-session-41\",\"hostKind\":\"t3code\",\"hostProvider\":\"codex\",\"hostThreadId\":\"t3-thread-88\",\"hostMachine\":\"canonical-host.example\"}",
         "inputMode": "flags",
         "explanation": "The proven Codex surface uses CODEX_THREAD_ID via --thread-id; the observed host metadata is passed through the thread-host flags."
       },
@@ -374,8 +374,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "markoverInput": "npm --silent run markover -- open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"canonical-host.example\"}}",
         "inputMode": "flags-only",
         "explanation": "The proven Codex surface provides CODEX_THREAD_ID, so the open command uses --thread-id and includes the observed thread-host metadata."
       },
@@ -411,8 +411,8 @@
       },
       "output": {
         "caseId": "explicit-runtime-complete",
-        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine Airy.example",
-        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"Airy.example\"}}",
+        "markoverInput": "open review.md --summary metadata-evaluation --thread-id provider-session-41 --thread-host-kind t3code --thread-host-provider codex --thread-host-thread-id t3-thread-88 --thread-host-machine canonical-host.example",
+        "portableAgentThreadJson": "{\"id\":\"provider-session-41\",\"threadHost\":{\"kind\":\"t3code\",\"provider\":\"codex\",\"threadId\":\"t3-thread-88\",\"machine\":\"canonical-host.example\"}}",
         "inputMode": "flags-only",
         "explanation": "The proven Codex runtime provides CODEX_THREAD_ID, so the open uses --thread-id and truthful host metadata flags."
       },

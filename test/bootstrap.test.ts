@@ -60,7 +60,7 @@ test('configured remote author commands bypass app bootstrap on Intel', async ()
       return Promise.resolve('/Applications/Markover.app')
     },
     loadProfile() {
-      return Promise.resolve({ baseUrl: 'https://airy.example.ts.net/' })
+      return Promise.resolve({ baseUrl: 'https://canonical.example.ts.net/' })
     },
     run(args) {
       commands.push(args || [])

@@ -208,7 +208,7 @@ test('thread-host packets expose nested provider and thread-host registry keys',
       id: 'provider-thread-1',
       threadHost: {
         kind: 't3code',
-        machine: 'Airy.local',
+        machine: 'canonical-host.local',
         threadId: 'host-thread-1',
         provider: 'codex'
       }
@@ -224,11 +224,11 @@ test('thread-host packets expose nested provider and thread-host registry keys',
   assert.ok(thread)
   assert.equal(row.provider, 'codex')
   assert.equal(row.threadHostKind, 't3code')
-  assert.equal(row.machine, 'Airy.local')
+  assert.equal(row.machine, 'canonical-host.local')
   assert.equal(row.requestingThreadId, 'host-thread-1')
   assert.equal(thread.provider, 'codex')
   assert.equal(thread.threadHostKind, 't3code')
-  assert.equal(thread.machine, 'Airy.local')
+  assert.equal(thread.machine, 'canonical-host.local')
   assert.equal(thread.requestingThreadId, 'host-thread-1')
   assert.equal(thread.key, 't3code:host-thread-1')
 })
@@ -703,7 +703,7 @@ test('metadata inventory is complete and reports source and repository conflicts
         kind: 't3code',
         provider: 'openai',
         threadId: 't3-thread-1',
-        machine: 'Airy.local'
+        machine: 'canonical-host.local'
       }
     },
     branch: 't3code/metadata',

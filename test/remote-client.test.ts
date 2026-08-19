@@ -18,7 +18,7 @@ import {
   type RemoteProfile
 } from '../src/remote-profile'
 
-const profile: RemoteProfile = { baseUrl: 'https://airy.example.ts.net/' }
+const profile: RemoteProfile = { baseUrl: 'https://canonical.example.ts.net/' }
 const validHealth = {
   status: 'ok',
   protocol: { name: 'markover-remote', version: 1 },
@@ -176,22 +176,22 @@ test('remote profile is opt-in and accepts only an exact root HTTPS ts.net URL',
 
   let readPath = ''
   assert.deepEqual(await loadRemoteProfile({
-    environment: { MARKOVER_REMOTE_PROFILE: '/profiles/airy.json' },
+    environment: { MARKOVER_REMOTE_PROFILE: '/profiles/canonical.json' },
     readFile: (profilePath) => {
       readPath = profilePath
       return Promise.resolve(JSON.stringify({
-        baseUrl: 'https://Airy.Example.ts.net'
+        baseUrl: 'https://Canonical.Example.ts.net'
       }))
     }
-  }), { baseUrl: 'https://airy.example.ts.net/' })
-  assert.equal(readPath, '/profiles/airy.json')
+  }), { baseUrl: 'https://canonical.example.ts.net/' })
+  assert.equal(readPath, '/profiles/canonical.json')
 
   for (const baseUrl of [
-    'http://airy.example.ts.net/',
-    'https://user@airy.example.ts.net/',
-    'https://airy.example.ts.net/reviews',
-    'https://airy.example.ts.net/?details=1',
-    'https://airy.example.ts.net/#health',
+    'http://canonical.example.ts.net/',
+    'https://user@canonical.example.ts.net/',
+    'https://canonical.example.ts.net/reviews',
+    'https://canonical.example.ts.net/?details=1',
+    'https://canonical.example.ts.net/#health',
     'https://127.0.0.1/',
     'https://example.com/'
   ]) {
@@ -214,7 +214,7 @@ test('health pins protocol identity and exposes the boolean discovery snapshot',
   const request = transport.captured[0]
   assert.ok(request)
   assert.equal(request.options.protocol, 'https:')
-  assert.equal(request.options.hostname, 'airy.example.ts.net')
+  assert.equal(request.options.hostname, 'canonical.example.ts.net')
   assert.equal(request.options.port, 443)
   assert.equal(request.options.path, '/health')
   assert.equal(request.options.agent, false)

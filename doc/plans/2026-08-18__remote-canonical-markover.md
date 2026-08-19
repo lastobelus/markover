@@ -1,4 +1,4 @@
-# Remote agents posting to Airy’s canonical Markover
+# Remote agents posting to canonical Markover
 
 Status: implementation-ready. This document is the first commit in Slice A’s
 implementation PR; product changes follow in that PR.
@@ -12,8 +12,8 @@ children with the bases recorded below.
 Build one opt-in **remote-client → remote-canonical seam**:
 
 ```text
-htulo Markover CLI
-  → HTTPS to Airy’s exact *.ts.net name
+Remote client host Markover CLI
+  → HTTPS to the canonical host’s exact *.ts.net name
   → Tailscale Serve (tailnet-only; never Funnel)
   → mode-restricted Unix socket owned by canonical Markover
   → constrained gateway in the canonical app
@@ -21,13 +21,13 @@ htulo Markover CLI
   → existing queues, ReviewStore, SettingsStore, renderer, and UI
 ```
 
-Airy remains the only Markover app, settings writer, review store, attachment
-store, renderer, and lifecycle authority. htulo runs the architecture-neutral
+The canonical host remains the only Markover app, settings writer, review store,
+attachment store, renderer, and lifecycle authority. The remote client host runs the architecture-neutral
 CLI and Tailscale only. It never launches Markover, creates a review store, or
-receives Airy’s local bearer token.
+receives the canonical host’s local bearer token.
 
 This is a narrow feature, not configuration-only support. The first delivery is
-an Airy/htulo pilot. General-user promotion follows only after the installed
+a two-host pilot. General-user promotion follows only after the installed
 Tailscale variants, setup doctor, revocation, and privacy disclosures are
 proven. Unsupported transport fails closed; it never falls back to Funnel,
 direct Tailscale-IP binding, a second store, or a loopback gateway.
@@ -35,13 +35,13 @@ direct Tailscale-IP binding, a second store, or a loopback gateway.
 ## Product decisions
 
 1. **Remote source state is `unavailable`.** Reviews created through the remote
-   gateway use `origin: remote-agent`. Airy returns existing unavailable source
+   gateway use `origin: remote-agent`. The canonical host returns existing unavailable source
    and project states before filesystem or Git access. A new renderer/IPC state
    has no pilot behavior to justify it.
 2. **Creation receipts are portable digest records.** An optional
    `review.creationReceipt` contains a version, the digest of a high-entropy
    idempotency key, and the digest of the exact initial request bytes. The raw
-   key lives only in htulo’s restricted journal and authenticated requests.
+   key lives only in the remote client host’s restricted journal and authenticated requests.
 3. **Uncertain `open` retries recover by key before rebuilding a body.** The
    client first performs a body-free recovery mode on remote `POST /reviews`
    using its journaled key and original request digest. This avoids both
@@ -50,9 +50,9 @@ direct Tailscale-IP binding, a second store, or a loopback gateway.
    conflict against the client’s own superseded attempt self-recovers (see
    protocol below).
 4. **Recovery does not replay `created`.** A key match returns the original
-   review ID, status, and Airy URL without sending another incoming-review
+   review ID, status, and canonical URL without sending another incoming-review
    notification. The store and exact deep link are the recovery sources of
-   truth; an Airy relaunch republishes persisted reviews. This is grounded in
+   truth; a canonical-host relaunch republishes persisted reviews. This is grounded in
    code: the `created` path resolves project context, enqueues an
    incoming-review notification, reinstalls the menu, and creates the main
    window if absent ([main.ts](../../src/main.ts#L1343)) — replay is not a
@@ -61,11 +61,11 @@ direct Tailscale-IP binding, a second store, or a loopback gateway.
    remote gateway pins `remote-agent` and rejects any remote body claim. The
    internal producer contract accepts only those two currently supported write
    values, while portable readers continue accepting unknown nonblank origins.
-6. **Airy governs optional session discovery.** Authenticated remote health
-   carries a snapshot of Airy’s canonical
+6. **The canonical host governs optional session discovery.** Authenticated remote health
+   carries a snapshot of its canonical
    `discoverAgentThreadFromLocalSessions` setting. That snapshot governs
-   htulo-local discovery for the command; explicit thread identity remains
-   authoritative. No htulo settings writer or settings route is added.
+   local discovery on the remote client host for the command; explicit thread identity remains
+   authoritative. No remote-client settings writer or settings route is added.
 7. **The gateway setting is canonical and live.** Enable creates the owned
    socket. Disable stops new requests, drains the bounded active request,
    closes the gateway, and removes only its socket. Development and smoke
@@ -73,7 +73,7 @@ direct Tailscale-IP binding, a second store, or a loopback gateway.
 
 ## Tailscale evidence and boundary
 
-Verified live during this investigation: Airy runs Tailscale 1.102.2 as the
+Verified live during this investigation: the canonical host runs Tailscale 1.102.2 as the
 signed Standalone system-extension variant (`codesign` identifier
 `io.tailscale.ipn.macsys`; its network extension is the running process). The
 installed CLI explicitly documents:
@@ -101,7 +101,7 @@ socket under the user’s state root is proven only by the live hop.
 
 Use Tailscale Serve, never Funnel:
 
-- Pin Airy’s exact HTTPS `*.ts.net` base URL and expected Markover protocol,
+- Pin the canonical host’s exact HTTPS `*.ts.net` base URL and expected Markover protocol,
   `role: canonical`, and `scheme: markover`.
 - Require normal certificate and hostname validation. Reject HTTP, IP URLs,
   redirects, protocol mismatch, and non-canonical role before private bytes.
@@ -109,9 +109,9 @@ Use Tailscale Serve, never Funnel:
   `lastobelus.com/cap/markover-remote-client`; forwarding requires Tailscale
   1.92 or newer
   ([Serve identity headers](https://tailscale.com/docs/features/tailscale-serve#identity-headers)).
-- Bind TCP 443 and the capability to the exact htulo host selector and exact
-  Airy destination. Prefer a readable host alias over a raw Tailscale IP. A
-  user-wide selector is too broad because Airy and htulo share one user
+- Bind TCP 443 and the capability to the exact remote-client host selector and exact
+  the canonical host destination. Prefer a readable host alias over a raw Tailscale IP. A
+  user-wide selector is too broad because the canonical host and the remote client host share one user
   identity ([grant selectors](https://tailscale.com/docs/reference/syntax/grants)).
 - Accept the Serve capability before route selection or body parsing. The
   network never receives `service.token`.
@@ -125,7 +125,7 @@ trust boundary and is not claimed to be isolated.
 
 Any Tailscale login or HTTPS-consent URL is printed for manual Safari use.
 Markover does not drive OAuth or edit tailnet policy. HTTPS certificate
-issuance publishes Airy’s certificate name to Certificate Transparency, so the
+issuance publishes the canonical host’s certificate name to Certificate Transparency, so the
 machine name must contain no sensitive information
 ([HTTPS certificates](https://tailscale.com/docs/how-to/set-up-https-certificates)).
 
@@ -147,7 +147,7 @@ The first implementation stack must deliberately amend existing records:
   retry recovery is a transport protocol, not portable document semantics.
 - [`privacy/index.html`](../../docs/user/privacy/index.html) changes when the
   gateway first becomes reachable. It names the opt-in path, data sent,
-  Tailscale dependency, Airy storage, remote-source boundary, and certificate
+  Tailscale dependency, canonical-host storage, remote-source boundary, and certificate
   name disclosure.
 
 The Unix socket protects the remote ingress boundary without replacing the
@@ -158,7 +158,7 @@ recurring terms can be judged from actual implementation.
 
 - Gateway protocol: **narrow** to one capability, one canonical socket, and a
   fixed author-agent route set.
-- htulo journal: **narrow** to an invocation fingerprint, raw key, the digest
+- Remote-client journal: **narrow** to an invocation fingerprint, raw key, the digest
   history of sent request bodies, canonical URL, operation state, and
   eventual receipt; no review body or discovered metadata.
 - Creation idempotency: **fix** because persisted creation followed by
@@ -182,7 +182,7 @@ recurring terms can be judged from actual implementation.
    already accepts and validates an origin
    ([review-store.ts](../../src/review-store.ts#L50)). Receipt lookup is new.
 4. `open` and `pending` construct review URLs client-side today; the service
-   does not return Airy’s canonical URL
+   does not return the canonical URL
    ([markover.ts](../../scripts/markover.ts#L1605),
    [markover.ts](../../scripts/markover.ts#L1690)).
 5. Forwarding mutations through the current service core retains per-review
@@ -196,7 +196,7 @@ recurring terms can be judged from actual implementation.
    remote-origin non-dereference must hold on the create/publication path,
    not only later restoration.
 
-Canonical reviews, attachments, and settings remain under Airy’s Application
+Canonical reviews, attachments, and settings remain under the canonical host’s Application
 Support root. [`SettingsStore`](../../src/settings-store.ts#L15) remains the only
 serialized atomic settings writer.
 
@@ -213,7 +213,7 @@ serialized atomic settings writer.
 | HTTPS client and remote profile | New. Existing client uses `node:http`. |
 | Response bound and remote timeout | New. Current responses are unbounded and the local timeout is 2000 ms. |
 | Creation receipt and key recovery | New. Store create always allocates a fresh ID. |
-| Airy-produced review URLs | New for `open` and every `pending` result. |
+| canonical-host-produced review URLs | New for `open` and every `pending` result. |
 
 ## Canonical activation predicate
 
@@ -229,9 +229,9 @@ startup requires all of:
 - the default-off canonical setting enabled; and
 - an owned, mode-restricted socket path under the canonical state root.
 
-Remote create fails if routing inspection is vacuous or unhealthy. Airy
+Remote create fails if routing inspection is vacuous or unhealthy. The canonical host
 returns `markover://review/<id>` only after that check. Each remote `pending`
-item also contains its Airy-produced URL.
+item also contains its canonical-host-produced URL.
 
 The setting lands through all coordinated settings seams: defaults,
 normalization, IPC key/validation, and dialog wiring. Tests prove the value is
@@ -264,13 +264,13 @@ impossible CLI syntax, verify rejection of unsupported producer values.
 
 ## Remote source authority
 
-Preserve htulo’s absolute source path, content, checksum, and htulo-discovered
-Git/thread metadata. The path helps the returning agent but gives Airy no
+Preserve the remote client host’s absolute source path, content, checksum, and remotely discovered
+Git/thread metadata. The path helps the returning agent but gives the canonical host no
 filesystem authority.
 
 For `remote-agent`, project restoration returns existing unavailable states
 before `readFile`, `realpath`, repository/favicon discovery, or Git. This is
-required even when Airy contains a different file at the identical absolute
+required even when the canonical host contains a different file at the identical absolute
 path, and it must hold on every call path — including the create/publication
 path itself, which resolves project context before the review is first shown.
 The review remains in **Other** for the pilot. Origin remains
@@ -280,13 +280,13 @@ lifecycle-neutral, and unknown future origins remain valid portable data.
 
 ### Initial attempt
 
-1. Before metadata discovery is sent, htulo creates a high-entropy key and a
+1. Before metadata discovery is sent, the remote client host creates a high-entropy key and a
    mode-restricted journal entry identified by a SHA-256 fingerprint of
    stable command inputs: remote profile, resolved source path, summary, and
    explicit identity arguments. The entry is created with exclusive-create
    (`wx`) semantics; a concurrent identical invocation loses cleanly and
    reports the in-progress entry rather than minting a second key.
-2. htulo builds the complete create body once, records its SHA-256 digest as
+2. The remote client host builds the complete create body once, records its SHA-256 digest as
    the first entry in the journal’s digest history, and sends the key,
    digest, and body.
 3. The gateway verifies the body digest, serializes receipt lookup/create
@@ -302,8 +302,8 @@ lifecycle-neutral, and unknown future origins remain valid portable data.
 }
 ```
 
-4. Airy publishes once and returns the review ID, status, and canonical URL;
-   htulo marks the journal entry complete.
+4. The canonical host publishes once and returns the review ID, status, and canonical URL;
+   the remote client host marks the journal entry complete.
 
 ### Uncertain retry
 
@@ -317,7 +317,7 @@ lifecycle-neutral, and unknown future origins remain valid portable data.
      `IDEMPOTENCY_CONFLICT` plus the original receipt;
    - no stored key returns `RECEIPT_NOT_FOUND` and proves no review with
      that key committed.
-3. Only after `RECEIPT_NOT_FOUND` may htulo rebuild metadata/body, **append**
+3. Only after `RECEIPT_NOT_FOUND` may the remote client host rebuild metadata/body, **append**
    the new digest to the journaled history, and retry creation with the same
    unused key.
 4. **Own-attempt conflict recovery.** If a create or recovery returns
@@ -340,12 +340,12 @@ partial portable identity and without storing the body, self-recovers the
 delayed-delivery race, and makes recovery observable without triggering a
 second incoming-review prompt. Because recovery never replays `created`, its
 visibility backstop is explicit: the returned deep link selects the review,
-and an Airy relaunch republishes every persisted review.
+and a canonical-host relaunch republishes every persisted review.
 
 ## Agent commands and failures
 
 The remote profile is resolved before both public app bootstrap and
-command-layer instance resolution. Intel htulo neither downloads nor launches
+command-layer instance resolution. The Intel remote client host neither downloads nor launches
 Markover.
 
 The new HTTPS client has explicit connect/response timeouts and a response
@@ -365,27 +365,27 @@ cap. It distinguishes:
   safe reconstructed create.
 
 `open`, `pending`, `get`, `edit`, `revise`, and `done` retain normal syntax.
-Metadata discovery occurs on htulo under Airy’s health-time policy snapshot.
+Metadata discovery occurs on the remote client host under the canonical host’s health-time policy snapshot.
 `get`/`edit`/`revise`/`done` retain existing transitions; same-state retries
 are byte-stable only without `pullRequestStatus`, while `--pr-status` may
 update observation timestamps.
 
 ## Attachments
 
-Attachments pasted by the human stay in Airy’s managed review directory.
+Attachments pasted by the human stay in the canonical host’s managed review directory.
 Remote handoff projects exact referenced attachments as capability-protected
-HTTPS URLs and omits Airy paths from that response without modifying stored
+HTTPS URLs and omits canonical-host paths from that response without modifying stored
 JSON or reviewer-agent artifacts.
 
 The route derives candidates from the exact artifact, applies existing
 basename, directory, and double-`realpath` checks, rejects
 traversal/symlink/orphan/duplicate/cross-review cases, verifies
-type/length/checksum, and streams bounded bytes. htulo-origin upload remains
+type/length/checksum, and streams bounded bytes. Remote-client-origin upload remains
 excluded; remote create rejects attachment metadata.
 
 ## End-to-end acceptance
 
-Run against Airy canonical and htulo, not two development stores.
+Run against the canonical host and remote client host, not two development stores.
 
 1. Prove canonical doctor/descriptor/handler health, non-smoke identity, and
    Funnel absent. **Record** the installed Tailscale variant and version and
@@ -394,33 +394,33 @@ Run against Airy canonical and htulo, not two development stores.
    time: Standalone 1.102.2, `io.tailscale.ipn.macsys`). Prove exact socket
    and parent modes, Serve targeting that socket, no LAN/Tailscale-IP
    Markover listener, and a live Serve → socket health hop.
-2. Grant exact htulo host alias → exact Airy TCP 443 plus the app capability.
+2. Grant exact remote-client host alias → exact canonical-host TCP 443 plus the app capability.
    Prove another same-user tailnet node cannot pass Serve authorization;
    prove spoofed remote headers are stripped. As another ordinary local macOS
-   account, prove socket access fails before HTTP. Record that Airy
+   account, prove socket access fails before HTTP. Record that the canonical host
    same-account/root processes remain inside the documented boundary.
-3. Configure htulo’s exact HTTPS profile. Complete auth/consent only in
+3. Configure the remote client host’s exact HTTPS profile. Complete auth/consent only in
    Safari. Prove HTTP, IP URL, redirect, certificate/name, protocol, and
    canonical-role failures occur before review bytes.
-4. Toggle Airy discovery off/on. Prove each remote-health snapshot governs
+4. Toggle canonical-host discovery off/on. Prove each remote-health snapshot governs
    that command and explicit thread identity works in both states.
-5. Open a sentinel document. Assert one Airy directory, no htulo
+5. Open a sentinel document. Assert one canonical-host directory, no remote-client-host
    store/settings, remote origin, portable receipt digests, exact source
-   snapshot, and Airy URL. Directly test the producer contract rejects
+   snapshot, and the canonical host URL. Directly test the producer contract rejects
    unsupported origins and gateway bodies cannot override `remote-agent`.
-6. Put different content at the same Airy absolute path. Prove Airy performs
+6. Put different content at the same canonical-host absolute path. Prove the canonical host performs
    no source/Git discovery and returns unavailable/Other — asserted on the
    create/publication path itself, before any UI interaction.
-7. Open the URL on Airy. Add feedback and a screenshot while editing; `get`
-   on htulo returns all feedback and a private checked URL, omits the Airy
+7. Open the URL on the canonical host. Add feedback and a screenshot while editing; `get`
+   on the remote client host returns all feedback and a private checked URL, omits the canonical-host
    path, leaves stored JSON unchanged, and denies another node.
 8. Exercise `edit → get → revise` on the same review and PR-observed `done`
-   on matching reviews only; no source file on Airy changes.
+   on matching reviews only; no source file on the canonical host changes.
 9. Lose the initial response after commit and after publication. Rerun the
    exact command after session/PR metadata changes; prove key-first recovery
    returns one review without rereading/rebuilding a body and without another
    incoming notification, that the returned deep link selects the review, and
-   that it is present after an Airy relaunch. Prove recovery waits behind an
+   that it is present after a canonical-host relaunch. Prove recovery waits behind an
    in-flight create, missing receipt permits one rebuilt create, a delayed
    first request landing after a rebuild is auto-recovered through the
    journal’s digest history, a mismatched foreign digest conflicts with the
@@ -428,11 +428,11 @@ Run against Airy canonical and htulo, not two development stores.
    concurrent identical invocations share one journal entry and key.
    Exercise uncertain retries for the other mutations including the
    `--pr-status` caveat.
-10. Disable/re-enable the gateway and quit/relaunch Airy with editing and
-    pending-agent reviews. Prove htulo fails closed while unavailable and the
+10. Disable/re-enable the gateway and quit/relaunch the canonical host with editing and
+    pending-agent reviews. Prove the remote client host fails closed while unavailable and the
     unchanged Serve configuration reaches the recreated socket afterward.
 
-Acceptance requires the real Airy/htulo grant, Serve-to-socket hop, deep
+Acceptance requires the real two-host grant, Serve-to-socket hop, deep
 link, attachment bytes, enable/disable, and restart.
 
 ## Four-PR implementation stack
@@ -474,15 +474,15 @@ Done when:
 - the gateway requires the Serve capability before route/body handling,
   implements only the fixed author allowlist plus create recovery, and
   returns authenticated `404` elsewhere;
-- remote health exposes protocol/canonical identity and Airy’s discovery
+- remote health exposes protocol/canonical identity and the canonical host’s discovery
   policy without process/path detail;
 - create pins remote origin, rejects attachments, uses the existing mutation
-  core, requires non-vacuous routing, and returns Airy URLs within
+  core, requires non-vacuous routing, and returns canonical URLs within
   request/response bounds; and
 - decisions, privacy page, developer security docs, and ordinary protocol-2
   regression tests truthfully cover the reachable default-off ingress.
 
-Excludes htulo CLI, policy automation, Funnel, reviewer routes, and
+Excludes the remote client host CLI, policy automation, Funnel, reviewer routes, and
 attachments.
 
 ### Slice C — Intel-safe remote author CLI
@@ -494,8 +494,8 @@ Done when:
 - the profile resolves before both local-start seams;
 - the bounded HTTPS client verifies remote identity, consumes health policy,
   and has pre-send versus uncertain error classes;
-- normal `open`, `pending`, `get`, `edit`, `revise`, and `done` use Airy
-  while local discovery remains on htulo;
+- normal `open`, `pending`, `get`, `edit`, `revise`, and `done` use the canonical host
+  while local discovery remains on the remote client host;
 - the restricted journal uses exclusive entry creation, implements key-first
   body-free recovery before any rebuild, appends superseded digests, and
   auto-recovers own-attempt conflicts through that history while storing no
@@ -519,7 +519,7 @@ Done when:
 - focused tests cover traversal, symlink swap, orphan, duplicate and
   cross-review metadata, checksum/length mismatch, interrupted streaming,
   unauthorized nodes, and retry;
-- the full Airy/htulo acceptance test passes; and
+- the full two-host acceptance test passes; and
 - the promotion note records the exact Tailscale variant/version proven and
   remaining onboarding constraints.
 
@@ -533,7 +533,7 @@ fresh-machine doctor proving supported platforms, installed Serve socket/cap
 behavior, exact-device authorization/revocation, Safari-only auth, privacy/CT
 disclosures, and failure without fallback. The support matrix uses both
 current official documentation and executable capability tests; it does not
-extrapolate from Airy or conflate file serving with Unix-socket service
+extrapolate from the canonical host or conflate file serving with Unix-socket service
 proxying.
 
 Cross-user collaboration, policy automation, internet relay, and OIDC remain
@@ -544,7 +544,7 @@ separate decisions.
 | Alternative | Disposition | Reason |
 | --- | --- | --- |
 | Sync Application Support | Decline | Competing writers and non-atomic lifecycle sync. |
-| Canonical Markover on htulo | Decline | Breaks one canonical app/store/UI. |
+| Canonical Markover on the remote client host | Decline | Breaks one canonical app/store/UI. |
 | Copy local service credentials | Decline | Rotating full-access capability becomes a network secret. |
 | Stable loopback gateway | Decline | Other local accounts can connect and forge proxy headers unless another credential is added; the socket preserves the existing account boundary. |
 | Direct Tailscale-IP listener | Decline | Widens listener and duplicates TLS/network identity. |

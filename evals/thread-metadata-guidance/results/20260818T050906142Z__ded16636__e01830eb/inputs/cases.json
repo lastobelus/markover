@@ -1,7 +1,7 @@
 [
   {
     "id": "explicit-runtime-complete",
-    "scenario": "Prepare an agent-originated Markover open for review.md with summary metadata-evaluation. This is a proven Codex surface where CODEX_THREAD_ID is provider-session-41. The user-facing thread host is truthfully observed as t3code, the LLM provider is codex, the distinct host-owned thread ID is t3-thread-88, and hostname returned Airy.example. State the exact Markover input and the portable review.agentThread that a successful open stores.",
+    "scenario": "Prepare an agent-originated Markover open for review.md with summary metadata-evaluation. This is a proven Codex surface where CODEX_THREAD_ID is provider-session-41. The user-facing thread host is truthfully observed as t3code, the LLM provider is codex, the distinct host-owned thread ID is t3-thread-88, and hostname returned canonical-host.example. State the exact Markover input and the portable review.agentThread that a successful open stores.",
     "command": "open",
     "expectedArguments": {
       "--summary": "metadata-evaluation",
@@ -9,7 +9,7 @@
       "--thread-host-kind": "t3code",
       "--thread-host-provider": "codex",
       "--thread-host-thread-id": "t3-thread-88",
-      "--thread-host-machine": "Airy.example"
+      "--thread-host-machine": "canonical-host.example"
     },
     "forbiddenFlags": [
       "--handoff-key",
@@ -21,7 +21,7 @@
         "kind": "t3code",
         "provider": "codex",
         "threadId": "t3-thread-88",
-        "machine": "Airy.example"
+        "machine": "canonical-host.example"
       }
     }
   },

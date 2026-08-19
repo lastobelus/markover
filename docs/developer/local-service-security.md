@@ -148,7 +148,7 @@ uses a 43-character base64url `Idempotency-Key` plus
 `Markover-Request-Digest: sha256:...`; an empty exact `POST /reviews` is
 body-free receipt recovery. The gateway rejects any client-supplied `origin`
 or attachment metadata, derives `remote-agent`, rechecks exact canonical
-routing before accepting review bytes, and returns Airy-produced
+routing before accepting review bytes, and returns canonical-host-produced
 `markover://review/...` URLs for create/recovery and every pending result.
 
 Request JSON is capped at 16 MiB and response JSON at 32 MiB, leaving room for

@@ -136,7 +136,7 @@ Representative agent ownership:
         "kind": "t3code",
         "provider": "codex",
         "threadId": "distinct-host-thread-id",
-        "machine": "Airy.local"
+        "machine": "canonical-host.local"
       }
     },
     "startedAt": "2026-08-12T20:00:00.000Z",
