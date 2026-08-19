@@ -16,6 +16,7 @@ import {
   type BootstrapCommandRunner,
   type EnsureInstalledAppOptions
 } from '../packages/cli/src/bootstrap'
+import { main as publicCliMain } from '../packages/cli/src/index'
 import { main as buildCli } from '../scripts/build-cli'
 
 test('release assets are architecture-specific', () => {
@@ -48,6 +49,26 @@ test('Intel bootstrap selects the native x64 release asset', async (t) => {
     (await fs.readdir(directory)).filter((entry) => entry.startsWith('.install-')),
     []
   )
+})
+
+test('configured remote author commands bypass app bootstrap on Intel', async () => {
+  let bootstrapCalls = 0
+  const commands: string[][] = []
+  await publicCliMain(['get', 'mko_aaa11111'], {
+    ensureApp() {
+      bootstrapCalls += 1
+      return Promise.resolve('/Applications/Markover.app')
+    },
+    loadProfile() {
+      return Promise.resolve({ baseUrl: 'https://airy.example.ts.net/' })
+    },
+    run(args) {
+      commands.push(args || [])
+      return Promise.resolve()
+    }
+  })
+  assert.equal(bootstrapCalls, 0)
+  assert.deepEqual(commands[0], ['get', 'mko_aaa11111'])
 })
 
 test('invalid syntax is reported before bootstrap starts', () => {

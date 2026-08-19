@@ -8,6 +8,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  checksum,
   ensureService,
   executeCommand,
   helpPayload,
@@ -25,6 +26,7 @@ import type { LinkHandlerMutationResult } from '../src/link-handler'
 import type { AddressedDevelopmentBundle } from '../scripts/development-bundle'
 import { guidance } from '../src/agent-guidance'
 import { LocalServiceError } from '../src/local-client'
+import { RemoteClientError } from '../src/remote-client'
 import { startLocalService, type LocalService } from '../src/local-service'
 import {
   assertReviewArtifact,
@@ -34,6 +36,7 @@ import {
   createServiceIdentity,
   publishServiceConnection
 } from '../src/service-endpoint'
+import { parseMarkdown } from '../src/tree'
 
 function commandUsage(error: unknown): string | undefined {
   return error instanceof Error && 'usage' in error
@@ -1150,6 +1153,307 @@ test('local session discovery defaults on and fails closed for damaged settings'
   await fs.writeFile(settingsPath, '{not json')
   assert.equal(await readSessionDiscoverySetting(settingsPath), false)
   assert.equal(await readSessionDiscoverySetting(directory), false)
+})
+
+test('remote profile routes all author commands without resolving or starting a local app', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-remote-cli-'))
+  const sourcePath = path.join(directory, 'plan.md')
+  const source = '# Remote plan\n\nReview this on Airy.\n'
+  await fs.writeFile(sourcePath, source, 'utf8')
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const artifactStore = new ReviewStore(path.join(directory, 'fixture-reviews'), {
+    idFactory: () => 'mko_aaa11111'
+  })
+  const artifact = await artifactStore.create({
+    tree: parseMarkdown(source, checksum(source), {
+      name: 'plan.md',
+      path: sourcePath
+    }),
+    contextSummary: 'Review this remotely.',
+    origin: 'remote-agent'
+  })
+  const requests: Array<{ method: string; path: string; body: unknown }> = []
+  let healthReads = 0
+  let discoveryCalls = 0
+  const options: ExecuteCommandOptions = {
+    loadRemoteProfile: () => Promise.resolve({
+      baseUrl: 'https://airy.example.ts.net/'
+    }),
+    readRemoteHealth() {
+      healthReads += 1
+      return Promise.resolve({
+        status: 'ok',
+        protocol: { name: 'markover-remote', version: 1 },
+        role: 'canonical',
+        scheme: 'markover',
+        discoverAgentThreadFromLocalSessions: false
+      })
+    },
+    remoteJournalRoot: path.join(directory, 'journal'),
+    resolveTarget() {
+      throw new Error('remote commands must not resolve a local instance')
+    },
+    ensure() {
+      throw new Error('remote commands must not start a local app')
+    },
+    readSessionDiscoverySetting() {
+      throw new Error('remote commands must not read Airy settings locally')
+    },
+    discoverMetadata(input) {
+      discoveryCalls += 1
+      assert.equal(input.handoffKey, null)
+      return Promise.resolve({ agentThread: null, git: null, pullRequest: null })
+    },
+    requestRemote(_profile, method, requestPath, body, requestOptions) {
+      assert.ok(requestOptions)
+      assert.equal(requestOptions.preflight, false)
+      requests.push({ method, path: requestPath, body })
+      if (requestPath === '/reviews') {
+        assert.equal(typeof requestOptions.headers?.['idempotency-key'], 'string')
+        assert.match(
+          requestOptions.headers?.['markover-request-digest'] || '',
+          /^sha256:[a-f0-9]{64}$/
+        )
+        return Promise.resolve({
+          created: true,
+          reviewId: 'mko_aaa11111',
+          status: 'editing',
+          reviewUrl: 'markover://review/mko_aaa11111'
+        })
+      }
+      if (requestPath === '/reviews/pending') {
+        return Promise.resolve({
+          format: 'markover-pending-reviews',
+          version: 1,
+          reviews: [{
+            reviewId: 'mko_aaa11111',
+            responsibility: 'needs-me',
+            reviewUrl: 'markover://review/mko_aaa11111'
+          }]
+        })
+      }
+      if (requestPath.endsWith('/handoff')) return Promise.resolve(artifact)
+      if (requestPath.endsWith('/edit')) {
+        return Promise.resolve({ reviewId: 'mko_aaa11111', status: 'editing' })
+      }
+      if (requestPath.endsWith('/revise')) {
+        return Promise.resolve({ reviewId: 'mko_aaa11111', status: 'revised' })
+      }
+      if (requestPath === '/reviews/done') {
+        return Promise.resolve({
+          pullRequestUrl: 'https://github.com/lastobelus/markover/pull/187',
+          reviewIds: ['mko_aaa11111'],
+          status: 'done'
+        })
+      }
+      throw new Error(`unexpected remote path ${requestPath}`)
+    }
+  }
+
+  assert.deepEqual(await executeCommand({
+    command: 'open',
+    sourcePath,
+    contextSummary: 'Review this remotely.',
+    handoffKey: 'mko_handoff_0123456789abcdef'
+  }, options), {
+    reviewId: 'mko_aaa11111',
+    status: 'editing',
+    reviewUrl: 'markover://review/mko_aaa11111'
+  })
+  const pending = await executeCommand({
+    command: 'pending',
+    threadId: 'thread-187',
+    threadHostKind: 't3code',
+    threadHostProvider: 'codex'
+  }, options) as { reviews: Array<{ reviewUrl: string }> }
+  assert.equal(pending.reviews[0]?.reviewUrl, 'markover://review/mko_aaa11111')
+  assertReviewArtifact(await executeCommand({
+    command: 'get',
+    reviewId: 'mko_aaa11111'
+  }, options), 'mko_aaa11111')
+  assert.deepEqual(await executeCommand({
+    command: 'edit',
+    reviewId: 'mko_aaa11111'
+  }, options), { reviewId: 'mko_aaa11111', status: 'editing' })
+  assert.deepEqual(await executeCommand({
+    command: 'revise',
+    reviewId: 'mko_aaa11111'
+  }, options), { reviewId: 'mko_aaa11111', status: 'revised' })
+  assert.deepEqual(await executeCommand({
+    command: 'done',
+    pullRequestUrl: 'https://github.com/lastobelus/markover/pull/187',
+    pullRequestStatus: 'merged'
+  }, options), {
+    pullRequestUrl: 'https://github.com/lastobelus/markover/pull/187',
+    reviewIds: ['mko_aaa11111'],
+    status: 'done'
+  })
+
+  assert.equal(healthReads, 6)
+  assert.equal(discoveryCalls, 1)
+  assert.deepEqual(requests.map((request) => request.path), [
+    '/reviews',
+    '/reviews/pending',
+    '/reviews/mko_aaa11111/handoff',
+    '/reviews/mko_aaa11111/edit',
+    '/reviews/mko_aaa11111/revise',
+    '/reviews/done'
+  ])
+})
+
+test('uncertain remote open recovers by key before rereading the source', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-remote-recovery-'))
+  const sourcePath = path.join(directory, 'plan.md')
+  await fs.writeFile(sourcePath, '# Recover me\n', 'utf8')
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  let createCalls = 0
+  let recoveryCalls = 0
+  let discoveryCalls = 0
+  const options: ExecuteCommandOptions = {
+    loadRemoteProfile: () => Promise.resolve({
+      baseUrl: 'https://airy.example.ts.net/'
+    }),
+    readRemoteHealth: () => Promise.resolve({
+      status: 'ok',
+      protocol: { name: 'markover-remote', version: 1 },
+      role: 'canonical',
+      scheme: 'markover',
+      discoverAgentThreadFromLocalSessions: true
+    }),
+    remoteJournalRoot: path.join(directory, 'journal'),
+    discoverMetadata() {
+      discoveryCalls += 1
+      return Promise.resolve({ agentThread: null, git: null, pullRequest: null })
+    },
+    requestRemote(_profile, _method, requestPath, body) {
+      assert.equal(requestPath, '/reviews')
+      if (body === null) {
+        recoveryCalls += 1
+        return Promise.resolve({
+          created: false,
+          reviewId: 'mko_aaa11111',
+          status: 'editing',
+          reviewUrl: 'markover://review/mko_aaa11111'
+        })
+      }
+      createCalls += 1
+      return Promise.reject(new RemoteClientError(
+        'REQUEST_UNCERTAIN',
+        'The remote request may have completed.'
+      ))
+    }
+  }
+  const command = {
+    command: 'open' as const,
+    sourcePath,
+    contextSummary: 'Recover without rebuilding.'
+  }
+  await assert.rejects(
+    executeCommand(command, options),
+    (error: unknown) => (
+      error instanceof RemoteClientError && error.code === 'REQUEST_UNCERTAIN'
+    )
+  )
+  await fs.rm(sourcePath)
+  assert.deepEqual(await executeCommand(command, options), {
+    reviewId: 'mko_aaa11111',
+    status: 'editing',
+    reviewUrl: 'markover://review/mko_aaa11111'
+  })
+  assert.equal(createCalls, 1)
+  assert.equal(recoveryCalls, 1)
+  assert.equal(discoveryCalls, 1)
+})
+
+test('remote open recovers a delayed own attempt through digest history', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-remote-history-'))
+  const sourcePath = path.join(directory, 'plan.md')
+  await fs.writeFile(sourcePath, '# First attempt\n', 'utf8')
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const creationDigests: string[] = []
+  const recoveryDigests: string[] = []
+  let recoveryStep = 0
+  let discoveryCalls = 0
+  const options: ExecuteCommandOptions = {
+    loadRemoteProfile: () => Promise.resolve({
+      baseUrl: 'https://airy.example.ts.net/'
+    }),
+    readRemoteHealth: () => Promise.resolve({
+      status: 'ok',
+      protocol: { name: 'markover-remote', version: 1 },
+      role: 'canonical',
+      scheme: 'markover',
+      discoverAgentThreadFromLocalSessions: true
+    }),
+    remoteJournalRoot: path.join(directory, 'journal'),
+    discoverMetadata() {
+      discoveryCalls += 1
+      return Promise.resolve({ agentThread: null, git: null, pullRequest: null })
+    },
+    requestRemote(_profile, _method, requestPath, body, requestOptions) {
+      assert.equal(requestPath, '/reviews')
+      const digest = requestOptions?.headers?.['markover-request-digest']
+      assert.ok(digest)
+      if (body !== null) {
+        creationDigests.push(digest)
+        return Promise.reject(new RemoteClientError(
+          'REQUEST_UNCERTAIN',
+          'The remote request may have completed.'
+        ))
+      }
+      recoveryDigests.push(digest)
+      recoveryStep += 1
+      if (recoveryStep === 1) {
+        return Promise.reject(new RemoteClientError(
+          'RECEIPT_NOT_FOUND',
+          'No review was created with this key.',
+          404
+        ))
+      }
+      if (recoveryStep === 2) {
+        return Promise.reject(new RemoteClientError(
+          'IDEMPOTENCY_CONFLICT',
+          'The first attempt committed late.',
+          409,
+          {
+            code: 'IDEMPOTENCY_CONFLICT',
+            message: 'The first attempt committed late.',
+            creationReceipt: { requestDigest: creationDigests[0] },
+            reviewId: 'mko_aaa11111'
+          }
+        ))
+      }
+      return Promise.resolve({
+        created: false,
+        reviewId: 'mko_aaa11111',
+        status: 'editing',
+        reviewUrl: 'markover://review/mko_aaa11111'
+      })
+    }
+  }
+  const command = {
+    command: 'open' as const,
+    sourcePath,
+    contextSummary: 'Recover the delayed attempt.'
+  }
+  await assert.rejects(executeCommand(command, options), /may have completed/)
+  await fs.writeFile(sourcePath, '# Rebuilt attempt\n', 'utf8')
+  await assert.rejects(executeCommand(command, options), /may have completed/)
+  await fs.rm(sourcePath)
+  assert.deepEqual(await executeCommand(command, options), {
+    reviewId: 'mko_aaa11111',
+    status: 'editing',
+    reviewUrl: 'markover://review/mko_aaa11111'
+  })
+  assert.equal(creationDigests.length, 2)
+  assert.notEqual(creationDigests[0], creationDigests[1])
+  assert.deepEqual(recoveryDigests, [
+    creationDigests[0],
+    creationDigests[1],
+    creationDigests[0]
+  ])
+  assert.equal(discoveryCalls, 2)
 })
 
 test('requires one path and a context summary for open', () => {

@@ -1,6 +1,7 @@
 import packageJson from '../package.json'
 
 import * as markover from '../../../scripts/markover'
+import { loadRemoteProfile } from '../../../src/remote-profile'
 import { ensureInstalledApp } from './bootstrap'
 
 process.env.MARKOVER_INVOCATION ||= [
@@ -13,21 +14,49 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
+export interface PublicCliMainOptions {
+  ensureApp?: typeof ensureInstalledApp
+  loadProfile?: typeof loadRemoteProfile
+  run?: typeof markover.main
+}
+
+export async function main(
+  args: string[] = process.argv.slice(2),
+  {
+    ensureApp = ensureInstalledApp,
+    loadProfile = loadRemoteProfile,
+    run = markover.main
+  }: PublicCliMainOptions = {}
+): Promise<void> {
   let parsed
   try {
     parsed = markover.parseCommandArguments(args)
   } catch {
-    await markover.main(args)
+    await run(args)
     return
+  }
+  const canUseRemoteProfile = parsed.command !== 'help' &&
+    parsed.command !== 'cleanup' &&
+    parsed.command !== 'canonical' &&
+    parsed.instance === undefined
+  let remoteProfile = null
+  if (canUseRemoteProfile) {
+    try {
+      remoteProfile = await loadProfile()
+    } catch (error) {
+      process.stderr.write(`markover remote profile: ${errorMessage(error)}\n`)
+      process.exitCode = 1
+      return
+    }
   }
   if (
     parsed.command !== 'help' &&
     parsed.command !== 'cleanup' &&
-    parsed.instance !== 'development'
+    parsed.instance !== 'development' &&
+    !remoteProfile
   ) {
     try {
-      process.env.MARKOVER_APP_PATH = await ensureInstalledApp({
+      process.env.MARKOVER_APP_PATH = await ensureApp({
         version: packageJson.version
       })
     } catch (error) {
@@ -36,7 +65,9 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
       return
     }
   }
-  await markover.main(args)
+  await run(args, canUseRemoteProfile
+    ? { loadRemoteProfile: () => Promise.resolve(remoteProfile) }
+    : {})
 }
 
 if (require.main === module) void main()
