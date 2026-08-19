@@ -46,6 +46,7 @@ test('settings defaults cover the persisted preferences', () => {
     'reviewLinkActivationPolicy',
     'incomingReviewIdleMinutes',
     'discoverAgentThreadFromLocalSessions',
+    'remoteCanonicalGatewayEnabled',
     't3ThreadTitlesEnabled',
     't3MetadataDatabasePath',
     'codexThreadTitlesEnabled',
@@ -74,6 +75,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
+    remoteCanonicalGatewayEnabled: true,
     t3ThreadTitlesEnabled: true,
     t3MetadataDatabasePath: ' /tmp/t3.sqlite ',
     codexThreadTitlesEnabled: true,
@@ -99,6 +101,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 12,
     discoverAgentThreadFromLocalSessions: false,
+    remoteCanonicalGatewayEnabled: true,
     t3ThreadTitlesEnabled: true,
     t3MetadataDatabasePath: '/tmp/t3.sqlite',
     codexThreadTitlesEnabled: true,
@@ -220,6 +223,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <select name="reviewLinkActivationPolicy"><option value="always">Always</option><option value="when-idle">When idle</option></select>
       <input name="incomingReviewIdleMinutes" type="number">
       <input name="discoverAgentThreadFromLocalSessions" type="checkbox">
+      <input name="remoteCanonicalGatewayEnabled" type="checkbox">
       <input name="t3ThreadTitlesEnabled" type="checkbox">
       <input name="t3MetadataDatabasePath" type="text">
       <input name="codexThreadTitlesEnabled" type="checkbox">
@@ -352,6 +356,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
     zoomPercent: 125,
     showKeyboardHelp: false,
     discoverAgentThreadFromLocalSessions: false,
+    remoteCanonicalGatewayEnabled: true,
     incomingReviewActivationPolicy: 'when-idle',
     reviewLinkActivationPolicy: 'warn',
     incomingReviewIdleMinutes: 18,
@@ -364,6 +369,7 @@ test('settings store persists normalized settings and recovers malformed JSON', 
   assert.equal(restored.settings.zoomPercent, 125)
   assert.equal(restored.settings.showKeyboardHelp, false)
   assert.equal(restored.settings.discoverAgentThreadFromLocalSessions, false)
+  assert.equal(restored.settings.remoteCanonicalGatewayEnabled, true)
   assert.equal(restored.settings.incomingReviewActivationPolicy, 'when-idle')
   assert.equal(restored.settings.reviewLinkActivationPolicy, 'warn')
   assert.equal(restored.settings.incomingReviewIdleMinutes, 18)
@@ -446,6 +452,18 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(main, /app\.setName\(addressedInstance\.branding\.appName\)/)
   assert.match(main, /process\.title = addressedInstance\.branding\.appName/)
   assert.match(main, /installApplicationMenu\(\)/)
+  assert.match(main, /updateSettingsAndRemoteGateway/)
+  assert.match(main, /remoteGatewayHostEligible\(addressedInstance, smokeMode\)/)
+  assert.match(main, /remoteGatewayActivationEligible\(canonical, smokeMode\)/)
+  assert.match(
+    main,
+    /startConfiguredRemoteGateway[\s\S]*reconcileRemoteGateway\(false\)[\s\S]*remoteCanonicalGatewayEnabled: false[\s\S]*disabled after startup failure/
+  )
+  assert.match(
+    main,
+    /localServiceIdentity = identity[\s\S]*catch \(error\)[\s\S]*startedService\.close\(\)[\s\S]*startConfiguredRemoteGateway\(store\)/
+  )
+  assert.match(main, /reconcileRemoteGateway\(false\)[\s\S]*localService\?\.pauseMutations\(\)/)
   assert.match(preload, /getSettings:/)
   assert.match(preload, /onSettingsOpen:/)
   assert.match(renderer, /function applySettings\([\s\S]*next: unknown,[\s\S]*options: \{ initial\?: boolean \} = \{\}[\s\S]*\): void/)

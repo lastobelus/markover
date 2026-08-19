@@ -56,6 +56,15 @@
         <p>Contributors and interested readers can inspect the optional <a href="https://github.com/lastobelus/markover/blob/main/docs/developer/local-service-security.md">technical security and protocol reference</a>. You do not need those mechanics to use Markover.</p>
       </section>
 
+      <section id="remote-client">
+        <h2>Optional remote client</h2>
+        <p><strong>Allow the authorized remote Markover client</strong> is off by default. When you enable it on canonical Markover, Tailscale Serve can carry review commands from the one tailnet host you authorize into the same Markover app, settings, and review store on this Mac. Markover does not configure your tailnet policy, drive Tailscale login, expose a Tailscale-IP listener, or enable Funnel.</p>
+        <p>The remote path can receive the complete requested Markdown source, its source path, checksum, review purpose, and agent-supplied Git, pull-request, and thread provenance. Lifecycle commands can return review source, feedback, source-edit proposals, attachment metadata, and provenance to that authorized host. Attachment bytes are not available through this first gateway slice.</p>
+        <p>A remotely supplied source path is only a locator for the returning agent. Canonical Markover marks its source and project state unavailable and does not read that path or run Git beside it, even if the same absolute path exists on this Mac.</p>
+        <div class="callout"><strong>Your Tailscale hostname is public certificate metadata.</strong> Tailscale HTTPS certificate issuance records the canonical machine name in public Certificate Transparency logs. Choose a machine name that contains no sensitive information.</div>
+        <p>Disabling the setting closes Markover's private socket after its current bounded request finishes. The same Tailscale Serve configuration cannot reach Markover again until you re-enable it. Another ordinary macOS account cannot access the owner-only socket; processes already running as you, administrators, and root remain inside the account trust boundary.</p>
+      </section>
+
       <section id="stored">
         <h2>What Markover stores</h2>
         <p>A review can contain the complete Markdown source, parsed document structure, annotations, source-edit proposals, attachment files and metadata, review state, and timestamps. Proposed source edits stay in the review; Markover does not apply them to the original Markdown source.</p>
@@ -99,7 +108,7 @@
 
       <section id="network">
         <h2>When the internet may be used</h2>
-        <p>Ordinary review handling has no telemetry, analytics, cloud synchronization, or automatic upload of review content.</p>
+        <p>Ordinary review handling has no telemetry, analytics, cloud synchronization, or automatic upload of review content. The only review-ingress exception is the remote client you explicitly enable and authorize through Tailscale; it sends the review you requested to this Mac's canonical store.</p>
         <ul>
           <li>Installing or updating through the launcher can download packages and release files from npm or GitHub.</li>
           <li>Inline Markdown image syntax is inert by default. Only an embedded <code>data:</code> image can open through its explicit preview control. Relative paths, local file paths, and HTTP(S) URLs remain unavailable; choosing their controls makes no network request.</li>

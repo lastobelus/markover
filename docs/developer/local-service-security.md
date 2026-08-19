@@ -98,6 +98,74 @@ authorization rejection. The user-visible setting and copy live in
 and tested in [`src/local-service.ts`](../../src/local-service.ts) and
 [`test/local-service.test.ts`](../../test/local-service.test.ts).
 
+## Optional remote canonical gateway
+
+The default-off `remoteCanonicalGatewayEnabled` setting is the only application
+switch for remote ingress. It can create a listener only when the running app
+is canonical rather than development or smoke, the configured canonical
+checkout and blessed branch still validate, and exact `markover:` handler
+inspection executes and reports healthy. The listener is
+`remote-gateway.sock` beneath canonical Application Support. Its parent is
+owner-only `0700`; the socket is owner-only `0600`. Startup removes only an
+inactive socket owned by the current account, refuses live or unowned paths,
+and records the created socket identity so shutdown cannot unlink a
+replacement. If a saved opt-in cannot meet those checks during startup,
+Markover turns it off and continues with the local app and service available.
+
+Tailscale Serve terminates HTTPS and proxies HTTP to that Unix socket. Markover
+requires exactly one forwarded `Tailscale-App-Capabilities` JSON header with a
+nonempty `lastobelus.com/cap/markover-remote-client` grant. Missing, malformed,
+wrong, duplicate, or additional forwarded capabilities receive one bounded
+rejection before URL parsing or body reads. The socket modes provide the
+other-account boundary for direct local access; same-account processes,
+administrators, and root remain inside the documented trust boundary.
+
+The authenticated remote surface is deliberately smaller than local protocol
+2:
+
+```text
+GET  /health
+POST /reviews
+POST /reviews/pending
+POST /reviews/<review-id>/handoff
+POST /reviews/<review-id>/edit
+POST /reviews/<review-id>/revise
+POST /reviews/done
+```
+
+Every other method or route receives authenticated `404`, including list-all,
+artifact read by ID, activate, reviewer claim/submit, resolve/unresolve, and
+quit. Remote health returns only protocol name/version, canonical role and
+scheme, and the current `discoverAgentThreadFromLocalSessions` policy. It omits
+the process, executable path, port, instance ID, and filesystem paths.
+
+The remote socket, Tailscale hop, and client never receive or publish
+`service.token`. After capability and route checks the gateway uses the
+canonical process's in-memory local-service identity for a loopback request,
+preserving the existing mutation queues, renderer
+barriers, `ReviewStore`, notifications, and shutdown behavior. Remote create
+uses a 43-character base64url `Idempotency-Key` plus
+`Markover-Request-Digest: sha256:...`; an empty exact `POST /reviews` is
+body-free receipt recovery. The gateway rejects any client-supplied `origin`
+or attachment metadata, derives `remote-agent`, rechecks exact canonical
+routing before accepting review bytes, and returns Airy-produced
+`markover://review/...` URLs for create/recovery and every pending result.
+
+Request JSON is capped at 16 MiB and response JSON at 32 MiB, leaving room for
+the review envelope Markover adds during creation. Only one remote request is
+active at a time. Disable and shutdown stop admission, drain that bounded
+request, close the listener, and remove only its recorded socket. Tailscale
+grants, Serve configuration, login/consent, HTTPS host selection, and
+certificate issuance remain manual; Markover never enables Funnel or a direct
+Tailscale-IP listener.
+
+Primary implementation and evidence:
+
+- [`src/remote-gateway.ts`](../../src/remote-gateway.ts)
+- [`src/main.ts`](../../src/main.ts)
+- [`test/remote-gateway.test.ts`](../../test/remote-gateway.test.ts)
+- [`test/local-service.test.ts`](../../test/local-service.test.ts)
+
 ## Stored review data
 
 Canonical managed reviews live under `reviews/<review-id>/`. A review directory

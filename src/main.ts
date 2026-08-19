@@ -41,6 +41,7 @@ import {
 import {
   CANONICAL_INSTANCE_SCHEME,
   RESOLVED_INSTANCE_ENVIRONMENT,
+  resolveInstance,
   runtimeInstanceFromEnvironment
 } from './instance'
 import {
@@ -65,6 +66,7 @@ import {
   PrivilegedIpc,
   type RendererIpcEntry
 } from './ipc-security'
+import { inspectLinkHandler } from './link-handler'
 import { startLocalService, type LocalService } from './local-service'
 import { createLocalReview as persistLocalReview } from './local-review'
 import { openPublicLinkCommand } from './public-link-opener'
@@ -72,6 +74,13 @@ import { type PublicLink, type PublicLinkId } from './public-links'
 import { discoverProjectFavicon } from './project-favicon'
 import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
+import {
+  remoteGatewayActivationEligible,
+  remoteGatewayHostEligible,
+  remoteGatewaySocketPath,
+  startRemoteGateway,
+  type RemoteGateway
+} from './remote-gateway'
 import {
   discoverReviewProjectContext,
   restoreReviewProjectContexts,
@@ -234,6 +243,8 @@ let pendingLocalReviewCandidate: MarkoverDocument | null = null
 let localService: LocalService | null = null
 let closingPublishedService: LocalService | null = null
 let localServiceIdentity: ServiceIdentity | null = null
+let remoteGateway: RemoteGateway | null = null
+let remoteGatewayQueue: Promise<void> = Promise.resolve()
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
 let workspaceStore: WorkspaceStore | null = null
@@ -1721,6 +1732,94 @@ async function captureEditableManagedReviews(): Promise<void> {
   )
 }
 
+async function assertRemoteGatewayRoutingReady(): Promise<void> {
+  const canonical = await resolveInstance('canonical')
+  if (!remoteGatewayActivationEligible(canonical, smokeMode)) {
+    throw Object.assign(new Error(
+      'Remote review ingress requires a validated non-smoke canonical instance.'
+    ), { code: 'CANONICAL_ROUTING_UNHEALTHY' })
+  }
+  const handler = await inspectLinkHandler(canonical.scheme, canonical)
+  if (handler.status !== 'healthy') {
+    throw Object.assign(new Error(
+      `Cannot use remote review ingress while ${canonical.scheme}: routing is ${handler.status}.`
+    ), { code: 'CANONICAL_ROUTING_UNHEALTHY' })
+  }
+}
+
+async function setRemoteGatewayEnabled(enabled: boolean): Promise<void> {
+  if (
+    !enabled ||
+    !remoteGatewayHostEligible(addressedInstance, smokeMode)
+  ) {
+    const gateway = remoteGateway
+    if (!gateway) return
+    await gateway.close()
+    if (remoteGateway === gateway) remoteGateway = null
+    return
+  }
+  if (remoteGateway) return
+  const service = localService
+  const identity = localServiceIdentity
+  const store = settingsStore
+  if (!service || !identity || !store) {
+    throw new Error('Remote review ingress requires the canonical local service.')
+  }
+  remoteGateway = await startRemoteGateway({
+    socketPath: remoteGatewaySocketPath(addressedInstance.stateRoot),
+    localPort: service.port,
+    localToken: identity.token,
+    discoveryPolicy: () => (
+      store.settings.discoverAgentThreadFromLocalSessions
+    ),
+    routingReady: assertRemoteGatewayRoutingReady,
+    scheme: addressedInstance.scheme
+  })
+}
+
+function reconcileRemoteGateway(enabled: boolean): Promise<void> {
+  const operation = remoteGatewayQueue.catch(() => undefined).then(() => (
+    setRemoteGatewayEnabled(enabled)
+  ))
+  remoteGatewayQueue = operation.then(() => undefined, () => undefined)
+  return operation
+}
+
+async function updateSettingsAndRemoteGateway(
+  store: SettingsStore,
+  patch: unknown
+): Promise<MarkoverSettings> {
+  const previousEnabled = store.settings.remoteCanonicalGatewayEnabled
+  const settings = await store.update(patch)
+  if (settings.remoteCanonicalGatewayEnabled === previousEnabled) return settings
+  try {
+    await reconcileRemoteGateway(settings.remoteCanonicalGatewayEnabled)
+    return settings
+  } catch (error) {
+    await store.update({ remoteCanonicalGatewayEnabled: previousEnabled })
+    await reconcileRemoteGateway(previousEnabled).catch(() => undefined)
+    throw error
+  }
+}
+
+async function startConfiguredRemoteGateway(store: SettingsStore): Promise<void> {
+  try {
+    await reconcileRemoteGateway(store.settings.remoteCanonicalGatewayEnabled)
+  } catch (error) {
+    await reconcileRemoteGateway(false).catch(() => undefined)
+    await store.update({
+      remoteCanonicalGatewayEnabled: false
+    }).catch((settingsError: unknown) => {
+      process.stderr.write(
+        `markover remote gateway setting rollback: ${errorMessage(settingsError)}\n`
+      )
+    })
+    process.stderr.write(
+      `markover remote gateway disabled after startup failure: ${errorMessage(error)}\n`
+    )
+  }
+}
+
 async function startAndPublishService(): Promise<void> {
   if (smokeMode) return
   const managedStore = requireReviewStore()
@@ -1775,12 +1874,19 @@ async function startAndPublishService(): Promise<void> {
     localService = startedService
     localServiceIdentity = identity
   } catch (error) {
+    await reconcileRemoteGateway(false).catch(() => undefined)
+    if (localService === startedService) {
+      localService = null
+      localServiceIdentity = null
+    }
     await startedService.close()
     throw error
   }
+  await startConfiguredRemoteGateway(store)
 }
 
 async function stopPublishedService(): Promise<void> {
+  await reconcileRemoteGateway(false)
   const service = localService
   if (!service) return
   closingPublishedService = service
@@ -1804,6 +1910,11 @@ async function restorePublishedServiceForEditing(): Promise<void> {
   }
   await serviceRepairQueue.catch(() => {})
   if (!localService) await startAndPublishService()
+  else if (settingsStore) {
+    await reconcileRemoteGateway(
+      settingsStore.settings.remoteCanonicalGatewayEnabled
+    )
+  }
 }
 
 function resumeManagedMutations(): void {
@@ -1816,6 +1927,7 @@ function resumeManagedMutations(): void {
 async function pauseManagedMutations(): Promise<void> {
   setManagedRendererPause(true)
   managedLocalReviewCreationsBlocked = true
+  await reconcileRemoteGateway(false)
   await localService?.pauseMutations()
   await managedLocalReviewCreations.wait()
 }
@@ -2279,7 +2391,7 @@ if (!hasSingleInstanceLock) {
       _event: IpcMainInvokeEvent,
       patch: unknown
     ) => {
-      const settings = await store.update(patch)
+      const settings = await updateSettingsAndRemoteGateway(store, patch)
       const envelope = applyMainSettings(settings)
       installApplicationMenu()
       return envelope

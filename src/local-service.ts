@@ -28,6 +28,13 @@ import {
 } from './pull-request'
 
 export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
+export const INTERNAL_REMOTE_CREATE_PATH = '/internal/remote/reviews'
+export const INTERNAL_REMOTE_RECOVERY_PATH =
+  '/internal/remote/reviews/recover'
+export const INTERNAL_IDEMPOTENCY_KEY_HEADER =
+  'x-markover-idempotency-key'
+export const INTERNAL_REQUEST_DIGEST_HEADER =
+  'x-markover-request-digest'
 
 interface ReviewRoute {
   reviewId: string
@@ -102,6 +109,7 @@ export interface LocalServiceOptions {
     | 'matchingPullRequestReviews'
     | 'pendingForThread'
     | 'propagatePullRequestObservation'
+    | 'recoverCreation'
     | 'resolve'
     | 'revise'
     | 'submitAgentReview'
@@ -131,8 +139,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function errorProperty(error: unknown, key: 'code' | 'message'): unknown {
-  return error !== null && typeof error === 'object' ? Reflect.get(error, key) : null
+function errorProperty(
+  error: unknown,
+  key: 'code' | 'creationReceipt' | 'message' | 'reviewId' | 'reviewIds'
+): unknown {
+  return isRecord(error) ? error[key] : null
 }
 
 function serviceError(code: string, message: string): Error & { code: string } {
@@ -203,7 +214,7 @@ function sendJson(
   response.end(contents)
 }
 
-export async function readJson(request: IncomingMessage): Promise<unknown> {
+async function readRequestBytes(request: IncomingMessage): Promise<Buffer> {
   let size = 0
   const chunks: Uint8Array[] = []
   for await (const chunk of request) {
@@ -215,12 +226,25 @@ export async function readJson(request: IncomingMessage): Promise<unknown> {
     chunks.push(buffer)
   }
 
-  if (!chunks.length) return null
+  return Buffer.concat(chunks)
+}
+
+function parseJsonBytes(bytes: Uint8Array): unknown {
+  if (!bytes.byteLength) return null
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    return JSON.parse(Buffer.from(bytes).toString('utf8'))
   } catch {
     throw serviceError('INVALID_JSON', 'Request body must be valid JSON.')
   }
+}
+
+export async function readJson(request: IncomingMessage): Promise<unknown> {
+  return parseJsonBytes(await readRequestBytes(request))
+}
+
+function singleHeader(request: IncomingMessage, name: string): string | undefined {
+  const values = request.headersDistinct[name] || []
+  return values.length === 1 ? values[0] : undefined
 }
 
 function errorStatus(error: unknown): number {
@@ -339,6 +363,7 @@ export async function startLocalService({
     request: IncomingMessage,
     response: ServerResponse
   ): Promise<void> {
+    let exposeRemoteErrorDetails = false
     try {
       if (request.method === 'GET' && request.url === '/health') {
         sendJson(response, 200, {
@@ -405,6 +430,62 @@ export async function startLocalService({
       }
 
       const url = new URL(request.url || '', 'http://127.0.0.1')
+
+      if (
+        request.method === 'POST' &&
+        url.pathname === INTERNAL_REMOTE_CREATE_PATH
+      ) {
+        exposeRemoteErrorDetails = true
+        const requestBytes = await readRequestBytes(request)
+        const body = parseJsonBytes(requestBytes)
+        const result = await runMutation(() => createReviewForProducer({
+          body,
+          producer: 'remote-agent',
+          store,
+          attempt: {
+            idempotencyKey: singleHeader(
+              request,
+              INTERNAL_IDEMPOTENCY_KEY_HEADER
+            ),
+            requestBytes,
+            requestDigest: singleHeader(
+              request,
+              INTERNAL_REQUEST_DIGEST_HEADER
+            )
+          },
+          interpretationPolicy: interpretationPolicy?.(),
+          onChange
+        }))
+        sendJson(response, result.created ? 201 : 200, {
+          created: result.created,
+          reviewId: result.artifact.review.id,
+          status: result.artifact.review.status
+        })
+        return
+      }
+
+      if (
+        request.method === 'POST' &&
+        url.pathname === INTERNAL_REMOTE_RECOVERY_PATH
+      ) {
+        exposeRemoteErrorDetails = true
+        const artifact = await runMutation(() => store.recoverCreation({
+          idempotencyKey: singleHeader(
+            request,
+            INTERNAL_IDEMPOTENCY_KEY_HEADER
+          ),
+          requestDigest: singleHeader(
+            request,
+            INTERNAL_REQUEST_DIGEST_HEADER
+          )
+        }))
+        sendJson(response, 200, {
+          created: false,
+          reviewId: artifact.review.id,
+          status: artifact.review.status
+        })
+        return
+      }
 
       if (request.method === 'POST' && url.pathname === '/quit') {
         sendJson(response, 202, { status: 'quitting' })
@@ -800,10 +881,25 @@ export async function startLocalService({
     } catch (error) {
       const code = errorProperty(error, 'code')
       const message = errorProperty(error, 'message')
+      const creationReceipt = exposeRemoteErrorDetails &&
+          isRecord(error)
+        ? errorProperty(error, 'creationReceipt')
+        : undefined
+      const reviewId = exposeRemoteErrorDetails &&
+          isRecord(error)
+        ? errorProperty(error, 'reviewId')
+        : undefined
+      const reviewIds = exposeRemoteErrorDetails &&
+          isRecord(error)
+        ? errorProperty(error, 'reviewIds')
+        : undefined
       sendJson(response, errorStatus(error), {
         error: {
           code: typeof code === 'string' ? code : 'INTERNAL_ERROR',
-          message: typeof message === 'string' ? message : String(error)
+          message: typeof message === 'string' ? message : String(error),
+          ...(creationReceipt === undefined ? {} : { creationReceipt }),
+          ...(typeof reviewId === 'string' ? { reviewId } : {}),
+          ...(Array.isArray(reviewIds) ? { reviewIds } : {})
         }
       })
     }

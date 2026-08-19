@@ -779,6 +779,10 @@
             <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex or Claude session records for the review's handoff key. Nothing is uploaded.</small></span>
             <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
           </label>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Allow the authorized remote Markover client</strong><small>Let an exactly authorized Tailscale host send requested reviews to this canonical Markover. This remains off by default and never enables Funnel.</small></span>
+            <input name="remoteCanonicalGatewayEnabled" type="checkbox" role="switch">
+          </label>
           <h3 class="settings-section-title">T3 requesting-thread titles</h3>
           <label class="settings-field settings-switch-field">
             <span><strong>Read current titles from T3</strong><small>Use T3's local metadata database to show renamed requesting threads. This integration is off by default and keeps titles in memory only.</small></span>
