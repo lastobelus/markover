@@ -124,6 +124,48 @@ test('restart resumes digest history and completed entries do not suppress a lat
   assert.deepEqual(Reflect.get(completed, 'requestDigests'), [digestA, digestB])
 })
 
+test('concurrent digest appends preserve the complete history', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-journal-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const input = fingerprintInput('/tmp/concurrent-digests.md')
+  const firstJournal = new RemoteCreationJournal(directory, {
+    idempotencyKey: () => 'A'.repeat(43)
+  })
+  const entry = (await firstJournal.acquire(input)).entry
+  const secondJournal = new RemoteCreationJournal(directory)
+  await Promise.all([
+    firstJournal.appendRequestDigest(entry, digestA),
+    secondJournal.appendRequestDigest(entry, digestB)
+  ])
+
+  const resumed = await firstJournal.acquire(input)
+  assert.deepEqual(resumed.entry.requestDigests, [digestA, digestB])
+})
+
+test('a dead process lock is reclaimed before appending a digest', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-journal-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const input = fingerprintInput('/tmp/stale-lock.md')
+  const journal = new RemoteCreationJournal(directory, {
+    idempotencyKey: () => 'A'.repeat(43),
+    processId: 222,
+    processIsAlive: (pid) => pid === 222
+  })
+  const entry = (await journal.acquire(input)).entry
+  const entryDirectory = path.join(
+    directory,
+    remoteCreationFingerprint(input).slice('sha256:'.length)
+  )
+  await fs.writeFile(path.join(entryDirectory, 'active.lock'), JSON.stringify({
+    ownerPid: 111,
+    token: 'b'.repeat(32)
+  }), { encoding: 'utf8', mode: 0o600 })
+
+  const appended = await journal.appendRequestDigest(entry, digestA)
+  assert.deepEqual(appended.requestDigests, [digestA])
+  await assert.rejects(fs.access(path.join(entryDirectory, 'active.lock')))
+})
+
 test('journal fails closed for damaged active state', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-journal-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))

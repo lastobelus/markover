@@ -6,6 +6,9 @@ const JOURNAL_FORMAT = 'markover-remote-creation'
 const JOURNAL_VERSION = 1
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/
+const LOCK_RETRY_MILLISECONDS = 10
+const LOCK_TIMEOUT_MILLISECONDS = 5_000
+const LOCK_TOKEN_PATTERN = /^[a-f0-9]{32}$/
 
 export interface RemoteCreationFingerprintInput {
   profileId: string
@@ -38,6 +41,11 @@ interface StoredRemoteCreationEntry {
   requestDigests: string[]
   state: 'pending' | 'completed'
   receipt?: RemoteCreationReceipt
+}
+
+interface StoredRemoteCreationLock {
+  ownerPid: number
+  token: string
 }
 
 export interface RemoteCreationEntry {
@@ -130,6 +138,28 @@ function decodeEntry(value: unknown, expectedFingerprint: string): StoredRemoteC
     }
   }
   return decoded
+}
+
+function decodeLock(value: unknown): StoredRemoteCreationLock {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !Number.isSafeInteger(Reflect.get(value, 'ownerPid')) ||
+    (Reflect.get(value, 'ownerPid') as number) < 1 ||
+    typeof Reflect.get(value, 'token') !== 'string' ||
+    !LOCK_TOKEN_PATTERN.test(Reflect.get(value, 'token') as string)
+  ) {
+    throw journalError(
+      'REMOTE_JOURNAL_INVALID',
+      'Remote creation journal lock is invalid.'
+    )
+  }
+  return value as StoredRemoteCreationLock
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, milliseconds) })
 }
 
 async function writeRestricted(
@@ -263,17 +293,19 @@ export class RemoteCreationJournal {
         'Remote creation journal requires a SHA-256 request digest.'
       )
     }
-    const current = await this.readMatchingActive(entry)
-    if (!current.requestDigests.includes(requestDigest)) {
-      current.requestDigests.push(requestDigest)
-      await this.replaceActive(current)
-    }
-    return {
-      fingerprint: current.fingerprint,
-      idempotencyKey: current.idempotencyKey,
-      ownerPid: current.ownerPid,
-      requestDigests: [...current.requestDigests]
-    }
+    return this.withEntryLock(entry.fingerprint, async () => {
+      const current = await this.readMatchingActive(entry)
+      if (!current.requestDigests.includes(requestDigest)) {
+        current.requestDigests.push(requestDigest)
+        await this.replaceActive(current)
+      }
+      return {
+        fingerprint: current.fingerprint,
+        idempotencyKey: current.idempotencyKey,
+        ownerPid: current.ownerPid,
+        requestDigests: [...current.requestDigests]
+      }
+    })
   }
 
   async complete(
@@ -286,43 +318,45 @@ export class RemoteCreationJournal {
         'Remote creation receipt does not match this journal digest history.'
       )
     }
-    let current: StoredRemoteCreationEntry
-    try {
-      current = await this.readMatchingActive(entry)
-    } catch (error) {
-      if (errorCode(error) !== 'ENOENT') throw error
-      const completed = await this.readCompleted(entry)
-      if (
-        completed.receipt?.reviewId === receipt.reviewId &&
-        completed.receipt.reviewUrl === receipt.reviewUrl &&
-        completed.receipt.status === receipt.status &&
-        completed.receipt.requestDigest === receipt.requestDigest
-      ) return
-      throw journalError(
-        'REMOTE_JOURNAL_CONFLICT',
-        'Remote creation journal was completed with a different receipt.'
+    await this.withEntryLock(entry.fingerprint, async () => {
+      let current: StoredRemoteCreationEntry
+      try {
+        current = await this.readMatchingActive(entry)
+      } catch (error) {
+        if (errorCode(error) !== 'ENOENT') throw error
+        const completed = await this.readCompleted(entry)
+        if (
+          completed.receipt?.reviewId === receipt.reviewId &&
+          completed.receipt.reviewUrl === receipt.reviewUrl &&
+          completed.receipt.status === receipt.status &&
+          completed.receipt.requestDigest === receipt.requestDigest
+        ) return
+        throw journalError(
+          'REMOTE_JOURNAL_CONFLICT',
+          'Remote creation journal was completed with a different receipt.'
+        )
+      }
+      const completed: StoredRemoteCreationEntry = {
+        ...current,
+        state: 'completed',
+        receipt: { ...receipt }
+      }
+      await this.replaceActive(completed)
+      const completedDirectory = path.join(
+        this.entryDirectory(entry.fingerprint),
+        'completed'
       )
-    }
-    const completed: StoredRemoteCreationEntry = {
-      ...current,
-      state: 'completed',
-      receipt: { ...receipt }
-    }
-    await this.replaceActive(completed)
-    const completedDirectory = path.join(
-      this.entryDirectory(entry.fingerprint),
-      'completed'
-    )
-    await fs.mkdir(completedDirectory, { recursive: true, mode: 0o700 })
-    await fs.chmod(completedDirectory, 0o700)
-    const destination = this.completedPath(entry)
-    try {
-      await fs.rename(this.activePath(entry.fingerprint), destination)
-    } catch (error) {
-      if (errorCode(error) !== 'ENOENT') throw error
-    }
-    await fs.chmod(destination, 0o600).catch((error: unknown) => {
-      if (errorCode(error) !== 'ENOENT') throw error
+      await fs.mkdir(completedDirectory, { recursive: true, mode: 0o700 })
+      await fs.chmod(completedDirectory, 0o700)
+      const destination = this.completedPath(entry)
+      try {
+        await fs.rename(this.activePath(entry.fingerprint), destination)
+      } catch (error) {
+        if (errorCode(error) !== 'ENOENT') throw error
+      }
+      await fs.chmod(destination, 0o600).catch((error: unknown) => {
+        if (errorCode(error) !== 'ENOENT') throw error
+      })
     })
   }
 
@@ -332,6 +366,10 @@ export class RemoteCreationJournal {
 
   private activePath(fingerprint: string): string {
     return path.join(this.entryDirectory(fingerprint), 'active.json')
+  }
+
+  private lockPath(fingerprint: string): string {
+    return path.join(this.entryDirectory(fingerprint), 'active.lock')
   }
 
   private completedPath(entry: RemoteCreationEntry): string {
@@ -395,6 +433,88 @@ export class RemoteCreationJournal {
       )
     }
     return completed
+  }
+
+  private async acquireEntryLock(fingerprint: string): Promise<string> {
+    const token = crypto.randomBytes(16).toString('hex')
+    const lockPath = this.lockPath(fingerprint)
+    const deadline = Date.now() + LOCK_TIMEOUT_MILLISECONDS
+    for (;;) {
+      const temporaryPath = `${lockPath}.${this.processId}.${token}`
+      try {
+        await fs.writeFile(temporaryPath, `${JSON.stringify({
+          ownerPid: this.processId,
+          token
+        })}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 })
+        await fs.chmod(temporaryPath, 0o600)
+        await fs.link(temporaryPath, lockPath)
+        await fs.chmod(lockPath, 0o600)
+        return token
+      } catch (error) {
+        if (errorCode(error) !== 'EEXIST') throw error
+      } finally {
+        await fs.unlink(temporaryPath).catch((error: unknown) => {
+          if (errorCode(error) !== 'ENOENT') throw error
+        })
+      }
+
+      let existing: StoredRemoteCreationLock
+      try {
+        existing = decodeLock(JSON.parse(await fs.readFile(lockPath, 'utf8')))
+      } catch (error) {
+        if (errorCode(error) === 'ENOENT') continue
+        throw error
+      }
+      if (!this.processIsAlive(existing.ownerPid)) {
+        let confirmed: StoredRemoteCreationLock
+        try {
+          confirmed = decodeLock(JSON.parse(await fs.readFile(lockPath, 'utf8')))
+        } catch (error) {
+          if (errorCode(error) === 'ENOENT') continue
+          throw error
+        }
+        if (confirmed.token === existing.token) {
+          await fs.unlink(lockPath).catch((error: unknown) => {
+            if (errorCode(error) !== 'ENOENT') throw error
+          })
+        }
+        continue
+      }
+      if (Date.now() >= deadline) {
+        throw journalError(
+          'REMOTE_JOURNAL_BUSY',
+          'Remote creation journal entry is busy.'
+        )
+      }
+      await delay(LOCK_RETRY_MILLISECONDS)
+    }
+  }
+
+  private async releaseEntryLock(
+    fingerprint: string,
+    token: string
+  ): Promise<void> {
+    const lockPath = this.lockPath(fingerprint)
+    const current = decodeLock(JSON.parse(await fs.readFile(lockPath, 'utf8')))
+    if (current.token !== token) {
+      throw journalError(
+        'REMOTE_JOURNAL_CONFLICT',
+        'Remote creation journal lock changed during this invocation.'
+      )
+    }
+    await fs.unlink(lockPath)
+  }
+
+  private async withEntryLock<T>(
+    fingerprint: string,
+    action: () => Promise<T>
+  ): Promise<T> {
+    const token = await this.acquireEntryLock(fingerprint)
+    try {
+      return await action()
+    } finally {
+      await this.releaseEntryLock(fingerprint, token)
+    }
   }
 
   private async replaceActive(entry: StoredRemoteCreationEntry): Promise<void> {
