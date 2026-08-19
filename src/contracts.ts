@@ -75,6 +75,7 @@ declare global {
     reviewLinkActivationPolicy: IncomingReviewActivationPolicy
     incomingReviewIdleMinutes: number
     discoverAgentThreadFromLocalSessions: boolean
+    remoteCanonicalGatewayEnabled: boolean
     t3ThreadTitlesEnabled: boolean
     t3MetadataDatabasePath: string
     codexThreadTitlesEnabled: boolean

@@ -941,6 +941,8 @@ test('gates every current non-health route with real HTTP', async (t) => {
   const routes = [
     { method: 'GET', path: '/reviews', body: null },
     { method: 'POST', path: '/reviews', body: '{' },
+    { method: 'POST', path: '/internal/remote/reviews', body: '{' },
+    { method: 'POST', path: '/internal/remote/reviews/recover', body: null },
     { method: 'GET', path: '/reviews/mko_missing1', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/activate', body: null },
     { method: 'POST', path: '/reviews/mko_missing1/handoff', body: null },

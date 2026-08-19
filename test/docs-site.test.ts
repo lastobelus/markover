@@ -215,6 +215,7 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   for (const section of [
     'local-only',
     'authorization',
+    'remote-client',
     'stored',
     'locations',
     'discovery',
@@ -232,6 +233,10 @@ test('privacy and local-data claims stay linked to the public workflow', () => {
   }
   assert.doesNotMatch(privacy, /0700|0600|service\.token|256-bit/)
   assert.match(privacy, /no telemetry, analytics, cloud synchronization/)
+  assert.match(privacy, /Allow the authorized remote Markover client/)
+  assert.match(privacy, /does not configure your tailnet policy/)
+  assert.match(privacy, /Certificate Transparency logs/)
+  assert.match(privacy, /does not read that path or run Git beside it/)
   assert.match(privacy, /Only an embedded <code>data:<\/code> image can open/)
   assert.match(privacy, /HTTP\(S\) URLs remain unavailable/)
   assert.match(privacy, /makes no network request/)
@@ -281,6 +286,10 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(developerSecurity, /POSIX mode `0700`/)
   assert.match(developerSecurity, /`service\.json` and `service\.token`/)
   assert.match(developerSecurity, /Authorization is checked before URL route handling/)
+  assert.match(developerSecurity, /Tailscale-App-Capabilities/)
+  assert.match(developerSecurity, /lastobelus\.com\/cap\/markover-remote-client/)
+  assert.match(developerSecurity, /Every other method or route receives authenticated `404`/)
+  assert.match(developerSecurity, /Both request and response JSON are capped at 16 MiB/)
   assert.match(developerSecurity, /Only an embedded `data:` image can open/)
   assert.match(developerSecurity, /HTTP\(S\) URLs, and malformed\s+sources remain unavailable/)
   assert.match(developerSecurity, /makes no network request/)

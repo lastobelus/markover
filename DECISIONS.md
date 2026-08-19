@@ -889,6 +889,35 @@ each choice from that baseline without duplicating the live decisions below.
     [review store tests](test/review-store.test.ts),
     [local service tests](test/local-service.test.ts), and
     [project context tests](test/review-project-context.test.ts).
+24. **Remote ingress is live, explicit, and narrower than local protocol 2.** A
+    default-off persisted setting creates one owner-only Unix socket only for a
+    non-smoke canonical instance whose configured checkout, blessed branch,
+    and exact `markover:` handler are healthy. The gateway requires the one
+    forwarded `lastobelus.com/cap/markover-remote-client` app capability before
+    route selection or body reads, admits only remote health and the author
+    agent's create/recovery, pending, handoff, edit, revise, and done routes,
+    and returns authenticated `404` for everything else. Health exposes only
+    the remote protocol, canonical role and scheme, and the current session
+    discovery policy.
+25. **The gateway reuses the bearer-protected mutation engine without sharing
+    its bearer.** Tailscale Serve terminates HTTPS and forwards the selected app
+    capability to the owner-mode socket; the gateway then uses the in-process
+    local-service identity for the loopback hop. Remote creation requires a
+    256-bit idempotency key and exact-body digest, derives `remote-agent`,
+    rejects client origin and attachment claims, rechecks canonical routing,
+    and returns canonical review URLs. Requests and responses are bounded at
+    16 MiB; disabling stops admission, drains the single active request, and
+    removes only the socket created by that gateway instance. Markover does not
+    configure tailnet grants, drive login, bind a Tailscale IP, or enable
+    Funnel.
+
+    **Audit — Retain (Local service authorization 24–25).** The socket keeps
+    other ordinary macOS accounts outside HTTP parsing while the exact Serve
+    capability supplies the tailnet gate; the fixed route projection prevents
+    a remote author credential from becoming the full local bearer. Evidence:
+    [remote gateway tests](test/remote-gateway.test.ts),
+    [local service tests](test/local-service.test.ts), and the
+    [developer security reference](docs/developer/local-service-security.md).
 
 ## Planned and deferred boundaries
 

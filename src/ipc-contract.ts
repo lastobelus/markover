@@ -31,6 +31,7 @@ const SETTINGS_KEYS = [
   'reviewLinkActivationPolicy',
   'incomingReviewIdleMinutes',
   'discoverAgentThreadFromLocalSessions',
+  'remoteCanonicalGatewayEnabled',
   't3ThreadTitlesEnabled',
   't3MetadataDatabasePath',
   'codexThreadTitlesEnabled',
@@ -465,6 +466,7 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'openDocumentsSidebar':
     case 'confirmAttachmentRemoval':
     case 'discoverAgentThreadFromLocalSessions':
+    case 'remoteCanonicalGatewayEnabled':
     case 't3ThreadTitlesEnabled':
     case 'codexThreadTitlesEnabled':
     case 'claudeThreadTitlesEnabled':
