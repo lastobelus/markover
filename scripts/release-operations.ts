@@ -705,6 +705,9 @@ export async function generateReleaseNotes({
   const rollbackUrl = (rollbackTag: string): string => (
     `https://github.com/${repository}/releases/download/${rollbackTag}/markover-cli.tgz`
   )
+  const intelRollbackExplanation = rollbackTags.arm64 === rollbackTags.x64
+    ? 'Both native architectures use the same complete rollback release.'
+    : 'Use the Intel-specific version-pinned launcher because the newer Apple Silicon rollback release does not contain an x64 app.'
   return `# Markover ${tag}
 
 > **Early preview · Native Apple Silicon and Intel · not Apple-verified.** These macOS apps use hardened ad-hoc signing. They do not identify an authenticated Developer ID publisher, are not notarized, and are expected to require the documented per-app Gatekeeper override.
@@ -750,7 +753,7 @@ npx --yes \\
 
 ## Roll back Intel to ${rollbackTags.x64}
 
-Use the Intel-specific version-pinned launcher because the newer Apple Silicon rollback release does not contain an x64 app.
+${intelRollbackExplanation}
 
 \`\`\`sh
 npx --yes \\

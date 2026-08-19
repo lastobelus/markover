@@ -416,7 +416,26 @@ test('generated release notes disclose provenance, trust, and rollback', async (
   assert.match(notes, /Application Support\/Markover/)
   assert.match(notes, /Roll back Apple Silicon/)
   assert.match(notes, /Roll back Intel to v1\.2\.1/)
+  assert.match(notes, /newer Apple Silicon rollback release does not contain an x64 app/)
   for (const name of primaryReleaseAssets) assert.match(notes, new RegExp(name))
+
+  const sharedRollbackNotes = await generateReleaseNotes({
+    commit: 'abc123',
+    directory: payloads,
+    rollbackTags: { arm64: 'v1.2.2', x64: 'v1.2.2' },
+    repository: 'example/markover',
+    runId: '42',
+    tag: 'v1.2.3',
+    verificationDirectory: verification
+  })
+  assert.match(
+    sharedRollbackNotes,
+    /Both native architectures use the same complete rollback release/
+  )
+  assert.doesNotMatch(
+    sharedRollbackNotes,
+    /newer Apple Silicon rollback release does not contain an x64 app/
+  )
 
   await assert.rejects(generateReleaseNotes({
     commit: 'abc123',
