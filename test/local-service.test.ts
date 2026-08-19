@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
@@ -16,8 +17,10 @@ import {
   requestJson
 } from '../src/local-client'
 import {
+  createReviewForProducer,
   MAXIMUM_BODY_BYTES,
   readJson,
+  reviewCreateInputForProducer,
   startLocalService,
   type LocalServiceOptions
 } from '../src/local-service'
@@ -201,6 +204,85 @@ function tree(): ReviewTree {
   })
 }
 
+function digest(value: Uint8Array | string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`
+}
+
+test('trusted create producers derive supported origins and reject other values', () => {
+  const body = {
+    tree: tree(),
+    metadata: { contextSummary: 'Producer boundary.' }
+  }
+  assert.equal(reviewCreateInputForProducer(body, 'agent').origin, 'agent')
+  assert.equal(
+    reviewCreateInputForProducer(body, 'remote-agent').origin,
+    'remote-agent'
+  )
+  assert.throws(
+    () => reviewCreateInputForProducer(body, 'imported-agent'),
+    (error: unknown) => (
+      error instanceof Error && Reflect.get(error, 'code') ===
+        'INVALID_REVIEW_PRODUCER'
+    )
+  )
+})
+
+test('receipt recovery returns the original review without replaying created', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-create-core-test-')
+  )
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const ids = ['mko_aaa11111', 'mko_bbb22222']
+  const store = new ReviewStore(directory, {
+    idFactory: () => ids.shift() as string
+  })
+  const changes: string[] = []
+  const body = {
+    tree: tree(),
+    metadata: { contextSummary: 'Remote producer flow.' }
+  }
+  const requestBytes = Buffer.from(JSON.stringify(body))
+  const attempt = {
+    idempotencyKey: 'mko-idempotency-key-with-enough-random-material',
+    requestBytes,
+    requestDigest: digest(requestBytes)
+  }
+  const onChange = (_artifact: ReviewArtifact, action: string) => {
+    changes.push(action)
+  }
+
+  const created = await createReviewForProducer({
+    body,
+    producer: 'remote-agent',
+    store,
+    attempt,
+    onChange
+  })
+  const recovered = await createReviewForProducer({
+    body,
+    producer: 'remote-agent',
+    store,
+    attempt,
+    onChange
+  })
+  assert.equal(created.created, true)
+  assert.equal(recovered.created, false)
+  assert.equal(recovered.artifact.review.id, created.artifact.review.id)
+  assert.equal(created.artifact.review.origin, 'remote-agent')
+  assert.deepEqual(changes, ['created'])
+
+  const ordinary = await createReviewForProducer({
+    body,
+    producer: 'agent',
+    store,
+    onChange
+  })
+  assert.equal(ordinary.created, true)
+  assert.equal(ordinary.artifact.review.origin, 'agent')
+  assert.equal(ordinary.artifact.review.creationReceipt, undefined)
+  assert.deepEqual(changes, ['created', 'created'])
+})
+
 test('serves health and a complete open/get/edit workflow', async (t) => {
   const activations: string[] = []
   const { changes, endpointPath, identity } = await serviceFixture(t, {
@@ -234,6 +316,13 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
     reviewId: 'mko_aaa11111',
     status: 'editing'
   })
+  const openedArtifact = await requestJson(
+    endpointPath,
+    'GET',
+    '/reviews/mko_aaa11111'
+  ) as ReviewArtifact
+  assert.equal(openedArtifact.review.origin, 'agent')
+  assert.equal(openedArtifact.review.creationReceipt, undefined)
   assert.deepEqual(
     await requestJson(
       endpointPath,

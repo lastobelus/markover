@@ -488,6 +488,27 @@ test('Local reviews use document identity and the synthetic Local reviews group'
   assert.equal(projection.projects[0]?.threads[0]?.title, 'Local reviews')
 })
 
+test('remote-agent reviews retain ordinary agent inbox semantics', () => {
+  const sessions = new ReviewSessions()
+  sessions.add(reviewDocument('mko_remote11', 'remote.md', {
+    agentThread: providerThread('remote-thread'),
+    contextSummary: 'Review a remote source snapshot.',
+    createdAt: '2026-08-18T10:00:00.000Z',
+    origin: 'remote-agent',
+    projectRoot: '/projects/remote'
+  }))
+
+  const remote = projectReviewInbox(sessions.list()).editing[0]
+  assert.ok(remote)
+  assert.equal(remote.local, false)
+  assert.equal(remote.title, 'Review a remote source snapshot.')
+  assert.equal(remote.titleSource, 'context-summary')
+  assert.equal(
+    projectReviewInbox(sessions.list()).projects[0]?.threads[0]?.title,
+    'remote-thread'
+  )
+})
+
 test('a project shared by independent clones does not claim one clone root', () => {
   const sessions = new ReviewSessions()
   const cloneOne = reviewDocument('mko_clone111', 'one.md', {

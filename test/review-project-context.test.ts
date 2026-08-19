@@ -281,3 +281,31 @@ test('a null source locator performs no source or repository I/O', async () => {
   })
   assert.equal(calls, 0)
 })
+
+test('remote-agent origin makes a colliding local path unavailable without I/O', async () => {
+  let calls = 0
+  const review = artifact('# Remote source\n', '/repo/docs/plan.md')
+  review.review.origin = 'remote-agent'
+  review.review.git = {
+    repositoryUrl: 'https://github.com/lastobelus/markover'
+  }
+  assert.deepEqual(await discoverReviewProjectContext(review, {
+    readSource: () => {
+      calls += 1
+      return Promise.resolve('# Different local source\n')
+    },
+    discoverRepository: () => {
+      calls += 1
+      return Promise.resolve({
+        root: '/repo',
+        remoteUrl: 'https://github.com/lastobelus/markover',
+        commonGitDirectory: '/repo/.git'
+      })
+    }
+  }), {
+    project: null,
+    projectEvidence: 'unavailable',
+    sourceState: 'unavailable'
+  })
+  assert.equal(calls, 0)
+})

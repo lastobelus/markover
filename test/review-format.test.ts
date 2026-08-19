@@ -154,6 +154,16 @@ test('human and agent lifecycle values and open-string origins are valid', () =>
   review(futureOrigin).origin = 'imported-agent'
   assert.equal(decodeReviewArtifact(futureOrigin), futureOrigin)
 
+  const remote = cloneFixture()
+  review(remote).origin = 'remote-agent'
+  review(remote).creationReceipt = {
+    version: 1,
+    keyDigest: `sha256:${'a'.repeat(64)}`,
+    requestDigest: `sha256:${'b'.repeat(64)}`,
+    fixtureReceiptExtension: { preserve: true }
+  }
+  assert.equal(decodeReviewArtifact(remote), remote)
+
   const local = cloneFixture()
   review(local).origin = 'local'
   review(local).agentThread = null
@@ -177,6 +187,17 @@ test('lifecycle, timestamp, and pull-request invariants reject invalid envelopes
   const localThread = cloneFixture()
   review(localThread).origin = 'local'
   assertFormatCode(() => decodeReviewArtifact(localThread), 'INVALID_REVIEW')
+
+  for (const creationReceipt of [
+    null,
+    { version: 2, keyDigest: `sha256:${'a'.repeat(64)}`, requestDigest: `sha256:${'b'.repeat(64)}` },
+    { version: 1, keyDigest: 'sha256:bad', requestDigest: `sha256:${'b'.repeat(64)}` },
+    { version: 1, keyDigest: `sha256:${'a'.repeat(64)}`, requestDigest: 'sha256:bad' }
+  ]) {
+    const invalidReceipt = cloneFixture()
+    review(invalidReceipt).creationReceipt = creationReceipt
+    assertFormatCode(() => decodeReviewArtifact(invalidReceipt), 'INVALID_REVIEW')
+  }
 
   const unorderedTime = cloneFixture()
   review(unorderedTime).attentionRequestedAt = '2026-08-11T12:06:00.000Z'

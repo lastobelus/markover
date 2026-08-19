@@ -835,8 +835,12 @@ each choice from that baseline without duplicating the live decisions below.
     has no telemetry, analytics, cloud sync, or automatic review upload.
     Installation can contact npm or GitHub, and explicitly previewing a remote
     Markdown image contacts its host; the image remains inert before that
-    action. After an authenticated agent retrieves a handoff, the recipient's
-    storage, logging, and network behavior is outside Markover's control.
+    action. The one selected exception is an explicitly enabled remote client
+    sending a requested review from an exactly authorized tailnet host to the
+    user's canonical Markover store; it becomes reachable only when its
+    separately gated ingress lands. After an authenticated agent retrieves a
+    handoff, the recipient's storage, logging, and network behavior is outside
+    Markover's control.
 
     **Audit — Retain (Local service authorization 18–20).** Controllable local
     discovery and explicit privacy/network claims keep optional provenance from
@@ -857,6 +861,32 @@ each choice from that baseline without duplicating the live decisions below.
     [#15](https://github.com/lastobelus/markover/issues/15), and
     [#64](https://github.com/lastobelus/markover/issues/64) retain their current
     release, compatibility/accessibility, and Help-surface work.
+22. **Remote ingress is separate from local protocol 2.** The selected
+    remote-client path terminates at one default-off, canonical-only,
+    mode-restricted Unix socket and then reuses the existing authenticated
+    mutation core and single `ReviewStore`. It does not change the plain
+    loopback service, publish its bearer, bind a Tailscale IP, enable Funnel,
+    create a second store, or claim isolation from same-account or privileged
+    processes. Tailscale Serve and one forwarded application capability form
+    the later network-facing gate; the portable/store slice creates no
+    reachable ingress.
+23. **Remote creation is derived, idempotent, and path-untrusted.** The trusted
+    producer boundary accepts only `agent` and `remote-agent`, while portable
+    readers preserve every unknown nonblank origin. A `remote-agent` review
+    returns unavailable source and project states before filesystem or Git
+    access. Its optional portable creation receipt contains only versioned
+    SHA-256 key and exact-request digests; the existing store serializes
+    receipt lookup and creation, and recovery returns the persisted review
+    without replaying the `created` notification.
+
+    **Audit — Retain (Local service authorization 22–23).** A separate socket
+    preserves the selected account boundary without weakening local protocol
+    2, and store-owned digest recovery prevents duplicate primary review data
+    after an uncertain response. Evidence:
+    [remote canonical implementation plan](doc/plans/2026-08-18__remote-canonical-markover.md),
+    [review store tests](test/review-store.test.ts),
+    [local service tests](test/local-service.test.ts), and
+    [project context tests](test/review-project-context.test.ts).
 
 ## Planned and deferred boundaries
 

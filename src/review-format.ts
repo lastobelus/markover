@@ -672,6 +672,18 @@ function assertEnvelope(
   if (observation && observation.statusObservedAt > value.updatedAt) {
     invalid('Pull request observations must not be newer than review.updatedAt.')
   }
+  if (value.creationReceipt !== undefined) {
+    if (
+      !isRecord(value.creationReceipt) ||
+      value.creationReceipt.version !== 1 ||
+      typeof value.creationReceipt.keyDigest !== 'string' ||
+      !CHECKSUM_PATTERN.test(value.creationReceipt.keyDigest) ||
+      typeof value.creationReceipt.requestDigest !== 'string' ||
+      !CHECKSUM_PATTERN.test(value.creationReceipt.requestDigest)
+    ) {
+      invalid('review.creationReceipt must contain version 1 key and request SHA-256 digests.')
+    }
+  }
   assertAgentGuidance(value.agentGuidance, 'review.agentGuidance')
   assertResolution(
     value.resolution,
