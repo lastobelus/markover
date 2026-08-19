@@ -38,6 +38,7 @@ export const runtimeModuleNames = [
   'review-format',
   'review-link-copy',
   'review-project-context',
+  'remote-attachments',
   'remote-gateway',
   'review-store',
   'review-url',

@@ -1881,6 +1881,27 @@ async function setRemoteGatewayEnabled(enabled: boolean): Promise<void> {
       store.settings.discoverAgentThreadFromLocalSessions
     ),
     routingReady: assertRemoteGatewayRoutingReady,
+    async loadAttachment(reviewId, attachmentId) {
+      const artifact = await reviewStore.load(reviewId)
+      internalAttachments.replaceReview(reviewId, artifact)
+      const matches: ReviewAttachment[] = []
+      const visit = (node: ReviewNode): void => {
+        for (const attachment of node.attachments || []) {
+          if (attachment.id === attachmentId) matches.push(attachment)
+        }
+        node.children.forEach(visit)
+      }
+      visit(artifact.root)
+      if (matches.length !== 1) return null
+      const filePath = await internalAttachments.resolve(reviewId, attachmentId)
+      return filePath
+        ? {
+            attachment: matches[0] as ReviewAttachment,
+            attachmentRoot: path.join(reviewStore.directory, reviewId, 'attachments'),
+            filePath
+          }
+        : null
+    },
     scheme: addressedInstance.scheme
   })
 }

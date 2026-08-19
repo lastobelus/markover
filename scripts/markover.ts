@@ -18,6 +18,7 @@ import {
   readRemoteHealth,
   RemoteClientError,
   requestRemoteJson,
+  validateRemoteAttachmentUrls,
   type RemoteHealth,
   type RemoteJsonRequestOptions
 } from '../src/remote-client'
@@ -1710,7 +1711,7 @@ export async function executeCommand(
     readSessionDiscoverySetting: readDiscoverySetting = readSessionDiscoverySetting,
     settingsPath = path.join(path.dirname(endpointPath), 'settings.json')
   } = options
-  const requestAuthorJson = (
+  const requestAuthorJson = async (
     method: string,
     requestPath: string,
     body?: unknown,
@@ -1719,8 +1720,9 @@ export async function executeCommand(
       mutation?: boolean
       timeoutMilliseconds?: number
     } = {}
-  ): Promise<unknown> => profile
-    ? remoteRequest(profile, method, requestPath, body ?? null, {
+  ): Promise<unknown> => {
+    if (profile) {
+      const response = await remoteRequest(profile, method, requestPath, body ?? null, {
         ...(requestOptions.headers
           ? { headers: requestOptions.headers }
           : {}),
@@ -1729,7 +1731,9 @@ export async function executeCommand(
           : { mutation: requestOptions.mutation }),
         preflight: false
       })
-    : requestJson(
+      return validateRemoteAttachmentUrls(profile, response)
+    }
+    return requestJson(
         endpointPath,
         method,
         requestPath,
@@ -1738,6 +1742,7 @@ export async function executeCommand(
           ? undefined
           : { timeoutMilliseconds: requestOptions.timeoutMilliseconds }
       )
+  }
   if (parsed.command === 'open') {
     const sourcePath = path.resolve(parsed.sourcePath)
     const journal = profile

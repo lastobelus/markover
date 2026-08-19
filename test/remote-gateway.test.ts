@@ -8,6 +8,7 @@ import path from 'node:path'
 import test, { type TestContext } from 'node:test'
 
 import type { ResolvedInstance } from '../src/instance'
+import { InternalAttachmentAllowlist } from '../src/internal-protocol'
 import {
   MAXIMUM_BODY_BYTES,
   startLocalService
@@ -25,6 +26,10 @@ import {
   startRemoteGateway,
   type RemoteGateway
 } from '../src/remote-gateway'
+import {
+  projectRemoteAttachments,
+  readVerifiedRemoteAttachment
+} from '../src/remote-attachments'
 import { reviewChecksum } from '../src/review-format'
 import { ReviewStore, type ReviewArtifact } from '../src/review-store'
 import { createServiceIdentity } from '../src/service-endpoint'
@@ -57,6 +62,8 @@ function capabilityHeader(
 ): Record<string, string> {
   return { [REMOTE_GATEWAY_CAPABILITY_HEADER]: JSON.stringify(value) }
 }
+
+const missingAttachment = () => Promise.resolve(null)
 
 function responseErrorCode(body: unknown): unknown {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
@@ -106,6 +113,56 @@ async function requestGateway(
   })
 }
 
+async function requestGatewayBytes(
+  socketPath: string,
+  requestPath: string,
+  headers: Record<string, string> = {}
+): Promise<{ body: Buffer; headers: http.IncomingHttpHeaders; statusCode: number | undefined }> {
+  return new Promise((resolve, reject) => {
+    const request = http.request({
+      socketPath,
+      method: 'GET',
+      path: requestPath,
+      headers
+    }, (response) => {
+      const chunks: Uint8Array[] = []
+      response.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+      response.on('end', () => {
+        resolve({
+          body: Buffer.concat(chunks),
+          headers: response.headers,
+          statusCode: response.statusCode
+        })
+      })
+    })
+    request.on('error', reject)
+    request.end()
+  })
+}
+
+async function interruptGatewayResponse(
+  socketPath: string,
+  requestPath: string,
+  headers: Record<string, string>
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = http.request({
+      socketPath,
+      method: 'GET',
+      path: requestPath,
+      headers
+    }, (response) => {
+      response.once('data', () => {
+        response.destroy()
+        resolve()
+      })
+      response.once('error', reject)
+    })
+    request.on('error', reject)
+    request.end()
+  })
+}
+
 async function gatewayFixture(
   t: TestContext,
   options: {
@@ -131,6 +188,7 @@ async function gatewayFixture(
   })
   let routingChecks = 0
   const socketPath = path.join(directory, 'state', 'remote.sock')
+  const attachments = new InternalAttachmentAllowlist(store.directory)
   const gateway = await startRemoteGateway({
     socketPath,
     localPort: service.port,
@@ -139,6 +197,27 @@ async function gatewayFixture(
     routingReady() {
       routingChecks += 1
       return Promise.resolve()
+    },
+    async loadAttachment(reviewId, attachmentId) {
+      const artifact = await store.load(reviewId)
+      attachments.replaceReview(reviewId, artifact)
+      const matches: ReviewAttachment[] = []
+      const visit = (node: ReviewNode): void => {
+        for (const attachment of node.attachments || []) {
+          if (attachment.id === attachmentId) matches.push(attachment)
+        }
+        node.children.forEach(visit)
+      }
+      visit(artifact.root)
+      if (matches.length !== 1) return null
+      const filePath = await attachments.resolve(reviewId, attachmentId)
+      return filePath
+        ? {
+            attachment: matches[0] as ReviewAttachment,
+            attachmentRoot: path.join(store.directory, reviewId, 'attachments'),
+            filePath
+          }
+        : null
     }
   })
   t.after(async () => {
@@ -464,6 +543,195 @@ test('remote create rejects origin claims, attachment metadata, and digest drift
   assert.deepEqual(await fixture.store.list(), [])
 })
 
+test('remote handoff projects checked private attachments and streams retryable bytes', async (t) => {
+  const fixture = await gatewayFixture(t)
+  const createBody = Buffer.from(JSON.stringify({
+    tree: tree(),
+    metadata: { contextSummary: 'Check the private screenshot.' }
+  }))
+  const created = await requestGateway(
+    fixture.socketPath,
+    'POST',
+    '/reviews',
+    createHeaders(createBody),
+    createBody
+  )
+  assert.equal(created.statusCode, 201)
+
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.from('private-image')
+  ])
+  const saved = await fixture.store.saveAttachmentFile('mko_aaa11111', 'png', png)
+  const artifact = await fixture.store.load('mko_aaa11111')
+  const annotated = structuredClone(artifact)
+  const target = annotated.root.children[0] as ReviewNode
+  target.attachments = [{
+    id: saved.id,
+    type: 'image',
+    mimeType: 'image/png',
+    path: saved.path,
+    checksum: digest(png)
+  }]
+  await fixture.store.updateTree('mko_aaa11111', annotated)
+
+  const handoff = await requestGateway(
+    fixture.socketPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff',
+    capabilityHeader()
+  )
+  assert.equal(handoff.statusCode, 200)
+  const projected = handoff.body as ReviewArtifact
+  const projectedAttachment = projected.root.children[0]?.attachments?.[0]
+  assert.deepEqual(projectedAttachment, {
+    id: 'img-1',
+    type: 'image',
+    mimeType: 'image/png',
+    checksum: digest(png),
+    url: '/reviews/mko_aaa11111/attachments/img-1'
+  })
+  assert.equal(
+    (await fixture.store.load('mko_aaa11111')).root.children[0]?.attachments?.[0]?.path,
+    saved.path
+  )
+
+  const route = '/reviews/mko_aaa11111/attachments/img-1'
+  const first = await requestGatewayBytes(fixture.socketPath, route, capabilityHeader())
+  const retry = await requestGatewayBytes(fixture.socketPath, route, capabilityHeader())
+  assert.equal(first.statusCode, 200)
+  assert.equal(first.headers['content-type'], 'image/png')
+  assert.equal(first.headers['content-length'], String(png.byteLength))
+  assert.deepEqual(first.body, png)
+  assert.deepEqual(retry.body, png)
+
+  await interruptGatewayResponse(fixture.socketPath, route, capabilityHeader())
+  const afterInterruption = await requestGatewayBytes(
+    fixture.socketPath,
+    route,
+    capabilityHeader()
+  )
+  assert.equal(afterInterruption.statusCode, 200)
+  assert.deepEqual(afterInterruption.body, png)
+
+  const denied = await requestGatewayBytes(fixture.socketPath, route)
+  assert.equal(denied.statusCode, 403)
+  assert.equal(responseErrorCode(JSON.parse(denied.body.toString('utf8'))), 'REMOTE_CAPABILITY_REQUIRED')
+})
+
+test('private attachment checks reject corrupt metadata, paths, bytes, and links', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-remote-attachment-test-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.from('checked')
+  ])
+  const filePath = path.join(directory, 'img-1.png')
+  await fs.writeFile(filePath, png)
+  const attachment: ReviewAttachment = {
+    id: 'img-1',
+    type: 'image',
+    mimeType: 'image/png',
+    path: filePath,
+    checksum: digest(png)
+  }
+  const load = () => Promise.resolve({
+    attachment,
+    attachmentRoot: directory,
+    filePath
+  })
+  assert.deepEqual(
+    (await readVerifiedRemoteAttachment('mko_aaa11111', 'img-1', load)).bytes,
+    png
+  )
+
+  attachment.checksum = digest('wrong')
+  await assert.rejects(
+    readVerifiedRemoteAttachment('mko_aaa11111', 'img-1', load),
+    (error: unknown) => error instanceof Error && Reflect.get(error, 'code') === 'REMOTE_ATTACHMENT_CHECKSUM_MISMATCH'
+  )
+  attachment.checksum = digest(png)
+  attachment.mimeType = 'image/jpeg'
+  await assert.rejects(
+    readVerifiedRemoteAttachment('mko_aaa11111', 'img-1', load),
+    (error: unknown) => error instanceof Error && Reflect.get(error, 'code') === 'REMOTE_ATTACHMENT_TYPE_MISMATCH'
+  )
+  attachment.mimeType = 'image/png'
+
+  const emptyPath = path.join(directory, 'img-2.png')
+  await fs.writeFile(emptyPath, Buffer.alloc(0))
+  await assert.rejects(
+    readVerifiedRemoteAttachment('mko_aaa11111', 'img-2', () => Promise.resolve({
+      attachment: { ...attachment, id: 'img-2' },
+      attachmentRoot: directory,
+      filePath: emptyPath
+    })),
+    (error: unknown) => error instanceof Error && Reflect.get(error, 'code') === 'REMOTE_ATTACHMENT_LENGTH_MISMATCH'
+  )
+
+  const artifact = {
+    review: { id: 'mko_aaa11111' },
+    root: {
+      attachments: [attachment, { ...attachment }],
+      children: []
+    }
+  }
+  await assert.rejects(
+    projectRemoteAttachments(artifact, load),
+    (error: unknown) => error instanceof Error && Reflect.get(error, 'code') === 'REMOTE_ATTACHMENT_METADATA_INVALID'
+  )
+  const linkPath = path.join(directory, 'img-3.png')
+  await fs.symlink(filePath, linkPath)
+  await assert.rejects(
+    readVerifiedRemoteAttachment('mko_aaa11111', 'img-3', () => Promise.resolve({
+      attachment: { ...attachment, id: 'img-3' },
+      attachmentRoot: directory,
+      filePath: linkPath
+    })),
+    (error: unknown) => error instanceof Error && Reflect.get(error, 'code') === 'REMOTE_ATTACHMENT_NOT_FOUND'
+  )
+  const swapPath = path.join(directory, 'img-swap.png')
+  await fs.writeFile(swapPath, png)
+  await assert.rejects(
+    readVerifiedRemoteAttachment('mko_aaa11111', 'img-swap', async () => {
+      await fs.unlink(swapPath)
+      await fs.symlink(filePath, swapPath)
+      return {
+        attachment: { ...attachment, id: 'img-swap' },
+        attachmentRoot: directory,
+        filePath: swapPath
+      }
+    }),
+    (error: unknown) => error instanceof Error && Reflect.get(error, 'code') === 'REMOTE_ATTACHMENT_NOT_FOUND'
+  )
+
+  const reviewsRoot = path.join(directory, 'reviews')
+  const firstRoot = path.join(reviewsRoot, 'mko_aaa11111', 'attachments')
+  const otherRoot = path.join(reviewsRoot, 'mko_bbb22222', 'attachments')
+  await fs.mkdir(firstRoot, { recursive: true })
+  await fs.mkdir(otherRoot, { recursive: true })
+  const orphan = path.join(firstRoot, 'img-4.png')
+  const crossReview = path.join(otherRoot, 'img-4.png')
+  await fs.writeFile(crossReview, png)
+  const allowlist = new InternalAttachmentAllowlist(reviewsRoot)
+  assert.equal(allowlist.register('mko_aaa11111', 'img-4', crossReview), false)
+  assert.equal(
+    allowlist.register('mko_aaa11111', 'img-4', path.join(firstRoot, '..', 'img-4.png')),
+    false
+  )
+  assert.equal(allowlist.register('mko_aaa11111', 'img-4', orphan), true)
+  assert.equal(await allowlist.resolve('mko_aaa11111', 'img-4'), null)
+  const duplicateTree = tree()
+  const [firstNode] = duplicateTree.root.children
+  assert.ok(firstNode)
+  firstNode.attachments = [
+    { id: 'img-4', path: orphan },
+    { id: 'img-4', path: orphan }
+  ]
+  allowlist.replaceReview('mko_aaa11111', duplicateTree)
+  assert.equal(await allowlist.resolve('mko_aaa11111', 'img-4'), null)
+})
+
 test('socket lifecycle hardens modes, rejects live ownership, recovers stale sockets, and removes its own socket', async (t) => {
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'markover-remote-socket-test-')
@@ -480,6 +748,7 @@ test('socket lifecycle hardens modes, rejects live ownership, recovers stale soc
       localPort: 1234,
       localToken: 'B'.repeat(43),
       discoveryPolicy: () => false,
+      loadAttachment: missingAttachment,
       routingReady: () => Promise.resolve(),
       uid: owner.uid + 1
     }),
@@ -497,6 +766,7 @@ test('socket lifecycle hardens modes, rejects live ownership, recovers stale soc
       localPort: 1234,
       localToken: 'B'.repeat(43),
       discoveryPolicy: () => false,
+      loadAttachment: missingAttachment,
       routingReady: () => Promise.resolve()
     }),
     (error: unknown) => (
@@ -527,6 +797,7 @@ test('socket lifecycle hardens modes, rejects live ownership, recovers stale soc
     localPort: local.port,
     localToken: identity.token,
     discoveryPolicy: () => false,
+    loadAttachment: missingAttachment,
     routingReady: () => Promise.resolve()
   })
   const parentMode = (await fs.stat(stateRoot)).mode & 0o777
@@ -561,6 +832,7 @@ test('gateway caps responses from the canonical mutation service', async (t) => 
     localPort: address.port,
     localToken: 'B'.repeat(43),
     discoveryPolicy: () => false,
+    loadAttachment: missingAttachment,
     routingReady: () => Promise.resolve(),
     maximumResponseBytes: 64
   })

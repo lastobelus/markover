@@ -125,6 +125,7 @@ The authenticated remote surface is deliberately smaller than local protocol
 
 ```text
 GET  /health
+GET  /reviews/<review-id>/attachments/<attachment-id>
 POST /reviews
 POST /reviews/pending
 POST /reviews/<review-id>/handoff
@@ -159,9 +160,30 @@ grants, Serve configuration, login/consent, HTTPS host selection, and
 certificate issuance remain manual; Markover never enables Funnel or a direct
 Tailscale-IP listener.
 
+Remote author handoffs project each referenced managed image to a private
+attachment route and remove the canonical filesystem path from that response.
+The remote client accepts only that exact review-and-attachment route and
+resolves it against its already-pinned canonical HTTPS profile; an absolute,
+cross-origin, queried, or fragmented gateway value fails closed. Projection and download
+reload the current artifact, require one exact attachment reference, reuse the
+managed attachment directory/basename and double-realpath allowlist, reject
+symlinks, and open the checked file without following links. Before returning
+bytes, the gateway verifies the bounded file length, SHA-256 checksum, and PNG
+or JPEG signature. Stored JSON and reviewer-agent artifacts are not rewritten.
+The download route repeats the same Serve capability check before route
+selection and returns private, non-cacheable, nosniff responses.
+
+The advanced-user pilot gate remains the finite two-host acceptance in issue
+#187. The investigated canonical configuration is Tailscale Standalone 1.102.2
+with a Unix-socket Serve target and `--accept-app-caps`; general-user promotion
+still requires the live two-host test, exact-device authorization/revocation,
+manual Safari consent where required, and a fresh-machine compatibility
+doctor. The minimum supported capability-forwarding version is 1.92.
+
 Primary implementation and evidence:
 
 - [`src/remote-gateway.ts`](../../src/remote-gateway.ts)
+- [`src/remote-attachments.ts`](../../src/remote-attachments.ts)
 - [`src/main.ts`](../../src/main.ts)
 - [`test/remote-gateway.test.ts`](../../test/remote-gateway.test.ts)
 - [`test/local-service.test.ts`](../../test/local-service.test.ts)

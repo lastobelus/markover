@@ -5,11 +5,13 @@ import type https from 'node:https'
 import type { RequestOptions as HttpsRequestOptions } from 'node:https'
 import test from 'node:test'
 
+
 import {
   readRemoteHealth,
   RemoteClientError,
   type RemoteClientTiming,
-  requestRemoteJson
+  requestRemoteJson,
+  validateRemoteAttachmentUrls
 } from '../src/remote-client'
 import {
   loadRemoteProfile,
@@ -449,4 +451,37 @@ test('connect and response timeouts use independently injectable bounds', async 
     responsePromise,
     (error: unknown) => hasRemoteError(error, 'REQUEST_UNCERTAIN')
   )
+})
+
+test('remote attachment URLs stay on the pinned canonical HTTPS origin', () => {
+  const artifact = {
+    review: { id: 'mko_aaa11111' },
+    root: {
+      attachments: [{
+        id: 'img-1',
+        url: '/reviews/mko_aaa11111/attachments/img-1'
+      }],
+      children: []
+    }
+  }
+  assert.equal(validateRemoteAttachmentUrls(profile, artifact), artifact)
+  assert.equal(
+    artifact.root.attachments[0]?.url,
+    'https://canonical.example.ts.net/reviews/mko_aaa11111/attachments/img-1'
+  )
+  for (const attachment of [
+    { id: 'img-1', path: '/private/img-1.png', url: '/reviews/mko_aaa11111/attachments/img-1' },
+    { id: 'img-1', url: 'https://other.example.ts.net/reviews/mko_aaa11111/attachments/img-1' },
+    { id: 'img-1', url: 'https://canonical.example.ts.net/reviews/mko_other111/attachments/img-1' },
+    { id: 'img-1', url: '/reviews/mko_aaa11111/attachments/img-2' },
+    { id: 'img-1', url: '//other.example.ts.net/reviews/mko_aaa11111/attachments/img-1' }
+  ]) {
+    assert.throws(
+      () => validateRemoteAttachmentUrls(profile, {
+        review: { id: 'mko_aaa11111' },
+        root: { attachments: [attachment], children: [] }
+      }),
+      (error: unknown) => hasRemoteError(error, 'INVALID_RESPONSE')
+    )
+  }
 })

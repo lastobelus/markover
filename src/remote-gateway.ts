@@ -16,6 +16,11 @@ import {
   MAXIMUM_BODY_BYTES
 } from './local-service'
 import { reviewUrl } from './review-url'
+import {
+  projectRemoteAttachments,
+  readVerifiedRemoteAttachment,
+  type LoadRemoteAttachment
+} from './remote-attachments'
 
 export const REMOTE_GATEWAY_CAPABILITY =
   'lastobelus.com/cap/markover-remote-client'
@@ -54,6 +59,7 @@ export interface RemoteGatewayOptions {
   localToken: string
   discoveryPolicy: () => boolean
   routingReady: () => Promise<void>
+  loadAttachment: LoadRemoteAttachment
   maximumResponseBytes?: number
   scheme?: string
   platform?: NodeJS.Platform
@@ -235,6 +241,10 @@ function validatedAttemptHeaders(request: IncomingMessage): {
 
 function allowedRemotePath(method: string | undefined, pathname: string): boolean {
   if (method === 'GET' && pathname === '/health') return true
+  if (
+    method === 'GET' &&
+    /^\/reviews\/mko_[a-zA-Z0-9]{6,32}\/attachments\/img-[a-zA-Z0-9]{1,64}$/.test(pathname)
+  ) return true
   if (method !== 'POST') return false
   if (
     pathname === '/reviews' ||
@@ -412,6 +422,7 @@ export async function startRemoteGateway({
   localToken,
   discoveryPolicy,
   routingReady,
+  loadAttachment,
   maximumResponseBytes = MAXIMUM_REMOTE_RESPONSE_BYTES,
   scheme = 'markover',
   platform = process.platform,
@@ -508,6 +519,26 @@ export async function startRemoteGateway({
         return
       }
 
+      const attachmentRoute = /^\/reviews\/(mko_[a-zA-Z0-9]{6,32})\/attachments\/(img-[a-zA-Z0-9]{1,64})$/.exec(
+        url.pathname
+      )
+      if (request.method === 'GET' && attachmentRoute) {
+        const attachment = await readVerifiedRemoteAttachment(
+          attachmentRoute[1] as string,
+          attachmentRoute[2] as string,
+          loadAttachment
+        )
+        response.writeHead(200, {
+          'cache-control': 'private, no-store',
+          connection: 'close',
+          'content-length': attachment.bytes.byteLength,
+          'content-type': attachment.mimeType,
+          'x-content-type-options': 'nosniff'
+        })
+        response.end(attachment.bytes)
+        return
+      }
+
       const attempt = url.pathname === '/reviews'
         ? validatedAttemptHeaders(request)
         : null
@@ -542,13 +573,23 @@ export async function startRemoteGateway({
         internalHeaders,
         maximumResponseBytes
       )
-      const body = proxied.statusCode >= 200 && proxied.statusCode < 300
+      let body = proxied.statusCode >= 200 && proxied.statusCode < 300
         ? url.pathname === '/reviews'
           ? responseWithReviewUrl(proxied.body, scheme)
           : url.pathname === '/reviews/pending'
             ? pendingResponseWithUrls(proxied.body, scheme)
             : proxied.body
         : proxied.body
+      if (
+        proxied.statusCode >= 200 &&
+        proxied.statusCode < 300 &&
+        /^\/reviews\/mko_[a-zA-Z0-9]{6,32}\/(?:handoff|edit|revise)$/.test(url.pathname)
+      ) {
+        body = await projectRemoteAttachments(
+          body,
+          loadAttachment
+        )
+      }
       assertResponseBound(body, maximumResponseBytes)
       sendJson(response, proxied.statusCode, body)
     } catch (error) {

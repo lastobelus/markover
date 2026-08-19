@@ -116,6 +116,35 @@ function requestUrl(profile: RemoteProfile, requestPath: string): URL {
   return url
 }
 
+export function validateRemoteAttachmentUrls(
+  profile: RemoteProfile,
+  value: unknown
+): unknown {
+  if (!isRecord(value) || !isRecord(value.review) || typeof value.review.id !== 'string') {
+    return value
+  }
+  const reviewId = value.review.id
+  const visit = (entry: unknown): void => {
+    if (!isRecord(entry)) return
+    if (Array.isArray(entry.attachments)) {
+      for (const attachment of entry.attachments) {
+        if (
+          !isRecord(attachment) ||
+          typeof attachment.id !== 'string' ||
+          Object.hasOwn(attachment, 'path') ||
+          typeof attachment.url !== 'string'
+        ) throw invalidResponse()
+        const expectedPath = `/reviews/${encodeURIComponent(reviewId)}/attachments/${encodeURIComponent(attachment.id)}`
+        if (attachment.url !== expectedPath) throw invalidResponse()
+        attachment.url = new URL(expectedPath, profile.baseUrl).href
+      }
+    }
+    if (Array.isArray(entry.children)) entry.children.forEach(visit)
+  }
+  visit(value.root)
+  return value
+}
+
 async function sendRemoteJson(
   profile: RemoteProfile,
   method: string,
