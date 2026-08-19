@@ -209,9 +209,12 @@ jobs:
       contents: write
       id-token: write
     outputs:
-      previous-tag: ${{ steps.rollback.outputs.previous-tag }}
       release-id: ${{ steps.draft.outputs.release-id }}
       release-url: ${{ steps.draft.outputs.release-url }}
+      rollback-arm64-fingerprint: ${{ steps.rollback.outputs.rollback-arm64-fingerprint }}
+      rollback-arm64-tag: ${{ steps.rollback.outputs.rollback-arm64-tag }}
+      rollback-x64-fingerprint: ${{ steps.rollback.outputs.rollback-x64-fingerprint }}
+      rollback-x64-tag: ${{ steps.rollback.outputs.rollback-x64-tag }}
     steps:
       - name: Check out the tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -288,7 +291,8 @@ jobs:
             "--tag=${GITHUB_REF_NAME}" \
             "--commit=${GITHUB_SHA}" \
             "--run-id=${GITHUB_RUN_ID}" \
-            "--previous-tag=${{ steps.rollback.outputs.previous-tag }}" \
+            "--rollback-arm64-tag=${{ steps.rollback.outputs.rollback-arm64-tag }}" \
+            "--rollback-x64-tag=${{ steps.rollback.outputs.rollback-x64-tag }}" \
             | tee -a logs/stage.txt
 
       - name: Generate GitHub build-provenance attestations
@@ -403,7 +407,8 @@ jobs:
           "--tag=${GITHUB_REF_NAME}"
           "--commit=${GITHUB_SHA}"
           "--run-id=${GITHUB_RUN_ID}"
-          "--previous-tag=${{ needs.stage-release.outputs.previous-tag }}"
+          "--rollback-arm64-tag=${{ needs.stage-release.outputs.rollback-arm64-tag }}"
+          "--rollback-x64-tag=${{ needs.stage-release.outputs.rollback-x64-tag }}"
 
       - name: Fetch and verify frozen draft metadata
         env:
@@ -506,7 +511,11 @@ jobs:
             "--actual=final-candidate"
           npm run release:preflight -- verify-rollback \
             "--repository=${GITHUB_REPOSITORY}" \
-            "--expected-tag=${{ needs.stage-release.outputs.previous-tag }}"
+            "--tag=${GITHUB_REF_NAME}" \
+            "--expected-arm64-fingerprint=${{ needs.stage-release.outputs.rollback-arm64-fingerprint }}" \
+            "--expected-arm64-tag=${{ needs.stage-release.outputs.rollback-arm64-tag }}" \
+            "--expected-x64-fingerprint=${{ needs.stage-release.outputs.rollback-x64-fingerprint }}" \
+            "--expected-x64-tag=${{ needs.stage-release.outputs.rollback-x64-tag }}"
           gh api --method PATCH \
             "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             -F draft=false \

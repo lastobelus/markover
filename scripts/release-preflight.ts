@@ -16,10 +16,10 @@ import {
   generateReleaseNotes,
   githubReleaseReadiness,
   publicationTurnReadiness,
-  selectRollbackTarget,
+  selectRollbackTargets,
   verifyDraftRelease,
   verifyReleasePayloads,
-  verifyRollbackTarget,
+  verifyRollbackTargets,
   verifyReleaseTag,
   type ReadinessReport,
   type ReleasePayloadReport
@@ -122,12 +122,19 @@ async function verifyTag(flags: readonly string[]): Promise<void> {
     'Release tag: verified',
     `Tag: ${report.tag}`,
     `Commit: ${report.commit}`,
-    `Known-good rollback release: ${report.previousTag}`,
+    `Apple Silicon rollback release: ${report.rollbackTargets.arm64.tag}`,
+    `Intel rollback release: ${report.rollbackTargets.x64.tag}`,
     ''
   ].join('\n'))
   const githubOutput = parsed.get('github-output')
   if (githubOutput) {
-    await fs.appendFile(githubOutput, `previous-tag=${report.previousTag}\n`)
+    await fs.appendFile(githubOutput, [
+      `rollback-arm64-fingerprint=${report.rollbackTargets.arm64.fingerprint}`,
+      `rollback-arm64-tag=${report.rollbackTargets.arm64.tag}`,
+      `rollback-x64-fingerprint=${report.rollbackTargets.x64.fingerprint}`,
+      `rollback-x64-tag=${report.rollbackTargets.x64.tag}`,
+      ''
+    ].join('\n'))
   }
 }
 
@@ -137,13 +144,25 @@ async function selectRollback(flags: readonly string[]): Promise<void> {
     ['repository', 'tag'],
     ['github-output']
   )
-  const tag = selectRollbackTarget({
+  const targets = selectRollbackTargets({
     repository: value(parsed, 'repository'),
     tag: value(parsed, 'tag')
   })
-  process.stdout.write(`Known-good rollback release: ${tag}\n`)
+  process.stdout.write([
+    `Apple Silicon rollback release: ${targets.arm64.tag}`,
+    `Intel rollback release: ${targets.x64.tag}`,
+    ''
+  ].join('\n'))
   const githubOutput = parsed.get('github-output')
-  if (githubOutput) await fs.appendFile(githubOutput, `previous-tag=${tag}\n`)
+  if (githubOutput) {
+    await fs.appendFile(githubOutput, [
+      `rollback-arm64-fingerprint=${targets.arm64.fingerprint}`,
+      `rollback-arm64-tag=${targets.arm64.tag}`,
+      `rollback-x64-fingerprint=${targets.x64.fingerprint}`,
+      `rollback-x64-tag=${targets.x64.tag}`,
+      ''
+    ].join('\n'))
+  }
 }
 
 async function verifyPayloads(flags: readonly string[]): Promise<void> {
@@ -167,8 +186,9 @@ async function prepareRelease(flags: readonly string[]): Promise<void> {
     'commit',
     'directory',
     'notes',
-    'previous-tag',
     'repository',
+    'rollback-arm64-tag',
+    'rollback-x64-tag',
     'run-id',
     'tag',
     'verification-directory'
@@ -176,7 +196,10 @@ async function prepareRelease(flags: readonly string[]): Promise<void> {
   const notes = await generateReleaseNotes({
     commit: value(parsed, 'commit'),
     directory: value(parsed, 'directory'),
-    previousTag: value(parsed, 'previous-tag'),
+    rollbackTags: {
+      arm64: value(parsed, 'rollback-arm64-tag'),
+      x64: value(parsed, 'rollback-x64-tag')
+    },
     repository: value(parsed, 'repository'),
     runId: value(parsed, 'run-id'),
     tag: value(parsed, 'tag'),
@@ -202,12 +225,33 @@ async function verifyDraft(flags: readonly string[]): Promise<void> {
 }
 
 function verifyRollback(flags: readonly string[]): void {
-  const parsed = parseFlags(flags, ['expected-tag', 'repository'])
-  const tag = verifyRollbackTarget({
-    expectedTag: value(parsed, 'expected-tag'),
-    repository: value(parsed, 'repository')
+  const parsed = parseFlags(flags, [
+    'expected-arm64-fingerprint',
+    'expected-arm64-tag',
+    'expected-x64-fingerprint',
+    'expected-x64-tag',
+    'repository',
+    'tag'
+  ])
+  const targets = verifyRollbackTargets({
+    expected: {
+      arm64: {
+        fingerprint: value(parsed, 'expected-arm64-fingerprint'),
+        tag: value(parsed, 'expected-arm64-tag')
+      },
+      x64: {
+        fingerprint: value(parsed, 'expected-x64-fingerprint'),
+        tag: value(parsed, 'expected-x64-tag')
+      }
+    },
+    repository: value(parsed, 'repository'),
+    tag: value(parsed, 'tag')
   })
-  process.stdout.write(`Known-good rollback release: unchanged at ${tag}\n`)
+  process.stdout.write([
+    `Apple Silicon rollback release: unchanged at ${targets.arm64.tag}`,
+    `Intel rollback release: unchanged at ${targets.x64.tag}`,
+    ''
+  ].join('\n'))
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {

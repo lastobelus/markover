@@ -93,10 +93,13 @@ greater version, `v0.1.3`, became the published Apple Silicon release.
 ## Prepare a stable release
 
 1. Choose a stable `vMAJOR.MINOR.PATCH` version strictly newer than every
-   preserved stable tag. The stable release explicitly designated
-   `latest` is the known-good rollback target, which may be older than a
-   withdrawn version. Prerelease tags use a separately reviewed
-   workflow; they do not pass this workflow's stable-release gate.
+   preserved stable tag. The stable release explicitly designated `latest`
+   is the rollback ceiling, which may be older than a withdrawn version. For
+   each native architecture, staging walks backward from that ceiling and
+   selects the newest published stable release containing exactly one matching
+   app ZIP and checksum plus the version-matched CLI and checksum. Prerelease
+   tags use a separately reviewed workflow; they do not pass this workflow's
+   stable-release gate.
 2. Update the root and bootstrap CLI package versions together.
 3. Merge the version change to protected `main` and wait for the required
    `Verify (Node 24)` CI check on that exact commit.
@@ -124,19 +127,18 @@ The tag-triggered workflow performs four fail-closed stages:
    matching bootstrap CLI.
 3. The staging job waits at the protected `release` environment. Approve only
    the oldest pending tag. Its oldest-run-first gate waits for every earlier
-   release run before selecting the current rollback target, independently
-   rehashing all payloads, generating attestations and notes, and creating one
-   complete draft. Unapproved jobs remain preserved at the environment gate;
-   Actions concurrency's replaceable pending slot is not used.
-4. For the first Intel-enabled draft, stop at the second protected-environment
-   gate. Inspect the complete six-asset draft and complete the physical
-   Intel/Sonoma qualification below, but do not approve `publish-release`:
-   qualification cannot supply the missing published x64 rollback target or
-   authorize publication. A later issue #80 slice must record that target,
-   complete rollback acceptance, and explicitly open the gate. The publication
-   job then downloads the draft assets by release ID, compares every byte and
-   metadata field with the staged set, verifies attestations, refetches all six
-   assets, revalidates the rollback release, and publishes without uploading or
+   release run before selecting the current per-architecture rollback targets,
+   freezing each target's app, sidecar, CLI, and CLI-sidecar digests,
+   independently rehashing all candidate payloads, generating attestations and
+   notes, and creating one complete six-asset draft. Unapproved jobs remain
+   preserved at the environment gate; Actions concurrency's replaceable pending
+   slot is not used.
+4. Stop the first Intel-enabled draft at the second protected-environment gate
+   until issue #80 accepts the physical Intel/Sonoma qualification and rollback.
+   The publication job downloads the draft assets by release ID, compares every
+   byte and metadata field with the staged set, verifies attestations, refetches
+   all six assets, revalidates both frozen architecture-specific rollback
+   release tags and digest fingerprints, and publishes without uploading or
    changing anything.
 
 The x64 ZIP and sidecar are required members of the exact draft. CI packaging
@@ -190,10 +192,11 @@ bounded-loss guarantee.
 This procedure qualifies the first dual-architecture draft; it does not
 authorize publication. Use the dedicated 2019 Intel Mac running Sonoma, keep it
 isolated from normal Markover work, and quit any running Markover before
-starting. The generated first-Intel notes keep publication blocked because no
-published x64 rollback target exists. A later #80 slice must supply that target,
-complete the rollback acceptance below, and replace the temporary note before
-the first Intel-enabled tag may be published.
+starting. The `v0.1.4` draft remains unchanged and unpublished: its tagged
+workflow recorded only the Apple Silicon `v0.1.3` rollback and therefore cannot
+be repaired from a later `main` commit. The next candidate must use the
+architecture-aware workflow, which selects `v0.1.3` for Apple Silicon and the
+newest complete published Intel release independently.
 
 1. Through authenticated Safari, download the complete exact Intel-enabled
    draft asset set, including its x64 ZIP and sidecar plus the exact portable
@@ -241,22 +244,30 @@ the first Intel-enabled tag may be published.
    restoration, CLI open/get/edit, and edit/reopen results. It must also say
    `appleVerified: false`, `notarized: false`, and list adversarial authorization
    and bounded-loss durability as exclusions.
-7. Stop before this step while the draft notes report no published x64 rollback
-   target. In the later #80 acceptance slice, quit Markover, back up the complete
-   Application Support directory, and run the exact version-pinned x64 rollback
-   command supplied by the accepted draft notes. Reopen the preserved smoke
-   review and confirm its already-saved state remains usable. Record rollback
-   separately because the packaged smoke JSON deliberately covers only the
-   shared happy path.
+7. Before rollback, run `select-rollback` against the nominated candidate tag
+   and verify the reported Intel tag against the live published release list.
+   Quit Markover, back up the complete Application Support directory, and use
+   that tag's exact version-pinned CLI URL. Reopen the preserved smoke review
+   through its exact review URL and confirm its already-saved state remains
+   usable. Record rollback separately because the packaged smoke JSON
+   deliberately covers only the shared happy path. For the historical
+   `v0.1.1` Intel target, verify its immutable tag commit, successful release
+   workflow, published asset digests, native x86_64 app, and v1 review reader;
+   that release predates GitHub attestations, so this historical-target check
+   does not replace the attestation requirement for new candidate payloads.
+   Its old launcher can reach its ten-second first-start deadline before the app
+   finishes opening. If the exact v0.1.1 app then owns the live v1 service and
+   the review files remain unchanged, repeat the same idempotent `edit` command
+   once; a second failure rejects the rollback.
 
 ### Issue 80 evidence format
 
-Post one issue comment only after the real clean-machine run passes. Until the
-later rollback-acceptance slice completes step 7, record the rollback fields as
-`pending — no published x64 target` and the overall result as `draft qualified;
-publication blocked`; update that same comment after acceptance instead of
-claiming success early. Use this shape and omit serial numbers, usernames,
-paths containing account names, and Apple/GitHub account details:
+Post one issue comment only after the real clean-machine run passes. Before
+rollback acceptance, record the rollback fields as pending and the overall
+result as `draft qualified; publication blocked`; update that same comment
+after acceptance instead of claiming success early. Use this shape and omit
+serial numbers, usernames, paths containing account names, and Apple/GitHub
+account details:
 
 ```markdown
 ### First post-policy clean Intel evidence — vX.Y.Z
@@ -315,8 +326,11 @@ ditto "$HOME/Library/Application Support/Markover" "$markover_backup"
 
 Use the exact version-pinned launcher command in the release notes. It downloads
 the named CLI and that CLI downloads the host-matched native app from the same
-versioned release. Do not substitute a `latest` URL. The first Intel-enabled
-draft remains unpublished until its notes name a validated x64 rollback target.
+versioned release. Do not substitute a `latest` URL. The release workflow
+freezes one target per native architecture during staging and reselects both
+from live release metadata immediately before publication. A tagged draft whose
+notes lack the required architecture-specific target remains unchanged and
+unpublished; nominate a new version only in a separately authorized slice.
 
 Rollback is guaranteed only between releases using the same review-data
 format. A format-changing release must add tested backup, migration, and
