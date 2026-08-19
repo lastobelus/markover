@@ -128,15 +128,16 @@ The tag-triggered workflow performs four fail-closed stages:
    rehashing all payloads, generating attestations and notes, and creating one
    complete draft. Unapproved jobs remain preserved at the environment gate;
    Actions concurrency's replaceable pending slot is not used.
-4. After inspecting the complete six-asset draft, completing the required
-   physical Intel/Sonoma gate below, and recording its accepted evidence on
-   issue #80, approve the
-   `publish-release` job at the same protected environment. It downloads the
-   draft assets by release ID, compares
-   every byte and metadata field with the staged set, and verifies attestations.
-   In the final publication step it refetches the complete draft and all six
-   assets, compares them again, revalidates the rollback release, and publishes
-   without uploading or changing anything.
+4. For the first Intel-enabled draft, stop at the second protected-environment
+   gate. Inspect the complete six-asset draft and complete the physical
+   Intel/Sonoma qualification below, but do not approve `publish-release`:
+   qualification cannot supply the missing published x64 rollback target or
+   authorize publication. A later issue #80 slice must record that target,
+   complete rollback acceptance, and explicitly open the gate. The publication
+   job then downloads the draft assets by release ID, compares every byte and
+   metadata field with the staged set, verifies attestations, refetches all six
+   assets, revalidates the rollback release, and publishes without uploading or
+   changing anything.
 
 The x64 ZIP and sidecar are required members of the exact draft. CI packaging
 alone does not make Intel a supported release: keep the second publication gate
@@ -184,14 +185,15 @@ unauthorized or mismatched credentials. It is not issue 39's durability suite
 and does not crash the app, measure a loss window, race writes, or claim a
 bounded-loss guarantee.
 
-### Required Intel/Sonoma publication gate — issue #80
+### Required Intel/Sonoma draft qualification — issue #80
 
-This procedure gates publication of the first dual-architecture release. Use
-the dedicated 2019 Intel Mac running Sonoma, keep it isolated from normal
-Markover work, and quit any running Markover before starting. The generated
-first-Intel notes keep publication blocked until this exercise records a real
-version-pinned x64 rollback target; a later #80 slice must replace that
-temporary note before a subsequent Intel-enabled tag.
+This procedure qualifies the first dual-architecture draft; it does not
+authorize publication. Use the dedicated 2019 Intel Mac running Sonoma, keep it
+isolated from normal Markover work, and quit any running Markover before
+starting. The generated first-Intel notes keep publication blocked because no
+published x64 rollback target exists. A later #80 slice must supply that target,
+complete the rollback acceptance below, and replace the temporary note before
+the first Intel-enabled tag may be published.
 
 1. Through authenticated Safari, download the complete exact Intel-enabled
    draft asset set, including its x64 ZIP and sidecar plus the exact portable
@@ -239,17 +241,22 @@ temporary note before a subsequent Intel-enabled tag.
    restoration, CLI open/get/edit, and edit/reopen results. It must also say
    `appleVerified: false`, `notarized: false`, and list adversarial authorization
    and bounded-loss durability as exclusions.
-7. Quit Markover and back up the complete Application Support directory. Run
-   the exact version-pinned rollback command from the draft notes, reopen the
-   preserved smoke review, and confirm its already-saved state remains usable.
-   Record rollback separately because the packaged smoke JSON deliberately
-   covers only the shared happy path.
+7. Stop before this step while the draft notes report no published x64 rollback
+   target. In the later #80 acceptance slice, quit Markover, back up the complete
+   Application Support directory, and run the exact version-pinned x64 rollback
+   command supplied by the accepted draft notes. Reopen the preserved smoke
+   review and confirm its already-saved state remains usable. Record rollback
+   separately because the packaged smoke JSON deliberately covers only the
+   shared happy path.
 
 ### Issue 80 evidence format
 
-Post one issue comment only after the real clean-machine run passes. Use this
-shape and omit serial numbers, usernames, paths containing account names, and
-Apple/GitHub account details:
+Post one issue comment only after the real clean-machine run passes. Until the
+later rollback-acceptance slice completes step 7, record the rollback fields as
+`pending — no published x64 target` and the overall result as `draft qualified;
+publication blocked`; update that same comment after acceptance instead of
+claiming success early. Use this shape and omit serial numbers, usernames,
+paths containing account names, and Apple/GitHub account details:
 
 ```markdown
 ### First post-policy clean Intel evidence — vX.Y.Z
