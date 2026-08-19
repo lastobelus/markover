@@ -27,9 +27,24 @@ export interface ReleasePayloadReport {
 
 export interface ReleaseTagReport {
   commit: string
-  previousTag: string
+  rollbackTargets: RollbackTargets
   tag: string
   version: string
+}
+
+export interface RollbackTargets {
+  arm64: RollbackTarget
+  x64: RollbackTarget
+}
+
+export interface RollbackTarget {
+  fingerprint: string
+  tag: string
+}
+
+export interface RollbackTags {
+  arm64: string
+  x64: string
 }
 
 export interface ReadinessCheck {
@@ -51,9 +66,15 @@ interface StableSemver {
 }
 
 interface GitHubRelease {
+  assets?: unknown
   draft?: unknown
   prerelease?: unknown
   tag_name?: unknown
+}
+
+interface GitHubReleaseAsset {
+  digest?: unknown
+  name?: unknown
 }
 
 interface CheckRun {
@@ -205,10 +226,41 @@ function packageVersion(rootDirectory: string, relativePath: string): string {
   return manifest.version
 }
 
-function designatedRollbackTag(
+function publishedStableReleases(
   repository: string,
   runner: ReleaseCommandRunner
-): string {
+): { release: GitHubRelease; version: StableSemver }[] {
+  const releases = jsonArrayPages(requireCommand(
+    runner,
+    'gh',
+    [
+      'api',
+      '--paginate',
+      '--slurp',
+      `repos/${repository}/releases?per_page=100`
+    ]
+  ).stdout, 'GitHub releases')
+  return releases.flatMap((entry) => {
+    const release = jsonObject(entry, 'GitHub release') as GitHubRelease
+    if (
+      release.draft !== false || release.prerelease !== false ||
+      typeof release.tag_name !== 'string'
+    ) return []
+    try {
+      return [{
+        release,
+        version: parseStableTag(release.tag_name, 'Published release')
+      }]
+    } catch {
+      return []
+    }
+  })
+}
+
+function designatedRollbackCeiling(
+  repository: string,
+  runner: ReleaseCommandRunner
+): { tag: string; version: StableSemver } {
   const latestRelease = jsonObject(parsedJson(requireCommand(
     runner,
     'gh',
@@ -220,8 +272,52 @@ function designatedRollbackTag(
   ) {
     throw new Error('The designated latest release must be a published stable release.')
   }
-  parseStableTag(latestRelease.tag_name, 'Designated rollback release')
-  return latestRelease.tag_name
+  return {
+    tag: latestRelease.tag_name,
+    version: parseStableTag(latestRelease.tag_name, 'Designated rollback release')
+  }
+}
+
+function rollbackTarget(
+  release: GitHubRelease,
+  architecture: keyof RollbackTargets
+): RollbackTarget | undefined {
+  if (!Array.isArray(release.assets)) {
+    throw new Error(`Published release ${String(release.tag_name)} is missing asset metadata.`)
+  }
+  if (typeof release.tag_name !== 'string') {
+    throw new Error('Published release is missing its tag name.')
+  }
+  const releaseTag = release.tag_name
+  const assets = release.assets.map((entry) => {
+    const asset = jsonObject(entry, 'GitHub release asset') as GitHubReleaseAsset
+    if (typeof asset.name !== 'string') {
+      throw new Error('GitHub release asset is missing its name.')
+    }
+    return asset
+  })
+  const required = [
+    `Markover-darwin-${architecture}.zip`,
+    `Markover-darwin-${architecture}.zip.sha256`,
+    'markover-cli.tgz',
+    'markover-cli.tgz.sha256'
+  ]
+  const frozen = required.map((name) => {
+    const matches = assets.filter((asset) => asset.name === name)
+    if (matches.length !== 1) return undefined
+    const digest = matches[0]?.digest
+    if (typeof digest !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(digest)) {
+      throw new Error(
+        `Published release ${releaseTag} asset ${name} is missing its SHA-256 digest.`
+      )
+    }
+    return `${name}=${digest}`
+  })
+  if (frozen.some((entry) => entry === undefined)) return undefined
+  const fingerprint = crypto.createHash('sha256')
+    .update([releaseTag, ...frozen].join('\n'))
+    .digest('hex')
+  return { fingerprint: `sha256:${fingerprint}`, tag: releaseTag }
 }
 
 export function verifyReleaseTag({
@@ -305,7 +401,7 @@ export function verifyReleaseTag({
     )
   }
 
-  const rollbackTag = selectRollbackTarget({ repository, runner, tag })
+  const rollbackTargets = selectRollbackTargets({ repository, runner, tag })
 
   const checksValue = jsonObject(parsedJson(requireCommand(
     runner,
@@ -334,13 +430,13 @@ export function verifyReleaseTag({
 
   return {
     commit,
-    previousTag: rollbackTag,
+    rollbackTargets,
     tag,
     version: version.version
   }
 }
 
-export function selectRollbackTarget({
+export function selectRollbackTargets({
   repository,
   tag,
   runner = runReleaseCommand
@@ -348,33 +444,64 @@ export function selectRollbackTarget({
   repository: string
   tag: string
   runner?: ReleaseCommandRunner
-}): string {
+}): RollbackTargets {
   const version = parseStableTag(tag, 'New release tag')
-  const rollbackTag = designatedRollbackTag(repository, runner)
-  const rollbackTarget = parseStableTag(rollbackTag, 'Designated rollback release')
-  if (compareSemver(rollbackTarget, version) >= 0) {
+  const ceiling = designatedRollbackCeiling(repository, runner)
+  if (compareSemver(ceiling.version, version) >= 0) {
     throw new Error('The designated rollback release must be older than the new release.')
   }
-  return rollbackTag
-}
-
-export function verifyRollbackTarget({
-  expectedTag,
-  repository,
-  runner = runReleaseCommand
-}: {
-  expectedTag: string
-  repository: string
-  runner?: ReleaseCommandRunner
-}): string {
-  parseStableTag(expectedTag, 'Expected rollback release')
-  const actualTag = designatedRollbackTag(repository, runner)
-  if (actualTag !== expectedTag) {
+  const eligible = publishedStableReleases(repository, runner)
+    .filter(({ version: candidate }) => (
+      compareSemver(candidate, ceiling.version) <= 0 &&
+      compareSemver(candidate, version) < 0
+    ))
+    .sort((left, right) => compareSemver(right.version, left.version))
+  const select = (architecture: keyof RollbackTargets): RollbackTarget => {
+    for (const { release } of eligible) {
+      const target = rollbackTarget(release, architecture)
+      if (target) return target
+    }
     throw new Error(
-      `Rollback release changed from ${expectedTag} to ${actualTag} during staging.`
+      `No published stable ${architecture} rollback release exists at or before ${ceiling.tag}.`
     )
   }
-  return actualTag
+  return { arm64: select('arm64'), x64: select('x64') }
+}
+
+export function verifyRollbackTargets({
+  expected,
+  repository,
+  tag,
+  runner = runReleaseCommand
+}: {
+  expected: RollbackTargets
+  repository: string
+  tag: string
+  runner?: ReleaseCommandRunner
+}): RollbackTargets {
+  for (const architecture of ['arm64', 'x64'] as const) {
+    parseStableTag(
+      expected[architecture].tag,
+      `Expected ${architecture} rollback release`
+    )
+    if (!/^sha256:[a-f0-9]{64}$/.test(expected[architecture].fingerprint)) {
+      throw new Error(`Expected ${architecture} rollback fingerprint is invalid.`)
+    }
+  }
+  const actual = selectRollbackTargets({ repository, runner, tag })
+  for (const architecture of ['arm64', 'x64'] as const) {
+    if (actual[architecture].tag !== expected[architecture].tag) {
+      throw new Error(
+        `${architecture} rollback release changed from ${expected[architecture].tag} to ${actual[architecture].tag} during staging.`
+      )
+    }
+    if (actual[architecture].fingerprint !== expected[architecture].fingerprint) {
+      throw new Error(
+        `${architecture} rollback release ${actual[architecture].tag} assets changed during staging.`
+      )
+    }
+  }
+  return actual
 }
 
 export function publicationTurnReadiness({
@@ -549,7 +676,7 @@ async function toolchainReports(directory: string): Promise<ToolchainReport[]> {
 export async function generateReleaseNotes({
   commit,
   directory,
-  previousTag,
+  rollbackTags,
   repository,
   runId,
   tag,
@@ -557,7 +684,7 @@ export async function generateReleaseNotes({
 }: {
   commit: string
   directory: string
-  previousTag: string
+  rollbackTags: RollbackTags
   repository: string
   runId: string
   tag: string
@@ -566,7 +693,8 @@ export async function generateReleaseNotes({
   const payloadReport = await verifyReleasePayloads(directory)
   const toolchains = await toolchainReports(verificationDirectory)
   const version = parseStableTag(tag, 'Release tag').version
-  parseStableTag(previousTag, 'Previous release tag')
+  parseStableTag(rollbackTags.arm64, 'Apple Silicon rollback release')
+  parseStableTag(rollbackTags.x64, 'Intel rollback release')
   const payloadRows = payloadReport.payloads.map((payload) => (
     `| \`${payload.name}\` | ${payload.architecture} | \`${payload.sha256}\` |`
   )).join('\n')
@@ -574,7 +702,9 @@ export async function generateReleaseNotes({
     const xcode = toolchain.xcode ? `; ${toolchain.xcode}` : ''
     return `- ${toolchain.architecture}: ${toolchain.runner}; ${toolchain.os}; Node ${toolchain.node}; npm ${toolchain.npm}; Electron ${toolchain.electron}${xcode}`
   }).join('\n')
-  const rollbackUrl = `https://github.com/${repository}/releases/download/${previousTag}/markover-cli.tgz`
+  const rollbackUrl = (rollbackTag: string): string => (
+    `https://github.com/${repository}/releases/download/${rollbackTag}/markover-cli.tgz`
+  )
   return `# Markover ${tag}
 
 > **Early preview · Native Apple Silicon and Intel · not Apple-verified.** These macOS apps use hardened ad-hoc signing. They do not identify an authenticated Developer ID publisher, are not notarized, and are expected to require the documented per-app Gatekeeper override.
@@ -607,20 +737,29 @@ These records identify the source and workflow that produced the bytes; they do 
 
 ${toolchainRows}
 
-## Roll back Apple Silicon to ${previousTag}
+## Roll back Apple Silicon to ${rollbackTags.arm64}
 
-Quit Markover and back up the complete \`~/Library/Application Support/Markover\` directory before rolling back. Rollback is supported only while both releases use the same review-data format. The command below is the current Apple Silicon rollback path.
+Quit Markover and back up the complete \`~/Library/Application Support/Markover\` directory before rolling back. Rollback is supported only while both releases use the same review-data format.
 
 \`\`\`sh
 npx --yes \\
-  --package=${rollbackUrl} \\
+  --package=${rollbackUrl(rollbackTags.arm64)} \\
   markover open ./DOCUMENT.md \\
   --summary "Explain why this document exists and what feedback would help."
 \`\`\`
 
-The first Intel-enabled draft has no published x64 rollback target. Keep Intel publication gated until [issue #80](https://github.com/${repository}/issues/80) records and validates a real version-pinned x64 rollback target; do not describe the Apple Silicon command above as an Intel rollback path.
+## Roll back Intel to ${rollbackTags.x64}
 
-Published assets are never replaced under an existing tag. If this release is withdrawn, use ${previousTag} until a newly versioned fix is published.
+Use the Intel-specific version-pinned launcher because the newer Apple Silicon rollback release does not contain an x64 app.
+
+\`\`\`sh
+npx --yes \\
+  --package=${rollbackUrl(rollbackTags.x64)} \\
+  markover open ./DOCUMENT.md \\
+  --summary "Explain why this document exists and what feedback would help."
+\`\`\`
+
+Published assets are never replaced under an existing tag. If this release is withdrawn, use the architecture-appropriate rollback version above until a newly versioned fix is published.
 `
 }
 

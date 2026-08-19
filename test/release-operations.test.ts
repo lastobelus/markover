@@ -14,9 +14,10 @@ import {
   publicationTurnReadiness,
   primaryReleaseAssets,
   releaseAssets,
+  selectRollbackTargets,
   verifyDraftRelease,
   verifyReleasePayloads,
-  verifyRollbackTarget,
+  verifyRollbackTargets,
   verifyReleaseTag,
   type ReleaseCommandResult,
   type ReleaseCommandRunner
@@ -53,19 +54,52 @@ async function createPayloads(directory: string, suffix = ''): Promise<void> {
   }
 }
 
+function rollbackAssets(
+  ...architectures: ('arm64' | 'x64')[]
+): { digest: string; name: string }[] {
+  const names = [
+    ...architectures.flatMap((architecture) => [
+      `Markover-darwin-${architecture}.zip`,
+      `Markover-darwin-${architecture}.zip.sha256`
+    ]),
+    'markover-cli.tgz',
+    'markover-cli.tgz.sha256'
+  ]
+  return names.map((name) => ({
+    digest: `sha256:${crypto.createHash('sha256').update(name).digest('hex')}`,
+    name
+  }))
+}
+
 function releaseTagRunner({
   checkApp = 'github-actions',
   checks = ['Verify (Node 24)'],
   latestTag = 'v1.2.2',
   newestTag = latestTag,
+  releases,
   stableTags = [newestTag]
 }: {
   checkApp?: string
   checks?: string[]
   latestTag?: string
   newestTag?: string
+  releases?: unknown[]
   stableTags?: string[]
 } = {}): ReleaseCommandRunner {
+  const published = releases ?? [
+    {
+      assets: rollbackAssets('arm64', 'x64'),
+      draft: false,
+      prerelease: false,
+      tag_name: newestTag
+    },
+    ...(newestTag === latestTag ? [] : [{
+      assets: rollbackAssets('arm64', 'x64'),
+      draft: false,
+      prerelease: false,
+      tag_name: latestTag
+    }])
+  ]
   return (command, args) => {
     if (command === 'git') {
       return args[0] === 'tag'
@@ -75,8 +109,7 @@ function releaseTagRunner({
     const endpoint = args.at(-1) ?? ''
     if (endpoint.includes('/releases?')) {
       return success(JSON.stringify([[
-        { draft: false, prerelease: false, tag_name: newestTag },
-        { draft: false, prerelease: false, tag_name: latestTag },
+        ...published,
         { draft: true, prerelease: false, tag_name: 'v9.0.0' },
         { draft: false, prerelease: true, tag_name: 'v8.0.0-beta.1' }
       ]]))
@@ -122,7 +155,8 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
     runner: releaseTagRunner(),
     tag: 'v1.2.3'
   })
-  assert.equal(report.previousTag, 'v1.2.2')
+  assert.equal(report.rollbackTargets.arm64.tag, 'v1.2.2')
+  assert.equal(report.rollbackTargets.x64.tag, 'v1.2.2')
   assert.equal(report.version, '1.2.3')
 
   assert.throws(() => verifyReleaseTag({
@@ -158,7 +192,8 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
     runner: releaseTagRunner({ latestTag: 'v1.2.1', newestTag: 'v1.2.2' }),
     tag: 'v1.2.3'
   })
-  assert.equal(afterWithdrawal.previousTag, 'v1.2.1')
+  assert.equal(afterWithdrawal.rollbackTargets.arm64.tag, 'v1.2.1')
+  assert.equal(afterWithdrawal.rollbackTargets.x64.tag, 'v1.2.1')
 
   assert.throws(() => verifyReleaseTag({
     commit: 'abc123',
@@ -174,17 +209,67 @@ test('stable release tags are monotonic, on main, and CI-qualified', async (t) =
   }), /newest is v2\.0\.0/)
 })
 
+test('rollback selection chooses the newest complete release per architecture', () => {
+  const releases = [
+    {
+      assets: rollbackAssets('arm64'),
+      draft: false,
+      prerelease: false,
+      tag_name: 'v1.2.2'
+    },
+    {
+      assets: rollbackAssets('arm64', 'x64'),
+      draft: false,
+      prerelease: false,
+      tag_name: 'v1.2.1'
+    }
+  ]
+  const targets = selectRollbackTargets({
+    repository: 'example/markover',
+    runner: releaseTagRunner({ latestTag: 'v1.2.2', releases }),
+    tag: 'v1.2.3'
+  })
+  assert.equal(targets.arm64.tag, 'v1.2.2')
+  assert.equal(targets.x64.tag, 'v1.2.1')
+  assert.match(targets.arm64.fingerprint, /^sha256:[a-f0-9]{64}$/)
+  assert.match(targets.x64.fingerprint, /^sha256:[a-f0-9]{64}$/)
+})
+
 test('publication revalidates rollback and waits for every older release run', () => {
-  assert.equal(verifyRollbackTarget({
-    expectedTag: 'v1.2.2',
+  const expected = selectRollbackTargets({
     repository: 'example/markover',
+    tag: 'v1.2.3',
     runner: releaseTagRunner()
-  }), 'v1.2.2')
-  assert.throws(() => verifyRollbackTarget({
-    expectedTag: 'v1.2.2',
+  })
+  assert.deepEqual(verifyRollbackTargets({
+    expected,
     repository: 'example/markover',
+    tag: 'v1.2.3',
+    runner: releaseTagRunner()
+  }), expected)
+  assert.throws(() => verifyRollbackTargets({
+    expected,
+    repository: 'example/markover',
+    tag: 'v1.2.3',
     runner: releaseTagRunner({ latestTag: 'v1.2.1' })
   }), /changed from v1\.2\.2 to v1\.2\.1/)
+  const changedAssets = rollbackAssets('arm64', 'x64')
+  const firstAsset = changedAssets[0]
+  if (!firstAsset) throw new Error('Expected a rollback asset fixture.')
+  firstAsset.digest = `sha256:${'f'.repeat(64)}`
+  assert.throws(() => verifyRollbackTargets({
+    expected,
+    repository: 'example/markover',
+    tag: 'v1.2.3',
+    runner: releaseTagRunner({
+      releases: [{
+        assets: changedAssets,
+        draft: false,
+        prerelease: false,
+        tag_name: 'v1.2.2'
+      }]
+    })
+  }), /assets changed during staging/)
 
   const queueRunner = (runs: unknown[]): ReleaseCommandRunner => (
     command,
@@ -312,7 +397,7 @@ test('generated release notes disclose provenance, trust, and rollback', async (
   const notes = await generateReleaseNotes({
     commit: 'abc123',
     directory: payloads,
-    previousTag: 'v1.2.2',
+    rollbackTags: { arm64: 'v1.2.2', x64: 'v1.2.1' },
     repository: 'example/markover',
     runId: '42',
     tag: 'v1.2.3',
@@ -320,7 +405,6 @@ test('generated release notes disclose provenance, trust, and rollback', async (
   })
   assert.match(notes, /not Apple-verified/i)
   assert.match(notes, /Native Apple Silicon and Intel/)
-  assert.match(notes, /issue #80/)
   assert.match(notes, /Markover-darwin-x64/)
   assert.match(notes, /gh attestation verify/)
   assert.match(notes, /--source-digest abc123/)
@@ -328,16 +412,16 @@ test('generated release notes disclose provenance, trust, and rollback', async (
   assert.match(notes, /--deny-self-hosted-runners/)
   assert.match(notes, /do not claim bit-for-bit reproducibility/)
   assert.match(notes, /releases\/download\/v1\.2\.2\/markover-cli\.tgz/)
+  assert.match(notes, /releases\/download\/v1\.2\.1\/markover-cli\.tgz/)
   assert.match(notes, /Application Support\/Markover/)
   assert.match(notes, /Roll back Apple Silicon/)
-  assert.match(notes, /no published x64 rollback target/)
-  assert.match(notes, /Keep Intel publication gated/)
+  assert.match(notes, /Roll back Intel to v1\.2\.1/)
   for (const name of primaryReleaseAssets) assert.match(notes, new RegExp(name))
 
   await assert.rejects(generateReleaseNotes({
     commit: 'abc123',
     directory: payloads,
-    previousTag: 'v1.2.2',
+    rollbackTags: { arm64: 'v1.2.2', x64: 'v1.2.1' },
     repository: 'example/markover',
     runId: '42',
     tag: '1.2.3',
