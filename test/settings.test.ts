@@ -455,6 +455,14 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(main, /updateSettingsAndRemoteGateway/)
   assert.match(main, /remoteGatewayHostEligible\(addressedInstance, smokeMode\)/)
   assert.match(main, /remoteGatewayActivationEligible\(canonical, smokeMode\)/)
+  assert.match(
+    main,
+    /startConfiguredRemoteGateway[\s\S]*reconcileRemoteGateway\(false\)[\s\S]*remoteCanonicalGatewayEnabled: false[\s\S]*disabled after startup failure/
+  )
+  assert.match(
+    main,
+    /localServiceIdentity = identity[\s\S]*catch \(error\)[\s\S]*startedService\.close\(\)[\s\S]*startConfiguredRemoteGateway\(store\)/
+  )
   assert.match(main, /reconcileRemoteGateway\(false\)[\s\S]*localService\?\.pauseMutations\(\)/)
   assert.match(preload, /getSettings:/)
   assert.match(preload, /onSettingsOpen:/)

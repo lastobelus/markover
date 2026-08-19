@@ -1802,6 +1802,24 @@ async function updateSettingsAndRemoteGateway(
   }
 }
 
+async function startConfiguredRemoteGateway(store: SettingsStore): Promise<void> {
+  try {
+    await reconcileRemoteGateway(store.settings.remoteCanonicalGatewayEnabled)
+  } catch (error) {
+    await reconcileRemoteGateway(false).catch(() => undefined)
+    await store.update({
+      remoteCanonicalGatewayEnabled: false
+    }).catch((settingsError: unknown) => {
+      process.stderr.write(
+        `markover remote gateway setting rollback: ${errorMessage(settingsError)}\n`
+      )
+    })
+    process.stderr.write(
+      `markover remote gateway disabled after startup failure: ${errorMessage(error)}\n`
+    )
+  }
+}
+
 async function startAndPublishService(): Promise<void> {
   if (smokeMode) return
   const managedStore = requireReviewStore()
@@ -1855,7 +1873,6 @@ async function startAndPublishService(): Promise<void> {
     })
     localService = startedService
     localServiceIdentity = identity
-    await reconcileRemoteGateway(store.settings.remoteCanonicalGatewayEnabled)
   } catch (error) {
     await reconcileRemoteGateway(false).catch(() => undefined)
     if (localService === startedService) {
@@ -1865,6 +1882,7 @@ async function startAndPublishService(): Promise<void> {
     await startedService.close()
     throw error
   }
+  await startConfiguredRemoteGateway(store)
 }
 
 async function stopPublishedService(): Promise<void> {

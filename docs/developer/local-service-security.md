@@ -109,7 +109,8 @@ inspection executes and reports healthy. The listener is
 owner-only `0700`; the socket is owner-only `0600`. Startup removes only an
 inactive socket owned by the current account, refuses live or unowned paths,
 and records the created socket identity so shutdown cannot unlink a
-replacement.
+replacement. If a saved opt-in cannot meet those checks during startup,
+Markover turns it off and continues with the local app and service available.
 
 Tailscale Serve terminates HTTPS and proxies HTTP to that Unix socket. Markover
 requires exactly one forwarded `Tailscale-App-Capabilities` JSON header with a

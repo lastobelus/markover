@@ -291,6 +291,10 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(developerSecurity, /Every other method or route receives authenticated `404`/)
   assert.match(
     developerSecurity,
+    /saved opt-in cannot meet those checks during startup[\s\S]*turns it off and continues/
+  )
+  assert.match(
+    developerSecurity,
     /Request JSON is capped at 16 MiB and response JSON at 32 MiB/
   )
   assert.match(developerSecurity, /Only an embedded `data:` image can open/)
