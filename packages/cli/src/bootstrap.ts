@@ -196,12 +196,10 @@ export function validateMacosApp(
 }
 
 export function releaseAssetName(architecture: string): string {
-  if (architecture !== 'arm64') {
-    throw new Error(
-      `Markover releases currently support Apple Silicon only; unsupported macOS architecture: ${architecture}`
-    )
+  if (architecture !== 'arm64' && architecture !== 'x64') {
+    throw new Error(`Unsupported macOS architecture: ${architecture}`)
   }
-  return 'Markover-darwin-arm64.zip'
+  return `Markover-darwin-${architecture}.zip`
 }
 
 export function download(

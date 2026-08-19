@@ -243,14 +243,14 @@ test('release payload verification requires exact bytes and sidecars', async (t)
   await assert.rejects(verifyReleasePayloads(directory), /does not exactly match/)
 })
 
-test('release payload verification rejects an added Intel archive', async (t) => {
+test('release payload verification rejects an unexpected archive', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-payloads-'))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   await createPayloads(directory)
-  await fs.writeFile(path.join(directory, 'Markover-darwin-x64.zip'), 'deferred')
+  await fs.writeFile(path.join(directory, 'Markover-darwin-universal.zip'), 'unexpected')
   await fs.writeFile(
-    path.join(directory, 'Markover-darwin-x64.zip.sha256'),
-    `${'0'.repeat(64)}  Markover-darwin-x64.zip\n`
+    path.join(directory, 'Markover-darwin-universal.zip.sha256'),
+    `${'0'.repeat(64)}  Markover-darwin-universal.zip\n`
   )
 
   await assert.rejects(
@@ -294,6 +294,10 @@ test('generated release notes disclose provenance, trust, and rollback', async (
     ['architecture=arm64', ...common, 'xcode=Xcode 16.4'].join('\n') + '\n'
   )
   await fs.writeFile(
+    path.join(verification, 'macos-x64.txt'),
+    ['architecture=x64', ...common, 'xcode=Xcode 16.4'].join('\n') + '\n'
+  )
+  await fs.writeFile(
     path.join(verification, 'cli.txt'),
     [
       'architecture=portable',
@@ -315,9 +319,9 @@ test('generated release notes disclose provenance, trust, and rollback', async (
     verificationDirectory: verification
   })
   assert.match(notes, /not Apple-verified/i)
-  assert.match(notes, /Apple Silicon only/)
+  assert.match(notes, /Native Apple Silicon and Intel/)
   assert.match(notes, /issue #80/)
-  assert.doesNotMatch(notes, /Markover-darwin-x64/)
+  assert.match(notes, /Markover-darwin-x64/)
   assert.match(notes, /gh attestation verify/)
   assert.match(notes, /--source-digest abc123/)
   assert.match(notes, /--source-ref refs\/tags\/v1\.2\.3/)
@@ -325,6 +329,9 @@ test('generated release notes disclose provenance, trust, and rollback', async (
   assert.match(notes, /do not claim bit-for-bit reproducibility/)
   assert.match(notes, /releases\/download\/v1\.2\.2\/markover-cli\.tgz/)
   assert.match(notes, /Application Support\/Markover/)
+  assert.match(notes, /Roll back Apple Silicon/)
+  assert.match(notes, /no published x64 rollback target/)
+  assert.match(notes, /Keep Intel publication gated/)
   for (const name of primaryReleaseAssets) assert.match(notes, new RegExp(name))
 
   await assert.rejects(generateReleaseNotes({

@@ -18,28 +18,36 @@ import {
 } from '../packages/cli/src/bootstrap'
 import { main as buildCli } from '../scripts/build-cli'
 
-test('release assets are Apple Silicon only', () => {
+test('release assets are architecture-specific', () => {
   assert.equal(releaseAssetName('arm64'), 'Markover-darwin-arm64.zip')
-  assert.throws(() => releaseAssetName('x64'), /Apple Silicon only/)
-  assert.throws(() => releaseAssetName('ia32'), /Apple Silicon only/)
+  assert.equal(releaseAssetName('x64'), 'Markover-darwin-x64.zip')
+  assert.throws(() => releaseAssetName('ia32'), /Unsupported macOS architecture/)
 })
 
-test('Intel bootstrap stops before cache or download work', async () => {
-  let downloaded = false
+test('Intel bootstrap selects the native x64 release asset', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-bootstrap-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const downloads: string[] = []
   await assert.rejects(
     ensureInstalledApp({
       architecture: 'x64',
-      cacheDirectory: '/unused',
+      cacheDirectory: directory,
       platform: 'darwin',
       version: '1.2.3',
-      downloadFile() {
-        downloaded = true
-        return Promise.resolve()
+      downloadFile(url) {
+        downloads.push(String(url))
+        return Promise.reject(new Error('stop after asset selection'))
       }
     }),
-    /Apple Silicon only/
+    /stop after asset selection/
   )
-  assert.equal(downloaded, false)
+  assert.deepEqual(downloads, [
+    'https://github.com/lastobelus/markover/releases/download/v1.2.3/Markover-darwin-x64.zip'
+  ])
+  assert.deepEqual(
+    (await fs.readdir(directory)).filter((entry) => entry.startsWith('.install-')),
+    []
+  )
 })
 
 test('invalid syntax is reported before bootstrap starts', () => {
