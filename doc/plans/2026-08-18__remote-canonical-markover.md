@@ -1,10 +1,11 @@
 # Remote agents posting to Airy’s canonical Markover
 
-Status: implementation-ready plan; this document changes no product code or
-Tailscale configuration.
+Status: implementation-ready. This document is the first commit in Slice A’s
+implementation PR; product changes follow in that PR.
 
-Implementation tracking: create one issue for the four stacked implementation
-PRs before Slice A. This plan-only PR owns only the investigation record.
+Implementation tracking: before product changes land, create one issue that
+owns the four-PR stack. The current PR owns Slice A; Slices B–D are stacked
+children with the bases recorded below.
 
 ## Outcome
 
