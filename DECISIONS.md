@@ -905,8 +905,9 @@ each choice from that baseline without duplicating the live decisions below.
     local-service identity for the loopback hop. Remote creation requires a
     256-bit idempotency key and exact-body digest, derives `remote-agent`,
     rejects client origin and attachment claims, rechecks canonical routing,
-    and returns canonical review URLs. Requests and responses are bounded at
-    16 MiB; disabling stops admission, drains the single active request, and
+    and returns canonical review URLs. Remote request JSON is bounded at 16 MiB
+    and response JSON at 32 MiB; disabling stops admission, drains the single
+    active request, and
     removes only the socket created by that gateway instance. Markover does not
     configure tailnet grants, drive login, bind a Tailscale IP, or enable
     Funnel.

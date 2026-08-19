@@ -150,7 +150,8 @@ or attachment metadata, derives `remote-agent`, rechecks exact canonical
 routing before accepting review bytes, and returns Airy-produced
 `markover://review/...` URLs for create/recovery and every pending result.
 
-Both request and response JSON are capped at 16 MiB. Only one remote request is
+Request JSON is capped at 16 MiB and response JSON at 32 MiB, leaving room for
+the review envelope Markover adds during creation. Only one remote request is
 active at a time. Disable and shutdown stop admission, drain that bounded
 request, close the listener, and remove only its recorded socket. Tailscale
 grants, Serve configuration, login/consent, HTTPS host selection, and

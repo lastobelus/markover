@@ -25,7 +25,7 @@ export const REMOTE_GATEWAY_IDEMPOTENCY_HEADER = 'idempotency-key'
 export const REMOTE_GATEWAY_REQUEST_DIGEST_HEADER =
   'markover-request-digest'
 export const REMOTE_GATEWAY_PROTOCOL_VERSION = 1
-export const MAXIMUM_REMOTE_RESPONSE_BYTES = 16 * 1024 * 1024
+export const MAXIMUM_REMOTE_RESPONSE_BYTES = MAXIMUM_BODY_BYTES * 2
 export const REMOTE_GATEWAY_SOCKET_NAME = 'remote-gateway.sock'
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/
@@ -92,7 +92,11 @@ export function remoteGatewayActivationEligible(
   platform: NodeJS.Platform = process.platform
 ): boolean {
   return remoteGatewayHostEligible(instance, smoke, platform) &&
-    instance.checkout !== null
+    instance.checkout !== null &&
+    (
+      instance.coldStart.blockedBy === null ||
+      instance.coldStart.blockedBy === 'already-running'
+    )
 }
 
 export function remoteGatewayHostEligible(

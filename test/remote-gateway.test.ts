@@ -8,9 +8,13 @@ import path from 'node:path'
 import test, { type TestContext } from 'node:test'
 
 import type { ResolvedInstance } from '../src/instance'
-import { startLocalService } from '../src/local-service'
+import {
+  MAXIMUM_BODY_BYTES,
+  startLocalService
+} from '../src/local-service'
 import {
   hasRemoteGatewayCapability,
+  MAXIMUM_REMOTE_RESPONSE_BYTES,
   remoteGatewayActivationEligible,
   remoteGatewayHostEligible,
   REMOTE_GATEWAY_CAPABILITY,
@@ -191,6 +195,15 @@ test('activation requires a configured non-smoke canonical macOS instance', () =
   assert.equal(
     remoteGatewayHostEligible(canonicalInstance(null), false, 'darwin'),
     true
+  )
+  const invalidCheckout = canonicalInstance('/checkouts/main')
+  invalidCheckout.coldStart = {
+    eligible: false,
+    blockedBy: 'canonical-checkout-invalid'
+  }
+  assert.equal(
+    remoteGatewayActivationEligible(invalidCheckout, false, 'darwin'),
+    false
   )
   const development = structuredClone(configured)
   development.identity = {
@@ -375,6 +388,40 @@ test('remote create pins origin, recovers by key, and returns canonical URLs', a
     pendingBody.reviews[0]?.reviewUrl,
     'markover://review/mko_aaa11111'
   )
+})
+
+test('remote response headroom carries every maximum-size create through handoff', async (t) => {
+  const fixture = await gatewayFixture(t)
+  const input = {
+    tree: tree(),
+    metadata: { contextSummary: '' }
+  }
+  const emptyBodyBytes = Buffer.byteLength(JSON.stringify(input))
+  input.metadata.contextSummary = 'x'.repeat(
+    MAXIMUM_BODY_BYTES - emptyBodyBytes
+  )
+  const body = Buffer.from(JSON.stringify(input))
+  assert.equal(body.byteLength, MAXIMUM_BODY_BYTES)
+  assert.equal(MAXIMUM_REMOTE_RESPONSE_BYTES, MAXIMUM_BODY_BYTES * 2)
+
+  const created = await requestGateway(
+    fixture.socketPath,
+    'POST',
+    '/reviews',
+    createHeaders(body),
+    body
+  )
+  assert.equal(created.statusCode, 201)
+
+  const handedOff = await requestGateway(
+    fixture.socketPath,
+    'POST',
+    '/reviews/mko_aaa11111/handoff',
+    capabilityHeader()
+  )
+  assert.equal(handedOff.statusCode, 200)
+  assert.equal((handedOff.body as ReviewArtifact).review.status, 'pending-agent')
+  assert.ok(Buffer.byteLength(JSON.stringify(handedOff.body)) > MAXIMUM_BODY_BYTES)
 })
 
 test('remote create rejects origin claims, attachment metadata, and digest drift', async (t) => {

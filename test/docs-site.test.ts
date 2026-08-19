@@ -289,7 +289,10 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(developerSecurity, /Tailscale-App-Capabilities/)
   assert.match(developerSecurity, /lastobelus\.com\/cap\/markover-remote-client/)
   assert.match(developerSecurity, /Every other method or route receives authenticated `404`/)
-  assert.match(developerSecurity, /Both request and response JSON are capped at 16 MiB/)
+  assert.match(
+    developerSecurity,
+    /Request JSON is capped at 16 MiB and response JSON at 32 MiB/
+  )
   assert.match(developerSecurity, /Only an embedded `data:` image can open/)
   assert.match(developerSecurity, /HTTP\(S\) URLs, and malformed\s+sources remain unavailable/)
   assert.match(developerSecurity, /makes no network request/)
