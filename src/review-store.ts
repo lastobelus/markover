@@ -663,7 +663,25 @@ export class ReviewStore {
   private async recoverReceiptUnserialized(
     receipt: ReviewCreationReceipt
   ): Promise<ReviewArtifact | null> {
-    const matching = (await this.list()).filter((artifact) => (
+    const scan = await this.listWithWarnings()
+    const uninspectable = scan.warnings.filter((warning) => (
+      warning.reason === 'incompatible' ||
+      warning.reason === 'invalid' ||
+      warning.reason === 'unreadable'
+    ))
+    if (uninspectable.length) {
+      const reviewIds = uninspectable
+        .map((warning) => warning.reviewId)
+        .sort()
+      throw new ReviewStoreError(
+        'CREATION_RECEIPT_SCAN_INCOMPLETE',
+        `Creation receipts cannot be checked while reviews ${reviewIds.join(', ')} are uninspectable.`,
+        undefined,
+        undefined,
+        { reviewIds }
+      )
+    }
+    const matching = scan.reviews.filter((artifact) => (
       artifact.review.creationReceipt?.keyDigest === receipt.keyDigest
     ))
     if (matching.length > 1) {

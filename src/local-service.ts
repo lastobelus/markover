@@ -250,6 +250,7 @@ function errorStatus(error: unknown): number {
   }
   if (
     code === 'CLAIM_CONFLICT' ||
+    code === 'CREATION_RECEIPT_SCAN_INCOMPLETE' ||
     code === 'DUPLICATE_CREATION_RECEIPT' ||
     code === 'FEEDBACK_REQUIRED' ||
     code === 'FEEDBACK_REQUIRES_ABANDONMENT' ||

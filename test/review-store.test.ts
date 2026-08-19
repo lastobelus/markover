@@ -234,6 +234,68 @@ test('creation receipts fail closed on body, key, and stored receipt conflicts',
   )
 })
 
+test('receipt operations fail closed when a managed artifact is uninspectable', async (t) => {
+  const variants = ['invalid', 'incompatible', 'unreadable'] as const
+  for (const variant of variants) {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), `markover-receipt-${variant}-test-`)
+    )
+    t.after(() => fs.rm(directory, { recursive: true, force: true }))
+    let allocations = 0
+    const store = new ReviewStore(directory, {
+      idFactory: () => {
+        allocations += 1
+        return allocations === 1 ? 'mko_aaa11111' : 'mko_bbb22222'
+      }
+    })
+    const requestBytes = Buffer.from('{"request":1}')
+    const attempt = {
+      idempotencyKey: 'mko-idempotency-key-with-enough-random-material',
+      requestBytes,
+      requestDigest: digest(requestBytes)
+    }
+    const created = await store.createWithReceipt({
+      tree: tree('# Remote\n'),
+      contextSummary: 'Review from a remote agent.',
+      origin: 'remote-agent'
+    }, attempt)
+    const reviewPath = store.reviewPath(created.artifact.review.id)
+
+    if (variant === 'unreadable') {
+      await fs.chmod(reviewPath, 0)
+    } else {
+      const damaged = structuredClone(created.artifact) as unknown as Record<
+        string,
+        unknown
+      >
+      if (variant === 'incompatible') {
+        damaged.version = 2
+      } else {
+        const review = damaged.review as Record<string, unknown>
+        review.status = 'invalid'
+      }
+      await fs.writeFile(reviewPath, JSON.stringify(damaged), 'utf8')
+    }
+
+    await assert.rejects(
+      store.createWithReceipt({
+        tree: tree('# Remote\n'),
+        contextSummary: 'Review from a remote agent.',
+        origin: 'remote-agent'
+      }, attempt),
+      (error: unknown) => {
+        assert.ok(error instanceof ReviewStoreError)
+        assert.equal(error.code, 'CREATION_RECEIPT_SCAN_INCOMPLETE')
+        assert.deepEqual(error.reviewIds, [created.artifact.review.id])
+        return true
+      },
+      variant
+    )
+    assert.equal(allocations, 1, variant)
+    if (variant === 'unreadable') await fs.chmod(reviewPath, 0o600)
+  }
+})
+
 test('reviewer round trips preserve additive creation receipt data', async (t) => {
   const { directory, store } = await temporaryStore({
     idFactory: () => 'mko_aaa11111'

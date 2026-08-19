@@ -877,7 +877,9 @@ each choice from that baseline without duplicating the live decisions below.
     access. Its optional portable creation receipt contains only versioned
     SHA-256 key and exact-request digests; the existing store serializes
     receipt lookup and creation, and recovery returns the persisted review
-    without replaying the `created` notification.
+    without replaying the `created` notification. Receipt operations fail
+    closed when an invalid, incompatible, or unreadable managed artifact makes
+    the scan incomplete; absence is never inferred from an omitted review.
 
     **Audit — Retain (Local service authorization 22–23).** A separate socket
     preserves the selected account boundary without weakening local protocol
