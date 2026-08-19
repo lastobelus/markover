@@ -9,7 +9,8 @@ import { AsyncMutationTracker } from './async-mutation-tracker'
 import type {
   ManualReviewResolutionOutcome,
   ReviewArtifact,
-  ReviewCreateInput,
+  ReviewCreationAttempt,
+  ReviewCreationResult,
   ReviewStore
 } from './review-store'
 import {
@@ -55,11 +56,43 @@ export interface UnauthorizedRequest {
   reason: 'missing' | 'malformed' | 'mismatch'
 }
 
+export type ReviewCreateProducer = 'agent' | 'remote-agent'
+
+export type LocalServiceChangeAction =
+  | 'created'
+  | 'handoff'
+  | 'get-for-review'
+  | 'submit'
+  | 'edit'
+  | 'resolve'
+  | 'unresolve'
+  | 'revise'
+  | 'done'
+  | 'observed'
+
+type ReviewCreateMutationStore = Pick<
+  ReviewStore,
+  'create' | 'createWithReceipt' | 'propagatePullRequestObservation'
+>
+
+export interface ReviewCreateMutationOptions {
+  body: unknown
+  producer: unknown
+  store: ReviewCreateMutationStore
+  attempt?: ReviewCreationAttempt | undefined
+  interpretationPolicy?: string | undefined
+  onChange?: (
+    artifact: ReviewArtifact,
+    action: LocalServiceChangeAction
+  ) => void | Promise<void>
+}
+
 export interface LocalServiceOptions {
   identity: ServiceIdentity
   store: Pick<
     ReviewStore,
     | 'create'
+    | 'createWithReceipt'
     | 'doneReview'
     | 'edit'
     | 'getForReview'
@@ -85,17 +118,7 @@ export interface LocalServiceOptions {
   onActivate?: ((reviewId: string) => Promise<ReviewActivationResult>) | undefined
   onChange?: ((
     artifact: ReviewArtifact,
-    action:
-      | 'created'
-      | 'handoff'
-      | 'get-for-review'
-      | 'submit'
-      | 'edit'
-      | 'resolve'
-      | 'unresolve'
-      | 'revise'
-      | 'done'
-      | 'observed'
+    action: LocalServiceChangeAction
   ) => void | Promise<void>) | undefined
   onQuit?: (() => void) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
@@ -114,6 +137,55 @@ function errorProperty(error: unknown, key: 'code' | 'message'): unknown {
 
 function serviceError(code: string, message: string): Error & { code: string } {
   return Object.assign(new Error(message), { code })
+}
+
+export function reviewCreateInputForProducer(
+  body: unknown,
+  producer: unknown,
+  interpretationPolicy?: string
+): Parameters<ReviewStore['create']>[0] {
+  if (producer !== 'agent' && producer !== 'remote-agent') {
+    throw serviceError(
+      'INVALID_REVIEW_PRODUCER',
+      'Review creation requires a supported trusted producer.'
+    )
+  }
+  const record = isRecord(body) ? body : {}
+  const metadata = isRecord(record.metadata) ? record.metadata : {}
+  return {
+    tree: record.tree,
+    contextSummary: metadata.contextSummary,
+    origin: producer,
+    agentThread: metadata.agentThread,
+    git: metadata.git,
+    pullRequest: metadata.pullRequest,
+    pullRequestStatus: record.pullRequestStatus,
+    interpretationPolicy
+  }
+}
+
+export async function createReviewForProducer({
+  body,
+  producer,
+  store,
+  attempt,
+  interpretationPolicy,
+  onChange = () => {}
+}: ReviewCreateMutationOptions): Promise<ReviewCreationResult> {
+  const input = reviewCreateInputForProducer(
+    body,
+    producer,
+    interpretationPolicy
+  )
+  const result = attempt
+    ? await store.createWithReceipt(input, attempt)
+    : { artifact: await store.create(input), created: true }
+  if (!result.created) return result
+
+  await onChange(result.artifact, 'created')
+  const related = await store.propagatePullRequestObservation(result.artifact)
+  for (const updated of related) await onChange(updated, 'observed')
+  return result
 }
 
 function sendJson(
@@ -155,28 +227,34 @@ function errorStatus(error: unknown): number {
   const code = errorProperty(error, 'code')
   if (code === 'ACTIVATION_NOT_READY') return 503
   if (code === 'ACTIVATION_TIMEOUT') return 504
-  if (code === 'NOT_FOUND') return 404
+  if (code === 'NOT_FOUND' || code === 'RECEIPT_NOT_FOUND') return 404
   if (
     code === 'UNSUPPORTED_REVIEW_FORMAT' ||
     code === 'UNSUPPORTED_REVIEW_VERSION'
   ) return 409
   if (
     code === 'INVALID_ID' ||
+    code === 'INVALID_CREATION_RECEIPT' ||
     code === 'INVALID_JSON' ||
     code === 'INVALID_PULL_REQUEST' ||
     code === 'INVALID_PULL_REQUEST_STATUS' ||
+    code === 'INVALID_REVIEW_PRODUCER' ||
     code === 'INVALID_RESOLUTION' ||
     code === 'INVALID_REVIEW' ||
     code === 'INVALID_THREAD' ||
     code === 'PULL_REQUEST_REQUIRED' ||
+    code === 'REQUEST_DIGEST_MISMATCH' ||
     code === 'REVIEW_MISMATCH'
   ) {
     return 400
   }
   if (
     code === 'CLAIM_CONFLICT' ||
+    code === 'CREATION_RECEIPT_SCAN_INCOMPLETE' ||
+    code === 'DUPLICATE_CREATION_RECEIPT' ||
     code === 'FEEDBACK_REQUIRED' ||
     code === 'FEEDBACK_REQUIRES_ABANDONMENT' ||
+    code === 'IDEMPOTENCY_CONFLICT' ||
     code === 'INVALID_TRANSITION' ||
     code === 'NOT_EDITABLE' ||
     code === 'REVIEW_NOT_PRISTINE' ||
@@ -369,28 +447,19 @@ export async function startLocalService({
       }
 
       if (request.method === 'POST' && url.pathname === '/reviews') {
-        const artifact = await runMutation(async () => {
+        const result = await runMutation(async () => {
           const body = await readJson(request)
-          const record = isRecord(body) ? body : {}
-          const metadata = isRecord(record.metadata) ? record.metadata : {}
-          const createInput: ReviewCreateInput = {
-            tree: record.tree,
-            contextSummary: metadata.contextSummary,
-            origin: 'agent',
-            agentThread: metadata.agentThread,
-            git: metadata.git,
-            pullRequest: metadata.pullRequest,
-            pullRequestStatus: record.pullRequestStatus,
-            interpretationPolicy: interpretationPolicy?.()
-          }
-          const created = await store.create(createInput)
-          await onChange(created, 'created')
-          await propagateObservation(created)
-          return created
+          return createReviewForProducer({
+            body,
+            producer: 'agent',
+            store,
+            interpretationPolicy: interpretationPolicy?.(),
+            onChange
+          })
         })
         sendJson(response, 201, {
-          reviewId: artifact.review.id,
-          status: artifact.review.status
+          reviewId: result.artifact.review.id,
+          status: result.artifact.review.status
         })
         return
       }

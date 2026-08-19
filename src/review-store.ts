@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
@@ -56,6 +56,22 @@ export interface ReviewCreateInput {
   pullRequest?: unknown
   pullRequestStatus?: unknown
   interpretationPolicy?: unknown
+}
+
+export interface ReviewCreationAttempt {
+  idempotencyKey: unknown
+  requestBytes: Uint8Array
+  requestDigest: unknown
+}
+
+export interface ReviewCreationRecoveryInput {
+  idempotencyKey: unknown
+  requestDigest: unknown
+}
+
+export interface ReviewCreationResult {
+  artifact: ReviewArtifact
+  created: boolean
 }
 
 export interface DoneReviewsResult {
@@ -185,21 +201,32 @@ function isReviewStatus(value: unknown): value is ReviewStatus {
 }
 
 export class ReviewStoreError extends Error {
+  readonly creationReceipt: ReviewCreationReceipt | undefined
   readonly code: string
   readonly receivedFormat: unknown
   readonly receivedVersion: unknown
+  readonly reviewId: string | undefined
+  readonly reviewIds: string[] | undefined
 
   constructor(
     code: string,
     message: string,
     receivedFormat?: unknown,
-    receivedVersion?: unknown
+    receivedVersion?: unknown,
+    details: {
+      creationReceipt?: ReviewCreationReceipt
+      reviewId?: string
+      reviewIds?: string[]
+    } = {}
   ) {
     super(message)
     this.name = 'ReviewStoreError'
     this.code = code
     this.receivedFormat = receivedFormat
     this.receivedVersion = receivedVersion
+    this.creationReceipt = details.creationReceipt
+    this.reviewId = details.reviewId
+    this.reviewIds = details.reviewIds
   }
 }
 
@@ -214,6 +241,36 @@ export function createReviewClaimId(): string {
 function cloneJson<T>(value: T): T {
   const clone: unknown = JSON.parse(JSON.stringify(value))
   return clone as T
+}
+
+function sha256Digest(value: string | Uint8Array): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`
+}
+
+function assertReceiptDigest(value: unknown, label: string): asserts value is string {
+  if (typeof value !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(value)) {
+    throw new ReviewStoreError(
+      'INVALID_CREATION_RECEIPT',
+      `${label} must be a SHA-256 digest.`
+    )
+  }
+}
+
+function creationReceipt(
+  input: ReviewCreationRecoveryInput
+): ReviewCreationReceipt {
+  if (typeof input.idempotencyKey !== 'string' || !input.idempotencyKey.trim()) {
+    throw new ReviewStoreError(
+      'INVALID_CREATION_RECEIPT',
+      'An idempotency key is required.'
+    )
+  }
+  assertReceiptDigest(input.requestDigest, 'The request digest')
+  return {
+    version: 1,
+    keyDigest: sha256Digest(input.idempotencyKey),
+    requestDigest: input.requestDigest
+  }
 }
 
 function assertReviewId(reviewId: string): void {
@@ -549,6 +606,122 @@ export class ReviewStore {
     pullRequestStatus,
     interpretationPolicy
   }: ReviewCreateInput): Promise<ReviewArtifact> {
+    return this.serialize('create', () => this.createUnserialized({
+      tree,
+      contextSummary,
+      origin,
+      agentThread,
+      git,
+      pullRequest,
+      pullRequestStatus,
+      interpretationPolicy
+    }))
+  }
+
+  async createWithReceipt(
+    input: ReviewCreateInput,
+    attempt: ReviewCreationAttempt
+  ): Promise<ReviewCreationResult> {
+    const receipt = creationReceipt(attempt)
+    if (!(attempt.requestBytes instanceof Uint8Array)) {
+      throw new ReviewStoreError(
+        'INVALID_CREATION_RECEIPT',
+        'Exact request bytes are required for receipt-backed creation.'
+      )
+    }
+    if (sha256Digest(attempt.requestBytes) !== receipt.requestDigest) {
+      throw new ReviewStoreError(
+        'REQUEST_DIGEST_MISMATCH',
+        'The request digest does not match the exact creation request bytes.'
+      )
+    }
+
+    return this.serialize('create', async () => {
+      const recovered = await this.recoverReceiptUnserialized(receipt)
+      if (recovered) return { artifact: recovered, created: false }
+      return {
+        artifact: await this.createUnserialized(input, receipt),
+        created: true
+      }
+    })
+  }
+
+  async recoverCreation(
+    input: ReviewCreationRecoveryInput
+  ): Promise<ReviewArtifact> {
+    const receipt = creationReceipt(input)
+    return this.serialize('create', async () => {
+      const recovered = await this.recoverReceiptUnserialized(receipt)
+      if (recovered) return recovered
+      throw new ReviewStoreError(
+        'RECEIPT_NOT_FOUND',
+        'No review was created with this idempotency key.'
+      )
+    })
+  }
+
+  private async recoverReceiptUnserialized(
+    receipt: ReviewCreationReceipt
+  ): Promise<ReviewArtifact | null> {
+    const scan = await this.listWithWarnings()
+    const uninspectable = scan.warnings.filter((warning) => (
+      warning.reason === 'incompatible' ||
+      warning.reason === 'invalid' ||
+      warning.reason === 'unreadable'
+    ))
+    if (uninspectable.length) {
+      const reviewIds = uninspectable
+        .map((warning) => warning.reviewId)
+        .sort()
+      throw new ReviewStoreError(
+        'CREATION_RECEIPT_SCAN_INCOMPLETE',
+        `Creation receipts cannot be checked while reviews ${reviewIds.join(', ')} are uninspectable.`,
+        undefined,
+        undefined,
+        { reviewIds }
+      )
+    }
+    const matching = scan.reviews.filter((artifact) => (
+      artifact.review.creationReceipt?.keyDigest === receipt.keyDigest
+    ))
+    if (matching.length > 1) {
+      const reviewIds = matching.map((artifact) => artifact.review.id).sort()
+      throw new ReviewStoreError(
+        'DUPLICATE_CREATION_RECEIPT',
+        `Creation receipt ${receipt.keyDigest} is duplicated by reviews ${reviewIds.join(', ')}.`,
+        undefined,
+        undefined,
+        { reviewIds }
+      )
+    }
+    const match = matching[0]
+    if (!match) return null
+    const storedReceipt = match.review.creationReceipt as ReviewCreationReceipt
+    if (storedReceipt.requestDigest !== receipt.requestDigest) {
+      throw new ReviewStoreError(
+        'IDEMPOTENCY_CONFLICT',
+        `Idempotency key is already owned by review ${match.review.id} with a different request digest.`,
+        undefined,
+        undefined,
+        {
+          creationReceipt: cloneJson(storedReceipt),
+          reviewId: match.review.id
+        }
+      )
+    }
+    return cloneJson(match)
+  }
+
+  private async createUnserialized({
+    tree,
+    contextSummary,
+    origin = 'agent',
+    agentThread = null,
+    git = null,
+    pullRequest = null,
+    pullRequestStatus,
+    interpretationPolicy
+  }: ReviewCreateInput, receipt?: ReviewCreationReceipt): Promise<ReviewArtifact> {
     assertReviewTree(tree)
     if (typeof contextSummary !== 'string' || !contextSummary.trim()) {
       throw new ReviewStoreError(
@@ -582,74 +755,73 @@ export class ReviewStore {
       )
     }
 
-    return this.serialize('create', async () => {
-      await fs.mkdir(this.directory, { recursive: true })
+    await fs.mkdir(this.directory, { recursive: true })
 
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        const reviewId = this.idFactory()
-        assertReviewId(reviewId)
-        const reviewDirectory = this.reviewDirectory(reviewId)
-        const stagingDirectory = path.join(
-          this.directory,
-          `.create-${reviewId}-${randomBytes(6).toString('hex')}`
-        )
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const reviewId = this.idFactory()
+      assertReviewId(reviewId)
+      const reviewDirectory = this.reviewDirectory(reviewId)
+      const stagingDirectory = path.join(
+        this.directory,
+        `.create-${reviewId}-${randomBytes(6).toString('hex')}`
+      )
 
-        try {
-          await fs.access(reviewDirectory)
-          continue
-        } catch (error) {
-          if (errorCode(error) !== 'ENOENT') throw error
-        }
-
-        const timestamp = this.timestamp()
-        const artifact: unknown = {
-          ...treeFields(tree),
-          review: {
-            id: reviewId,
-            status: 'editing',
-            origin,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-            attentionRequestedAt: timestamp,
-            contextSummary,
-            agentThread: cloneJson(agentThread),
-            git: cloneJson(git),
-            pullRequest: observedPullRequest(
-              canonicalPullRequest,
-              pullRequestStatus,
-              timestamp
-            ),
-            agentGuidance: guidance(interpretationPolicy)
-          }
-        }
-        assertReviewArtifact(artifact, reviewId)
-
-        await fs.mkdir(stagingDirectory)
-        try {
-          await this.writeFile(
-            path.join(stagingDirectory, 'review.json'),
-            artifact
-          )
-          await fs.rename(stagingDirectory, reviewDirectory)
-          return cloneJson(artifact)
-        } catch (error) {
-          if (
-            (errorCode(error) === 'EEXIST' || errorCode(error) === 'ENOTEMPTY') &&
-            attempt < 9
-          ) {
-            continue
-          }
-          throw error
-        } finally {
-          await fs.rm(stagingDirectory, { recursive: true, force: true })
-        }
+      try {
+        await fs.access(reviewDirectory)
+        continue
+      } catch (error) {
+        if (errorCode(error) !== 'ENOENT') throw error
       }
 
-      throw new ReviewStoreError(
-        'ID_COLLISION',
-        'Could not allocate a unique review ID.'
-      )
-    })
+      const timestamp = this.timestamp()
+      const artifact: unknown = {
+        ...treeFields(tree),
+        review: {
+          id: reviewId,
+          status: 'editing',
+          origin,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          attentionRequestedAt: timestamp,
+          contextSummary,
+          agentThread: cloneJson(agentThread),
+          git: cloneJson(git),
+          pullRequest: observedPullRequest(
+            canonicalPullRequest,
+            pullRequestStatus,
+            timestamp
+          ),
+          ...(receipt ? { creationReceipt: cloneJson(receipt) } : {}),
+          agentGuidance: guidance(interpretationPolicy)
+        }
+      }
+      assertReviewArtifact(artifact, reviewId)
+
+      await fs.mkdir(stagingDirectory)
+      try {
+        await this.writeFile(
+          path.join(stagingDirectory, 'review.json'),
+          artifact
+        )
+        await fs.rename(stagingDirectory, reviewDirectory)
+        return cloneJson(artifact)
+      } catch (error) {
+        if (
+          (errorCode(error) === 'EEXIST' || errorCode(error) === 'ENOTEMPTY') &&
+          attempt < 9
+        ) {
+          continue
+        }
+        throw error
+      } finally {
+        await fs.rm(stagingDirectory, { recursive: true, force: true })
+      }
+    }
+
+    throw new ReviewStoreError(
+      'ID_COLLISION',
+      'Could not allocate a unique review ID.'
+    )
   }
 
   async load(reviewId: string): Promise<ReviewArtifact> {

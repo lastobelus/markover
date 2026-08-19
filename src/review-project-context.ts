@@ -203,6 +203,13 @@ export async function discoverReviewProjectContext(
     readSource = (sourcePath) => fs.readFile(sourcePath, 'utf8')
   }: ReviewProjectContextOptions = {}
 ): Promise<ReviewProjectContext> {
+  if (artifact.review.origin === 'remote-agent') {
+    return {
+      project: null,
+      projectEvidence: 'unavailable',
+      sourceState: 'unavailable'
+    }
+  }
   const snapshotPath = artifact.sourceDocument.path
   if (!snapshotPath) {
     return {

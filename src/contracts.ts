@@ -383,6 +383,13 @@ declare global {
     agentGuidance: AgentGuidance
   }
 
+  interface ReviewCreationReceipt {
+    [key: string]: unknown
+    version: 1
+    keyDigest: string
+    requestDigest: string
+  }
+
   interface ReviewEnvelope {
     [key: string]: unknown
     id: string
@@ -395,6 +402,7 @@ declare global {
     agentThread: ReviewAgentThread | null
     git: ReviewGitSnapshot | null
     pullRequest: ReviewPullRequest | null
+    creationReceipt?: ReviewCreationReceipt
     resolution?: ReviewResolution
     agentGuidance: AgentGuidance
     agentReviewer?: ReviewAgentReviewer

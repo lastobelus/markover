@@ -41,10 +41,10 @@ makes a property invalid. Known properties have this contract.
 | `node.attachments` | Optional array. Each attachment requires `id`. Known image fields are optional `type`, `label`, `path`, `mimeType`, `url`, `checksum`, `width`, and `height`; bytes remain outside JSON. A future must-understand attachment variant is breaking. |
 | `node.sourceEdit` | Optional object requiring `original` and `current` strings. `original` equals immutable `raw`; `current` is nonblank and different. It is a proposal, not an instruction to apply blindly. |
 | `node.sourceEditable` | Optional boolean. `false` forbids `sourceEdit`; omission uses the node type's normal rule. |
-| `review` | Required envelope with `id`, `status`, `origin`, `createdAt`, `updatedAt`, `attentionRequestedAt`, `contextSummary`, `agentThread`, `git`, `pullRequest`, and `agentGuidance`. Optional `resolution` and lifecycle-conditional `agentReviewer` are defined below. Known app-private session, checkout, and requesting-thread-title evidence is forbidden on the envelope as well as inside agent-thread metadata. |
+| `review` | Required envelope with `id`, `status`, `origin`, `createdAt`, `updatedAt`, `attentionRequestedAt`, `contextSummary`, `agentThread`, `git`, `pullRequest`, and `agentGuidance`. Optional `creationReceipt`, optional `resolution`, and lifecycle-conditional `agentReviewer` are defined below. Known app-private session, checkout, and requesting-thread-title evidence is forbidden on the envelope as well as inside agent-thread metadata. |
 | `review.id` | Required opaque `mko_...` ID. Together with source content and checksum it identifies this review target. |
 | `review.status` | Exactly `editing`, `pending-agent`, `agent-reviewing`, `reviewed`, `revised`, or `done`. `editing` is mutable; the other states are read-only. Human handoff is `editing → pending-agent → revised`. Agent review is `editing → agent-reviewing → reviewed`. Both inflight states may return to `editing`. A `revised` review carrying a reversible manual resolution may also return to `editing`; agent-addressed `revised`, `reviewed`, and `done` reviews cannot. `done` is terminal and requires a non-null pull request with a stored `merged` observation. PR completion skips `agent-reviewing` and may complete `reviewed`. Another feedback round creates an independent review. |
-| `review.origin` | Required nonblank open string, immutable for the review lifetime. v1 defines `agent` and `local`. Unknown values are valid, preserved, and lifecycle-neutral. `local` requires `agentThread: null`; `agent` may also use null when reliable identity is unavailable. |
+| `review.origin` | Required nonblank open string, immutable for the review lifetime. v1 defines `agent`, `remote-agent`, and `local`. Unknown values are valid, preserved, and lifecycle-neutral. `remote-agent` means an authorized remote client supplied the source snapshot to canonical Markover; canonical treats its source and project state as unavailable without filesystem or Git access. `local` requires `agentThread: null`; either agent origin may use null when reliable identity is unavailable. |
 | `review.createdAt` | Required canonical UTC instant. It never changes. |
 | `review.updatedAt` | Required canonical UTC instant for the latest persisted portable change, including feedback, lifecycle, metadata, or pull-request observation. It does not control Inbox actionability. |
 | `review.attentionRequestedAt` | Required app-owned canonical UTC instant. Creation sets it to `createdAt`; only a transition from a non-`editing` status into `editing` advances it. Autosaves, views, metadata refresh, tab actions, and transitions away from `editing` do not. |
@@ -55,6 +55,7 @@ makes a property invalid. Known properties have this contract.
 | `review.agentThread.threadHost.machine` | Optional nonblank agent-reported hostname snapshot, normally obtained from local `hostname` when available. It is descriptive and never stable or identity-bearing. |
 | `review.git` | Required nullable opening-time snapshot. When non-null, known optional fields are sanitized nonblank network/scp-like `repositoryUrl`, nonblank `branch`, and nonblank `commit`. These hints are immutable, may become stale, and are not current Git truth, identity, or grouping keys. Credentials, `file:` URLs, and absolute or relative filesystem remotes are forbidden. |
 | `review.pullRequest` | Required nullable association. When non-null it requires a canonical GitHub `url` and matching positive integer `number`. Its optional observation tuple is all-or-none: `status` is `draft`, `open`, `merged`, or `closed`; `statusObservedAt` is canonical UTC no later than `review.updatedAt`; and `statusSource` is a nonblank open string. The latest successful observation is retained when a refresh fails. |
+| `review.creationReceipt` | Optional portable idempotent-creation receipt. When present it requires literal `version: 1`, `keyDigest`, and `requestDigest`; both digests are `sha256:` plus 64 lowercase hexadecimal characters. `keyDigest` hashes the high-entropy idempotency key and `requestDigest` hashes the exact initial creation request bytes. The raw key is never portable. Unknown additive properties are preserved. Omission preserves ordinary local creation behavior. |
 | `review.resolution` | Optional durable outcome object with required `outcome` and `resolvedAt`. It is valid only on `revised` or `done`. Omission means no outcome was recorded; readers do not infer or backfill one. Unknown additive properties are preserved. |
 | `review.resolution.outcome` | Exactly `feedback-addressed`, `reviewed-no-notes`, `accepted-unreviewed`, `feedback-abandoned`, or `merged-unresolved`. `merged-unresolved` requires `done`. |
 | `review.resolution.resolvedAt` | Required canonical UTC instant from `review.createdAt` through `review.updatedAt`. `done` preserves an existing resolution and its original time. |
@@ -165,6 +166,16 @@ Portable metadata records what the requester reported at opening time. Current
 machine-local knowledge belongs in app-private state. This includes canonical
 source and repository evidence, grouping keys, discovery records, credentials,
 integration state, and requesting-thread-title observations.
+
+For `remote-agent`, the immutable source path remains useful to the returning
+agent but grants canonical Markover no path authority. Project restoration and
+initial publication return unavailable before source reads, path resolution,
+repository discovery, favicon work, or Git commands, even when canonical has a
+different file at the same absolute path.
+
+`review.creationReceipt` is a portable digest record, not CLI invocation
+identity or a retry journal. Body-free recovery and the raw idempotency key are
+transport behavior; clients do not reconstruct them from the artifact.
 
 Stable requesting-thread identity is the two-element tuple of
 `threadHost.kind` and `threadHost.threadId` when the latter is present, or

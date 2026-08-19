@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -75,6 +76,10 @@ function tree(source = '# Review\n'): ReviewTree {
   })
 }
 
+function digest(value: Uint8Array | string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`
+}
+
 test('creates distinct sessions with exact source and metadata', async (t) => {
   const ids = ['mko_aaa11111', 'mko_bbb22222']
   const { directory, store } = await temporaryStore({
@@ -116,6 +121,206 @@ test('creates distinct sessions with exact source and metadata', async (t) => {
     'mko_aaa11111',
     'mko_bbb22222'
   ])
+})
+
+test('receipt-backed create and body-free recovery share the create queue', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string,
+    now: () => '2026-08-18T20:00:00.000Z'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const requestBytes = Buffer.from('{"exact":"request bytes"}')
+  const attempt = {
+    idempotencyKey: 'mko-idempotency-key-with-enough-random-material',
+    requestBytes,
+    requestDigest: digest(requestBytes)
+  }
+  const input = {
+    tree: tree('# Remote\n'),
+    contextSummary: 'Review from a remote agent.',
+    origin: 'remote-agent'
+  }
+
+  const [created, recovered] = await Promise.all([
+    store.createWithReceipt(input, attempt),
+    store.recoverCreation(attempt)
+  ])
+  assert.equal(created.created, true)
+  assert.equal(recovered.review.id, created.artifact.review.id)
+  assert.deepEqual(created.artifact.review.creationReceipt, {
+    version: 1,
+    keyDigest: digest(attempt.idempotencyKey),
+    requestDigest: attempt.requestDigest
+  })
+
+  const retried = await store.createWithReceipt(input, attempt)
+  assert.equal(retried.created, false)
+  assert.equal(retried.artifact.review.id, created.artifact.review.id)
+  assert.equal((await store.list()).length, 1)
+  assert.deepEqual(ids, ['mko_bbb22222'])
+})
+
+test('creation receipts fail closed on body, key, and stored receipt conflicts', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222', 'mko_ccc33333']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const requestBytes = Buffer.from('{"request":1}')
+  const key = 'mko-idempotency-key-with-enough-random-material'
+  const requestDigest = digest(requestBytes)
+  const input = {
+    tree: tree('# Remote\n'),
+    contextSummary: 'Review from a remote agent.',
+    origin: 'remote-agent'
+  }
+
+  await assert.rejects(
+    store.createWithReceipt(input, {
+      idempotencyKey: key,
+      requestBytes,
+      requestDigest: digest('different bytes')
+    }),
+    (error: unknown) => hasErrorCode(error, 'REQUEST_DIGEST_MISMATCH')
+  )
+  await assert.rejects(
+    store.recoverCreation({ idempotencyKey: key, requestDigest }),
+    (error: unknown) => hasErrorCode(error, 'RECEIPT_NOT_FOUND')
+  )
+
+  const created = await store.createWithReceipt(input, {
+    idempotencyKey: key,
+    requestBytes,
+    requestDigest
+  })
+  await assert.rejects(
+    store.recoverCreation({
+      idempotencyKey: key,
+      requestDigest: digest('another request')
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof ReviewStoreError)
+      assert.equal(error.code, 'IDEMPOTENCY_CONFLICT')
+      assert.equal(error.reviewId, created.artifact.review.id)
+      assert.deepEqual(
+        error.creationReceipt,
+        created.artifact.review.creationReceipt
+      )
+      return true
+    }
+  )
+
+  const duplicate = await store.create({
+    tree: tree('# Duplicate\n'),
+    contextSummary: 'Duplicate stored receipt.',
+    origin: 'remote-agent'
+  })
+  const storedReceipt = created.artifact.review.creationReceipt
+  assert.ok(storedReceipt)
+  duplicate.review.creationReceipt = structuredClone(storedReceipt)
+  await store.write(duplicate.review.id, duplicate)
+  await assert.rejects(
+    store.recoverCreation({ idempotencyKey: key, requestDigest }),
+    (error: unknown) => {
+      assert.ok(error instanceof ReviewStoreError)
+      assert.equal(error.code, 'DUPLICATE_CREATION_RECEIPT')
+      assert.deepEqual(error.reviewIds, [
+        created.artifact.review.id,
+        duplicate.review.id
+      ].sort())
+      return true
+    }
+  )
+})
+
+test('receipt operations fail closed when a managed artifact is uninspectable', async (t) => {
+  const variants = ['invalid', 'incompatible', 'unreadable'] as const
+  for (const variant of variants) {
+    const directory = await fs.mkdtemp(
+      path.join(os.tmpdir(), `markover-receipt-${variant}-test-`)
+    )
+    t.after(() => fs.rm(directory, { recursive: true, force: true }))
+    let allocations = 0
+    const store = new ReviewStore(directory, {
+      idFactory: () => {
+        allocations += 1
+        return allocations === 1 ? 'mko_aaa11111' : 'mko_bbb22222'
+      }
+    })
+    const requestBytes = Buffer.from('{"request":1}')
+    const attempt = {
+      idempotencyKey: 'mko-idempotency-key-with-enough-random-material',
+      requestBytes,
+      requestDigest: digest(requestBytes)
+    }
+    const created = await store.createWithReceipt({
+      tree: tree('# Remote\n'),
+      contextSummary: 'Review from a remote agent.',
+      origin: 'remote-agent'
+    }, attempt)
+    const reviewPath = store.reviewPath(created.artifact.review.id)
+
+    if (variant === 'unreadable') {
+      await fs.chmod(reviewPath, 0)
+    } else {
+      const damaged = structuredClone(created.artifact) as unknown as Record<
+        string,
+        unknown
+      >
+      if (variant === 'incompatible') {
+        damaged.version = 2
+      } else {
+        const review = damaged.review as Record<string, unknown>
+        review.status = 'invalid'
+      }
+      await fs.writeFile(reviewPath, JSON.stringify(damaged), 'utf8')
+    }
+
+    await assert.rejects(
+      store.createWithReceipt({
+        tree: tree('# Remote\n'),
+        contextSummary: 'Review from a remote agent.',
+        origin: 'remote-agent'
+      }, attempt),
+      (error: unknown) => {
+        assert.ok(error instanceof ReviewStoreError)
+        assert.equal(error.code, 'CREATION_RECEIPT_SCAN_INCOMPLETE')
+        assert.deepEqual(error.reviewIds, [created.artifact.review.id])
+        return true
+      },
+      variant
+    )
+    assert.equal(allocations, 1, variant)
+    if (variant === 'unreadable') await fs.chmod(reviewPath, 0o600)
+  }
+})
+
+test('reviewer round trips preserve additive creation receipt data', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const requestBytes = Buffer.from('{"request":1}')
+  const result = await store.createWithReceipt({
+    tree: tree('# Remote\n'),
+    contextSummary: 'Preserve the portable receipt.',
+    origin: 'remote-agent'
+  }, {
+    idempotencyKey: 'mko-idempotency-key-with-enough-random-material',
+    requestBytes,
+    requestDigest: digest(requestBytes)
+  })
+  const extended = structuredClone(result.artifact)
+  assert.ok(extended.review.creationReceipt)
+  extended.review.creationReceipt.fixtureExtension = { preserve: true }
+  await store.write(extended.review.id, extended)
+
+  const claimed = await store.getForReview(extended.review.id, {
+    mode: 'annotation-only'
+  })
+  const reviewed = await store.submitAgentReview(extended.review.id, claimed)
+  assert.deepEqual(reviewed.review.creationReceipt, extended.review.creationReceipt)
 })
 
 test('pending queries return every unresolved review for the exact requesting thread', async (t) => {
