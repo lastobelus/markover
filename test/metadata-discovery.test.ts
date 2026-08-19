@@ -359,7 +359,7 @@ test('explicit metadata overrides discovered values', async () => {
     threadId: 'explicit-thread',
     threadHostKind: 't3code',
     threadHostProvider: 'codex',
-    threadHostMachine: 'Airy.local',
+    threadHostMachine: 'canonical-host.local',
     handoffKey: 'mko_handoff_0123456789abcdef'
   }, {
     git: {
@@ -384,7 +384,7 @@ test('explicit metadata overrides discovered values', async () => {
     threadHost: {
       kind: 't3code',
       provider: 'codex',
-      machine: 'Airy.local'
+      machine: 'canonical-host.local'
     }
   })
   assert.deepEqual(metadata.pullRequest, {

@@ -41,7 +41,7 @@ interface GatewayFixture {
 }
 
 function tree(): ReviewTree {
-  const source = '# Remote review\n\nReview this from htulo.\n'
+  const source = '# Remote review\n\nReview this from the remote client host.\n'
   return parseMarkdown(source, reviewChecksum(source), {
     name: 'remote.md',
     path: '/Users/lasto/remote.md'

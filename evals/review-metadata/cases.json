@@ -7,7 +7,7 @@
       "threadHost": {
         "kind": "codex",
         "provider": "codex",
-        "machine": "Airy.local"
+        "machine": "canonical-host.local"
       }
     }
   },
@@ -20,7 +20,7 @@
         "kind": "t3code",
         "provider": "codex",
         "threadId": "t3-thread-2",
-        "machine": "Airy.local"
+        "machine": "canonical-host.local"
       }
     }
   },

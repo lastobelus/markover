@@ -15,6 +15,24 @@ import {
   requestServiceQuit
 } from '../src/local-client'
 import {
+  readRemoteHealth,
+  RemoteClientError,
+  requestRemoteJson,
+  type RemoteHealth,
+  type RemoteJsonRequestOptions
+} from '../src/remote-client'
+import {
+  RemoteCreationJournal,
+  RemoteCreationJournalError,
+  type RemoteCreationEntry,
+  type RemoteCreationReceipt
+} from '../src/remote-creation-journal'
+import {
+  loadRemoteProfile,
+  REMOTE_PROFILE_ENVIRONMENT_VARIABLE,
+  type RemoteProfile
+} from '../src/remote-profile'
+import {
   discoverReviewMetadata,
   HANDOFF_KEY_PATTERN,
   type ReviewMetadata,
@@ -56,6 +74,10 @@ import {
   type LinkHandlerMutationResult
 } from '../src/link-handler'
 import { MAXIMUM_BODY_BYTES } from '../src/local-service'
+import {
+  REMOTE_GATEWAY_IDEMPOTENCY_HEADER,
+  REMOTE_GATEWAY_REQUEST_DIGEST_HEADER
+} from '../src/remote-gateway'
 import {
   addressedDevelopmentBundle,
   type AddressedDevelopmentBundle
@@ -184,9 +206,14 @@ export function helpPayload() {
     repository: 'https://github.com/lastobelus/markover',
     invocation: `${invocation()} [--instance <canonical|dev>] <command>`,
     requirements: {
-      platform: 'macOS 14 Sonoma or newer (Apple Silicon only)',
+      platform: 'macOS 14 Sonoma or newer (the local app is Apple Silicon only; remote author mode also supports Intel)',
       node: '22.13.0 or newer',
-      installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first use.'
+      installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first local use. Configured remote author commands do not download or launch a local app.'
+    },
+    remoteCanonical: {
+      configuration: `Set ${REMOTE_PROFILE_ENVIRONMENT_VARIABLE} to a JSON file containing exactly {"baseUrl":"https://<canonical-host>.ts.net/"}.`,
+      commands: ['open', 'pending', 'get', 'edit', 'revise', 'done'],
+      behavior: 'A valid profile uses canonical Markover on the configured host without downloading, launching, or storing a second Markover app on the client Mac. Thread and Git discovery remain local; attachments and reviewer mode are unavailable.'
     },
     workflow: [
       'Create the Markdown file before opening it.',
@@ -899,6 +926,73 @@ export function checksum(source: string): string {
   return `sha256:${crypto.createHash('sha256').update(source, 'utf8').digest('hex')}`
 }
 
+const remoteAuthorCommands = new Set<ParsedCommand['command']>([
+  'open',
+  'pending',
+  'get',
+  'edit',
+  'revise',
+  'done'
+])
+
+function remoteProfileApplies(parsed: ParsedCommand): boolean {
+  return parsed.instance === undefined &&
+    remoteAuthorCommands.has(parsed.command)
+}
+
+function defaultRemoteJournalRoot(): string {
+  return path.join(os.homedir(), '.markover', 'remote-client', 'creation-journal')
+}
+
+function remoteOpenReceipt(
+  response: unknown,
+  requestDigest: string
+): RemoteCreationReceipt {
+  if (
+    response === null ||
+    typeof response !== 'object' ||
+    Array.isArray(response) ||
+    typeof Reflect.get(response, 'reviewId') !== 'string' ||
+    Reflect.get(response, 'status') !== 'editing' ||
+    typeof Reflect.get(response, 'reviewUrl') !== 'string'
+  ) {
+    throw new RemoteClientError(
+      'INCOMPATIBLE_REMOTE_CANONICAL',
+      'Canonical Markover returned an invalid remote creation receipt.'
+    )
+  }
+  return {
+    reviewId: Reflect.get(response, 'reviewId') as string,
+    status: 'editing',
+    reviewUrl: Reflect.get(response, 'reviewUrl') as string,
+    requestDigest
+  }
+}
+
+function conflictRequestDigest(error: unknown): string | null {
+  if (!(error instanceof RemoteClientError) || error.code !== 'IDEMPOTENCY_CONFLICT') {
+    return null
+  }
+  const receipt = error.details?.creationReceipt
+  if (
+    receipt === null ||
+    typeof receipt !== 'object' ||
+    Array.isArray(receipt)
+  ) return null
+  const digest = (receipt as Record<string, unknown>).requestDigest
+  return typeof digest === 'string' ? digest : null
+}
+
+function remoteCreateHeaders(
+  entry: RemoteCreationEntry,
+  requestDigest: string
+): Record<string, string> {
+  return {
+    [REMOTE_GATEWAY_IDEMPOTENCY_HEADER]: entry.idempotencyKey,
+    [REMOTE_GATEWAY_REQUEST_DIGEST_HEADER]: requestDigest
+  }
+}
+
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
@@ -1075,6 +1169,17 @@ export interface ExecuteCommandOptions {
   doctorCanonical?: () => Promise<CanonicalDoctorResult>
   refreshCanonical?: (install: boolean) => Promise<CanonicalRefreshResult>
   verifyCanonicalRouting?: (instance: ResolvedInstance) => Promise<void>
+  loadRemoteProfile?: () => Promise<RemoteProfile | null>
+  readRemoteHealth?: (profile: RemoteProfile) => Promise<RemoteHealth>
+  requestRemote?: (
+    profile: RemoteProfile,
+    method: string,
+    requestPath: string,
+    body?: unknown,
+    options?: RemoteJsonRequestOptions
+  ) => Promise<unknown>
+  remoteJournal?: RemoteCreationJournal
+  remoteJournalRoot?: string
 }
 
 export interface CanonicalRefreshResult {
@@ -1518,7 +1623,20 @@ export async function executeCommand(
     return cleanup(instance, parsed.expectedIdentity)
   }
 
-  const instance = options.endpointPath
+  const profile = parsed.instance === undefined
+    ? await (options.loadRemoteProfile || loadRemoteProfile)()
+    : null
+  if (profile && !remoteProfileApplies(parsed)) {
+    throw commandError(
+      `${parsed.command} is not available through the remote author profile.`,
+      'markover <open|pending|get|edit|revise|done> ...'
+    )
+  }
+  const remoteHealth = profile
+    ? await (options.readRemoteHealth || readRemoteHealth)(profile)
+    : null
+  const remoteRequest = options.requestRemote || requestRemoteJson
+  const instance = profile || options.endpointPath
     ? null
     : await resolveTarget(selector)
   const endpointPath = options.endpointPath || instance?.service.endpointPath ||
@@ -1536,8 +1654,127 @@ export async function executeCommand(
     readSessionDiscoverySetting: readDiscoverySetting = readSessionDiscoverySetting,
     settingsPath = path.join(path.dirname(endpointPath), 'settings.json')
   } = options
+  const requestAuthorJson = (
+    method: string,
+    requestPath: string,
+    body?: unknown,
+    requestOptions: {
+      headers?: Readonly<Record<string, string>>
+      mutation?: boolean
+      timeoutMilliseconds?: number
+    } = {}
+  ): Promise<unknown> => profile
+    ? remoteRequest(profile, method, requestPath, body ?? null, {
+        ...(requestOptions.headers
+          ? { headers: requestOptions.headers }
+          : {}),
+        ...(requestOptions.mutation === undefined
+          ? {}
+          : { mutation: requestOptions.mutation }),
+        preflight: false
+      })
+    : requestJson(
+        endpointPath,
+        method,
+        requestPath,
+        body,
+        requestOptions.timeoutMilliseconds === undefined
+          ? undefined
+          : { timeoutMilliseconds: requestOptions.timeoutMilliseconds }
+      )
   if (parsed.command === 'open') {
     const sourcePath = path.resolve(parsed.sourcePath)
+    const journal = profile
+      ? options.remoteJournal || new RemoteCreationJournal(
+          options.remoteJournalRoot || defaultRemoteJournalRoot()
+        )
+      : null
+    let journalEntry: RemoteCreationEntry | null = null
+    const finishRemoteOpen = async (
+      response: unknown,
+      requestDigest: string
+    ): Promise<{ reviewId: string; status: string; reviewUrl: string }> => {
+      const receipt = remoteOpenReceipt(response, requestDigest)
+      await (journal as RemoteCreationJournal).complete(
+        journalEntry as RemoteCreationEntry,
+        receipt
+      )
+      return {
+        reviewId: receipt.reviewId,
+        status: receipt.status,
+        reviewUrl: receipt.reviewUrl
+      }
+    }
+    const recoverRemoteOpen = async (
+      requestDigest: string
+    ): Promise<{ reviewId: string; status: string; reviewUrl: string }> => {
+      try {
+        const response = await requestAuthorJson('POST', '/reviews', undefined, {
+          headers: remoteCreateHeaders(
+            journalEntry as RemoteCreationEntry,
+            requestDigest
+          ),
+          mutation: true
+        })
+        return await finishRemoteOpen(response, requestDigest)
+      } catch (error) {
+        const committedDigest = conflictRequestDigest(error)
+        if (
+          committedDigest &&
+          (journalEntry as RemoteCreationEntry).requestDigests.includes(
+            committedDigest
+          )
+        ) {
+          const response = await requestAuthorJson(
+            'POST',
+            '/reviews',
+            undefined,
+            {
+              headers: remoteCreateHeaders(
+                journalEntry as RemoteCreationEntry,
+                committedDigest
+              ),
+              mutation: true
+            }
+          )
+          return finishRemoteOpen(response, committedDigest)
+        }
+        throw error
+      }
+    }
+    if (profile && journal) {
+      const acquired = await journal.acquire({
+        profileId: checksum(profile.baseUrl),
+        sourcePath,
+        contextSummary: parsed.contextSummary,
+        branch: parsed.branch ?? null,
+        handoffKey: parsed.handoffKey ?? null,
+        pullRequestNumber: parsed.pullRequestNumber ?? null,
+        pullRequestUrl: parsed.pullRequestUrl ?? null,
+        threadId: parsed.threadId ?? null,
+        threadHostKind: parsed.threadHostKind ?? null,
+        threadHostProvider: parsed.threadHostProvider ?? null,
+        threadHostThreadId: parsed.threadHostThreadId ?? null,
+        threadHostMachine: parsed.threadHostMachine ?? null
+      })
+      journalEntry = acquired.entry
+      const recoveryDigest = journalEntry.requestDigests.at(-1)
+      if (acquired.inProgress && !recoveryDigest) {
+        throw new RemoteCreationJournalError(
+          'REMOTE_OPEN_IN_PROGRESS',
+          'An identical remote open is already discovering metadata. Retry after that invocation finishes.'
+        )
+      }
+      if (acquired.resumed && recoveryDigest) {
+        try {
+          return await recoverRemoteOpen(recoveryDigest)
+        } catch (error) {
+          if (!(error instanceof RemoteClientError) || error.code !== 'RECEIPT_NOT_FOUND') {
+            throw error
+          }
+        }
+      }
+    }
     let stats
     try {
       stats = await fs.stat(sourcePath)
@@ -1556,8 +1793,13 @@ export async function executeCommand(
       name: path.basename(sourcePath),
       path: sourcePath
     })
+    const discoveryEnabled = remoteHealth
+      ? remoteHealth.discoverAgentThreadFromLocalSessions
+      : parsed.handoffKey && !parsed.threadId
+        ? await readDiscoverySetting(settingsPath)
+        : true
     const handoffKey = parsed.handoffKey && !parsed.threadId &&
-      !await readDiscoverySetting(settingsPath)
+      !discoveryEnabled
       ? null
       : parsed.handoffKey ?? null
     const metadata = await discoverMetadata({
@@ -1572,12 +1814,47 @@ export async function executeCommand(
       threadHostMachine: parsed.threadHostMachine ?? null,
       handoffKey
     })
+    if (profile && journal && journalEntry) {
+      const body = {
+        tree,
+        pullRequestStatus: parsed.pullRequestStatus,
+        metadata: {
+          contextSummary: parsed.contextSummary,
+          ...metadata
+        }
+      }
+      const requestBytes = JSON.stringify(body)
+      if (Buffer.byteLength(requestBytes, 'utf8') > MAXIMUM_BODY_BYTES) {
+        throw commandError(
+          'Remote review creation exceeds Markover’s 16 MiB request limit.',
+          'markover open <markdown-path> --summary <text>'
+        )
+      }
+      const requestDigest = checksum(requestBytes)
+      journalEntry = await journal.appendRequestDigest(
+        journalEntry,
+        requestDigest
+      )
+      try {
+        const response = await requestAuthorJson('POST', '/reviews', body, {
+          headers: remoteCreateHeaders(journalEntry, requestDigest),
+          mutation: true
+        })
+        return await finishRemoteOpen(response, requestDigest)
+      } catch (error) {
+        const committedDigest = conflictRequestDigest(error)
+        if (committedDigest && journalEntry.requestDigests.includes(committedDigest)) {
+          return recoverRemoteOpen(committedDigest)
+        }
+        throw error
+      }
+    }
     await ensure()
     if (instance) {
       await (options.verifyCanonicalRouting ||
         assertCanonicalReviewRoutingReady)(instance)
     }
-    const opened = await requestJson(endpointPath, 'POST', '/reviews', {
+    const opened = await requestAuthorJson('POST', '/reviews', {
       tree,
       pullRequestStatus: parsed.pullRequestStatus,
       metadata: {
@@ -1609,7 +1886,7 @@ export async function executeCommand(
     }
   }
 
-  await ensure()
+  if (!profile) await ensure()
   if (parsed.command === 'pending') {
     let agentThread: ReviewAgentThread | null
     if (parsed.threadId) {
@@ -1627,7 +1904,10 @@ export async function executeCommand(
         }
       }
     } else {
-      if (!await readDiscoverySetting(settingsPath)) {
+      const discoveryEnabled = remoteHealth
+        ? remoteHealth.discoverAgentThreadFromLocalSessions
+        : await readDiscoverySetting(settingsPath)
+      if (!discoveryEnabled) {
         throw commandError(
           'Handoff-key discovery is disabled; use an explicit --thread-id.',
           'markover pending --thread-id <provider-id> --thread-host-kind <kind> --thread-host-provider <provider>'
@@ -1649,8 +1929,7 @@ export async function executeCommand(
         )
       }
     }
-    const response = await requestJson(
-      endpointPath,
+    const response = await requestAuthorJson(
       'POST',
       '/reviews/pending',
       { agentThread }
@@ -1685,6 +1964,15 @@ export async function executeCommand(
           )
         }
         const reviewId = Reflect.get(review, 'reviewId') as string
+        if (profile) {
+          if (typeof Reflect.get(review, 'reviewUrl') !== 'string') {
+            throw new RemoteClientError(
+              'INCOMPATIBLE_REMOTE_CANONICAL',
+              'Canonical Markover returned a pending review without its canonical URL.'
+            )
+          }
+          return review
+        }
         return {
           ...review,
           reviewUrl: reviewUrl(
@@ -1866,15 +2154,14 @@ export async function executeCommand(
     }
   }
   if (parsed.command === 'done') {
-    return requestJson(endpointPath, 'POST', '/reviews/done', {
+    return requestAuthorJson('POST', '/reviews/done', {
       pullRequestUrl: parsed.pullRequestUrl,
       pullRequestStatus: parsed.pullRequestStatus
     })
   }
   const reviewId = encodeURIComponent(parsed.reviewId)
   if (parsed.command === 'get') {
-    const response = await requestJson(
-      endpointPath,
+    const response = await requestAuthorJson(
       'POST',
       `/reviews/${reviewId}/handoff`,
       parsed.pullRequestStatus
@@ -1891,8 +2178,7 @@ export async function executeCommand(
     }
   }
   if (parsed.command === 'revise') {
-    return requestJson(
-      endpointPath,
+    return requestAuthorJson(
       'POST',
       `/reviews/${reviewId}/revise`,
       parsed.pullRequestStatus
@@ -1900,13 +2186,16 @@ export async function executeCommand(
         : undefined
     )
   }
-  return requestJson(endpointPath, 'POST', `/reviews/${reviewId}/edit`)
+  return requestAuthorJson('POST', `/reviews/${reviewId}/edit`)
 }
 
-export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
+export async function main(
+  args: string[] = process.argv.slice(2),
+  options: ExecuteCommandOptions = {}
+): Promise<void> {
   try {
     const parsed = parseCommandArguments(args)
-    const result = await executeCommand(parsed)
+    const result = await executeCommand(parsed, options)
     process.stdout.write(`${JSON.stringify(result)}\n`)
     if (
       result !== null &&
