@@ -31,7 +31,7 @@ function readJson(relativePath: string): unknown {
   return JSON.parse(read(relativePath)) as unknown
 }
 
-test('release workflow publishes Apple Silicon and the tiny CLI', () => {
+test('release workflow publishes both native architectures and the tiny CLI', () => {
   const workflow = read('.github/workflows/release.yml')
   const rootPackage = readJson('package.json') as PackageManifest
   const cliPackage = readJson('packages/cli/package.json') as PackageManifest
@@ -41,7 +41,7 @@ test('release workflow publishes Apple Silicon and the tiny CLI', () => {
   assert.equal(cliPackage.dependencies, undefined)
   assert.deepEqual(cliPackage.files, ['bin/markover.js'])
   assert.match(workflow, /macos-15\n/)
-  assert.doesNotMatch(workflow, /macos-15-intel/)
+  assert.match(workflow, /macos-15-intel/)
   assert.match(
     workflow,
     /Verify stable tag, protected-main ancestry, and required CI/
@@ -63,8 +63,8 @@ test('release workflow publishes Apple Silicon and the tiny CLI', () => {
     workflow,
     /--evidence=artifact\/verification\/packaged-smoke-/
   )
-  assert.match(workflow, /name: packaged-smoke-macos-15/)
-  assert.doesNotMatch(workflow, /Markover-darwin-x64\.zip/)
+  assert.match(workflow, /name: packaged-smoke-\$\{\{ matrix\.runner \}\}/)
+  assert.match(workflow, /Markover-darwin-x64\.zip/)
   assert.match(workflow, /markover-cli\.tgz/)
   assert.match(workflow, /gh release create/)
   assert.match(workflow, /permissions: \{\}/)
@@ -214,8 +214,13 @@ test('developer release runbook preserves provenance and rollback boundaries', (
   assert.match(runbook, /Developer ID activation/)
   assert.match(runbook, /GitHub readiness is `ready`/)
   assert.match(runbook, /Developer ID readiness is\s+intentionally `blocked`/)
-  assert.match(runbook, /Deferred Intel\/Sonoma procedure/i)
-  assert.match(runbook, /Apple Silicon only/i)
+  assert.match(runbook, /Required Intel\/Sonoma draft qualification/i)
+  assert.match(runbook, /does not\s+authorize publication/i)
+  assert.match(runbook, /draft qualified;\s+publication blocked/i)
+  assert.match(runbook, /native Apple Silicon and Intel candidates/i)
+  assert.match(runbook, /complete six-asset draft/i)
+  assert.match(runbook, /keep the second publication gate\s+closed/i)
+  assert.match(runbook, /Markover-darwin-x64\.zip/)
   assert.match(runbook, /issue #80/i)
   assert.match(runbook, /markover-packaged-smoke-evidence/)
   assert.match(runbook, /Do not mark the clean\s+machine or overall result passed/)
@@ -310,8 +315,9 @@ test('packaged smoke runs only for a tagged release candidate', () => {
   assert.doesNotMatch(continuousIntegration, /npm run package:mac/)
   assert.doesNotMatch(continuousIntegration, /npm run smoke:packaged/)
   assert.match(release, /push:\n\s+tags:\n\s+- 'v\*'/)
-  assert.match(release, /runs-on: macos-15/)
-  assert.doesNotMatch(release, /macos-15-intel/)
+  assert.match(release, /- macos-15\n/)
+  assert.match(release, /- macos-15-intel\n/)
+  assert.match(release, /runs-on: \$\{\{ matrix\.runner \}\}/)
   assert.match(release, /npm run package:mac/)
   assert.match(release, /npm run smoke:packaged --/)
 })

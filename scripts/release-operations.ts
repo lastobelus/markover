@@ -16,7 +16,7 @@ export type ReleaseCommandRunner = (
 ) => ReleaseCommandResult
 
 export interface ReleasePayload {
-  architecture: 'arm64' | 'portable'
+  architecture: 'arm64' | 'x64' | 'portable'
   name: string
   sha256: string
 }
@@ -91,6 +91,7 @@ const projectDirectory = path.resolve(__dirname, '../..')
 
 export const primaryReleaseAssets = [
   'Markover-darwin-arm64.zip',
+  'Markover-darwin-x64.zip',
   'markover-cli.tgz'
 ] as const
 
@@ -432,6 +433,7 @@ export function publicationTurnReadiness({
 
 function architectureForAsset(name: string): ReleasePayload['architecture'] {
   if (name.includes('-arm64.')) return 'arm64'
+  if (name.includes('-x64.')) return 'x64'
   return 'portable'
 }
 
@@ -524,8 +526,8 @@ function parseToolchainReport(contents: string, label: string): ToolchainReport 
 }
 
 async function toolchainReports(directory: string): Promise<ToolchainReport[]> {
-  const expected = ['macos-arm64.txt', 'cli.txt']
-  const expectedArchitectures = ['arm64', 'portable']
+  const expected = ['macos-arm64.txt', 'macos-x64.txt', 'cli.txt']
+  const expectedArchitectures = ['arm64', 'x64', 'portable']
   const entries = await fs.readdir(directory)
   if (!exactValues(entries, expected)) {
     throw new Error(`Verification context must contain exactly: ${expected.join(', ')}.`)
@@ -537,7 +539,7 @@ async function toolchainReports(directory: string): Promise<ToolchainReport[]> {
     if (report.architecture !== expectedArchitectures[index]) {
       throw new Error(`${expected[index]} reports the wrong architecture.`)
     }
-    if ((index === 0) !== Boolean(report.xcode)) {
+    if ((index < 2) !== Boolean(report.xcode)) {
       throw new Error(`${expected[index]} reports an invalid Xcode context.`)
     }
   })
@@ -575,7 +577,7 @@ export async function generateReleaseNotes({
   const rollbackUrl = `https://github.com/${repository}/releases/download/${previousTag}/markover-cli.tgz`
   return `# Markover ${tag}
 
-> **Early preview · Apple Silicon only · not Apple-verified.** This macOS app uses hardened ad-hoc signing. It does not identify an authenticated Developer ID publisher, is not notarized, and is expected to require the documented per-app Gatekeeper override. Native Intel releases are deferred to the Broad announcement roadmap in [issue #80](https://github.com/${repository}/issues/80).
+> **Early preview · Native Apple Silicon and Intel · not Apple-verified.** These macOS apps use hardened ad-hoc signing. They do not identify an authenticated Developer ID publisher, are not notarized, and are expected to require the documented per-app Gatekeeper override.
 
 ## Provenance
 
@@ -588,7 +590,7 @@ export async function generateReleaseNotes({
 | --- | --- | --- |
 ${payloadRows}
 
-GitHub build-provenance attestations cover the Apple Silicon app ZIP and \`markover-cli.tgz\`. After downloading a payload, verify it with:
+GitHub build-provenance attestations cover both native app ZIPs and \`markover-cli.tgz\`. After downloading a payload, verify it with:
 
 \`\`\`sh
 gh attestation verify ./PAYLOAD \\
@@ -605,9 +607,9 @@ These records identify the source and workflow that produced the bytes; they do 
 
 ${toolchainRows}
 
-## Roll back to ${previousTag}
+## Roll back Apple Silicon to ${previousTag}
 
-Quit Markover and back up the complete \`~/Library/Application Support/Markover\` directory before rolling back. Rollback is supported only while both releases use the same review-data format.
+Quit Markover and back up the complete \`~/Library/Application Support/Markover\` directory before rolling back. Rollback is supported only while both releases use the same review-data format. The command below is the current Apple Silicon rollback path.
 
 \`\`\`sh
 npx --yes \\
@@ -615,6 +617,8 @@ npx --yes \\
   markover open ./DOCUMENT.md \\
   --summary "Explain why this document exists and what feedback would help."
 \`\`\`
+
+The first Intel-enabled draft has no published x64 rollback target. Keep Intel publication gated until [issue #80](https://github.com/${repository}/issues/80) records and validates a real version-pinned x64 rollback target; do not describe the Apple Silicon command above as an Intel rollback path.
 
 Published assets are never replaced under an existing tag. If this release is withdrawn, use ${previousTag} until a newly versioned fix is published.
 `
