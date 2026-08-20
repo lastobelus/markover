@@ -1,9 +1,12 @@
 import fs from 'node:fs/promises'
 
+import { CAPABILITY_TOKEN_PATTERN } from './service-endpoint'
+
 export const REMOTE_PROFILE_ENVIRONMENT_VARIABLE = 'MARKOVER_REMOTE_PROFILE'
 
 export interface RemoteProfile {
   baseUrl: string
+  token: string
 }
 
 export class RemoteProfileError extends Error {
@@ -26,8 +29,10 @@ function invalidProfile(): RemoteProfileError {
 export function parseRemoteProfile(value: unknown): RemoteProfile {
   if (
     !isRecord(value) ||
-    Object.keys(value).length !== 1 ||
-    typeof value.baseUrl !== 'string'
+    Object.keys(value).length !== 2 ||
+    typeof value.baseUrl !== 'string' ||
+    typeof value.token !== 'string' ||
+    !CAPABILITY_TOKEN_PATTERN.test(value.token)
   ) {
     throw invalidProfile()
   }
@@ -65,23 +70,40 @@ export function parseRemoteProfile(value: unknown): RemoteProfile {
     throw invalidProfile()
   }
 
-  return { baseUrl: url.href }
+  return { baseUrl: url.href, token: value.token }
 }
 
 export interface LoadRemoteProfileOptions {
   environment?: NodeJS.ProcessEnv
+  inspectFile?: (profilePath: string) => Promise<{
+    isFile: () => boolean
+    isSymbolicLink: () => boolean
+    mode: number
+    uid: number
+  }>
+  platform?: NodeJS.Platform
   readFile?: (profilePath: string) => Promise<string>
+  uid?: number
 }
 
 export async function loadRemoteProfile({
   environment = process.env,
-  readFile = async (profilePath) => fs.readFile(profilePath, 'utf8')
+  inspectFile = (profilePath) => fs.lstat(profilePath),
+  platform = process.platform,
+  readFile = async (profilePath) => fs.readFile(profilePath, 'utf8'),
+  uid = typeof process.getuid === 'function' ? process.getuid() : -1
 }: LoadRemoteProfileOptions = {}): Promise<RemoteProfile | null> {
   const profilePath = environment[REMOTE_PROFILE_ENVIRONMENT_VARIABLE]
   if (profilePath === undefined || profilePath === '') return null
 
   let value: unknown
   try {
+    const stats = await inspectFile(profilePath)
+    if (
+      !stats.isFile() ||
+      stats.isSymbolicLink() ||
+      (platform !== 'win32' && (uid < 0 || stats.uid !== uid || (stats.mode & 0o077) !== 0))
+    ) throw invalidProfile()
     value = JSON.parse(await readFile(profilePath))
   } catch {
     throw invalidProfile()

@@ -104,21 +104,31 @@ The default-off `remoteCanonicalGatewayEnabled` setting is the only application
 switch for remote ingress. It can create a listener only when the running app
 is canonical rather than development or smoke, the configured canonical
 checkout and blessed branch still validate, and exact `markover:` handler
-inspection executes and reports healthy. The listener is
-`remote-gateway.sock` beneath canonical Application Support. Its parent is
-owner-only `0700`; the socket is owner-only `0600`. Startup removes only an
-inactive socket owned by the current account, refuses live or unowned paths,
-and records the created socket identity so shutdown cannot unlink a
-replacement. If a saved opt-in cannot meet those checks during startup,
+inspection executes and reports healthy. The gateway listens on the fixed
+backend `127.0.0.1:39831`, never on a LAN or Tailscale address. Startup refuses
+an occupied port. If a saved opt-in cannot meet those checks during startup,
 Markover turns it off and continues with the local app and service available.
 
-Tailscale Serve terminates HTTPS and proxies HTTP to that Unix socket. Markover
+Tailscale Serve terminates HTTPS and proxies HTTP to that loopback listener. Markover
 requires exactly one forwarded `Tailscale-App-Capabilities` JSON header with a
 nonempty `lastobelus.com/cap/markover-remote-client` grant. Missing, malformed,
 wrong, duplicate, or additional forwarded capabilities receive one bounded
-rejection before URL parsing or body reads. The socket modes provide the
-other-account boundary for direct local access; same-account processes,
-administrators, and root remain inside the documented trust boundary.
+rejection before URL parsing or body reads. The gateway also requires its own
+secret from the remote profile. The canonical credential is stable across
+restarts in owner-only `remote-gateway.token`; the remote profile must also be
+an owner-only regular file. The secret is never sent over HTTPS or loopback.
+Instead, health returns a short-lived nonce plus a server proof. The client
+verifies that proof, signs the nonce, method, path, and exact body digest, and
+the gateway consumes a valid nonce once before reading the body. JSON responses
+carry a proof bound to the nonce, status, and exact response bytes.
+
+This challenge-response exchange preserves the other-account boundary because
+a local account can reach loopback and forge proxy headers but cannot read
+either protected file. It also prevents a process that occupies the fixed port
+while Markover is stopped from impersonating health, harvesting the shared
+secret, replaying a request into a restarted gateway, or forging a JSON
+response. Same-account processes, administrators, and root remain inside the
+documented trust boundary.
 
 The authenticated remote surface is deliberately smaller than local protocol
 2:
@@ -140,8 +150,10 @@ quit. Remote health returns only protocol name/version, canonical role and
 scheme, and the current `discoverAgentThreadFromLocalSessions` policy. It omits
 the process, executable path, port, instance ID, and filesystem paths.
 
-The remote socket, Tailscale hop, and client never receive or publish
-`service.token`. After capability and route checks the gateway uses the
+The remote gateway, Tailscale hop, and client never receive or publish
+`service.token`. The dedicated gateway credential authorizes only this fixed
+remote surface; it is not accepted by local protocol 2. After capability,
+challenge proof, and route checks the gateway uses the
 canonical process's in-memory local-service identity for a loopback request,
 preserving the existing mutation queues, renderer
 barriers, `ReviewStore`, notifications, and shutdown behavior. Remote create
@@ -155,7 +167,7 @@ routing before accepting review bytes, and returns canonical-host-produced
 Request JSON is capped at 16 MiB and response JSON at 32 MiB, leaving room for
 the review envelope Markover adds during creation. Only one remote request is
 active at a time. Disable and shutdown stop admission, drain that bounded
-request, close the listener, and remove only its recorded socket. Tailscale
+request and close the loopback listener. Tailscale
 grants, Serve configuration, login/consent, HTTPS host selection, and
 certificate issuance remain manual; Markover never enables Funnel or a direct
 Tailscale-IP listener.
@@ -163,26 +175,35 @@ Tailscale-IP listener.
 Remote author handoffs project each referenced managed image to a private
 attachment route and remove the canonical filesystem path from that response.
 The remote client accepts only that exact review-and-attachment route and
-resolves it against its already-pinned canonical HTTPS profile; an absolute,
-cross-origin, queried, or fragmented gateway value fails closed. Projection and download
+resolves it against its already-pinned canonical HTTPS profile; an absolute or
+cross-origin gateway value fails closed, as does any missing, expired,
+malformed, or additional query authorization. Projection and download
 reload the current artifact, require one exact attachment reference, reuse the
 managed attachment directory/basename and double-realpath allowlist, reject
 symlinks, and open the checked file without following links. Before returning
 bytes, the gateway verifies the bounded file length, SHA-256 checksum, and PNG
 or JPEG signature. Stored JSON and reviewer-agent artifacts are not rewritten.
-The download route repeats the same Serve capability check before route
-selection and returns private, non-cacheable, nosniff responses.
+The projected URL carries a five-minute proof bound only to that review,
+attachment, and running gateway instance; it does not reveal the shared gateway
+credential or authorize JSON operations. A restart invalidates outstanding
+URLs, and a new handoff returns fresh ones. The download route repeats the Serve
+capability check before route selection and returns private, non-cacheable,
+nosniff responses with a proof over the exact bytes. The shared remote client
+checks that proof, MIME type, and projected attachment checksum.
 
 The advanced-user pilot gate remains the finite two-host acceptance in issue
 #187. The investigated canonical configuration is Tailscale Standalone 1.102.2
-with a Unix-socket Serve target and `--accept-app-caps`; general-user promotion
-still requires the live two-host test, exact-device authorization/revocation,
-manual Safari consent where required, and a fresh-machine compatibility
-doctor. The minimum supported capability-forwarding version is 1.92.
+with a loopback HTTP Serve target and `--accept-app-caps`; general-user
+promotion still requires the live two-host test, exact-device
+authorization/revocation, secure credential transfer, manual Safari consent
+where required, and a fresh-machine compatibility doctor. The minimum
+supported capability-forwarding version is 1.92.
 
 Primary implementation and evidence:
 
 - [`src/remote-gateway.ts`](../../src/remote-gateway.ts)
+- [`src/remote-gateway-auth.ts`](../../src/remote-gateway-auth.ts)
+- [`src/remote-gateway-credential.ts`](../../src/remote-gateway-credential.ts)
 - [`src/remote-attachments.ts`](../../src/remote-attachments.ts)
 - [`src/main.ts`](../../src/main.ts)
 - [`test/remote-gateway.test.ts`](../../test/remote-gateway.test.ts)

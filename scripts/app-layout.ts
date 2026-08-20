@@ -40,6 +40,8 @@ export const runtimeModuleNames = [
   'review-project-context',
   'remote-attachments',
   'remote-gateway',
+  'remote-gateway-auth',
+  'remote-gateway-credential',
   'review-store',
   'review-url',
   'review-url-dispatcher',

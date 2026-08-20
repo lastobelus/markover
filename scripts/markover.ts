@@ -215,9 +215,9 @@ export function helpPayload() {
       installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first local use. Configured remote author commands do not download or launch a local app.'
     },
     remoteCanonical: {
-      configuration: `Set ${REMOTE_PROFILE_ENVIRONMENT_VARIABLE} to a JSON file containing exactly {"baseUrl":"https://<canonical-host>.ts.net[:<https-port>]/"}.`,
+      configuration: `Set ${REMOTE_PROFILE_ENVIRONMENT_VARIABLE} to an owner-only JSON file containing exactly {"baseUrl":"https://<canonical-host>.ts.net[:<https-port>]/","token":"<gateway-token>"}.`,
       commands: ['open', 'pending', 'get', 'edit', 'revise', 'done'],
-      behavior: 'A valid profile uses canonical Markover on the configured host without downloading, launching, or storing a second Markover app on the client Mac. Thread and Git discovery remain local; attachments and reviewer mode are unavailable.'
+      behavior: 'A valid profile uses canonical Markover on the configured host without downloading, launching, or storing a second Markover app on the client Mac. Thread and Git discovery remain local; checked attachment URLs carry short-lived, attachment-scoped access and reviewer mode is unavailable.'
     },
     workflow: [
       'Create the Markdown file before opening it.',
@@ -1728,8 +1728,7 @@ export async function executeCommand(
           : {}),
         ...(requestOptions.mutation === undefined
           ? {}
-          : { mutation: requestOptions.mutation }),
-        preflight: false
+          : { mutation: requestOptions.mutation })
       })
       return validateRemoteAttachmentUrls(profile, response)
     }

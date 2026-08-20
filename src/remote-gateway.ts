@@ -1,11 +1,8 @@
-import fs from 'node:fs/promises'
 import http, {
   type IncomingHttpHeaders,
   type IncomingMessage,
   type ServerResponse
 } from 'node:http'
-import net from 'node:net'
-import path from 'node:path'
 
 import type { ResolvedInstance } from './instance'
 import {
@@ -16,6 +13,14 @@ import {
   MAXIMUM_BODY_BYTES
 } from './local-service'
 import { reviewUrl } from './review-url'
+import {
+  RemoteAttachmentAccessStore,
+  remoteAttachmentResponseAuthorization,
+  RemoteGatewayChallengeStore,
+  remoteContentDigest,
+  remoteResponseAuthorization,
+  REMOTE_GATEWAY_RESPONSE_AUTH_HEADER
+} from './remote-gateway-auth'
 import {
   projectRemoteAttachments,
   readVerifiedRemoteAttachment,
@@ -31,7 +36,8 @@ export const REMOTE_GATEWAY_REQUEST_DIGEST_HEADER =
   'markover-request-digest'
 export const REMOTE_GATEWAY_PROTOCOL_VERSION = 1
 export const MAXIMUM_REMOTE_RESPONSE_BYTES = MAXIMUM_BODY_BYTES * 2
-export const REMOTE_GATEWAY_SOCKET_NAME = 'remote-gateway.sock'
+export const REMOTE_GATEWAY_HOST = '127.0.0.1'
+export const REMOTE_GATEWAY_PORT = 39_831
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const REQUEST_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/
@@ -43,27 +49,23 @@ interface ProxyResponse {
   statusCode: number
 }
 
-interface SocketIdentity {
-  dev: number
-  ino: number
-}
-
 export interface RemoteGateway {
-  socketPath: string
+  host: typeof REMOTE_GATEWAY_HOST
+  port: number
   close: () => Promise<void>
 }
 
 export interface RemoteGatewayOptions {
-  socketPath: string
+  gatewayToken: string
   localPort: number
   localToken: string
   discoveryPolicy: () => boolean
   routingReady: () => Promise<void>
   loadAttachment: LoadRemoteAttachment
   maximumResponseBytes?: number
+  now?: () => number
+  port?: number
   scheme?: string
-  platform?: NodeJS.Platform
-  uid?: number
 }
 
 export class RemoteGatewayError extends Error {
@@ -86,10 +88,6 @@ function errorCode(error: unknown): unknown {
 
 function gatewayError(code: string, message: string): RemoteGatewayError {
   return new RemoteGatewayError(code, message)
-}
-
-export function remoteGatewaySocketPath(stateRoot: string): string {
-  return path.join(stateRoot, REMOTE_GATEWAY_SOCKET_NAME)
 }
 
 export function remoteGatewayActivationEligible(
@@ -119,15 +117,27 @@ export function remoteGatewayHostEligible(
 function sendJson(
   response: ServerResponse,
   statusCode: number,
-  body: unknown
+  body: unknown,
+  authorization?: { nonce: string; token: string }
 ): void {
   const contents = `${JSON.stringify(body)}\n`
+  const bytes = Buffer.from(contents)
   response.writeHead(statusCode, {
     connection: 'close',
-    'content-length': Buffer.byteLength(contents),
-    'content-type': 'application/json; charset=utf-8'
+    'content-length': bytes.byteLength,
+    'content-type': 'application/json; charset=utf-8',
+    ...(authorization
+      ? {
+          [REMOTE_GATEWAY_RESPONSE_AUTH_HEADER]: remoteResponseAuthorization(
+            authorization.token,
+            authorization.nonce,
+            statusCode,
+            bytes
+          )
+        }
+      : {})
   })
-  response.end(contents)
+  response.end(bytes)
 }
 
 function assertResponseBound(body: unknown, maximumBytes: number): void {
@@ -335,103 +345,56 @@ function pendingResponseWithUrls(body: unknown, scheme: string): unknown {
   }
 }
 
-async function socketIsListening(socketPath: string): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection(socketPath)
-    socket.once('connect', () => {
-      socket.destroy()
-      resolve(true)
-    })
-    socket.once('error', (error: NodeJS.ErrnoException) => {
-      socket.destroy()
-      if (error.code === 'ECONNREFUSED' || error.code === 'ENOENT') {
-        resolve(false)
-      } else {
-        reject(error)
+function authorizeProjectedAttachmentUrls(
+  value: unknown,
+  accessStore: RemoteAttachmentAccessStore
+): unknown {
+  if (!isRecord(value) || !isRecord(value.review) || typeof value.review.id !== 'string') {
+    return value
+  }
+  const reviewId = value.review.id
+  const visit = (entry: unknown): void => {
+    if (!isRecord(entry)) return
+    if (Array.isArray(entry.attachments)) {
+      for (const attachment of entry.attachments) {
+        if (!isRecord(attachment) || typeof attachment.id !== 'string') continue
+        const expectedPath = `/reviews/${encodeURIComponent(reviewId)}/attachments/${encodeURIComponent(attachment.id)}`
+        if (attachment.url !== expectedPath) continue
+        const access = accessStore.create(
+          reviewId,
+          attachment.id
+        )
+        attachment.url = `${expectedPath}?access=${access}`
       }
-    })
-  })
-}
-
-async function prepareSocketPath(
-  socketPath: string,
-  uid: number
-): Promise<void> {
-  const parent = path.dirname(socketPath)
-  await fs.mkdir(parent, { recursive: true, mode: 0o700 })
-  const parentStats = await fs.lstat(parent)
-  if (!parentStats.isDirectory() || parentStats.isSymbolicLink()) {
-    throw gatewayError(
-      'REMOTE_GATEWAY_PARENT_INVALID',
-      'The remote gateway parent must be an owned directory.'
-    )
-  }
-  if (parentStats.uid !== uid) {
-    throw gatewayError(
-      'REMOTE_GATEWAY_PARENT_UNOWNED',
-      'The remote gateway parent belongs to another account.'
-    )
-  }
-  await fs.chmod(parent, 0o700)
-
-  let socketStats
-  try {
-    socketStats = await fs.lstat(socketPath)
-  } catch (error) {
-    if (errorCode(error) === 'ENOENT') return
-    throw error
-  }
-  if (!socketStats.isSocket() || socketStats.uid !== uid) {
-    throw gatewayError(
-      'REMOTE_GATEWAY_SOCKET_UNOWNED',
-      'The remote gateway path is not an owned stale socket.'
-    )
-  }
-  if (await socketIsListening(socketPath)) {
-    throw gatewayError(
-      'REMOTE_GATEWAY_IN_USE',
-      'Another process is already listening on the remote gateway socket.'
-    )
-  }
-  await fs.unlink(socketPath)
-}
-
-async function removeOwnedSocket(
-  socketPath: string,
-  identity: SocketIdentity,
-  uid: number
-): Promise<void> {
-  try {
-    const stats = await fs.lstat(socketPath)
-    if (
-      stats.isSocket() &&
-      stats.uid === uid &&
-      stats.dev === identity.dev &&
-      stats.ino === identity.ino
-    ) {
-      await fs.unlink(socketPath)
     }
-  } catch (error) {
-    if (errorCode(error) !== 'ENOENT') throw error
+    if (Array.isArray(entry.children)) entry.children.forEach(visit)
   }
+  visit(value.root)
+  return value
 }
 
 export async function startRemoteGateway({
-  socketPath,
+  gatewayToken,
   localPort,
   localToken,
   discoveryPolicy,
   routingReady,
   loadAttachment,
   maximumResponseBytes = MAXIMUM_REMOTE_RESPONSE_BYTES,
-  scheme = 'markover',
-  platform = process.platform,
-  uid = typeof process.getuid === 'function' ? process.getuid() : -1
+  now = Date.now,
+  port = REMOTE_GATEWAY_PORT,
+  scheme = 'markover'
 }: RemoteGatewayOptions): Promise<RemoteGateway> {
-  if (platform === 'win32' || uid < 0) {
+  if (!IDEMPOTENCY_KEY_PATTERN.test(gatewayToken)) {
     throw gatewayError(
-      'REMOTE_GATEWAY_PLATFORM_UNSUPPORTED',
-      'The remote gateway requires an owner-mode Unix socket.'
+      'REMOTE_GATEWAY_CREDENTIAL_INVALID',
+      'The remote gateway credential is invalid.'
+    )
+  }
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw gatewayError(
+      'REMOTE_GATEWAY_PORT_INVALID',
+      'The remote gateway port is invalid.'
     )
   }
   if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65_535) {
@@ -448,10 +411,11 @@ export async function startRemoteGateway({
   }
 
   await routingReady()
-  await prepareSocketPath(socketPath, uid)
 
   let accepting = true
   let activeRequest: Promise<void> | null = null
+  const challenges = new RemoteGatewayChallengeStore(gatewayToken, now)
+  const attachmentAccess = new RemoteAttachmentAccessStore(gatewayToken, now)
 
   const handleRequest = async (
     request: IncomingMessage,
@@ -487,6 +451,7 @@ export async function startRemoteGateway({
 
     let resolveActive: () => void = () => {}
     activeRequest = new Promise<void>((resolve) => { resolveActive = resolve })
+    let responseAuthorization: { nonce: string; token: string } | undefined
     try {
       let url: URL
       try {
@@ -497,15 +462,14 @@ export async function startRemoteGateway({
         })
         return
       }
-      if (url.search || !allowedRemotePath(request.method, url.pathname)) {
-        sendJson(response, 404, {
-          error: { code: 'NOT_FOUND', message: 'Route not found.' }
-        })
-        return
-      }
-
-      await routingReady()
       if (request.method === 'GET' && url.pathname === '/health') {
+        if (url.search) {
+          sendJson(response, 404, {
+            error: { code: 'NOT_FOUND', message: 'Route not found.' }
+          })
+          return
+        }
+        await routingReady()
         sendJson(response, 200, {
           status: 'ok',
           protocol: {
@@ -514,7 +478,8 @@ export async function startRemoteGateway({
           },
           role: 'canonical',
           scheme,
-          discoverAgentThreadFromLocalSessions: discoveryPolicy()
+          discoverAgentThreadFromLocalSessions: discoveryPolicy(),
+          authorization: challenges.create()
         })
         return
       }
@@ -523,6 +488,23 @@ export async function startRemoteGateway({
         url.pathname
       )
       if (request.method === 'GET' && attachmentRoute) {
+        if (
+          url.searchParams.size !== 1 ||
+          !attachmentAccess.verify(
+            attachmentRoute[1] as string,
+            attachmentRoute[2] as string,
+            url.searchParams.get('access')
+          )
+        ) {
+          sendJson(response, 403, {
+            error: {
+              code: 'REMOTE_ATTACHMENT_AUTHORIZATION_REQUIRED',
+              message: 'Remote attachment authorization required.'
+            }
+          })
+          return
+        }
+        await routingReady()
         const attachment = await readVerifiedRemoteAttachment(
           attachmentRoute[1] as string,
           attachmentRoute[2] as string,
@@ -533,16 +515,59 @@ export async function startRemoteGateway({
           connection: 'close',
           'content-length': attachment.bytes.byteLength,
           'content-type': attachment.mimeType,
-          'x-content-type-options': 'nosniff'
+          'x-content-type-options': 'nosniff',
+          [REMOTE_GATEWAY_RESPONSE_AUTH_HEADER]: remoteAttachmentResponseAuthorization(
+            gatewayToken,
+            url.searchParams.get('access') as string,
+            200,
+            attachment.bytes
+          )
         })
         response.end(attachment.bytes)
         return
       }
 
+      const requestAuthorization = challenges.authorize(
+        request.headers,
+        request.method || 'POST',
+        `${url.pathname}${url.search}`
+      )
+      if (!requestAuthorization) {
+        sendJson(response, 403, {
+          error: {
+            code: 'REMOTE_CREDENTIAL_REQUIRED',
+            message: 'Remote Markover credential proof required.'
+          }
+        })
+        return
+      }
+      responseAuthorization = {
+        nonce: requestAuthorization.nonce,
+        token: gatewayToken
+      }
+
+      if (url.search || !allowedRemotePath(request.method, url.pathname)) {
+        sendJson(response, 404, {
+          error: { code: 'NOT_FOUND', message: 'Route not found.' }
+        }, responseAuthorization)
+        return
+      }
+
+      await routingReady()
+
       const attempt = url.pathname === '/reviews'
         ? validatedAttemptHeaders(request)
         : null
       const requestBytes = await readRequestBytes(request)
+      if (remoteContentDigest(requestBytes) !== requestAuthorization.contentDigest) {
+        sendJson(response, 400, {
+          error: {
+            code: 'REMOTE_CONTENT_DIGEST_MISMATCH',
+            message: 'Remote request content digest does not match.'
+          }
+        }, responseAuthorization)
+        return
+      }
       let internalPath = url.pathname
       let internalBody = requestBytes
       let internalHeaders: Record<string, string> = {}
@@ -589,9 +614,10 @@ export async function startRemoteGateway({
           body,
           loadAttachment
         )
+        body = authorizeProjectedAttachmentUrls(body, attachmentAccess)
       }
       assertResponseBound(body, maximumResponseBytes)
-      sendJson(response, proxied.statusCode, body)
+      sendJson(response, proxied.statusCode, body, responseAuthorization)
     } catch (error) {
       const code = errorCode(error)
       const statusCode = code === 'BODY_TOO_LARGE'
@@ -609,7 +635,7 @@ export async function startRemoteGateway({
           code: typeof code === 'string' ? code : 'REMOTE_GATEWAY_FAILURE',
           message: error instanceof Error ? error.message : String(error)
         }
-      })
+      }, responseAuthorization)
     } finally {
       resolveActive()
       activeRequest = null
@@ -622,25 +648,30 @@ export async function startRemoteGateway({
   server.requestTimeout = REQUEST_TIMEOUT_MILLISECONDS
   server.headersTimeout = REQUEST_TIMEOUT_MILLISECONDS
 
-  let startedSocketIdentity: SocketIdentity | null = null
   try {
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject)
-      server.listen(socketPath, resolve)
+      server.listen({
+        exclusive: true,
+        host: REMOTE_GATEWAY_HOST,
+        port
+      }, resolve)
     })
-    await fs.chmod(socketPath, 0o600)
-    const stats = await fs.lstat(socketPath)
-    if (!stats.isSocket() || stats.uid !== uid) {
+    const address = server.address()
+    if (
+      !address ||
+      typeof address === 'string' ||
+      address.address !== REMOTE_GATEWAY_HOST
+    ) {
       throw gatewayError(
-        'REMOTE_GATEWAY_SOCKET_INVALID',
-        'The remote gateway did not create an owned Unix socket.'
+        'REMOTE_GATEWAY_BIND_INVALID',
+        'The remote gateway did not bind the exact loopback address.'
       )
     }
-    const socketIdentity = { dev: stats.dev, ino: stats.ino }
-    startedSocketIdentity = socketIdentity
     let closePromise: Promise<void> | null = null
     return {
-      socketPath,
+      host: REMOTE_GATEWAY_HOST,
+      port: address.port,
       close: () => {
         accepting = false
         closePromise ||= new Promise<void>((resolve, reject) => {
@@ -648,7 +679,6 @@ export async function startRemoteGateway({
           server.closeIdleConnections()
         }).then(async () => {
           await activeRequest
-          await removeOwnedSocket(socketPath, socketIdentity, uid)
         })
         return closePromise
       }
@@ -662,8 +692,11 @@ export async function startRemoteGateway({
       }
       server.close(() => { resolve() })
     })
-    if (startedSocketIdentity) {
-      await removeOwnedSocket(socketPath, startedSocketIdentity, uid)
+    if (errorCode(error) === 'EADDRINUSE') {
+      throw gatewayError(
+        'REMOTE_GATEWAY_IN_USE',
+        'Another process is already listening on the remote gateway port.'
+      )
     }
     throw error
   }

@@ -25,6 +25,7 @@ import type { CanonicalDoctorResult } from '../src/canonical-maintenance'
 import type { LinkHandlerMutationResult } from '../src/link-handler'
 import type { AddressedDevelopmentBundle } from '../scripts/development-bundle'
 import { guidance } from '../src/agent-guidance'
+import { createRemoteGatewayChallenge } from '../src/remote-gateway-auth'
 import { LocalServiceError } from '../src/local-client'
 import { RemoteClientError } from '../src/remote-client'
 import { startLocalService, type LocalService } from '../src/local-service'
@@ -1282,7 +1283,8 @@ test('remote profile routes all author commands without resolving or starting a 
   let discoveryCalls = 0
   const options: ExecuteCommandOptions = {
     loadRemoteProfile: () => Promise.resolve({
-      baseUrl: 'https://canonical.example.ts.net/'
+      baseUrl: 'https://canonical.example.ts.net/',
+      token: 'A'.repeat(43)
     }),
     readRemoteHealth() {
       healthReads += 1
@@ -1291,7 +1293,12 @@ test('remote profile routes all author commands without resolving or starting a 
         protocol: { name: 'markover-remote', version: 1 },
         role: 'canonical',
         scheme: 'markover',
-        discoverAgentThreadFromLocalSessions: false
+        discoverAgentThreadFromLocalSessions: false,
+        authorization: createRemoteGatewayChallenge(
+          'A'.repeat(43),
+          Date.now(),
+          'N'.repeat(43)
+        )
       })
     },
     remoteJournalRoot: path.join(directory, 'journal'),
@@ -1311,7 +1318,6 @@ test('remote profile routes all author commands without resolving or starting a 
     },
     requestRemote(_profile, method, requestPath, body, requestOptions) {
       assert.ok(requestOptions)
-      assert.equal(requestOptions.preflight, false)
       requests.push({ method, path: requestPath, body })
       if (requestPath === '/reviews') {
         assert.equal(typeof requestOptions.headers?.['idempotency-key'], 'string')
@@ -1416,14 +1422,20 @@ test('uncertain remote open recovers by key before rereading the source', async 
   let discoveryCalls = 0
   const options: ExecuteCommandOptions = {
     loadRemoteProfile: () => Promise.resolve({
-      baseUrl: 'https://canonical.example.ts.net/'
+      baseUrl: 'https://canonical.example.ts.net/',
+      token: 'A'.repeat(43)
     }),
     readRemoteHealth: () => Promise.resolve({
       status: 'ok',
       protocol: { name: 'markover-remote', version: 1 },
       role: 'canonical',
       scheme: 'markover',
-      discoverAgentThreadFromLocalSessions: true
+      discoverAgentThreadFromLocalSessions: true,
+      authorization: createRemoteGatewayChallenge(
+        'A'.repeat(43),
+        Date.now(),
+        'N'.repeat(43)
+      )
     }),
     remoteJournalRoot: path.join(directory, 'journal'),
     discoverMetadata() {
@@ -1481,14 +1493,20 @@ test('remote open recovers a delayed own attempt through digest history', async 
   let discoveryCalls = 0
   const options: ExecuteCommandOptions = {
     loadRemoteProfile: () => Promise.resolve({
-      baseUrl: 'https://canonical.example.ts.net/'
+      baseUrl: 'https://canonical.example.ts.net/',
+      token: 'A'.repeat(43)
     }),
     readRemoteHealth: () => Promise.resolve({
       status: 'ok',
       protocol: { name: 'markover-remote', version: 1 },
       role: 'canonical',
       scheme: 'markover',
-      discoverAgentThreadFromLocalSessions: true
+      discoverAgentThreadFromLocalSessions: true,
+      authorization: createRemoteGatewayChallenge(
+        'A'.repeat(43),
+        Date.now(),
+        'N'.repeat(43)
+      )
     }),
     remoteJournalRoot: path.join(directory, 'journal'),
     discoverMetadata() {

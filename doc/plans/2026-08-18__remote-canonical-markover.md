@@ -15,8 +15,8 @@ Build one opt-in **remote-client → remote-canonical seam**:
 Remote client host Markover CLI
   → HTTPS to the canonical host’s exact *.ts.net name
   → Tailscale Serve (tailnet-only; never Funnel)
-  → mode-restricted Unix socket owned by canonical Markover
-  → constrained gateway in the canonical app
+  → fixed loopback-only gateway in canonical Markover
+  → exact Tailscale capability plus scoped challenge-response proof
   → existing authenticated local-service mutation core
   → existing queues, ReviewStore, SettingsStore, renderer, and UI
 ```
@@ -30,7 +30,7 @@ This is a narrow feature, not configuration-only support. The first delivery is
 a two-host pilot. General-user promotion follows only after the installed
 Tailscale variants, setup doctor, revocation, and privacy disclosures are
 proven. Unsupported transport fails closed; it never falls back to Funnel,
-direct Tailscale-IP binding, a second store, or a loopback gateway.
+direct Tailscale-IP binding, a second store, or an uncredentialed loopback gateway.
 
 ## Product decisions
 
@@ -66,10 +66,11 @@ direct Tailscale-IP binding, a second store, or a loopback gateway.
    `discoverAgentThreadFromLocalSessions` setting. That snapshot governs
    local discovery on the remote client host for the command; explicit thread identity remains
    authoritative. No remote-client settings writer or settings route is added.
-7. **The gateway setting is canonical and live.** Enable creates the owned
-   socket. Disable stops new requests, drains the bounded active request,
-   closes the gateway, and removes only its socket. Development and smoke
-   instances cannot activate it.
+7. **The gateway setting is canonical and live.** Enable loads or creates one
+   owner-only, scoped gateway credential and binds only fixed
+   `127.0.0.1:39831`. Disable stops new requests, drains the bounded active
+   request, and closes the gateway. Development and smoke instances cannot
+   activate it.
 
 ## Tailscale evidence and boundary
 
@@ -86,18 +87,14 @@ Expose a service listening on a Unix socket (Linux/macOS/BSD only):
 tailscale serve unix:/var/run/myservice.sock
 ```
 
-It also advertises `--accept-app-caps`. This is stronger pilot evidence than
-an inference from the online examples. Tailscale’s macOS restriction on
-directly serving files and directories does not establish a restriction on
-reverse-proxying an HTTP service through a Unix socket; those are different
-Serve targets. Two things keep the live Serve → Markover-socket hop as
-mandatory acceptance: the current online
-[Serve CLI reference](https://tailscale.com/docs/reference/tailscale-cli/serve)
-does not document the Unix target as clearly as the installed CLI
-(documentation drift, recorded here rather than treated as a restriction),
-and the process that dials the socket at request time is the network
-extension, not the CLI that printed the help — extension reachability of a
-socket under the user’s state root is proven only by the live hop.
+It also advertises `--accept-app-caps`. The live pilot proved that the
+Standalone macOS network extension accepts a Unix target but cannot connect to
+a socket beneath the user's Application Support tree: its proxy log reports
+`operation not permitted`, and its App Sandbox entitlements do not grant that
+tree. Direct owner access to the same healthy Markover socket succeeds. The
+pilot therefore uses Tailscale's documented loopback HTTP reverse proxy while
+keeping the exact capability gate and adding challenge-response authentication
+from a separate scoped credential to preserve the other-account boundary.
 
 Use Tailscale Serve, never Funnel:
 
@@ -109,19 +106,27 @@ Use Tailscale Serve, never Funnel:
   `lastobelus.com/cap/markover-remote-client`; forwarding requires Tailscale
   1.92 or newer
   ([Serve identity headers](https://tailscale.com/docs/features/tailscale-serve#identity-headers)).
-- Bind TCP 443 and the capability to the exact remote-client host selector and exact
-  the canonical host destination. Prefer a readable host alias over a raw Tailscale IP. A
+- Bind one dedicated HTTPS port and the capability to the exact remote-client
+  host selector and exact canonical host destination. Do not replace or
+  modify another handler already at the root HTTPS endpoint. Prefer a readable host alias over a raw Tailscale IP. A
   user-wide selector is too broad because the canonical host and the remote client host share one user
   identity ([grant selectors](https://tailscale.com/docs/reference/syntax/grants)).
-- Accept the Serve capability before route selection or body parsing. The
-  network never receives `service.token`.
+- Accept the Serve capability and a fresh request proof from the dedicated
+  gateway credential before route selection or body parsing. Neither the
+  gateway credential nor `service.token` crosses the network.
 
 Serve strips client-supplied identity/capability headers before forwarding its
-own. The socket restores the existing OS-account boundary for direct local
-access: its parent is `0700` and the socket is owner-only. Another ordinary
-macOS account cannot reach HTTP parsing. A process running as the same
-account, an administrator, or root remains inside Markover’s documented local
-trust boundary and is not claimed to be isolated.
+own. Loopback is reachable by another local account, so the capability header
+alone is insufficient: that account could forge it. Canonical Markover stores
+a stable gateway credential in owner-only `remote-gateway.token`, and the
+remote client reads the same credential from an owner-only profile. Health
+proves server possession before the client sends a nonce-, method-, path-, and
+body-bound proof; the gateway consumes the nonce once and authenticates its
+JSON response. Another ordinary account can reach HTTP but cannot authenticate,
+and a process occupying the fixed port cannot forge health or harvest the
+shared credential. A process running as
+the same account, an administrator, or root remains inside Markover’s
+documented local trust boundary and is not claimed to be isolated.
 
 Any Tailscale login or HTTPS-consent URL is printed for manual Safari use.
 Markover does not drive OAuth or edit tailnet policy. HTTPS certificate
@@ -135,7 +140,7 @@ The first implementation stack must deliberately amend existing records:
 
 - [`DECISIONS.md`](../../DECISIONS.md) retains local protocol 2 as plain loopback
   HTTP with its protected bearer. It adds a separate, default-off remote
-  ingress and records why its mode-restricted socket preserves the
+  ingress and records why a separate scoped credential preserves the
   other-account boundary that an uncredentialed loopback gateway would lose.
 - The retained “no automatic review upload” statement gains one exception: a
   user-enabled remote client sends a requested review from an exactly
@@ -150,14 +155,14 @@ The first implementation stack must deliberately amend existing records:
   Tailscale dependency, canonical-host storage, remote-source boundary, and certificate
   name disclosure.
 
-The Unix socket protects the remote ingress boundary without replacing the
-local bearer service. Glossary changes wait until PR finalization, when
+The dedicated gateway credential protects the loopback ingress without replacing
+or exposing the local bearer service. Glossary changes wait until PR finalization, when
 recurring terms can be judged from actual implementation.
 
 ## Complexity-brake dispositions
 
-- Gateway protocol: **narrow** to one capability, one canonical socket, and a
-  fixed author-agent route set.
+- Gateway protocol: **narrow** to one capability, one scoped challenge-response
+  credential, one fixed loopback listener, and a fixed author-agent route set.
 - Remote-client journal: **narrow** to an invocation fingerprint, raw key, the digest
   history of sent request bodies, canonical URL, operation state, and
   eventual receipt; no review body or discovered metadata.
@@ -209,7 +214,7 @@ serialized atomic settings writer.
 | Request bound | Reuse the existing 16 MiB JSON limit. |
 | Attachment containment | Reuse `InternalAttachmentAllowlist` rules from persisted artifact entries ([internal-protocol.ts](../../src/internal-protocol.ts#L114)). |
 | Store origin input | Reuse; the producer boundary, not the store type, changes. |
-| Gateway, owned socket, remote health | New. Existing endpoint publication is port-only. |
+| Gateway, scoped credential, remote health | New. Existing local endpoint publication uses a different rotating credential. |
 | HTTPS client and remote profile | New. Existing client uses `node:http`. |
 | Response bound and remote timeout | New. Current responses are unbounded and the local timeout is 2000 ms. |
 | Creation receipt and key recovery | New. Store create always allocates a fresh ID. |
@@ -227,7 +232,8 @@ startup requires all of:
   validate;
 - exact `markover:` handler inspection that actually executes and is healthy;
 - the default-off canonical setting enabled; and
-- an owned, mode-restricted socket path under the canonical state root.
+- a fixed loopback-only gateway port plus an owner-only scoped credential
+  under the canonical state root.
 
 Remote create fails if routing inspection is vacuous or unhealthy. The canonical host
 returns `markover://review/<id>` only after that check. Each remote `pending`
@@ -236,7 +242,8 @@ item also contains its canonical-host-produced URL.
 The setting lands through all coordinated settings seams: defaults,
 normalization, IPC key/validation, and dialog wiring. Tests prove the value is
 not silently discarded by `normalizeSettings` and exercise enable, disable,
-active-request drain, stale socket, smoke, unset environment, and shutdown.
+active-request drain, occupied port, credential modes, smoke, unset
+environment, and shutdown.
 
 ## Remote route boundary
 
@@ -389,17 +396,21 @@ Run against the canonical host and remote client host, not two development store
 
 1. Prove canonical doctor/descriptor/handler health, non-smoke identity, and
    Funnel absent. **Record** the installed Tailscale variant and version and
-   **require** version ≥ 1.92 with the `unix:` Serve target and
+   **require** version ≥ 1.92 with loopback HTTP proxying and
    `--accept-app-caps` advertised by the installed CLI (at investigation
-   time: Standalone 1.102.2, `io.tailscale.ipn.macsys`). Prove exact socket
-   and parent modes, Serve targeting that socket, no LAN/Tailscale-IP
-   Markover listener, and a live Serve → socket health hop.
-2. Grant exact remote-client host alias → exact canonical-host TCP 443 plus the app capability.
+   time: Standalone 1.102.2, `io.tailscale.ipn.macsys`). Prove the exact
+   loopback bind and credential modes, additive Serve targeting that port, no
+   LAN/Tailscale-IP Markover listener, and a live Serve → loopback health hop.
+2. Grant exact remote-client host alias → the dedicated canonical-host HTTPS port plus the app capability.
    Prove another same-user tailnet node cannot pass Serve authorization;
    prove spoofed remote headers are stripped. As another ordinary local macOS
-   account, prove socket access fails before HTTP. Record that the canonical host
-   same-account/root processes remain inside the documented boundary.
-3. Configure the remote client host’s exact HTTPS profile. Complete auth/consent only in
+   account, prove forged proxy headers still fail without a valid challenge
+   proof. Prove a fixed-port occupant cannot forge health, obtain the shared
+   credential, replay a proof after restart, or forge a JSON response.
+   Record that the canonical host same-account/root processes remain inside
+   the documented boundary.
+3. Copy the scoped gateway credential through a private channel into an owner-only remote
+   profile with the exact HTTPS base URL. Complete auth/consent only in
    Safari. Prove HTTP, IP URL, redirect, certificate/name, protocol, and
    canonical-role failures occur before review bytes.
 4. Toggle canonical-host discovery off/on. Prove each remote-health snapshot governs
@@ -412,8 +423,11 @@ Run against the canonical host and remote client host, not two development store
    no source/Git discovery and returns unavailable/Other — asserted on the
    create/publication path itself, before any UI interaction.
 7. Open the URL on the canonical host. Add feedback and a screenshot while editing; `get`
-   on the remote client host returns all feedback and a private checked URL, omits the canonical-host
-   path, leaves stored JSON unchanged, and denies another node.
+   on the remote client host returns all feedback and a short-lived,
+   attachment-and-gateway-scoped private URL, omits the canonical-host path,
+   leaves stored JSON unchanged, and denies another node. Fetch the bytes
+   through the shared remote client and prove its response authentication,
+   MIME, and projected-checksum checks reject a fixed-port imposter.
 8. Exercise `edit → get → revise` on the same review and PR-observed `done`
    on matching reviews only; no source file on the canonical host changes.
 9. Lose the initial response after commit and after publication. Rerun the
@@ -430,9 +444,9 @@ Run against the canonical host and remote client host, not two development store
    `--pr-status` caveat.
 10. Disable/re-enable the gateway and quit/relaunch the canonical host with editing and
     pending-agent reviews. Prove the remote client host fails closed while unavailable and the
-    unchanged Serve configuration reaches the recreated socket afterward.
+    unchanged Serve configuration reaches the recreated loopback listener afterward.
 
-Acceptance requires the real two-host grant, Serve-to-socket hop, deep
+Acceptance requires the real two-host grant, Serve-to-loopback hop, deep
 link, attachment bytes, enable/disable, and restart.
 
 ## Four-PR implementation stack
@@ -458,7 +472,7 @@ Done when:
   missing/mismatched/duplicate receipts, no notification replay, and
   unchanged ordinary local create.
 
-Excludes socket, Tailscale, remote CLI, attachments, and reachable ingress.
+Excludes gateway transport, Tailscale, remote CLI, attachments, and reachable ingress.
 
 ### Slice B — Canonical gateway and trust boundary
 
@@ -467,11 +481,13 @@ Base: Slice A.
 Done when:
 
 - the setting lands through defaults, normalizer, IPC validation, and dialog;
-  its value persists and safely owns live socket lifecycle under the
+  its value persists and safely owns live loopback lifecycle under the
   strengthened canonical predicate;
-- parent/socket modes, other-account denial, stale ownership, active drain,
-  shutdown, smoke, and unset-environment cases are covered;
-- the gateway requires the Serve capability before route/body handling,
+- credential modes, exact loopback bind, occupied port, other-account denial,
+  active drain, shutdown, smoke, and unset-environment cases are covered;
+- the gateway requires the Serve capability and a fresh scoped request proof
+  before route/body handling, proves JSON responses, and never transmits the
+  shared gateway credential;
   implements only the fixed author allowlist plus create recovery, and
   returns authenticated `404` elsewhere;
 - remote health exposes protocol/canonical identity and the canonical host’s discovery
@@ -529,11 +545,11 @@ and a second canonical store.
 ## General-user promotion
 
 After the pilot, an advanced bring-your-own-Tailscale release requires a
-fresh-machine doctor proving supported platforms, installed Serve socket/cap
+fresh-machine doctor proving supported platforms, installed Serve loopback/cap
 behavior, exact-device authorization/revocation, Safari-only auth, privacy/CT
 disclosures, and failure without fallback. The support matrix uses both
 current official documentation and executable capability tests; it does not
-extrapolate from the canonical host or conflate file serving with Unix-socket service
+extrapolate from the canonical host or conflate file serving with reverse
 proxying.
 
 Cross-user collaboration, policy automation, internet relay, and OIDC remain
@@ -546,7 +562,8 @@ separate decisions.
 | Sync Application Support | Decline | Competing writers and non-atomic lifecycle sync. |
 | Canonical Markover on the remote client host | Decline | Breaks one canonical app/store/UI. |
 | Copy local service credentials | Decline | Rotating full-access capability becomes a network secret. |
-| Stable loopback gateway | Decline | Other local accounts can connect and forge proxy headers unless another credential is added; the socket preserves the existing account boundary. |
+| Uncredentialed loopback gateway | Decline | Other local accounts can connect and forge proxy headers. |
+| Challenge-response loopback gateway | Accept for pilot | The shared credential restores the account boundary without crossing loopback or exposing the full local-service credential; single-use proofs also survive fixed-port takeover safely. |
 | Direct Tailscale-IP listener | Decline | Widens listener and duplicates TLS/network identity. |
 | Tailscale SSH wrapper | Defer | Broader shell authority and incomplete review/attachment contract. |
 | OIDC/tsidp | Defer | Adds an unnecessary second auth lifecycle for the pilot. |
