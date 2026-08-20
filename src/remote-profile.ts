@@ -43,7 +43,7 @@ export function parseRemoteProfile(value: unknown): RemoteProfile {
     url.protocol !== 'https:' ||
     url.username !== '' ||
     url.password !== '' ||
-    url.port !== '' ||
+    (url.port !== '' && Number(url.port) < 1) ||
     url.pathname !== '/' ||
     url.search !== '' ||
     url.hash !== '' ||

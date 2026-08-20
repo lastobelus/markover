@@ -173,7 +173,7 @@ function creationReceiptDigest(value: unknown): unknown {
     : null
 }
 
-test('remote profile is opt-in and accepts only an exact root HTTPS ts.net URL', async () => {
+test('remote profile is opt-in and accepts only an exact root HTTPS ts.net endpoint', async () => {
   assert.equal(await loadRemoteProfile({ environment: {} }), null)
 
   let readPath = ''
@@ -187,6 +187,9 @@ test('remote profile is opt-in and accepts only an exact root HTTPS ts.net URL',
     }
   }), { baseUrl: 'https://canonical.example.ts.net/' })
   assert.equal(readPath, '/profiles/canonical.json')
+  assert.deepEqual(parseRemoteProfile({
+    baseUrl: 'https://canonical.example.ts.net:8443/'
+  }), { baseUrl: 'https://canonical.example.ts.net:8443/' })
 
   for (const baseUrl of [
     'http://canonical.example.ts.net/',
@@ -194,6 +197,8 @@ test('remote profile is opt-in and accepts only an exact root HTTPS ts.net URL',
     'https://canonical.example.ts.net/reviews',
     'https://canonical.example.ts.net/?details=1',
     'https://canonical.example.ts.net/#health',
+    'https://canonical.example.ts.net:0/',
+    'https://canonical.example.ts.net:65536/',
     'https://127.0.0.1/',
     'https://example.com/'
   ]) {
@@ -220,6 +225,12 @@ test('health pins protocol identity and exposes the boolean discovery snapshot',
   assert.equal(request.options.port, 443)
   assert.equal(request.options.path, '/health')
   assert.equal(request.options.agent, false)
+
+  const portTransport = fakeTransport([{ statusCode: 200, body: validHealth }])
+  await readRemoteHealth({
+    baseUrl: 'https://canonical.example.ts.net:8443/'
+  }, { request: portTransport.request })
+  assert.equal(portTransport.captured[0]?.options.port, 8443)
 
   for (const incompatible of [
     { ...validHealth, protocol: { name: 'other', version: 1 } },

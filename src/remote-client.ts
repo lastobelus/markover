@@ -225,7 +225,7 @@ async function sendRemoteJson(
     const requestOptions: HttpsRequestOptions = {
       protocol: 'https:',
       hostname: url.hostname,
-      port: 443,
+      port: url.port ? Number(url.port) : 443,
       method,
       path: `${url.pathname}${url.search}`,
       headers,
