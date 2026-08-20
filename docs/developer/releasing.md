@@ -155,6 +155,11 @@ draft for that exact unpublished tag. Then make an explicit maintainer decision
 to delete only the draft release—not the tag—and rerun the whole workflow so a
 single run produces and verifies the complete set again.
 
+If tagged source fails before creating a draft, preserve the immutable tag and
+run as failure evidence. Merge the repair to protected `main`, nominate a
+strictly greater version, and run that new tag from the beginning; rerunning the
+broken tag cannot consume the later fix.
+
 ## Shared packaged smoke evidence
 
 The native release matrix runs the narrow happy path against each exact final
@@ -194,9 +199,11 @@ authorize publication. Use the dedicated 2019 Intel Mac running Sonoma, keep it
 isolated from normal Markover work, and quit any running Markover before
 starting. The `v0.1.4` draft remains unchanged and unpublished: its tagged
 workflow recorded only the Apple Silicon `v0.1.3` rollback and therefore cannot
-be repaired from a later `main` commit. The next candidate must use the
-architecture-aware workflow, which selects `v0.1.3` for Apple Silicon and the
-newest complete published Intel release independently.
+be repaired from a later `main` commit. The immutable `v0.1.5` attempt selected
+`v0.1.3` for Apple Silicon and `v0.1.1` for Intel, but its staging job exposed
+a tagged-source flag-parser defect before creating a draft; publication was
+skipped. Preserve both attempts as evidence. A repaired candidate must use a
+strictly greater version and the architecture-aware workflow.
 
 1. Through authenticated Safari, download the complete exact Intel-enabled
    draft asset set, including its x64 ZIP and sidecar plus the exact portable

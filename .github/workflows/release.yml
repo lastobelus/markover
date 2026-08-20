@@ -279,6 +279,7 @@ jobs:
 
       - name: Independently verify payloads and generate release notes
         run: |
+          set -o pipefail
           mkdir logs
           npm run release:preflight -- verify-payloads \
             "--directory=staging" \
@@ -307,6 +308,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           for payload in \
             staging/Markover-darwin-arm64.zip \
             staging/Markover-darwin-x64.zip \
@@ -451,6 +453,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           mkdir publication-verification
           npm run release:preflight -- compare-payloads \
             "--expected=expected" \
