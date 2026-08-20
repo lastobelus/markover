@@ -25,14 +25,14 @@ import {
   type ReleasePayloadReport
 } from './release-operations'
 
-function parseFlags(
+export function parseFlags(
   args: readonly string[],
   required: readonly string[],
   optional: readonly string[] = []
 ): Map<string, string> {
   const values = new Map<string, string>()
   for (const argument of args) {
-    const match = argument.match(/^--([a-z-]+)=(.+)$/)
+    const match = argument.match(/^--([a-z0-9-]+)=(.+)$/)
     if (!match?.[1] || match[2] === undefined) {
       throw new Error(`Invalid argument: ${argument}`)
     }

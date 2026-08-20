@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
+import { parseFlags } from '../scripts/release-preflight'
+
 const root = path.resolve(__dirname, '../..')
 const read = (relativePath: string): string =>
   fs.readFileSync(path.join(root, relativePath), 'utf8')
@@ -87,6 +89,22 @@ test('release workflow publishes both native architectures and the tiny CLI', ()
   assert.match(workflow, /releases\/assets\/\$\{asset_id\}/)
   assert.match(workflow, /verify-rollback/)
   assert.match(workflow, /publish the unchanged immutable release/)
+  assert.equal([...workflow.matchAll(/\| tee/g)].length, 5)
+  assert.equal([...workflow.matchAll(/set -o pipefail/g)].length, 3)
+  for (const step of [
+    'Independently verify payloads and generate release notes',
+    'Verify generated attestations',
+    'Reverify unchanged bytes and attestations'
+  ]) {
+    const stepStart = workflow.indexOf(`- name: ${step}`)
+    const nextStep = workflow.indexOf('\n      - name:', stepStart + 1)
+    const stepBody = workflow.slice(
+      stepStart,
+      nextStep === -1 ? undefined : nextStep
+    )
+    assert.ok(stepStart >= 0)
+    assert.match(stepBody, /run: \|\n\s+set -o pipefail/)
+  }
   assert.match(workflow, /final-draft-release\.json/)
   assert.match(workflow, /final-candidate/)
   assert.match(workflow, /-F draft=false/)
@@ -103,6 +121,33 @@ test('release workflow publishes both native architectures and the tiny CLI', ()
   for (const reference of actionReferences) {
     assert.match(reference[1] ?? '', /^[a-f0-9]{40}$/)
   }
+})
+
+test('release flags accept declared numeric names and stay strict', () => {
+  const parsed = parseFlags(
+    [
+      '--rollback-arm64-tag=v0.1.3',
+      '--rollback-x64-tag=v0.1.1'
+    ],
+    ['rollback-arm64-tag', 'rollback-x64-tag']
+  )
+
+  assert.equal(parsed.get('rollback-arm64-tag'), 'v0.1.3')
+  assert.equal(parsed.get('rollback-x64-tag'), 'v0.1.1')
+  assert.throws(
+    () => parseFlags(
+      ['--rollback_arm64_tag=v0.1.3'],
+      ['rollback-arm64-tag']
+    ),
+    /Invalid argument/
+  )
+  assert.throws(
+    () => parseFlags(
+      ['--rollback-arm64-tag=v0.1.3', '--extra64=value'],
+      ['rollback-arm64-tag']
+    ),
+    /Unknown argument/
+  )
 })
 
 test('README exposes the repository-only install-free agent command', () => {
