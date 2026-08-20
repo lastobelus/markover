@@ -1,7 +1,7 @@
 {
   "name": "markover",
   "productName": "Markover",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A tiny structured Markdown review tool for giving feedback to agent threads.",
   "main": "build/app/src/main.js",
   "bin": {
