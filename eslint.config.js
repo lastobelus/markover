@@ -25,6 +25,7 @@ const rendererGlobals = {
 module.exports = defineConfig([
   {
     ignores: [
+      '.markover/**',
       'build/**',
       'dist/**',
       'evals/**/results/**',
