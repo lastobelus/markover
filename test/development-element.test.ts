@@ -77,6 +77,60 @@ test('one Option-click pins an element and copies its stable reference', () => {
   assert.equal(overlay.hidden, true)
 })
 
+test('the picker copies only references inside its finite depth contract', () => {
+  const dom = new JSDOM('<main id="workspace"></main>')
+  const { document, MouseEvent } = dom.window
+  let parent = document.querySelector('main') as HTMLElement
+  for (let index = 0; index < 127; index += 1) {
+    const child = document.createElement('section')
+    parent.append(child)
+    parent = child
+  }
+  const supportedButton = document.createElement('button')
+  parent.append(supportedButton)
+  assert.equal(
+    isDevelopmentElementReference(
+      developmentElementReference(supportedButton, document)
+    ),
+    true
+  )
+  supportedButton.remove()
+  for (let index = 0; index < 2; index += 1) {
+    const child = document.createElement('section')
+    parent.append(child)
+    parent = child
+  }
+  const button = document.createElement('button')
+  parent.append(button)
+  button.getBoundingClientRect = () => ({
+    bottom: 40,
+    height: 30,
+    left: 10,
+    right: 110,
+    toJSON: () => ({}),
+    top: 10,
+    width: 100,
+    x: 10,
+    y: 10
+  })
+  const copied: string[] = []
+  const notices: string[] = []
+  installDevelopmentElementCallouts(document, {
+    copyText: (reference) => { copied.push(reference) },
+    notify: (message) => { notices.push(message) }
+  })
+
+  button.dispatchEvent(new MouseEvent('click', {
+    altKey: true,
+    bubbles: true,
+    button: 0,
+    cancelable: true
+  }))
+
+  assert.deepEqual(copied, [])
+  assert.deepEqual(notices, ['Element cannot be referenced'])
+})
+
 test('references fail stale or ambiguous without selecting another element', () => {
   const dom = new JSDOM('<main id="workspace"><section><button>Choose</button></section></main>')
   const { document } = dom.window
@@ -290,7 +344,7 @@ test('picker and service route are live-watch-only and documented', () => {
     renderer,
     /schedulePaneLayoutResizeUpdate[\s\S]*developmentElementCallouts\?\.reposition\(\)/
   )
-  assert.match(docs, /Option-click any rendered element/)
+  assert.match(docs, /Option-click a rendered element[\s\S]*at most 128 elements/)
   assert.match(docs, /--instance dev element highlight/)
   assert.match(docs, /--instance dev element clear/)
 })

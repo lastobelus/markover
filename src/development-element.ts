@@ -1,5 +1,5 @@
 const REFERENCE_PREFIX = 'mko-ui-v1:'
-const MAXIMUM_REFERENCE_LENGTH = 4096
+const MAXIMUM_REFERENCE_LENGTH = 32 * 1024
 const MAXIMUM_ANCHOR_LENGTH = 512
 const MAXIMUM_PATH_LENGTH = 128
 const ELEMENT_NAME_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
@@ -283,6 +283,9 @@ export function developmentElementReference(
   const path: DevelopmentElementPathSegment[] = []
   let current = element
   while (current !== (anchor || document.documentElement)) {
+    if (path.length >= MAXIMUM_PATH_LENGTH) {
+      throw new Error('Development element path exceeds the supported depth.')
+    }
     path.unshift(segmentFor(current))
     const parent = current.parentElement
     if (!parent) throw new Error('Development element path is incomplete.')
@@ -293,7 +296,11 @@ export function developmentElementReference(
     path,
     version: 1
   }
-  return `${REFERENCE_PREFIX}${encodeBase64Url(JSON.stringify(payload))}`
+  const reference = `${REFERENCE_PREFIX}${encodeBase64Url(JSON.stringify(payload))}`
+  if (!isDevelopmentElementReference(reference)) {
+    throw new Error('Development element reference exceeds the supported limits.')
+  }
+  return reference
 }
 
 export function resolveDevelopmentElementReference(
@@ -417,10 +424,17 @@ export function installDevelopmentElementCallouts(
     if (overlay.contains(element)) return
     event.preventDefault()
     event.stopImmediatePropagation()
-    const reference = developmentElementReference(element, document)
-    pin(element, reference)
-    copyText(reference)
-    notify('Element reference copied')
+    try {
+      const reference = developmentElementReference(element, document)
+      if (!pin(element, reference)) {
+        throw new Error('Development element has no visible bounds.')
+      }
+      copyText(reference)
+      notify('Element reference copied')
+    } catch {
+      clear()
+      notify('Element cannot be referenced')
+    }
   }, true)
   document.defaultView?.addEventListener('resize', () => { position() })
   document.addEventListener('scroll', () => { position() }, true)

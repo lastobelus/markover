@@ -170,10 +170,12 @@ returning.
 
 ### Shared development element callouts
 
-While the live development loop is running, Option-click any rendered element.
-Markover pins a bright bounding box to that element and copies one opaque
-`mko-ui-v1:` reference to the clipboard. Paste that reference into the agent
-thread; no screenshot, DevTools inspection, or hand-drawn circle is needed.
+While the live development loop is running, Option-click a rendered element
+whose path from its nearest unique ID is at most 128 elements. Markover pins a
+bright bounding box to that element and copies one opaque `mko-ui-v1:`
+reference to the clipboard. Deeper targets report that they cannot be
+referenced and copy nothing. Paste a copied reference into the agent thread; no
+screenshot, DevTools inspection, or hand-drawn circle is needed.
 
 An agent highlights the same element in the addressed running instance with:
 
