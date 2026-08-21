@@ -2,13 +2,19 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { realpathSync, watch, type FSWatcher } from 'node:fs'
 import path from 'node:path'
 
+import { build as esbuild } from 'esbuild'
+
 import {
   DEVELOPMENT_CONTROL_QUIT,
-  DEVELOPMENT_WATCH_ENVIRONMENT
+  DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT,
+  DEVELOPMENT_WATCH_ENVIRONMENT,
+  developmentRendererRoot
 } from '../src/development-control'
 import {
+  LocalServiceError,
   probeService,
   readEndpoint,
+  requestDevelopmentReload,
   requestServiceQuit
 } from '../src/local-client'
 import type { ResolvedInstance } from '../src/instance'
@@ -19,6 +25,10 @@ import {
   resolveStartInstance,
   type ParsedStartArguments
 } from './start'
+import {
+  buildDevelopmentRenderer,
+  type DevelopmentRendererResult
+} from './development-renderer'
 
 const projectDirectory = path.resolve(__dirname, '../..')
 const DEFAULT_DEBOUNCE_MILLISECONDS = 120
@@ -48,6 +58,14 @@ const watchedFiles = new Set([
   'tsconfig.json'
 ])
 
+const restartRequiredFiles = new Set([
+  '.markover/development.json',
+  'package.json',
+  'packages/cli/package.json',
+  'tsconfig.build.json',
+  'tsconfig.json'
+])
+
 export interface DevelopmentProcess {
   exitCode: number | null
   once?: ((
@@ -60,9 +78,9 @@ export interface DevelopmentProcess {
 }
 
 export interface DevelopmentWatchOperations {
+  apply: () => Promise<void>
   build: () => Promise<void>
   reportError?: ((error: unknown) => void) | undefined
-  restart: () => Promise<void>
 }
 
 export interface DevelopmentWatchControllerOptions {
@@ -84,12 +102,16 @@ export function isDevelopmentBuildInput(filePath: string | null): boolean {
   ))
 }
 
+export function isDevelopmentRestartRequiredInput(filePath: string): boolean {
+  return restartRequiredFiles.has(normalizedRelativePath(filePath))
+}
+
 export class DevelopmentWatchController {
   private readonly build: () => Promise<void>
   private readonly clearTimer: typeof clearTimeout
   private readonly debounceMilliseconds: number
   private readonly reportError: (error: unknown) => void
-  private readonly restart: () => Promise<void>
+  private readonly apply: () => Promise<void>
   private readonly setTimer: typeof setTimeout
   private closed = false
   private completedRevision = 0
@@ -99,7 +121,7 @@ export class DevelopmentWatchController {
   private readonly idleWaiters = new Set<() => void>()
 
   constructor(
-    { build, reportError = () => {}, restart }: DevelopmentWatchOperations,
+    { apply, build, reportError = () => {} }: DevelopmentWatchOperations,
     {
       debounceMilliseconds = DEFAULT_DEBOUNCE_MILLISECONDS,
       setTimer = globalThis.setTimeout,
@@ -107,10 +129,10 @@ export class DevelopmentWatchController {
     }: DevelopmentWatchControllerOptions = {}
   ) {
     this.build = build
+    this.apply = apply
     this.clearTimer = clearTimer
     this.debounceMilliseconds = debounceMilliseconds
     this.reportError = reportError
-    this.restart = restart
     this.setTimer = setTimer
   }
 
@@ -157,7 +179,7 @@ export class DevelopmentWatchController {
     this.running = (async () => {
       try {
         await this.build()
-        await this.restart()
+        await this.apply()
       } catch (error) {
         this.reportError(error)
       } finally {
@@ -191,6 +213,12 @@ function realPath(filePath: string): string {
 }
 
 export interface DevelopmentInstanceManagerOptions {
+  buildApplication?: (() => Promise<void>) | undefined
+  buildRenderer?: ((options: {
+    projectDirectory: string
+    publishedDirectory: string
+  }) => Promise<DevelopmentRendererResult>) | undefined
+  inspectRuntimeInputs?: ((checkout: string) => Promise<Set<string>>) | undefined
   checkoutDirectory?: string | undefined
   isProcessAlive?: ((pid: number) => boolean) | undefined
   launch?: ((
@@ -202,6 +230,7 @@ export interface DevelopmentInstanceManagerOptions {
   prepare?: ((instance: ResolvedInstance) => Promise<void>) | undefined
   probe?: ((endpointPath: string) => Promise<unknown>) | undefined
   quit?: ((endpointPath: string) => Promise<void>) | undefined
+  reload?: ((endpointPath: string) => Promise<void>) | undefined
   readProcessEndpoint?: ((endpointPath: string) => Promise<{ pid: number }>) | undefined
   resolve?: (() => Promise<ResolvedInstance>) | undefined
   timeoutMilliseconds?: number | undefined
@@ -226,6 +255,30 @@ function delay(milliseconds: number): Promise<void> {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+async function developmentRuntimeInputs(
+  checkout: string
+): Promise<Set<string>> {
+  const result = await esbuild({
+    absWorkingDir: checkout,
+    bundle: true,
+    entryPoints: ['src/main.ts'],
+    external: ['electron'],
+    format: 'cjs',
+    logLevel: 'silent',
+    metafile: true,
+    packages: 'external',
+    platform: 'node',
+    sourcemap: false,
+    target: 'node22',
+    write: false
+  })
+  return new Set(Object.keys(result.metafile.inputs).map((inputPath) => (
+    normalizedRelativePath(path.isAbsolute(inputPath)
+      ? path.relative(checkout, inputPath)
+      : inputPath)
+  )))
 }
 
 function targetFromInstance(
@@ -281,7 +334,15 @@ function stoppedInstance(instance: ResolvedInstance): ResolvedInstance {
 export class DevelopmentInstanceManager {
   private activeProcess: DevelopmentProcess | null = null
   private readonly appArguments: readonly string[]
+  private readonly buildApplication: () => Promise<void>
+  private readonly buildRenderer: (options: {
+    projectDirectory: string
+    publishedDirectory: string
+  }) => Promise<DevelopmentRendererResult>
   private readonly isProcessAlive: (pid: number) => boolean
+  private readonly inspectRuntimeInputs: (
+    checkout: string
+  ) => Promise<Set<string>>
   private readonly launch: (
     instance: ResolvedInstance,
     appArguments: readonly string[]
@@ -291,19 +352,31 @@ export class DevelopmentInstanceManager {
   private readonly prepare: (instance: ResolvedInstance) => Promise<void>
   private readonly probe: (endpointPath: string) => Promise<unknown>
   private readonly quit: (endpointPath: string) => Promise<void>
+  private readonly reload: (endpointPath: string) => Promise<void>
   private readonly readProcessEndpoint: (
     endpointPath: string
   ) => Promise<{ pid: number }>
   private readonly resolve: () => Promise<ResolvedInstance>
+  private readonly rendererRoot: string
   private readonly target: WatchTarget
   private readonly timeoutMilliseconds: number
   private readonly wait: (milliseconds: number) => Promise<void>
+  private pendingChanges = new Set<string | null>()
+  private preparedInstance: ResolvedInstance | null = null
+  private rendererInputs = new Set<string>()
+  private runtimeInputs = new Set<string>()
+  private liveRendererReady = false
+  private nextAction: 'attach' | 'launch' | 'none' | 'reload' = 'none'
+  private restartRequiredInputs = new Set<string>()
 
   constructor(
     initialInstance: ResolvedInstance,
     appArguments: readonly string[],
     {
+      buildApplication = runBuild,
+      buildRenderer = buildDevelopmentRenderer,
       checkoutDirectory = projectDirectory,
+      inspectRuntimeInputs = developmentRuntimeInputs,
       isProcessAlive = processIsAlive,
       launch = (instance, appArguments) => launchResolvedInstance(
         instance,
@@ -312,7 +385,11 @@ export class DevelopmentInstanceManager {
           detached: process.platform !== 'win32',
           environment: {
             ...process.env,
-            [DEVELOPMENT_WATCH_ENVIRONMENT]: '1'
+            [DEVELOPMENT_WATCH_ENVIRONMENT]: '1',
+            [DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT]: developmentRendererRoot(
+              initialInstance.checkout || checkoutDirectory,
+              initialInstance.identity.key
+            )
           },
           ipc: true
         }
@@ -322,6 +399,7 @@ export class DevelopmentInstanceManager {
       prepare = prepareResolvedInstance,
       probe = probeService,
       quit = requestServiceQuit,
+      reload = requestDevelopmentReload,
       readProcessEndpoint = readEndpoint,
       resolve,
       timeoutMilliseconds = DEFAULT_TRANSITION_TIMEOUT_MILLISECONDS,
@@ -330,18 +408,26 @@ export class DevelopmentInstanceManager {
   ) {
     this.target = targetFromInstance(initialInstance, checkoutDirectory)
     this.appArguments = appArguments
+    this.buildApplication = buildApplication
+    this.buildRenderer = buildRenderer
     this.isProcessAlive = isProcessAlive
+    this.inspectRuntimeInputs = inspectRuntimeInputs
     this.launch = launch
     this.now = now
     this.pollMilliseconds = pollMilliseconds
     this.prepare = prepare
     this.probe = probe
     this.quit = quit
+    this.reload = reload
     this.readProcessEndpoint = readProcessEndpoint
     this.resolve = resolve || (() => resolveStartInstance({
       selector: this.target.selector,
       appArguments: [...this.appArguments]
     }))
+    this.rendererRoot = developmentRendererRoot(
+      this.target.checkout,
+      this.target.identityKey
+    )
     this.timeoutMilliseconds = timeoutMilliseconds
     this.wait = wait
   }
@@ -354,17 +440,103 @@ export class DevelopmentInstanceManager {
     const current = await this.resolveExactInstance()
     this.assertRestartEligible(current)
     await this.prepare(current)
+    this.preparedInstance = current
+    await this.launchPreparedInstance()
+  }
+
+  noteChange(filePath: string | null): void {
+    this.pendingChanges.add(filePath === null
+      ? null
+      : normalizedRelativePath(filePath))
+  }
+
+  async build(): Promise<void> {
+    const changes = this.pendingChanges
+    this.pendingChanges = new Set()
+    const initial = !this.liveRendererReady || changes.has(null)
+    const current = await this.resolveExactInstance()
+    this.assertRestartEligible(current)
+    if (initial) {
+      await this.buildApplication()
+      await this.prepare(current)
+      this.preparedInstance = current
+    }
+
+    const runtimeInputs = await this.inspectRuntimeInputs(this.target.checkout)
+    const renderer = await this.buildRenderer({
+      projectDirectory: this.target.checkout,
+      publishedDirectory: this.rendererRoot
+    })
+    this.runtimeInputs = runtimeInputs
+    this.rendererInputs = new Set(renderer.inputPaths)
+
+    const changedPaths = [...changes].filter(
+      (filePath): filePath is string => filePath !== null
+    )
+    const rendererChanged = initial || (
+      changedPaths.some((filePath) => (
+        this.rendererInputs.has(filePath) && !this.runtimeInputs.has(filePath)
+      ))
+    )
+    for (const filePath of changedPaths) {
+      if (this.runtimeInputs.has(filePath)) this.reportRestartRequired(filePath)
+    }
+
+    this.nextAction = initial
+      ? current.process.status === 'running' ? 'attach' : 'launch'
+      : rendererChanged ? 'reload' : 'none'
+  }
+
+  async apply(): Promise<'launched' | 'reloaded' | 'unchanged'> {
+    const action = this.nextAction
+    this.nextAction = 'none'
+    if (action === 'none') return 'unchanged'
+    if (action === 'reload') {
+      await this.reload(this.target.endpointPath)
+      return 'reloaded'
+    }
+    if (action === 'attach') {
+      try {
+        await this.reload(this.target.endpointPath)
+        this.preparedInstance = null
+        this.liveRendererReady = true
+        return 'reloaded'
+      } catch (error) {
+        if (!(error instanceof LocalServiceError) || error.code !== 'NOT_FOUND') {
+          throw error
+        }
+      }
+    }
+    await this.launchPreparedInstance()
+    this.liveRendererReady = true
+    return 'launched'
+  }
+
+  reportRestartRequired(filePath: string): void {
+    const normalized = normalizedRelativePath(filePath)
+    if (this.restartRequiredInputs.has(normalized)) return
+    this.restartRequiredInputs.add(normalized)
+    process.stderr.write(
+      `markover dev ${this.identityKey}: restart required for ${normalized}; the running window was left untouched.\n`
+    )
+  }
+
+  private async launchPreparedInstance(): Promise<void> {
+    const prepared = this.preparedInstance
+    if (!prepared) {
+      throw new Error(`Cannot start ${this.identityKey}: no build is prepared.`)
+    }
     const activePid = this.liveActiveProcessPid()
-    let stopped = current
+    let stopped = prepared
     if (activePid !== null) {
       await this.stopActiveProcess()
-      stopped = stoppedInstance(current)
-    } else if (current.process.status === 'running') {
+      stopped = stoppedInstance(prepared)
+    } else if (prepared.process.status === 'running') {
       const endpointPid = (
-        await this.readProcessEndpoint(current.service.endpointPath)
+        await this.readProcessEndpoint(prepared.service.endpointPath)
       ).pid
       await this.stopRunningProcess(endpointPid, endpointPid)
-      stopped = stoppedInstance(current)
+      stopped = stoppedInstance(prepared)
     }
 
     if (
@@ -391,6 +563,7 @@ export class DevelopmentInstanceManager {
       throw new Error(`Cannot restart ${this.identityKey}: Electron did not report a process ID.`)
     }
     this.activeProcess = launched
+    this.preparedInstance = null
     const readiness = this.waitForReady(stopped.service.endpointPath, launched)
     await (launchFailure === null
       ? readiness
@@ -590,17 +763,18 @@ export async function main(
     parsed.appArguments
   )
   const controller = new DevelopmentWatchController({
+    async apply() {
+      const outcome = await manager.apply()
+      if (outcome === 'unchanged') return
+      process.stderr.write(
+        `markover dev ${manager.identityKey}: ready (${outcome}).\n`
+      )
+    },
     async build() {
       process.stderr.write(
         `markover dev ${manager.identityKey}: rebuilding.\n`
       )
-      await runBuild()
-    },
-    async restart() {
-      await manager.restart()
-      process.stderr.write(
-        `markover dev ${manager.identityKey}: ready.\n`
-      )
+      await manager.build()
     },
     reportError(error) {
       process.stderr.write(
@@ -620,6 +794,7 @@ export async function main(
     process.stderr.write(
       `markover dev: watching ${manager.identityKey}; awaiting a successful rebuild.\n`
     )
+    manager.noteChange(null)
     controller.notify(null)
   }
   const stop = async (signal: NodeJS.Signals) => {
@@ -633,7 +808,7 @@ export async function main(
     )
     try {
       await controller.waitForIdle()
-      await manager.stop()
+      if (signal !== 'SIGHUP') await manager.stop()
     } catch (error) {
       process.stderr.write(
         `markover dev ${manager.identityKey}: shutdown failed: ${errorMessage(error)}\n`
@@ -644,6 +819,21 @@ export async function main(
   if (!deferStart) start()
   return {
     notify(filePath) {
+      if (!isDevelopmentBuildInput(filePath)) return false
+      const normalized = filePath === null
+        ? null
+        : normalizedRelativePath(filePath)
+      if (
+        normalized !== null &&
+        !normalized.startsWith('src/') &&
+        !normalized.startsWith('design/brand/')
+      ) {
+        if (isDevelopmentRestartRequiredInput(normalized)) {
+          manager.reportRestartRequired(normalized)
+        }
+        return true
+      }
+      manager.noteChange(filePath)
       return controller.notify(filePath)
     },
     start,

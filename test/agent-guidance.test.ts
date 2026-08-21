@@ -77,5 +77,7 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(development, /Agent-facing instructions must preserve the contract/)
   assert.match(development, /substantive engagement with discussion and concerns/)
   assert.match(development, /npm run dev -- --instance dev/)
-  assert.match(development, /same checkout, state root, name, and icon/)
+  assert.match(development, /existing Electron process/)
+  assert.match(development, /size, position, visibility, and focus remain unchanged/)
+  assert.match(development, /restart\s+required/)
 })

@@ -144,21 +144,29 @@ npm run dev
 npm run dev -- --instance dev
 ```
 
-The loop watches maintained application sources and brand assets, coalesces
-rapid edits, and runs the same complete build and staged-layout verifier. A
-successful build asks only the addressed process to quit through Electron's
-normal shutdown lifecycle, waits for its durability barrier to finish, then
-launches the same checkout, state root, name, and icon. It prints `ready` only
-after the replacement publishes its healthy local service. A failed build or
-startup prints a concise diagnostic, leaves the watcher active, and tries again
-after the next relevant edit. Replacement windows appear without activating
-Markover, so rebuilds do not take focus from the application currently in use;
-click Markover when the replacement is ready to resume interactive QA.
-Generated output, dependency directories, Git
-metadata, and instance state do not trigger rebuilds. Keep only one loop per
-instance and use `npm start` for deterministic one-shot work. End the loop with
-Ctrl-C; it asks the addressed instance to quit through the same managed
-shutdown path and waits for that process before returning.
+The loop performs one complete build and addressed-bundle preparation when it
+starts. If the selected instance is already running under this live loop, the
+new watcher attaches to it; an older non-live instance is replaced once so it
+can load the development renderer safely.
+
+After that startup, CSS, HTML, renderer, preload, and renderer-only dependency
+edits build into a separate worktree-local renderer directory. The directory is
+published only after every asset succeeds, then the existing Electron process
+reloads the existing `BrowserWindow`. The native window is never closed or
+recreated, so its size, position, visibility, and focus remain unchanged. A
+failed renderer build leaves the displayed renderer and last published assets
+untouched, and the next valid edit retries normally.
+
+An edit used by Electron's main process or local backend prints the message
+`restart required` and leaves the running window untouched. Stop and restart the loop
+when that change should enter the application; the loop never turns a runtime
+edit into an automatic app restart. Watcher implementation updates hand the
+running app to the replacement watcher without quitting it. Generated output,
+dependency directories, Git metadata, and instance state do not trigger
+rebuilds. Keep only one loop per instance and use `npm start` for deterministic
+one-shot work. End the loop with Ctrl-C; it asks the addressed instance to quit
+through the managed durability path and waits for that process before
+returning.
 
 ## Development review links
 

@@ -332,6 +332,9 @@ test('native startup failure dialogs survive diagnostic write failures', () => {
   const bestEffort = main.match(
     /async function failStartupBestEffort\([\s\S]*?\n\}/
   )?.[0] || ''
+  const rendererLoadFailure = main.match(
+    /function handleRendererLoadFailure\([\s\S]*?\n\}/
+  )?.[0] || ''
   const createWindow = main.slice(
     main.indexOf('function createWindow('),
     main.indexOf('function managedDocument(')
@@ -343,11 +346,15 @@ test('native startup failure dialogs survive diagnostic write failures', () => {
   )
   assert.equal(
     createWindow.match(/await failStartupBestEffort\(/g)?.length,
-    4
+    2
   )
   assert.equal(
     createWindow.match(/await showStartupFailureDialog\(\)/g)?.length,
-    4
+    2
+  )
+  assert.match(
+    rendererLoadFailure,
+    /const failedDuringStartup = !startupReady[\s\S]*if \(!failedDuringStartup\) \{[\s\S]*Waiting for the next valid development build[\s\S]*return[\s\S]*await failStartupBestEffort\('renderer-load', error\)[\s\S]*await showStartupFailureDialog\(\)/
   )
   assert.doesNotMatch(createWindow, /await failStartup\(/)
 })

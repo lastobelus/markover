@@ -10,6 +10,7 @@ import {
   DevelopmentInstanceManager,
   DevelopmentWatchController,
   isDevelopmentBuildInput,
+  isDevelopmentRestartRequiredInput,
   type DevelopmentProcess
 } from '../scripts/development-watch'
 import { parseStartArguments, StartArgumentError } from '../scripts/start'
@@ -94,7 +95,7 @@ test('development command bootstraps before the first application build', async 
   assert.doesNotMatch(bootstrap, /npm run build/)
 })
 
-test('development watcher marks Electron replacements for inactive startup', async () => {
+test('development watcher configures a private live renderer root', async () => {
   const source = await fs.readFile(
     path.join(projectDirectory, 'scripts/development-watch.ts'),
     'utf8'
@@ -104,6 +105,7 @@ test('development watcher marks Electron replacements for inactive startup', asy
     source,
     /environment: \{[\s\S]*\.\.\.process\.env,[\s\S]*\[DEVELOPMENT_WATCH_ENVIRONMENT\]: '1'/
   )
+  assert.match(source, /\[DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT\]/)
 })
 
 test('invalid development arguments remain non-retryable bootstrap errors', () => {
@@ -277,6 +279,10 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   await wait(1)
 
   assert.deepEqual(stops, ['SIGHUP'])
+  assert.deepEqual(notifications, [
+    'src/renderer.ts',
+    'src/instance.ts'
+  ])
 
   bootstrapPreflightError = 'syntax'
   watchCallback('change', 'scripts/development-watch-bootstrap.js')
@@ -344,7 +350,25 @@ test('development build inputs exclude generated and unrelated paths', () => {
   ]) assert.equal(isDevelopmentBuildInput(filePath), false, filePath)
 })
 
-test('rapid changes coalesce into one build and restart', async () => {
+test('development configuration inputs require an explicit restart', () => {
+  for (const filePath of [
+    '.markover/development.json',
+    'package.json',
+    'packages/cli/package.json',
+    'tsconfig.build.json',
+    'tsconfig.json'
+  ]) assert.equal(isDevelopmentRestartRequiredInput(filePath), true, filePath)
+
+  for (const filePath of [
+    'README.md',
+    'docs/developer/development.md',
+    'scripts/development-watch.ts',
+    'src/renderer.ts',
+    'test/development-watch.test.ts'
+  ]) assert.equal(isDevelopmentRestartRequiredInput(filePath), false, filePath)
+})
+
+test('rapid changes coalesce into one build and apply', async () => {
   let builds = 0
   let restarts = 0
   const controller = new DevelopmentWatchController({
@@ -352,7 +376,7 @@ test('rapid changes coalesce into one build and restart', async () => {
       builds += 1
       return Promise.resolve()
     },
-    restart() {
+    apply() {
       restarts += 1
       return Promise.resolve()
     }
@@ -368,7 +392,7 @@ test('rapid changes coalesce into one build and restart', async () => {
   controller.close()
 })
 
-test('a failed build keeps watching and the next valid change restarts', async () => {
+test('a failed build keeps watching and the next valid change applies', async () => {
   let builds = 0
   let restarts = 0
   const failures: unknown[] = []
@@ -379,7 +403,7 @@ test('a failed build keeps watching and the next valid change restarts', async (
         ? Promise.reject(new Error('compile failed'))
         : Promise.resolve()
     },
-    restart() {
+    apply() {
       restarts += 1
       return Promise.resolve()
     },
@@ -420,7 +444,7 @@ test('changes during a build queue one serialized follow-up cycle', async () => 
       if (builds === 1) await firstBuild
       activeOperations -= 1
     },
-    async restart() {
+    async apply() {
       activeOperations += 1
       maximumActiveOperations = Math.max(
         maximumActiveOperations,
@@ -443,6 +467,153 @@ test('changes during a build queue one serialized follow-up cycle', async () => 
   assert.equal(builds, 2)
   assert.equal(maximumActiveOperations, 1)
   controller.close()
+})
+
+test('a running watch instance reloads without quitting or launching', async () => {
+  const events: string[] = []
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('running'),
+    [],
+    {
+      buildApplication() {
+        events.push('build-application')
+        return Promise.resolve()
+      },
+      buildRenderer() {
+        events.push('build-renderer')
+        return Promise.resolve({
+          inputPaths: ['src/renderer.ts', 'src/styles.css'],
+          publishedDirectory: '/renderer'
+        })
+      },
+      checkoutDirectory: '/checkouts/markover',
+      inspectRuntimeInputs() {
+        return Promise.resolve(new Set(['src/main.ts']))
+      },
+      launch() {
+        events.push('launch')
+        return { exitCode: null, pid: 90211, signalCode: null }
+      },
+      prepare() {
+        events.push('prepare')
+        return Promise.resolve()
+      },
+      reload(endpointPath) {
+        events.push(`reload:${endpointPath}`)
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('running'))
+      }
+    }
+  )
+
+  manager.noteChange(null)
+  await manager.build()
+  assert.equal(await manager.apply(), 'reloaded')
+
+  assert.deepEqual(events, [
+    'build-application',
+    'prepare',
+    'build-renderer',
+    'reload:/state/markover/service.json'
+  ])
+})
+
+test('a failed initial build remains a full startup on the next edit', async () => {
+  let applicationBuilds = 0
+  let rendererBuilds = 0
+  let reloads = 0
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('running'),
+    [],
+    {
+      buildApplication() {
+        applicationBuilds += 1
+        return Promise.resolve()
+      },
+      buildRenderer() {
+        rendererBuilds += 1
+        if (rendererBuilds === 1) {
+          return Promise.reject(new Error('renderer failed'))
+        }
+        return Promise.resolve({
+          inputPaths: ['src/styles.css'],
+          publishedDirectory: '/renderer'
+        })
+      },
+      checkoutDirectory: '/checkouts/markover',
+      inspectRuntimeInputs() {
+        return Promise.resolve(new Set(['src/main.ts']))
+      },
+      prepare: () => Promise.resolve(),
+      reload() {
+        reloads += 1
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('running'))
+      }
+    }
+  )
+
+  manager.noteChange(null)
+  await assert.rejects(manager.build(), /renderer failed/)
+  manager.noteChange('src/styles.css')
+  await manager.build()
+  assert.equal(await manager.apply(), 'reloaded')
+
+  assert.equal(applicationBuilds, 2)
+  assert.equal(rendererBuilds, 2)
+  assert.equal(reloads, 1)
+})
+
+test('a renderer-only edit reloads alongside runtime and shared edits', async () => {
+  let applicationBuilds = 0
+  let rendererBuilds = 0
+  let reloads = 0
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('running'),
+    [],
+    {
+      buildApplication() {
+        applicationBuilds += 1
+        return Promise.resolve()
+      },
+      buildRenderer() {
+        rendererBuilds += 1
+        return Promise.resolve({
+          inputPaths: ['src/renderer.ts', 'src/shared.ts', 'src/styles.css'],
+          publishedDirectory: '/renderer'
+        })
+      },
+      checkoutDirectory: '/checkouts/markover',
+      inspectRuntimeInputs() {
+        return Promise.resolve(new Set(['src/main.ts', 'src/shared.ts']))
+      },
+      prepare: () => Promise.resolve(),
+      reload() {
+        reloads += 1
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('running'))
+      }
+    }
+  )
+
+  manager.noteChange(null)
+  await manager.build()
+  await manager.apply()
+  manager.noteChange('src/styles.css')
+  manager.noteChange('src/main.ts')
+  manager.noteChange('src/shared.ts')
+  await manager.build()
+  assert.equal(await manager.apply(), 'reloaded')
+
+  assert.equal(applicationBuilds, 1)
+  assert.equal(rendererBuilds, 2)
+  assert.equal(reloads, 2)
 })
 
 test('restart waits for the addressed process before launching the same target', async () => {

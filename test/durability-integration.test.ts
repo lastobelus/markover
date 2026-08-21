@@ -98,6 +98,38 @@ test('managed quit owns the complete ordered durability barrier and escape hatch
   )
 })
 
+test('development reload freezes and saves every mutable renderer surface', () => {
+  const main = read('src/main.ts')
+  const reload = main.match(
+    /async function reloadDevelopmentRenderer\(\): Promise<void> \{[\s\S]*?\n\}/
+  )?.[0] || ''
+  const ordered = [
+    'setManagedRendererPause(true)',
+    'managedLocalReviewCreationsBlocked = true',
+    'localService?.pauseMutations()',
+    'captureEditableManagedReviews()',
+    'managedAttachmentSavesBlocked = true',
+    'managedAttachmentMutations.wait()',
+    'requireManagedAutosave().flushAll()',
+    'requireWorkspaceStore().flush()',
+    'window.webContents.reloadIgnoringCache()',
+    'waitForRendererReady(window)'
+  ].map((value) => reload.indexOf(value))
+
+  assert.ok(ordered.every((position) => position >= 0))
+  assert.deepEqual([...ordered].sort((left, right) => left - right), ordered)
+  assert.match(
+    reload,
+    /finally \{[\s\S]*resumeManagedMutationsUnlessShuttingDown\(\)/
+  )
+  assert.doesNotMatch(reload, /reconcileRemoteGateway/)
+  assert.match(main, /brandAssetsPromise = null[\s\S]*reloadIgnoringCache/)
+  assert.match(
+    main,
+    /loadBrandAssets[\s\S]*rendererApplicationRoot[\s\S]*markover-mark\.svg/
+  )
+})
+
 test('autosave storage failures use a dedicated persistent renderer warning', () => {
   const html = read('src/index.html')
   const main = read('src/main.ts')

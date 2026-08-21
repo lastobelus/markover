@@ -121,6 +121,7 @@ let bootstrapReloadRequested = false
 let revision = 0
 let transition = null
 let watcherInputs = new Set()
+const watcherHandoffChanges = new Set()
 
 function normalizedBundleInput(filePath) {
   const absolutePath = path.isAbsolute(filePath)
@@ -147,7 +148,8 @@ function scheduleWatcherStart() {
   }, debounceMilliseconds)
 }
 
-function requestWatcherStart() {
+function requestWatcherStart(filePath) {
+  watcherHandoffChanges.add(filePath)
   revision += 1
   scheduleWatcherStart()
 }
@@ -173,7 +175,7 @@ const bootstrapWatcher = watch(
       return
     }
     if (!started || starting || isWatcherInput(filePath)) {
-      requestWatcherStart()
+      requestWatcherStart(filePath)
     } else {
       developmentLoop.notify(filePath)
     }
@@ -303,6 +305,10 @@ async function startWatcher() {
       )
       started = true
       developmentLoop.start()
+      for (const filePath of watcherHandoffChanges) {
+        developmentLoop.notify(filePath)
+      }
+      watcherHandoffChanges.clear()
     } catch (error) {
       fail(error)
       process.stderr.write(
