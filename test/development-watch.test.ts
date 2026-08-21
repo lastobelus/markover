@@ -278,6 +278,10 @@ test('bootstrap reloads watcher inputs and delegates application inputs', async 
   await wait(1)
 
   assert.deepEqual(stops, ['SIGHUP'])
+  assert.deepEqual(notifications, [
+    'src/renderer.ts',
+    'src/instance.ts'
+  ])
 
   bootstrapPreflightError = 'syntax'
   watchCallback('change', 'scripts/development-watch-bootstrap.js')

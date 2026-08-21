@@ -866,6 +866,29 @@ test('development reload exists only when the app supplies its callback', async 
   )
 })
 
+test('development reload allows the complete renderer durability barrier', async (t) => {
+  let markReloadStarted!: () => void
+  let releaseReload!: () => void
+  const reloadStarted = new Promise<void>((resolve) => {
+    markReloadStarted = resolve
+  })
+  const reloadBarrier = new Promise<void>((resolve) => {
+    releaseReload = resolve
+  })
+  const enabled = await serviceFixture(t, {
+    async onDevelopmentReload() {
+      markReloadStarted()
+      await reloadBarrier
+    }
+  })
+
+  const reload = requestDevelopmentReload(enabled.endpointPath)
+  await reloadStarted
+  await new Promise<void>((resolve) => setTimeout(resolve, 2_100))
+  releaseReload()
+  await reload
+})
+
 test('authenticated quit acknowledges and invokes the app callback', async (t) => {
   let quits = 0
   const { endpointPath } = await serviceFixture(t, {

@@ -335,7 +335,9 @@ export async function requestDevelopmentReload(
   const response = await requestJson(
     endpointPath,
     'POST',
-    '/development/reload'
+    '/development/reload',
+    null,
+    { timeoutMilliseconds: 30_000 }
   )
   if (!isRecord(response) || response.status !== 'reloaded') {
     throw new LocalServiceError(
