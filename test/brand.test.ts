@@ -75,12 +75,13 @@ test('the app composes external brand assets and exposes a true empty state', ()
   const renderer = read('src/renderer.ts')
 
   assert.match(html, /class="brand" role="img" aria-label="Markover"/)
-  assert.match(html, /<img[\s\S]*id="brand-mark"[\s\S]*src="\.\.\/design\/brand\/markover-mark\.svg"/)
-  assert.match(html, /<img[\s\S]*id="brand-logotype"[\s\S]*src="\.\.\/design\/brand\/markover-logotype\.svg"/)
+  assert.match(html, /<img[\s\S]*id="brand-mark"[\s\S]*src="\.\.\/design\/brand\/markover-lockup\.svg"/)
+  assert.doesNotMatch(html, /id="brand-logotype"/)
   assert.match(html, /design\/brand\/markover-lockup\.svg/)
   assert.match(html, /id="app-empty-state-lockup"/)
   assert.equal(html.includes('>M/</'), false)
   assert.match(html, /<header id="app-header" class="app-header is-empty">/)
+  assert.match(html, /<div id="app-shell" class="app-shell">[\s\S]*<header id="app-header" class="app-header is-empty">/)
   assert.match(html, /<main id="app-empty-state" class="app-empty-state">/)
   assert.match(html, /<main id="pane-layout" class="pane-layout" hidden>/)
   assert.match(renderer, /function setAppEmptyState\(empty: boolean\): void/)
@@ -105,7 +106,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
     '--brand-burgundy: var(--markover-secondary)',
     '--ink: #26211e',
     '--muted: #6f6761',
-    '--paper: #eee8e0',
+    '--paper: #f7f4ee',
     '--surface: #fffdf9',
     '--line: #ddd5cc',
     '--brand-soft: #f5e3da'
@@ -126,9 +127,9 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   assert.match(renderer, /function themedBrandSource\([\s\S]*source: string,[\s\S]*primary: string,[\s\S]*secondary: string[\s\S]*\): string/)
   assert.match(renderer, /replaceAll\('#c94e1f', primary\)[\s\S]*replaceAll\('#6d211f', secondary\)/)
   assert.match(renderer, /finally \{\s*document\.documentElement\.classList\.add\('is-brand-ready'\)/)
-  assert.match(styles, /\.is-brand-ready :is\(\.brand-mark, \.brand-logotype, \.app-empty-state-lockup\)/)
-  assert.match(styles, /data-palette="olive"\]:not\(\[data-appearance="dark"\]\)[\s\S]*--app-shell-background: #dde1d2;[\s\S]*--app-header-background: var\(--app-shell-background\);[\s\S]*--review-navigation-bg: #e8eadf;[\s\S]*--center-pane-background: #fff;/)
-  assert.match(styles, /\.review-tab-strip \{[^}]*border-top: 1px solid var\(--line\);/)
+  assert.match(styles, /\.is-brand-ready :is\(\.brand-mark, \.app-empty-state-lockup\)/)
+  assert.match(styles, /data-palette="olive"\]:not\(\[data-appearance="dark"\]\)[\s\S]*--app-shell-background: #dde1d2;[\s\S]*--app-header-background: var\(--app-shell-background\);[\s\S]*--center-pane-background: var\(--paper\);/)
+  assert.match(styles, /\.review-tab-strip \{[^}]*display: none;/)
   assert.doesNotMatch(styles, /\.review-tab-strip \{[^}]*border-bottom:/)
   assert.match(reviewInbox, /if \(status === 'revised'\) return 'Revised'/)
   assert.match(reviewInbox, /if \(status === 'done'\) return 'Done'/)
@@ -136,7 +137,7 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   assert.match(styles, /--status-progress: #d89b35;/)
   assert.match(styles, /data-appearance="dark"[\s\S]*--status-editing: color-mix\(in srgb, var\(--markover-primary\) 70%, white\);/)
 
-  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*\.brand-logotype \{\s*display: none;/)
+  assert.doesNotMatch(styles, /\.brand-logotype \{/)
   assert.match(main, /backgroundColor: windowBackground\(/)
 })
 
@@ -148,14 +149,14 @@ test('the working header aligns the brand and exact review identity', () => {
   assert.match(styles, /\.brand \{[^}]*align-items: flex-end;[^}]*transform: translateY\(6px\);/)
   assert.match(styles, /\.button-primary \{[^}]*background: var\(--primary-button-bg\);/)
   assert.match(styles, /\.review-id-activation \{[^}]*justify-content: center;/)
-  assert.match(styles, /\.review-id-activation input \{[^}]*font: 10px\/1 ui-monospace/)
-  assert.match(styles, /\.document-review-id \{[^}]*min-width: max-content;[^}]*font: 9px\/1\.2 ui-monospace/)
+  assert.match(styles, /\.review-id-activation input \{[^}]*font: 10px\/1 var\(--font-mono\)/)
+  assert.match(styles, /\.document-review-id \{[^}]*min-width: max-content;[^}]*font: 9px\/1\.2 var\(--font-mono\)/)
   assert.match(styles, /\.center-pane > \.pane-header \{[^}]*grid-template-columns: auto minmax\(max-content, 1fr\) auto;/)
   assert.match(
     styles,
     /@media \(max-width: 900px\)[\s\S]*\.center-pane > \.pane-header \{[^}]*padding-inline: 5px;[^}]*grid-template-columns: minmax\(max-content, 1fr\) auto;[\s\S]*\.document-tree-header-actions \.status-pill \{\s*display: none;/
   )
-  assert.match(styles, /\.pane\.focus-within > \.pane-header::before \{[^}]*top: -1px;[^}]*height: 4px;/)
+  assert.match(styles, /\.pane\.focus-within > \.pane-header::before \{[^}]*top: 0;[^}]*height: 4px;/)
   assert.match(renderer, /documentReviewId\.textContent = review\.id/)
   assert.match(renderer, /documentReviewId\.ariaLabel = `Copy review ID \$\{review\.id\}`/)
   assert.doesNotMatch(styles, /\.document-tab(?:-|\s|\.)/)
@@ -167,7 +168,8 @@ test('the working header aligns the brand and exact review identity', () => {
       html.indexOf('class="pane-header annotation-selection-header"')
   )
   assert.match(html, />Selected block<\/button>/)
-  assert.match(styles, /\.documents-list-header::before \{[^}]*top: -1px;[^}]*height: 1px;/)
+  assert.doesNotMatch(styles, /\.documents-list-header::before \{/)
+  assert.match(styles, /\.review-navigation-tab \{[^}]*border-top: 1px solid var\(--line\);[^}]*border-bottom: 1px solid var\(--line\);/)
   assert.match(html, /class="documents-list-header"[\s\S]*class="pane-header-leading"[\s\S]*class="eyebrow">Reviews/)
   assert.match(styles, /data-appearance="dark"[\s\S]*--pane-label-color: color-mix\([\s\S]*--pane-label-inactive: color-mix\(/)
   assert.match(styles, /\.annotation-view-tabs button \{[^}]*color: var\(--pane-label-inactive\);/)
@@ -197,8 +199,9 @@ test('the working header aligns the brand and exact review identity', () => {
   assert.match(renderer, /schedulePaneLayoutResizeUpdate[\s\S]*updatePinnedSelection\(\)[\s\S]*updateTruncation/)
   assert.match(renderer, /beginLeftPaneResize[\s\S]*applyLeftPaneWidth\(\)[\s\S]*schedulePaneLayoutResizeUpdate\(\)/)
   assert.match(renderer, /beginRightPaneResize[\s\S]*applyRightPaneWidth\(\)[\s\S]*schedulePaneLayoutResizeUpdate\(\)/)
-  assert.match(html, /id="scrollbar-row-cover"[\s\S]*id="hover-scrollbar-row-cover"/)
-  assert.match(renderer, /positionScrollbarRowCover\([\s\S]*elements\.scrollbarRowCover[\s\S]*elements\.hoverScrollbarRowCover/)
+  assert.doesNotMatch(html, /id="scrollbar-row-cover"/)
+  assert.doesNotMatch(renderer, /ScrollbarRowCover/)
+  assert.match(styles, /\.block-row\.is-selected::after \{[^}]*linear-gradient\(/)
   assert.match(styles, /\.left-pane \{[^}]*grid-column: 1;/)
   assert.match(styles, /\.center-pane \{[^}]*grid-column: 2;/)
   assert.match(styles, /\.right-pane \{[^}]*grid-column: 3;/)

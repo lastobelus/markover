@@ -68,7 +68,6 @@ interface RendererState {
   documentName: string
   documentPath: string | null
   finishAttachmentLabelEdit: ((commit?: boolean) => void) | null
-  hoveredId: string | null
   reviewId: string | null
   selectedId: string | null
   annotatedOnly: boolean
@@ -140,7 +139,6 @@ const elements = {
   annotationViewList: requiredElement<HTMLButtonElement>('#annotation-view-list'),
   annotationViewSelected: requiredElement<HTMLButtonElement>('#annotation-view-selected'),
   attachmentList: requiredElement('#attachment-list'),
-  brandLogotype: requiredElement<HTMLImageElement>('#brand-logotype'),
   brandMark: requiredElement<HTMLImageElement>('#brand-mark'),
   checksum: requiredElement('#document-checksum'),
   copyTreeButton: requiredElement<HTMLButtonElement>('#copy-tree-button'),
@@ -170,8 +168,6 @@ const elements = {
   selectedAnnotationView: requiredElement('#selected-annotation-view'),
   selectedSource: requiredElement('#selected-source'),
   selectedTitle: requiredElement('#selected-title'),
-  scrollbarRowCover: requiredElement('#scrollbar-row-cover'),
-  hoverScrollbarRowCover: requiredElement('#hover-scrollbar-row-cover'),
   sourceCancel: requiredElement<HTMLButtonElement>('#source-cancel'),
   sourceContent: requiredElement('#source-content'),
   sourceDiff: requiredElement('#source-diff'),
@@ -250,7 +246,6 @@ const state: RendererState = {
   documentName: 'sample.md',
   documentPath: null,
   finishAttachmentLabelEdit: null,
-  hoveredId: null,
   reviewId: null,
   selectedId: null,
   annotatedOnly: false,
@@ -988,7 +983,6 @@ function updatePinnedSelection(): void {
   if (!selectedRow || !selectedRow.getClientRects().length) {
     elements.pinnedSelection.hidden = true
     elements.pinnedSelection.replaceChildren()
-    updateScrollbarRowCover()
     return
   }
 
@@ -997,7 +991,6 @@ function updatePinnedSelection(): void {
   elements.pinnedSelection.hidden = !shouldPin
   if (!shouldPin) {
     elements.pinnedSelection.replaceChildren()
-    updateScrollbarRowCover()
     return
   }
 
@@ -1009,54 +1002,6 @@ function updatePinnedSelection(): void {
     button.tabIndex = -1
   })
   elements.pinnedSelection.replaceChildren(pinnedRow)
-  updateScrollbarRowCover()
-}
-
-function positionScrollbarRowCover(
-  cover: HTMLElement,
-  row: HTMLElement | null,
-  hovered: boolean
-): void {
-  if (!row || !row.getClientRects().length) {
-    cover.hidden = true
-    return
-  }
-
-  const rowRect = row.getBoundingClientRect()
-  const treeRect = elements.tree.getBoundingClientRect()
-  if (rowRect.bottom <= treeRect.top || rowRect.top >= treeRect.bottom) {
-    cover.hidden = true
-    return
-  }
-
-  const paneRect = elements.centerPane.getBoundingClientRect()
-  cover.className = [
-    'scrollbar-row-cover',
-    hovered ? 'is-hovered' : '',
-    row.querySelector('.block-content.code') ? 'is-code' : ''
-  ].filter(Boolean).join(' ')
-  cover.style.top = `${rowRect.top - paneRect.top}px`
-  cover.style.height = `${rowRect.height}px`
-  cover.hidden = false
-}
-
-function updateScrollbarRowCover(): void {
-  const selectedRow = elements.tree.querySelector<HTMLElement>(
-    `[data-node-id="${state.selectedId}"]`
-  )
-  const hoveredRow = state.hoveredId
-    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
-    : null
-  positionScrollbarRowCover(
-    elements.scrollbarRowCover,
-    elements.pinnedSelection.hidden ? selectedRow : null,
-    false
-  )
-  positionScrollbarRowCover(
-    elements.hoverScrollbarRowCover,
-    hoveredRow && hoveredRow !== selectedRow ? hoveredRow : null,
-    true
-  )
 }
 
 function renderNode(
@@ -1200,14 +1145,6 @@ function renderNode(
 
   row.addEventListener('click', () => {
     selectNode(node.id, true)
-  })
-  row.addEventListener('mouseenter', () => {
-    state.hoveredId = node.id
-    updateScrollbarRowCover()
-  })
-  row.addEventListener('mouseleave', () => {
-    if (state.hoveredId === node.id) state.hoveredId = null
-    updateScrollbarRowCover()
   })
   row.addEventListener('dblclick', () => {
     if (!state.annotatedOnly && node.children.length) {
@@ -1865,7 +1802,7 @@ function renderAnnotationList(): void {
   }
 }
 
-function renderAnnotationPaneView(node: ReviewNode): void {
+function renderAnnotationViewState(node: ReviewNode): void {
   const nodes = annotatedNodes()
   if (state.annotationView === 'list' && !nodes.length) {
     state.annotationView = 'selected'
@@ -1936,7 +1873,7 @@ function renderAnnotation(node: ReviewNode): void {
     ? 'Annotated'
     : 'Not annotated'
   renderAttachmentList(node)
-  renderAnnotationPaneView(node)
+  renderAnnotationViewState(node)
   renderReviewEditability()
   updateAnnotationCount()
 }
@@ -3555,6 +3492,7 @@ function renderDocumentsList(): void {
   renderReviewBatchActions()
   scheduleDocumentsListClockRefresh(sessions)
   elements.leftPane.hidden = !hasReviews
+  elements.leftPaneResizer.hidden = !hasReviews
   elements.leftPaneCollapse.hidden = sessions.length === 0
   elements.leftPaneOpen.hidden = !hasReviews || !leftPaneCollapsed
   elements.paneLayout.classList.toggle('has-left-pane', hasReviews)
@@ -3628,17 +3566,17 @@ function applyLeftPaneWidth(): void {
 function applyRightPaneWidth(): void {
   const currentWidth = rightPaneWidth ??
     elements.rightPane.getBoundingClientRect().width
-  const leftPaneWidthForLayout = elements.leftPane.getBoundingClientRect().width
+  const leftWidth = elements.leftPane.getBoundingClientRect().width
   const paneLayoutWidth = elements.paneLayout.clientWidth || window.innerWidth
   const clampedWidth = MarkoverReviewSessions.clampRightPaneWidth(
     currentWidth,
     paneLayoutWidth,
-    leftPaneWidthForLayout
+    leftWidth
   )
   const maximumWidth = MarkoverReviewSessions.clampRightPaneWidth(
     Number.POSITIVE_INFINITY,
     paneLayoutWidth,
-    leftPaneWidthForLayout
+    leftWidth
   )
   if (rightPaneWidth !== null) {
     rightPaneWidth = clampedWidth
@@ -3723,12 +3661,7 @@ async function themeBrandAssets(): Promise<void> {
     const primary = palette.getPropertyValue('--markover-primary').trim()
     const secondary = palette.getPropertyValue('--markover-secondary').trim()
     elements.brandMark.src = themedBrandSource(
-      brandAssetSources.mark,
-      primary,
-      secondary
-    )
-    elements.brandLogotype.src = themedBrandSource(
-      brandAssetSources.logotype,
+      brandAssetSources.lockup,
       primary,
       secondary
     )
@@ -4256,7 +4189,6 @@ async function activateReview(
   state.sourceDrafts = session.sourceDrafts
   state.sourceEditingId = session.sourceEditingId
   state.attachmentPreviewUrls = session.attachmentPreviewUrls
-  state.hoveredId = null
   bridge.activateReview(reviewId)
 
   elements.name.textContent = session.documentName
@@ -5337,3 +5269,165 @@ void initialize().catch(async (error: unknown) => {
   }
   console.error('Markover renderer startup failed', error)
 })
+
+/* TEMPORARY interface tuner. Remove with #interface-tuner and .interface-tuner. */
+{
+  interface TokenRow { readonly name: string; readonly refers?: string }
+  type Group = readonly [string, readonly TokenRow[]]
+
+  const t = (name: string): TokenRow => ({ name })
+  const r = (name: string, refers: string): TokenRow => ({ name, refers })
+
+  /* Theme tokens hold the literal colours. Every value below is unique. */
+  const THEME: readonly Group[] = [
+    ['Theme · brand', [t('--markover-primary'), t('--markover-secondary'), t('--brand-soft')]],
+    ['Theme · ground', [t('--paper'), t('--surface'), t('--neutral-soft')]],
+    ['Theme · ink', [t('--ink'), t('--muted'), t('--primary-contrast'), t('--secondary-contrast')]],
+    ['Theme · rules', [t('--line'), t('--hover-line'), t('--selection-line')]],
+    ['Theme · material', [t('--input'), t('--input-muted'), t('--thumbnail'), t('--code'), t('--shadow')]],
+    ['Theme · status', [t('--status-revised'), t('--status-progress'), t('--source-error')]]
+  ]
+
+  /* Semantic tokens name a role and point at a theme token. */
+  const SEMANTIC: readonly Group[] = [
+    ['Accent', [
+      r('--brand-orange', '--markover-primary'),
+      r('--brand-burgundy', '--markover-secondary'),
+      r('--accent', '--brand-orange'),
+      r('--accent-deep', '--brand-burgundy'),
+      r('--accent-soft', '--brand-soft'),
+      r('--focus', '--brand-orange')
+    ]],
+    ['Ground', [
+      r('--window-background', '--hover-line'),
+      r('--app-shell-background', '--hover-line'),
+      r('--app-header-background', '--app-shell-background'),
+      r('--left-pane-background', '--neutral-soft'),
+      r('--center-pane-background', '--paper'),
+      r('--right-pane-background', '--neutral-soft'),
+      r('--review-navigation-bg', '--paper'),
+      r('--review-navigation-active-bg', '--surface')
+    ]],
+    ['Components', [
+      r('--document-tree-scrollbar-track-background', '--right-pane-background'),
+      r('--selection-bridge-background', '--right-pane-background'),
+      r('--keyboard-help-background', 'mix(--app-shell-background 92%, transparent)')
+    ]],
+    ['Buttons', [
+      r('--primary-button-bg', '--markover-primary'),
+      r('--primary-button-hover', '--markover-secondary'),
+      r('--primary-button-text', '--primary-contrast'),
+      r('--primary-button-hover-text', '--secondary-contrast')
+    ]],
+    ['Pane labels', [
+      r('--pane-label-base', '--markover-secondary'),
+      r('--pane-label-highlight', '--markover-primary'),
+      r('--pane-label-color', '--pane-label-base'),
+      r('--pane-label-hover', '--pane-label-highlight'),
+      r('--pane-label-inactive', 'mix(--pane-label-color 50%, --right-pane-background)')
+    ]],
+    ['Status', [
+      r('--status-editing', '--markover-primary'),
+      r('--status-pending', '--markover-secondary'),
+      r('--status-done', '--muted'),
+      r('--status-other', '--muted'),
+      r('--status-outline', 'rgb(--ink-rgb / 55%)')
+    ]]
+  ]
+
+  const tuner = document.querySelector<HTMLElement>('#interface-tuner')
+  const close = document.querySelector<HTMLButtonElement>('#interface-tuner-close')
+  const headerBackground = document.querySelector<HTMLSelectElement>('#interface-tuner-header-background')
+  const list = document.querySelector<HTMLElement>('#interface-tuner-tokens')
+
+  if (tuner && close && headerBackground && list) {
+    const root = document.documentElement
+    const themeRows: Array<{ name: string; value: HTMLElement }> = []
+
+    const addGroups = (groups: readonly Group[], collect: boolean): void => {
+      for (const [group, tokens] of groups) {
+        const heading = document.createElement('div')
+        heading.className = 'interface-tuner-group'
+        heading.textContent = group
+        list.append(heading)
+
+        for (const token of tokens) {
+          const row = document.createElement('div')
+          row.className = 'interface-tuner-token'
+
+          const swatch = document.createElement('i')
+          swatch.className = 'interface-tuner-swatch'
+          swatch.style.background = `var(${token.name})`
+
+          const label = document.createElement('code')
+          label.textContent = token.name
+
+          const value = document.createElement('span')
+          if (token.refers) {
+            value.textContent = `→ ${token.refers}`
+          } else if (collect) {
+            themeRows.push({ name: token.name, value })
+          }
+
+          row.append(swatch, label, value)
+          list.append(row)
+        }
+      }
+    }
+
+    addGroups(THEME, true)
+    addGroups(SEMANTIC, false)
+
+    const defaultOption = document.createElement('option')
+    defaultOption.value = ''
+    defaultOption.textContent = '(theme default)'
+    headerBackground.append(defaultOption)
+    for (const groups of [THEME, SEMANTIC]) {
+      for (const [, tokens] of groups) {
+        for (const token of tokens) {
+          if (token.name === '--app-header-background') continue
+          const option = document.createElement('option')
+          option.value = token.name
+          option.textContent = token.name
+          headerBackground.append(option)
+        }
+      }
+    }
+
+    /* Theme values must be unique; flag any literal that appears twice. */
+    const refresh = (): void => {
+      const computed = getComputedStyle(root)
+      const seen = new Map<string, string[]>()
+      for (const row of themeRows) {
+        const value = computed.getPropertyValue(row.name).trim()
+        row.value.textContent = value
+        const names = seen.get(value) || []
+        names.push(row.name)
+        seen.set(value, names)
+      }
+      for (const row of themeRows) {
+        const names = seen.get(row.value.textContent || '') || []
+        const duplicate = names.length > 1
+        row.value.classList.toggle('is-duplicate', duplicate)
+        row.value.title = duplicate ? `Same colour as ${names.filter((n) => n !== row.name).join(', ')}` : ''
+      }
+    }
+
+    headerBackground.addEventListener('change', () => {
+      if (headerBackground.value) {
+        root.style.setProperty('--app-header-background', `var(${headerBackground.value})`)
+      } else {
+        root.style.removeProperty('--app-header-background')
+      }
+      refresh()
+    })
+
+    close.addEventListener('click', () => { tuner.hidden = true })
+
+    new MutationObserver(refresh).observe(root, {
+      attributeFilter: ['data-palette', 'data-appearance', 'data-colorization']
+    })
+
+    refresh()
+  }
+}
