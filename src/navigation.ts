@@ -48,17 +48,17 @@
   }
 
   function nextPane(
-    current: WorkspacePane,
+    current: PaneLayoutPane,
     direction: -1 | 1,
-    documentsVisible: boolean
-  ): WorkspacePane {
-    const panes: WorkspacePane[] = documentsVisible
-      ? ['documents', 'preview', 'annotation']
-      : ['preview', 'annotation']
+    leftPaneVisible: boolean
+  ): PaneLayoutPane {
+    const panes: PaneLayoutPane[] = leftPaneVisible
+      ? ['left', 'center', 'right']
+      : ['center', 'right']
     const currentIndex = panes.indexOf(current)
     const start = currentIndex === -1 ? 0 : currentIndex
     const pane = panes[(start + direction + panes.length) % panes.length]
-    if (!pane) throw new Error('Workspace pane navigation is empty.')
+    if (!pane) throw new Error('Pane layout navigation is empty.')
     return pane
   }
 

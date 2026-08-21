@@ -129,10 +129,10 @@
       .document-meta span { color: var(--muted); font: 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
       .app-button { padding: 9px 12px; border: 1px solid #d8d0c7; border-radius: 8px; color: #5c554f; background: #fffdfa; font-size: 11px; font-weight: 700; }
       .app-button.primary { border-color: var(--orange); color: white; background: var(--orange); }
-      .workspace { display: grid; grid-template-columns: 1.2fr .8fr; min-height: 270px; border-top: 1px solid var(--line); }
-      .workspace > div { padding: 27px; }
-      .workspace > div + div { border-left: 1px solid var(--line); background: #fffdfa; }
-      .workspace .active-row { width: 78%; background: var(--soft); box-shadow: inset 4px 0 var(--orange); }
+      .pane-layout { display: grid; grid-template-columns: 1.2fr .8fr; min-height: 270px; border-top: 1px solid var(--line); }
+      .pane-layout > div { padding: 27px; }
+      .pane-layout > div + div { border-left: 1px solid var(--line); background: #fffdfa; }
+      .pane-layout .active-row { width: 78%; background: var(--soft); box-shadow: inset 4px 0 var(--orange); }
       .empty-example { margin-top: 24px; }
       .empty-window { overflow: hidden; border: 1px solid #d0c8bd; border-radius: 14px; background: #f4f1ea; box-shadow: 0 20px 40px rgb(67 49 39 / 13%); }
       .empty-header { min-height: 62px; display: flex; align-items: center; justify-content: flex-end; padding: 14px 18px; border-bottom: 1px solid var(--line); }
@@ -238,7 +238,7 @@
                 <div class="window">
                   <div class="titlebar"></div>
                   <header class="app-header"><div class="app-brand"><img class="mark" src="assets/markover-mark.svg" alt=""><img class="small-word" src="assets/markover-logotype.svg" alt="Markover"></div><div class="document-actions"><div class="document-meta"><strong>visual-assets-pass.md</strong><span>mko_8f3a2c · editing</span></div><button class="app-button primary">Copy feedback</button></div></header>
-                  <div class="workspace"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
+                  <div class="pane-layout"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
                 </div>
               </div>
               <div class="app-variant">
@@ -246,12 +246,12 @@
                 <div class="window">
                   <div class="titlebar"></div>
                   <header class="app-header"><div class="app-brand"><img class="mark" src="assets/markover-mark.svg" alt="Markover"></div><div class="document-actions"><div class="document-meta"><strong>visual-assets-pass.md</strong><span>mko_8f3a2c · editing</span></div><button class="app-button primary">Copy feedback</button></div></header>
-                  <div class="workspace"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
+                  <div class="pane-layout"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
                 </div>
               </div>
             </div>
             <div class="empty-example">
-              <div class="variant-caption">No document open / full identity belongs in the empty workspace</div>
+              <div class="variant-caption">No document open / full identity belongs in the app empty state</div>
               <div class="empty-window"><div class="titlebar"></div><header class="empty-header"><button class="app-button">Open Markdown</button></header><div class="empty-state"><div><img src="assets/markover-lockup.svg" alt="Markover"><p>Structured review for Markdown</p></div></div></div>
             </div>
           </div>

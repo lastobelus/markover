@@ -24,7 +24,7 @@ function populatedWorkspace(): MarkoverWorkspaceState {
       expanded: false
     }],
     activeReviewId: 'mko_ghijkl',
-    annotationPaneWidth: 432,
+    rightPaneWidth: 432,
     reviews: {
       mko_abcdef: {
         selectedBlockId: 'block-2',
@@ -41,7 +41,9 @@ test('workspace state is independently versioned and exact', () => {
   const workspace = populatedWorkspace()
   assert.equal(isWorkspaceState(workspace), true)
   assert.deepEqual(parseWorkspaceState(workspace), workspace)
-  assert.equal(isWorkspaceState({ ...workspace, version: 3 }), false)
+  assert.equal(workspace.version, 3)
+  assert.equal(isWorkspaceState({ ...workspace, version: 2 }), false)
+  assert.equal(isWorkspaceState({ ...workspace, version: 4 }), false)
   assert.equal(isWorkspaceState({
     ...workspace,
     openReviewIds: ['mko_abcdef', 'mko_ghijkl']
@@ -209,7 +211,7 @@ test('renderer restoration persists only confirmed private view state', async ()
     'projectExpansion',
     'threadExpansion',
     'activeReviewId',
-    'annotationPaneWidth',
+    'rightPaneWidth',
     'collapsedBlockIds'
   ]) {
     assert.match(snapshotBody, new RegExp(`${field}:`))

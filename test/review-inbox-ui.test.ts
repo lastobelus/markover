@@ -19,7 +19,7 @@ test('production review navigation shares the strip with exact-ID activation', (
   )
   assert.match(
     styles,
-    /\.review-tab-strip \{[\s\S]*grid-template-columns: var\(--documents-list-width\) minmax\(0, 1fr\);/
+    /\.review-tab-strip \{[\s\S]*grid-template-columns: var\(--left-pane-width\) minmax\(0, 1fr\);/
   )
   assert.match(styles, /\.review-list-row-meta \{[^}]*font-size: 10px;/)
 })
@@ -65,7 +65,7 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /bindReviewHoverCard\(summary, \(\) => threadHoverModel\(thread, project\)\)/)
   assert.match(renderer, /markoverIcon\('messages-square', 'review-thread-icon'\)/)
   assert.match(renderer, /markoverIcon\('chevron-right', 'is-closed'\)/)
-  assert.match(renderer, /replaceMarkoverIcon\(elements\.documentsListCollapse, 'panel-left-close'\)/)
+  assert.match(renderer, /replaceMarkoverIcon\(elements\.leftPaneCollapse, 'panel-left-close'\)/)
   assert.match(icons, /from 'lucide\/dist\/esm\/lucide\/src\/lucide\.js'/)
   assert.match(styles, /\.review-details-disclosure \.lucide-icon/)
   assert.match(styles, /\.review-project-leaf-status/)

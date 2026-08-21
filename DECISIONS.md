@@ -93,7 +93,7 @@ each choice from that baseline without duplicating the live decisions below.
 - **P-I2 — Retain.** Arrow keys still navigate the document structure. See
   Interaction 2 and the [navigation tests](test/navigation.test.ts).
 - **P-I3 — Superseded.** The two-pane Tab toggle became an ordered focus cycle
-  across the optional Documents sidebar, Document tree, and Annotation pane.
+  across the optional left pane, center pane, and right pane.
   See Interaction 3 and the [keyboard contract tests](test/brand.test.ts).
 - **P-I4 — Superseded.** In-memory annotations became durable managed reviews
   with bounded-loss autosave and restart restoration. See Interaction 4,
@@ -195,7 +195,7 @@ each choice from that baseline without duplicating the live decisions below.
    - [ ] Review the pending decision
    - [x] Preserve the accepted behavior
 7. **Inline Markdown is rendered inside supported blocks.** Bold, italic,
-   inline code, link labels, and image labels appear in the left pane. Links
+   inline code, link labels, and image labels appear in the document tree. Links
    remain inert. Image syntax renders as a labeled preview control, but only an
    embedded `data:` source can open in the current preview. Relative paths,
    local file paths, and HTTP(S) sources remain unavailable and are not
@@ -238,9 +238,9 @@ each choice from that baseline without duplicating the live decisions below.
    **Audit — Retain.** Structural movement remains the primary keyboard model
    and has direct behavioral coverage. Evidence:
    [navigation tests](test/navigation.test.ts).
-3. **Tab and Shift-Tab cycle review panes.** When the documents list sidebar is
-   expanded, focus cycles through Documents, Document tree, and Annotation.
-   A collapsed or absent documents list is skipped. Control-Tab remains reserved
+3. **Tab and Shift-Tab cycle the top-level panes.** When the left pane is
+   expanded, focus cycles through the left, center, and right panes.
+   A collapsed or absent left pane is skipped. Control-Tab remains reserved
    for switching review sessions.
 
    **Audit — Retain.** The three-surface cycle scales the prototype interaction
@@ -273,10 +273,10 @@ each choice from that baseline without duplicating the live decisions below.
    image. Image indicators propagate through descendants without distinguishing
    where in the subtree the image lives. All three columns remain fixed at the
    right edge; nesting indents only the disclosure and content columns.
-7. **The annotation pane includes compact raw source.** Its header contains the
-   node type and source line span; list items also show their position and list
-   length. A collapsible source panel preserves the selected block's original
-   Markdown without hard-wrapping and uses a small monospace font. An explicit
+7. **The right pane includes compact raw source.** Its annotation header
+   contains the node type and source line span; list items also show their
+   position and list length. A collapsible source panel preserves the selected
+   block's original Markdown without hard-wrapping and uses a small monospace font. An explicit
    Edit action creates a proposal in `sourceEdit: { original, current }`; it
    never writes the source document or changes its checksum, `raw`, IDs, or
    structure. Saved proposals render through Pierre Diffs, show line counts in
@@ -300,12 +300,12 @@ each choice from that baseline without duplicating the live decisions below.
    indentation but their backgrounds and top/bottom borders reach the left edge
    of the pane. There are no side borders or rounded corners. A small,
    pointer-inert overlay completes the active band over the native scrollbar;
-   pinned rows sit above the entire scroll surface. The document pane's right
+   pinned rows sit above the entire scroll surface. The center pane's right
    divider uses the same hairline color as selected rows.
-10. **Pane headers are compact and geometrically shared.** Both use the same
-    fixed 40-pixel height and aligned bottom border. Their pane labels sit in
-    the top-left corner, the selected block descriptor is centered, and status
-    pills remain right-aligned.
+10. **The center and right pane headers are compact and geometrically shared.**
+    Both use the same fixed 40-pixel height and aligned bottom border. Their
+    pane labels sit in the top-left corner, the selected block descriptor is
+    centered, and status pills remain right-aligned.
 11. **Pane focus is an external top-edge signal.** The focused pane replaces
     its one-pixel header-top hairline with a four-pixel accent line extending
     upward, so its bottom edge remains aligned with the other pane's hairline.
@@ -479,7 +479,7 @@ each choice from that baseline without duplicating the live decisions below.
    selection, collapsed blocks, annotations, and attachment previews.
    Control-Tab and Control-Shift-Tab cycle reviews.
 3. **Pending reviews are localized read-only state.** Tabs show `WITH AGENT`,
-   the annotation pane shows `WITH AGENT · READ ONLY`, feedback renders as
+   the right pane shows `WITH AGENT · READ ONLY`, feedback renders as
    Markdown rather than a textarea, and mutation controls disappear. Document
    navigation, collapsing, source, thumbnails, and image preview remain.
 4. **The main process owns the latest persisted snapshot.** Renderer snapshot

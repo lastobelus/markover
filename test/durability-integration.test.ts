@@ -148,7 +148,7 @@ test('renderer mutations drain before main blocks new attachment saves', () => {
   )
   assert.match(
     renderer,
-    /onReviewShutdownState\(\(paused\)[\s\S]*element\.inert = paused/
+    /onReviewShutdownState\(\(paused\)[\s\S]*elements\.appShell\.inert = paused/
   )
 })
 

@@ -84,8 +84,8 @@
         </div>
       </div>
 
-      <main class="inbox-prototype-workspace">
-        <aside class="inbox-prototype-review-pane">
+      <main class="inbox-prototype-pane-layout">
+        <aside class="inbox-prototype-left-pane">
           <header class="inbox-prototype-pane-header">
             <span class="eyebrow">Reviews</span>
             <span class="inbox-prototype-count">5 need review</span>
@@ -236,7 +236,7 @@
           </section>
         </aside>
 
-        <section class="inbox-prototype-document-pane">
+        <section class="inbox-prototype-center-pane">
           <header class="inbox-prototype-pane-header">
             <span class="eyebrow">Document tree</span>
             <code class="inbox-prototype-review-id">mko_97a1b2c3</code>
@@ -253,7 +253,7 @@
           </div>
         </section>
 
-        <aside class="inbox-prototype-annotation-pane">
+        <aside class="inbox-prototype-right-pane">
           <header class="inbox-prototype-pane-header"><span class="eyebrow">Selected block</span></header>
           <div class="inbox-prototype-annotation-body">
             <section>
@@ -266,7 +266,9 @@
         </aside>
       </main>
     </section>
-    <header class="app-header is-empty">
+    <div id="app-shell" class="app-shell">
+    <header id="app-header" class="app-header is-empty">
+      <div class="app-header-bar">
       <div class="brand" role="img" aria-label="Markover">
         <img
           id="brand-mark"
@@ -304,7 +306,7 @@
           <button id="copy-tree-button" class="button button-primary">Copy feedback JSON</button>
         </div>
       </div>
-    </header>
+      </div>
 
     <div
       id="durability-warning"
@@ -347,11 +349,12 @@
         <button type="submit">Open</button>
       </form>
     </div>
+    </header>
 
-    <main id="empty-workspace" class="empty-workspace">
+    <main id="app-empty-state" class="app-empty-state">
       <img
-        id="empty-workspace-lockup"
-        class="empty-workspace-lockup"
+        id="app-empty-state-lockup"
+        class="app-empty-state-lockup"
         src="../design/brand/markover-lockup.svg"
         alt="Markover"
       >
@@ -361,8 +364,8 @@
       </button>
     </main>
 
-    <main id="workspace" class="workspace" hidden>
-      <aside id="documents-list-sidebar" class="documents-list-sidebar" hidden>
+    <main id="pane-layout" class="pane-layout" hidden>
+      <aside id="left-pane" class="left-pane" hidden>
         <header class="documents-list-header">
           <div class="pane-header-leading">
             <span class="eyebrow">Reviews</span>
@@ -376,11 +379,11 @@
             <option value="all">All</option>
           </select>
           <button
-            id="documents-list-collapse"
-            class="documents-list-disclosure"
+            id="left-pane-collapse"
+            class="left-pane-disclosure"
             type="button"
-            title="Collapse documents list sidebar"
-            aria-label="Collapse documents list sidebar"
+            title="Collapse left pane"
+            aria-label="Collapse left pane"
             aria-expanded="true"
           ></button>
         </header>
@@ -392,10 +395,10 @@
         </div>
         <div id="documents-list-tree" class="documents-list-tree"></div>
         <div
-          id="documents-list-resizer"
-          class="documents-list-resizer"
+          id="left-pane-resizer"
+          class="left-pane-resizer"
           role="separator"
-          aria-label="Resize documents list sidebar"
+          aria-label="Resize left pane"
           aria-orientation="vertical"
           aria-valuemin="150"
           tabindex="0"
@@ -403,19 +406,19 @@
       </aside>
 
       <section
-        id="preview-pane"
-        class="pane preview-pane"
+        id="center-pane"
+        class="pane center-pane"
         tabindex="0"
         aria-label="Document tree. Use arrow keys to navigate blocks."
       >
         <div class="pane-header">
           <div class="pane-header-leading">
             <button
-              id="documents-list-open"
-              class="documents-list-disclosure"
+              id="left-pane-open"
+              class="left-pane-disclosure"
               type="button"
-              title="Expand documents list sidebar"
-              aria-label="Expand documents list sidebar"
+              title="Expand left pane"
+              aria-label="Expand left pane"
               aria-expanded="false"
               hidden
             ></button>
@@ -453,17 +456,17 @@
         </div>
       </section>
 
-      <aside id="annotation-pane" class="pane annotation-pane" tabindex="-1">
+      <aside id="right-pane" class="pane right-pane" tabindex="-1">
         <div
-          id="annotation-pane-resizer"
-          class="annotation-pane-resizer"
+          id="right-pane-resizer"
+          class="right-pane-resizer"
           role="separator"
-          aria-label="Resize annotation pane"
+          aria-label="Resize right pane"
           aria-orientation="vertical"
           aria-valuemin="360"
           tabindex="0"
         ></div>
-        <div class="annotation-view-tabs" role="tablist" aria-label="Annotation pane view">
+        <div class="annotation-view-tabs" role="tablist" aria-label="Right pane view">
           <button
             id="annotation-view-selected"
             class="is-active"
@@ -586,6 +589,7 @@
         </section>
       </aside>
     </main>
+    </div>
 
     <div
       id="status-announcer"
@@ -714,8 +718,8 @@
             <input name="showKeyboardHelp" type="checkbox" role="switch">
           </label>
           <label class="settings-field settings-switch-field">
-            <span><strong>Open documents list on launch</strong><small>Start each app session with the projects and documents sidebar visible.</small></span>
-            <input name="openDocumentsSidebar" type="checkbox" role="switch">
+            <span><strong>Open left pane on launch</strong><small>Start each app session with the review navigation visible in the left pane.</small></span>
+            <input name="openLeftPane" type="checkbox" role="switch">
           </label>
           <label class="settings-field">
             <span><strong>Default document tree view</strong><small>Show every block or begin with only annotated blocks.</small></span>

@@ -17,13 +17,13 @@ The selected direction is Concept A, **Inbox + Projects**. The updated interacti
 
 ## Application chrome and navigation
 
-- Place `Inbox` and `Projects` tabs in the left segment of the review-navigation strip, directly above the review-list header.
+- Place `Inbox` and `Projects` tabs at the top of the left pane, directly above the review-list header.
 - Use the rest of that strip for a minimal exact-review-ID activation form.
 - Open Inbox on first launch. Afterward, restore the last-selected Inbox or Projects tab.
 - Keep exactly one active review and restore it after relaunch while retaining every review's private view state.
 - Selecting a review, entering its exact ID, or following a deep link activates it and reveals its ancestors without otherwise disturbing saved hierarchy expansion.
 - Keep next/previous review navigation independent of any closeable working-set model.
-- Show the active review's exact ID in the Document Tree header as a copyable keyboard control. Include the exact ID in Inbox/Projects hover details, focused-row accessible content, and the review-context drawer with a one-step copy action.
+- Show the active review's exact ID in the center pane's Document Tree header as a copyable keyboard control. Include the exact ID in Inbox/Projects hover details, focused-row accessible content, and the review-context drawer with a one-step copy action.
 
 ## Inbox
 

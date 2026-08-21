@@ -36,7 +36,7 @@ An attachment with no feedback text is an **attachment-only annotation**.
 
 ## annotation list::
 
-The annotation-pane view that renders every annotation in the active review and links each one back to its review block.
+The annotation view that renders every annotation in the active review and links each one back to its review block.
 
 ## annotation marker::
 
@@ -47,6 +47,18 @@ An **own annotation marker** means the block itself is annotated. A **descendant
 ## annotation sneak peek::
 
 The transient hover preview opened from a block's own annotation marker; also called the hover card or peek.
+
+## app header::
+
+The full-width structural region at the top of the app shell, above the pane layout.
+
+Use **app header** for the structure in documentation, code, and theme tokens.
+
+## app shell::
+
+The persistent top-level application structure containing the app header and pane layout.
+
+Dialogs, popovers, settings windows, and transient overlays are outside the app shell.
 
 ## application-data directory::
 
@@ -100,6 +112,12 @@ The per-service-start 256-bit bearer secret authorizing every non-health local-s
 
 It rotates on restart, stays inside protected local files and the shared client, and is not a review or handoff credential.
 
+## center pane::
+
+The central top-level pane in the pane layout.
+
+The document tree is its current primary content, not the pane's structural identity.
+
 ## context drawer::
 
 The UI surface showing the active review's summary, paths, Git context, pull request, agent thread, and discovery provenance.
@@ -118,7 +136,7 @@ Publication of the endpoint record after the credential record, making the visib
 
 ## document tree::
 
-The central UI view of the review tree as navigable, collapsible Markdown blocks.
+The UI presentation of the review tree as navigable, collapsible Markdown blocks.
 
 Use **review tree** for the serialized data structure and **document tree** for its presentation and navigation surface.
 
@@ -198,6 +216,12 @@ Proposed user-editable per-review guidance controlling how much latitude agents 
 
 It can refine but cannot override the fixed contract.
 
+## left pane::
+
+The leftmost, optionally collapsible top-level pane in the pane layout.
+
+Review navigation and the documents list are its current content, not the pane's structural identity.
+
 ## line-safe block::
 
 A parsed construct whose editable source range covers complete, non-overlapping lines and can support an unambiguous source edit.
@@ -239,6 +263,12 @@ An invalid source edit whose `current` text equals its `original` text and there
 A review block rendered and selected as one unit even though its Markdown contains nested structure.
 
 Block quotes and tables are currently opaque: their internals do not become navigable child blocks.
+
+## pane layout::
+
+The horizontal structural region below the app header containing the left, center, and right panes.
+
+Use **pane layout** for this visual structure. **Workspace** refers to app-private state or another operational context, not this layout.
 
 ## pending-agent::
 
@@ -314,7 +344,7 @@ Historical artifacts that are not imported remain preserved; import is not a gen
 
 ## review inbox::
 
-The single multi-review Markover workspace that receives work from one or more agent threads and groups reviews by project.
+The single multi-review Markover surface that receives work from one or more agent threads and groups reviews by project.
 
 ## review metadata::
 
@@ -342,7 +372,7 @@ Annotations and source edits may change; the source content, checksum, block IDs
 
 The serialized deterministic hierarchy of review blocks for one source document, including mutable annotation state.
 
-Use **document tree** for the central UI view of this structure.
+Use **document tree** for the UI presentation of this structure.
 
 ## reviewed::
 
@@ -355,6 +385,12 @@ Reviewed cycles appear in history and emit a completion notice; they do not beco
 The persisted read-only review status indicating that the agent has acted on every part of the handed-off feedback.
 
 A later feedback round opens a new independent review; revision lineage and version ordinals are deferred to issue #128.
+
+## right pane::
+
+The rightmost top-level pane in the pane layout.
+
+Annotation views are its current primary content, not the pane's structural identity.
 
 ## roadmap status ledger::
 
@@ -382,7 +418,7 @@ A pair may be coherent and live, coherent but stale, or mismatched across proces
 
 ## source card::
 
-The annotation-pane panel showing a block's original source, saved source edit, diff, and edit controls.
+The annotation-view panel showing a block's original source, saved source edit, diff, and edit controls.
 
 ## source document::
 

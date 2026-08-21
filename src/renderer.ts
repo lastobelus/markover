@@ -121,14 +121,15 @@ function metadataString(
 }
 
 const elements = {
-  appHeader: requiredElement('.app-header'),
+  appShell: requiredElement('#app-shell'),
+  appHeader: requiredElement('#app-header'),
   annotationCount: requiredElement('#annotation-count'),
   annotationGuidance: requiredElement('#annotation-guidance'),
   annotationInput: requiredElement<HTMLTextAreaElement>('#annotation-input'),
   annotationList: requiredElement('#annotation-list'),
   annotationListView: requiredElement('#annotation-list-view'),
-  annotationPane: requiredElement('#annotation-pane'),
-  annotationPaneResizer: requiredElement('#annotation-pane-resizer'),
+  rightPane: requiredElement('#right-pane'),
+  rightPaneResizer: requiredElement('#right-pane-resizer'),
   annotationReadonly: requiredElement('#annotation-readonly'),
   annotationSneakPeek: requiredElement('#annotation-sneak-peek'),
   annotationState: requiredElement('#annotation-state'),
@@ -140,7 +141,7 @@ const elements = {
   checksum: requiredElement('#document-checksum'),
   copyTreeButton: requiredElement<HTMLButtonElement>('#copy-tree-button'),
   emptyOpenButton: requiredElement<HTMLButtonElement>('#empty-open-button'),
-  emptyWorkspace: requiredElement('#empty-workspace'),
+  appEmptyState: requiredElement('#app-empty-state'),
   documentReviewId: requiredElement<HTMLButtonElement>('#document-review-id'),
   durabilityWarning: requiredElement('#durability-warning'),
   imagePreview: requiredElement<HTMLDialogElement>('#image-preview'),
@@ -160,7 +161,7 @@ const elements = {
   openButton: requiredElement<HTMLButtonElement>('#open-button'),
   parseStatus: requiredElement('#parse-status'),
   pinnedSelection: requiredElement('#pinned-selection'),
-  previewPane: requiredElement('#preview-pane'),
+  centerPane: requiredElement('#center-pane'),
   selectedLocation: requiredElement<HTMLButtonElement>('#selected-location'),
   selectedAnnotationView: requiredElement('#selected-annotation-view'),
   selectedSource: requiredElement('#selected-source'),
@@ -193,10 +194,10 @@ const elements = {
   reviewContextSummary: requiredElement('#review-context-summary'),
   reviewContextTitle: requiredElement('#review-context-title'),
   reviewHoverCard: requiredElement('#review-hover-card'),
-  documentsListCollapse: requiredElement<HTMLButtonElement>('#documents-list-collapse'),
-  documentsListOpen: requiredElement<HTMLButtonElement>('#documents-list-open'),
-  documentsListResizer: requiredElement('#documents-list-resizer'),
-  documentsListSidebar: requiredElement('#documents-list-sidebar'),
+  leftPaneCollapse: requiredElement<HTMLButtonElement>('#left-pane-collapse'),
+  leftPaneOpen: requiredElement<HTMLButtonElement>('#left-pane-open'),
+  leftPaneResizer: requiredElement('#left-pane-resizer'),
+  leftPane: requiredElement('#left-pane'),
   documentsListTree: requiredElement('#documents-list-tree'),
   reviewInboxCount: requiredElement('#review-inbox-count'),
   reviewBatchAccept: requiredElement<HTMLButtonElement>('#review-batch-accept'),
@@ -217,7 +218,7 @@ const elements = {
   reviewResolutionSummaries: requiredElement('#review-resolution-summaries'),
   reviewResolutionTitle: requiredElement('#review-resolution-title'),
   reviewTabStrip: requiredElement('#review-tab-strip'),
-  emptyWorkspaceLockup: requiredElement<HTMLImageElement>('#empty-workspace-lockup'),
+  appEmptyStateLockup: requiredElement<HTMLImageElement>('#app-empty-state-lockup'),
   fixedContractClose: requiredElement<HTMLButtonElement>('#fixed-contract-close'),
   fixedContractDialog: requiredElement<HTMLDialogElement>('#fixed-contract-dialog'),
   fixedContractDone: requiredElement<HTMLButtonElement>('#fixed-contract-done'),
@@ -234,11 +235,11 @@ const elements = {
   claudeThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#claude-thread-titles-refresh'),
   t3ThreadTitleStatus: requiredElement('#t3-thread-title-status'),
   t3ThreadTitlesRefresh: requiredElement<HTMLButtonElement>('#t3-thread-titles-refresh'),
-  workspace: requiredElement('#workspace')
+  paneLayout: requiredElement('#pane-layout')
 }
 
-replaceMarkoverIcon(elements.documentsListCollapse, 'panel-left-close')
-replaceMarkoverIcon(elements.documentsListOpen, 'panel-left')
+replaceMarkoverIcon(elements.leftPaneCollapse, 'panel-left-close')
+replaceMarkoverIcon(elements.leftPaneOpen, 'panel-left')
 
 const state: RendererState = {
   attachmentPreviewUrls: new Map<string, string>(),
@@ -262,10 +263,10 @@ let incompatibleReviews: MarkoverIncompatibleReview[] = []
 const INBOX_HISTORY_PAGE_SIZE = 10
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let reviewHoverTimer: ReturnType<typeof setTimeout> | null = null
-let documentsListCollapsed = false
+let leftPaneCollapsed = false
 let localOpenInProgress = false
-let documentsListWidth = 390
-let annotationPaneWidth: number | null = null
+let leftPaneWidth = 390
+let rightPaneWidth: number | null = null
 let reviewNavigationMode: 'inbox' | 'projects' = 'inbox'
 let reviewFilter: ReviewInboxFilter = 'needs-me'
 let batchResolutionMode = false
@@ -427,9 +428,9 @@ function workspaceSnapshot(): MarkoverWorkspaceState {
     activeReviewId: state.reviewId && reviewSessions.get(state.reviewId)
       ? state.reviewId
       : null,
-    annotationPaneWidth: annotationPaneWidth === null
+    rightPaneWidth: rightPaneWidth === null
       ? null
-      : Math.round(annotationPaneWidth),
+      : Math.round(rightPaneWidth),
     reviews
   }
 }
@@ -480,7 +481,7 @@ function applyWorkspaceState(value: MarkoverWorkspaceState): MarkoverWorkspaceSt
     normalizeSessionWorkspaceState(session)
   }
   reviewNavigationMode = normalized.navigationMode
-  annotationPaneWidth = normalized.annotationPaneWidth
+  rightPaneWidth = normalized.rightPaneWidth
   return {
     ...normalized,
     initialized: true,
@@ -878,22 +879,22 @@ function selectNode(id: string, focusPreview = false): void {
 
   const selectedRow = elements.tree.querySelector(`[data-node-id="${id}"]`)
   selectedRow?.scrollIntoView({ block: 'nearest' })
-  if (focusPreview) elements.previewPane.focus()
+  if (focusPreview) elements.centerPane.focus()
   announceNodeSelection(node)
   persistWorkspaceState()
 }
 
-function setWorkspaceEmpty(empty: boolean): void {
+function setAppEmptyState(empty: boolean): void {
   const incompatibleOnly = empty && incompatibleReviews.length > 0
   elements.appHeader.classList.toggle('is-empty', empty && !incompatibleOnly)
-  elements.emptyWorkspace.hidden = !empty || incompatibleOnly
-  elements.workspace.hidden = empty && !incompatibleOnly
-  elements.workspace.classList.toggle('is-incompatible-only', incompatibleOnly)
+  elements.appEmptyState.hidden = !empty || incompatibleOnly
+  elements.paneLayout.hidden = empty && !incompatibleOnly
+  elements.paneLayout.classList.toggle('is-incompatible-only', incompatibleOnly)
   elements.reviewTabStrip.hidden = empty || !reviewSessions.list().length
   if (!empty || incompatibleOnly) {
     requestAnimationFrame(() => {
-      applyDocumentsListWidth()
-      applyAnnotationPaneWidth()
+      applyLeftPaneWidth()
+      applyRightPaneWidth()
     })
   }
 }
@@ -1022,7 +1023,7 @@ function positionScrollbarRowCover(
     return
   }
 
-  const paneRect = elements.previewPane.getBoundingClientRect()
+  const paneRect = elements.centerPane.getBoundingClientRect()
   cover.className = [
     'scrollbar-row-cover',
     hovered ? 'is-hovered' : '',
@@ -1438,7 +1439,7 @@ function renderRemovedAttachment(
   updateAnnotationCount()
   if (autosave) autosaveReview()
   announceStatus(`Removed attachment ${attachmentReference(attachment)}.`)
-  requestAnimationFrame(focusAnnotationPane)
+  requestAnimationFrame(focusRightPane)
 }
 
 function removeAttachment(node: ReviewNode, attachment: ReviewAttachment): void {
@@ -1452,7 +1453,7 @@ async function removeManagedAttachment(
   attachment: ReviewAttachment,
   reviewId: string
 ): Promise<void> {
-  elements.workspace.inert = true
+  elements.paneLayout.inert = true
   try {
     await reviewMutations.waitCurrent(reviewId)
     const session = reviewSessions.get(reviewId)
@@ -1480,7 +1481,7 @@ async function removeManagedAttachment(
     }
   } finally {
     if (!document.documentElement.classList.contains('is-shutting-down')) {
-      elements.workspace.inert = false
+      elements.paneLayout.inert = false
     }
   }
 }
@@ -1599,8 +1600,8 @@ function renderReviewEditability(): void {
   const managed = Boolean(state.tree && isReviewSessionTree(state.tree))
   const editable = isCurrentReviewEditable()
   const readonly = managed && !editable
-  const paneHadFocus = elements.annotationPane.contains(document.activeElement)
-  elements.annotationPane.classList.toggle('is-read-only', readonly)
+  const paneHadFocus = elements.rightPane.contains(document.activeElement)
+  elements.rightPane.classList.toggle('is-read-only', readonly)
   elements.reviewStateBanner.hidden = !readonly
   elements.annotationInput.hidden = readonly
   elements.annotationReadonly.hidden = !readonly
@@ -1622,7 +1623,7 @@ function renderReviewEditability(): void {
     elements.annotationGuidance.textContent =
       'Annotations autosave continuously. Ask the agent to check Markover when you’re done.'
   }
-  if (paneHadFocus) focusAnnotationPane()
+  if (paneHadFocus) focusRightPane()
 }
 
 function renderReadonlyFeedback(node: ReviewNode): void {
@@ -1635,8 +1636,8 @@ function renderReadonlyFeedback(node: ReviewNode): void {
   }
 }
 
-function focusAnnotationPane(): void {
-  elements.annotationPane.classList.add('focus-within')
+function focusRightPane(): void {
+  elements.rightPane.classList.add('focus-within')
   if (state.annotationView === 'list') elements.annotationListView.focus()
   else if (isCurrentReviewEditable()) elements.annotationInput.focus()
   else elements.annotationReadonly.focus()
@@ -1815,7 +1816,7 @@ function selectAnnotationFromList(node: RenderedAnnotationNode): void {
   )
   selectNode(node.id)
   if (revealed) persistWorkspaceState()
-  focusAnnotationPane()
+  focusRightPane()
 }
 
 function editAnnotationFromList(node: RenderedAnnotationNode): void {
@@ -1917,7 +1918,7 @@ function setAnnotationView(view: 'selected' | 'list'): void {
   }
   const selected = MarkoverTree.findNode(tree.root, state.selectedId)
   if (selected) renderAnnotation(selected)
-  focusAnnotationPane()
+  focusRightPane()
   persistWorkspaceState()
 }
 
@@ -2140,7 +2141,7 @@ async function activateIncomingReview(
   }
   if (outcome === 'missing') return outcome
   dismissIncomingPromptsThrough(activationSequence)
-  if (focusPreview && windowFocusState.focused) elements.previewPane.focus()
+  if (focusPreview && windowFocusState.focused) elements.centerPane.focus()
   return outcome
 }
 
@@ -3295,7 +3296,7 @@ function renderInboxReviews(
   viewAll.textContent = 'View all in Projects'
   viewAll.addEventListener('click', () => {
     setReviewNavigationMode('projects')
-    requestAnimationFrame(focusDocumentsList)
+    requestAnimationFrame(focusLeftPane)
   })
   historyGroup.append(viewAll)
   fragment.append(historyGroup)
@@ -3547,10 +3548,10 @@ function renderDocumentsList(): void {
   }
   renderReviewBatchActions()
   scheduleDocumentsListClockRefresh(sessions)
-  elements.documentsListSidebar.hidden = !hasReviews
-  elements.documentsListCollapse.hidden = sessions.length === 0
-  elements.documentsListOpen.hidden = !hasReviews || !documentsListCollapsed
-  elements.workspace.classList.toggle('has-documents-list', hasReviews)
+  elements.leftPane.hidden = !hasReviews
+  elements.leftPaneCollapse.hidden = sessions.length === 0
+  elements.leftPaneOpen.hidden = !hasReviews || !leftPaneCollapsed
+  elements.paneLayout.classList.toggle('has-left-pane', hasReviews)
   elements.reviewTabStrip.hidden = sessions.length === 0
   elements.reviewInboxCount.textContent = String(projection.filterCounts['needs-me'])
   elements.reviewInboxCount.hidden = projection.filterCounts['needs-me'] === 0
@@ -3572,8 +3573,8 @@ function renderDocumentsList(): void {
     : `${projection.projects.length} projects${incompatibleReviews.length
       ? ` · ${incompatibleReviews.length} incompatible`
       : ''}`
-  applyDocumentsListWidth()
-  applyAnnotationPaneWidth()
+  applyLeftPaneWidth()
+  applyRightPaneWidth()
   elements.documentsListTree.replaceChildren()
   if (sessions.length) {
     elements.documentsListTree.append(
@@ -3587,74 +3588,74 @@ function renderDocumentsList(): void {
   }
 }
 
-function applyDocumentsListWidth(): void {
-  const workspaceWidth = elements.workspace.clientWidth || window.innerWidth
-  documentsListWidth = MarkoverReviewSessions.clampDocumentsListWidth(
-    documentsListWidth,
-    workspaceWidth
+function applyLeftPaneWidth(): void {
+  const paneLayoutWidth = elements.paneLayout.clientWidth || window.innerWidth
+  leftPaneWidth = MarkoverReviewSessions.clampLeftPaneWidth(
+    leftPaneWidth,
+    paneLayoutWidth
   )
-  elements.workspace.style.setProperty(
-    '--documents-list-width',
-    `${documentsListWidth}px`
+  elements.paneLayout.style.setProperty(
+    '--left-pane-width',
+    `${leftPaneWidth}px`
   )
   elements.reviewTabStrip.style.setProperty(
-    '--documents-list-width',
-    documentsListCollapsed ? '0px' : `${documentsListWidth}px`
+    '--left-pane-width',
+    leftPaneCollapsed ? '0px' : `${leftPaneWidth}px`
   )
-  elements.documentsListResizer.setAttribute(
+  elements.leftPaneResizer.setAttribute(
     'aria-valuenow',
-    String(Math.round(documentsListWidth))
+    String(Math.round(leftPaneWidth))
   )
-  elements.documentsListResizer.setAttribute(
+  elements.leftPaneResizer.setAttribute(
     'aria-valuemax',
-    String(Math.round(MarkoverReviewSessions.clampDocumentsListWidth(
+    String(Math.round(MarkoverReviewSessions.clampLeftPaneWidth(
       Number.POSITIVE_INFINITY,
-      workspaceWidth
+      paneLayoutWidth
     )))
   )
-  elements.documentsListResizer.setAttribute(
+  elements.leftPaneResizer.setAttribute(
     'aria-valuetext',
-    `${String(Math.round(documentsListWidth))} pixels wide`
+    `${String(Math.round(leftPaneWidth))} pixels wide`
   )
 }
 
-function applyAnnotationPaneWidth(): void {
-  const currentWidth = annotationPaneWidth ??
-    elements.annotationPane.getBoundingClientRect().width
-  const documentsWidth = elements.documentsListSidebar.getBoundingClientRect().width
-  const workspaceWidth = elements.workspace.clientWidth || window.innerWidth
-  const clampedWidth = MarkoverReviewSessions.clampAnnotationPaneWidth(
+function applyRightPaneWidth(): void {
+  const currentWidth = rightPaneWidth ??
+    elements.rightPane.getBoundingClientRect().width
+  const leftPaneWidthForLayout = elements.leftPane.getBoundingClientRect().width
+  const paneLayoutWidth = elements.paneLayout.clientWidth || window.innerWidth
+  const clampedWidth = MarkoverReviewSessions.clampRightPaneWidth(
     currentWidth,
-    workspaceWidth,
-    documentsWidth
+    paneLayoutWidth,
+    leftPaneWidthForLayout
   )
-  const maximumWidth = MarkoverReviewSessions.clampAnnotationPaneWidth(
+  const maximumWidth = MarkoverReviewSessions.clampRightPaneWidth(
     Number.POSITIVE_INFINITY,
-    workspaceWidth,
-    documentsWidth
+    paneLayoutWidth,
+    leftPaneWidthForLayout
   )
-  if (annotationPaneWidth !== null) {
-    annotationPaneWidth = clampedWidth
-    elements.workspace.style.setProperty(
-      '--annotation-pane-column-width',
-      `${annotationPaneWidth}px`
+  if (rightPaneWidth !== null) {
+    rightPaneWidth = clampedWidth
+    elements.paneLayout.style.setProperty(
+      '--right-pane-column-width',
+      `${rightPaneWidth}px`
     )
   }
-  elements.annotationPaneResizer.setAttribute(
+  elements.rightPaneResizer.setAttribute(
     'aria-valuenow',
     String(Math.round(clampedWidth))
   )
-  elements.annotationPaneResizer.setAttribute(
+  elements.rightPaneResizer.setAttribute(
     'aria-valuemax',
     String(Math.round(maximumWidth))
   )
-  elements.annotationPaneResizer.setAttribute(
+  elements.rightPaneResizer.setAttribute(
     'aria-valuetext',
     `${String(Math.round(clampedWidth))} pixels wide`
   )
 }
 
-function schedulePaneResizeLayoutUpdate(): void {
+function schedulePaneLayoutResizeUpdate(): void {
   if (paneResizeLayoutFrame !== null) return
   paneResizeLayoutFrame = requestAnimationFrame(() => {
     paneResizeLayoutFrame = null
@@ -3663,30 +3664,30 @@ function schedulePaneResizeLayoutUpdate(): void {
   })
 }
 
-function setDocumentsListCollapsed(collapsed: boolean): void {
+function setLeftPaneCollapsed(collapsed: boolean): void {
   const restoreKeyboardFocus = document.activeElement === (
-    collapsed ? elements.documentsListCollapse : elements.documentsListOpen
+    collapsed ? elements.leftPaneCollapse : elements.leftPaneOpen
   )
-  documentsListCollapsed = collapsed
-  elements.documentsListSidebar.classList.toggle('is-collapsed', collapsed)
-  elements.reviewTabStrip.classList.toggle('is-sidebar-collapsed', collapsed)
-  applyDocumentsListWidth()
-  applyAnnotationPaneWidth()
-  schedulePaneResizeLayoutUpdate()
-  elements.documentsListOpen.hidden = !collapsed || reviewSessions.list().length === 0
-  elements.documentsListCollapse.setAttribute(
+  leftPaneCollapsed = collapsed
+  elements.leftPane.classList.toggle('is-collapsed', collapsed)
+  elements.reviewTabStrip.classList.toggle('is-left-pane-collapsed', collapsed)
+  applyLeftPaneWidth()
+  applyRightPaneWidth()
+  schedulePaneLayoutResizeUpdate()
+  elements.leftPaneOpen.hidden = !collapsed || reviewSessions.list().length === 0
+  elements.leftPaneCollapse.setAttribute(
     'aria-expanded',
     String(!collapsed)
   )
-  elements.documentsListOpen.setAttribute(
+  elements.leftPaneOpen.setAttribute(
     'aria-expanded',
     String(!collapsed)
   )
   if (restoreKeyboardFocus) {
     requestAnimationFrame(() => {
       const target = collapsed
-        ? elements.documentsListOpen
-        : elements.documentsListCollapse
+        ? elements.leftPaneOpen
+        : elements.leftPaneCollapse
       target.focus()
     })
   }
@@ -3724,7 +3725,7 @@ async function themeBrandAssets(): Promise<void> {
       primary,
       secondary
     )
-    elements.emptyWorkspaceLockup.src = themedBrandSource(
+    elements.appEmptyStateLockup.src = themedBrandSource(
       brandAssetSources.lockup,
       primary,
       secondary
@@ -3877,12 +3878,12 @@ function applySettings(
   updateCodexThreadTitleStatus()
   updateClaudeThreadTitleStatus()
 
-  if (MarkoverSettings.sidebarPreferenceChanged(
+  if (MarkoverSettings.leftPanePreferenceChanged(
     previous,
     preferences,
     options.initial
   )) {
-    setDocumentsListCollapsed(!preferences.openDocumentsSidebar)
+    setLeftPaneCollapsed(!preferences.openLeftPane)
   }
   if (
     !options.initial &&
@@ -4041,14 +4042,14 @@ elements.incomingReviewNoticeOpen.addEventListener(
   scheduleIncomingReviewNoticeDismissal
 )
 
-function focusedPane(): WorkspacePane {
+function focusedPane(): PaneLayoutPane {
   const active = document.activeElement
-  if (elements.documentsListSidebar.contains(active)) return 'documents'
-  if (elements.annotationPane.contains(active)) return 'annotation'
-  return 'preview'
+  if (elements.leftPane.contains(active)) return 'left'
+  if (elements.rightPane.contains(active)) return 'right'
+  return 'center'
 }
 
-function focusDocumentsList(): void {
+function focusLeftPane(): void {
   const active = state.reviewId
     ? elements.documentsListTree.querySelector<HTMLElement>(
         `[data-review-id="${CSS.escape(state.reviewId)}"]`
@@ -4064,102 +4065,102 @@ function focusDocumentsList(): void {
   const target = active?.querySelector<HTMLElement>('button') ||
     elements.documentsListTree.querySelector<HTMLElement>('summary, button')
   target?.focus()
-  if (!target) elements.documentsListCollapse.focus()
+  if (!target) elements.leftPaneCollapse.focus()
 }
 
 function focusAfterInactiveReviewTrashed(): void {
-  if (!documentsListCollapsed) {
-    focusDocumentsList()
+  if (!leftPaneCollapsed) {
+    focusLeftPane()
     return
   }
-  if (!elements.documentsListOpen.hidden) elements.documentsListOpen.focus()
+  if (!elements.leftPaneOpen.hidden) elements.leftPaneOpen.focus()
 }
 
-function focusPane(pane: WorkspacePane): void {
-  if (pane === 'documents') focusDocumentsList()
-  else if (pane === 'annotation') focusAnnotationPane()
-  else elements.previewPane.focus()
+function focusPane(pane: PaneLayoutPane): void {
+  if (pane === 'left') focusLeftPane()
+  else if (pane === 'right') focusRightPane()
+  else elements.centerPane.focus()
 }
 
-function beginDocumentsListResize(event: PointerEvent): void {
+function beginLeftPaneResize(event: PointerEvent): void {
   if (event.button !== 0) return
   event.preventDefault()
-  const workspaceLeft = elements.workspace.getBoundingClientRect().left
+  const paneLayoutLeft = elements.paneLayout.getBoundingClientRect().left
   const pointerId = event.pointerId
-  elements.documentsListResizer.setPointerCapture(pointerId)
-  document.body.classList.add('is-resizing-documents-list')
+  elements.leftPaneResizer.setPointerCapture(pointerId)
+  document.body.classList.add('is-resizing-left-pane')
 
   const resize = (moveEvent: PointerEvent): void => {
-    documentsListWidth = moveEvent.clientX - workspaceLeft
-    applyDocumentsListWidth()
-    applyAnnotationPaneWidth()
-    schedulePaneResizeLayoutUpdate()
+    leftPaneWidth = moveEvent.clientX - paneLayoutLeft
+    applyLeftPaneWidth()
+    applyRightPaneWidth()
+    schedulePaneLayoutResizeUpdate()
   }
   const finish = (): void => {
-    elements.documentsListResizer.removeEventListener('pointermove', resize)
-    elements.documentsListResizer.removeEventListener('pointerup', finish)
-    elements.documentsListResizer.removeEventListener('pointercancel', finish)
-    document.body.classList.remove('is-resizing-documents-list')
-    if (elements.documentsListResizer.hasPointerCapture(pointerId)) {
-      elements.documentsListResizer.releasePointerCapture(pointerId)
+    elements.leftPaneResizer.removeEventListener('pointermove', resize)
+    elements.leftPaneResizer.removeEventListener('pointerup', finish)
+    elements.leftPaneResizer.removeEventListener('pointercancel', finish)
+    document.body.classList.remove('is-resizing-left-pane')
+    if (elements.leftPaneResizer.hasPointerCapture(pointerId)) {
+      elements.leftPaneResizer.releasePointerCapture(pointerId)
     }
   }
 
-  elements.documentsListResizer.addEventListener('pointermove', resize)
-  elements.documentsListResizer.addEventListener('pointerup', finish)
-  elements.documentsListResizer.addEventListener('pointercancel', finish)
+  elements.leftPaneResizer.addEventListener('pointermove', resize)
+  elements.leftPaneResizer.addEventListener('pointerup', finish)
+  elements.leftPaneResizer.addEventListener('pointercancel', finish)
 }
 
-function beginAnnotationPaneResize(event: PointerEvent): void {
+function beginRightPaneResize(event: PointerEvent): void {
   if (event.button !== 0) return
   event.preventDefault()
-  const workspaceRight = elements.workspace.getBoundingClientRect().right
+  const paneLayoutRight = elements.paneLayout.getBoundingClientRect().right
   const pointerId = event.pointerId
-  annotationPaneWidth = elements.annotationPane.getBoundingClientRect().width
-  elements.annotationPaneResizer.setPointerCapture(pointerId)
-  document.body.classList.add('is-resizing-annotation-pane')
+  rightPaneWidth = elements.rightPane.getBoundingClientRect().width
+  elements.rightPaneResizer.setPointerCapture(pointerId)
+  document.body.classList.add('is-resizing-right-pane')
 
   const resize = (moveEvent: PointerEvent): void => {
-    annotationPaneWidth = workspaceRight - moveEvent.clientX
-    applyAnnotationPaneWidth()
-    schedulePaneResizeLayoutUpdate()
+    rightPaneWidth = paneLayoutRight - moveEvent.clientX
+    applyRightPaneWidth()
+    schedulePaneLayoutResizeUpdate()
   }
   const finish = (): void => {
-    elements.annotationPaneResizer.removeEventListener('pointermove', resize)
-    elements.annotationPaneResizer.removeEventListener('pointerup', finish)
-    elements.annotationPaneResizer.removeEventListener('pointercancel', finish)
-    document.body.classList.remove('is-resizing-annotation-pane')
-    if (elements.annotationPaneResizer.hasPointerCapture(pointerId)) {
-      elements.annotationPaneResizer.releasePointerCapture(pointerId)
+    elements.rightPaneResizer.removeEventListener('pointermove', resize)
+    elements.rightPaneResizer.removeEventListener('pointerup', finish)
+    elements.rightPaneResizer.removeEventListener('pointercancel', finish)
+    document.body.classList.remove('is-resizing-right-pane')
+    if (elements.rightPaneResizer.hasPointerCapture(pointerId)) {
+      elements.rightPaneResizer.releasePointerCapture(pointerId)
     }
     persistWorkspaceState()
   }
 
-  elements.annotationPaneResizer.addEventListener('pointermove', resize)
-  elements.annotationPaneResizer.addEventListener('pointerup', finish)
-  elements.annotationPaneResizer.addEventListener('pointercancel', finish)
+  elements.rightPaneResizer.addEventListener('pointermove', resize)
+  elements.rightPaneResizer.addEventListener('pointerup', finish)
+  elements.rightPaneResizer.addEventListener('pointercancel', finish)
 }
 
-function resizeDocumentsListFromKeyboard(event: KeyboardEvent): void {
+function resizeLeftPaneFromKeyboard(event: KeyboardEvent): void {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
   event.preventDefault()
   const step = event.shiftKey ? 48 : 16
-  documentsListWidth += event.key === 'ArrowRight' ? step : -step
-  applyDocumentsListWidth()
-  applyAnnotationPaneWidth()
-  schedulePaneResizeLayoutUpdate()
+  leftPaneWidth += event.key === 'ArrowRight' ? step : -step
+  applyLeftPaneWidth()
+  applyRightPaneWidth()
+  schedulePaneLayoutResizeUpdate()
   persistWorkspaceState()
 }
 
-function resizeAnnotationPaneFromKeyboard(event: KeyboardEvent): void {
+function resizeRightPaneFromKeyboard(event: KeyboardEvent): void {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
   event.preventDefault()
   const step = event.shiftKey ? 48 : 16
-  annotationPaneWidth = elements.annotationPane.getBoundingClientRect().width + (
+  rightPaneWidth = elements.rightPane.getBoundingClientRect().width + (
     event.key === 'ArrowLeft' ? step : -step
   )
-  applyAnnotationPaneWidth()
-  schedulePaneResizeLayoutUpdate()
+  applyRightPaneWidth()
+  schedulePaneLayoutResizeUpdate()
   persistWorkspaceState()
 }
 
@@ -4175,11 +4176,11 @@ function expandReviewAncestors(reviewId: string): void {
   }
 }
 
-type ReviewActivationFocusSurface = 'documents' | null
+type ReviewActivationFocusSurface = 'left' | null
 
 function reviewActivationFocusSurface(): ReviewActivationFocusSurface {
   const active = document.activeElement
-  if (elements.documentsListTree.contains(active)) return 'documents'
+  if (elements.documentsListTree.contains(active)) return 'left'
   return null
 }
 
@@ -4210,7 +4211,7 @@ async function activateReview(
   { revealAncestors = true }: { revealAncestors?: boolean } = {}
 ): Promise<ReviewActivationOutcome> {
   const focusSurface = reviewActivationFocusSurface()
-  setWorkspaceEmpty(false)
+  setAppEmptyState(false)
   if (!reviewSessions.get(reviewId)) return 'missing'
   if (revealAncestors) expandReviewAncestors(reviewId)
   if (reviewId === state.reviewId) {
@@ -4309,10 +4310,10 @@ async function handleReviewTrashed(reviewId: string): Promise<void> {
   const next = reviewSessions.recent(1)[0]
   if (next) {
     await activateReview(next.reviewId)
-    requestAnimationFrame(() => { elements.previewPane.focus() })
+    requestAnimationFrame(() => { elements.centerPane.focus() })
   } else {
     renderDocumentsList()
-    setWorkspaceEmpty(true)
+    setAppEmptyState(true)
     persistWorkspaceState()
     requestAnimationFrame(() => { elements.emptyOpenButton.focus() })
   }
@@ -4378,7 +4379,7 @@ function captureReviewList(
 }
 
 async function loadDocument(documentData: MarkoverDocument): Promise<void> {
-  setWorkspaceEmpty(false)
+  setAppEmptyState(false)
   const checksum = documentData.checksum || await bridge.checksum(documentData.source)
   if (
     documentData.reviewId &&
@@ -4546,7 +4547,7 @@ async function pasteImages(event: ClipboardEvent): Promise<void> {
       `${String(savedImageCount)} screenshot${savedImageCount === 1 ? '' : 's'} attached.`
     )
   }
-  focusAnnotationPane()
+  focusRightPane()
 }
 
 elements.annotationInput.addEventListener('paste', (event) => {
@@ -4567,7 +4568,7 @@ async function openMarkdownDocument(): Promise<void> {
     )
     const reviewDocument = await bridge.createLocalReview(tree)
     await loadDocument(reviewDocument)
-    elements.previewPane.focus()
+    elements.centerPane.focus()
   } catch (error) {
     showToast(error instanceof Error ? error.message : 'Could not open Markdown')
   } finally {
@@ -4757,11 +4758,11 @@ elements.reviewIdActivation.addEventListener('submit', (event) => {
     }
   })
 })
-elements.documentsListCollapse.addEventListener('click', () => {
-  setDocumentsListCollapsed(true)
+elements.leftPaneCollapse.addEventListener('click', () => {
+  setLeftPaneCollapsed(true)
 })
-elements.documentsListOpen.addEventListener('click', () => {
-  setDocumentsListCollapsed(false)
+elements.leftPaneOpen.addEventListener('click', () => {
+  setLeftPaneCollapsed(false)
 })
 elements.reviewNavigationInbox.addEventListener('click', () => {
   selectedReviewIds.clear()
@@ -4824,22 +4825,22 @@ elements.reviewResolutionConfirm.addEventListener('click', () => {
 elements.reviewResolutionDialog.addEventListener('close', () => {
   finishResolutionConfirmation(false)
 })
-elements.documentsListResizer.addEventListener(
+elements.leftPaneResizer.addEventListener(
   'pointerdown',
-  beginDocumentsListResize
+  beginLeftPaneResize
 )
-elements.documentsListResizer.addEventListener(
+elements.leftPaneResizer.addEventListener(
   'keydown',
-  resizeDocumentsListFromKeyboard
+  resizeLeftPaneFromKeyboard
 )
 elements.documentsListTree.addEventListener('scroll', hideReviewHoverCard)
-elements.annotationPaneResizer.addEventListener(
+elements.rightPaneResizer.addEventListener(
   'pointerdown',
-  beginAnnotationPaneResize
+  beginRightPaneResize
 )
-elements.annotationPaneResizer.addEventListener(
+elements.rightPaneResizer.addEventListener(
   'keydown',
-  resizeAnnotationPaneFromKeyboard
+  resizeRightPaneFromKeyboard
 )
 
 MarkoverAnnotationBlock.bindDismiss(elements.tree, 'scroll', () => {
@@ -4850,8 +4851,8 @@ window.addEventListener('resize', () => {
   hideAnnotationSneakPeek()
   hideReviewHoverCard()
   if (!elements.sourceErrorTooltip.hidden) showSourceErrorTooltip()
-  applyDocumentsListWidth()
-  applyAnnotationPaneWidth()
+  applyLeftPaneWidth()
+  applyRightPaneWidth()
   updatePinnedSelection()
   MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
 })
@@ -4885,20 +4886,20 @@ document.addEventListener('keydown', (event) => {
 
   if (event.key === 'F6' && state.tree) {
     event.preventDefault()
-    const documentsVisible = reviewSessions.list().length > 0 && !documentsListCollapsed
+    const leftPaneVisible = reviewSessions.list().length > 0 && !leftPaneCollapsed
     const currentPane = focusedPane()
     const pane = MarkoverNavigation.nextPane(
       currentPane,
       event.shiftKey ? -1 : 1,
-      documentsVisible
+      leftPaneVisible
     )
-    elements.annotationPane.classList.remove('focus-within')
+    elements.rightPane.classList.remove('focus-within')
     focusPane(pane)
     return
   }
 
   if (
-    document.activeElement !== elements.previewPane ||
+    document.activeElement !== elements.centerPane ||
     !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
   ) {
     return
@@ -4941,8 +4942,8 @@ window.addEventListener('blur', () => {
   document.body.classList.remove('is-control-pressed')
 })
 
-elements.previewPane.addEventListener('focus', () => {
-  elements.annotationPane.classList.remove('focus-within')
+elements.centerPane.addEventListener('focus', () => {
+  elements.rightPane.classList.remove('focus-within')
 })
 
 async function rendererStartupPhase<T>(
@@ -5209,20 +5210,13 @@ async function initialize(): Promise<void> {
   bridge.onReviewAutosaveStatus(applyReviewAutosaveStatus)
   applyReviewAutosaveStatus(await bridge.getReviewAutosaveStatus())
   bridge.onReviewShutdownState((paused) => {
-    for (const element of [
-      elements.appHeader,
-      elements.reviewTabStrip,
-      elements.emptyWorkspace,
-      elements.workspace
-    ]) {
-      element.inert = paused
-    }
+    elements.appShell.inert = paused
     document.documentElement.classList.toggle('is-shutting-down', paused)
   })
   bridge.onReviewSnapshotRequested(async ({ reviewId, purpose }) => {
     const paneHadFocus = (
       reviewId === state.reviewId &&
-      elements.annotationPane.contains(document.activeElement)
+      elements.rightPane.contains(document.activeElement)
     )
     if (reviewId === state.reviewId) {
       state.finishAttachmentLabelEdit?.(true)
@@ -5243,7 +5237,7 @@ async function initialize(): Promise<void> {
         const selected = MarkoverTree.findNode(currentTree().root, state.selectedId)
         if (selected) renderAnnotation(selected)
         renderReviewContext()
-        if (paneHadFocus) focusAnnotationPane()
+        if (paneHadFocus) focusRightPane()
       }
     }
     await reviewMutations.wait(reviewId)
@@ -5281,14 +5275,14 @@ async function initialize(): Promise<void> {
         revealAncestors: explicitlyActivatedReviewId !== null
       })
     } else {
-      setWorkspaceEmpty(true)
+      setAppEmptyState(true)
     }
-    applyAnnotationPaneWidth()
+    applyRightPaneWidth()
     workspaceStateReady = true
     persistWorkspaceState()
     renderDocumentsList()
     void refreshRequestingThreadTitles()
-    if (state.reviewId) elements.previewPane.focus()
+    if (state.reviewId) elements.centerPane.focus()
     else if (incompatibleReviews.length) {
       elements.documentsListTree.querySelector<HTMLButtonElement>(
         '.incompatible-review-copy'
@@ -5310,8 +5304,8 @@ async function initialize(): Promise<void> {
   }
 }
 
-applyDocumentsListWidth()
-applyAnnotationPaneWidth()
+applyLeftPaneWidth()
+applyRightPaneWidth()
 void initialize().catch(async (error: unknown) => {
   startupUi.fail()
   const message = error instanceof Error ? error.message : String(error)

@@ -44,14 +44,14 @@ test('keeps an empty review selection unset', () => {
   assert.equal(move(tree.root, null, 'down'), null)
 })
 
-test('cycles focus through three panes and skips a collapsed documents list', () => {
-  assert.equal(nextPane('documents', 1, true), 'preview')
-  assert.equal(nextPane('preview', 1, true), 'annotation')
-  assert.equal(nextPane('annotation', 1, true), 'documents')
-  assert.equal(nextPane('documents', -1, true), 'annotation')
-  assert.equal(nextPane('preview', -1, true), 'documents')
-  assert.equal(nextPane('annotation', -1, false), 'preview')
-  assert.equal(nextPane('preview', 1, false), 'annotation')
+test('cycles focus through three panes and skips a collapsed left pane', () => {
+  assert.equal(nextPane('left', 1, true), 'center')
+  assert.equal(nextPane('center', 1, true), 'right')
+  assert.equal(nextPane('right', 1, true), 'left')
+  assert.equal(nextPane('left', -1, true), 'right')
+  assert.equal(nextPane('center', -1, true), 'left')
+  assert.equal(nextPane('right', -1, false), 'center')
+  assert.equal(nextPane('center', 1, false), 'right')
 })
 
 test('detects a selected row wholly outside the document viewport', () => {

@@ -64,27 +64,27 @@
     }
   }
 
-  function clampDocumentsListWidth(
+  function clampLeftPaneWidth(
     width: unknown,
-    viewportWidth: unknown
+    paneLayoutWidth: unknown
   ): number {
     const minimum = 150
     const maximum = Math.max(
       minimum,
-      Math.min(440, Number(viewportWidth) - 560)
+      Math.min(440, Number(paneLayoutWidth) - 560)
     )
     return Math.min(maximum, Math.max(minimum, Number(width) || minimum))
   }
 
-  function clampAnnotationPaneWidth(
+  function clampRightPaneWidth(
     width: unknown,
-    workspaceWidth: unknown,
-    documentsListWidth: unknown
+    paneLayoutWidth: unknown,
+    leftPaneWidth: unknown
   ): number {
     const minimum = 360
     const maximum = Math.max(
       minimum,
-      Number(workspaceWidth) - Number(documentsListWidth) - 200
+      Number(paneLayoutWidth) - Number(leftPaneWidth) - 200
     )
     return Math.min(maximum, Math.max(minimum, Number(width) || minimum))
   }
@@ -362,8 +362,8 @@
   }
 
   const api = {
-    clampAnnotationPaneWidth,
-    clampDocumentsListWidth,
+    clampLeftPaneWidth,
+    clampRightPaneWidth,
     formatRelativeTime,
     isTreeEditable,
     projectIdentity,
@@ -373,8 +373,8 @@
   } satisfies MarkoverReviewSessionsApi
 
 export {
-  clampAnnotationPaneWidth,
-  clampDocumentsListWidth,
+  clampLeftPaneWidth,
+  clampRightPaneWidth,
   formatRelativeTime,
   isTreeEditable,
   projectIdentity,

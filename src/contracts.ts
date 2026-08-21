@@ -68,7 +68,7 @@ declare global {
     annotationTextSize: AnnotationTextSize
     zoomPercent: ZoomPercent
     showKeyboardHelp: boolean
-    openDocumentsSidebar: boolean
+    openLeftPane: boolean
     defaultTreeView: DefaultTreeView
     confirmAttachmentRemoval: boolean
     incomingReviewActivationPolicy: IncomingReviewActivationPolicy
@@ -127,13 +127,13 @@ declare global {
 
   interface MarkoverWorkspaceState {
     format: 'markover-workspace'
-    version: 2
+    version: 3
     initialized: boolean
     navigationMode: WorkspaceNavigationMode
     projectExpansion: WorkspaceProjectExpansion[]
     threadExpansion: WorkspaceThreadExpansion[]
     activeReviewId: string | null
-    annotationPaneWidth: number | null
+    rightPaneWidth: number | null
     reviews: Record<string, WorkspaceReviewViewState>
   }
 
@@ -178,7 +178,7 @@ declare global {
       view: SettingsView
     ) => AppliedSettings
     darkColorization: (palette: unknown) => DarkColorization
-    sidebarPreferenceChanged: (
+    leftPanePreferenceChanged: (
       previous: MarkoverSettings,
       next: MarkoverSettings,
       initial?: boolean
@@ -542,7 +542,7 @@ declare global {
   }
 
   type NavigationDirection = 'left' | 'right' | 'up' | 'down'
-  type WorkspacePane = 'documents' | 'preview' | 'annotation'
+  type PaneLayoutPane = 'left' | 'center' | 'right'
 
   interface VerticalBounds {
     top: number
@@ -1016,10 +1016,10 @@ declare global {
       direction: NavigationDirection
     ) => string | null
     nextPane: (
-      current: WorkspacePane,
+      current: PaneLayoutPane,
       direction: -1 | 1,
-      documentsVisible: boolean
-    ) => WorkspacePane
+      leftPaneVisible: boolean
+    ) => PaneLayoutPane
     isOutsideViewport: (
       viewport: VerticalBounds,
       target: VerticalBounds
@@ -1027,12 +1027,12 @@ declare global {
   }
 
   interface MarkoverReviewSessionsApi {
-    clampAnnotationPaneWidth: (
+    clampRightPaneWidth: (
       width: unknown,
-      workspaceWidth: unknown,
-      documentsListWidth: unknown
+      paneLayoutWidth: unknown,
+      leftPaneWidth: unknown
     ) => number
-    clampDocumentsListWidth: (width: unknown, viewportWidth: unknown) => number
+    clampLeftPaneWidth: (width: unknown, paneLayoutWidth: unknown) => number
     formatRelativeTime: (timestamp: unknown, now?: unknown) => string
     isTreeEditable: (tree: unknown) => boolean
     projectIdentity: (document: {

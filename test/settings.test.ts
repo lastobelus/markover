@@ -15,7 +15,7 @@ const {
   DEFAULT_SETTINGS,
   minimumWindowSize,
   normalizeSettings,
-  sidebarPreferenceChanged,
+  leftPanePreferenceChanged,
   updateSettings,
   windowBackground,
   ZOOM_LEVELS
@@ -39,7 +39,7 @@ test('settings defaults cover the persisted preferences', () => {
     'annotationTextSize',
     'zoomPercent',
     'showKeyboardHelp',
-    'openDocumentsSidebar',
+    'openLeftPane',
     'defaultTreeView',
     'confirmAttachmentRemoval',
     'incomingReviewActivationPolicy',
@@ -68,7 +68,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     annotationTextSize: 'large',
     zoomPercent: 125,
     showKeyboardHelp: false,
-    openDocumentsSidebar: false,
+    openLeftPane: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
     incomingReviewActivationPolicy: 'when-idle',
@@ -94,7 +94,7 @@ test('settings normalization accepts known choices and rejects unknown values', 
     annotationTextSize: 'large',
     zoomPercent: 125,
     showKeyboardHelp: false,
-    openDocumentsSidebar: false,
+    openLeftPane: false,
     defaultTreeView: 'annotated',
     confirmAttachmentRemoval: false,
     incomingReviewActivationPolicy: 'when-idle',
@@ -216,7 +216,7 @@ test('renderer settings apply immediately and reset through the same path', () =
       <select name="treeDensity"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select>
       <select name="annotationTextSize"><option value="medium">Medium</option><option value="large">Large</option></select>
       <input name="showKeyboardHelp" type="checkbox">
-      <input name="openDocumentsSidebar" type="checkbox">
+      <input name="openLeftPane" type="checkbox">
       <select name="defaultTreeView"><option value="all">All</option><option value="annotated">Annotated</option></select>
       <input name="confirmAttachmentRemoval" type="checkbox">
       <select name="incomingReviewActivationPolicy"><option value="never">Never</option><option value="when-idle">When idle</option></select>
@@ -324,12 +324,12 @@ test('renderer settings apply immediately and reset through the same path', () =
   assert.equal(view.keyboardHelp.hidden, false)
 })
 
-test('behavior settings drive sidebar launch and screenshot confirmation', () => {
-  assert.equal(sidebarPreferenceChanged(DEFAULT_SETTINGS, DEFAULT_SETTINGS), false)
-  assert.equal(sidebarPreferenceChanged(DEFAULT_SETTINGS, DEFAULT_SETTINGS, true), true)
-  assert.equal(sidebarPreferenceChanged(DEFAULT_SETTINGS, {
+test('behavior settings drive left pane launch and screenshot confirmation', () => {
+  assert.equal(leftPanePreferenceChanged(DEFAULT_SETTINGS, DEFAULT_SETTINGS), false)
+  assert.equal(leftPanePreferenceChanged(DEFAULT_SETTINGS, DEFAULT_SETTINGS, true), true)
+  assert.equal(leftPanePreferenceChanged(DEFAULT_SETTINGS, {
     ...DEFAULT_SETTINGS,
-    openDocumentsSidebar: false
+    openLeftPane: false
   }), true)
 
   let prompt = null

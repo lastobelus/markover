@@ -24,7 +24,7 @@ const SETTINGS_KEYS = [
   'annotationTextSize',
   'zoomPercent',
   'showKeyboardHelp',
-  'openDocumentsSidebar',
+  'openLeftPane',
   'defaultTreeView',
   'confirmAttachmentRemoval',
   'incomingReviewActivationPolicy',
@@ -463,7 +463,7 @@ function settingsValueValid(key: string, value: unknown): boolean {
     case 'inboxTitlePreference':
       return value === 'review-purpose' || value === 'requesting-thread-title'
     case 'showKeyboardHelp':
-    case 'openDocumentsSidebar':
+    case 'openLeftPane':
     case 'confirmAttachmentRemoval':
     case 'discoverAgentThreadFromLocalSessions':
     case 'remoteCanonicalGatewayEnabled':
