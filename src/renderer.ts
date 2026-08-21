@@ -1276,6 +1276,7 @@ function renderTree(): void {
   if (unsupported) {
     elements.parseStatus.append(` · ${unsupported} omitted`)
   }
+  developmentElementCallouts?.reposition()
   requestAnimationFrame(updatePinnedSelection)
 }
 

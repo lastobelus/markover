@@ -224,6 +224,10 @@ test('picker and service route are live-watch-only and documented', () => {
     renderer,
     /function renderDocumentsList\(\)[\s\S]*replaceChildren\(\)[\s\S]*developmentElementCallouts\?\.reposition\(\)/
   )
+  assert.match(
+    renderer,
+    /function renderTree\(\)[\s\S]*elements\.tree\.replaceChildren\(\)[\s\S]*developmentElementCallouts\?\.reposition\(\)/
+  )
   assert.match(docs, /Option-click any rendered element/)
   assert.match(docs, /--instance dev element highlight/)
   assert.match(docs, /--instance dev element clear/)
