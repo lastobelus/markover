@@ -425,9 +425,10 @@ Run against the canonical host and remote client host, not two development store
 7. Open the URL on the canonical host. Add feedback and a screenshot while editing; `get`
    on the remote client host returns all feedback and a short-lived,
    attachment-and-gateway-scoped private URL, omits the canonical-host path,
-   leaves stored JSON unchanged, and denies another node. Fetch the bytes
-   through the shared remote client and prove its response authentication,
-   MIME, and projected-checksum checks reject a fixed-port imposter.
+   leaves stored JSON unchanged, and denies another node. Fetch the bytes with
+   remote `get-attachment` and prove the shared client's response
+   authentication, MIME, and projected-checksum checks reject a fixed-port
+   imposter.
 8. Exercise `edit → get → revise` on the same review and PR-observed `done`
    on matching reviews only; no source file on the canonical host changes.
 9. Lose the initial response after commit and after publication. Rerun the
@@ -532,6 +533,10 @@ Done when:
 
 - remote `get` projects only checked referenced attachments as private URLs
   and leaves persisted/reviewer artifacts unchanged;
+- remote `get-attachment` retrieves one selected attachment through the shared
+  response-authentication, MIME, size, and checksum checks, writes only
+  verified bytes to a new explicit output file, and prints no credential or
+  private URL;
 - focused tests cover traversal, symlink swap, orphan, duplicate and
   cross-review metadata, checksum/length mismatch, interrupted streaming,
   unauthorized nodes, and retry;

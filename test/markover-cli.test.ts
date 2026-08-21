@@ -25,7 +25,11 @@ import type { CanonicalDoctorResult } from '../src/canonical-maintenance'
 import type { LinkHandlerMutationResult } from '../src/link-handler'
 import type { AddressedDevelopmentBundle } from '../scripts/development-bundle'
 import { guidance } from '../src/agent-guidance'
-import { createRemoteGatewayChallenge } from '../src/remote-gateway-auth'
+import {
+  createRemoteAttachmentAccess,
+  createRemoteGatewayChallenge,
+  remoteContentDigest
+} from '../src/remote-gateway-auth'
 import { LocalServiceError } from '../src/local-client'
 import { RemoteClientError } from '../src/remote-client'
 import { startLocalService, type LocalService } from '../src/local-service'
@@ -113,6 +117,21 @@ test('parses lifecycle commands and PR observations', () => {
       command: 'get',
       reviewId: 'mko_aaa11111',
       pullRequestStatus: null
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments([
+      'get-attachment',
+      'mko_aaa11111',
+      'img-1',
+      '--output',
+      'screenshot.png'
+    ]),
+    {
+      command: 'get-attachment',
+      reviewId: 'mko_aaa11111',
+      attachmentId: 'img-1',
+      outputPath: 'screenshot.png'
     }
   )
   assert.deepEqual(
@@ -1038,7 +1057,7 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(misuse.stderr, /Unknown command: wat/)
   assert.match(
     misuse.stderr,
-    /Usage: markover <open\|get\|get-for-review\|submit\|revise\|done\|edit\|pending\|resolve\|unresolve\|canonical\|cleanup\|element\|help>/
+    /Usage: markover <open\|get\|get-attachment\|get-for-review\|submit\|revise\|done\|edit\|pending\|resolve\|unresolve\|canonical\|cleanup\|element\|help>/
   )
   assert.match(
     misuse.stderr,
@@ -1278,6 +1297,22 @@ test('remote profile routes all author commands without resolving or starting a 
     contextSummary: 'Review this remotely.',
     origin: 'remote-agent'
   })
+  const attachmentBytes = Buffer.from('verified image bytes')
+  const attachmentChecksum = remoteContentDigest(attachmentBytes)
+  const attachmentAccess = createRemoteAttachmentAccess(
+    'A'.repeat(43),
+    'mko_aaa11111',
+    'img-1',
+    Date.now() + 60_000
+  )
+  artifact.root.attachments = [{
+    id: 'img-1',
+    type: 'image',
+    label: 'Screenshot',
+    mimeType: 'image/png',
+    checksum: attachmentChecksum,
+    url: `/reviews/mko_aaa11111/attachments/img-1?access=${attachmentAccess}`
+  }]
   const requests: Array<{ method: string; path: string; body: unknown }> = []
   let healthReads = 0
   let discoveryCalls = 0
@@ -1358,6 +1393,15 @@ test('remote profile routes all author commands without resolving or starting a 
         })
       }
       throw new Error(`unexpected remote path ${requestPath}`)
+    },
+    readRemoteAttachment(profile, reviewId, attachment) {
+      assert.equal(profile.token, 'A'.repeat(43))
+      assert.equal(reviewId, 'mko_aaa11111')
+      assert.equal(attachment.id, 'img-1')
+      assert.equal(attachment.mimeType, 'image/png')
+      assert.equal(attachment.checksum, attachmentChecksum)
+      assert.doesNotMatch(attachment.url, new RegExp(profile.token))
+      return Promise.resolve(attachmentBytes)
     }
   }
 
@@ -1382,6 +1426,25 @@ test('remote profile routes all author commands without resolving or starting a 
     command: 'get',
     reviewId: 'mko_aaa11111'
   }, options), 'mko_aaa11111')
+  const outputPath = path.join(directory, 'downloaded.png')
+  const attachmentReceipt = await executeCommand({
+    command: 'get-attachment',
+    reviewId: 'mko_aaa11111',
+    attachmentId: 'img-1',
+    outputPath
+  }, options)
+  assert.deepEqual(attachmentReceipt, {
+    format: 'markover-remote-attachment',
+    version: 1,
+    status: 'written',
+    reviewId: 'mko_aaa11111',
+    attachmentId: 'img-1',
+    mimeType: 'image/png',
+    checksum: attachmentChecksum,
+    byteLength: attachmentBytes.byteLength
+  })
+  assert.deepEqual(await fs.readFile(outputPath), attachmentBytes)
+  assert.doesNotMatch(JSON.stringify(attachmentReceipt), /access=|canonical\.example|A{20}/)
   assert.deepEqual(await executeCommand({
     command: 'edit',
     reviewId: 'mko_aaa11111'
@@ -1400,16 +1463,37 @@ test('remote profile routes all author commands without resolving or starting a 
     status: 'done'
   })
 
-  assert.equal(healthReads, 6)
+  assert.equal(healthReads, 7)
   assert.equal(discoveryCalls, 1)
   assert.deepEqual(requests.map((request) => request.path), [
     '/reviews',
     '/reviews/pending',
     '/reviews/mko_aaa11111/handoff',
+    '/reviews/mko_aaa11111/handoff',
     '/reviews/mko_aaa11111/edit',
     '/reviews/mko_aaa11111/revise',
     '/reviews/done'
   ])
+})
+
+test('get-attachment requires remote author configuration before local startup', async () => {
+  let resolved = false
+  await assert.rejects(
+    executeCommand({
+      command: 'get-attachment',
+      reviewId: 'mko_aaa11111',
+      attachmentId: 'img-1',
+      outputPath: 'screenshot.png'
+    }, {
+      loadRemoteProfile: () => Promise.resolve(null),
+      resolveTarget() {
+        resolved = true
+        throw new Error('must not resolve a local instance')
+      }
+    }),
+    /requires a configured remote author profile/
+  )
+  assert.equal(resolved, false)
 })
 
 test('uncertain remote open recovers by key before rereading the source', async (t) => {
