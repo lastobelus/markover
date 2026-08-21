@@ -863,13 +863,13 @@ each choice from that baseline without duplicating the live decisions below.
     release, compatibility/accessibility, and Help-surface work.
 22. **Remote ingress is separate from local protocol 2.** The selected
     remote-client path terminates at one default-off, canonical-only,
-    mode-restricted Unix socket and then reuses the existing authenticated
+    proof-authenticated loopback gateway and then reuses the existing authenticated
     mutation core and single `ReviewStore`. It does not change the plain
     loopback service, publish its bearer, bind a Tailscale IP, enable Funnel,
     create a second store, or claim isolation from same-account or privileged
-    processes. Tailscale Serve and one forwarded application capability form
-    the later network-facing gate; the portable/store slice creates no
-    reachable ingress.
+    processes. Tailscale Serve, one forwarded application capability, and a
+    separate scoped gateway credential form the network-facing gate; the
+    portable/store slice creates no reachable ingress.
 23. **Remote creation is derived, idempotent, and path-untrusted.** The trusted
     producer boundary accepts only `agent` and `remote-agent`, while portable
     readers preserve every unknown nonblank origin. A `remote-agent` review
@@ -881,40 +881,51 @@ each choice from that baseline without duplicating the live decisions below.
     closed when an invalid, incompatible, or unreadable managed artifact makes
     the scan incomplete; absence is never inferred from an omitted review.
 
-    **Audit — Retain (Local service authorization 22–23).** A separate socket
-    preserves the selected account boundary without weakening local protocol
-    2, and store-owned digest recovery prevents duplicate primary review data
+    **Audit — Retain (Local service authorization 22–23).** A separate scoped
+    credential preserves the selected account boundary without exposing the local
+    protocol-2 bearer, and store-owned digest recovery prevents duplicate primary review data
     after an uncertain response. Evidence:
     [remote canonical implementation plan](doc/plans/2026-08-18__remote-canonical-markover.md),
     [review store tests](test/review-store.test.ts),
     [local service tests](test/local-service.test.ts), and
     [project context tests](test/review-project-context.test.ts).
 24. **Remote ingress is live, explicit, and narrower than local protocol 2.** A
-    default-off persisted setting creates one owner-only Unix socket only for a
+    default-off persisted setting creates one fixed `127.0.0.1` listener only for a
     non-smoke canonical instance whose configured checkout, blessed branch,
     and exact `markover:` handler are healthy. The gateway requires the one
-    forwarded `lastobelus.com/cap/markover-remote-client` app capability before
-    route selection or body reads, admits only remote health and the author
+    forwarded `lastobelus.com/cap/markover-remote-client` app capability and a
+    short-lived, single-use request proof derived from its dedicated gateway
+    credential before route selection or body reads,
+    admits only remote health, checked attachment retrieval, and the author
     agent's create/recovery, pending, handoff, edit, revise, and done routes,
     and returns authenticated `404` for everything else. Health exposes only
     the remote protocol, canonical role and scheme, and the current session
     discovery policy.
 25. **The gateway reuses the bearer-protected mutation engine without sharing
-    its bearer.** Tailscale Serve terminates HTTPS and forwards the selected app
-    capability to the owner-mode socket; the gateway then uses the in-process
+    either bearer.** Tailscale Serve terminates HTTPS and forwards the selected app
+    capability to the loopback listener. Health returns a short-lived server
+    challenge signed by the separate owner-only gateway credential; after
+    verifying it, the remote client signs the nonce, method, path, and exact
+    body digest without transmitting that credential. The gateway consumes the
+    challenge once, signs its JSON response, and then uses the in-process
     local-service identity for the loopback hop. Remote creation requires a
     256-bit idempotency key and exact-body digest, derives `remote-agent`,
     rejects client origin and attachment claims, rechecks canonical routing,
     and returns canonical review URLs. Remote request JSON is bounded at 16 MiB
-    and response JSON at 32 MiB; disabling stops admission, drains the single
-    active request, and
-    removes only the socket created by that gateway instance. Markover does not
+    and response JSON at 32 MiB. Handoffs replace canonical attachment paths
+    with five-minute grants bound to the review, attachment, and issuing gateway
+    instance; attachment responses are signed over their exact bytes, and the
+    shared client verifies that proof, MIME type, and projected checksum. A
+    restart invalidates outstanding attachment grants. Disabling stops admission, drains the single
+    active request, and closes its listener. Markover does not
     configure tailnet grants, drive login, bind a Tailscale IP, or enable
     Funnel.
 
-    **Audit — Retain (Local service authorization 24–25).** The socket keeps
-    other ordinary macOS accounts outside HTTP parsing while the exact Serve
-    capability supplies the tailnet gate; the fixed route projection prevents
+    **Audit — Retain (Local service authorization 24–25).** The scoped proof
+    denies other ordinary macOS accounts that can reach loopback and prevents
+    an occupant of the fixed port from impersonating Markover or harvesting a
+    reusable secret, while the
+    exact Serve capability supplies the tailnet gate; the fixed route projection prevents
     a remote author credential from becoming the full local bearer. Evidence:
     [remote gateway tests](test/remote-gateway.test.ts),
     [local service tests](test/local-service.test.ts), and the

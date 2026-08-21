@@ -139,7 +139,7 @@ test('concurrent digest appends preserve the complete history', async (t) => {
   ])
 
   const resumed = await firstJournal.acquire(input)
-  assert.deepEqual(resumed.entry.requestDigests, [digestA, digestB])
+  assert.deepEqual([...resumed.entry.requestDigests].sort(), [digestA, digestB])
 })
 
 test('a dead process lock is reclaimed before appending a digest', async (t) => {

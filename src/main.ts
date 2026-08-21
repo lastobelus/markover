@@ -82,11 +82,15 @@ import { reviewPullRequestIdentity } from './pull-request'
 import { ReviewAutosave } from './review-autosave'
 import {
   remoteGatewayActivationEligible,
+  REMOTE_GATEWAY_PORT,
   remoteGatewayHostEligible,
-  remoteGatewaySocketPath,
   startRemoteGateway,
   type RemoteGateway
 } from './remote-gateway'
+import {
+  loadOrCreateRemoteGatewayCredential,
+  remoteGatewayCredentialPath
+} from './remote-gateway-credential'
 import {
   discoverReviewProjectContext,
   restoreReviewProjectContexts,
@@ -1873,14 +1877,39 @@ async function setRemoteGatewayEnabled(enabled: boolean): Promise<void> {
   if (!service || !identity || !store) {
     throw new Error('Remote review ingress requires the canonical local service.')
   }
+  const gatewayToken = await loadOrCreateRemoteGatewayCredential({
+    credentialPath: remoteGatewayCredentialPath(addressedInstance.stateRoot)
+  })
   remoteGateway = await startRemoteGateway({
-    socketPath: remoteGatewaySocketPath(addressedInstance.stateRoot),
+    gatewayToken,
     localPort: service.port,
     localToken: identity.token,
+    port: REMOTE_GATEWAY_PORT,
     discoveryPolicy: () => (
       store.settings.discoverAgentThreadFromLocalSessions
     ),
     routingReady: assertRemoteGatewayRoutingReady,
+    async loadAttachment(reviewId, attachmentId) {
+      const artifact = await reviewStore.load(reviewId)
+      internalAttachments.replaceReview(reviewId, artifact)
+      const matches: ReviewAttachment[] = []
+      const visit = (node: ReviewNode): void => {
+        for (const attachment of node.attachments || []) {
+          if (attachment.id === attachmentId) matches.push(attachment)
+        }
+        node.children.forEach(visit)
+      }
+      visit(artifact.root)
+      if (matches.length !== 1) return null
+      const filePath = await internalAttachments.resolve(reviewId, attachmentId)
+      return filePath
+        ? {
+            attachment: matches[0] as ReviewAttachment,
+            attachmentRoot: path.join(reviewStore.directory, reviewId, 'attachments'),
+            filePath
+          }
+        : null
+    },
     scheme: addressedInstance.scheme
   })
 }

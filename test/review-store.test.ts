@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { MAXIMUM_ATTACHMENT_BYTES } from '../src/attachment-limits'
 import { reviewChecksum } from '../src/review-format'
 
 import {
@@ -234,8 +235,160 @@ test('creation receipts fail closed on body, key, and stored receipt conflicts',
   )
 })
 
+test('receipt scans ignore unrelated invalid v1 fields without rewriting them', async (t) => {
+  const ids = [
+    'mko_aaa11111',
+    'mko_bbb22222',
+    'mko_ccc33333',
+    'mko_ddd44444',
+    'mko_eee55555'
+  ]
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const mutations = [
+    (artifact: Record<string, unknown>) => {
+      artifact.discovery = { source: 'prototype' }
+    },
+    (artifact: Record<string, unknown>) => {
+      const review = artifact.review as Record<string, unknown>
+      review.git = { repositoryRoot: '/private/prototype' }
+    },
+    (artifact: Record<string, unknown>) => {
+      const root = artifact.root as Record<string, unknown>
+      root.collapsed = true
+    },
+    (artifact: Record<string, unknown>) => {
+      const review = artifact.review as Record<string, unknown>
+      delete review.origin
+      delete review.attentionRequestedAt
+    }
+  ]
+  const preserved = new Map<string, string>()
+  for (const mutate of mutations) {
+    const created = await store.create({
+      tree: tree('# Prototype\n'),
+      contextSummary: 'Pre-v1 prototype review.'
+    })
+    const artifact = structuredClone(created) as unknown as Record<string, unknown>
+    mutate(artifact)
+    const serialized = `${JSON.stringify(artifact, null, 2)}\n`
+    await fs.writeFile(store.reviewPath(created.review.id), serialized, 'utf8')
+    preserved.set(created.review.id, serialized)
+    await assert.rejects(
+      store.load(created.review.id),
+      (error: unknown) => hasErrorCode(error, 'INVALID_REVIEW')
+    )
+  }
+
+  const requestBytes = Buffer.from('{"request":1}')
+  const created = await store.createWithReceipt({
+    tree: tree('# Remote\n'),
+    contextSummary: 'Review from a remote agent.',
+    origin: 'remote-agent'
+  }, {
+    idempotencyKey: 'mko-idempotency-key-with-enough-random-material',
+    requestBytes,
+    requestDigest: digest(requestBytes)
+  })
+  assert.equal(created.created, true)
+  assert.equal(created.artifact.review.id, 'mko_eee55555')
+  await assert.rejects(
+    store.recoverCreation({
+      idempotencyKey: 'different-mko-idempotency-key-with-enough-material',
+      requestDigest: digest('different request')
+    }),
+    (error: unknown) => hasErrorCode(error, 'RECEIPT_NOT_FOUND')
+  )
+  for (const [reviewId, serialized] of preserved) {
+    assert.equal(await fs.readFile(store.reviewPath(reviewId), 'utf8'), serialized)
+  }
+})
+
+test('valid receipts in invalid v1 artifacts still prevent duplicate creation', async (t) => {
+  const ids = ['mko_aaa11111', 'mko_bbb22222']
+  const { directory, store } = await temporaryStore({
+    idFactory: () => ids.shift() as string
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const firstBytes = Buffer.from('{"request":1}')
+  const firstKey = 'first-mko-idempotency-key-with-enough-random-material'
+  const first = await store.createWithReceipt({
+    tree: tree('# First\n'),
+    contextSummary: 'First remote review.',
+    origin: 'remote-agent'
+  }, {
+    idempotencyKey: firstKey,
+    requestBytes: firstBytes,
+    requestDigest: digest(firstBytes)
+  })
+  const invalid = structuredClone(first.artifact) as unknown as Record<string, unknown>
+  invalid.discovery = { source: 'prototype' }
+  await fs.writeFile(
+    store.reviewPath(first.artifact.review.id),
+    JSON.stringify(invalid),
+    'utf8'
+  )
+
+  const secondBytes = Buffer.from('{"request":2}')
+  const second = await store.createWithReceipt({
+    tree: tree('# Second\n'),
+    contextSummary: 'Second remote review.',
+    origin: 'remote-agent'
+  }, {
+    idempotencyKey: 'second-mko-idempotency-key-with-enough-random-material',
+    requestBytes: secondBytes,
+    requestDigest: digest(secondBytes)
+  })
+  assert.equal(second.created, true)
+  await assert.rejects(
+    store.recoverCreation({
+      idempotencyKey: firstKey,
+      requestDigest: digest(firstBytes)
+    }),
+    (error: unknown) => hasErrorCode(error, 'CREATION_RECEIPT_SCAN_INCOMPLETE')
+  )
+  await assert.rejects(
+    store.recoverCreation({
+      idempotencyKey: firstKey,
+      requestDigest: digest('changed request')
+    }),
+    (error: unknown) => hasErrorCode(error, 'IDEMPOTENCY_CONFLICT')
+  )
+
+  const duplicate = structuredClone(second.artifact) as ReviewArtifact & {
+    discovery: unknown
+  }
+  duplicate.discovery = { source: 'prototype' }
+  const firstReceipt = first.artifact.review.creationReceipt
+  assert.ok(firstReceipt)
+  duplicate.review.creationReceipt = structuredClone(firstReceipt)
+  await fs.writeFile(
+    store.reviewPath(second.artifact.review.id),
+    JSON.stringify(duplicate),
+    'utf8'
+  )
+  await assert.rejects(
+    store.recoverCreation({
+      idempotencyKey: firstKey,
+      requestDigest: digest(firstBytes)
+    }),
+    (error: unknown) => hasErrorCode(error, 'DUPLICATE_CREATION_RECEIPT')
+  )
+})
+
 test('receipt operations fail closed when a managed artifact is uninspectable', async (t) => {
-  const variants = ['invalid', 'incompatible', 'unreadable'] as const
+  const variants = [
+    'invalid',
+    'invalid-envelope',
+    'malformed-receipt',
+    'malformed-json',
+    'non-object',
+    'incompatible',
+    'unreadable'
+  ] as const
   for (const variant of variants) {
     const directory = await fs.mkdtemp(
       path.join(os.tmpdir(), `markover-receipt-${variant}-test-`)
@@ -263,6 +416,10 @@ test('receipt operations fail closed when a managed artifact is uninspectable', 
 
     if (variant === 'unreadable') {
       await fs.chmod(reviewPath, 0)
+    } else if (variant === 'malformed-json') {
+      await fs.writeFile(reviewPath, '{not json', 'utf8')
+    } else if (variant === 'non-object') {
+      await fs.writeFile(reviewPath, '[]', 'utf8')
     } else {
       const damaged = structuredClone(created.artifact) as unknown as Record<
         string,
@@ -272,7 +429,14 @@ test('receipt operations fail closed when a managed artifact is uninspectable', 
         damaged.version = 2
       } else {
         const review = damaged.review as Record<string, unknown>
-        review.status = 'invalid'
+        if (variant === 'invalid-envelope') {
+          review.id = 'mko_other111'
+        } else if (variant === 'malformed-receipt') {
+          const receipt = review.creationReceipt as Record<string, unknown>
+          receipt.requestDigest = 'sha256:bad'
+        } else {
+          review.status = 'invalid'
+        }
       }
       await fs.writeFile(reviewPath, JSON.stringify(damaged), 'utf8')
     }
@@ -1533,6 +1697,37 @@ test('attachment allocation is owned, editable, and serialized by the store', as
   )
   await assert.rejects(
     fs.access(path.join(directory, 'mko_missing1'))
+  )
+})
+
+test('attachment allocation enforces the shared remote response bound', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Check attachment bounds.'
+  })
+  const accepted = await store.saveAttachmentFile(
+    created.review.id,
+    'png',
+    Buffer.alloc(MAXIMUM_ATTACHMENT_BYTES)
+  )
+  assert.equal((await fs.stat(accepted.path)).size, MAXIMUM_ATTACHMENT_BYTES)
+
+  await assert.rejects(
+    store.saveAttachmentFile(
+      created.review.id,
+      'png',
+      Buffer.alloc(MAXIMUM_ATTACHMENT_BYTES + 1)
+    ),
+    (error: unknown) => hasErrorCode(error, 'ATTACHMENT_TOO_LARGE')
+  )
+  assert.deepEqual(
+    await fs.readdir(path.dirname(accepted.path)),
+    [path.basename(accepted.path)]
   )
 })
 

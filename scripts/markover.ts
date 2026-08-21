@@ -15,9 +15,12 @@ import {
   requestServiceQuit
 } from '../src/local-client'
 import {
+  readRemoteAttachment,
   readRemoteHealth,
   RemoteClientError,
   requestRemoteJson,
+  validateRemoteAttachmentUrls,
+  type RemoteAttachmentReference,
   type RemoteHealth,
   type RemoteJsonRequestOptions
 } from '../src/remote-client'
@@ -114,6 +117,12 @@ export type ParsedCommand = ParsedInstanceTarget & (
   | { command: 'element'; action: 'clear' }
   | { command: 'element'; action: 'highlight'; reference: string }
   | { command: 'edit'; reviewId: string }
+  | {
+      command: 'get-attachment'
+      reviewId: string
+      attachmentId: string
+      outputPath: string
+    }
   | {
       command: 'resolve'
       reviewId: string
@@ -214,9 +223,9 @@ export function helpPayload() {
       installation: 'The install-free release launcher needs no installation; it downloads and caches the matching app on first local use. Configured remote author commands do not download or launch a local app.'
     },
     remoteCanonical: {
-      configuration: `Set ${REMOTE_PROFILE_ENVIRONMENT_VARIABLE} to a JSON file containing exactly {"baseUrl":"https://<canonical-host>.ts.net/"}.`,
-      commands: ['open', 'pending', 'get', 'edit', 'revise', 'done'],
-      behavior: 'A valid profile uses canonical Markover on the configured host without downloading, launching, or storing a second Markover app on the client Mac. Thread and Git discovery remain local; attachments and reviewer mode are unavailable.'
+      configuration: `Set ${REMOTE_PROFILE_ENVIRONMENT_VARIABLE} to an owner-only JSON file containing exactly {"baseUrl":"https://<canonical-host>.ts.net[:<https-port>]/","token":"<gateway-token>"}.`,
+      commands: ['open', 'pending', 'get', 'get-attachment', 'edit', 'revise', 'done'],
+      behavior: 'A valid profile uses canonical Markover on the configured host without downloading, launching, or storing a second Markover app on the client Mac. Thread and Git discovery remain local; checked attachment URLs carry short-lived, attachment-scoped access and reviewer mode is unavailable.'
     },
     workflow: [
       'Create the Markdown file before opening it.',
@@ -225,6 +234,7 @@ export function helpPayload() {
       'Run open once, then retain the returned reviewId in the agent thread.',
       'Give the user a best-effort Markdown link using reviewUrl, include the raw reviewId, put open \'<reviewUrl>\' alone on its own line as the reliable Terminal handoff, and wait for them to say "Check Markover."',
       'Run get once after that instruction; it returns the frozen markover-review JSON.',
+      'For a returned attachment, run get-attachment with its review ID and attachment ID; verified bytes are written only to a new explicit output path, and stdout omits the private URL and gateway credential.',
       'Before interpreting a returned review, require format markover-review and version 1. For any other header, preserve the artifact, consult the official compatibility catalog named by the diagnostic, recommend the compatible Markover release when listed, and never guess at the body.',
       'Before acting, follow review.agentGuidance.fixedContract and review.agentGuidance.interpretationPolicy from that JSON.',
       'For every agent-originated open or get-for-review, use one truthful identity route. On a proven Codex surface, read only CODEX_THREAD_ID; on a proven Claude surface, read only CLAUDE_CODE_SESSION_ID. If that applicable value is nonblank, pass it as --thread-id. Otherwise create one fresh mko_handoff_ value with 16–64 random letters or digits and pass it as --handoff-key in the same command. With either route, pass --thread-host-kind for the user-facing product or lookup namespace, --thread-host-provider for the LLM provider or model family, not an intermediate harness, and the local hostname result as --thread-host-machine when available. Pass --thread-host-thread-id only for a distinct host-owned ID you actually observe; never guess a T3 thread ID.',
@@ -261,6 +271,11 @@ export function helpPayload() {
         name: 'get',
         usage: 'get <review-id> [--pr-status <draft|open|merged|closed>]',
         purpose: 'Freeze one review and print its complete markover-review JSON.'
+      },
+      {
+        name: 'get-attachment',
+        usage: 'get-attachment <review-id> <attachment-id> --output <path>',
+        purpose: 'Retrieve one remote attachment through authenticated MIME, size, and checksum verification and write it to a new file.'
       },
       {
         name: 'get-for-review',
@@ -398,6 +413,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   if (
     command !== 'open' &&
     command !== 'get' &&
+    command !== 'get-attachment' &&
     command !== 'get-for-review' &&
     command !== 'submit' &&
     command !== 'revise' &&
@@ -423,8 +439,29 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       `Unknown command: ${command}`,
-      'markover <open|get|get-for-review|submit|revise|done|edit|pending|resolve|unresolve|canonical|cleanup|element|help> ...'
+      'markover <open|get|get-attachment|get-for-review|submit|revise|done|edit|pending|resolve|unresolve|canonical|cleanup|element|help> ...'
     )
+  }
+
+  if (command === 'get-attachment') {
+    const [reviewId, attachmentId, outputOption, outputPath] = rest
+    if (
+      rest.length !== 4 ||
+      !reviewId ||
+      reviewId.startsWith('--') ||
+      !attachmentId ||
+      !/^img-[1-9]\d*$/.test(attachmentId) ||
+      outputOption !== '--output' ||
+      !outputPath ||
+      outputPath === '-' ||
+      outputPath.startsWith('--')
+    ) {
+      throw commandError(
+        'get-attachment requires one review ID, one attachment ID, and one new output path.',
+        'markover get-attachment <review-id> <attachment-id> --output <path>'
+      )
+    }
+    return targeted({ command, reviewId, attachmentId, outputPath })
   }
 
   if (command === 'element') {
@@ -960,6 +997,7 @@ const remoteAuthorCommands = new Set<ParsedCommand['command']>([
   'open',
   'pending',
   'get',
+  'get-attachment',
   'edit',
   'revise',
   'done'
@@ -968,6 +1006,36 @@ const remoteAuthorCommands = new Set<ParsedCommand['command']>([
 function remoteProfileApplies(parsed: ParsedCommand): boolean {
   return parsed.instance === undefined &&
     remoteAuthorCommands.has(parsed.command)
+}
+
+function findRemoteAttachment(
+  node: ReviewNode,
+  attachmentId: string
+): RemoteAttachmentReference | null {
+  for (const attachment of node.attachments || []) {
+    if (attachment.id !== attachmentId) continue
+    if (
+      typeof attachment.checksum !== 'string' ||
+      typeof attachment.mimeType !== 'string' ||
+      typeof attachment.url !== 'string'
+    ) {
+      throw new RemoteClientError(
+        'INVALID_RESPONSE',
+        'Canonical Markover returned an invalid response.'
+      )
+    }
+    return {
+      checksum: attachment.checksum,
+      id: attachment.id,
+      mimeType: attachment.mimeType,
+      url: attachment.url
+    }
+  }
+  for (const child of node.children) {
+    const attachment = findRemoteAttachment(child, attachmentId)
+    if (attachment) return attachment
+  }
+  return null
 }
 
 function defaultRemoteJournalRoot(): string {
@@ -1209,6 +1277,7 @@ export interface ExecuteCommandOptions {
     body?: unknown,
     options?: RemoteJsonRequestOptions
   ) => Promise<unknown>
+  readRemoteAttachment?: typeof readRemoteAttachment
   remoteJournal?: RemoteCreationJournal
   remoteJournalRoot?: string
 }
@@ -1682,6 +1751,12 @@ export async function executeCommand(
   const profile = parsed.instance === undefined
     ? await (options.loadRemoteProfile || loadRemoteProfile)()
     : null
+  if (!profile && parsed.command === 'get-attachment') {
+    throw commandError(
+      'get-attachment requires a configured remote author profile.',
+      'markover get-attachment <review-id> <attachment-id> --output <path>'
+    )
+  }
   if (profile && !remoteProfileApplies(parsed)) {
     throw commandError(
       `${parsed.command} is not available through the remote author profile.`,
@@ -1710,7 +1785,7 @@ export async function executeCommand(
     readSessionDiscoverySetting: readDiscoverySetting = readSessionDiscoverySetting,
     settingsPath = path.join(path.dirname(endpointPath), 'settings.json')
   } = options
-  const requestAuthorJson = (
+  const requestAuthorJson = async (
     method: string,
     requestPath: string,
     body?: unknown,
@@ -1719,17 +1794,19 @@ export async function executeCommand(
       mutation?: boolean
       timeoutMilliseconds?: number
     } = {}
-  ): Promise<unknown> => profile
-    ? remoteRequest(profile, method, requestPath, body ?? null, {
+  ): Promise<unknown> => {
+    if (profile) {
+      const response = await remoteRequest(profile, method, requestPath, body ?? null, {
         ...(requestOptions.headers
           ? { headers: requestOptions.headers }
           : {}),
         ...(requestOptions.mutation === undefined
           ? {}
-          : { mutation: requestOptions.mutation }),
-        preflight: false
+          : { mutation: requestOptions.mutation })
       })
-    : requestJson(
+      return validateRemoteAttachmentUrls(profile, response)
+    }
+    return requestJson(
         endpointPath,
         method,
         requestPath,
@@ -1738,6 +1815,51 @@ export async function executeCommand(
           ? undefined
           : { timeoutMilliseconds: requestOptions.timeoutMilliseconds }
       )
+  }
+  if (parsed.command === 'get-attachment') {
+    const response = await requestAuthorJson(
+      'POST',
+      `/reviews/${encodeURIComponent(parsed.reviewId)}/handoff`
+    )
+    let artifact: ReviewArtifact
+    try {
+      artifact = decodeReviewArtifact(response, parsed.reviewId)
+    } catch (error) {
+      if (error instanceof ReviewFormatError) {
+        throw new RemoteClientError(error.code, error.message)
+      }
+      throw error
+    }
+    const attachment = findRemoteAttachment(
+      artifact.root,
+      parsed.attachmentId
+    )
+    if (!attachment) {
+      throw commandError(
+        `Review ${parsed.reviewId} does not contain attachment ${parsed.attachmentId}.`,
+        'markover get-attachment <review-id> <attachment-id> --output <path>'
+      )
+    }
+    const bytes = await (options.readRemoteAttachment || readRemoteAttachment)(
+      profile as RemoteProfile,
+      parsed.reviewId,
+      attachment
+    )
+    await fs.writeFile(path.resolve(parsed.outputPath), bytes, {
+      flag: 'wx',
+      mode: 0o600
+    })
+    return {
+      format: 'markover-remote-attachment',
+      version: 1,
+      status: 'written',
+      reviewId: parsed.reviewId,
+      attachmentId: attachment.id,
+      mimeType: attachment.mimeType,
+      checksum: attachment.checksum,
+      byteLength: bytes.byteLength
+    }
+  }
   if (parsed.command === 'open') {
     const sourcePath = path.resolve(parsed.sourcePath)
     const journal = profile

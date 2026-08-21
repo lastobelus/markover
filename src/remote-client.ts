@@ -6,6 +6,18 @@ import {
   MAXIMUM_REMOTE_RESPONSE_BYTES,
   REMOTE_GATEWAY_PROTOCOL_VERSION
 } from './remote-gateway'
+import {
+  remoteContentDigest,
+  remoteRequestAuthorization,
+  type RemoteGatewayChallenge,
+  REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS,
+  REMOTE_GATEWAY_CONTENT_DIGEST_HEADER,
+  REMOTE_GATEWAY_RESPONSE_AUTH_HEADER,
+  verifyRemoteAttachmentAccess,
+  verifyRemoteAttachmentResponseAuthorization,
+  verifyRemoteGatewayChallenge,
+  verifyRemoteResponseAuthorization
+} from './remote-gateway-auth'
 import type { RemoteProfile } from './remote-profile'
 
 const DEFAULT_CONNECT_TIMEOUT_MILLISECONDS = 5_000
@@ -20,6 +32,7 @@ export interface RemoteHealth {
   role: 'canonical'
   scheme: 'markover'
   discoverAgentThreadFromLocalSessions: boolean
+  authorization: RemoteGatewayChallenge
 }
 
 export class RemoteClientError extends Error {
@@ -58,9 +71,17 @@ export interface RemoteClientOptions {
 }
 
 export interface RemoteJsonRequestOptions extends RemoteClientOptions {
+  authorization?: RemoteGatewayChallenge | undefined
   headers?: Readonly<Record<string, string>> | undefined
   mutation?: boolean | undefined
   preflight?: boolean | undefined
+}
+
+export interface RemoteAttachmentReference {
+  checksum: string
+  id: string
+  mimeType: string
+  url: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -116,6 +137,200 @@ function requestUrl(profile: RemoteProfile, requestPath: string): URL {
   return url
 }
 
+export function validateRemoteAttachmentUrls(
+  profile: RemoteProfile,
+  value: unknown
+): unknown {
+  if (!isRecord(value) || !isRecord(value.review) || typeof value.review.id !== 'string') {
+    return value
+  }
+  const reviewId = value.review.id
+  const visit = (entry: unknown): void => {
+    if (!isRecord(entry)) return
+    if (Array.isArray(entry.attachments)) {
+      for (const attachment of entry.attachments) {
+        if (
+          !isRecord(attachment) ||
+          typeof attachment.id !== 'string' ||
+          Object.hasOwn(attachment, 'path') ||
+          typeof attachment.url !== 'string'
+        ) throw invalidResponse()
+        const { url: attachmentUrl } = validatedRemoteAttachmentUrl(
+          profile,
+          reviewId,
+          attachment.id,
+          attachment.url
+        )
+        attachment.url = attachmentUrl.href
+      }
+    }
+    if (Array.isArray(entry.children)) entry.children.forEach(visit)
+  }
+  visit(value.root)
+  return value
+}
+
+function validatedRemoteAttachmentUrl(
+  profile: RemoteProfile,
+  reviewId: string,
+  attachmentId: string,
+  value: string
+): { access: string; url: URL } {
+  const expectedPath = `/reviews/${encodeURIComponent(reviewId)}/attachments/${encodeURIComponent(attachmentId)}`
+  let url: URL
+  try {
+    url = new URL(value, profile.baseUrl)
+  } catch {
+    throw invalidResponse()
+  }
+  const access = url.searchParams.get('access')
+  if (
+    url.origin !== new URL(profile.baseUrl).origin ||
+    url.pathname !== expectedPath ||
+    url.searchParams.size !== 1 ||
+    url.hash !== '' ||
+    access === null ||
+    !verifyRemoteAttachmentAccess(
+      profile.token,
+      reviewId,
+      attachmentId,
+      access,
+      Date.now(),
+      REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS
+    )
+  ) throw invalidResponse()
+  return { access, url }
+}
+
+export async function readRemoteAttachment(
+  profile: RemoteProfile,
+  reviewId: string,
+  attachment: RemoteAttachmentReference,
+  {
+    connectTimeoutMilliseconds = DEFAULT_CONNECT_TIMEOUT_MILLISECONDS,
+    maximumResponseBytes = MAXIMUM_REMOTE_RESPONSE_BYTES,
+    request: requestTransport = https.request,
+    responseTimeoutMilliseconds = DEFAULT_RESPONSE_TIMEOUT_MILLISECONDS,
+    timing = { setTimeout, clearTimeout }
+  }: RemoteClientOptions = {}
+): Promise<Buffer> {
+  if (
+    !positiveFinite(connectTimeoutMilliseconds) ||
+    !positiveFinite(responseTimeoutMilliseconds) ||
+    !positiveFinite(maximumResponseBytes) ||
+    !/^sha256:[a-f0-9]{64}$/.test(attachment.checksum) ||
+    !/^(?:image\/png|image\/jpeg)$/.test(attachment.mimeType)
+  ) throw invalidResponse()
+  const { access, url } = validatedRemoteAttachmentUrl(
+    profile,
+    reviewId,
+    attachment.id,
+    attachment.url
+  )
+
+  return new Promise<Buffer>((resolve, reject) => {
+    let complete = false
+    let connectTimer: Timer | null = null
+    let responseTimer: Timer | null = null
+    const clearTimers = () => {
+      if (connectTimer !== null) timing.clearTimeout(connectTimer)
+      if (responseTimer !== null) timing.clearTimeout(responseTimer)
+      connectTimer = null
+      responseTimer = null
+    }
+    const settle = (action: () => void) => {
+      if (complete) return
+      complete = true
+      clearTimers()
+      action()
+    }
+    const rejectUnavailable = () => {
+      settle(() => { reject(unavailable()) })
+    }
+
+    let request: ReturnType<RequestTransport>
+    try {
+      request = requestTransport({
+        protocol: 'https:',
+        hostname: url.hostname,
+        port: url.port ? Number(url.port) : 443,
+        method: 'GET',
+        path: `${url.pathname}${url.search}`,
+        headers: { connection: 'close' },
+        agent: false
+      }, (response) => {
+        if (connectTimer !== null) timing.clearTimeout(connectTimer)
+        connectTimer = null
+        const statusCode = response.statusCode ?? null
+        const contentType = response.headers['content-type']
+        let size = 0
+        const chunks: Buffer[] = []
+        response.on('data', (chunk: Buffer | string) => {
+          if (complete) return
+          const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+          size += bytes.byteLength
+          if (size > maximumResponseBytes) {
+            request.destroy()
+            settle(() => { reject(new RemoteClientError(
+              'RESPONSE_TOO_LARGE',
+              'Canonical Markover returned a response that is too large.',
+              statusCode
+            )) })
+            return
+          }
+          chunks.push(bytes)
+        })
+        response.once('aborted', rejectUnavailable)
+        response.once('error', rejectUnavailable)
+        response.once('end', () => {
+          if (complete) return
+          const bytes = Buffer.concat(chunks)
+          if (
+            !response.complete ||
+            statusCode !== 200 ||
+            contentType !== attachment.mimeType ||
+            remoteContentDigest(bytes) !== attachment.checksum ||
+            !verifyRemoteAttachmentResponseAuthorization(
+              profile.token,
+              access,
+              statusCode,
+              bytes,
+              response.headers[REMOTE_GATEWAY_RESPONSE_AUTH_HEADER]
+            )
+          ) {
+            settle(() => { reject(invalidResponse(statusCode)) })
+            return
+          }
+          settle(() => { resolve(bytes) })
+        })
+      })
+    } catch {
+      rejectUnavailable()
+      return
+    }
+    connectTimer = timing.setTimeout(() => {
+      request.destroy()
+      rejectUnavailable()
+    }, connectTimeoutMilliseconds)
+    request.once('socket', (socket) => {
+      const connected = () => {
+        if (connectTimer !== null) timing.clearTimeout(connectTimer)
+        connectTimer = null
+      }
+      if (socket.connecting) socket.once('secureConnect', connected)
+      else connected()
+    })
+    request.once('finish', () => {
+      responseTimer = timing.setTimeout(() => {
+        request.destroy()
+        rejectUnavailable()
+      }, responseTimeoutMilliseconds)
+    })
+    request.once('error', rejectUnavailable)
+    request.end()
+  })
+}
+
 async function sendRemoteJson(
   profile: RemoteProfile,
   method: string,
@@ -129,7 +344,8 @@ async function sendRemoteJson(
     timing = { setTimeout, clearTimeout },
     headers: suppliedHeaders = {},
     mutation = method !== 'GET'
-  }: RemoteJsonRequestOptions
+  }: RemoteJsonRequestOptions,
+  authorization: RemoteGatewayChallenge | null = null
 ): Promise<unknown> {
   if (
     !positiveFinite(connectTimeoutMilliseconds) ||
@@ -162,6 +378,18 @@ async function sendRemoteJson(
   if (contents !== null) {
     headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(contents)
+  }
+  const requestBytes = Buffer.from(contents ?? '')
+  if (authorization) {
+    const contentDigest = remoteContentDigest(requestBytes)
+    headers[REMOTE_GATEWAY_CONTENT_DIGEST_HEADER] = contentDigest
+    headers.authorization = remoteRequestAuthorization(
+      profile.token,
+      authorization,
+      method,
+      path,
+      contentDigest
+    )
   }
 
   return new Promise<unknown>((resolve, reject) => {
@@ -196,7 +424,7 @@ async function sendRemoteJson(
     const requestOptions: HttpsRequestOptions = {
       protocol: 'https:',
       hostname: url.hostname,
-      port: 443,
+      port: url.port ? Number(url.port) : 443,
       method,
       path: `${url.pathname}${url.search}`,
       headers,
@@ -244,9 +472,23 @@ async function sendRemoteJson(
             rejectTransport()
             return
           }
+          const responseBytes = Buffer.concat(chunks)
+          if (
+            authorization &&
+            !verifyRemoteResponseAuthorization(
+              profile.token,
+              authorization.nonce,
+              statusCode ?? 0,
+              responseBytes,
+              response.headers[REMOTE_GATEWAY_RESPONSE_AUTH_HEADER]
+            )
+          ) {
+            rejectInvalidResponse(invalidResponse(statusCode))
+            return
+          }
           let parsed: unknown
           try {
-            parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+            parsed = JSON.parse(responseBytes.toString('utf8'))
           } catch {
             rejectInvalidResponse(invalidResponse(statusCode))
             return
@@ -327,7 +569,8 @@ export async function readRemoteHealth(
     health.protocol.version !== REMOTE_GATEWAY_PROTOCOL_VERSION ||
     health.role !== 'canonical' ||
     health.scheme !== 'markover' ||
-    typeof health.discoverAgentThreadFromLocalSessions !== 'boolean'
+    typeof health.discoverAgentThreadFromLocalSessions !== 'boolean' ||
+    !verifyRemoteGatewayChallenge(profile.token, health.authorization)
   ) {
     throw new RemoteClientError(
       'INCOMPATIBLE_REMOTE_CANONICAL',
@@ -345,6 +588,7 @@ export async function requestRemoteJson(
   body: unknown = null,
   options: RemoteJsonRequestOptions = {}
 ): Promise<unknown> {
+  let authorization = options.authorization ?? null
   if (options.preflight !== false) {
     const {
       connectTimeoutMilliseconds,
@@ -353,7 +597,7 @@ export async function requestRemoteJson(
       responseTimeoutMilliseconds,
       timing
     } = options
-    await readRemoteHealth(profile, {
+    const health = await readRemoteHealth(profile, {
       ...(connectTimeoutMilliseconds === undefined
         ? {}
         : { connectTimeoutMilliseconds }),
@@ -364,6 +608,13 @@ export async function requestRemoteJson(
         : { responseTimeoutMilliseconds }),
       ...(timing === undefined ? {} : { timing })
     })
+    authorization = health.authorization
   }
-  return sendRemoteJson(profile, method, path, body, options)
+  if (!authorization) {
+    throw new RemoteClientError(
+      'INVALID_REMOTE_REQUEST',
+      'A fresh remote Markover authorization challenge is required.'
+    )
+  }
+  return sendRemoteJson(profile, method, path, body, options, authorization)
 }
