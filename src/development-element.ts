@@ -367,6 +367,10 @@ export function installDevelopmentElementCallouts(
       return null
     }
     const bounds = roundedBounds(pinned)
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      clear()
+      return null
+    }
     overlay.style.left = `${String(bounds.x)}px`
     overlay.style.top = `${String(bounds.y)}px`
     overlay.style.width = `${String(bounds.width)}px`
@@ -375,10 +379,13 @@ export function installDevelopmentElementCallouts(
     overlay.hidden = false
     return bounds
   }
-  const pin = (element: Element, reference: string): DevelopmentElementBounds => {
+  const pin = (
+    element: Element,
+    reference: string
+  ): DevelopmentElementBounds | null => {
     pinned = element
     pinnedReference = reference
-    return position() as DevelopmentElementBounds
+    return position()
   }
   const MutationObserver = document.defaultView?.MutationObserver
   const observer = MutationObserver
@@ -390,6 +397,8 @@ export function installDevelopmentElementCallouts(
       })
     : null
   observer?.observe(document.documentElement, {
+    attributeFilter: ['aria-hidden', 'class', 'hidden', 'open', 'style'],
+    attributes: true,
     childList: true,
     subtree: true
   })
@@ -433,8 +442,16 @@ export function installDevelopmentElementCallouts(
           status: resolved.status
         }
       }
+      const bounds = pin(resolved.element, reference)
+      if (!bounds) {
+        return {
+          reference,
+          requestId: command.requestId,
+          status: 'stale'
+        }
+      }
       return {
-        bounds: pin(resolved.element, reference),
+        bounds,
         reference: pinnedReference as string,
         requestId: command.requestId,
         status: 'highlighted'

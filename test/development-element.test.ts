@@ -178,6 +178,17 @@ test('pinned callouts clear after rendered subtrees replace their target', async
   const { document } = dom.window
   const section = document.querySelector('section') as HTMLElement
   const button = document.querySelector('button') as HTMLButtonElement
+  button.getBoundingClientRect = () => ({
+    bottom: 40,
+    height: 30,
+    left: 10,
+    right: 110,
+    toJSON: () => ({}),
+    top: 10,
+    width: 100,
+    x: 10,
+    y: 10
+  })
   const callouts = installDevelopmentElementCallouts(document, {
     copyText() {},
     notify() {}
@@ -189,6 +200,41 @@ test('pinned callouts clear after rendered subtrees replace their target', async
   })
 
   section.replaceChildren(document.createElement('button'))
+  await new Promise<void>((resolve) => { dom.window.setTimeout(resolve, 0) })
+
+  assert.equal(
+    document.querySelector<HTMLElement>('.development-element-callout')?.hidden,
+    true
+  )
+})
+
+test('pinned callouts clear when visibility changes hide their target', async () => {
+  const dom = new JSDOM('<main id="workspace"><section><button>Choose</button></section></main>')
+  const { document } = dom.window
+  const section = document.querySelector('section') as HTMLElement
+  const button = document.querySelector('button') as HTMLButtonElement
+  button.getBoundingClientRect = () => ({
+    bottom: section.hidden ? 0 : 40,
+    height: section.hidden ? 0 : 30,
+    left: section.hidden ? 0 : 10,
+    right: section.hidden ? 0 : 110,
+    toJSON: () => ({}),
+    top: section.hidden ? 0 : 10,
+    width: section.hidden ? 0 : 100,
+    x: section.hidden ? 0 : 10,
+    y: section.hidden ? 0 : 10
+  })
+  const callouts = installDevelopmentElementCallouts(document, {
+    copyText() {},
+    notify() {}
+  })
+  callouts.handle({
+    action: 'highlight',
+    reference: developmentElementReference(button, document),
+    requestId: 'element-callout-1'
+  })
+
+  section.hidden = true
   await new Promise<void>((resolve) => { dom.window.setTimeout(resolve, 0) })
 
   assert.equal(
