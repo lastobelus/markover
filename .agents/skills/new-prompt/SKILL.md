@@ -1,6 +1,6 @@
 ---
 name: new-prompt
-description: Write ready-to-paste prompts that transfer a thread's unique context to another agent. Use when asked to draft, improve, or hand off a prompt for a fresh agent, subagent, restarted thread, or different environment; produce the prompt without executing it.
+description: Use when user asks you to write a prompt
 ---
 
 # New Prompt
