@@ -39,6 +39,12 @@ test('one Option-click pins an element and copies its stable reference', () => {
   let ordinaryClicks = 0
   button.addEventListener('click', () => { ordinaryClicks += 1 })
 
+  button.dispatchEvent(new MouseEvent('pointerdown', {
+    altKey: true,
+    bubbles: true,
+    button: 0,
+    cancelable: true
+  }))
   button.dispatchEvent(new MouseEvent('click', {
     altKey: true,
     bubbles: true,
@@ -75,6 +81,38 @@ test('one Option-click pins an element and copies its stable reference', () => {
     status: 'cleared'
   })
   assert.equal(overlay.hidden, true)
+})
+
+test('pointer capture picks rendered disabled controls', () => {
+  const dom = new JSDOM('<button id="annotated" disabled>Annotated</button>')
+  const { document, MouseEvent } = dom.window
+  const button = document.querySelector('button') as HTMLButtonElement
+  button.getBoundingClientRect = () => ({
+    bottom: 40,
+    height: 30,
+    left: 10,
+    right: 110,
+    toJSON: () => ({}),
+    top: 10,
+    width: 100,
+    x: 10,
+    y: 10
+  })
+  const copied: string[] = []
+  installDevelopmentElementCallouts(document, {
+    copyText: (reference) => { copied.push(reference) },
+    notify() {}
+  })
+
+  button.dispatchEvent(new MouseEvent('pointerdown', {
+    altKey: true,
+    bubbles: true,
+    button: 0,
+    cancelable: true
+  }))
+
+  assert.equal(copied.length, 1)
+  assert.equal(isDevelopmentElementReference(copied[0]), true)
 })
 
 test('the picker copies only references inside its finite depth contract', () => {
@@ -120,7 +158,7 @@ test('the picker copies only references inside its finite depth contract', () =>
     notify: (message) => { notices.push(message) }
   })
 
-  button.dispatchEvent(new MouseEvent('click', {
+  button.dispatchEvent(new MouseEvent('pointerdown', {
     altKey: true,
     bubbles: true,
     button: 0,

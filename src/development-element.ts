@@ -410,14 +410,15 @@ export function installDevelopmentElementCallouts(
     subtree: true
   })
 
-  document.addEventListener('click', (event) => {
-    if (
-      event.button !== 0 ||
-      !event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey
-    ) return
+  const isPickerGesture = (event: MouseEvent): boolean => (
+    event.button === 0 &&
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey
+  )
+  document.addEventListener('pointerdown', (event) => {
+    if (!isPickerGesture(event)) return
     const target = event.target as Node | null
     if (!target || target.nodeType !== 1) return
     const element = target as Element
@@ -435,6 +436,11 @@ export function installDevelopmentElementCallouts(
       clear()
       notify('Element cannot be referenced')
     }
+  }, true)
+  document.addEventListener('click', (event) => {
+    if (!isPickerGesture(event)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
   }, true)
   document.defaultView?.addEventListener('resize', () => { position() })
   document.addEventListener('scroll', () => { position() }, true)
