@@ -141,6 +141,45 @@ test('the application palette matches the brand brief at startup and in CSS', ()
   assert.match(main, /backgroundColor: windowBackground\(/)
 })
 
+test('the floating theme-token inspector uses canonical structure and component roles', () => {
+  const html = read('src/index.html')
+  const renderer = read('src/renderer.ts')
+  const styles = read('src/styles.css')
+
+  assert.match(html, /id="theme-token-inspector" class="theme-token-inspector"/)
+  assert.match(html, />Theme tokens</)
+  assert.match(html, />App header background</)
+  assert.doesNotMatch(`${html}\n${renderer}\n${styles}`, /interface-tuner/)
+
+  for (const token of [
+    '--app-shell-background',
+    '--app-header-background',
+    '--left-pane-background',
+    '--center-pane-background',
+    '--right-pane-background'
+  ]) {
+    assert.match(renderer, new RegExp(`t\\('${token}'\\)`))
+  }
+  assert.match(renderer, /\['App structure', \[/)
+  assert.match(renderer, /getComputedStyle\(root\)[\s\S]*getPropertyValue\(row\.name\)/)
+  assert.match(renderer, /attributeFilter: \['data-palette', 'data-appearance', 'data-colorization'\]/)
+  assert.match(renderer, /setProperty\('--app-header-background'/)
+  assert.match(renderer, /removeProperty\('--app-header-background'\)/)
+
+  for (const token of [
+    '--theme-token-inspector-background: var(--surface)',
+    '--theme-token-inspector-border-color: var(--line)',
+    '--theme-token-inspector-shadow-color: var(--shadow)',
+    '--theme-token-inspector-foreground: var(--ink)',
+    '--theme-token-inspector-muted-foreground: var(--muted)',
+    '--theme-token-inspector-control-background: var(--input)',
+    '--theme-token-inspector-duplicate-foreground: var(--source-error)'
+  ]) {
+    assert.match(styles, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  assert.match(styles, /\.theme-token-inspector \{[\s\S]*color: var\(--theme-token-inspector-foreground\);[\s\S]*background: var\(--theme-token-inspector-background\);/)
+})
+
 test('the working header aligns the brand and exact review identity', () => {
   const styles = read('src/styles.css')
   const renderer = read('src/renderer.ts')

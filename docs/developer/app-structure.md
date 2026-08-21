@@ -46,13 +46,18 @@ Theme primitives hold palette and appearance values. Structural semantic tokens
 map those values to the first-level regions, and structural selectors consume
 the semantic tokens rather than naming the current contents.
 
-| Structural token | Current mapping |
+| Structural token | Current base mapping |
 | --- | --- |
-| `--app-shell-background` | `--paper` |
+| `--app-shell-background` | `--hover-line` |
 | `--app-header-background` | `--app-shell-background` |
-| `--left-pane-background` | `rgb(var(--surface-rgb) / 42%)` |
+| `--left-pane-background` | `--neutral-soft` |
 | `--center-pane-background` | `--paper` |
-| `--right-pane-background` | `--accent-soft` |
+| `--right-pane-background` | `--neutral-soft` |
+
+Palette and appearance overrides may replace a base mapping with a literal or
+another theme role. For example, Olive light maps the app shell to `#dde1d2`.
+The floating theme-token inspector reports each token's live computed custom-
+property value so these overrides remain truthful.
 
 Use full property suffixes such as `-background` for structural tokens. Child
 content and component tokens keep their existing names until their vocabulary

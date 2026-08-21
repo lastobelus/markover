@@ -5304,15 +5304,14 @@ void initialize().catch(async (error: unknown) => {
   console.error('Markover renderer startup failed', error)
 })
 
-/* TEMPORARY interface tuner. Remove with #interface-tuner and .interface-tuner. */
+/* TEMPORARY theme-token inspector. Remove with its markup and styles. */
 {
-  interface TokenRow { readonly name: string; readonly refers?: string }
+  interface TokenRow { readonly name: string }
   type Group = readonly [string, readonly TokenRow[]]
 
   const t = (name: string): TokenRow => ({ name })
-  const r = (name: string, refers: string): TokenRow => ({ name, refers })
 
-  /* Theme tokens hold the literal colours. Every value below is unique. */
+  /* Theme tokens hold palette values; the inspector flags duplicate computed values. */
   const THEME: readonly Group[] = [
     ['Theme · brand', [t('--markover-primary'), t('--markover-secondary'), t('--brand-soft')]],
     ['Theme · ground', [t('--paper'), t('--surface'), t('--neutral-soft')]],
@@ -5322,86 +5321,91 @@ void initialize().catch(async (error: unknown) => {
     ['Theme · status', [t('--status-revised'), t('--status-progress'), t('--source-error')]]
   ]
 
-  /* Semantic tokens name a role and point at a theme token. */
+  /* Semantic tokens name roles and resolve through theme or semantic tokens. */
   const SEMANTIC: readonly Group[] = [
     ['Accent', [
-      r('--brand-orange', '--markover-primary'),
-      r('--brand-burgundy', '--markover-secondary'),
-      r('--accent', '--brand-orange'),
-      r('--accent-deep', '--brand-burgundy'),
-      r('--accent-soft', '--brand-soft'),
-      r('--focus', '--brand-orange')
+      t('--brand-orange'),
+      t('--brand-burgundy'),
+      t('--accent'),
+      t('--accent-deep'),
+      t('--accent-soft'),
+      t('--focus')
     ]],
-    ['Ground', [
-      r('--window-background', '--hover-line'),
-      r('--app-shell-background', '--hover-line'),
-      r('--app-header-background', '--app-shell-background'),
-      r('--left-pane-background', '--neutral-soft'),
-      r('--center-pane-background', '--paper'),
-      r('--right-pane-background', '--neutral-soft'),
-      r('--review-navigation-bg', '--paper'),
-      r('--review-navigation-active-bg', '--surface')
+    ['Window', [
+      t('--window-background')
+    ]],
+    ['App structure', [
+      t('--app-shell-background'),
+      t('--app-header-background'),
+      t('--left-pane-background'),
+      t('--center-pane-background'),
+      t('--right-pane-background')
     ]],
     ['Components', [
-      r('--document-tree-scrollbar-track-background', '--right-pane-background'),
-      r('--selection-bridge-background', '--right-pane-background'),
-      r('--keyboard-help-background', 'mix(--app-shell-background 92%, transparent)')
+      t('--review-navigation-bg'),
+      t('--review-navigation-active-bg'),
+      t('--document-tree-scrollbar-track-background'),
+      t('--selection-bridge-background'),
+      t('--keyboard-help-background'),
+      t('--theme-token-inspector-background'),
+      t('--theme-token-inspector-border-color'),
+      t('--theme-token-inspector-shadow-color'),
+      t('--theme-token-inspector-foreground'),
+      t('--theme-token-inspector-muted-foreground'),
+      t('--theme-token-inspector-control-background'),
+      t('--theme-token-inspector-duplicate-foreground')
     ]],
     ['Buttons', [
-      r('--primary-button-bg', '--markover-primary'),
-      r('--primary-button-hover', '--markover-secondary'),
-      r('--primary-button-text', '--primary-contrast'),
-      r('--primary-button-hover-text', '--secondary-contrast')
+      t('--primary-button-bg'),
+      t('--primary-button-hover'),
+      t('--primary-button-text'),
+      t('--primary-button-hover-text')
     ]],
     ['Pane labels', [
-      r('--pane-label-base', '--markover-secondary'),
-      r('--pane-label-highlight', '--markover-primary'),
-      r('--pane-label-color', '--pane-label-base'),
-      r('--pane-label-hover', '--pane-label-highlight'),
-      r('--pane-label-inactive', 'mix(--pane-label-color 50%, --right-pane-background)')
+      t('--pane-label-base'),
+      t('--pane-label-highlight'),
+      t('--pane-label-color'),
+      t('--pane-label-hover'),
+      t('--pane-label-inactive')
     ]],
     ['Status', [
-      r('--status-editing', '--markover-primary'),
-      r('--status-pending', '--markover-secondary'),
-      r('--status-done', '--muted'),
-      r('--status-other', '--muted'),
-      r('--status-outline', 'rgb(--ink-rgb / 55%)')
+      t('--status-editing'),
+      t('--status-pending'),
+      t('--status-done'),
+      t('--status-other'),
+      t('--status-outline')
     ]]
   ]
 
-  const tuner = document.querySelector<HTMLElement>('#interface-tuner')
-  const close = document.querySelector<HTMLButtonElement>('#interface-tuner-close')
-  const headerBackground = document.querySelector<HTMLSelectElement>('#interface-tuner-header-background')
-  const list = document.querySelector<HTMLElement>('#interface-tuner-tokens')
+  const inspector = document.querySelector<HTMLElement>('#theme-token-inspector')
+  const close = document.querySelector<HTMLButtonElement>('#theme-token-inspector-close')
+  const appHeaderBackground = document.querySelector<HTMLSelectElement>('#theme-token-inspector-app-header-background')
+  const list = document.querySelector<HTMLElement>('#theme-token-inspector-tokens')
 
-  if (tuner && close && headerBackground && list) {
+  if (inspector && close && appHeaderBackground && list) {
     const root = document.documentElement
-    const themeRows: Array<{ name: string; value: HTMLElement }> = []
+    const renderedRows: Array<{ name: string; value: HTMLElement; theme: boolean }> = []
 
-    const addGroups = (groups: readonly Group[], collect: boolean): void => {
+    const addGroups = (groups: readonly Group[], theme: boolean): void => {
       for (const [group, tokens] of groups) {
         const heading = document.createElement('div')
-        heading.className = 'interface-tuner-group'
+        heading.className = 'theme-token-inspector-group'
         heading.textContent = group
         list.append(heading)
 
         for (const token of tokens) {
           const row = document.createElement('div')
-          row.className = 'interface-tuner-token'
+          row.className = 'theme-token-inspector-token'
 
           const swatch = document.createElement('i')
-          swatch.className = 'interface-tuner-swatch'
+          swatch.className = 'theme-token-inspector-swatch'
           swatch.style.background = `var(${token.name})`
 
           const label = document.createElement('code')
           label.textContent = token.name
 
           const value = document.createElement('span')
-          if (token.refers) {
-            value.textContent = `→ ${token.refers}`
-          } else if (collect) {
-            themeRows.push({ name: token.name, value })
-          }
+          renderedRows.push({ name: token.name, value, theme })
 
           row.append(swatch, label, value)
           list.append(row)
@@ -5415,7 +5419,7 @@ void initialize().catch(async (error: unknown) => {
     const defaultOption = document.createElement('option')
     defaultOption.value = ''
     defaultOption.textContent = '(theme default)'
-    headerBackground.append(defaultOption)
+    appHeaderBackground.append(defaultOption)
     for (const groups of [THEME, SEMANTIC]) {
       for (const [, tokens] of groups) {
         for (const token of tokens) {
@@ -5423,7 +5427,7 @@ void initialize().catch(async (error: unknown) => {
           const option = document.createElement('option')
           option.value = token.name
           option.textContent = token.name
-          headerBackground.append(option)
+          appHeaderBackground.append(option)
         }
       }
     }
@@ -5432,31 +5436,37 @@ void initialize().catch(async (error: unknown) => {
     const refresh = (): void => {
       const computed = getComputedStyle(root)
       const seen = new Map<string, string[]>()
-      for (const row of themeRows) {
+      for (const row of renderedRows) {
         const value = computed.getPropertyValue(row.name).trim()
         row.value.textContent = value
-        const names = seen.get(value) || []
-        names.push(row.name)
-        seen.set(value, names)
+        row.value.title = value
+        if (row.theme) {
+          const names = seen.get(value) || []
+          names.push(row.name)
+          seen.set(value, names)
+        }
       }
-      for (const row of themeRows) {
+      for (const row of renderedRows) {
+        if (!row.theme) continue
         const names = seen.get(row.value.textContent || '') || []
         const duplicate = names.length > 1
         row.value.classList.toggle('is-duplicate', duplicate)
-        row.value.title = duplicate ? `Same colour as ${names.filter((n) => n !== row.name).join(', ')}` : ''
+        row.value.title = duplicate
+          ? `${row.value.textContent} · same colour as ${names.filter((n) => n !== row.name).join(', ')}`
+          : row.value.textContent || ''
       }
     }
 
-    headerBackground.addEventListener('change', () => {
-      if (headerBackground.value) {
-        root.style.setProperty('--app-header-background', `var(${headerBackground.value})`)
+    appHeaderBackground.addEventListener('change', () => {
+      if (appHeaderBackground.value) {
+        root.style.setProperty('--app-header-background', `var(${appHeaderBackground.value})`)
       } else {
         root.style.removeProperty('--app-header-background')
       }
       refresh()
     })
 
-    close.addEventListener('click', () => { tuner.hidden = true })
+    close.addEventListener('click', () => { inspector.hidden = true })
 
     new MutationObserver(refresh).observe(root, {
       attributeFilter: ['data-palette', 'data-appearance', 'data-colorization']
