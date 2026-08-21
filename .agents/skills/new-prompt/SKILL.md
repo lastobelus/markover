@@ -20,10 +20,12 @@ Determine what the recipient will receive independently of the prompt:
   durable sources the recipient can inspect;
 - differences in machine, checkout, permissions, tools, or available sources.
 
-Treat the first three as the **baseline** wherever they are available to the
-recipient. A target-environment difference is part of the delta. When the
-delivery mechanism leaves the boundary uncertain, state the necessary
-environment assumption briefly instead of copying possible baseline material.
+Treat system, global, and repository guidance the recipient receives at
+startup as the **baseline**. Treat directory guidance, forked turns, supplied
+attachments, and durable sources as baseline when the recipient can access
+them. A target-environment difference is part of the delta. When the delivery
+mechanism leaves the boundary uncertain, state the necessary environment
+assumption briefly instead of copying possible baseline material.
 
 ## Account for the sources
 
