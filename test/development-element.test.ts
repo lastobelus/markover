@@ -173,6 +173,30 @@ test('pinned callouts can reposition after application layout changes', () => {
   )
 })
 
+test('pinned callouts clear after rendered subtrees replace their target', async () => {
+  const dom = new JSDOM('<main id="workspace"><section><button>Choose</button></section></main>')
+  const { document } = dom.window
+  const section = document.querySelector('section') as HTMLElement
+  const button = document.querySelector('button') as HTMLButtonElement
+  const callouts = installDevelopmentElementCallouts(document, {
+    copyText() {},
+    notify() {}
+  })
+  callouts.handle({
+    action: 'highlight',
+    reference: developmentElementReference(button, document),
+    requestId: 'element-callout-1'
+  })
+
+  section.replaceChildren(document.createElement('button'))
+  await new Promise<void>((resolve) => { dom.window.setTimeout(resolve, 0) })
+
+  assert.equal(
+    document.querySelector<HTMLElement>('.development-element-callout')?.hidden,
+    true
+  )
+})
+
 test('element commands accept only canonical references and exact actions', () => {
   const dom = new JSDOM('<button id="save">Save</button>')
   const reference = developmentElementReference(
@@ -219,14 +243,6 @@ test('picker and service route are live-watch-only and documented', () => {
   assert.match(
     renderer,
     /schedulePaneLayoutResizeUpdate[\s\S]*developmentElementCallouts\?\.reposition\(\)/
-  )
-  assert.match(
-    renderer,
-    /function renderDocumentsList\(\)[\s\S]*replaceChildren\(\)[\s\S]*developmentElementCallouts\?\.reposition\(\)/
-  )
-  assert.match(
-    renderer,
-    /function renderTree\(\)[\s\S]*elements\.tree\.replaceChildren\(\)[\s\S]*developmentElementCallouts\?\.reposition\(\)/
   )
   assert.match(docs, /Option-click any rendered element/)
   assert.match(docs, /--instance dev element highlight/)

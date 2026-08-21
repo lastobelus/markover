@@ -380,6 +380,19 @@ export function installDevelopmentElementCallouts(
     pinnedReference = reference
     return position() as DevelopmentElementBounds
   }
+  const MutationObserver = document.defaultView?.MutationObserver
+  const observer = MutationObserver
+    ? new MutationObserver((records) => {
+        if (
+          pinned &&
+          records.some((record) => !overlay.contains(record.target))
+        ) position()
+      })
+    : null
+  observer?.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  })
 
   document.addEventListener('click', (event) => {
     if (
