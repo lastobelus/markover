@@ -496,6 +496,21 @@ function markRendererStartupFailed(): void {
   if (!startupReady) rendererStartupFailed = true
 }
 
+function handleRendererLoadFailure(error: Error): void {
+  const failedDuringStartup = !startupReady
+  markRendererStartupFailed()
+  void (async () => {
+    if (!failedDuringStartup) {
+      process.stderr.write(
+        `markover renderer reload: ${error.message} Waiting for the next valid development build.\n`
+      )
+      return
+    }
+    await failStartupBestEffort('renderer-load', error)
+    await showStartupFailureDialog()
+  })()
+}
+
 function requireActiveRendererStartup(): void {
   if (rendererDidFailStartup()) {
     throw new Error('Renderer failed before startup completed.')
@@ -1193,14 +1208,9 @@ function createWindow(
     publishWindowFocusState()
   })
   window.webContents.on('preload-error', (_event, preloadPath, error) => {
-    markRendererStartupFailed()
-    void (async () => {
-      await failStartupBestEffort(
-        'renderer-load',
-        new Error(`Preload failed (${path.basename(preloadPath)}): ${error.message}`)
-      )
-      await showStartupFailureDialog()
-    })()
+    handleRendererLoadFailure(
+      new Error(`Preload failed (${path.basename(preloadPath)}): ${error.message}`)
+    )
   })
   window.webContents.on('did-fail-load', (
     _event,
@@ -1210,14 +1220,9 @@ function createWindow(
     isMainFrame
   ) => {
     if (!isMainFrame || errorCode === -3) return
-    markRendererStartupFailed()
-    void (async () => {
-      await failStartupBestEffort(
-        'renderer-load',
-        new Error(`Renderer load failed (${String(errorCode)}): ${errorDescription}`)
-      )
-      await showStartupFailureDialog()
-    })()
+    handleRendererLoadFailure(
+      new Error(`Renderer load failed (${String(errorCode)}): ${errorDescription}`)
+    )
   })
   window.webContents.on('render-process-gone', (_event, details) => {
     const failedDuringStartup = !startupReady
