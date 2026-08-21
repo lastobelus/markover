@@ -5,6 +5,8 @@ const MAXIMUM_PATH_LENGTH = 128
 const ELEMENT_NAME_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
 
 interface DevelopmentElementPathSegment {
+  count: number
+  fingerprint: string
   index: number
   name: string
 }
@@ -45,6 +47,7 @@ export interface DevelopmentElementCallouts {
   handle: (
     command: DevelopmentElementCalloutCommand
   ) => DevelopmentElementCalloutResult
+  reposition: () => DevelopmentElementBounds | null
 }
 
 interface DevelopmentElementCalloutOptions {
@@ -95,10 +98,16 @@ function isPayload(value: unknown): value is DevelopmentElementReferencePayload 
   }
   return value.path.every((segment) => (
     isRecord(segment) &&
+    Object.keys(segment).sort().join(',') === 'count,fingerprint,index,name' &&
     typeof segment.name === 'string' &&
     ELEMENT_NAME_PATTERN.test(segment.name) &&
+    typeof segment.fingerprint === 'string' &&
+    /^[a-f0-9]{32}$/.test(segment.fingerprint) &&
+    Number.isInteger(segment.count) &&
+    (segment.count as number) > 0 &&
     Number.isInteger(segment.index) &&
-    (segment.index as number) >= 0
+    (segment.index as number) >= 0 &&
+    (segment.index as number) < (segment.count as number)
   ))
 }
 
@@ -208,7 +217,58 @@ function segmentFor(element: Element): DevelopmentElementPathSegment {
   if (index < 0 || !ELEMENT_NAME_PATTERN.test(element.localName)) {
     throw new Error('Development element path is invalid.')
   }
-  return { name: element.localName, index }
+  return {
+    count: siblings.length,
+    fingerprint: elementFingerprint(element),
+    name: element.localName,
+    index
+  }
+}
+
+const FNV_PRIME_64 = 0x100000001b3n
+const FNV_OFFSET_64 = 0xcbf29ce484222325n
+const FNV_SECOND_OFFSET_64 = 0x6c62272e07bb0142n
+
+function fingerprintPart(bytes: Uint8Array, seed: bigint): string {
+  let hash = seed
+  for (const byte of bytes) {
+    hash ^= BigInt(byte)
+    hash = BigInt.asUintN(64, hash * FNV_PRIME_64)
+  }
+  return hash.toString(16).padStart(16, '0')
+}
+
+function elementFingerprint(element: Element): string {
+  const shallow = element.cloneNode(false) as Element
+  shallow.removeAttribute('style')
+  const stableClasses = [...element.classList]
+    .filter((name) => !name.startsWith('is-') && !name.startsWith('has-'))
+    .sort()
+  if (stableClasses.length) shallow.setAttribute('class', stableClasses.join(' '))
+  else shallow.removeAttribute('class')
+  for (const attribute of [
+    'aria-activedescendant',
+    'aria-busy',
+    'aria-checked',
+    'aria-current',
+    'aria-disabled',
+    'aria-expanded',
+    'aria-hidden',
+    'aria-pressed',
+    'aria-selected',
+    'tabindex'
+  ]) shallow.removeAttribute(attribute)
+  const directText = [...element.childNodes]
+    .filter((node) => node.nodeType === 3)
+    .map((node) => node.textContent || '')
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const bytes = new TextEncoder().encode(`${shallow.outerHTML}\0${directText}`)
+  return `${fingerprintPart(bytes, FNV_OFFSET_64)}${fingerprintPart(
+    bytes,
+    FNV_SECOND_OFFSET_64
+  )}`
 }
 
 export function developmentElementReference(
@@ -256,8 +316,11 @@ export function resolveDevelopmentElementReference(
     const candidates = [...current.children].filter(
       (candidate) => candidate.localName === segment.name
     )
+    if (candidates.length !== segment.count) return { status: 'stale' }
     const next = candidates[segment.index]
-    if (!next) return { status: 'stale' }
+    if (!next || elementFingerprint(next) !== segment.fingerprint) {
+      return { status: 'stale' }
+    }
     current = next
   }
   return { element: current, status: 'found' }
@@ -362,6 +425,7 @@ export function installDevelopmentElementCallouts(
         requestId: command.requestId,
         status: 'highlighted'
       }
-    }
+    },
+    reposition: position
   }
 }

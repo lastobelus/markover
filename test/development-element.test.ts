@@ -101,6 +101,62 @@ test('references fail stale or ambiguous without selecting another element', () 
   })
 })
 
+test('references reject changed same-tag sibling ordinals', () => {
+  const dom = new JSDOM(
+    '<main id="workspace"><section><button>First</button><button>Choose</button></section></main>'
+  )
+  const { document } = dom.window
+  const buttons = document.querySelectorAll('button')
+  const reference = developmentElementReference(buttons[1] as Element, document)
+  const inserted = document.createElement('button')
+  inserted.textContent = 'Inserted'
+  buttons[1]?.before(inserted)
+
+  assert.deepEqual(resolveDevelopmentElementReference(reference, document), {
+    status: 'stale'
+  })
+})
+
+test('pinned callouts can reposition after application layout changes', () => {
+  const dom = new JSDOM('<main id="workspace"><button>Choose</button></main>')
+  const { document } = dom.window
+  const button = document.querySelector('button') as HTMLButtonElement
+  let x = 10
+  button.getBoundingClientRect = () => ({
+    bottom: 60,
+    height: 40,
+    left: x,
+    right: x + 120,
+    toJSON: () => ({}),
+    top: 20,
+    width: 120,
+    x,
+    y: 20
+  })
+  const callouts = installDevelopmentElementCallouts(document, {
+    copyText() {},
+    notify() {}
+  })
+  const reference = developmentElementReference(button, document)
+  callouts.handle({
+    action: 'highlight',
+    reference,
+    requestId: 'element-callout-1'
+  })
+  x = 75
+
+  assert.deepEqual(callouts.reposition(), {
+    height: 40,
+    width: 120,
+    x: 75,
+    y: 20
+  })
+  assert.equal(
+    document.querySelector<HTMLElement>('.development-element-callout')?.style.left,
+    '75px'
+  )
+})
+
 test('element commands accept only canonical references and exact actions', () => {
   const dom = new JSDOM('<button id="save">Save</button>')
   const reference = developmentElementReference(
@@ -143,6 +199,10 @@ test('picker and service route are live-watch-only and documented', () => {
   assert.match(
     renderer,
     /if \(startupInfo\.elementCallouts\)[\s\S]*installDevelopmentElementCallouts/
+  )
+  assert.match(
+    renderer,
+    /schedulePaneLayoutResizeUpdate[\s\S]*developmentElementCallouts\?\.reposition\(\)/
   )
   assert.match(docs, /Option-click any rendered element/)
   assert.match(docs, /--instance dev element highlight/)

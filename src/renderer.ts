@@ -12,7 +12,10 @@ import * as MarkoverAgentGuidance from './agent-guidance'
 import * as MarkoverAnnotationBlock from './annotation-block'
 import * as MarkoverAnnotations from './annotations'
 import { autosaveFailureMessage } from './durability-status'
-import { installDevelopmentElementCallouts } from './development-element'
+import {
+  installDevelopmentElementCallouts,
+  type DevelopmentElementCallouts
+} from './development-element'
 import {
   appendIncomingReview,
   incomingReviewAction,
@@ -284,6 +287,7 @@ let sourceDiffCleanup: (() => void) | null = null
 let sourceDiffModule: Promise<DiffRenderer> | null = null
 let sourceDiffRenderer: DiffRenderer | null = null
 let paneResizeLayoutFrame: number | null = null
+let developmentElementCallouts: DevelopmentElementCallouts | null = null
 let statusAnnouncementFrame: number | null = null
 let imagePreviewReturnFocus: HTMLElement | null = null
 let resolutionDialogCompletion: ((confirmed: boolean) => void) | null = null
@@ -3662,6 +3666,7 @@ function schedulePaneLayoutResizeUpdate(): void {
   paneResizeLayoutFrame = requestAnimationFrame(() => {
     paneResizeLayoutFrame = null
     updatePinnedSelection()
+    developmentElementCallouts?.reposition()
     MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
   })
 }
@@ -5105,6 +5110,7 @@ async function initialize(): Promise<void> {
       copyText: bridge.copyText,
       notify: showToast
     })
+    developmentElementCallouts = callouts
     bridge.onDevelopmentElementCallout((command) => callouts.handle(command))
   }
   bridge.onWindowFocusChanged((focusState) => {
