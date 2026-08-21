@@ -222,6 +222,11 @@ test('parses lifecycle commands and PR observations', () => {
 })
 
 test('development targeting is worktree-local and cleanup requires an exact identity', () => {
+  const reference = `mko-ui-v1:${Buffer.from(JSON.stringify({
+    anchorId: 'save',
+    path: [],
+    version: 1
+  })).toString('base64url')}`
   assert.deepEqual(
     parseCommandArguments(['--instance', 'dev', 'get', 'mko_aaa11111']),
     {
@@ -239,6 +244,37 @@ test('development targeting is worktree-local and cleanup requires an exact iden
       instance: 'development'
     }
   )
+  assert.deepEqual(
+    parseCommandArguments([
+      '--instance',
+      'dev',
+      'element',
+      'highlight',
+      reference
+    ]),
+    {
+      action: 'highlight',
+      command: 'element',
+      instance: 'development',
+      reference
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['--instance', 'dev', 'element', 'clear']),
+    {
+      action: 'clear',
+      command: 'element',
+      instance: 'development'
+    }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['element', 'clear']),
+    { action: 'clear', command: 'element' }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['--instance', 'canonical', 'element', 'clear']),
+    { action: 'clear', command: 'element', instance: 'canonical' }
+  )
   assert.throws(
     () => parseCommandArguments(['cleanup', 'pr-61']),
     /only for the current development worktree/
@@ -251,6 +287,74 @@ test('development targeting is worktree-local and cleanup requires an exact iden
     () => parseCommandArguments(['get', 'mko_aaa11111', '--instance', 'dev']),
     /global option/
   )
+})
+
+test('element commands target only the addressed running watcher service', async () => {
+  const reference = `mko-ui-v1:${Buffer.from(JSON.stringify({
+    anchorId: 'save',
+    path: [],
+    version: 1
+  })).toString('base64url')}`
+  const requests: unknown[] = []
+  const selectors: string[] = []
+  const result = await executeCommand({
+    action: 'highlight',
+    command: 'element',
+    instance: 'development',
+    reference
+  }, {
+    resolveTarget(selector) {
+      selectors.push(selector)
+      return Promise.resolve({
+        service: { endpointPath: `/${selector}/service.json` }
+      } as unknown as ResolvedInstance)
+    },
+    requestLocal(endpointPath, method, requestPath, body) {
+      requests.push({ body, endpointPath, method, requestPath })
+      return Promise.resolve({
+        bounds: { height: 40, width: 120, x: 10, y: 20 },
+        reference,
+        requestId: 'element-callout-1',
+        status: 'highlighted'
+      })
+    },
+    ensure() {
+      throw new Error('element callouts must not cold-start Markover')
+    }
+  })
+  assert.deepEqual(result, {
+    bounds: { height: 40, width: 120, x: 10, y: 20 },
+    reference,
+    status: 'highlighted'
+  })
+  assert.deepEqual(requests, [{
+    body: { action: 'highlight', reference },
+    endpointPath: '/development/service.json',
+    method: 'POST',
+    requestPath: '/development/element-callout'
+  }])
+  assert.deepEqual(selectors, ['development'])
+
+  await executeCommand({
+    action: 'clear',
+    command: 'element',
+    instance: 'canonical'
+  }, {
+    resolveTarget(selector) {
+      selectors.push(selector)
+      return Promise.resolve({
+        service: { endpointPath: `/${selector}/service.json` }
+      } as unknown as ResolvedInstance)
+    },
+    requestLocal(endpointPath) {
+      assert.equal(endpointPath, '/canonical/service.json')
+      return Promise.resolve({
+        requestId: 'element-callout-2',
+        status: 'cleared'
+      })
+    }
+  })
+  assert.deepEqual(selectors, ['development', 'canonical'])
 })
 
 test('canonical maintenance is explicit and instance-independent', () => {
@@ -933,7 +1037,7 @@ test('CLI help is strict JSON and misuse gives an exact recovery path', () => {
   assert.match(misuse.stderr, /Unknown command: wat/)
   assert.match(
     misuse.stderr,
-    /Usage: markover <open\|get\|get-for-review\|submit\|revise\|done\|edit\|pending\|resolve\|unresolve\|canonical\|cleanup\|help>/
+    /Usage: markover <open\|get\|get-for-review\|submit\|revise\|done\|edit\|pending\|resolve\|unresolve\|canonical\|cleanup\|element\|help>/
   )
   assert.match(
     misuse.stderr,

@@ -16,6 +16,10 @@ import {
   type RendererSendArguments,
   type RendererSendChannel
 } from './ipc-contract'
+import type {
+  DevelopmentElementCalloutCommand,
+  DevelopmentElementCalloutResult
+} from './development-element'
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -135,6 +139,34 @@ async function respondToReviewResolutionConfirmation(
   } satisfies ReviewResolutionConfirmationResponse)
 }
 
+async function respondToDevelopmentElementCallout(
+  callback: (
+    command: DevelopmentElementCalloutCommand
+  ) => DevelopmentElementCalloutResult | Promise<DevelopmentElementCalloutResult>,
+  command: DevelopmentElementCalloutCommand
+): Promise<void> {
+  try {
+    send(
+      'development:element-callout-response',
+      await callback(command)
+    )
+  } catch {
+    send(
+      'development:element-callout-response',
+      command.action === 'highlight'
+        ? {
+            reference: command.reference,
+            requestId: command.requestId,
+            status: 'stale'
+          }
+        : {
+            requestId: command.requestId,
+            status: 'cleared'
+          }
+    )
+  }
+}
+
 const bridge = {
   getStartupInfo: () => invoke('startup:info'),
   reportStartupPhase: (event) => invoke('startup:phase', event),
@@ -161,6 +193,11 @@ const bridge = {
   onReviewBatchModeRequested: (callback) => {
     listen('review:batch-mode-request', () => {
       callback()
+    })
+  },
+  onDevelopmentElementCallout: (callback) => {
+    listen('development:element-callout', (command) => {
+      void respondToDevelopmentElementCallout(callback, command)
     })
   },
   checksum: (source) => invoke('document:checksum', source),

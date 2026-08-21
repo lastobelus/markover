@@ -124,6 +124,7 @@ async function serviceFixture(
       await options.onChange?.(artifact, action)
     },
     onActivate: options.onActivate,
+    onDevelopmentElementCallout: options.onDevelopmentElementCallout,
     onDevelopmentReload: options.onDevelopmentReload,
     onQuit: options.onQuit,
     onUnauthorized: options.onUnauthorized,
@@ -887,6 +888,85 @@ test('development reload allows the complete renderer durability barrier', async
   await new Promise<void>((resolve) => setTimeout(resolve, 2_100))
   releaseReload()
   await reload
+})
+
+test('development element callouts are authenticated, exact, and opt-in', async (t) => {
+  const reference = `mko-ui-v1:${Buffer.from(JSON.stringify({
+    anchorId: 'save',
+    path: [],
+    version: 1
+  })).toString('base64url')}`
+  const requests: unknown[] = []
+  const enabled = await serviceFixture(t, {
+    onDevelopmentElementCallout(request) {
+      requests.push(request)
+      return Promise.resolve({
+        bounds: { height: 40, width: 120, x: 10, y: 20 },
+        reference,
+        requestId: 'element-callout-1',
+        status: 'highlighted'
+      })
+    }
+  })
+  assert.deepEqual(await requestJson(
+    enabled.endpointPath,
+    'POST',
+    '/development/element-callout',
+    { action: 'highlight', reference }
+  ), {
+    bounds: { height: 40, width: 120, x: 10, y: 20 },
+    reference,
+    requestId: 'element-callout-1',
+    status: 'highlighted'
+  })
+  assert.deepEqual(requests, [{ action: 'highlight', reference }])
+  await assert.rejects(
+    requestJson(
+      enabled.endpointPath,
+      'POST',
+      '/development/element-callout',
+      { action: 'highlight', reference: `${reference}x` }
+    ),
+    (error: unknown) => hasServiceError(
+      error,
+      'INVALID_DEVELOPMENT_ELEMENT_CALLOUT',
+      400
+    )
+  )
+
+  const stale = await serviceFixture(t, {
+    onDevelopmentElementCallout(request) {
+      return Promise.resolve({
+        reference: request.reference,
+        requestId: 'element-callout-1',
+        status: 'stale'
+      })
+    }
+  })
+  await assert.rejects(
+    requestJson(
+      stale.endpointPath,
+      'POST',
+      '/development/element-callout',
+      { action: 'highlight', reference }
+    ),
+    (error: unknown) => hasServiceError(
+      error,
+      'DEVELOPMENT_ELEMENT_REFERENCE_STALE',
+      404
+    )
+  )
+
+  const disabled = await serviceFixture(t)
+  await assert.rejects(
+    requestJson(
+      disabled.endpointPath,
+      'POST',
+      '/development/element-callout',
+      { action: 'clear' }
+    ),
+    (error: unknown) => hasServiceError(error, 'NOT_FOUND', 404)
+  )
 })
 
 test('authenticated quit acknowledges and invokes the app callback', async (t) => {

@@ -78,6 +78,32 @@
   --pane-label-highlight: var(--markover-secondary);
 }
 
+.development-element-callout {
+  position: fixed;
+  z-index: 2147483647;
+  box-sizing: border-box;
+  border: 2px solid #ff2ea6;
+  border-radius: 4px;
+  background: rgb(255 46 166 / 10%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 80%);
+  pointer-events: none;
+}
+
+.development-element-callout-label {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  max-width: min(420px, 80vw);
+  padding: 3px 6px;
+  overflow: hidden;
+  border-radius: 4px 4px 0 0;
+  background: #ff2ea6;
+  color: white;
+  font: 600 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 :root[data-palette="olive"] {
   --markover-primary: #4e5828;
   --markover-secondary: #b5d52a;

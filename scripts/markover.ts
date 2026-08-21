@@ -41,6 +41,7 @@ import {
 import { serviceEndpointPath } from '../src/service-endpoint'
 import { guidance } from '../src/agent-guidance'
 import { normalizeSettings } from '../src/settings'
+import { isDevelopmentElementCalloutResult } from '../src/development-element'
 import { parseMarkdown } from '../src/tree'
 import {
   cleanupDevelopmentInstance,
@@ -110,6 +111,8 @@ export type ParsedCommand = ParsedInstanceTarget & (
   | { command: 'canonical'; action: 'doctor' }
   | { command: 'canonical'; action: 'refresh'; install: boolean }
   | { command: 'cleanup'; expectedIdentity: `pr-${number}` }
+  | { command: 'element'; action: 'clear' }
+  | { command: 'element'; action: 'highlight'; reference: string }
   | { command: 'edit'; reviewId: string }
   | {
       command: 'resolve'
@@ -310,6 +313,11 @@ export function helpPayload() {
         purpose: 'Move one stopped worktree-local instance to macOS Trash after its development URL handler has been removed.'
       },
       {
+        name: 'element',
+        usage: '[--instance <canonical|dev>] element highlight <mko-ui-v1-reference> | [--instance <canonical|dev>] element clear',
+        purpose: 'Highlight or clear one exact element callout in the addressed running live development window.'
+      },
+      {
         name: 'help',
         aliases: ['info', '--help', '-h'],
         usage: 'help',
@@ -398,7 +406,8 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     command !== 'pending' &&
     command !== 'resolve' &&
     command !== 'unresolve' &&
-    command !== 'cleanup'
+    command !== 'cleanup' &&
+    command !== 'element'
   ) {
     if (command === 'check') {
       throw commandError(
@@ -414,7 +423,28 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       `Unknown command: ${command}`,
-      'markover <open|get|get-for-review|submit|revise|done|edit|pending|resolve|unresolve|canonical|cleanup|help> ...'
+      'markover <open|get|get-for-review|submit|revise|done|edit|pending|resolve|unresolve|canonical|cleanup|element|help> ...'
+    )
+  }
+
+  if (command === 'element') {
+    if (rest.length === 1 && rest[0] === 'clear') {
+      return targeted({ command, action: 'clear' as const })
+    }
+    if (
+      rest.length === 2 &&
+      rest[0] === 'highlight' &&
+      rest[1]?.startsWith('mko-ui-v1:')
+    ) {
+      return targeted({
+        command,
+        action: 'highlight' as const,
+        reference: rest[1]
+      })
+    }
+    throw commandError(
+      'element requires highlight with one copied reference, or clear.',
+      'markover [--instance <canonical|dev>] element highlight <mko-ui-v1-reference> | markover [--instance <canonical|dev>] element clear'
     )
   }
 
@@ -1152,6 +1182,7 @@ export async function ensureService({
 
 export interface ExecuteCommandOptions {
   endpointPath?: string
+  requestLocal?: typeof requestJson
   ensure?: () => Promise<void>
   resolveTarget?: (
     selector: InstanceSelector,
@@ -1621,6 +1652,31 @@ export async function executeCommand(
         })
     const cleanup = options.cleanup || cleanupDevelopmentInstance
     return cleanup(instance, parsed.expectedIdentity)
+  }
+  if (parsed.command === 'element') {
+    const endpointPath = options.endpointPath || (
+      await resolveTarget(selector)
+    ).service.endpointPath
+    const result = await (options.requestLocal || requestJson)(
+      endpointPath,
+      'POST',
+      '/development/element-callout',
+      parsed.action === 'clear'
+        ? { action: 'clear' }
+        : { action: 'highlight', reference: parsed.reference }
+    )
+    if (!isDevelopmentElementCalloutResult(result)) {
+      throw new LocalServiceError(
+        'INVALID_RESPONSE',
+        'Markover returned an invalid development element callout response.',
+        200
+      )
+    }
+    return {
+      ...(result.bounds ? { bounds: result.bounds } : {}),
+      ...(result.reference ? { reference: result.reference } : {}),
+      status: result.status
+    }
   }
 
   const profile = parsed.instance === undefined

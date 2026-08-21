@@ -13,6 +13,10 @@ import * as MarkoverAnnotationBlock from './annotation-block'
 import * as MarkoverAnnotations from './annotations'
 import { autosaveFailureMessage } from './durability-status'
 import {
+  installDevelopmentElementCallouts,
+  type DevelopmentElementCallouts
+} from './development-element'
+import {
   appendIncomingReview,
   incomingReviewAction,
   removeIncomingReview,
@@ -283,6 +287,7 @@ let sourceDiffCleanup: (() => void) | null = null
 let sourceDiffModule: Promise<DiffRenderer> | null = null
 let sourceDiffRenderer: DiffRenderer | null = null
 let paneResizeLayoutFrame: number | null = null
+let developmentElementCallouts: DevelopmentElementCallouts | null = null
 let statusAnnouncementFrame: number | null = null
 let imagePreviewReturnFocus: HTMLElement | null = null
 let resolutionDialogCompletion: ((confirmed: boolean) => void) | null = null
@@ -546,6 +551,7 @@ const BRIDGE_METHODS = [
   'getWorkspaceState',
   'getWindowFocusState',
   'onOpenMarkdownRequested',
+  'onDevelopmentElementCallout',
   'onReviewOpened',
   'onReviewUpdated',
   'onReviewTrashed',
@@ -3660,6 +3666,7 @@ function schedulePaneLayoutResizeUpdate(): void {
   paneResizeLayoutFrame = requestAnimationFrame(() => {
     paneResizeLayoutFrame = null
     updatePinnedSelection()
+    developmentElementCallouts?.reposition()
     MarkoverAnnotationBlock.updateTruncation(elements.annotationList)
   })
 }
@@ -5098,6 +5105,14 @@ async function rendererSmokeResult(): Promise<{
 async function initialize(): Promise<void> {
   const startupInfo = await bridge.getStartupInfo()
   startupUi.development(startupInfo.development)
+  if (startupInfo.elementCallouts) {
+    const callouts = installDevelopmentElementCallouts(document, {
+      copyText: bridge.copyText,
+      notify: showToast
+    })
+    developmentElementCallouts = callouts
+    bridge.onDevelopmentElementCallout((command) => callouts.handle(command))
+  }
   bridge.onWindowFocusChanged((focusState) => {
     windowFocusStateVersion += 1
     windowFocusState = focusState

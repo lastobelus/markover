@@ -9,6 +9,12 @@ import type {
   StartupReady,
   StartupWarning
 } from './startup-contract'
+import {
+  isDevelopmentElementCalloutCommand,
+  isDevelopmentElementCalloutResult,
+  type DevelopmentElementCalloutCommand,
+  type DevelopmentElementCalloutResult
+} from './development-element'
 import { isReviewArtifact, isReviewTree } from './review-format'
 import { isWorkspaceState } from './workspace-state'
 
@@ -145,6 +151,7 @@ export interface RendererSendArguments {
   'clipboard:write': [string]
   'review:activate': [string]
   'review:autosave': [string, ReviewTree]
+  'development:element-callout-response': [DevelopmentElementCalloutResult]
 }
 
 export interface MainEventArguments {
@@ -162,6 +169,7 @@ export interface MainEventArguments {
   'review:activation-request': [ReviewActivationRequest]
   'review:resolution-confirmation-request': [ReviewResolutionConfirmationRequest]
   'review:trashed': [ReviewTrashedEvent]
+  'development:element-callout': [DevelopmentElementCalloutCommand]
 }
 
 export type RendererInvokeChannel = keyof RendererInvokeArguments
@@ -358,12 +366,14 @@ function isStartupInfo(value: unknown): value is StartupInfo {
   return hasExactKeys(value, [
     'development',
     'diagnosticPath',
+    'elementCallouts',
     'holdPhase',
     'failPhase',
     'smoke'
   ]) &&
     typeof value.development === 'boolean' &&
     typeof value.diagnosticPath === 'string' &&
+    typeof value.elementCallouts === 'boolean' &&
     (value.holdPhase === null || isStartupPhaseValue(value.holdPhase)) &&
     (value.failPhase === null || isStartupPhaseValue(value.failPhase)) &&
     typeof value.smoke === 'boolean'
@@ -907,6 +917,9 @@ export function assertRendererSendArguments(
         isReviewSessionTree(args[1], args[0]) &&
         args[1].review.status === 'editing'
       break
+    case 'development:element-callout-response':
+      valid = singleArgument(args, isDevelopmentElementCalloutResult)
+      break
   }
   if (!valid) throw new IpcContractError(channel, 'renderer-to-main send')
 }
@@ -1020,6 +1033,9 @@ export function assertMainEventArguments(
       valid = singleArgument(args, isResolutionConfirmationRequest)
       break
     case 'review:trashed': valid = singleArgument(args, isReviewTrashedEvent); break
+    case 'development:element-callout':
+      valid = singleArgument(args, isDevelopmentElementCalloutCommand)
+      break
   }
   if (!valid) throw new IpcContractError(channel, 'main-to-renderer event')
 }
