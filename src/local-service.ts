@@ -128,6 +128,7 @@ export interface LocalServiceOptions {
     artifact: ReviewArtifact,
     action: LocalServiceChangeAction
   ) => void | Promise<void>) | undefined
+  onDevelopmentReload?: (() => Promise<void>) | undefined
   onQuit?: (() => void) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
   interpretationPolicy?: (() => string) | undefined
@@ -312,6 +313,7 @@ export async function startLocalService({
     'Review activation is unavailable.'
   )),
   onChange = () => {},
+  onDevelopmentReload,
   onQuit = () => {},
   onUnauthorized = () => {},
   interpretationPolicy,
@@ -430,6 +432,16 @@ export async function startLocalService({
       }
 
       const url = new URL(request.url || '', 'http://127.0.0.1')
+
+      if (
+        request.method === 'POST' &&
+        url.pathname === '/development/reload' &&
+        onDevelopmentReload
+      ) {
+        await onDevelopmentReload()
+        sendJson(response, 200, { status: 'reloaded' })
+        return
+      }
 
       if (
         request.method === 'POST' &&

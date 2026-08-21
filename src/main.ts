@@ -30,7 +30,9 @@ import { AsyncMutationTracker } from './async-mutation-tracker'
 import { claudeThreadTitleSnapshot } from './claude-thread-titles'
 import { codexThreadTitleSnapshot } from './codex-thread-titles'
 import {
+  DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT,
   DEVELOPMENT_WATCH_ENVIRONMENT,
+  developmentRendererRoot,
   isDevelopmentControlQuit
 } from './development-control'
 import { loadDevelopmentConfig } from './development-config'
@@ -202,11 +204,26 @@ process.on('message', (message) => {
 
 const projectDirectory = path.resolve(__dirname, '..')
 const checkoutDirectory = addressedInstance.checkout
+const developmentWatchMode = process.env[DEVELOPMENT_WATCH_ENVIRONMENT] === '1'
+const rendererApplicationRoot = (() => {
+  if (!developmentWatchMode) return projectDirectory
+  if (!checkoutDirectory) {
+    throw new Error('Development watch mode requires its owning checkout.')
+  }
+  const expected = developmentRendererRoot(
+    checkoutDirectory,
+    addressedInstance.identity.key
+  )
+  const configured = process.env[DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT]
+  if (!configured || path.resolve(configured) !== expected) {
+    throw new Error('Development renderer root does not match this instance.')
+  }
+  return expected
+})()
 const appIconPath = path.isAbsolute(addressedInstance.branding.iconPngPath)
   ? addressedInstance.branding.iconPngPath
   : path.join(projectDirectory, addressedInstance.branding.iconPngPath)
 const smokeMode = process.argv.includes('--smoke')
-const developmentWatchMode = process.env[DEVELOPMENT_WATCH_ENVIRONMENT] === '1'
 const canonicalRefreshWindowMode = process.argv.includes(
   '--markover-refresh-window'
 )
@@ -494,9 +511,9 @@ function settingsEnvelope(settings: MarkoverSettings): MarkoverSettingsEnvelope 
 
 function loadBrandAssets(): Promise<MarkoverBrandAssets> {
   brandAssetsPromise ||= Promise.all([
-    fs.readFile(path.join(__dirname, '../design/brand/markover-mark.svg'), 'utf8'),
-    fs.readFile(path.join(__dirname, '../design/brand/markover-logotype.svg'), 'utf8'),
-    fs.readFile(path.join(__dirname, '../design/brand/markover-lockup.svg'), 'utf8')
+    fs.readFile(path.join(rendererApplicationRoot, 'design/brand/markover-mark.svg'), 'utf8'),
+    fs.readFile(path.join(rendererApplicationRoot, 'design/brand/markover-logotype.svg'), 'utf8'),
+    fs.readFile(path.join(rendererApplicationRoot, 'design/brand/markover-lockup.svg'), 'utf8')
   ]).then(([mark, logotype, lockup]) => ({ mark, logotype, lockup }))
   return brandAssetsPromise
 }
@@ -1105,7 +1122,7 @@ function createWindow(
     icon: appIconPath,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(rendererApplicationRoot, 'src', 'preload.js'),
       ...hardenedRendererWebPreferences
     }
   })
@@ -1141,10 +1158,7 @@ function createWindow(
   mainWindowBlurredAt = window.isFocused()
     ? null
     : mainWindowBlurredAt ?? Date.now()
-  rendererReadyWebContentsId = null
-  rendererReadyPromise = new Promise<void>((resolve) => {
-    resolveRendererReady = resolve
-  })
+  expectRendererReady()
 
   const query = {
     palette: startupSettings.palette,
@@ -1443,6 +1457,13 @@ function markRendererReady(webContentsId: number): void {
   flushPendingManagedReviewNotifications()
 }
 
+function expectRendererReady(): void {
+  rendererReadyWebContentsId = null
+  rendererReadyPromise = new Promise<void>((resolve) => {
+    resolveRendererReady = resolve
+  })
+}
+
 async function waitForRendererReady(window: BrowserWindow): Promise<void> {
   if (rendererReadyWebContentsId === window.webContents.id) return
   await new Promise<void>((resolve, reject) => {
@@ -1462,6 +1483,42 @@ async function waitForRendererReady(window: BrowserWindow): Promise<void> {
       new Error('Markover renderer changed before review activation.'),
       { code: 'ACTIVATION_NOT_READY' }
     )
+  }
+}
+
+async function reloadDevelopmentRenderer(): Promise<void> {
+  if (!developmentWatchMode) {
+    throw Object.assign(
+      new Error('Renderer reload is available only in development watch mode.'),
+      { code: 'DEVELOPMENT_RELOAD_UNAVAILABLE' }
+    )
+  }
+  const window = mainWindow
+  if (!window || window.isDestroyed() || !startupReady) {
+    throw Object.assign(
+      new Error('The development renderer is not ready to reload.'),
+      { code: 'DEVELOPMENT_RELOAD_NOT_READY' }
+    )
+  }
+  if (managedShutdownStarted) {
+    throw new Error('Managed review changes are unavailable right now.')
+  }
+  try {
+    setManagedRendererPause(true)
+    managedLocalReviewCreationsBlocked = true
+    await localService?.pauseMutations()
+    await managedLocalReviewCreations.wait()
+    await captureEditableManagedReviews()
+    managedAttachmentSavesBlocked = true
+    await managedAttachmentMutations.wait()
+    await requireManagedAutosave().flushAll()
+    await requireWorkspaceStore().flush()
+    brandAssetsPromise = null
+    expectRendererReady()
+    window.webContents.reloadIgnoringCache()
+    await waitForRendererReady(window)
+  } finally {
+    resumeManagedMutationsUnlessShuttingDown()
   }
 }
 
@@ -1836,6 +1893,9 @@ async function startAndPublishService(): Promise<void> {
       requestReviewResolutionConfirmation(artifacts, outcome)
     ),
     onActivate: activateManagedReview,
+    ...(developmentWatchMode
+      ? { onDevelopmentReload: reloadDevelopmentRenderer }
+      : {}),
     onQuit() {
       app.quit()
     },
@@ -2090,7 +2150,7 @@ if (!hasSingleInstanceLock) {
     protocol.handle(MARKOVER_INTERNAL_SCHEME, async (request) => {
       const resolved = await resolveInternalRequestFile(
         request.url,
-        projectDirectory,
+        rendererApplicationRoot,
         internalAttachments
       )
       if (!resolved.ok) {

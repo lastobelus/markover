@@ -328,3 +328,20 @@ export async function requestServiceQuit(endpointPath: string): Promise<void> {
     )
   }
 }
+
+export async function requestDevelopmentReload(
+  endpointPath: string
+): Promise<void> {
+  const response = await requestJson(
+    endpointPath,
+    'POST',
+    '/development/reload'
+  )
+  if (!isRecord(response) || response.status !== 'reloaded') {
+    throw new LocalServiceError(
+      'INVALID_RESPONSE',
+      'Markover returned an invalid development reload response.',
+      200
+    )
+  }
+}

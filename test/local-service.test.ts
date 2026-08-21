@@ -13,6 +13,7 @@ import {
   LocalServiceError,
   probeService,
   readServiceConnection,
+  requestDevelopmentReload,
   requestServiceQuit,
   requestJson
 } from '../src/local-client'
@@ -123,6 +124,7 @@ async function serviceFixture(
       await options.onChange?.(artifact, action)
     },
     onActivate: options.onActivate,
+    onDevelopmentReload: options.onDevelopmentReload,
     onQuit: options.onQuit,
     onUnauthorized: options.onUnauthorized,
     interpretationPolicy: options.interpretationPolicy,
@@ -842,6 +844,25 @@ test('done rechecks and serializes a review that becomes editable', async (t) =>
   assert.equal(
     child(completed.root).feedback,
     'Captured after the review became editable.'
+  )
+})
+
+test('development reload exists only when the app supplies its callback', async (t) => {
+  let reloads = 0
+  const enabled = await serviceFixture(t, {
+    onDevelopmentReload() {
+      reloads += 1
+      return Promise.resolve()
+    }
+  })
+
+  await requestDevelopmentReload(enabled.endpointPath)
+  assert.equal(reloads, 1)
+
+  const disabled = await serviceFixture(t)
+  await assert.rejects(
+    requestDevelopmentReload(disabled.endpointPath),
+    (error: unknown) => hasServiceError(error, 'NOT_FOUND', 404)
   )
 })
 
