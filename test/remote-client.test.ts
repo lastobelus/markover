@@ -16,6 +16,7 @@ import {
 import {
   createRemoteAttachmentAccess,
   createRemoteGatewayChallenge,
+  REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS,
   remoteAttachmentResponseAuthorization,
   remoteContentDigest,
   remoteRequestAuthorization,
@@ -342,6 +343,19 @@ test('health pins protocol identity and exposes the boolean discovery snapshot',
   }, { request: portTransport.request })
   assert.equal(portTransport.captured[0]?.options.port, 8443)
 
+  const skewedTransport = fakeTransport([{
+    statusCode: 200,
+    body: {
+      ...validHealth,
+      authorization: createRemoteGatewayChallenge(
+        token,
+        Date.now() + 500,
+        fixedNonce
+      )
+    }
+  }])
+  await readRemoteHealth(profile, { request: skewedTransport.request })
+
   for (const incompatible of [
     { ...validHealth, protocol: { name: 'other', version: 1 } },
     { ...validHealth, protocol: { name: 'markover-remote', version: 2 } },
@@ -359,7 +373,7 @@ test('health pins protocol identity and exposes the boolean discovery snapshot',
       ...validHealth,
       authorization: createRemoteGatewayChallenge(
         token,
-        fixedNow - 60_000,
+        fixedNow - 120_000,
         fixedNonce
       )
     }
@@ -716,7 +730,7 @@ test('remote attachment URLs stay on the pinned canonical HTTPS origin', () => {
         token,
         'mko_aaa11111',
         'img-1',
-        Date.now() - 1
+        Date.now() - REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS - 1
       )}`
     },
     {

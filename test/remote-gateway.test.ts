@@ -33,6 +33,7 @@ import {
   RemoteAttachmentAccessStore,
   type RemoteGatewayChallenge,
   RemoteGatewayChallengeStore,
+  REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS,
   REMOTE_GATEWAY_CONTENT_DIGEST_HEADER,
   verifyRemoteAttachmentResponseAuthorization,
   verifyRemoteGatewayChallenge
@@ -449,7 +450,14 @@ test('gateway challenges prove credential ownership and reject replay and expiry
 
   const expired = store.create()
   now = expired.expiresAt
-  assert.equal(verifyRemoteGatewayChallenge(GATEWAY_TOKEN, expired, now), false)
+  assert.equal(
+    verifyRemoteGatewayChallenge(
+      GATEWAY_TOKEN,
+      expired,
+      now + REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS
+    ),
+    false
+  )
   assert.equal(store.authorize({
     authorization: remoteRequestAuthorization(
       GATEWAY_TOKEN,

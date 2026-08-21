@@ -10,6 +10,7 @@ import {
   remoteContentDigest,
   remoteRequestAuthorization,
   type RemoteGatewayChallenge,
+  REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS,
   REMOTE_GATEWAY_CONTENT_DIGEST_HEADER,
   REMOTE_GATEWAY_RESPONSE_AUTH_HEADER,
   verifyRemoteAttachmentAccess,
@@ -193,7 +194,9 @@ function validatedRemoteAttachmentUrl(
       profile.token,
       reviewId,
       attachmentId,
-      access
+      access,
+      Date.now(),
+      REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS
     )
   ) throw invalidResponse()
   return { access, url }

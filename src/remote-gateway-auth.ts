@@ -8,6 +8,7 @@ export const REMOTE_GATEWAY_CONTENT_DIGEST_HEADER = 'markover-content-digest'
 export const REMOTE_GATEWAY_RESPONSE_AUTH_HEADER = 'markover-response-auth'
 export const REMOTE_GATEWAY_AUTHORIZATION_SCHEME = 'Markover-HMAC-v1'
 export const REMOTE_GATEWAY_CHALLENGE_LIFETIME_MILLISECONDS = 30_000
+export const REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS = 60_000
 
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/
 const AUTHORIZATION_PATTERN = /^Markover-HMAC-v1 ([A-Za-z0-9_-]{43})\.([a-f0-9]{64})$/
@@ -101,8 +102,10 @@ export function verifyRemoteGatewayChallenge(
     !CAPABILITY_TOKEN_PATTERN.test(challenge.nonce) ||
     typeof challenge.expiresAt !== 'number' ||
     !Number.isSafeInteger(challenge.expiresAt) ||
-    challenge.expiresAt <= now ||
-    challenge.expiresAt > now + REMOTE_GATEWAY_CHALLENGE_LIFETIME_MILLISECONDS ||
+    challenge.expiresAt <= now - REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS ||
+    challenge.expiresAt > now +
+      REMOTE_GATEWAY_CHALLENGE_LIFETIME_MILLISECONDS +
+      REMOTE_GATEWAY_CLOCK_SKEW_TOLERANCE_MILLISECONDS ||
     typeof challenge.proof !== 'string' ||
     !/^[a-f0-9]{64}$/.test(challenge.proof) ||
     !CAPABILITY_TOKEN_PATTERN.test(token)
@@ -237,7 +240,8 @@ export function verifyRemoteAttachmentAccess(
   reviewId: string,
   attachmentId: string,
   value: string | null,
-  now = Date.now()
+  now = Date.now(),
+  clockSkewToleranceMilliseconds = 0
 ): boolean {
   if (value === null) return false
   const matched = ATTACHMENT_ACCESS_PATTERN.exec(value)
@@ -246,8 +250,10 @@ export function verifyRemoteAttachmentAccess(
   const suppliedProof = matched[2] as string
   if (
     !Number.isSafeInteger(expiresAt) ||
-    expiresAt <= now ||
-    expiresAt > now + REMOTE_ATTACHMENT_ACCESS_LIFETIME_MILLISECONDS
+    expiresAt <= now - clockSkewToleranceMilliseconds ||
+    expiresAt > now +
+      REMOTE_ATTACHMENT_ACCESS_LIFETIME_MILLISECONDS +
+      clockSkewToleranceMilliseconds
   ) return false
   return equalHex(
     suppliedProof,
