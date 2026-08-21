@@ -58,6 +58,14 @@ const watchedFiles = new Set([
   'tsconfig.json'
 ])
 
+const restartRequiredFiles = new Set([
+  '.markover/development.json',
+  'package.json',
+  'packages/cli/package.json',
+  'tsconfig.build.json',
+  'tsconfig.json'
+])
+
 export interface DevelopmentProcess {
   exitCode: number | null
   once?: ((
@@ -92,6 +100,10 @@ export function isDevelopmentBuildInput(filePath: string | null): boolean {
   return watchedDirectories.some((directory) => (
     relativePath === directory || relativePath.startsWith(`${directory}/`)
   ))
+}
+
+export function isDevelopmentRestartRequiredInput(filePath: string): boolean {
+  return restartRequiredFiles.has(normalizedRelativePath(filePath))
 }
 
 export class DevelopmentWatchController {
@@ -808,11 +820,19 @@ export async function main(
   return {
     notify(filePath) {
       if (!isDevelopmentBuildInput(filePath)) return false
+      const normalized = filePath === null
+        ? null
+        : normalizedRelativePath(filePath)
       if (
-        filePath !== null &&
-        !normalizedRelativePath(filePath).startsWith('src/') &&
-        !normalizedRelativePath(filePath).startsWith('design/brand/')
-      ) return true
+        normalized !== null &&
+        !normalized.startsWith('src/') &&
+        !normalized.startsWith('design/brand/')
+      ) {
+        if (isDevelopmentRestartRequiredInput(normalized)) {
+          manager.reportRestartRequired(normalized)
+        }
+        return true
+      }
       manager.noteChange(filePath)
       return controller.notify(filePath)
     },

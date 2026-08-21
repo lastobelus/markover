@@ -10,6 +10,7 @@ import {
   DevelopmentInstanceManager,
   DevelopmentWatchController,
   isDevelopmentBuildInput,
+  isDevelopmentRestartRequiredInput,
   type DevelopmentProcess
 } from '../scripts/development-watch'
 import { parseStartArguments, StartArgumentError } from '../scripts/start'
@@ -347,6 +348,24 @@ test('development build inputs exclude generated and unrelated paths', () => {
     '.markover/generated/pr-85/icon.png',
     '.markover/instance/service.json'
   ]) assert.equal(isDevelopmentBuildInput(filePath), false, filePath)
+})
+
+test('development configuration inputs require an explicit restart', () => {
+  for (const filePath of [
+    '.markover/development.json',
+    'package.json',
+    'packages/cli/package.json',
+    'tsconfig.build.json',
+    'tsconfig.json'
+  ]) assert.equal(isDevelopmentRestartRequiredInput(filePath), true, filePath)
+
+  for (const filePath of [
+    'README.md',
+    'docs/developer/development.md',
+    'scripts/development-watch.ts',
+    'src/renderer.ts',
+    'test/development-watch.test.ts'
+  ]) assert.equal(isDevelopmentRestartRequiredInput(filePath), false, filePath)
 })
 
 test('rapid changes coalesce into one build and apply', async () => {
