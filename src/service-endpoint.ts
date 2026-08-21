@@ -3,6 +3,8 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { replaceJsonFile } from './atomic-json'
+
 export const CAPABILITY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 export const SERVICE_INSTANCE_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -128,28 +130,7 @@ async function writePrivateJson(
   value: unknown,
   platform: NodeJS.Platform
 ): Promise<void> {
-  const temporaryPath = path.join(
-    path.dirname(filePath),
-    `.${path.basename(filePath)}-${String(process.pid)}-${randomBytes(6).toString('hex')}.tmp`
-  )
-  try {
-    await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, {
-      encoding: 'utf8',
-      flag: 'wx',
-      flush: true,
-      mode: 0o600
-    })
-    if (platform !== 'win32') await fs.chmod(temporaryPath, 0o600)
-    await fs.rename(temporaryPath, filePath)
-  } finally {
-    await fs.unlink(temporaryPath).catch((error: unknown) => {
-      if (
-        error === null ||
-        typeof error !== 'object' ||
-        Reflect.get(error, 'code') !== 'ENOENT'
-      ) throw error
-    })
-  }
+  await replaceJsonFile(filePath, value, { platform })
 }
 
 export interface PublishServiceConnectionOptions {

@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
-
+import { replaceJsonFile } from './atomic-json'
 import { MAXIMUM_ATTACHMENT_BYTES } from './attachment-limits'
 import { guidance } from './agent-guidance'
 import { reviewerGuidance } from './agent-reviewer-guidance'
@@ -1690,23 +1690,7 @@ export class ReviewStore {
   }
 
   async writeFile(filePath: string, artifact: unknown): Promise<void> {
-    const temporaryPath = path.join(
-      path.dirname(filePath),
-      `.review-${String(process.pid)}-${randomBytes(6).toString('hex')}.tmp`
-    )
-
-    try {
-      await fs.writeFile(
-        temporaryPath,
-        `${JSON.stringify(artifact, null, 2)}\n`,
-        { encoding: 'utf8', flag: 'wx', flush: true }
-      )
-      await fs.rename(temporaryPath, filePath)
-    } finally {
-      await fs.unlink(temporaryPath).catch((error: unknown) => {
-        if (errorCode(error) !== 'ENOENT') throw error
-      })
-    }
+    await replaceJsonFile(filePath, artifact)
   }
 
   serialize<T>(key: string, operation: () => Promise<T>): Promise<T> {

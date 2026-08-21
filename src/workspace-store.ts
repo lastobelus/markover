@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { replaceJsonFile } from './atomic-json'
 import {
   cloneWorkspaceState,
   defaultWorkspaceState,
@@ -23,7 +24,6 @@ export class WorkspaceStore {
   private writer: Promise<void> = Promise.resolve()
   private latestWrite: Promise<void> = Promise.resolve()
   private latestSnapshot: MarkoverWorkspaceState | null = null
-  private writeSequence = 0
 
   constructor(filePath: string) {
     this.filePath = filePath
@@ -66,23 +66,10 @@ export class WorkspaceStore {
   }
 
   private enqueueWrite(snapshot: MarkoverWorkspaceState): Promise<void> {
-    const sequence = ++this.writeSequence
     const write = this.writer.catch(() => undefined).then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true })
-      const temporaryPath = `${this.filePath}.${String(process.pid)}.${String(sequence)}.tmp`
-      try {
-        await fs.writeFile(
-          temporaryPath,
-          `${JSON.stringify(snapshot, null, 2)}\n`,
-          { encoding: 'utf8', mode: 0o600 }
-        )
-        await fs.rename(temporaryPath, this.filePath)
-        this.state = cloneWorkspaceState(snapshot)
-      } finally {
-        await fs.unlink(temporaryPath).catch((error: unknown) => {
-          if (errorProperty(error, 'code') !== 'ENOENT') throw error
-        })
-      }
+      await replaceJsonFile(this.filePath, snapshot)
+      this.state = cloneWorkspaceState(snapshot)
     })
     this.writer = write.then(() => undefined, () => undefined)
     this.latestWrite = write

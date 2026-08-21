@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { replaceJsonFile } from './atomic-json'
 import { DEFAULT_SETTINGS, normalizeSettings, updateSettings } from './settings'
 
 interface SettingsReadResult {
@@ -18,7 +19,6 @@ export class SettingsStore {
   settings: MarkoverSettings
   private readonly initialSettings: MarkoverSettings
   private writer: Promise<unknown>
-  private writeSequence: number
 
   constructor(filePath: string, initialSettings: unknown = DEFAULT_SETTINGS) {
     this.filePath = filePath
@@ -26,7 +26,6 @@ export class SettingsStore {
     this.initialSettings = normalizeSettings(initialSettings)
     this.settings = { ...this.initialSettings }
     this.writer = Promise.resolve()
-    this.writeSequence = 0
   }
 
   private async readResult(): Promise<SettingsReadResult> {
@@ -67,25 +66,12 @@ export class SettingsStore {
   }
 
   async update(patch: unknown): Promise<MarkoverSettings> {
-    const sequence = ++this.writeSequence
     const write = this.writer.catch(() => undefined).then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true })
-      const temporaryPath = `${this.filePath}.${String(process.pid)}.${String(sequence)}.tmp`
-      try {
-        const snapshot = updateSettings(this.settings, patch)
-        await fs.writeFile(
-          temporaryPath,
-          `${JSON.stringify(snapshot, null, 2)}\n`,
-          'utf8'
-        )
-        await fs.rename(temporaryPath, this.filePath)
-        this.settings = snapshot
-        return { ...snapshot }
-      } finally {
-        await fs.unlink(temporaryPath).catch((error: unknown) => {
-          if (errorProperty(error, 'code') !== 'ENOENT') throw error
-        })
-      }
+      const snapshot = updateSettings(this.settings, patch)
+      await replaceJsonFile(this.filePath, snapshot)
+      this.settings = snapshot
+      return { ...snapshot }
     })
     this.writer = write.then(() => undefined, () => undefined)
     return write

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { rendererContentSecurityPolicy } from '../src/renderer-security'
 
 export const runtimeModuleNames = [
+  'atomic-json',
   'about-panel',
   'agent-guidance',
   'agent-reviewer-guidance',
