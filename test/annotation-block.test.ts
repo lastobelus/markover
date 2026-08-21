@@ -299,7 +299,7 @@ test('annotation list cards use scannable titles, compact thumbnails, and primar
   assert.match(styles, /\.rendered-annotation-overflow \{[^}]*font-size: 15px;/)
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment \{[^}]*padding: 0;/)
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment span \{[^}]*display: none;/)
-  assert.match(styles, /\.rendered-annotation-edit \{[^}]*color: var\(--primary-button-text\);[^}]*background: var\(--primary-button-bg\);/)
+  assert.match(styles, /\.rendered-annotation-edit \{[^}]*color: var\(--muted\);[^}]*background: rgb\(var\(--surface-rgb\) \/ 72%\);/)
   assert.match(styles, /\.annotation-list-view \{[^}]*min-width: 0;[^}]*overflow-x: hidden;/)
   assert.match(styles, /\.annotation-list \{[^}]*grid-template-columns: minmax\(0, 1fr\);/)
   assert.match(styles, /\.annotation-list \.rendered-annotation \{[^}]*min-width: 0;[^}]*overflow: hidden;/)

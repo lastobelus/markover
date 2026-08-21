@@ -68,7 +68,6 @@ interface RendererState {
   documentName: string
   documentPath: string | null
   finishAttachmentLabelEdit: ((commit?: boolean) => void) | null
-  hoveredId: string | null
   reviewId: string | null
   selectedId: string | null
   annotatedOnly: boolean
@@ -140,7 +139,6 @@ const elements = {
   annotationViewList: requiredElement<HTMLButtonElement>('#annotation-view-list'),
   annotationViewSelected: requiredElement<HTMLButtonElement>('#annotation-view-selected'),
   attachmentList: requiredElement('#attachment-list'),
-  brandLogotype: requiredElement<HTMLImageElement>('#brand-logotype'),
   brandMark: requiredElement<HTMLImageElement>('#brand-mark'),
   checksum: requiredElement('#document-checksum'),
   copyTreeButton: requiredElement<HTMLButtonElement>('#copy-tree-button'),
@@ -170,8 +168,6 @@ const elements = {
   selectedAnnotationView: requiredElement('#selected-annotation-view'),
   selectedSource: requiredElement('#selected-source'),
   selectedTitle: requiredElement('#selected-title'),
-  scrollbarRowCover: requiredElement('#scrollbar-row-cover'),
-  hoverScrollbarRowCover: requiredElement('#hover-scrollbar-row-cover'),
   sourceCancel: requiredElement<HTMLButtonElement>('#source-cancel'),
   sourceContent: requiredElement('#source-content'),
   sourceDiff: requiredElement('#source-diff'),
@@ -250,7 +246,6 @@ const state: RendererState = {
   documentName: 'sample.md',
   documentPath: null,
   finishAttachmentLabelEdit: null,
-  hoveredId: null,
   reviewId: null,
   selectedId: null,
   annotatedOnly: false,
@@ -988,7 +983,6 @@ function updatePinnedSelection(): void {
   if (!selectedRow || !selectedRow.getClientRects().length) {
     elements.pinnedSelection.hidden = true
     elements.pinnedSelection.replaceChildren()
-    updateScrollbarRowCover()
     return
   }
 
@@ -997,7 +991,6 @@ function updatePinnedSelection(): void {
   elements.pinnedSelection.hidden = !shouldPin
   if (!shouldPin) {
     elements.pinnedSelection.replaceChildren()
-    updateScrollbarRowCover()
     return
   }
 
@@ -1009,54 +1002,6 @@ function updatePinnedSelection(): void {
     button.tabIndex = -1
   })
   elements.pinnedSelection.replaceChildren(pinnedRow)
-  updateScrollbarRowCover()
-}
-
-function positionScrollbarRowCover(
-  cover: HTMLElement,
-  row: HTMLElement | null,
-  hovered: boolean
-): void {
-  if (!row || !row.getClientRects().length) {
-    cover.hidden = true
-    return
-  }
-
-  const rowRect = row.getBoundingClientRect()
-  const treeRect = elements.tree.getBoundingClientRect()
-  if (rowRect.bottom <= treeRect.top || rowRect.top >= treeRect.bottom) {
-    cover.hidden = true
-    return
-  }
-
-  const paneRect = elements.centerPane.getBoundingClientRect()
-  cover.className = [
-    'scrollbar-row-cover',
-    hovered ? 'is-hovered' : '',
-    row.querySelector('.block-content.code') ? 'is-code' : ''
-  ].filter(Boolean).join(' ')
-  cover.style.top = `${rowRect.top - paneRect.top}px`
-  cover.style.height = `${rowRect.height}px`
-  cover.hidden = false
-}
-
-function updateScrollbarRowCover(): void {
-  const selectedRow = elements.tree.querySelector<HTMLElement>(
-    `[data-node-id="${state.selectedId}"]`
-  )
-  const hoveredRow = state.hoveredId
-    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
-    : null
-  positionScrollbarRowCover(
-    elements.scrollbarRowCover,
-    elements.pinnedSelection.hidden ? selectedRow : null,
-    false
-  )
-  positionScrollbarRowCover(
-    elements.hoverScrollbarRowCover,
-    hoveredRow && hoveredRow !== selectedRow ? hoveredRow : null,
-    true
-  )
 }
 
 function renderNode(
@@ -1200,14 +1145,6 @@ function renderNode(
 
   row.addEventListener('click', () => {
     selectNode(node.id, true)
-  })
-  row.addEventListener('mouseenter', () => {
-    state.hoveredId = node.id
-    updateScrollbarRowCover()
-  })
-  row.addEventListener('mouseleave', () => {
-    if (state.hoveredId === node.id) state.hoveredId = null
-    updateScrollbarRowCover()
   })
   row.addEventListener('dblclick', () => {
     if (!state.annotatedOnly && node.children.length) {
@@ -1865,7 +1802,7 @@ function renderAnnotationList(): void {
   }
 }
 
-function renderAnnotationPaneView(node: ReviewNode): void {
+function renderAnnotationViewState(node: ReviewNode): void {
   const nodes = annotatedNodes()
   if (state.annotationView === 'list' && !nodes.length) {
     state.annotationView = 'selected'
@@ -1936,7 +1873,7 @@ function renderAnnotation(node: ReviewNode): void {
     ? 'Annotated'
     : 'Not annotated'
   renderAttachmentList(node)
-  renderAnnotationPaneView(node)
+  renderAnnotationViewState(node)
   renderReviewEditability()
   updateAnnotationCount()
 }
@@ -3555,6 +3492,7 @@ function renderDocumentsList(): void {
   renderReviewBatchActions()
   scheduleDocumentsListClockRefresh(sessions)
   elements.leftPane.hidden = !hasReviews
+  elements.leftPaneResizer.hidden = !hasReviews
   elements.leftPaneCollapse.hidden = sessions.length === 0
   elements.leftPaneOpen.hidden = !hasReviews || !leftPaneCollapsed
   elements.paneLayout.classList.toggle('has-left-pane', hasReviews)
@@ -3628,17 +3566,17 @@ function applyLeftPaneWidth(): void {
 function applyRightPaneWidth(): void {
   const currentWidth = rightPaneWidth ??
     elements.rightPane.getBoundingClientRect().width
-  const leftPaneWidthForLayout = elements.leftPane.getBoundingClientRect().width
+  const leftWidth = elements.leftPane.getBoundingClientRect().width
   const paneLayoutWidth = elements.paneLayout.clientWidth || window.innerWidth
   const clampedWidth = MarkoverReviewSessions.clampRightPaneWidth(
     currentWidth,
     paneLayoutWidth,
-    leftPaneWidthForLayout
+    leftWidth
   )
   const maximumWidth = MarkoverReviewSessions.clampRightPaneWidth(
     Number.POSITIVE_INFINITY,
     paneLayoutWidth,
-    leftPaneWidthForLayout
+    leftWidth
   )
   if (rightPaneWidth !== null) {
     rightPaneWidth = clampedWidth
@@ -3723,12 +3661,7 @@ async function themeBrandAssets(): Promise<void> {
     const primary = palette.getPropertyValue('--markover-primary').trim()
     const secondary = palette.getPropertyValue('--markover-secondary').trim()
     elements.brandMark.src = themedBrandSource(
-      brandAssetSources.mark,
-      primary,
-      secondary
-    )
-    elements.brandLogotype.src = themedBrandSource(
-      brandAssetSources.logotype,
+      brandAssetSources.lockup,
       primary,
       secondary
     )
@@ -4256,7 +4189,6 @@ async function activateReview(
   state.sourceDrafts = session.sourceDrafts
   state.sourceEditingId = session.sourceEditingId
   state.attachmentPreviewUrls = session.attachmentPreviewUrls
-  state.hoveredId = null
   bridge.activateReview(reviewId)
 
   elements.name.textContent = session.documentName
@@ -5337,3 +5269,175 @@ void initialize().catch(async (error: unknown) => {
   }
   console.error('Markover renderer startup failed', error)
 })
+
+/* TEMPORARY theme-token inspector. Remove with its markup and styles. */
+{
+  interface TokenRow { readonly name: string }
+  type Group = readonly [string, readonly TokenRow[]]
+
+  const t = (name: string): TokenRow => ({ name })
+
+  /* Theme tokens hold palette values; the inspector flags duplicate computed values. */
+  const THEME: readonly Group[] = [
+    ['Theme · brand', [t('--markover-primary'), t('--markover-secondary'), t('--brand-soft')]],
+    ['Theme · ground', [t('--paper'), t('--surface'), t('--neutral-soft')]],
+    ['Theme · ink', [t('--ink'), t('--muted'), t('--primary-contrast'), t('--secondary-contrast')]],
+    ['Theme · rules', [t('--line'), t('--hover-line'), t('--selection-line')]],
+    ['Theme · material', [t('--input'), t('--input-muted'), t('--thumbnail'), t('--code'), t('--shadow')]],
+    ['Theme · status', [t('--status-revised'), t('--status-progress'), t('--source-error')]]
+  ]
+
+  /* Semantic tokens name roles and resolve through theme or semantic tokens. */
+  const SEMANTIC: readonly Group[] = [
+    ['Accent', [
+      t('--brand-orange'),
+      t('--brand-burgundy'),
+      t('--accent'),
+      t('--accent-deep'),
+      t('--accent-soft'),
+      t('--focus')
+    ]],
+    ['Window', [
+      t('--window-background')
+    ]],
+    ['App structure', [
+      t('--app-shell-background'),
+      t('--app-header-background'),
+      t('--left-pane-background'),
+      t('--center-pane-background'),
+      t('--right-pane-background')
+    ]],
+    ['Components', [
+      t('--review-navigation-bg'),
+      t('--review-navigation-active-bg'),
+      t('--document-tree-scrollbar-track-background'),
+      t('--selection-bridge-background'),
+      t('--keyboard-help-background'),
+      t('--theme-token-inspector-background'),
+      t('--theme-token-inspector-border-color'),
+      t('--theme-token-inspector-shadow-color'),
+      t('--theme-token-inspector-foreground'),
+      t('--theme-token-inspector-muted-foreground'),
+      t('--theme-token-inspector-control-background'),
+      t('--theme-token-inspector-duplicate-foreground')
+    ]],
+    ['Buttons', [
+      t('--primary-button-bg'),
+      t('--primary-button-hover'),
+      t('--primary-button-text'),
+      t('--primary-button-hover-text')
+    ]],
+    ['Pane labels', [
+      t('--pane-label-base'),
+      t('--pane-label-highlight'),
+      t('--pane-label-color'),
+      t('--pane-label-hover'),
+      t('--pane-label-inactive')
+    ]],
+    ['Status', [
+      t('--status-editing'),
+      t('--status-pending'),
+      t('--status-done'),
+      t('--status-other'),
+      t('--status-outline')
+    ]]
+  ]
+
+  const inspector = document.querySelector<HTMLElement>('#theme-token-inspector')
+  const close = document.querySelector<HTMLButtonElement>('#theme-token-inspector-close')
+  const appHeaderBackground = document.querySelector<HTMLSelectElement>('#theme-token-inspector-app-header-background')
+  const list = document.querySelector<HTMLElement>('#theme-token-inspector-tokens')
+
+  if (inspector && close && appHeaderBackground && list) {
+    const root = document.documentElement
+    const renderedRows: Array<{ name: string; value: HTMLElement; theme: boolean }> = []
+
+    const addGroups = (groups: readonly Group[], theme: boolean): void => {
+      for (const [group, tokens] of groups) {
+        const heading = document.createElement('div')
+        heading.className = 'theme-token-inspector-group'
+        heading.textContent = group
+        list.append(heading)
+
+        for (const token of tokens) {
+          const row = document.createElement('div')
+          row.className = 'theme-token-inspector-token'
+
+          const swatch = document.createElement('i')
+          swatch.className = 'theme-token-inspector-swatch'
+          swatch.style.background = `var(${token.name})`
+
+          const label = document.createElement('code')
+          label.textContent = token.name
+
+          const value = document.createElement('span')
+          renderedRows.push({ name: token.name, value, theme })
+
+          row.append(swatch, label, value)
+          list.append(row)
+        }
+      }
+    }
+
+    addGroups(THEME, true)
+    addGroups(SEMANTIC, false)
+
+    const defaultOption = document.createElement('option')
+    defaultOption.value = ''
+    defaultOption.textContent = '(theme default)'
+    appHeaderBackground.append(defaultOption)
+    for (const groups of [THEME, SEMANTIC]) {
+      for (const [, tokens] of groups) {
+        for (const token of tokens) {
+          if (token.name === '--app-header-background') continue
+          const option = document.createElement('option')
+          option.value = token.name
+          option.textContent = token.name
+          appHeaderBackground.append(option)
+        }
+      }
+    }
+
+    /* Theme values must be unique; flag any literal that appears twice. */
+    const refresh = (): void => {
+      const computed = getComputedStyle(root)
+      const seen = new Map<string, string[]>()
+      for (const row of renderedRows) {
+        const value = computed.getPropertyValue(row.name).trim()
+        row.value.textContent = value
+        row.value.title = value
+        if (row.theme) {
+          const names = seen.get(value) || []
+          names.push(row.name)
+          seen.set(value, names)
+        }
+      }
+      for (const row of renderedRows) {
+        if (!row.theme) continue
+        const names = seen.get(row.value.textContent || '') || []
+        const duplicate = names.length > 1
+        row.value.classList.toggle('is-duplicate', duplicate)
+        row.value.title = duplicate
+          ? `${row.value.textContent} · same colour as ${names.filter((n) => n !== row.name).join(', ')}`
+          : row.value.textContent || ''
+      }
+    }
+
+    appHeaderBackground.addEventListener('change', () => {
+      if (appHeaderBackground.value) {
+        root.style.setProperty('--app-header-background', `var(${appHeaderBackground.value})`)
+      } else {
+        root.style.removeProperty('--app-header-background')
+      }
+      refresh()
+    })
+
+    close.addEventListener('click', () => { inspector.hidden = true })
+
+    new MutationObserver(refresh).observe(root, {
+      attributeFilter: ['data-palette', 'data-appearance', 'data-colorization']
+    })
+
+    refresh()
+  }
+}

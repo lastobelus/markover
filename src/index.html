@@ -273,14 +273,7 @@
         <img
           id="brand-mark"
           class="brand-mark"
-          src="../design/brand/markover-mark.svg"
-          alt=""
-          aria-hidden="true"
-        >
-        <img
-          id="brand-logotype"
-          class="brand-logotype"
-          src="../design/brand/markover-logotype.svg"
+          src="../design/brand/markover-lockup.svg"
           alt=""
           aria-hidden="true"
         >
@@ -317,20 +310,6 @@
     ></div>
 
     <div id="review-tab-strip" class="review-tab-strip" hidden>
-      <nav class="review-navigation-tabs" aria-label="Review organization">
-        <button
-          id="review-navigation-inbox"
-          class="review-navigation-tab is-active"
-          type="button"
-          aria-pressed="true"
-        >Inbox <span id="review-inbox-count" class="review-inbox-count">0</span></button>
-        <button
-          id="review-navigation-projects"
-          class="review-navigation-tab"
-          type="button"
-          aria-pressed="false"
-        >Projects</button>
-      </nav>
       <form id="review-id-activation" class="review-id-activation">
         <label class="visually-hidden" for="review-id-input">Open an exact review ID</label>
         <input
@@ -366,6 +345,20 @@
 
     <main id="pane-layout" class="pane-layout" hidden>
       <aside id="left-pane" class="left-pane" hidden>
+        <nav class="review-navigation-tabs" aria-label="Review organization">
+          <button
+            id="review-navigation-inbox"
+            class="review-navigation-tab is-active"
+            type="button"
+            aria-pressed="true"
+          >Inbox <span id="review-inbox-count" class="review-inbox-count">0</span></button>
+          <button
+            id="review-navigation-projects"
+            class="review-navigation-tab"
+            type="button"
+            aria-pressed="false"
+          >Projects</button>
+        </nav>
         <header class="documents-list-header">
           <div class="pane-header-leading">
             <span class="eyebrow">Reviews</span>
@@ -440,12 +433,6 @@
           </div>
         </div>
         <div id="pinned-selection" class="pinned-selection" hidden></div>
-        <div id="scrollbar-row-cover" class="scrollbar-row-cover" hidden></div>
-        <div
-          id="hover-scrollbar-row-cover"
-          class="scrollbar-row-cover is-hovered"
-          hidden
-        ></div>
         <div id="tree" class="tree"></div>
         <div class="keyboard-help">
           <kbd>↑</kbd><kbd>↓</kbd> siblings
@@ -948,6 +935,19 @@
         </footer>
       </div>
     </dialog>
+
+    <!-- TEMPORARY theme-token inspector. Remove with its styles and wiring. -->
+    <div id="theme-token-inspector" class="theme-token-inspector">
+      <header>
+        <span>Theme tokens</span>
+        <button id="theme-token-inspector-close" type="button" aria-label="Hide theme-token inspector">&times;</button>
+      </header>
+      <label class="theme-token-inspector-field">
+        <span>App header background</span>
+        <select id="theme-token-inspector-app-header-background"></select>
+      </label>
+      <div id="theme-token-inspector-tokens" class="theme-token-inspector-tokens"></div>
+    </div>
 
     <script type="module" src="renderer.js"></script>
   </body>
