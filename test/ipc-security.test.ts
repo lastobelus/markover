@@ -568,6 +568,43 @@ test('review resolution IPC carries exact selections and preserved feedback summ
   })
 })
 
+test('development element callout IPC accepts only exact references and outcomes', () => {
+  const reference = `mko-ui-v1:${Buffer.from(JSON.stringify({
+    anchorId: 'save',
+    path: [],
+    version: 1
+  })).toString('base64url')}`
+  assert.doesNotThrow(() => {
+    assertMainEventArguments('development:element-callout', [{
+      action: 'highlight',
+      reference,
+      requestId: 'element-callout-1'
+    }])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('development:element-callout', [{
+      action: 'highlight',
+      reference: `${reference}x`,
+      requestId: 'element-callout-1'
+    }])
+  })
+  assert.doesNotThrow(() => {
+    assertRendererSendArguments('development:element-callout-response', [{
+      bounds: { height: 40, width: 120, x: 10, y: 20 },
+      reference,
+      requestId: 'element-callout-1',
+      status: 'highlighted'
+    }])
+  })
+  assert.throws(() => {
+    assertRendererSendArguments('development:element-callout-response', [{
+      reference,
+      requestId: 'element-callout-1',
+      status: 'highlighted'
+    }])
+  })
+})
+
 test('application IPC uses only the centralized registration and bridge paths', () => {
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
   const preload = fs.readFileSync(path.join(root, 'src/preload.ts'), 'utf8')
@@ -586,6 +623,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'brand:assets',
     'clipboard:read-image',
     'clipboard:write',
+    'development:element-callout-response',
     'document:checksum',
     'document:open',
     'review:activate',

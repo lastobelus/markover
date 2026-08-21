@@ -36,6 +36,10 @@ import {
   isDevelopmentControlQuit
 } from './development-control'
 import { loadDevelopmentConfig } from './development-config'
+import type {
+  DevelopmentElementCalloutRequest,
+  DevelopmentElementCalloutResult
+} from './development-element'
 import {
   persistReviewSnapshots,
   runDurabilityShutdown
@@ -172,6 +176,12 @@ interface PendingResolutionConfirmation {
   timeout: ReturnType<typeof setTimeout>
 }
 
+interface PendingElementCallout {
+  reject: (reason?: unknown) => void
+  resolve: (result: DevelopmentElementCalloutResult) => void
+  timeout: ReturnType<typeof setTimeout>
+}
+
 interface PendingReviewUrl {
   focusState: MarkoverWindowFocusState
   parsed: ReviewUrl
@@ -271,6 +281,7 @@ let snapshotSequence = 0
 let statusSequence = 0
 let activationSequence = 0
 let resolutionSequence = 0
+let elementCalloutSequence = 0
 let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
 let startupDiagnostic: StartupDiagnostic | null = null
 let startupBuildIdentity: BuildIdentity | null = null
@@ -296,6 +307,7 @@ const pendingResolutionConfirmations = new Map<
   string,
   PendingResolutionConfirmation
 >()
+const pendingElementCallouts = new Map<string, PendingElementCallout>()
 const pendingManagedReviewNotifications = new Map<string, MarkoverDocument>()
 const reviewProjectContexts = new Map<string, Promise<ReviewProjectContext>>()
 const projectFavicons = new Map<string, Promise<string | null>>()
@@ -1561,6 +1573,40 @@ async function requestRendererActivation(
   })
 }
 
+async function requestDevelopmentElementCallout(
+  request: DevelopmentElementCalloutRequest
+): Promise<DevelopmentElementCalloutResult> {
+  if (
+    !developmentWatchMode ||
+    !mainWindow ||
+    mainWindow.isDestroyed() ||
+    !startupReady
+  ) {
+    throw Object.assign(
+      new Error('Development element callouts require a running live development window.'),
+      { code: 'DEVELOPMENT_ELEMENT_CALLOUT_NOT_READY' }
+    )
+  }
+  const window = mainWindow
+  await waitForRendererReady(window)
+  elementCalloutSequence += 1
+  const requestId = `element-callout-${String(elementCalloutSequence)}`
+  return new Promise<DevelopmentElementCalloutResult>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingElementCallouts.delete(requestId)
+      reject(Object.assign(
+        new Error('Timed out waiting for the development element callout.'),
+        { code: 'DEVELOPMENT_ELEMENT_CALLOUT_TIMEOUT' }
+      ))
+    }, 5000)
+    pendingElementCallouts.set(requestId, { reject, resolve, timeout })
+    sendMainEvent(window.webContents, 'development:element-callout', {
+      ...request,
+      requestId
+    })
+  })
+}
+
 function reviewResolutionSummary(
   artifact: ReviewArtifact
 ): ReviewResolutionSummary {
@@ -1899,7 +1945,10 @@ async function startAndPublishService(): Promise<void> {
     ),
     onActivate: activateManagedReview,
     ...(developmentWatchMode
-      ? { onDevelopmentReload: reloadDevelopmentRenderer }
+      ? {
+          onDevelopmentElementCallout: requestDevelopmentElementCallout,
+          onDevelopmentReload: reloadDevelopmentRenderer
+        }
       : {}),
     onQuit() {
       app.quit()
@@ -2189,6 +2238,7 @@ if (!hasSingleInstanceLock) {
     startupInfo = {
       development: developmentRuntime,
       diagnosticPath: startupDiagnosticPath,
+      elementCallouts: developmentWatchMode,
       smoke: smokeMode,
       ...controls
     }
@@ -2619,6 +2669,16 @@ if (!hasSingleInstanceLock) {
       tree: ReviewTree
     ) => {
       requireManagedAutosave().queue(reviewId, tree)
+    })
+    privilegedIpc.on('development:element-callout-response', (
+      _event: IpcMainEvent,
+      result: DevelopmentElementCalloutResult
+    ) => {
+      const pending = pendingElementCallouts.get(result.requestId)
+      if (!pending) return
+      clearTimeout(pending.timeout)
+      pendingElementCallouts.delete(result.requestId)
+      pending.resolve(result)
     })
 
     createWindow()

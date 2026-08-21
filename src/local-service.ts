@@ -26,6 +26,11 @@ import {
   isPullRequestStatus,
   parseGitHubPullRequestUrl
 } from './pull-request'
+import {
+  isDevelopmentElementCalloutRequest,
+  type DevelopmentElementCalloutRequest,
+  type DevelopmentElementCalloutResult
+} from './development-element'
 
 export const MAXIMUM_BODY_BYTES = 16 * 1024 * 1024
 export const INTERNAL_REMOTE_CREATE_PATH = '/internal/remote/reviews'
@@ -129,6 +134,9 @@ export interface LocalServiceOptions {
     action: LocalServiceChangeAction
   ) => void | Promise<void>) | undefined
   onDevelopmentReload?: (() => Promise<void>) | undefined
+  onDevelopmentElementCallout?: ((
+    request: DevelopmentElementCalloutRequest
+  ) => Promise<DevelopmentElementCalloutResult>) | undefined
   onQuit?: (() => void) | undefined
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
   interpretationPolicy?: (() => string) | undefined
@@ -252,13 +260,18 @@ function errorStatus(error: unknown): number {
   const code = errorProperty(error, 'code')
   if (code === 'ACTIVATION_NOT_READY') return 503
   if (code === 'ACTIVATION_TIMEOUT') return 504
-  if (code === 'NOT_FOUND' || code === 'RECEIPT_NOT_FOUND') return 404
+  if (
+    code === 'DEVELOPMENT_ELEMENT_REFERENCE_STALE' ||
+    code === 'NOT_FOUND' ||
+    code === 'RECEIPT_NOT_FOUND'
+  ) return 404
   if (
     code === 'UNSUPPORTED_REVIEW_FORMAT' ||
     code === 'UNSUPPORTED_REVIEW_VERSION'
   ) return 409
   if (
     code === 'INVALID_ID' ||
+    code === 'INVALID_DEVELOPMENT_ELEMENT_CALLOUT' ||
     code === 'INVALID_CREATION_RECEIPT' ||
     code === 'INVALID_JSON' ||
     code === 'INVALID_PULL_REQUEST' ||
@@ -275,6 +288,7 @@ function errorStatus(error: unknown): number {
   }
   if (
     code === 'CLAIM_CONFLICT' ||
+    code === 'DEVELOPMENT_ELEMENT_REFERENCE_AMBIGUOUS' ||
     code === 'CREATION_RECEIPT_SCAN_INCOMPLETE' ||
     code === 'DUPLICATE_CREATION_RECEIPT' ||
     code === 'FEEDBACK_REQUIRED' ||
@@ -287,6 +301,8 @@ function errorStatus(error: unknown): number {
     code === 'SUBMISSION_CONFLICT'
   ) return 409
   if (code === 'SHUTTING_DOWN') return 503
+  if (code === 'DEVELOPMENT_ELEMENT_CALLOUT_NOT_READY') return 503
+  if (code === 'DEVELOPMENT_ELEMENT_CALLOUT_TIMEOUT') return 504
   if (code === 'REQUEST_UNCERTAIN') return 503
   if (code === 'BODY_TOO_LARGE') return 413
   return 500
@@ -313,6 +329,7 @@ export async function startLocalService({
     'Review activation is unavailable.'
   )),
   onChange = () => {},
+  onDevelopmentElementCallout,
   onDevelopmentReload,
   onQuit = () => {},
   onUnauthorized = () => {},
@@ -432,6 +449,35 @@ export async function startLocalService({
       }
 
       const url = new URL(request.url || '', 'http://127.0.0.1')
+
+      if (
+        request.method === 'POST' &&
+        url.pathname === '/development/element-callout' &&
+        onDevelopmentElementCallout
+      ) {
+        const body = await readJson(request)
+        if (!isDevelopmentElementCalloutRequest(body)) {
+          throw serviceError(
+            'INVALID_DEVELOPMENT_ELEMENT_CALLOUT',
+            'Development element callout input is invalid.'
+          )
+        }
+        const result = await onDevelopmentElementCallout(body)
+        if (result.status === 'stale') {
+          throw serviceError(
+            'DEVELOPMENT_ELEMENT_REFERENCE_STALE',
+            'The development element reference is stale.'
+          )
+        }
+        if (result.status === 'ambiguous') {
+          throw serviceError(
+            'DEVELOPMENT_ELEMENT_REFERENCE_AMBIGUOUS',
+            'The development element reference is ambiguous.'
+          )
+        }
+        sendJson(response, 200, result)
+        return
+      }
 
       if (
         request.method === 'POST' &&

@@ -7,6 +7,10 @@ import type {
   StartupPhaseEvent,
   StartupReady
 } from './startup-contract'
+import type {
+  DevelopmentElementCalloutCommand,
+  DevelopmentElementCalloutResult
+} from './development-element'
 
 export interface DiffStats {
   additions: number
@@ -754,6 +758,11 @@ declare global {
     createLocalReview: (tree: ReviewTree) => Promise<MarkoverDocument>
     onOpenMarkdownRequested: (callback: () => void) => void
     onReviewBatchModeRequested: (callback: () => void) => void
+    onDevelopmentElementCallout: (
+      callback: (
+        command: DevelopmentElementCalloutCommand
+      ) => DevelopmentElementCalloutResult | Promise<DevelopmentElementCalloutResult>
+    ) => void
     checksum: (source: string) => Promise<string>
     copyText: (text: string) => void
     readClipboardImage: () => Promise<MarkoverClipboardImage | null>

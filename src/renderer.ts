@@ -12,6 +12,7 @@ import * as MarkoverAgentGuidance from './agent-guidance'
 import * as MarkoverAnnotationBlock from './annotation-block'
 import * as MarkoverAnnotations from './annotations'
 import { autosaveFailureMessage } from './durability-status'
+import { installDevelopmentElementCallouts } from './development-element'
 import {
   appendIncomingReview,
   incomingReviewAction,
@@ -546,6 +547,7 @@ const BRIDGE_METHODS = [
   'getWorkspaceState',
   'getWindowFocusState',
   'onOpenMarkdownRequested',
+  'onDevelopmentElementCallout',
   'onReviewOpened',
   'onReviewUpdated',
   'onReviewTrashed',
@@ -5098,6 +5100,13 @@ async function rendererSmokeResult(): Promise<{
 async function initialize(): Promise<void> {
   const startupInfo = await bridge.getStartupInfo()
   startupUi.development(startupInfo.development)
+  if (startupInfo.elementCallouts) {
+    const callouts = installDevelopmentElementCallouts(document, {
+      copyText: bridge.copyText,
+      notify: showToast
+    })
+    bridge.onDevelopmentElementCallout((command) => callouts.handle(command))
+  }
   bridge.onWindowFocusChanged((focusState) => {
     windowFocusStateVersion += 1
     windowFocusState = focusState

@@ -14,6 +14,7 @@ export const runtimeModuleNames = [
   'codex-thread-titles',
   'development-control',
   'development-config',
+  'development-element',
   'durability-shutdown',
   'ipc-contract',
   'ipc-security',

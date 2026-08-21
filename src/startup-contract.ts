@@ -30,6 +30,7 @@ export interface BuildIdentity {
 export interface StartupInfo {
   development: boolean
   diagnosticPath: string
+  elementCallouts: boolean
   holdPhase: StartupPhase | null
   failPhase: StartupPhase | null
   smoke: boolean

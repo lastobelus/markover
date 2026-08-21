@@ -158,15 +158,39 @@ failed renderer build leaves the displayed renderer and last published assets
 untouched, and the next valid edit retries normally.
 
 An edit used by Electron's main process or local backend prints the message
-`restart required` and leaves the running window untouched. Stop and restart the loop
-when that change should enter the application; the loop never turns a runtime
-edit into an automatic app restart. Watcher implementation updates hand the
-running app to the replacement watcher without quitting it. Generated output,
-dependency directories, Git metadata, and instance state do not trigger
+`restart required` and leaves the running window untouched. Stop and restart
+the loop when that change should enter the application; the loop never turns a
+runtime edit into an automatic app restart. Watcher implementation updates hand
+the running app to the replacement watcher without quitting it. Generated
+output, dependency directories, Git metadata, and instance state do not trigger
 rebuilds. Keep only one loop per instance and use `npm start` for deterministic
 one-shot work. End the loop with Ctrl-C; it asks the addressed instance to quit
 through the managed durability path and waits for that process before
 returning.
+
+### Shared development element callouts
+
+While the live development loop is running, Option-click any rendered element.
+Markover pins a bright bounding box to that element and copies one opaque
+`mko-ui-v1:` reference to the clipboard. Paste that reference into the agent
+thread; no screenshot, DevTools inspection, or hand-drawn circle is needed.
+
+An agent highlights the same element in the addressed running instance with:
+
+```sh
+npm --silent run markover -- --instance dev element highlight '<mko-ui-v1-reference>'
+```
+
+Clear the pinned box with:
+
+```sh
+npm --silent run markover -- --instance dev element clear
+```
+
+References use a validated unique-ID anchor and deterministic element path.
+Stale or ambiguous references fail instead of selecting a different element.
+The picker and authenticated highlight route exist only in a running live
+development watcher; release and non-watch instances do not expose them.
 
 ## Development review links
 
