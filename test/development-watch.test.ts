@@ -497,6 +497,54 @@ test('a running watch instance reloads without quitting or launching', async () 
   ])
 })
 
+test('a failed initial build remains a full startup on the next edit', async () => {
+  let applicationBuilds = 0
+  let rendererBuilds = 0
+  let reloads = 0
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('running'),
+    [],
+    {
+      buildApplication() {
+        applicationBuilds += 1
+        return Promise.resolve()
+      },
+      buildRenderer() {
+        rendererBuilds += 1
+        if (rendererBuilds === 1) {
+          return Promise.reject(new Error('renderer failed'))
+        }
+        return Promise.resolve({
+          inputPaths: ['src/styles.css'],
+          publishedDirectory: '/renderer'
+        })
+      },
+      checkoutDirectory: '/checkouts/markover',
+      inspectRuntimeInputs() {
+        return Promise.resolve(new Set(['src/main.ts']))
+      },
+      prepare: () => Promise.resolve(),
+      reload() {
+        reloads += 1
+        return Promise.resolve()
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('running'))
+      }
+    }
+  )
+
+  manager.noteChange(null)
+  await assert.rejects(manager.build(), /renderer failed/)
+  manager.noteChange('src/styles.css')
+  await manager.build()
+  assert.equal(await manager.apply(), 'reloaded')
+
+  assert.equal(applicationBuilds, 2)
+  assert.equal(rendererBuilds, 2)
+  assert.equal(reloads, 1)
+})
+
 test('a renderer-only edit reloads alongside runtime and shared edits', async () => {
   let applicationBuilds = 0
   let rendererBuilds = 0

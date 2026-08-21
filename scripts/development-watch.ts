@@ -353,6 +353,7 @@ export class DevelopmentInstanceManager {
   private preparedInstance: ResolvedInstance | null = null
   private rendererInputs = new Set<string>()
   private runtimeInputs = new Set<string>()
+  private liveRendererReady = false
   private nextAction: 'attach' | 'launch' | 'none' | 'reload' = 'none'
   private restartRequiredInputs = new Set<string>()
 
@@ -440,7 +441,7 @@ export class DevelopmentInstanceManager {
   async build(): Promise<void> {
     const changes = this.pendingChanges
     this.pendingChanges = new Set()
-    const initial = changes.has(null)
+    const initial = !this.liveRendererReady || changes.has(null)
     const current = await this.resolveExactInstance()
     this.assertRestartEligible(current)
     if (initial) {
@@ -486,6 +487,7 @@ export class DevelopmentInstanceManager {
       try {
         await this.reload(this.target.endpointPath)
         this.preparedInstance = null
+        this.liveRendererReady = true
         return 'reloaded'
       } catch (error) {
         if (!(error instanceof LocalServiceError) || error.code !== 'NOT_FOUND') {
@@ -494,6 +496,7 @@ export class DevelopmentInstanceManager {
       }
     }
     await this.launchPreparedInstance()
+    this.liveRendererReady = true
     return 'launched'
   }
 
