@@ -3592,6 +3592,7 @@ function renderDocumentsList(): void {
   if (incompatibleReviews.length) {
     elements.documentsListTree.append(renderIncompatibleReviews())
   }
+  developmentElementCallouts?.reposition()
 }
 
 function applyLeftPaneWidth(): void {

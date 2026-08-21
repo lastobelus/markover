@@ -187,7 +187,12 @@ Clear the pinned box with:
 npm --silent run markover -- --instance dev element clear
 ```
 
-References use a validated unique-ID anchor and deterministic element path.
+Omit `--instance dev`, or pass `--instance canonical`, when `npm run dev`
+addresses the canonical checkout instead of a pull-request worktree. Element
+commands address only an already-running watcher and never cold-start Markover.
+
+References use a validated unique-ID anchor and deterministic same-tag child
+indices, sibling counts, and structural fingerprints.
 Stale or ambiguous references fail instead of selecting a different element.
 The picker and authenticated highlight route exist only in a running live
 development watcher; release and non-watch instances do not expose them.

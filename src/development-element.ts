@@ -239,32 +239,33 @@ function fingerprintPart(bytes: Uint8Array, seed: bigint): string {
 }
 
 function elementFingerprint(element: Element): string {
-  const shallow = element.cloneNode(false) as Element
-  shallow.removeAttribute('style')
-  const stableClasses = [...element.classList]
-    .filter((name) => !name.startsWith('is-') && !name.startsWith('has-'))
-    .sort()
-  if (stableClasses.length) shallow.setAttribute('class', stableClasses.join(' '))
-  else shallow.removeAttribute('class')
-  for (const attribute of [
-    'aria-activedescendant',
-    'aria-busy',
-    'aria-checked',
-    'aria-current',
-    'aria-disabled',
-    'aria-expanded',
-    'aria-hidden',
-    'aria-pressed',
-    'aria-selected',
-    'tabindex'
-  ]) shallow.removeAttribute(attribute)
-  const directText = [...element.childNodes]
-    .filter((node) => node.nodeType === 3)
-    .map((node) => node.textContent || '')
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  const bytes = new TextEncoder().encode(`${shallow.outerHTML}\0${directText}`)
+  const snapshot = element.cloneNode(true) as Element
+  const candidates = [snapshot, ...snapshot.querySelectorAll('*')]
+  for (const candidate of candidates) {
+    if (candidate.hasAttribute('data-markover-development-callout')) {
+      candidate.remove()
+      continue
+    }
+    candidate.removeAttribute('style')
+    const stableClasses = [...candidate.classList]
+      .filter((name) => !name.startsWith('is-') && !name.startsWith('has-'))
+      .sort()
+    if (stableClasses.length) candidate.setAttribute('class', stableClasses.join(' '))
+    else candidate.removeAttribute('class')
+    for (const attribute of [
+      'aria-activedescendant',
+      'aria-busy',
+      'aria-checked',
+      'aria-current',
+      'aria-disabled',
+      'aria-expanded',
+      'aria-hidden',
+      'aria-pressed',
+      'aria-selected',
+      'tabindex'
+    ]) candidate.removeAttribute(attribute)
+  }
+  const bytes = new TextEncoder().encode(snapshot.outerHTML)
   return `${fingerprintPart(bytes, FNV_OFFSET_64)}${fingerprintPart(
     bytes,
     FNV_SECOND_OFFSET_64

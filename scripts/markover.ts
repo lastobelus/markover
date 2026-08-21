@@ -314,7 +314,7 @@ export function helpPayload() {
       },
       {
         name: 'element',
-        usage: '--instance dev element highlight <mko-ui-v1-reference> | --instance dev element clear',
+        usage: '[--instance <canonical|dev>] element highlight <mko-ui-v1-reference> | [--instance <canonical|dev>] element clear',
         purpose: 'Highlight or clear one exact element callout in the addressed running live development window.'
       },
       {
@@ -428,12 +428,6 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
   }
 
   if (command === 'element') {
-    if (instance !== 'development') {
-      throw commandError(
-        'element callouts are available only for the current live development worktree.',
-        'markover --instance dev element <highlight|clear> ...'
-      )
-    }
     if (rest.length === 1 && rest[0] === 'clear') {
       return targeted({ command, action: 'clear' as const })
     }
@@ -450,7 +444,7 @@ export function parseCommandArguments(args: string[]): ParsedCommand {
     }
     throw commandError(
       'element requires highlight with one copied reference, or clear.',
-      'markover --instance dev element highlight <mko-ui-v1-reference> | markover --instance dev element clear'
+      'markover [--instance <canonical|dev>] element highlight <mko-ui-v1-reference> | markover [--instance <canonical|dev>] element clear'
     )
   }
 
@@ -1661,7 +1655,7 @@ export async function executeCommand(
   }
   if (parsed.command === 'element') {
     const endpointPath = options.endpointPath || (
-      await resolveTarget('development')
+      await resolveTarget(selector)
     ).service.endpointPath
     const result = await (options.requestLocal || requestJson)(
       endpointPath,

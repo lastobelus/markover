@@ -115,6 +115,22 @@ test('references reject changed same-tag sibling ordinals', () => {
   assert.deepEqual(resolveDevelopmentElementReference(reference, document), {
     status: 'stale'
   })
+
+  const reorderedDom = new JSDOM(
+    '<main id="workspace"><details><summary><span>Alpha</span></summary></details><details><summary><span>Beta</span></summary></details></main>'
+  )
+  const reorderedDocument = reorderedDom.window.document
+  const details = reorderedDocument.querySelectorAll('details')
+  const descendant = details[0]?.querySelector('span') as Element
+  const reorderedReference = developmentElementReference(
+    descendant,
+    reorderedDocument
+  )
+  details[1]?.after(details[0] as Element)
+  assert.deepEqual(
+    resolveDevelopmentElementReference(reorderedReference, reorderedDocument),
+    { status: 'stale' }
+  )
 })
 
 test('pinned callouts can reposition after application layout changes', () => {
@@ -203,6 +219,10 @@ test('picker and service route are live-watch-only and documented', () => {
   assert.match(
     renderer,
     /schedulePaneLayoutResizeUpdate[\s\S]*developmentElementCallouts\?\.reposition\(\)/
+  )
+  assert.match(
+    renderer,
+    /function renderDocumentsList\(\)[\s\S]*replaceChildren\(\)[\s\S]*developmentElementCallouts\?\.reposition\(\)/
   )
   assert.match(docs, /Option-click any rendered element/)
   assert.match(docs, /--instance dev element highlight/)

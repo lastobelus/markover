@@ -267,9 +267,13 @@ test('development targeting is worktree-local and cleanup requires an exact iden
       instance: 'development'
     }
   )
-  assert.throws(
-    () => parseCommandArguments(['element', 'clear']),
-    /only for the current live development worktree/
+  assert.deepEqual(
+    parseCommandArguments(['element', 'clear']),
+    { action: 'clear', command: 'element' }
+  )
+  assert.deepEqual(
+    parseCommandArguments(['--instance', 'canonical', 'element', 'clear']),
+    { action: 'clear', command: 'element', instance: 'canonical' }
   )
   assert.throws(
     () => parseCommandArguments(['cleanup', 'pr-61']),
@@ -285,20 +289,26 @@ test('development targeting is worktree-local and cleanup requires an exact iden
   )
 })
 
-test('development element commands target only the addressed running service', async () => {
+test('element commands target only the addressed running watcher service', async () => {
   const reference = `mko-ui-v1:${Buffer.from(JSON.stringify({
     anchorId: 'save',
     path: [],
     version: 1
   })).toString('base64url')}`
   const requests: unknown[] = []
+  const selectors: string[] = []
   const result = await executeCommand({
     action: 'highlight',
     command: 'element',
     instance: 'development',
     reference
   }, {
-    endpointPath: '/development/service.json',
+    resolveTarget(selector) {
+      selectors.push(selector)
+      return Promise.resolve({
+        service: { endpointPath: `/${selector}/service.json` }
+      } as unknown as ResolvedInstance)
+    },
     requestLocal(endpointPath, method, requestPath, body) {
       requests.push({ body, endpointPath, method, requestPath })
       return Promise.resolve({
@@ -323,6 +333,28 @@ test('development element commands target only the addressed running service', a
     method: 'POST',
     requestPath: '/development/element-callout'
   }])
+  assert.deepEqual(selectors, ['development'])
+
+  await executeCommand({
+    action: 'clear',
+    command: 'element',
+    instance: 'canonical'
+  }, {
+    resolveTarget(selector) {
+      selectors.push(selector)
+      return Promise.resolve({
+        service: { endpointPath: `/${selector}/service.json` }
+      } as unknown as ResolvedInstance)
+    },
+    requestLocal(endpointPath) {
+      assert.equal(endpointPath, '/canonical/service.json')
+      return Promise.resolve({
+        requestId: 'element-callout-2',
+        status: 'cleared'
+      })
+    }
+  })
+  assert.deepEqual(selectors, ['development', 'canonical'])
 })
 
 test('canonical maintenance is explicit and instance-independent', () => {
