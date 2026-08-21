@@ -371,6 +371,43 @@ test('pinned callouts clear when visibility changes hide their target', async ()
   )
 })
 
+test('pinned callouts clear when CSS visibility hides their target', async () => {
+  const dom = new JSDOM(
+    '<style>.is-collapsed button { visibility: hidden; }</style><main id="workspace"><button>Collapse</button></main>'
+  )
+  const { document } = dom.window
+  const main = document.querySelector('main') as HTMLElement
+  const button = document.querySelector('button') as HTMLButtonElement
+  button.getBoundingClientRect = () => ({
+    bottom: 40,
+    height: 30,
+    left: 10,
+    right: 110,
+    toJSON: () => ({}),
+    top: 10,
+    width: 100,
+    x: 10,
+    y: 10
+  })
+  const callouts = installDevelopmentElementCallouts(document, {
+    copyText() {},
+    notify() {}
+  })
+  callouts.handle({
+    action: 'highlight',
+    reference: developmentElementReference(button, document),
+    requestId: 'element-callout-1'
+  })
+
+  main.classList.add('is-collapsed')
+  await new Promise<void>((resolve) => { dom.window.setTimeout(resolve, 0) })
+
+  assert.equal(
+    document.querySelector<HTMLElement>('.development-element-callout')?.hidden,
+    true
+  )
+})
+
 test('element commands accept only canonical references and exact actions', () => {
   const dom = new JSDOM('<button id="save">Save</button>')
   const reference = developmentElementReference(

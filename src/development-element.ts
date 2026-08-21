@@ -344,6 +344,24 @@ function roundedBounds(element: Element): DevelopmentElementBounds {
   }
 }
 
+function hasRenderedVisibility(element: Element, document: Document): boolean {
+  const view = document.defaultView
+  if (!view) return true
+  let current: Element | null = element
+  while (current) {
+    const style = view.getComputedStyle(current)
+    if (
+      style.display === 'none' ||
+      style.visibility === 'hidden' ||
+      style.visibility === 'collapse' ||
+      style.opacity === '0' ||
+      style.getPropertyValue('content-visibility') === 'hidden'
+    ) return false
+    current = current.parentElement
+  }
+  return true
+}
+
 function calloutLabel(element: Element): string {
   return element.id ? `${element.localName}#${element.id}` : element.localName
 }
@@ -369,7 +387,11 @@ export function installDevelopmentElementCallouts(
     overlay.hidden = true
   }
   const position = (): DevelopmentElementBounds | null => {
-    if (!pinned || !document.documentElement.contains(pinned)) {
+    if (
+      !pinned ||
+      !document.documentElement.contains(pinned) ||
+      !hasRenderedVisibility(pinned, document)
+    ) {
       clear()
       return null
     }
