@@ -49,6 +49,13 @@
     var(--app-shell-background) 92%,
     transparent
   );
+  --theme-token-inspector-background: var(--surface);
+  --theme-token-inspector-border-color: var(--line);
+  --theme-token-inspector-shadow-color: var(--shadow);
+  --theme-token-inspector-foreground: var(--ink);
+  --theme-token-inspector-muted-foreground: var(--muted);
+  --theme-token-inspector-control-background: var(--input);
+  --theme-token-inspector-duplicate-foreground: var(--source-error);
   --primary-button-bg: var(--markover-primary);
   --primary-button-hover: var(--markover-secondary);
   --primary-button-text: var(--primary-contrast);
@@ -4635,8 +4642,8 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
   }
 }
 
-/* TEMPORARY interface tuner. Remove with #interface-tuner and its wiring. */
-.interface-tuner {
+/* TEMPORARY theme-token inspector. Remove with its markup and wiring. */
+.theme-token-inspector {
   position: fixed;
   bottom: 18px;
   left: 18px;
@@ -4653,34 +4660,35 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
   flex-direction: column;
   gap: 10px;
   padding: 12px 14px 13px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--theme-token-inspector-border-color);
   border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 14px 34px var(--shadow);
+  color: var(--theme-token-inspector-foreground);
+  background: var(--theme-token-inspector-background);
+  box-shadow: 0 14px 34px var(--theme-token-inspector-shadow-color);
 }
 
-.interface-tuner header {
+.theme-token-inspector header {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: space-between;
-  color: var(--muted);
+  color: var(--theme-token-inspector-muted-foreground);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.interface-tuner header button {
+.theme-token-inspector header button {
   padding: 0 4px;
   border: 0;
-  color: var(--muted);
+  color: var(--theme-token-inspector-muted-foreground);
   background: transparent;
   cursor: pointer;
   font-size: 13px;
 }
 
-.interface-tuner-field {
+.theme-token-inspector-field {
   display: grid;
   flex: none;
   gap: 4px;
@@ -4688,17 +4696,17 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
   font-weight: 500;
 }
 
-.interface-tuner-field select {
+.theme-token-inspector-field select {
   width: 100%;
   padding: 4px 6px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--theme-token-inspector-border-color);
   border-radius: 6px;
-  color: var(--ink);
-  background: var(--input);
+  color: var(--theme-token-inspector-foreground);
+  background: var(--theme-token-inspector-control-background);
   font: 500 10px/1.3 var(--font-mono);
 }
 
-.interface-tuner-tokens {
+.theme-token-inspector-tokens {
   min-height: 0;
   overflow-y: auto;
   flex: 1;
@@ -4706,20 +4714,20 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
   padding: 0 4px;
 }
 
-.interface-tuner-group {
+.theme-token-inspector-group {
   margin-top: 9px;
-  color: var(--muted);
+  color: var(--theme-token-inspector-muted-foreground);
   font-size: 8.5px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.interface-tuner-group:first-child {
+.theme-token-inspector-group:first-child {
   margin-top: 0;
 }
 
-.interface-tuner-token {
+.theme-token-inspector-token {
   display: grid;
   align-items: center;
   gap: 7px;
@@ -4727,28 +4735,31 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
   padding: 2px 0;
 }
 
-.interface-tuner-swatch {
+.theme-token-inspector-swatch {
   width: 18px;
   height: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--theme-token-inspector-border-color);
   border-radius: 3px;
 }
 
-.interface-tuner-token code {
+.theme-token-inspector-token code {
   overflow: hidden;
-  color: var(--ink);
+  color: var(--theme-token-inspector-foreground);
   font: 9px/1.4 var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.interface-tuner-token span {
-  color: var(--muted);
+.theme-token-inspector-token span {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--theme-token-inspector-muted-foreground);
   font: 8.5px/1.4 var(--font-mono);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.interface-tuner-token span.is-duplicate {
-  color: var(--source-error);
+.theme-token-inspector-token span.is-duplicate {
+  color: var(--theme-token-inspector-duplicate-foreground);
   font-weight: 600;
 }
