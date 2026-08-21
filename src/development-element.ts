@@ -404,7 +404,6 @@ export function installDevelopmentElementCallouts(
       })
     : null
   observer?.observe(document.documentElement, {
-    attributeFilter: ['aria-hidden', 'class', 'hidden', 'open', 'style'],
     attributes: true,
     childList: true,
     subtree: true

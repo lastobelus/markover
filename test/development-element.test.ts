@@ -265,6 +265,42 @@ test('pinned callouts can reposition after application layout changes', () => {
   )
 })
 
+test('pinned callouts follow layout-affecting renderer attributes', async () => {
+  const dom = new JSDOM('<main id="workspace"><button>Choose</button></main>')
+  const { document } = dom.window
+  const button = document.querySelector('button') as HTMLButtonElement
+  let x = 10
+  button.getBoundingClientRect = () => ({
+    bottom: 60,
+    height: 40,
+    left: x,
+    right: x + 120,
+    toJSON: () => ({}),
+    top: 20,
+    width: 120,
+    x,
+    y: 20
+  })
+  const callouts = installDevelopmentElementCallouts(document, {
+    copyText() {},
+    notify() {}
+  })
+  callouts.handle({
+    action: 'highlight',
+    reference: developmentElementReference(button, document),
+    requestId: 'element-callout-1'
+  })
+
+  x = 75
+  document.documentElement.dataset.treeDensity = 'compact'
+  await new Promise<void>((resolve) => { dom.window.setTimeout(resolve, 0) })
+
+  assert.equal(
+    document.querySelector<HTMLElement>('.development-element-callout')?.style.left,
+    '75px'
+  )
+})
+
 test('pinned callouts clear after rendered subtrees replace their target', async () => {
   const dom = new JSDOM('<main id="workspace"><section><button>Choose</button></section></main>')
   const { document } = dom.window
