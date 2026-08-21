@@ -2,6 +2,8 @@ import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
+
+import { MAXIMUM_ATTACHMENT_BYTES } from './attachment-limits'
 import { guidance } from './agent-guidance'
 import { reviewerGuidance } from './agent-reviewer-guidance'
 import {
@@ -1029,6 +1031,12 @@ export class ReviewStore {
         throw new ReviewStoreError(
           'NOT_EDITABLE',
           `Review ${reviewId} is with the agent and read only.`
+        )
+      }
+      if (bytes.byteLength > MAXIMUM_ATTACHMENT_BYTES) {
+        throw new ReviewStoreError(
+          'ATTACHMENT_TOO_LARGE',
+          'Attachments must not exceed 32 MiB.'
         )
       }
 

@@ -5,6 +5,7 @@ import http, {
 } from 'node:http'
 
 import type { ResolvedInstance } from './instance'
+import { MAXIMUM_ATTACHMENT_BYTES } from './attachment-limits'
 import {
   INTERNAL_IDEMPOTENCY_KEY_HEADER,
   INTERNAL_REMOTE_CREATE_PATH,
@@ -35,7 +36,7 @@ export const REMOTE_GATEWAY_IDEMPOTENCY_HEADER = 'idempotency-key'
 export const REMOTE_GATEWAY_REQUEST_DIGEST_HEADER =
   'markover-request-digest'
 export const REMOTE_GATEWAY_PROTOCOL_VERSION = 1
-export const MAXIMUM_REMOTE_RESPONSE_BYTES = MAXIMUM_BODY_BYTES * 2
+export const MAXIMUM_REMOTE_RESPONSE_BYTES = MAXIMUM_ATTACHMENT_BYTES
 export const REMOTE_GATEWAY_HOST = '127.0.0.1'
 export const REMOTE_GATEWAY_PORT = 39_831
 
@@ -508,7 +509,8 @@ export async function startRemoteGateway({
         const attachment = await readVerifiedRemoteAttachment(
           attachmentRoute[1] as string,
           attachmentRoute[2] as string,
-          loadAttachment
+          loadAttachment,
+          maximumResponseBytes
         )
         response.writeHead(200, {
           'cache-control': 'private, no-store',
@@ -612,7 +614,8 @@ export async function startRemoteGateway({
       ) {
         body = await projectRemoteAttachments(
           body,
-          loadAttachment
+          loadAttachment,
+          maximumResponseBytes
         )
         body = authorizeProjectedAttachmentUrls(body, attachmentAccess)
       }

@@ -537,6 +537,8 @@ Done when:
   response-authentication, MIME, size, and checksum checks, writes only
   verified bytes to a new explicit output file, and prints no credential or
   private URL;
+- local creation, remote projection, and remote download enforce the same
+  32 MiB attachment ceiling;
 - focused tests cover traversal, symlink swap, orphan, duplicate and
   cross-review metadata, checksum/length mismatch, interrupted streaming,
   unauthorized nodes, and retry;

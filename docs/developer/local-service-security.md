@@ -165,9 +165,10 @@ routing before accepting review bytes, and returns canonical-host-produced
 `markover://review/...` URLs for create/recovery and every pending result.
 
 Request JSON is capped at 16 MiB and response JSON at 32 MiB, leaving room for
-the review envelope Markover adds during creation. Only one remote request is
-active at a time. Disable and shutdown stop admission, drain that bounded
-request and close the loopback listener. Tailscale
+the review envelope Markover adds during creation. Managed attachments use the
+same 32 MiB ceiling at creation, remote projection, and download. Only one
+remote request is active at a time. Disable and shutdown stop admission, drain
+that bounded request and close the loopback listener. Tailscale
 grants, Serve configuration, login/consent, HTTPS host selection, and
 certificate issuance remain manual; Markover never enables Funnel or a direct
 Tailscale-IP listener.

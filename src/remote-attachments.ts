@@ -3,7 +3,7 @@ import { constants } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { MAXIMUM_BODY_BYTES } from './local-service'
+import { MAXIMUM_ATTACHMENT_BYTES } from './attachment-limits'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 const ATTACHMENT_ID_PATTERN = /^img-[a-zA-Z0-9]{1,64}$/
@@ -92,7 +92,7 @@ export async function readVerifiedRemoteAttachment(
   reviewId: string,
   attachmentId: string,
   load: LoadRemoteAttachment,
-  maximumBytes = MAXIMUM_BODY_BYTES
+  maximumBytes = MAXIMUM_ATTACHMENT_BYTES
 ): Promise<VerifiedRemoteAttachment> {
   if (!REVIEW_ID_PATTERN.test(reviewId) || !ATTACHMENT_ID_PATTERN.test(attachmentId)) {
     throw attachmentError('REMOTE_ATTACHMENT_NOT_FOUND', 'Attachment not found.')
@@ -177,7 +177,8 @@ export async function readVerifiedRemoteAttachment(
 
 export async function projectRemoteAttachments(
   artifact: unknown,
-  load: LoadRemoteAttachment
+  load: LoadRemoteAttachment,
+  maximumBytes = MAXIMUM_ATTACHMENT_BYTES
 ): Promise<unknown> {
   if (!isRecord(artifact) || !isRecord(artifact.review)) return artifact
   const reviewId = artifact.review.id
@@ -193,7 +194,12 @@ export async function projectRemoteAttachments(
       )
     }
     seen.add(attachment.id)
-    await readVerifiedRemoteAttachment(reviewId, attachment.id, load)
+    await readVerifiedRemoteAttachment(
+      reviewId,
+      attachment.id,
+      load,
+      maximumBytes
+    )
   }
   const projected = structuredClone(artifact)
   for (const attachment of attachmentEntries(projected)) {

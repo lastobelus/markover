@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { MAXIMUM_ATTACHMENT_BYTES } from '../src/attachment-limits'
 import { reviewChecksum } from '../src/review-format'
 
 import {
@@ -1696,6 +1697,37 @@ test('attachment allocation is owned, editable, and serialized by the store', as
   )
   await assert.rejects(
     fs.access(path.join(directory, 'mko_missing1'))
+  )
+})
+
+test('attachment allocation enforces the shared remote response bound', async (t) => {
+  const { directory, store } = await temporaryStore({
+    idFactory: () => 'mko_aaa11111'
+  })
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+
+  const created = await store.create({
+    tree: tree(),
+    contextSummary: 'Check attachment bounds.'
+  })
+  const accepted = await store.saveAttachmentFile(
+    created.review.id,
+    'png',
+    Buffer.alloc(MAXIMUM_ATTACHMENT_BYTES)
+  )
+  assert.equal((await fs.stat(accepted.path)).size, MAXIMUM_ATTACHMENT_BYTES)
+
+  await assert.rejects(
+    store.saveAttachmentFile(
+      created.review.id,
+      'png',
+      Buffer.alloc(MAXIMUM_ATTACHMENT_BYTES + 1)
+    ),
+    (error: unknown) => hasErrorCode(error, 'ATTACHMENT_TOO_LARGE')
+  )
+  assert.deepEqual(
+    await fs.readdir(path.dirname(accepted.path)),
+    [path.basename(accepted.path)]
   )
 })
 

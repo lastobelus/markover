@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test, { type TestContext } from 'node:test'
 
+import { MAXIMUM_ATTACHMENT_BYTES } from '../src/attachment-limits'
 import type { ResolvedInstance } from '../src/instance'
 import { InternalAttachmentAllowlist } from '../src/internal-protocol'
 import {
@@ -669,6 +670,7 @@ test('remote response headroom carries every maximum-size create through handoff
   const body = Buffer.from(JSON.stringify(input))
   assert.equal(body.byteLength, MAXIMUM_BODY_BYTES)
   assert.equal(MAXIMUM_REMOTE_RESPONSE_BYTES, MAXIMUM_BODY_BYTES * 2)
+  assert.equal(MAXIMUM_REMOTE_RESPONSE_BYTES, MAXIMUM_ATTACHMENT_BYTES)
 
   const created = await requestGateway(
     fixture.port,
@@ -881,6 +883,14 @@ test('private attachment checks reject corrupt metadata, paths, bytes, and links
   assert.deepEqual(
     (await readVerifiedRemoteAttachment('mko_aaa11111', 'img-1', load)).bytes,
     png
+  )
+  await assert.rejects(
+    projectRemoteAttachments({
+      review: { id: 'mko_aaa11111' },
+      root: { attachments: [attachment], children: [] }
+    }, load, png.byteLength - 1),
+    (error: unknown) => error instanceof Error &&
+      Reflect.get(error, 'code') === 'REMOTE_ATTACHMENT_TOO_LARGE'
   )
 
   attachment.checksum = digest('wrong')
