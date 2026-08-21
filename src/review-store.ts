@@ -17,6 +17,8 @@ import {
 import {
   decodeReviewArtifact,
   decodeReviewTree,
+  REVIEW_FORMAT,
+  REVIEW_FORMAT_VERSION,
   reviewCompatibilityUrl,
   ReviewFormatError
 } from './review-format'
@@ -143,6 +145,10 @@ export type TrashItem = (filePath: string) => Promise<void>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function owns(value: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key)
 }
 
 function nonblankString(value: unknown): value is string {
@@ -666,9 +672,21 @@ export class ReviewStore {
     const scan = await this.listWithWarnings()
     const uninspectable = scan.warnings.filter((warning) => (
       warning.reason === 'incompatible' ||
-      warning.reason === 'invalid' ||
       warning.reason === 'unreadable'
     ))
+    const invalidReceipts = await Promise.all(scan.warnings
+      .filter((warning) => warning.reason === 'invalid')
+      .map(async (warning) => {
+        try {
+          const inspected = await this.inspectCreationReceipt(warning.reviewId)
+          return inspected === null
+            ? null
+            : { artifact: null, receipt: inspected, reviewId: warning.reviewId }
+        } catch {
+          uninspectable.push(warning)
+          return null
+        }
+      }))
     if (uninspectable.length) {
       const reviewIds = uninspectable
         .map((warning) => warning.reviewId)
@@ -681,11 +699,20 @@ export class ReviewStore {
         { reviewIds }
       )
     }
-    const matching = scan.reviews.filter((artifact) => (
-      artifact.review.creationReceipt?.keyDigest === receipt.keyDigest
+    const candidates = [
+      ...scan.reviews.flatMap((artifact) => {
+        const storedReceipt = artifact.review.creationReceipt
+        return storedReceipt
+          ? [{ artifact, receipt: storedReceipt, reviewId: artifact.review.id }]
+          : []
+      }),
+      ...invalidReceipts.filter((candidate) => candidate !== null)
+    ]
+    const matching = candidates.filter((candidate) => (
+      candidate.receipt.keyDigest === receipt.keyDigest
     ))
     if (matching.length > 1) {
-      const reviewIds = matching.map((artifact) => artifact.review.id).sort()
+      const reviewIds = matching.map((candidate) => candidate.reviewId).sort()
       throw new ReviewStoreError(
         'DUPLICATE_CREATION_RECEIPT',
         `Creation receipt ${receipt.keyDigest} is duplicated by reviews ${reviewIds.join(', ')}.`,
@@ -696,20 +723,60 @@ export class ReviewStore {
     }
     const match = matching[0]
     if (!match) return null
-    const storedReceipt = match.review.creationReceipt as ReviewCreationReceipt
+    const storedReceipt = match.receipt
     if (storedReceipt.requestDigest !== receipt.requestDigest) {
       throw new ReviewStoreError(
         'IDEMPOTENCY_CONFLICT',
-        `Idempotency key is already owned by review ${match.review.id} with a different request digest.`,
+        `Idempotency key is already owned by review ${match.reviewId} with a different request digest.`,
         undefined,
         undefined,
         {
           creationReceipt: cloneJson(storedReceipt),
-          reviewId: match.review.id
+          reviewId: match.reviewId
         }
       )
     }
-    return cloneJson(match)
+    if (match.artifact === null) {
+      throw new ReviewStoreError(
+        'CREATION_RECEIPT_SCAN_INCOMPLETE',
+        `Creation receipt belongs to uninspectable review ${match.reviewId}.`,
+        undefined,
+        undefined,
+        { reviewIds: [match.reviewId] }
+      )
+    }
+    return cloneJson(match.artifact)
+  }
+
+  private async inspectCreationReceipt(
+    reviewId: string
+  ): Promise<ReviewCreationReceipt | null> {
+    const artifact: unknown = JSON.parse(
+      await fs.readFile(this.reviewPath(reviewId), 'utf8')
+    )
+    if (
+      !isRecord(artifact) ||
+      artifact.format !== REVIEW_FORMAT ||
+      artifact.version !== REVIEW_FORMAT_VERSION ||
+      !isRecord(artifact.review) ||
+      artifact.review.id !== reviewId ||
+      !REVIEW_ID_PATTERN.test(artifact.review.id)
+    ) throw new Error('Creation receipt cannot be inspected safely.')
+    if (!owns(artifact.review, 'creationReceipt')) return null
+    const storedReceipt = artifact.review.creationReceipt
+    if (
+      !isRecord(storedReceipt) ||
+      storedReceipt.version !== 1 ||
+      typeof storedReceipt.keyDigest !== 'string' ||
+      typeof storedReceipt.requestDigest !== 'string'
+    ) throw new Error('Creation receipt cannot be inspected safely.')
+    assertReceiptDigest(storedReceipt.keyDigest, 'The stored key digest')
+    assertReceiptDigest(storedReceipt.requestDigest, 'The stored request digest')
+    return {
+      version: 1,
+      keyDigest: storedReceipt.keyDigest,
+      requestDigest: storedReceipt.requestDigest
+    }
   }
 
   private async createUnserialized({
