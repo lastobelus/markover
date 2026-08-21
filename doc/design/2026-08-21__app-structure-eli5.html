@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en" data-repo-doc-path="doc/design/2026-08-21__app-structure-eli5.html">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markover's App Structure, From the Outside In</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --brand-orange: #c94e1f;
+        --brand-burgundy: #6d211f;
+        --ink: #26211e;
+        --muted: #756d67;
+        --paper: #eee8e0;
+        --surface: #fffdf9;
+        --line: #ddd5cc;
+        --brand-soft: #f5e3da;
+        --left-pane: #ece9e2;
+        --center-pane: #f7f4ee;
+        --right-pane: #ece9e2;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font: 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      }
+
+      main {
+        width: min(980px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 56px 0 72px;
+      }
+
+      h1, h2 { line-height: 1.12; letter-spacing: -0.025em; }
+      h1 { max-width: 760px; margin: 0; font-size: clamp(2.2rem, 7vw, 4.4rem); }
+      h2 { margin: 0 0 14px; font-size: clamp(1.35rem, 3vw, 1.8rem); }
+      p { max-width: 760px; }
+      .lede { color: var(--muted); font-size: 1.12rem; }
+
+      .eyebrow {
+        margin-bottom: 10px;
+        color: var(--brand-burgundy);
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .card, details {
+        margin-top: 28px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 10px 28px rgb(38 33 30 / 7%);
+      }
+
+      details { padding: 0 20px; }
+      summary {
+        display: flex;
+        min-height: 52px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      summary span { color: var(--muted); font-size: 0.82rem; font-weight: 600; }
+      details > div { padding: 0 0 18px; }
+
+      .story { padding: 24px; }
+      .story p { margin-bottom: 0; }
+
+      .diagram-card { padding: 24px; overflow: hidden; }
+      .diagram-card > p { margin-top: -4px; color: var(--muted); }
+      .diagram-scroll { max-width: 100%; overflow-x: auto; padding-bottom: 4px; }
+      svg { display: block; min-width: 680px; width: 100%; height: auto; }
+      svg text { fill: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+      svg .label { font-size: 20px; font-weight: 700; }
+      svg .contents { fill: var(--muted); font-size: 14px; }
+      svg .shell { fill: var(--surface); stroke: var(--brand-burgundy); stroke-width: 3; }
+      svg .header { fill: #e8e2d8; stroke: var(--line); stroke-width: 2; }
+      svg .left { fill: var(--left-pane); stroke: var(--line); stroke-width: 2; }
+      svg .center { fill: var(--center-pane); stroke: var(--line); stroke-width: 2; }
+      svg .right { fill: var(--right-pane); stroke: var(--line); stroke-width: 2; }
+      svg .brace { fill: none; stroke: var(--brand-orange); stroke-width: 2; }
+      svg .small-label { fill: var(--brand-burgundy); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
+
+      .mapping { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 24px; }
+      .mapping h2 { grid-column: 1 / -1; }
+      .mapping article { padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+      .mapping h3 { margin: 0 0 6px; font-size: 1rem; }
+      .mapping p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+      code { color: var(--brand-burgundy); font: 0.87em/1.4 ui-monospace, "SF Mono", Menlo, monospace; }
+
+      .rule { padding: 24px; border-left: 5px solid var(--brand-orange); }
+      .rule blockquote { margin: 0; font-size: 1.12rem; font-weight: 650; }
+
+      .references { padding: 24px; }
+      .references ul { margin: 0; padding-left: 20px; }
+      a { color: var(--brand-burgundy); text-underline-offset: 3px; }
+      a[aria-disabled="true"] { color: var(--muted); text-decoration-style: dotted; cursor: help; }
+
+      footer { margin-top: 30px; color: var(--muted); font-size: 0.82rem; }
+      footer details { box-shadow: none; }
+
+      @media (max-width: 640px) {
+        main { width: min(100% - 20px, 980px); padding-top: 30px; }
+        .mapping { grid-template-columns: 1fr; }
+        .mapping h2 { grid-column: auto; }
+        .card, details { border-radius: 10px; }
+        .story, .diagram-card, .mapping, .rule, .references { padding: 18px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">Markover design vocabulary</div>
+      <h1>App structure, from the outside in</h1>
+      <p class="lede">Six structural names describe the frame from the outside in. Region names describe where something is, while the contents inside keep describing what they do.</p>
+
+      <details>
+        <summary>Where This Is True <span>Accepted · PR 195 · 2026-08-21</span></summary>
+        <div>
+          <p>This page explains the accepted first-level structure for Markover's desktop app. The canonical contract lives in <code>docs/developer/app-structure.md</code>. Later passes will name the contents, components, dialogs, and settings nested inside these regions.</p>
+        </div>
+      </details>
+
+      <section class="card story">
+        <h2>The Tiny Story</h2>
+        <p>Today, code names top-level panes after whatever they happen to contain. The new vocabulary separates the frame from its furniture: a pane keeps its structural name even when its contents change.</p>
+      </section>
+
+      <section class="card diagram-card">
+        <h2>The complete first level</h2>
+        <p>The app shell contains one app header and one pane layout. The pane layout contains exactly three positional panes.</p>
+        <div class="diagram-scroll">
+          <svg viewBox="0 0 900 520" role="img" aria-labelledby="diagram-title diagram-desc">
+            <title id="diagram-title">Markover app structure</title>
+            <desc id="diagram-desc">An app shell contains a full-width app header above a pane layout. The pane layout contains a left pane, center pane, and right pane. Current content is shown as secondary text inside each structural region.</desc>
+            <rect class="shell" x="40" y="54" width="820" height="420" rx="18" />
+            <text class="small-label" x="42" y="36">APP SHELL</text>
+            <rect class="header" x="66" y="82" width="768" height="92" rx="10" />
+            <text class="label" x="450" y="121" text-anchor="middle">App header</text>
+            <text class="contents" x="450" y="148" text-anchor="middle">currently: brand, document details, actions</text>
+            <path class="brace" d="M66 208 v-14 h768 v14" />
+            <text class="small-label" x="450" y="228" text-anchor="middle">PANE LAYOUT</text>
+            <rect class="left" x="66" y="250" width="208" height="190" rx="10" />
+            <rect class="center" x="292" y="250" width="316" height="190" rx="10" />
+            <rect class="right" x="626" y="250" width="208" height="190" rx="10" />
+            <text class="label" x="170" y="326" text-anchor="middle">Left pane</text>
+            <text class="contents" x="170" y="354" text-anchor="middle">currently: review</text>
+            <text class="contents" x="170" y="375" text-anchor="middle">navigation and lists</text>
+            <text class="label" x="450" y="326" text-anchor="middle">Center pane</text>
+            <text class="contents" x="450" y="354" text-anchor="middle">currently: document tree</text>
+            <text class="label" x="730" y="326" text-anchor="middle">Right pane</text>
+            <text class="contents" x="730" y="354" text-anchor="middle">currently: annotation</text>
+            <text class="contents" x="730" y="375" text-anchor="middle">views and source card</text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="card mapping">
+        <h2>One name across every layer</h2>
+        <article><h3>App shell</h3><p><code>appShell</code> · <code>.app-shell</code> · <code>--app-shell-background</code></p></article>
+        <article><h3>App header</h3><p><code>appHeader</code> · <code>.app-header</code> · <code>--app-header-background</code></p></article>
+        <article><h3>Pane layout</h3><p><code>paneLayout</code> · <code>.pane-layout</code> · structural container</p></article>
+        <article><h3>Left pane</h3><p><code>leftPane</code> · <code>.left-pane</code> · <code>--left-pane-background</code></p></article>
+        <article><h3>Center pane</h3><p><code>centerPane</code> · <code>.center-pane</code> · <code>--center-pane-background</code></p></article>
+        <article><h3>Right pane</h3><p><code>rightPane</code> · <code>.right-pane</code> · <code>--right-pane-background</code></p></article>
+      </section>
+
+      <section class="card rule">
+        <h2>The naming rule</h2>
+        <blockquote>A pane name identifies only its stable place in the app shell. Review navigation, document tree, and annotation views identify content hosted inside a pane.</blockquote>
+      </section>
+
+      <section class="card references">
+        <h2>References</h2>
+        <ul>
+          <li><a href="#" data-repo-path="docs/developer/app-structure.md">Canonical app-structure contract</a></li>
+          <li><a href="#" data-repo-path="GLOSSARY.md">Canonical project glossary</a></li>
+          <li><a href="#" data-repo-path="src/index.html">Application markup</a></li>
+          <li><a href="#" data-repo-path="src/styles.css">Theme and layout styles</a></li>
+        </ul>
+      </section>
+
+      <footer>
+        <details>
+          <summary>Prompt/context <span>Why this page exists</span></summary>
+          <div><p>The UI-improvement takeover began because top-level app regions, their contents, and their color tokens had accumulated conflicting names. The maintainer accepted a spatial, content-neutral vocabulary and asked for the same names in the glossary, documentation, code architecture, and theming system.</p></div>
+        </details>
+      </footer>
+    </main>
+    <script>
+      function eli5RepoBase() {
+        const params = new URLSearchParams(window.location.search);
+        const explicit = params.get("baseUrl") || params.get("repoBase");
+        if (explicit) return explicit.replace(/\/$/, "");
+        const docPath = document.documentElement.dataset.repoDocPath;
+        if (window.location.protocol === "file:" && docPath) {
+          const fullPath = decodeURIComponent(window.location.pathname);
+          const suffix = `/${docPath.replace(/^\//, "")}`;
+          return fullPath.endsWith(suffix) ? fullPath.slice(0, -suffix.length) : "";
+        }
+        return "";
+      }
+
+      function wireRepoLinks() {
+        const repoBase = eli5RepoBase();
+        for (const link of document.querySelectorAll("a[data-repo-path]")) {
+          if (!repoBase) {
+            link.removeAttribute("href");
+            link.setAttribute("aria-disabled", "true");
+            link.title = "Open the saved file directly or add ?baseUrl=/path/to/worktree.";
+            continue;
+          }
+          const repoPath = link.dataset.repoPath.replace(/^\//, "");
+          link.href = encodeURI(`file://${repoBase}/${repoPath}`);
+        }
+      }
+
+      wireRepoLinks();
+    </script>
+  </body>
+</html>

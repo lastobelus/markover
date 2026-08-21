@@ -1,5 +1,5 @@
 export const WORKSPACE_STATE_FORMAT = 'markover-workspace' as const
-export const WORKSPACE_STATE_VERSION = 2 as const
+export const WORKSPACE_STATE_VERSION = 3 as const
 
 export const DEFAULT_WORKSPACE_STATE: Readonly<MarkoverWorkspaceState> =
   Object.freeze({
@@ -10,7 +10,7 @@ export const DEFAULT_WORKSPACE_STATE: Readonly<MarkoverWorkspaceState> =
     projectExpansion: Object.freeze([]) as unknown as WorkspaceProjectExpansion[],
     threadExpansion: Object.freeze([]) as unknown as WorkspaceThreadExpansion[],
     activeReviewId: null,
-    annotationPaneWidth: null,
+    rightPaneWidth: null,
     reviews: Object.freeze({})
   })
 
@@ -89,7 +89,7 @@ export function isWorkspaceState(value: unknown): value is MarkoverWorkspaceStat
     'projectExpansion',
     'threadExpansion',
     'activeReviewId',
-    'annotationPaneWidth',
+    'rightPaneWidth',
     'reviews'
   ])) return false
   if (
@@ -105,12 +105,12 @@ export function isWorkspaceState(value: unknown): value is MarkoverWorkspaceStat
     !value.threadExpansion.every(isThreadExpansion) ||
     (value.activeReviewId !== null && !reviewId(value.activeReviewId)) ||
     (
-      value.annotationPaneWidth !== null &&
+      value.rightPaneWidth !== null &&
       (
-        typeof value.annotationPaneWidth !== 'number' ||
-        !Number.isInteger(value.annotationPaneWidth) ||
-        value.annotationPaneWidth <= 0 ||
-        value.annotationPaneWidth > 10_000
+        typeof value.rightPaneWidth !== 'number' ||
+        !Number.isInteger(value.rightPaneWidth) ||
+        value.rightPaneWidth <= 0 ||
+        value.rightPaneWidth > 10_000
       )
     ) ||
     !isRecord(value.reviews) ||
@@ -138,7 +138,7 @@ export function cloneWorkspaceState(
     projectExpansion: value.projectExpansion.map((project) => ({ ...project })),
     threadExpansion: value.threadExpansion.map((thread) => ({ ...thread })),
     activeReviewId: value.activeReviewId,
-    annotationPaneWidth: value.annotationPaneWidth,
+    rightPaneWidth: value.rightPaneWidth,
     reviews: Object.fromEntries(Object.entries(value.reviews).map(([id, state]) => [
       id,
       {

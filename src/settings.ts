@@ -16,7 +16,7 @@ import * as agentGuidance from './agent-guidance'
     annotationTextSize: 'medium',
     zoomPercent: 100,
     showKeyboardHelp: true,
-    openDocumentsSidebar: true,
+    openLeftPane: true,
     defaultTreeView: 'all',
     confirmAttachmentRemoval: true,
     incomingReviewActivationPolicy: 'never',
@@ -114,7 +114,7 @@ import * as agentGuidance from './agent-guidance'
     }
     for (const key of [
       'showKeyboardHelp',
-      'openDocumentsSidebar',
+      'openLeftPane',
       'confirmAttachmentRemoval',
       'discoverAgentThreadFromLocalSessions',
       'remoteCanonicalGatewayEnabled',
@@ -254,12 +254,12 @@ import * as agentGuidance from './agent-guidance'
     return { appearance, preferences: normalized }
   }
 
-  function sidebarPreferenceChanged(
+  function leftPanePreferenceChanged(
     previous: MarkoverSettings,
     next: MarkoverSettings,
     initial = false
   ): boolean {
-    return initial || previous.openDocumentsSidebar !== next.openDocumentsSidebar
+    return initial || previous.openLeftPane !== next.openLeftPane
   }
 
   function confirmScreenshotRemoval(
@@ -284,7 +284,7 @@ import * as agentGuidance from './agent-guidance'
     applySettingsToView,
     darkColorization,
     minimumWindowSize,
-    sidebarPreferenceChanged,
+    leftPanePreferenceChanged,
     confirmScreenshotRemoval
   } satisfies MarkoverSettingsApi
 
@@ -298,7 +298,7 @@ export {
   minimumWindowSize,
   normalizeSettings,
   OPTIONS,
-  sidebarPreferenceChanged,
+  leftPanePreferenceChanged,
   updateSettings,
   WINDOW_BACKGROUNDS,
   windowBackground,

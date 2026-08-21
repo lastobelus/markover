@@ -2,7 +2,7 @@
 
 This directory formerly contained the settled annotation-browser exploration:
 the annotated review baseline and five mockups covering an annotated-only tree,
-a dedicated annotation index, a right-pane annotation stack, a bottom drawer,
+a dedicated annotation index, a right pane annotation stack, a bottom drawer,
 and a minimap rail.
 
 The complete original contents are preserved in the Git tag

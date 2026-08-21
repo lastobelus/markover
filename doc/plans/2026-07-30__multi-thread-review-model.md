@@ -176,7 +176,7 @@ file is authoritative for recovery.
 
 ## Multiple-document UI
 
-Add a compact document tab strip below the application header. Each tab should
+Add a compact document tab strip below the app header. Each tab should
 show only the information needed for switching and status recognition:
 
 ```text
@@ -184,7 +184,8 @@ DECISIONS.md · 8f3a2c    Editing
 sample.md · a91d0e       With agent
 ```
 
-The active tab selects which document tree and annotation pane are visible.
+The active tab selects which document tree in the center pane and annotation
+views in the right pane are visible.
 Each review retains its own selected block, collapse state, annotations, and
 attachments.
 
@@ -205,13 +206,13 @@ This communicates who currently has responsibility more clearly than the word
 When a review enters this state:
 
 - The tab shows a distinct status badge.
-- The annotation pane receives a muted treatment, while the document tree
+- The right pane receives a muted treatment, while the document tree
   retains its normal navigational colors.
 - The textarea is replaced with rendered feedback.
 - Pasting, attachment removal, and attachment label editing are disabled.
 - Block navigation, collapsing, raw source, thumbnails, and image preview
   remain available.
-- The right-pane header or a compact strip clearly says
+- The right pane header or a compact strip clearly says
   `WITH AGENT · READ ONLY`.
 
 Do not change the color scheme of the entire application because other tabs may

@@ -4,8 +4,8 @@ import test from 'node:test'
 import type { ReviewArtifact } from '../src/review-store'
 
 const {
-  clampAnnotationPaneWidth,
-  clampDocumentsListWidth,
+  clampRightPaneWidth,
+  clampLeftPaneWidth,
   formatRelativeTime,
   isTreeEditable,
   projectIdentity,
@@ -386,18 +386,18 @@ test('relative review time refreshes at the next visible unit boundary', () => {
   assert.equal(relativeTimeRefreshDelay([], now), null)
 })
 
-test('documents list width leaves room for the two review panes', () => {
-  assert.equal(clampDocumentsListWidth(40, 1180), 150)
-  assert.equal(clampDocumentsListWidth(280, 1180), 280)
-  assert.equal(clampDocumentsListWidth(800, 1180), 440)
-  assert.equal(clampDocumentsListWidth(400, 760), 200)
+test('left pane width leaves room for the center and right panes', () => {
+  assert.equal(clampLeftPaneWidth(40, 1180), 150)
+  assert.equal(clampLeftPaneWidth(280, 1180), 280)
+  assert.equal(clampLeftPaneWidth(800, 1180), 440)
+  assert.equal(clampLeftPaneWidth(400, 760), 200)
 })
 
-test('annotation pane width leaves room for the document tree', () => {
-  assert.equal(clampAnnotationPaneWidth(200, 1180, 248), 360)
-  assert.equal(clampAnnotationPaneWidth(480, 1180, 248), 480)
-  assert.equal(clampAnnotationPaneWidth(900, 1180, 248), 732)
-  assert.equal(clampAnnotationPaneWidth(420, 760, 200), 360)
+test('right pane width leaves room for the center pane', () => {
+  assert.equal(clampRightPaneWidth(200, 1180, 248), 360)
+  assert.equal(clampRightPaneWidth(480, 1180, 248), 480)
+  assert.equal(clampRightPaneWidth(900, 1180, 248), 732)
+  assert.equal(clampRightPaneWidth(420, 760, 200), 360)
 })
 
 test('reviews group by repository basename in project recency order', () => {

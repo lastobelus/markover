@@ -33,7 +33,7 @@ I recommend normalizing the entire family to the mark's two exact colors—`#c94
 | GitHub Pages hero | Mark/logotype in navigation; headline and product UI remain HTML/CSS | Existing SVG components | None for the rendered page |
 | GitHub Pages share card | Simplified hero composition within a generous safe area | 1200×630 PNG | Required only if the Pages site should have a designed Open Graph card; produce three palette versions |
 | Documentation pages | Mark in collapsed navigation; full mark, logotype and descriptor in the expanded table of contents | Existing SVG components | None |
-| Desktop app header | Mark alone, or mark with a restrained logotype; no tagline while a document is open | Existing SVG components | None |
+| App header | Mark alone, or mark with a restrained logotype; no tagline while a document is open | Existing SVG components | None |
 
 GitHub accepts repository social-preview images as PNG, JPG or GIF under 1 MB and recommends 1280×640 for best display. A solid background is the safest choice across destinations. [GitHub social-preview guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview)
 
@@ -85,7 +85,7 @@ Do not bake the Pages hero into an image. Use the mark and logotype SVGs in navi
 
 On documentation pages, the mark alone is enough for a collapsed rail or narrow header. The expanded content pane should use the complete lockup with “Structured review for Markdown.” directly beneath it and left-aligned with the mark. The Pages footer should use the horizontal tagged arrangement: complete lockup and descriptor bottom-aligned with the canonical relative scale and spacing. Keep the Pages header untagged, using the separate mark and logotype for responsive control.
 
-## Desktop app header treatment
+## App header treatment
 
 Do not show a tagline while someone is already using the app. It turns a working surface into a pitch and wastes high-value header space.
 
@@ -94,7 +94,7 @@ Two working-header treatments are valid:
 - Mark plus a restrained logotype, with the capital `M` approximately 55% of the mark's rendered height.
 - Mark only, for the quietest and most tool-like treatment.
 
-The complete lockup and tagline belong in the empty workspace when no document is open. They should disappear as soon as the working document interface is present.
+The complete lockup and tagline belong in the empty state when no document is open. They should disappear as soon as the working document interface is present.
 
 ```html
 <div class="brand">

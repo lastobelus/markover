@@ -34,18 +34,18 @@ test('core review controls expose names, relationships, states, and values', () 
   const dom = new JSDOM(read('src/index.html'))
   const document = dom.window.document
 
-  const preview = document.querySelector('#preview-pane')
+  const preview = document.querySelector('#center-pane')
   assert.ok(preview)
   assert.equal(preview.getAttribute('tabindex'), '0')
   assert.match(preview.getAttribute('aria-label') || '', /Document tree.*arrow keys/i)
 
-  const documentsResizer = document.querySelector('#documents-list-resizer')
+  const documentsResizer = document.querySelector('#left-pane-resizer')
   assert.ok(documentsResizer)
   assert.equal(documentsResizer.getAttribute('role'), 'separator')
   assert.equal(documentsResizer.getAttribute('tabindex'), '0')
   assert.equal(documentsResizer.getAttribute('aria-valuemin'), '150')
 
-  const annotationResizer = document.querySelector('#annotation-pane-resizer')
+  const annotationResizer = document.querySelector('#right-pane-resizer')
   assert.ok(annotationResizer)
   assert.equal(annotationResizer.getAttribute('role'), 'separator')
   assert.equal(annotationResizer.getAttribute('tabindex'), '0')
@@ -117,11 +117,11 @@ test('keyboard access reaches native controls and retains an explicit pane short
   assert.match(renderer, /event\.key === 'F6'[\s\S]*MarkoverNavigation\.nextPane/)
   assert.match(
     renderer,
-    /function resizeDocumentsListFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight/
+    /function resizeLeftPaneFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight/
   )
   assert.match(
     renderer,
-    /documentsListResizer\.addEventListener\(\s*'keydown',[\s\S]*resizeDocumentsListFromKeyboard/
+    /leftPaneResizer\.addEventListener\(\s*'keydown',[\s\S]*resizeLeftPaneFromKeyboard/
   )
   assert.match(renderer, /aria-keyshortcuts', 'F2'/)
   assert.match(renderer, /event\.key !== 'F2'[\s\S]*beginAttachmentLabelEdit/)
@@ -167,16 +167,16 @@ test('attachment preview and destructive workflow restore a useful focus target'
   assert.match(renderer, /imagePreviewReturnFocus = document\.activeElement/)
   assert.match(renderer, /imagePreview\.showModal\(\)[\s\S]*imagePreviewClose\.focus\(\)/)
   assert.match(renderer, /imagePreview\.addEventListener\('close',[\s\S]*returnFocus\?\.isConnected[\s\S]*returnFocus\.focus/)
-  assert.match(renderer, /renderRemovedAttachment[\s\S]*requestAnimationFrame\(focusAnnotationPane\)/)
+  assert.match(renderer, /renderRemovedAttachment[\s\S]*requestAnimationFrame\(focusRightPane\)/)
   assert.match(
     renderer,
-    /function focusDocumentsList[\s\S]*\[data-review-id=[\s\S]*while \(ancestor && elements\.documentsListTree\.contains\(ancestor\)\)[\s\S]*ancestor instanceof HTMLDetailsElement[\s\S]*ancestor\.open = true[\s\S]*querySelector<HTMLElement>\('summary, button'\)/
+    /function focusLeftPane[\s\S]*\[data-review-id=[\s\S]*while \(ancestor && elements\.documentsListTree\.contains\(ancestor\)\)[\s\S]*ancestor instanceof HTMLDetailsElement[\s\S]*ancestor\.open = true[\s\S]*querySelector<HTMLElement>\('summary, button'\)/
   )
   assert.match(
     renderer,
-    /function focusAfterInactiveReviewTrashed[\s\S]*!documentsListCollapsed[\s\S]*focusDocumentsList\(\)[\s\S]*documentsListOpen\.focus\(\)[\s\S]*requestAnimationFrame\(focusAfterInactiveReviewTrashed\)/
+    /function focusAfterInactiveReviewTrashed[\s\S]*!leftPaneCollapsed[\s\S]*focusLeftPane\(\)[\s\S]*leftPaneOpen\.focus\(\)[\s\S]*requestAnimationFrame\(focusAfterInactiveReviewTrashed\)/
   )
-  assert.match(renderer, /handleReviewTrashed[\s\S]*previewPane\.focus\(\)[\s\S]*emptyOpenButton\.focus\(\)/)
+  assert.match(renderer, /handleReviewTrashed[\s\S]*centerPane\.focus\(\)[\s\S]*emptyOpenButton\.focus\(\)/)
   assert.match(renderer, /restoreReviewActivationFocus\(reviewId, focusSurface\)/)
   assert.match(
     renderer,
@@ -200,7 +200,7 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
-    /function setDocumentsListCollapsed[\s\S]*restoreKeyboardFocus = document\.activeElement[\s\S]*collapsed \? elements\.documentsListCollapse : elements\.documentsListOpen[\s\S]*collapsed[\s\S]*elements\.documentsListOpen[\s\S]*elements\.documentsListCollapse[\s\S]*target\.focus\(\)/
+    /function setLeftPaneCollapsed[\s\S]*restoreKeyboardFocus = document\.activeElement[\s\S]*collapsed \? elements\.leftPaneCollapse : elements\.leftPaneOpen[\s\S]*collapsed[\s\S]*elements\.leftPaneOpen[\s\S]*elements\.leftPaneCollapse[\s\S]*target\.focus\(\)/
   )
   assert.match(
     renderer,
@@ -244,8 +244,8 @@ test('motion and focus styling remain usable with accessibility preferences', ()
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*scroll-behavior: auto !important;[\s\S]*transition-duration: 0\.01ms !important;/
   )
   assert.match(styles, /:is\(button, a, summary, \[role="button"\]\):focus-visible/)
-  assert.match(styles, /documents-list-resizer:focus-visible::after/)
-  assert.match(styles, /annotation-pane-resizer:focus-visible::after/)
+  assert.match(styles, /left-pane-resizer:focus-visible::after/)
+  assert.match(styles, /right-pane-resizer:focus-visible::after/)
 })
 
 test('default muted text meets AA contrast on the darkest light surface', () => {
