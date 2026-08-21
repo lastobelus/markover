@@ -418,6 +418,9 @@ test('settings store serializes rapid updates without losing the latest values',
   assert.equal(saved.appearance, 'dark')
   assert.equal(saved.treeDensity, 'compact')
   assert.deepEqual(await fs.readdir(directory), ['settings.json'])
+  if (process.platform !== 'win32') {
+    assert.equal((await fs.stat(filePath)).mode & 0o777, 0o600)
+  }
 })
 
 test('settings store loads offline manual edits after restart', async (t) => {

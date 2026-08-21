@@ -2025,6 +2025,12 @@ test('rejects unsafe IDs and leaves no temporary files', async (t) => {
 
   const entries = await fs.readdir(store.reviewDirectory(created.review.id))
   assert.deepEqual(entries, ['review.json'])
+  if (process.platform !== 'win32') {
+    assert.equal(
+      (await fs.stat(store.reviewPath(created.review.id))).mode & 0o777,
+      0o600
+    )
+  }
 })
 
 test('publishes complete sessions and ignores incomplete review directories', async (t) => {
