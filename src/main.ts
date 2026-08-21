@@ -124,6 +124,10 @@ import {
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
 import { t3ThreadTitleSnapshot } from './t3-thread-titles'
+import {
+  WindowBoundsStore,
+  clampWindowBounds
+} from './window-bounds'
 import { WorkspaceStore } from './workspace-store'
 import { smokeReviewTree } from './smoke-fixture'
 import {
@@ -279,6 +283,7 @@ let remoteGatewayQueue: Promise<void> = Promise.resolve()
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
 let workspaceStore: WorkspaceStore | null = null
+let windowBoundsStore: WindowBoundsStore | null = null
 let zoomWriter: Promise<void> = Promise.resolve()
 let managedAutosave: ReviewAutosave | null = null
 let snapshotSequence = 0
@@ -1136,11 +1141,18 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
+  const workAreaRect = screen.getPrimaryDisplay().workArea
   const workArea = screen.getPrimaryDisplay().workAreaSize
   const minimumSize = minimumWindowSize(startupSettings.zoomPercent, workArea)
+  const rememberedBounds = smokeMode || !windowBoundsStore?.bounds
+    ? null
+    : clampWindowBounds(windowBoundsStore.bounds, workAreaRect, minimumSize)
   const window = new BrowserWindow({
-    width: Math.min(1180, workArea.width),
-    height: Math.min(760, workArea.height),
+    width: rememberedBounds?.width ?? Math.min(1180, workArea.width),
+    height: rememberedBounds?.height ?? Math.min(760, workArea.height),
+    ...(rememberedBounds
+      ? { x: rememberedBounds.x, y: rememberedBounds.y }
+      : {}),
     minWidth: minimumSize.width,
     minHeight: minimumSize.height,
     show: show && !showWithoutActivating,
@@ -1158,6 +1170,32 @@ function createWindow(
     }
   })
   mainWindow = window
+  if (rememberedBounds?.maximized) window.maximize()
+  let boundsWriteTimer: NodeJS.Timeout | null = null
+  const recordWindowBounds = (): void => {
+    if (smokeMode || !windowBoundsStore || window.isDestroyed()) return
+    if (window.isFullScreen() || window.isMinimized()) return
+    const normal = window.getNormalBounds()
+    windowBoundsStore.save({
+      x: normal.x,
+      y: normal.y,
+      width: normal.width,
+      height: normal.height,
+      maximized: window.isMaximized()
+    })
+  }
+  const scheduleWindowBoundsWrite = (): void => {
+    if (boundsWriteTimer) clearTimeout(boundsWriteTimer)
+    boundsWriteTimer = setTimeout(recordWindowBounds, 250)
+  }
+  window.on('resize', scheduleWindowBoundsWrite)
+  window.on('move', scheduleWindowBoundsWrite)
+  window.on('maximize', scheduleWindowBoundsWrite)
+  window.on('unmaximize', scheduleWindowBoundsWrite)
+  window.on('close', () => {
+    if (boundsWriteTimer) clearTimeout(boundsWriteTimer)
+    recordWindowBounds()
+  })
   let currentDisplayId = screen.getDisplayMatching(window.getBounds()).id
   const applyCurrentWindowZoom = (): void => {
     if (window.isDestroyed()) return
@@ -2312,6 +2350,11 @@ if (!hasSingleInstanceLock) {
     )
     workspaceStore = privateWorkspaceStore
     await privateWorkspaceStore.load()
+    const boundsStore = new WindowBoundsStore(
+      path.join(app.getPath('userData'), 'window.json')
+    )
+    windowBoundsStore = boundsStore
+    await boundsStore.load()
     managedAutosave = new ReviewAutosave(requireReviewStore(), {
       maximumDelayMs: initialSettings.autosaveMaximumDelayMs,
       onFailure(reviewId, error) {

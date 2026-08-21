@@ -15,7 +15,7 @@ test('production review navigation shares the strip with exact-ID activation', (
 
   assert.match(
     html,
-    /id="review-tab-strip"[\s\S]*id="review-navigation-inbox"[\s\S]*id="review-navigation-projects"[\s\S]*id="review-id-activation"[\s\S]*id="review-id-input"/
+    /id="review-tab-strip"[\s\S]*id="review-id-activation"[\s\S]*id="review-id-input"[\s\S]*id="left-pane"[\s\S]*id="review-navigation-inbox"[\s\S]*id="review-navigation-projects"/
   )
   assert.match(
     styles,

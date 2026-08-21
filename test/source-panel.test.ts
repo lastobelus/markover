@@ -30,7 +30,7 @@ test('frontmatter parent source is read-only while entries use plain monospace s
   assert.match(renderer, /node\.type === 'frontmatter-entry'[\s\S]*node\.sourceEdit\?\.current \|\| node\.text/)
   assert.match(
     styles,
-    /\.block-content\.frontmatter-entry \{[^}]*ui-monospace[^}]*white-space: pre-wrap;/
+    /\.block-content\.frontmatter-entry \{[^}]*var\(--font-mono\)[^}]*white-space: pre-wrap;/
   )
 })
 
