@@ -58,7 +58,7 @@ test('spike packaging is opt-in and strips the production URL scheme', () => {
 
   assert.equal(
     manifest.scripts['spike:app-sandbox'],
-    'npm run build --silent && node build/scripts/app-sandbox-spike.js'
+    'install-electron --no && npm run build --silent && node build/scripts/app-sandbox-spike.js'
   )
   assert.match(source, /--platform=mas/)
   assert.match(source, /CFBundleURLTypes/)
