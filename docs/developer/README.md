@@ -13,6 +13,7 @@ maintenance responsibilities that keep those promises true.
 
 - [Development setup, checks, packaging, and repository map](./development.md)
 - [Local service security and storage mechanics](./local-service-security.md)
+- [App Sandbox feasibility and deferral decision](./app-sandbox-feasibility.md)
 - [Portable review handoff format and compatibility](./review-handoff-format.md)
 - [Release, rollback, and withdrawal runbook](./releasing.md)
 - [Local decision-register gardener](./decision-gardener.md)
