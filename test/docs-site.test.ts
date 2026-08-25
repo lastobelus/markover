@@ -332,16 +332,18 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(agents, /Human reviewers should start with/)
 })
 
-test('the public Tailscale example is additive, private, and placeholder-only', () => {
+test('the public Tailscale example is additive and keeps local routing private', () => {
   assert.match(remoteAccess, /tailscale serve status --json/)
   assert.match(remoteAccess, /tailscale funnel status --json/)
+  assert.match(remoteAccess, /Tailscale 1\.92 or newer/)
+  assert.match(remoteAccess, /tailscale version/)
   assert.match(remoteAccess, /--accept-app-caps=lastobelus\.com\/cap\/markover-remote-client/)
   assert.match(remoteAccess, /DEDICATED_HTTPS_PORT='replace-with-an-unused-port'/)
-  assert.match(remoteAccess, /MARKOVER_LOOPBACK_PORT='replace-with-the-markover-port'/)
+  assert.match(remoteAccess, /http:\/\/127\.0\.0\.1:39831/)
   assert.match(remoteAccess, /An unavailable backend is still owned/)
   assert.match(remoteAccess, /Every pre-existing Serve handler is unchanged/)
   assert.match(remoteAccess, /Funnel has no grant for the Markover port/)
-  assert.doesNotMatch(remoteAccess, /:\d{2,5}/)
+  assert.doesNotMatch(remoteAccess, /8443/)
   assert.doesNotMatch(remoteAccess, /https:\/\/[^<\s]*\.ts\.net/)
 })
 

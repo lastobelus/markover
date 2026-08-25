@@ -52,9 +52,9 @@
       <section id="prepare">
         <h2>Before you configure Serve</h2>
         <ol>
-          <li>Install Tailscale on the Mac running canonical Markover and on the remote client device. Sign both into the same tailnet.</li>
+          <li>Install Tailscale 1.92 or newer on the Mac running canonical Markover and on the remote client device. Sign both into the same tailnet. Run <code>tailscale version</code> on each device to check.</li>
           <li>Choose one unused tailnet HTTPS port for Markover. A dedicated port avoids replacing an existing root handler or another application's route.</li>
-          <li>Find the loopback port used by your Markover release. The target must remain an HTTP URL on <code>127.0.0.1</code>; do not bind Markover directly to a LAN or Tailscale address.</li>
+          <li>Use Markover's fixed product endpoint, <code>http://127.0.0.1:39831</code>. Keep that target on loopback; do not bind Markover directly to a LAN or Tailscale address.</li>
           <li>Ask your tailnet administrator to authorize only the intended remote device to reach that HTTPS port and forward <code>lastobelus.com/cap/markover-remote-client</code>. See Tailscale's <a href="https://tailscale.com/docs/features/tailscale-serve#identity-headers">Serve identity headers</a> and <a href="https://tailscale.com/docs/reference/syntax/grants">grants reference</a>.</li>
         </ol>
         <p>First inspect the existing private and public configuration:</p>
@@ -65,14 +65,13 @@ tailscale funnel status --json</code></pre>
 
       <section id="configure">
         <h2>Add the private handler</h2>
-        <p>Set the two placeholders locally. Use the dedicated tailnet HTTPS port you selected and the loopback port documented by your Markover release:</p>
-        <pre><code>export DEDICATED_HTTPS_PORT='replace-with-an-unused-port'
-export MARKOVER_LOOPBACK_PORT='replace-with-the-markover-port'</code></pre>
+        <p>Set the placeholder locally to the dedicated tailnet HTTPS port you selected:</p>
+        <pre><code>export DEDICATED_HTTPS_PORT='replace-with-an-unused-port'</code></pre>
         <p>Then add one background Serve handler:</p>
         <pre><code>tailscale serve --bg \
   --https="${DEDICATED_HTTPS_PORT}" \
   --accept-app-caps=lastobelus.com/cap/markover-remote-client \
-  "http://127.0.0.1:${MARKOVER_LOOPBACK_PORT}"</code></pre>
+  http://127.0.0.1:39831</code></pre>
         <p><a href="https://tailscale.com/docs/features/tailscale-serve">Tailscale Serve</a> is private to your tailnet. Funnel is the separate public-internet feature and is not part of this setup.</p>
       </section>
 
