@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#eee8e0">
+    <meta name="description" content="Example tailnet-only Tailscale Serve setup for advanced Markover remote access.">
+    <title>Tailscale Serve example — Markover documentation</title>
+    <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body class="docs-page">
+    <aside class="docs-sidebar">
+      <a class="docs-brand brand-lockup brand-lockup-vertical" href="../" aria-label="Markover home">
+        <img class="brand-lockup-logo" src="../assets/markover-lockup.svg" alt="Markover">
+        <span class="brand-lockup-tagline">Structured review for Markdown.</span>
+      </a>
+      <nav class="docs-nav" aria-label="Documentation">
+        <p>Guide</p>
+        <a href="../guide/">Getting started</a>
+        <a href="#overview" aria-current="page">Remote access with Tailscale</a>
+        <a href="#prepare">Before you configure Serve</a>
+        <a href="#configure">Add the private handler</a>
+        <a href="#verify">Verify the result</a>
+        <a href="#ownership">Keep application routes separate</a>
+        <a href="#remove">Remove the handler</a>
+        <p>Agents</p>
+        <a href="../agents/">Agent workflow</a>
+        <p>Reference</p>
+        <a href="../privacy/">Privacy and local data</a>
+        <a href="../limitations/">Markdown and limitations</a>
+        <a href="https://github.com/lastobelus/markover/discussions">Support</a>
+        <p>Contributors</p>
+        <a href="https://github.com/lastobelus/markover/blob/main/docs/developer/README.md">Developer documentation</a>
+        <a href="https://github.com/lastobelus/markover">Source</a>
+      </nav>
+      <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
+    </aside>
+
+    <header class="docs-mobile-header">
+      <a href="../"><img src="../assets/markover-mark.svg" alt=""><span>Markover docs</span></a>
+      <a href="https://github.com/lastobelus/markover">GitHub</a>
+    </header>
+
+    <main class="docs-content">
+      <p class="eyebrow">Advanced setup example</p>
+      <h1 id="overview">Remote access with Tailscale Serve</h1>
+      <p class="docs-lede">Tailscale Serve can add a private HTTPS route from one authorized device in your tailnet to Markover's loopback-only remote gateway. This example keeps the route private, leaves existing handlers alone, and keeps Tailscale Funnel off.</p>
+
+      <div class="callout"><strong>This is an advanced example, not automatic onboarding.</strong> Markover does not configure Tailscale, choose a public name, edit your tailnet policy, or install and remove Serve handlers for you. Review every placeholder and your current Serve configuration before running a command.</div>
+
+      <section id="prepare">
+        <h2>Before you configure Serve</h2>
+        <ol>
+          <li>Install Tailscale 1.92 or newer on the Mac running canonical Markover and on the remote client device. Sign both into the same tailnet. Run <code>tailscale version</code> on each device to check.</li>
+          <li>Choose one unused tailnet HTTPS port for Markover. A dedicated port avoids replacing an existing root handler or another application's route.</li>
+          <li>Use Markover's fixed product endpoint, <code>http://127.0.0.1:39831</code>. Keep that target on loopback; do not bind Markover directly to a LAN or Tailscale address.</li>
+          <li>Ask your tailnet administrator to authorize only the intended remote device to reach that HTTPS port and forward <code>lastobelus.com/cap/markover-remote-client</code>. See Tailscale's <a href="https://tailscale.com/docs/features/tailscale-serve#identity-headers">Serve identity headers</a> and <a href="https://tailscale.com/docs/reference/syntax/grants">grants reference</a>.</li>
+        </ol>
+        <p>First inspect the existing private and public configuration:</p>
+        <pre><code>tailscale serve status --json
+tailscale funnel status --json</code></pre>
+        <p>Continue only when your chosen HTTPS port is unused. Preserve every existing handler.</p>
+      </section>
+
+      <section id="configure">
+        <h2>Add the private handler</h2>
+        <p>Set the placeholder locally to the dedicated tailnet HTTPS port you selected:</p>
+        <pre><code>export DEDICATED_HTTPS_PORT='replace-with-an-unused-port'</code></pre>
+        <p>Then add one background Serve handler:</p>
+        <pre><code>tailscale serve --bg \
+  --https="${DEDICATED_HTTPS_PORT}" \
+  --accept-app-caps=lastobelus.com/cap/markover-remote-client \
+  http://127.0.0.1:39831</code></pre>
+        <p><a href="https://tailscale.com/docs/features/tailscale-serve">Tailscale Serve</a> is private to your tailnet. Funnel is the separate public-internet feature and is not part of this setup.</p>
+      </section>
+
+      <section id="verify">
+        <h2>Verify the result</h2>
+        <p>Read the configuration again:</p>
+        <pre><code>tailscale serve status --json
+tailscale funnel status --json</code></pre>
+        <p>Confirm all of these facts before using the remote client:</p>
+        <ul>
+          <li>Your chosen HTTPS port has one root-path handler.</li>
+          <li>Its target is the expected <code>http://127.0.0.1:…</code> Markover gateway.</li>
+          <li>It forwards only <code>lastobelus.com/cap/markover-remote-client</code>.</li>
+          <li>Every pre-existing Serve handler is unchanged.</li>
+          <li>Funnel has no grant for the Markover port.</li>
+        </ul>
+        <p>Enable <strong>Allow the authorized remote Markover client</strong> in canonical Markover only when you want the gateway to accept requests. Disabling Markover closes its loopback gateway but deliberately leaves the Tailscale handler in place.</p>
+      </section>
+
+      <section id="ownership">
+        <h2>Keep application routes separate</h2>
+        <p>Tailscale Serve configuration is shared by applications using the same Tailscale configuration on a Mac. Each application should inspect Serve status before changing it, refuse ports that already have a handler, and remove only a handler it created that still exactly matches its expected route.</p>
+        <div class="callout"><strong>An unavailable backend is still owned.</strong> Markover may be disabled, stopped, or restarting while its persistent Serve handler remains configured. A timeout, connection refusal, or gateway error is not permission to replace that handler.</div>
+        <p>Application shutdown should close the application's loopback server, not its persistent Serve handler. Avoid broad reset commands on a Mac where more than one application uses Serve.</p>
+      </section>
+
+      <section id="remove">
+        <h2>Remove the handler explicitly</h2>
+        <p>When you intentionally retire this Markover route, inspect Serve status one last time. Continue only if the selected port, root path, target, and forwarded capability still match the Markover handler you configured. Then disable that exact port:</p>
+        <pre><code>tailscale serve --https="${DEDICATED_HTTPS_PORT}" off</code></pre>
+        <p>Read Serve and Funnel status again to confirm that only the intended handler was removed and Funnel remains off.</p>
+      </section>
+
+      <nav class="docs-next" aria-label="Next page">
+        <span>Understand what remote access can send</span>
+        <a href="../privacy/#network">Privacy and network access →</a>
+      </nav>
+    </main>
+  </body>
+</html>
