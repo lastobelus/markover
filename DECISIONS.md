@@ -135,8 +135,11 @@ each choice from that baseline without duplicating the live decisions below.
   gate owned by issues [#15](https://github.com/lastobelus/markover/issues/15)
   and [#91](https://github.com/lastobelus/markover/issues/91).
 - **P-X6c — Planned.** Developer ID signing and notarization are owned by issue
-  [#13](https://github.com/lastobelus/markover/issues/13). App Sandbox and
-  auto-update are assessed with the later release decisions in this register.
+  [#13](https://github.com/lastobelus/markover/issues/13). App Sandbox is
+  deferred until Developer ID supplies a stable Team ID and Markover has an
+  accepted signed-broker, security-scoped-bookmark, and container-migration
+  design. See the [feasibility report](docs/developer/app-sandbox-feasibility.md).
+  Automatic updates remain a separate later release decision.
 - **P-X7 — Planned.** The accepted `markover-review` v1 contract covers the
   complete portable artifact, preserves additive fields, and fails closed for
   unknown headers. Issue
@@ -991,9 +994,15 @@ each choice from that baseline without duplicating the live decisions below.
   [#13](https://github.com/lastobelus/markover/issues/13) owns Developer ID
   signing, notarization, stapling, and Gatekeeper success.
 - **Deferred — App Sandbox and automatic updates.** Neither is part of the
-  current direct-download release contract; adopting either requires its own
-  capability and update-integrity design rather than being implied by signing.
-  Evidence: [macOS packaging tests](test/macos-package.test.ts) and the
+  current direct-download release contract. The App Sandbox spike proved that
+  Electron requires its MAS runtime and a signed Team-ID process boundary, then
+  identified the shared app/CLI state directory, persistent source paths, Git
+  and agent-process discovery, and container migration as architectural work.
+  Reconsider sandboxing only after Developer ID activation and an explicit
+  broker/bookmark/migration decision; adopting updates likewise requires its
+  own integrity design rather than being implied by signing. Evidence: the
+  [App Sandbox feasibility report](docs/developer/app-sandbox-feasibility.md),
+  [focused spike tests](test/app-sandbox-spike.test.ts), and the
   [release runbook](docs/developer/releasing.md).
 - **Planned — Portable handoff v1 and released-version compatibility.** Issue
   [#99](https://github.com/lastobelus/markover/issues/99) owns one lossless
