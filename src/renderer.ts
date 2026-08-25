@@ -169,6 +169,7 @@ const elements = {
   selectedSource: requiredElement('#selected-source'),
   selectedTitle: requiredElement('#selected-title'),
   sourceCancel: requiredElement<HTMLButtonElement>('#source-cancel'),
+  sourceCardState: requiredElement('#source-card-state'),
   sourceContent: requiredElement('#source-content'),
   sourceDiff: requiredElement('#source-diff'),
   sourceDiffStats: requiredElement('#source-diff-stats'),
@@ -2281,6 +2282,10 @@ function renderActiveMetadataState(
   elements.sourceState.hidden = !stateLabel
   elements.sourceState.textContent = stateLabel || ''
   elements.sourceState.title = issues.join(' ')
+  const sourceCardState = row.sourceState === 'changed' ? 'Source changed' : null
+  elements.sourceCardState.hidden = sourceCardState === null
+  elements.sourceCardState.textContent = sourceCardState || ''
+  elements.sourceCardState.title = sourceCardState ? issues.join(' ') : ''
   elements.reviewContextButton.classList.toggle('has-metadata-error', issues.length > 0)
   elements.reviewContextButton.ariaLabel = issues.length
     ? `Show review context. ${issues.join(' ')}`
@@ -2346,6 +2351,8 @@ function renderReviewContext(): void {
   if (!review) {
     elements.documentReviewId.textContent = ''
     elements.sourceState.hidden = true
+    elements.sourceCardState.hidden = true
+    elements.sourceCardState.textContent = ''
     elements.reviewContextIssues.hidden = true
     elements.reviewContextButton.classList.remove('has-metadata-error')
     closeReviewContext(false)
@@ -2383,6 +2390,8 @@ function renderReviewContext(): void {
     elements.reviewContextIssues.hidden = true
     elements.reviewContextIssues.textContent = ''
     elements.sourceState.hidden = true
+    elements.sourceCardState.hidden = true
+    elements.sourceCardState.textContent = ''
     elements.reviewContextButton.classList.remove('has-metadata-error')
     elements.reviewContextButton.ariaLabel = 'Show review context'
   }
@@ -3192,18 +3201,16 @@ function renderInboxReviews(
 ): DocumentFragment {
   if (filter !== 'all') {
     const fragment = document.createDocumentFragment()
-    const heading = document.createElement('div')
-    heading.className = 'review-list-section-heading'
     const label = filter === 'needs-me'
       ? 'Needs me'
       : filter === 'with-agent'
         ? 'With agent'
         : 'Completed'
     const rows = [...editing, ...history]
-    heading.innerHTML = `<strong>${label}</strong><span>${String(rows.length)} shown</span>`
-    fragment.append(heading)
     const list = document.createElement('div')
     list.className = 'review-list-rows'
+    list.setAttribute('role', 'group')
+    list.setAttribute('aria-label', `${label} reviews`)
     list.append(...rows.map(createReviewListRow))
     if (!rows.length) {
       list.append(createEmptyReviewMessage(`No ${label.toLowerCase()} reviews.`))
@@ -3456,8 +3463,14 @@ function setReviewNavigationMode(
   reviewNavigationMode = mode
   elements.reviewNavigationInbox.classList.toggle('is-active', mode === 'inbox')
   elements.reviewNavigationProjects.classList.toggle('is-active', mode === 'projects')
-  elements.reviewNavigationInbox.setAttribute('aria-pressed', String(mode === 'inbox'))
-  elements.reviewNavigationProjects.setAttribute('aria-pressed', String(mode === 'projects'))
+  elements.reviewNavigationInbox.setAttribute('aria-selected', String(mode === 'inbox'))
+  elements.reviewNavigationProjects.setAttribute('aria-selected', String(mode === 'projects'))
+  elements.reviewNavigationInbox.tabIndex = mode === 'inbox' ? 0 : -1
+  elements.reviewNavigationProjects.tabIndex = mode === 'projects' ? 0 : -1
+  elements.documentsListTree.setAttribute(
+    'aria-labelledby',
+    mode === 'inbox' ? 'review-navigation-inbox' : 'review-navigation-projects'
+  )
   renderDocumentsList()
   if (persist) {
     persistWorkspaceState()
@@ -3531,8 +3544,7 @@ function renderDocumentsList(): void {
   elements.leftPaneOpen.hidden = !hasReviews || !leftPaneCollapsed
   elements.paneLayout.classList.toggle('has-left-pane', hasReviews)
   elements.reviewTabStrip.hidden = sessions.length === 0
-  elements.reviewInboxCount.textContent = String(projection.filterCounts['needs-me'])
-  elements.reviewInboxCount.hidden = projection.filterCounts['needs-me'] === 0
+  elements.reviewInboxCount.textContent = `(${String(projection.filterCounts['needs-me'])})`
   const filterLabels: Record<ReviewInboxFilter, string> = {
     'needs-me': 'Needs me',
     'with-agent': 'With agent',
@@ -4745,6 +4757,36 @@ elements.reviewNavigationProjects.addEventListener('click', () => {
   selectedReviewIds.clear()
   setReviewNavigationMode('projects')
 })
+function moveReviewNavigationTabFromKeyboard(event: KeyboardEvent): void {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  const currentMode = event.currentTarget === elements.reviewNavigationInbox
+    ? 'inbox'
+    : 'projects'
+  const targetMode = event.key === 'Home'
+    ? 'inbox'
+    : event.key === 'End'
+      ? 'projects'
+      : currentMode === 'inbox'
+        ? 'projects'
+        : 'inbox'
+  event.preventDefault()
+  selectedReviewIds.clear()
+  setReviewNavigationMode(targetMode)
+  requestAnimationFrame(() => {
+    const target = targetMode === 'inbox'
+      ? elements.reviewNavigationInbox
+      : elements.reviewNavigationProjects
+    target.focus()
+  })
+}
+elements.reviewNavigationInbox.addEventListener(
+  'keydown',
+  moveReviewNavigationTabFromKeyboard
+)
+elements.reviewNavigationProjects.addEventListener(
+  'keydown',
+  moveReviewNavigationTabFromKeyboard
+)
 elements.reviewFilter.addEventListener('change', () => {
   const value = elements.reviewFilter.value
   if (
@@ -5071,6 +5113,7 @@ async function rendererSmokeResult(): Promise<{
 async function initialize(): Promise<void> {
   const startupInfo = await bridge.getStartupInfo()
   startupUi.development(startupInfo.development)
+  installThemeTokenInspector(startupInfo)
   if (startupInfo.elementCallouts) {
     const callouts = installDevelopmentElementCallouts(document, {
       copyText: bridge.copyText,
@@ -5305,7 +5348,7 @@ void initialize().catch(async (error: unknown) => {
 })
 
 /* TEMPORARY theme-token inspector. Remove with its markup and styles. */
-{
+function installThemeTokenInspector(startupInfo: StartupInfo): void {
   interface TokenRow { readonly name: string }
   type Group = readonly [string, readonly TokenRow[]]
 
@@ -5380,9 +5423,19 @@ void initialize().catch(async (error: unknown) => {
   const inspector = document.querySelector<HTMLElement>('#theme-token-inspector')
   const close = document.querySelector<HTMLButtonElement>('#theme-token-inspector-close')
   const appHeaderBackground = document.querySelector<HTMLSelectElement>('#theme-token-inspector-app-header-background')
+  const showDocumentChecksum = document.querySelector<HTMLInputElement>('#theme-token-inspector-show-document-checksum')
   const list = document.querySelector<HTMLElement>('#theme-token-inspector-tokens')
 
-  if (inspector && close && appHeaderBackground && list) {
+  if (
+    startupInfo.development &&
+    inspector &&
+    close &&
+    appHeaderBackground &&
+    showDocumentChecksum &&
+    list
+  ) {
+    inspector.hidden = false
+    elements.checksum.hidden = !showDocumentChecksum.checked
     const root = document.documentElement
     const renderedRows: Array<{ name: string; value: HTMLElement; theme: boolean }> = []
 
@@ -5464,6 +5517,10 @@ void initialize().catch(async (error: unknown) => {
         root.style.removeProperty('--app-header-background')
       }
       refresh()
+    })
+
+    showDocumentChecksum.addEventListener('change', () => {
+      elements.checksum.hidden = !showDocumentChecksum.checked
     })
 
     close.addEventListener('click', () => { inspector.hidden = true })

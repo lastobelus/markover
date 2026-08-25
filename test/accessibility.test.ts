@@ -149,6 +149,16 @@ test('keyboard access reaches native controls and retains an explicit pane short
   )
 })
 
+test('left pane tabs expose their controlled review panel', () => {
+  const html = read('src/index.html')
+  const renderer = read('src/renderer.ts')
+
+  assert.match(html, /id="review-navigation-inbox"[\s\S]*role="tab"[\s\S]*aria-controls="documents-list-tree"/)
+  assert.match(html, /id="review-navigation-projects"[\s\S]*role="tab"[\s\S]*aria-controls="documents-list-tree"/)
+  assert.match(html, /id="documents-list-tree"[\s\S]*role="tabpanel"[\s\S]*aria-labelledby="review-navigation-inbox"/)
+  assert.match(renderer, /documentsListTree\.setAttribute\([\s\S]*'aria-labelledby',[\s\S]*review-navigation-inbox[\s\S]*review-navigation-projects/)
+})
+
 test('attachment preview and destructive workflow restore a useful focus target', () => {
   const dom = new JSDOM(read('src/index.html'))
   const document = dom.window.document

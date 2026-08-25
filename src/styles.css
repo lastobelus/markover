@@ -473,8 +473,8 @@ textarea {
 }
 
 .app-header-bar {
-  min-height: 84px;
-  padding: 18px 22px 14px;
+  min-height: 67px;
+  padding: 10px 22px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -699,56 +699,15 @@ p {
 }
 
 .review-navigation-tabs {
-  display: grid;
   min-width: 0;
   flex: none;
-  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding-inline: 8px;
   overflow: hidden;
 }
 
-.review-navigation-tab {
-  display: flex;
-  min-width: 0;
-  height: 30px;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  background: var(--review-navigation-bg);
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.review-navigation-tab + .review-navigation-tab {
-  border-left: 1px solid var(--line);
-}
-
-.review-navigation-tab:hover {
-  color: var(--ink);
-  background: rgb(var(--surface-rgb) / 74%);
-}
-
-.review-navigation-tab.is-active {
-  border-bottom-color: transparent;
-  color: var(--accent);
-  background: var(--left-pane-background);
-}
-
 .review-inbox-count {
-  display: inline-grid;
-  min-width: 18px;
-  height: 18px;
-  place-items: center;
-  padding: 0 5px;
-  border-radius: 999px;
-  color: var(--primary-contrast);
-  background: var(--accent-deep);
-  font-size: 9px;
-  font-weight: 600;
+  color: inherit;
 }
 
 .review-id-activation {
@@ -2608,7 +2567,7 @@ kbd {
   user-select: none;
 }
 
-.annotation-view-tabs {
+.pane-view-tabs {
   position: relative;
   display: flex;
   min-height: 28px;
@@ -2618,7 +2577,7 @@ kbd {
   gap: 18px;
 }
 
-.annotation-view-tabs::before {
+.pane-view-tabs::before {
   position: absolute;
   top: 0;
   right: 0;
@@ -2628,6 +2587,7 @@ kbd {
   content: "";
 }
 
+.left-pane:focus-within > .review-navigation-tabs::before,
 .right-pane:focus > .annotation-view-tabs::before,
 .right-pane:focus-within > .annotation-view-tabs::before,
 .right-pane.focus-within > .annotation-view-tabs::before {
@@ -2635,7 +2595,7 @@ kbd {
   background: var(--pane-label-color);
 }
 
-.annotation-view-tabs button {
+.pane-view-tabs > button {
   position: relative;
   min-width: 0;
   min-height: 28px;
@@ -2653,15 +2613,15 @@ kbd {
   white-space: nowrap;
 }
 
-.annotation-view-tabs button:hover:not(.is-active):not(:disabled) {
+.pane-view-tabs > button:hover:not(.is-active):not(:disabled) {
   color: var(--pane-label-hover);
 }
 
-.annotation-view-tabs button.is-active {
+.pane-view-tabs > button.is-active {
   color: var(--pane-label-color);
 }
 
-.annotation-view-tabs button.is-active::after {
+.pane-view-tabs > button.is-active::after {
   position: absolute;
   right: 0;
   bottom: 2px;
@@ -2671,7 +2631,7 @@ kbd {
   content: "";
 }
 
-.annotation-view-tabs button:disabled {
+.pane-view-tabs > button:disabled {
   cursor: default;
   opacity: 0.45;
 }
@@ -2857,6 +2817,13 @@ kbd {
   align-items: center;
   gap: 4px;
   padding-right: 6px;
+}
+
+.source-card-state {
+  color: var(--source-error);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .source-action {
@@ -4720,6 +4687,21 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
   color: var(--theme-token-inspector-foreground);
   background: var(--theme-token-inspector-control-background);
   font: 500 10px/1.3 var(--font-mono);
+}
+
+.theme-token-inspector-toggle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--theme-token-inspector-foreground);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.theme-token-inspector-toggle input {
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .theme-token-inspector-tokens {

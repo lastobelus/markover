@@ -282,7 +282,7 @@
       <div class="document-actions">
         <div class="document-meta">
           <strong id="document-name">sample.md</strong>
-          <span id="document-checksum">Loading…</span>
+          <span id="document-checksum" hidden>Loading…</span>
           <span id="document-source-state" class="document-source-state" hidden></span>
         </div>
         <button
@@ -345,18 +345,23 @@
 
     <main id="pane-layout" class="pane-layout" hidden>
       <aside id="left-pane" class="left-pane" hidden>
-        <nav class="review-navigation-tabs" aria-label="Review organization">
+        <nav class="review-navigation-tabs pane-view-tabs" role="tablist" aria-label="Review organization">
           <button
             id="review-navigation-inbox"
             class="review-navigation-tab is-active"
             type="button"
-            aria-pressed="true"
-          >Inbox <span id="review-inbox-count" class="review-inbox-count">0</span></button>
+            role="tab"
+            aria-selected="true"
+            aria-controls="documents-list-tree"
+          >Inbox <span id="review-inbox-count" class="review-inbox-count">(0)</span></button>
           <button
             id="review-navigation-projects"
             class="review-navigation-tab"
             type="button"
-            aria-pressed="false"
+            role="tab"
+            aria-selected="false"
+            aria-controls="documents-list-tree"
+            tabindex="-1"
           >Projects</button>
         </nav>
         <header class="documents-list-header">
@@ -386,7 +391,12 @@
           <button id="review-batch-accept" type="button" disabled>Accept unreviewed</button>
           <button id="review-batch-close" class="review-batch-close" type="button" aria-label="Exit batch status mode" title="Exit batch status mode">×</button>
         </div>
-        <div id="documents-list-tree" class="documents-list-tree"></div>
+        <div
+          id="documents-list-tree"
+          class="documents-list-tree"
+          role="tabpanel"
+          aria-labelledby="review-navigation-inbox"
+        ></div>
         <div
           id="left-pane-resizer"
           class="left-pane-resizer"
@@ -453,7 +463,7 @@
           aria-valuemin="360"
           tabindex="0"
         ></div>
-        <div class="annotation-view-tabs" role="tablist" aria-label="Right pane view">
+        <div class="annotation-view-tabs pane-view-tabs" role="tablist" aria-label="Right pane view">
           <button
             id="annotation-view-selected"
             class="is-active"
@@ -504,6 +514,7 @@
               <span id="source-toggle-icon" class="source-toggle-icon"></span>
             </button>
             <div class="source-header-actions">
+              <span id="source-card-state" class="source-card-state" hidden></span>
               <span id="source-diff-stats" class="source-diff-stats" hidden></span>
               <button id="source-revert" class="source-action" type="button" hidden>Revert</button>
               <button id="source-edit" class="source-action" type="button">Edit</button>
@@ -937,7 +948,7 @@
     </dialog>
 
     <!-- TEMPORARY theme-token inspector. Remove with its styles and wiring. -->
-    <div id="theme-token-inspector" class="theme-token-inspector">
+    <div id="theme-token-inspector" class="theme-token-inspector" hidden>
       <header>
         <span>Theme tokens</span>
         <button id="theme-token-inspector-close" type="button" aria-label="Hide theme-token inspector">&times;</button>
@@ -945,6 +956,10 @@
       <label class="theme-token-inspector-field">
         <span>App header background</span>
         <select id="theme-token-inspector-app-header-background"></select>
+      </label>
+      <label class="theme-token-inspector-toggle">
+        <input id="theme-token-inspector-show-document-checksum" type="checkbox">
+        <span>Show document checksum</span>
       </label>
       <div id="theme-token-inspector-tokens" class="theme-token-inspector-tokens"></div>
     </div>
