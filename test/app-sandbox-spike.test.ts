@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { classifyAppSandboxSpikeFailure } from '../scripts/app-sandbox-spike'
+import {
+  classifyAppSandboxSpikeFailure,
+  readSmokeTimeoutEvidence
+} from '../scripts/app-sandbox-spike'
 
 const root = path.resolve(__dirname, '../..')
 
@@ -19,6 +23,23 @@ test('classifies the finite ad-hoc Electron rendezvous blocker', () => {
         'Electron MAS process rendezvous was denied because the ad-hoc spike has no shared Apple Team ID application group.'
     }
   )
+})
+
+test('reads the smoke runner timeout result without accepting malformed evidence', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'markover-smoke-timeout-'))
+  t.after(() => {
+    fs.rmSync(directory, { recursive: true, force: true })
+  })
+  const timeoutPath = path.join(directory, 'timeout.json')
+
+  fs.writeFileSync(timeoutPath, '{"timedOut":true}\n')
+  assert.equal(readSmokeTimeoutEvidence(timeoutPath), true)
+
+  fs.writeFileSync(timeoutPath, '{"timedOut":false}\n')
+  assert.equal(readSmokeTimeoutEvidence(timeoutPath), false)
+
+  fs.writeFileSync(timeoutPath, 'not json')
+  assert.equal(readSmokeTimeoutEvidence(timeoutPath), false)
 })
 
 test('spike entitlements stay separate from production profiles', () => {

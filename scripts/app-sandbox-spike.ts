@@ -150,6 +150,17 @@ export function classifyAppSandboxSpikeFailure(
   }
 }
 
+export function readSmokeTimeoutEvidence(timeoutPath: string): boolean {
+  try {
+    const value: unknown = JSON.parse(fs.readFileSync(timeoutPath, 'utf8'))
+    return value !== null &&
+      typeof value === 'object' &&
+      Reflect.get(value, 'timedOut') === true
+  } catch {
+    return false
+  }
+}
+
 function stripProductionUrlScheme(): void {
   const infoPlist = path.join(appPath, 'Contents', 'Info.plist')
   const result = command(
@@ -271,9 +282,15 @@ async function main(): Promise<void> {
       timeout: 75_000
     }
   )
-  const timedOut = runtime.error !== undefined &&
+  const outerTimedOut = runtime.error !== undefined &&
     'code' in runtime.error &&
     runtime.error.code === 'ETIMEDOUT'
+  const runnerTimedOut = runtime.status !== 0 &&
+    /Smoke failed; evidence saved to /.test(runtime.stderr) &&
+    readSmokeTimeoutEvidence(
+      path.join(projectDirectory, 'tmp', 'smoke-failures', 'timeout.json')
+    )
+  const timedOut = outerTimedOut || runnerTimedOut
   const launched = runtime.status === 0
   const classification = launched
     ? null
