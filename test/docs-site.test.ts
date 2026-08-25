@@ -30,6 +30,10 @@ const compatibility = fs.readFileSync(
   path.join(userDirectory, 'compatibility/index.html'),
   'utf8'
 )
+const remoteAccess = fs.readFileSync(
+  path.join(userDirectory, 'remote-access/index.html'),
+  'utf8'
+)
 const compatibilityCatalog = JSON.parse(fs.readFileSync(
   path.join(userDirectory, 'compatibility/catalog.json'),
   'utf8'
@@ -279,6 +283,7 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/releasing.md')), false)
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/developer/releasing.md')), true)
   assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/user/agents/index.html')), true)
+  assert.equal(fs.existsSync(path.join(projectDirectory, 'docs/user/remote-access/index.html')), true)
   assert.match(readme, /docs\/developer\/README\.md/)
   assert.match(developerIndex, /User pages explain consequences\s+and actions/)
   assert.match(developerIndex, /Developer documentation may link to those pages/)
@@ -307,6 +312,7 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.doesNotMatch(guide, /1,500 milliseconds|persistence budget|exponential backoff/)
   assert.match(guide, /Start a review with an agent/)
   assert.match(guide, /Tell your agent the review is ready/)
+  assert.match(guide, /tailnet-only Tailscale Serve example/)
   assert.match(guide, /File → Open Markdown…/)
   assert.match(guide, /creates a managed local review/)
   assert.match(guide, /open <strong>Review context<\/strong>/)
@@ -324,6 +330,19 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(agents, /Validate the handoff before reading it/)
   assert.match(agents, /official compatibility catalog/)
   assert.match(agents, /Human reviewers should start with/)
+})
+
+test('the public Tailscale example is additive, private, and placeholder-only', () => {
+  assert.match(remoteAccess, /tailscale serve status --json/)
+  assert.match(remoteAccess, /tailscale funnel status --json/)
+  assert.match(remoteAccess, /--accept-app-caps=lastobelus\.com\/cap\/markover-remote-client/)
+  assert.match(remoteAccess, /DEDICATED_HTTPS_PORT='replace-with-an-unused-port'/)
+  assert.match(remoteAccess, /MARKOVER_LOOPBACK_PORT='replace-with-the-markover-port'/)
+  assert.match(remoteAccess, /An unavailable backend is still owned/)
+  assert.match(remoteAccess, /Every pre-existing Serve handler is unchanged/)
+  assert.match(remoteAccess, /Funnel has no grant for the Markover port/)
+  assert.doesNotMatch(remoteAccess, /:\d{2,5}/)
+  assert.doesNotMatch(remoteAccess, /https:\/\/[^<\s]*\.ts\.net/)
 })
 
 test('the early-preview contract is concise and consistent on user entry paths', () => {
@@ -391,7 +410,8 @@ test('every local user-documentation link and asset stays inside the user root',
     'compatibility/index.html',
     'guide/index.html',
     'limitations/index.html',
-    'privacy/index.html'
+    'privacy/index.html',
+    'remote-access/index.html'
   ]) {
     const filePath = path.join(deployedUserDirectory, relativePath)
     const dom = new JSDOM(fs.readFileSync(filePath, 'utf8'))

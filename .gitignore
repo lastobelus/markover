@@ -7,5 +7,6 @@ packages/cli/bin/
 npm-debug.log*
 .markover/
 tmp/
+doc/lastobelus/
 src/vendor/
 *.af~lock~
