@@ -46,7 +46,7 @@ test('production inbox shares responsibility filters and retains All history', (
   )
   assert.match(html, /id="review-filter"[\s\S]*value="needs-me"[\s\S]*value="with-agent"[\s\S]*value="completed"[\s\S]*value="all"/)
   assert.doesNotMatch(leftPane, /id="review-list-count"|class="eyebrow">Reviews/)
-  assert.match(styles, /\.review-filter \{/)
+  assert.match(styles, /\.review-filter \{[^}]*color: var\(--muted\);/)
   assert.match(renderer, /historyGroup\.className = 'review-history-group'/)
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)
   assert.match(

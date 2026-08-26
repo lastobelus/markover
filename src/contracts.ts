@@ -521,6 +521,7 @@ declare global {
     onInlineImage?: ((source: string, label: string) => void) | undefined
     onSelect?: ((node: TNode) => void) | undefined
     onEdit?: ((node: TNode) => void) | null | undefined
+    renderEditIcon?: (() => Element) | undefined
     renderTitle?: ((title: string) => string) | undefined
     renderMarkdown: (value: string) => string
   }

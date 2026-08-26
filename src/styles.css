@@ -874,7 +874,7 @@ p {
   padding: 0 22px 0 7px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  color: var(--ink);
+  color: var(--muted);
   background-color: rgb(var(--surface-rgb) / 78%);
   font: 600 9px/1 var(--font-sans);
   letter-spacing: 0;
@@ -2746,6 +2746,11 @@ kbd {
   border-color: var(--accent);
   color: var(--accent-deep);
   background: var(--accent-soft);
+}
+
+.rendered-annotation-edit .lucide-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .annotation-list-empty {

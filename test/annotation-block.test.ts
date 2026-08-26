@@ -24,6 +24,9 @@ const styles = fs.readFileSync(
   path.join(__dirname, '../app/src/styles.css'),
   'utf8'
 )
+const renderer = fs.readFileSync(path.join(__dirname, '../../src/renderer.ts'), 'utf8')
+const icons = fs.readFileSync(path.join(__dirname, '../../src/lucide-icons.ts'), 'utf8')
+const annotationBlock = fs.readFileSync(path.join(__dirname, '../../src/annotation-block.ts'), 'utf8')
 
 test('builds one annotation view model for previews and list entries', () => {
   assert.deepEqual(model({
@@ -239,6 +242,11 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
     },
     onEdit: (node) => {
       calls.push(`edit:${node.id}`)
+    },
+    renderEditIcon: () => {
+      const icon = window.document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      icon.classList.add('lucide-icon')
+      return icon
     }
   })
 
@@ -251,6 +259,7 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
     element(element(selectedBlock.querySelector('.rendered-annotation-edit')).parentElement).className,
     'rendered-annotation-body has-edit'
   )
+  assert.ok(selectedBlock.querySelector('.rendered-annotation-edit .lucide-icon'))
   assert.equal(
     element(selectedBlock.querySelector<HTMLImageElement>('.rendered-annotation-attachment img')).src,
     'file:///tmp/img-2.png'
@@ -300,6 +309,10 @@ test('annotation list cards use scannable titles, compact thumbnails, and primar
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment \{[^}]*padding: 0;/)
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment span \{[^}]*display: none;/)
   assert.match(styles, /\.rendered-annotation-edit \{[^}]*color: var\(--muted\);[^}]*background: rgb\(var\(--surface-rgb\) \/ 72%\);/)
+  assert.match(styles, /\.rendered-annotation-edit \.lucide-icon \{[^}]*width: 16px;[^}]*height: 16px;/)
+  assert.match(icons, /PenLine/)
+  assert.match(renderer, /renderEditIcon: \(\) => markoverIcon\('pen-line'\)/)
+  assert.doesNotMatch(annotationBlock, /✎/)
   assert.match(styles, /\.annotation-list-view \{[^}]*min-width: 0;[^}]*overflow-x: hidden;/)
   assert.match(styles, /\.annotation-list \{[^}]*grid-template-columns: minmax\(0, 1fr\);/)
   assert.match(styles, /\.annotation-list \.rendered-annotation \{[^}]*min-width: 0;[^}]*overflow: hidden;/)

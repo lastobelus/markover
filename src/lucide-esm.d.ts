@@ -13,6 +13,7 @@ declare module 'lucide/dist/esm/lucide/src/lucide.js' {
     MessagesSquare,
     PanelLeft,
     PanelLeftClose,
+    PenLine,
     Server,
     createElement
   } from 'lucide'

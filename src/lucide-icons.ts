@@ -12,6 +12,7 @@ import {
   MessagesSquare,
   PanelLeft,
   PanelLeftClose,
+  PenLine,
   Server,
   createElement as createLucideElement,
   type IconNode
@@ -31,6 +32,7 @@ const icons = {
   'messages-square': MessagesSquare,
   'panel-left': PanelLeft,
   'panel-left-close': PanelLeftClose,
+  'pen-line': PenLine,
   server: Server
 } satisfies Record<string, IconNode>
 

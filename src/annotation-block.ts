@@ -127,13 +127,16 @@
     }
     const onEdit = options.onEdit
     if (onEdit) {
+      if (!options.renderEditIcon) {
+        throw new Error('Editable annotations require an edit icon renderer')
+      }
       body.classList.add('has-edit')
       const edit = document.createElement('button')
       edit.className = 'rendered-annotation-edit'
       edit.type = 'button'
       edit.title = 'Edit annotation'
       edit.setAttribute('aria-label', `Edit annotation on ${view.lineLabel}`)
-      edit.textContent = '✎'
+      edit.append(options.renderEditIcon())
       edit.addEventListener('click', (event) => {
         event.stopPropagation()
         onEdit(options.node)
@@ -221,6 +224,7 @@
         onInlineImage: options.onInlineImage,
         onSelect: options.onSelect,
         onEdit: options.onEdit,
+        renderEditIcon: options.renderEditIcon,
         renderTitle: options.renderTitle,
         renderMarkdown: options.renderMarkdown
       })

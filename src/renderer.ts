@@ -804,6 +804,7 @@ function createRenderedAnnotation(
     onAttachment: options.mode === 'peek' ? null : openImagePreview,
     onEdit: options.onEdit,
     onSelect: options.onSelect,
+    renderEditIcon: () => markoverIcon('pen-line'),
     renderTitle: (title) => inlineMarkdown.renderInline(title),
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
   })
@@ -1821,6 +1822,7 @@ function renderAnnotationList(): void {
     onInlineImage: openSourceImagePreview,
     onSelect: selectAnnotationFromList,
     onEdit: isCurrentReviewEditable() ? editAnnotationFromList : null,
+    renderEditIcon: () => markoverIcon('pen-line'),
     renderTitle: (title) => inlineMarkdown.renderInline(title),
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
   })
