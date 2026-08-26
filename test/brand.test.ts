@@ -194,7 +194,7 @@ test('the working header aligns the brand and exact review identity', () => {
     html.indexOf('</aside>', html.indexOf('<aside id="left-pane"'))
   )
 
-  assert.match(styles, /\.app-header-bar \{[^}]*min-height: 67px;[^}]*padding: 10px 22px 8px 10px;/)
+  assert.match(styles, /\.app-header-bar \{[^}]*min-height: 67px;[^}]*padding: 10px 22px 8px 12px;/)
   assert.match(styles, /\.brand \{[^}]*align-items: flex-end;[^}]*transform: translateY\(6px\);/)
   assert.match(styles, /\.brand-mark \{[^}]*width: calc\(161px \* var\(--brand-scale, 0\.82\)\);/)
   assert.match(styles, /\.review-list-row-open \{[^}]*padding: 6px 9px 6px 6px;/)
