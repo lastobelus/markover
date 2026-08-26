@@ -345,37 +345,26 @@
 
     <main id="pane-layout" class="pane-layout" hidden>
       <aside id="left-pane" class="left-pane" hidden>
-        <nav class="review-navigation-tabs pane-view-tabs" role="tablist" aria-label="Review organization">
-          <button
-            id="review-navigation-inbox"
-            class="review-navigation-tab is-active"
-            type="button"
-            role="tab"
-            aria-selected="true"
-            aria-controls="documents-list-tree"
-          >Inbox <span id="review-inbox-count" class="review-inbox-count">(0)</span></button>
-          <button
-            id="review-navigation-projects"
-            class="review-navigation-tab"
-            type="button"
-            role="tab"
-            aria-selected="false"
-            aria-controls="documents-list-tree"
-            tabindex="-1"
-          >Projects</button>
-        </nav>
-        <header class="documents-list-header">
-          <div class="pane-header-leading">
-            <span class="eyebrow">Reviews</span>
-            <span id="review-list-count" class="review-list-count"></span>
-          </div>
-          <label class="visually-hidden" for="review-filter">Filter reviews</label>
-          <select id="review-filter" class="review-filter" aria-label="Filter reviews">
-            <option value="needs-me">Needs me</option>
-            <option value="with-agent">With agent</option>
-            <option value="completed">Completed</option>
-            <option value="all">All</option>
-          </select>
+        <div class="review-navigation-bar">
+          <nav class="review-navigation-tabs pane-view-tabs" role="tablist" aria-label="Review organization">
+            <button
+              id="review-navigation-inbox"
+              class="review-navigation-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="documents-list-tree"
+            >Inbox <span id="review-inbox-count" class="review-inbox-count">(0)</span></button>
+            <button
+              id="review-navigation-projects"
+              class="review-navigation-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="documents-list-tree"
+              tabindex="-1"
+            >Projects</button>
+          </nav>
           <button
             id="left-pane-collapse"
             class="left-pane-disclosure"
@@ -384,6 +373,15 @@
             aria-label="Collapse left pane"
             aria-expanded="true"
           ></button>
+        </div>
+        <header class="documents-list-header">
+          <label class="visually-hidden" for="review-filter">Filter reviews</label>
+          <select id="review-filter" class="review-filter" aria-label="Filter reviews">
+            <option value="needs-me">Needs me</option>
+            <option value="with-agent">With agent</option>
+            <option value="completed">Completed</option>
+            <option value="all">All</option>
+          </select>
         </header>
         <div id="review-batch-actions" class="review-batch-actions" hidden>
           <span id="review-batch-count">0 selected</span>

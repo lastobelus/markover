@@ -152,7 +152,14 @@ test('keyboard access reaches native controls and retains an explicit pane short
 test('left pane tabs expose their controlled review panel', () => {
   const html = read('src/index.html')
   const renderer = read('src/renderer.ts')
+  const dom = new JSDOM(html)
+  const tablist = dom.window.document.querySelector('[aria-label="Review organization"]')
+  const collapse = dom.window.document.querySelector('#left-pane-collapse')
 
+  assert.ok(tablist)
+  assert.ok(collapse)
+  assert.equal(tablist.querySelectorAll(':scope > [role="tab"]').length, 2)
+  assert.equal(tablist.contains(collapse), false)
   assert.match(html, /id="review-navigation-inbox"[\s\S]*role="tab"[\s\S]*aria-controls="documents-list-tree"/)
   assert.match(html, /id="review-navigation-projects"[\s\S]*role="tab"[\s\S]*aria-controls="documents-list-tree"/)
   assert.match(html, /id="documents-list-tree"[\s\S]*role="tabpanel"[\s\S]*aria-labelledby="review-navigation-inbox"/)

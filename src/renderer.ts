@@ -209,7 +209,6 @@ const elements = {
   reviewFilter: requiredElement<HTMLSelectElement>('#review-filter'),
   reviewIdActivation: requiredElement<HTMLFormElement>('#review-id-activation'),
   reviewIdInput: requiredElement<HTMLInputElement>('#review-id-input'),
-  reviewListCount: requiredElement('#review-list-count'),
   reviewNavigationInbox: requiredElement<HTMLButtonElement>('#review-navigation-inbox'),
   reviewNavigationProjects: requiredElement<HTMLButtonElement>('#review-navigation-projects'),
   reviewResolutionCancel: requiredElement<HTMLButtonElement>('#review-resolution-cancel'),
@@ -3556,13 +3555,6 @@ function renderDocumentsList(): void {
     option.textContent = `${filterLabels[value]} (${String(projection.filterCounts[value])})`
   }
   elements.reviewFilter.value = reviewFilter
-  elements.reviewListCount.textContent = reviewNavigationMode === 'inbox'
-    ? `${projection.filterCounts[reviewFilter]} ${filterLabels[reviewFilter].toLowerCase()}${incompatibleReviews.length
-      ? ` · ${incompatibleReviews.length} incompatible`
-      : ''}`
-    : `${projection.projects.length} projects${incompatibleReviews.length
-      ? ` · ${incompatibleReviews.length} incompatible`
-      : ''}`
   applyLeftPaneWidth()
   applyRightPaneWidth()
   elements.documentsListTree.replaceChildren()
@@ -3587,6 +3579,10 @@ function applyLeftPaneWidth(): void {
   elements.paneLayout.style.setProperty(
     '--left-pane-width',
     `${leftPaneWidth}px`
+  )
+  elements.appHeader.style.setProperty(
+    '--left-pane-column-width',
+    leftPaneCollapsed ? '0px' : `${leftPaneWidth}px`
   )
   elements.reviewTabStrip.style.setProperty(
     '--left-pane-width',
@@ -3631,6 +3627,10 @@ function applyRightPaneWidth(): void {
       `${rightPaneWidth}px`
     )
   }
+  elements.appHeader.style.setProperty(
+    '--right-pane-column-width',
+    `${clampedWidth}px`
+  )
   elements.rightPaneResizer.setAttribute(
     'aria-valuenow',
     String(Math.round(clampedWidth))

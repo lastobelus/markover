@@ -25,6 +25,7 @@ test('production review navigation shares the strip with exact-ID activation', (
 })
 
 test('production inbox shares responsibility filters and retains All history', () => {
+  const html = read('src/index.html')
   const renderer = read('src/renderer.ts')
   const icons = read('src/lucide-icons.ts')
   const registry = read('src/review-icon-registry.ts')
@@ -39,7 +40,12 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /projection\.filterCounts\['needs-me'\]/)
   assert.match(renderer, /elements\.reviewFilter\.addEventListener\('change'/)
   assert.match(renderer, /selectedReviewIds\.clear\(\)[\s\S]*setReviewNavigationMode\('projects'\)/)
-  assert.match(read('src/index.html'), /id="review-filter"[\s\S]*value="needs-me"[\s\S]*value="with-agent"[\s\S]*value="completed"[\s\S]*value="all"/)
+  const leftPane = html.slice(
+    html.indexOf('<aside id="left-pane"'),
+    html.indexOf('</aside>', html.indexOf('<aside id="left-pane"'))
+  )
+  assert.match(html, /id="review-filter"[\s\S]*value="needs-me"[\s\S]*value="with-agent"[\s\S]*value="completed"[\s\S]*value="all"/)
+  assert.doesNotMatch(leftPane, /id="review-list-count"|class="eyebrow">Reviews/)
   assert.match(styles, /\.review-filter \{/)
   assert.match(renderer, /historyGroup\.className = 'review-history-group'/)
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)

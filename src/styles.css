@@ -473,8 +473,9 @@ textarea {
 }
 
 .app-header-bar {
+  position: relative;
   min-height: 67px;
-  padding: 10px 22px 8px;
+  padding: 10px 22px 8px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -593,12 +594,15 @@ p {
 }
 
 .document-meta {
+  position: absolute;
+  right: var(--right-pane-column-width, 360px);
+  left: var(--left-pane-column-width, 0px);
   display: flex;
   min-width: 0;
-  flex: 1 1 auto;
   flex-direction: column;
-  align-items: flex-end;
-  margin-right: 8px;
+  align-items: center;
+  padding-inline: 24px;
+  text-align: center;
 }
 
 .document-meta strong {
@@ -698,12 +702,47 @@ p {
   grid-template-columns: 0 minmax(0, 1fr);
 }
 
+.review-navigation-bar {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  flex: none;
+  align-items: center;
+}
+
+.review-navigation-bar::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--line);
+  content: "";
+}
+
+.left-pane:focus-within > .review-navigation-bar::before {
+  height: 4px;
+  background: var(--pane-label-color);
+}
+
 .review-navigation-tabs {
   min-width: 0;
-  flex: none;
+  flex: 1 1 auto;
   gap: 6px;
-  padding-inline: 8px;
+  padding: 0 6px 0 8px;
   overflow: hidden;
+}
+
+.review-navigation-tabs::before {
+  display: none;
+}
+
+.review-navigation-bar > .left-pane-disclosure {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 24px;
+  margin-right: 4px;
 }
 
 .review-inbox-count {
@@ -819,18 +858,13 @@ p {
   height: var(--pane-header-height);
   min-height: var(--pane-header-height);
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 0 5px;
   color: var(--pane-label-color);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-.documents-list-header .pane-header-leading {
-  min-width: 0;
-  margin-right: auto;
 }
 
 .review-filter {
@@ -936,17 +970,6 @@ p {
   top: 5px;
   right: 6px;
   bottom: auto;
-}
-
-.review-list-count {
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  text-transform: none;
-  white-space: nowrap;
 }
 
 .left-pane-disclosure {
@@ -2587,7 +2610,6 @@ kbd {
   content: "";
 }
 
-.left-pane:focus-within > .review-navigation-tabs::before,
 .right-pane:focus > .annotation-view-tabs::before,
 .right-pane:focus-within > .annotation-view-tabs::before,
 .right-pane.focus-within > .annotation-view-tabs::before {
