@@ -217,6 +217,12 @@ const elements = {
   reviewResolutionMessage: requiredElement('#review-resolution-message'),
   reviewResolutionSummaries: requiredElement('#review-resolution-summaries'),
   reviewResolutionTitle: requiredElement('#review-resolution-title'),
+  reviewTrashCancel: requiredElement<HTMLButtonElement>('#review-trash-cancel'),
+  reviewTrashConfirm: requiredElement<HTMLButtonElement>('#review-trash-confirm'),
+  reviewTrashDetail: requiredElement('#review-trash-detail'),
+  reviewTrashDialog: requiredElement<HTMLDialogElement>('#review-trash-dialog'),
+  reviewTrashIcon: requiredElement('#review-trash-icon'),
+  reviewTrashMessage: requiredElement('#review-trash-message'),
   reviewTabStrip: requiredElement('#review-tab-strip'),
   appEmptyStateLockup: requiredElement<HTMLImageElement>('#app-empty-state-lockup'),
   fixedContractClose: requiredElement<HTMLButtonElement>('#fixed-contract-close'),
@@ -242,6 +248,7 @@ replaceMarkoverIcon(elements.leftPaneCollapse, 'panel-left-close')
 replaceMarkoverIcon(elements.leftPaneOpen, 'panel-left')
 replaceMarkoverIcon(elements.settingsClose, 'x', 'settings-close-icon')
 replaceMarkoverIcon(elements.fixedContractClose, 'x', 'settings-close-icon')
+replaceMarkoverIcon(elements.reviewTrashIcon, 'triangle-alert', 'review-trash-icon-svg')
 
 const state: RendererState = {
   attachmentPreviewUrls: new Map<string, string>(),
@@ -288,6 +295,7 @@ let developmentElementCallouts: DevelopmentElementCallouts | null = null
 let statusAnnouncementFrame: number | null = null
 let imagePreviewReturnFocus: HTMLElement | null = null
 let resolutionDialogCompletion: ((confirmed: boolean) => void) | null = null
+let trashDialogCompletion: ((confirmed: boolean) => void) | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
 let t3ThreadTitles: T3ThreadTitleSnapshot = {
@@ -561,6 +569,7 @@ const BRIDGE_METHODS = [
   'openPullRequest',
   'openReviewContextMenu',
   'onReviewResolutionConfirmation',
+  'onReviewTrashConfirmation',
   'onReviewBatchModeRequested',
   'readClipboardImage',
   'reportRendererInitialized',
@@ -2888,6 +2897,30 @@ function finishResolutionConfirmation(confirmed: boolean): void {
   complete(confirmed)
 }
 
+function completeReviewTrashConfirmation(confirmed: boolean): void {
+  const complete = trashDialogCompletion
+  if (!complete) return
+  trashDialogCompletion = null
+  if (elements.reviewTrashDialog.open) elements.reviewTrashDialog.close()
+  complete(confirmed)
+}
+
+function showReviewTrashConfirmation(
+  request: ReviewTrashConfirmationRequest
+): Promise<boolean> {
+  if (trashDialogCompletion) completeReviewTrashConfirmation(false)
+  elements.reviewTrashMessage.textContent = request.pendingAgent
+    ? 'The agent may still be using this review. Its next read or update will fail.'
+    : 'This removes the review from Markover.'
+  elements.reviewTrashMessage.classList.toggle('is-warning', request.pendingAgent)
+  elements.reviewTrashDetail.textContent = `The entire ${request.reviewId} review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.`
+  elements.reviewTrashDialog.showModal()
+  elements.reviewTrashCancel.focus()
+  return new Promise<boolean>((resolve) => {
+    trashDialogCompletion = resolve
+  })
+}
+
 function resolutionBlockPreview(
   block: ReviewResolutionSummaryBlock
 ): string {
@@ -4844,6 +4877,15 @@ elements.reviewResolutionConfirm.addEventListener('click', () => {
 elements.reviewResolutionDialog.addEventListener('close', () => {
   finishResolutionConfirmation(false)
 })
+elements.reviewTrashCancel.addEventListener('click', () => {
+  completeReviewTrashConfirmation(false)
+})
+elements.reviewTrashConfirm.addEventListener('click', () => {
+  completeReviewTrashConfirmation(true)
+})
+elements.reviewTrashDialog.addEventListener('close', () => {
+  completeReviewTrashConfirmation(false)
+})
 elements.leftPaneResizer.addEventListener(
   'pointerdown',
   beginLeftPaneResize
@@ -5195,6 +5237,9 @@ async function initialize(): Promise<void> {
   bridge.onReviewResolutionConfirmation((request) => (
     showReviewResolutionConfirmation(request)
   ))
+  bridge.onReviewTrashConfirmation((request) => (
+    showReviewTrashConfirmation(request)
+  ))
   bridge.onReviewBatchModeRequested(() => {
     if (!batchResolutionMode) {
       batchResolutionMode = true
@@ -5399,14 +5444,16 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
       t('--theme-token-inspector-shadow-color'),
       t('--theme-token-inspector-foreground'),
       t('--theme-token-inspector-muted-foreground'),
-      t('--theme-token-inspector-control-background'),
-      t('--theme-token-inspector-duplicate-foreground')
+      t('--theme-token-inspector-control-background')
     ]],
     ['Buttons', [
       t('--primary-button-bg'),
       t('--primary-button-hover'),
       t('--primary-button-text'),
-      t('--primary-button-hover-text')
+      t('--primary-button-hover-text'),
+      t('--danger-button-bg'),
+      t('--danger-button-hover'),
+      t('--danger-button-text')
     ]],
     ['Pane labels', [
       t('--pane-label-base'),
@@ -5441,9 +5488,12 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
     inspector.hidden = false
     elements.checksum.hidden = !showDocumentChecksum.checked
     const root = document.documentElement
-    const renderedRows: Array<{ name: string; value: HTMLElement; theme: boolean }> = []
+    const renderedRows: Array<{ name: string; value: HTMLElement }> = []
+    const colorProbe = document.createElement('i')
+    colorProbe.hidden = true
+    inspector.append(colorProbe)
 
-    const addGroups = (groups: readonly Group[], theme: boolean): void => {
+    const addGroups = (groups: readonly Group[]): void => {
       for (const [group, tokens] of groups) {
         const heading = document.createElement('div')
         heading.className = 'theme-token-inspector-group'
@@ -5462,7 +5512,7 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
           label.textContent = token.name
 
           const value = document.createElement('span')
-          renderedRows.push({ name: token.name, value, theme })
+          renderedRows.push({ name: token.name, value })
 
           row.append(swatch, label, value)
           list.append(row)
@@ -5470,8 +5520,8 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
       }
     }
 
-    addGroups(THEME, true)
-    addGroups(SEMANTIC, false)
+    addGroups(THEME)
+    addGroups(SEMANTIC)
 
     const defaultOption = document.createElement('option')
     defaultOption.value = ''
@@ -5489,28 +5539,22 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
       }
     }
 
-    /* Theme values must be unique; flag any literal that appears twice. */
+    /* Display each rendered colour once. Theme rows are ordered first, so a
+       semantic role that resolves to a theme colour names that canonical token. */
     const refresh = (): void => {
       const computed = getComputedStyle(root)
-      const seen = new Map<string, string[]>()
+      const owners = new Map<string, string>()
       for (const row of renderedRows) {
-        const value = computed.getPropertyValue(row.name).trim()
-        row.value.textContent = value
-        row.value.title = value
-        if (row.theme) {
-          const names = seen.get(value) || []
-          names.push(row.name)
-          seen.set(value, names)
-        }
-      }
-      for (const row of renderedRows) {
-        if (!row.theme) continue
-        const names = seen.get(row.value.textContent || '') || []
-        const duplicate = names.length > 1
-        row.value.classList.toggle('is-duplicate', duplicate)
-        row.value.title = duplicate
-          ? `${row.value.textContent} · same colour as ${names.filter((n) => n !== row.name).join(', ')}`
-          : row.value.textContent || ''
+        const customPropertyValue = computed.getPropertyValue(row.name).trim()
+        colorProbe.style.backgroundColor = `var(${row.name})`
+        const renderedColor = getComputedStyle(colorProbe).backgroundColor
+        const colorKey = renderedColor || customPropertyValue
+        const owner = owners.get(colorKey)
+        row.value.textContent = owner || customPropertyValue || renderedColor
+        row.value.title = owner
+          ? `${owner} · ${customPropertyValue || renderedColor}`
+          : customPropertyValue || renderedColor
+        if (!owner) owners.set(colorKey, row.name)
       }
     }
 

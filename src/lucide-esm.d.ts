@@ -15,6 +15,7 @@ declare module 'lucide/dist/esm/lucide/src/lucide.js' {
     PanelLeftClose,
     PenLine,
     Server,
+    TriangleAlert,
     X,
     createElement
   } from 'lucide'

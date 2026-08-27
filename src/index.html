@@ -979,6 +979,29 @@
       </div>
     </dialog>
 
+    <dialog
+      id="review-trash-dialog"
+      class="review-trash-dialog"
+      aria-labelledby="review-trash-title"
+      aria-describedby="review-trash-safety review-trash-message review-trash-detail"
+    >
+      <div class="review-trash-layout">
+        <div class="review-trash-heading">
+          <div id="review-trash-icon" class="review-trash-icon"></div>
+          <h2 id="review-trash-title">Move this review to Trash?</h2>
+        </div>
+        <div class="review-trash-copy">
+          <p id="review-trash-safety" class="review-trash-safety">Your original Markdown document will not be changed or deleted.</p>
+          <p id="review-trash-message">This removes the review from Markover.</p>
+          <p id="review-trash-detail">The complete review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.</p>
+        </div>
+        <footer class="review-trash-actions">
+          <button id="review-trash-cancel" class="button button-secondary" type="button">Cancel</button>
+          <button id="review-trash-confirm" class="button button-danger" type="button">Move to Trash</button>
+        </footer>
+      </div>
+    </dialog>
+
     <!-- TEMPORARY theme-token inspector. Remove with its styles and wiring. -->
     <div id="theme-token-inspector" class="theme-token-inspector" hidden>
       <header>

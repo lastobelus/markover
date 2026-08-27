@@ -47,6 +47,10 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(html, /id="review-filter"[\s\S]*value="needs-me"[\s\S]*value="with-agent"[\s\S]*value="completed"[\s\S]*value="all"/)
   assert.doesNotMatch(leftPane, /id="review-list-count"|class="eyebrow">Reviews/)
   assert.match(styles, /\.review-filter \{[^}]*color: var\(--muted\);/)
+  assert.match(styles, /\.review-selection \{[^}]*top: 50%;[^}]*margin: 0;[^}]*transform: translateY\(-50%\);/)
+  assert.match(html, /class="review-trash-heading">[\s\S]*id="review-trash-icon"[\s\S]*id="review-trash-title"/)
+  assert.match(styles, /\.review-trash-heading \{[^}]*align-items: center;[^}]*justify-content: center;[^}]*gap: 16px;/)
+  assert.match(styles, /\.review-trash-actions \{[^}]*grid-template-columns: 1fr 1fr;/)
   assert.match(renderer, /historyGroup\.className = 'review-history-group'/)
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)
   assert.match(

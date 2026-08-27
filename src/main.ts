@@ -184,6 +184,11 @@ interface PendingResolutionConfirmation {
   timeout: ReturnType<typeof setTimeout>
 }
 
+interface PendingTrashConfirmation {
+  resolve: (confirmed: boolean) => void
+  timeout: ReturnType<typeof setTimeout>
+}
+
 interface PendingElementCallout {
   reject: (reason?: unknown) => void
   resolve: (result: DevelopmentElementCalloutResult) => void
@@ -290,6 +295,7 @@ let snapshotSequence = 0
 let statusSequence = 0
 let activationSequence = 0
 let resolutionSequence = 0
+let trashConfirmationSequence = 0
 let elementCalloutSequence = 0
 let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
 let startupDiagnostic: StartupDiagnostic | null = null
@@ -316,6 +322,7 @@ const pendingResolutionConfirmations = new Map<
   string,
   PendingResolutionConfirmation
 >()
+const pendingTrashConfirmations = new Map<string, PendingTrashConfirmation>()
 const pendingElementCallouts = new Map<string, PendingElementCallout>()
 const pendingManagedReviewNotifications = new Map<string, MarkoverDocument>()
 const reviewProjectContexts = new Map<string, Promise<ReviewProjectContext>>()
@@ -822,33 +829,11 @@ async function confirmReviewTrash(
 ): Promise<ReviewDeletionPolicy | null> {
   const artifact = await requireReviewStore().load(reviewId)
   const policy = reviewDeletionPolicy(artifact.review.status)
-  const pendingAgent = policy === 'pending-agent'
-  const options = {
-    type: 'warning' as const,
-    buttons: ['Move to Trash', 'Cancel'],
-    defaultId: 1,
-    cancelId: 1,
-    noLink: true,
-    message: [
-      pendingAgent
-        ? 'Move this review to Trash while it is with the agent?'
-        : 'Move this review to Trash?',
-      '',
-      'Your original Markdown document will not be changed or deleted.'
-    ].join('\n'),
-    detail: [
-      pendingAgent
-        ? 'The agent may still be using this review. Its next read or update will fail.'
-        : 'This removes the review from Markover.',
-      '',
-      `The entire ${reviewId} review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.`
-    ].join('\n')
-  }
-  const window = mainWindow
-  const result = window && !window.isDestroyed()
-    ? await dialog.showMessageBox(window, options)
-    : await dialog.showMessageBox(options)
-  return result.response === 0 ? policy : null
+  const confirmed = await requestReviewTrashConfirmation(
+    reviewId,
+    policy === 'pending-agent'
+  )
+  return confirmed ? policy : null
 }
 
 async function moveReviewToTrash(reviewId: string): Promise<void> {
@@ -1703,6 +1688,30 @@ async function requestReviewResolutionConfirmation(
       outcome,
       reviews: artifacts.map(reviewResolutionSummary)
     } satisfies ReviewResolutionConfirmationRequest)
+  })
+}
+
+async function requestReviewTrashConfirmation(
+  reviewId: string,
+  pendingAgent: boolean
+): Promise<boolean> {
+  focusMainWindow()
+  const window = mainWindow
+  if (!window) throw new Error('Markover window could not be created.')
+  await waitForRendererReady(window)
+  trashConfirmationSequence += 1
+  const requestId = `trash-${String(trashConfirmationSequence)}`
+  return new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => {
+      pendingTrashConfirmations.delete(requestId)
+      resolve(false)
+    }, 5 * 60 * 1000)
+    pendingTrashConfirmations.set(requestId, { resolve, timeout })
+    sendMainEvent(window.webContents, 'review:trash-confirmation-request', {
+      requestId,
+      reviewId,
+      pendingAgent
+    } satisfies ReviewTrashConfirmationRequest)
   })
 }
 
@@ -2714,6 +2723,16 @@ if (!hasSingleInstanceLock) {
       if (!pending) return
       clearTimeout(pending.timeout)
       pendingResolutionConfirmations.delete(response.requestId)
+      pending.resolve(response.confirmed)
+    })
+    privilegedIpc.on('review:trash-confirmation-response', (
+      _event: IpcMainEvent,
+      response: ReviewTrashConfirmationResponse
+    ) => {
+      const pending = pendingTrashConfirmations.get(response.requestId)
+      if (!pending) return
+      clearTimeout(pending.timeout)
+      pendingTrashConfirmations.delete(response.requestId)
       pending.resolve(response.confirmed)
     })
     privilegedIpc.on('clipboard:write', (_event: IpcMainEvent, text: string) => {

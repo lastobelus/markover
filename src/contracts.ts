@@ -686,6 +686,17 @@ declare global {
     confirmed: boolean
   }
 
+  interface ReviewTrashConfirmationRequest {
+    requestId: string
+    reviewId: string
+    pendingAgent: boolean
+  }
+
+  interface ReviewTrashConfirmationResponse {
+    requestId: string
+    confirmed: boolean
+  }
+
   type ReviewActivationOutcome =
     | 'activated'
     | 'already-active'
@@ -834,6 +845,11 @@ declare global {
     onReviewResolutionConfirmation: (
       callback: (
         request: ReviewResolutionConfirmationRequest
+      ) => boolean | Promise<boolean>
+    ) => void
+    onReviewTrashConfirmation: (
+      callback: (
+        request: ReviewTrashConfirmationRequest
       ) => boolean | Promise<boolean>
     ) => void
     getReviewAutosaveStatus: () => Promise<ReviewAutosaveStatus>

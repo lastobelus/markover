@@ -181,6 +181,22 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
 
   const renderer = read('src/renderer.ts')
+  const trashDialog = document.querySelector('#review-trash-dialog')
+  assert.ok(trashDialog)
+  assert.equal(trashDialog.tagName, 'DIALOG')
+  assert.equal(trashDialog.getAttribute('aria-labelledby'), 'review-trash-title')
+  assert.equal(
+    trashDialog.getAttribute('aria-describedby'),
+    'review-trash-safety review-trash-message review-trash-detail'
+  )
+  assert.match(
+    renderer,
+    /reviewTrashDialog\.showModal\(\)[\s\S]*reviewTrashCancel\.focus\(\)/
+  )
+  assert.match(
+    renderer,
+    /reviewTrashDialog\.addEventListener\('close',[\s\S]*finishReviewTrashConfirmation\(false\)/
+  )
   assert.match(renderer, /imagePreviewReturnFocus = document\.activeElement/)
   assert.match(renderer, /imagePreview\.showModal\(\)[\s\S]*imagePreviewClose\.focus\(\)/)
   assert.match(renderer, /imagePreview\.addEventListener\('close',[\s\S]*returnFocus\?\.isConnected[\s\S]*returnFocus\.focus/)

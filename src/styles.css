@@ -55,11 +55,13 @@
   --theme-token-inspector-foreground: var(--ink);
   --theme-token-inspector-muted-foreground: var(--muted);
   --theme-token-inspector-control-background: var(--input);
-  --theme-token-inspector-duplicate-foreground: var(--source-error);
   --primary-button-bg: var(--markover-primary);
   --primary-button-hover: var(--markover-secondary);
   --primary-button-text: var(--primary-contrast);
   --primary-button-hover-text: var(--secondary-contrast);
+  --danger-button-bg: var(--source-error);
+  --danger-button-hover: color-mix(in srgb, var(--source-error) 82%, var(--ink));
+  --danger-button-text: var(--primary-contrast);
   --status-editing: var(--markover-primary);
   --status-pending: var(--markover-secondary);
   --status-revised: #3d7f74;
@@ -176,6 +178,7 @@
   --status-editing: color-mix(in srgb, var(--markover-primary) 70%, white);
   --status-outline: rgb(var(--ink-rgb) / 42%);
   --source-error: #ef6b5a;
+  --danger-button-text: var(--code);
   --pane-label-color: color-mix(
     in srgb,
     var(--pane-label-base) 42%,
@@ -688,6 +691,15 @@ p {
 .button-primary:hover {
   color: var(--primary-button-hover-text);
   background: var(--primary-button-hover);
+}
+
+.button-danger {
+  color: var(--danger-button-text);
+  background: var(--danger-button-bg);
+}
+
+.button-danger:hover {
+  background: var(--danger-button-hover);
 }
 
 .review-tab-strip {
@@ -3740,6 +3752,80 @@ body.is-control-pressed .attachment-remove:hover {
   max-height: min(760px, calc(100vh - 40px));
 }
 
+.review-trash-dialog {
+  width: min(600px, calc(100vw - 48px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
+}
+
+.review-trash-dialog::backdrop {
+  background: rgb(15 12 10 / 45%);
+  backdrop-filter: blur(2px);
+}
+
+.review-trash-layout {
+  display: grid;
+  padding: 38px 34px 24px;
+}
+
+.review-trash-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.review-trash-icon {
+  display: grid;
+  place-items: center;
+  color: var(--status-progress);
+}
+
+.review-trash-icon-svg {
+  width: 44px;
+  height: 44px;
+  stroke-width: 1.8;
+}
+
+.review-trash-layout h2 {
+  margin: 0;
+  font: 700 20px/1.2 var(--font-sans);
+  white-space: nowrap;
+}
+
+.review-trash-copy {
+  display: grid;
+  margin-top: 42px;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.review-trash-copy p {
+  margin: 0;
+}
+
+.review-trash-safety {
+  font-weight: 650;
+}
+
+.review-trash-copy .is-warning {
+  color: var(--source-error);
+  font-weight: 650;
+}
+
+.review-trash-actions {
+  display: grid;
+  margin-top: 22px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .review-resolution-layout {
   display: flex;
   max-height: inherit;
@@ -4786,14 +4872,19 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
 }
 
 .theme-token-inspector-tokens {
+  display: grid;
   min-height: 0;
   overflow-y: auto;
   flex: 1;
   margin: 0 -4px;
   padding: 0 4px;
+  align-items: center;
+  column-gap: 7px;
+  grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .theme-token-inspector-group {
+  grid-column: 1 / -1;
   margin-top: 9px;
   color: var(--theme-token-inspector-muted-foreground);
   font-size: 8.5px;
@@ -4807,21 +4898,19 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
 }
 
 .theme-token-inspector-token {
-  display: grid;
-  align-items: center;
-  gap: 7px;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  padding: 2px 0;
+  display: contents;
 }
 
 .theme-token-inspector-swatch {
   width: 18px;
   height: 14px;
+  margin: 2px 0;
   border: 1px solid var(--theme-token-inspector-border-color);
   border-radius: 3px;
 }
 
 .theme-token-inspector-token code {
+  min-width: 0;
   overflow: hidden;
   color: var(--theme-token-inspector-foreground);
   font: 9px/1.4 var(--font-mono);
@@ -4830,15 +4919,11 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
 }
 
 .theme-token-inspector-token span {
-  max-width: 120px;
+  min-width: 0;
   overflow: hidden;
   color: var(--theme-token-inspector-muted-foreground);
   font: 8.5px/1.4 var(--font-mono);
   text-overflow: ellipsis;
+  text-align: left;
   white-space: nowrap;
-}
-
-.theme-token-inspector-token span.is-duplicate {
-  color: var(--theme-token-inspector-duplicate-foreground);
-  font-weight: 600;
 }

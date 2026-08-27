@@ -554,6 +554,26 @@ test('review resolution IPC carries exact selections and preserved feedback summ
     }])
   })
   assert.doesNotThrow(() => {
+    assertMainEventArguments('review:trash-confirmation-request', [{
+      requestId: 'trash-1',
+      reviewId: 'mko_abcdef',
+      pendingAgent: true
+    }])
+  })
+  assert.doesNotThrow(() => {
+    assertRendererSendArguments('review:trash-confirmation-response', [{
+      requestId: 'trash-1',
+      confirmed: false
+    }])
+  })
+  assert.throws(() => {
+    assertMainEventArguments('review:trash-confirmation-request', [{
+      requestId: 'trash-1',
+      reviewId: 'mko_abcdef',
+      pendingAgent: 'yes'
+    }])
+  })
+  assert.doesNotThrow(() => {
     assertRendererInvokeResult('review:resolve', {
       outcome: 'resolved',
       reviews: [{
@@ -643,6 +663,7 @@ test('application IPC uses only the centralized registration and bridge paths', 
     'review:snapshot-response',
     'review:status-response',
     'review:t3-thread-titles:get',
+    'review:trash-confirmation-response',
     'review:unresolve',
     'settings:get',
     'settings:update',

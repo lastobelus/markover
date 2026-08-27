@@ -166,7 +166,15 @@ test('the floating theme-token inspector uses canonical structure and component 
     assert.match(renderer, new RegExp(`t\\('${token}'\\)`))
   }
   assert.match(renderer, /\['App structure', \[/)
-  assert.match(renderer, /getComputedStyle\(root\)[\s\S]*getPropertyValue\(row\.name\)/)
+  assert.match(renderer, /const owners = new Map<string, string>\(\)/)
+  assert.match(renderer, /colorProbe\.style\.backgroundColor = `var\(\$\{row\.name\}\)`/)
+  assert.match(renderer, /getComputedStyle\(colorProbe\)\.backgroundColor/)
+  assert.match(renderer, /const owner = owners\.get\(colorKey\)/)
+  assert.match(renderer, /row\.value\.textContent = owner \|\| customPropertyValue \|\| renderedColor/)
+  assert.match(renderer, /if \(!owner\) owners\.set\(colorKey, row\.name\)/)
+  assert.match(renderer, /t\('--danger-button-bg'\)/)
+  assert.match(renderer, /t\('--danger-button-hover'\)/)
+  assert.match(renderer, /t\('--danger-button-text'\)/)
   assert.match(renderer, /attributeFilter: \['data-palette', 'data-appearance', 'data-colorization'\]/)
   assert.match(renderer, /setProperty\('--app-header-background'/)
   assert.match(renderer, /removeProperty\('--app-header-background'\)/)
@@ -177,11 +185,17 @@ test('the floating theme-token inspector uses canonical structure and component 
     '--theme-token-inspector-shadow-color: var(--shadow)',
     '--theme-token-inspector-foreground: var(--ink)',
     '--theme-token-inspector-muted-foreground: var(--muted)',
-    '--theme-token-inspector-control-background: var(--input)',
-    '--theme-token-inspector-duplicate-foreground: var(--source-error)'
+    '--theme-token-inspector-control-background: var(--input)'
   ]) {
     assert.match(styles, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
+  assert.doesNotMatch(`${renderer}\n${styles}`, /theme-token-inspector-duplicate/)
+  assert.match(styles, /\.theme-token-inspector-tokens \{[\s\S]*grid-template-columns: 18px minmax\(0, 1fr\) minmax\(0, 1fr\);/)
+  assert.match(styles, /\.theme-token-inspector-token \{\s*display: contents;/)
+  assert.doesNotMatch(styles, /\.theme-token-inspector-token span \{[^}]*max-width:/)
+  assert.match(styles, /--danger-button-bg: var\(--source-error\);/)
+  assert.match(styles, /--danger-button-text: var\(--primary-contrast\);/)
+  assert.match(styles, /data-appearance="dark"[\s\S]*--danger-button-text: var\(--code\);/)
   assert.match(styles, /\.theme-token-inspector \{[\s\S]*color: var\(--theme-token-inspector-foreground\);[\s\S]*background: var\(--theme-token-inspector-background\);/)
 })
 

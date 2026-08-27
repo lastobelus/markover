@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PenLine,
   Server,
+  TriangleAlert,
   X,
   createElement as createLucideElement,
   type IconNode
@@ -35,6 +36,7 @@ const icons = {
   'panel-left-close': PanelLeftClose,
   'pen-line': PenLine,
   server: Server,
+  'triangle-alert': TriangleAlert,
   x: X
 } satisfies Record<string, IconNode>
 
