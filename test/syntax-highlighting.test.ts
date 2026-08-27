@@ -57,6 +57,14 @@ test('normalizes common fence aliases', async () => {
   assert.equal(highlightedText(result), 'const answer = 42')
 })
 
+test('extracts the language from fenced-block metadata', async () => {
+  const syntax = await highlighter()
+  const source = 'const answer = 42'
+  const result = await syntax.highlight(source, 'js title=demo')
+  assert.ok(result)
+  assert.equal(highlightedText(result), source)
+})
+
 test('unknown and oversized source falls back to plain text', async () => {
   const syntax = await highlighter()
   assert.equal(await syntax.highlight('plain', 'not-a-real-language'), null)

@@ -30,7 +30,7 @@ const LANGUAGE_ALIASES: Readonly<Record<string, string>> = {
 }
 
 function syntaxLanguage(value: string): string | null {
-  const normalized = value.trim().toLowerCase()
+  const normalized = value.trim().split(/\s+/, 1)[0]?.toLowerCase() || ''
   if (!normalized) return null
   return LANGUAGE_ALIASES[normalized] || normalized
 }
