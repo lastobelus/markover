@@ -1073,6 +1073,12 @@ function positionScrollbarRowCover(
 }
 
 function updateScrollbarRowCover(): void {
+  if (elements.tree.scrollHeight <= elements.tree.clientHeight) {
+    elements.scrollbarRowCover.hidden = true
+    elements.hoverScrollbarRowCover.hidden = true
+    return
+  }
+
   const selectedRow = elements.tree.querySelector<HTMLElement>(
     `[data-node-id="${state.selectedId}"]`
   )

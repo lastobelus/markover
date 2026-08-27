@@ -2102,8 +2102,8 @@ button.review-list-row-pr:hover {
   overflow: hidden;
   color: #f0ede5;
   font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .syntax-token {

@@ -80,7 +80,9 @@ test('renderer builds token spans without injecting source HTML', () => {
 
   assert.match(highlighting, /span\.textContent = token\.content/)
   assert.match(highlighting, /code\.replaceChildren\(fragment\)/)
+  assert.match(highlighting, /if \(index > 0\) fragment\.append\('\\n'\)/)
   assert.doesNotMatch(highlighting, /innerHTML|insertAdjacentHTML/)
+  assert.match(styles, /\.block-content\.code code \{[^}]*overflow-wrap: anywhere;[^}]*white-space: pre-wrap;/)
   assert.match(styles, /\.syntax-token \{\s*color: var\(--syntax-dark\);/)
   assert.doesNotMatch(styles, /color: var\(--syntax-light\);/)
 })
