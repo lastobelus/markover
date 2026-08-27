@@ -199,6 +199,7 @@ test('the working header aligns the brand and exact review identity', () => {
   assert.match(renderer, /beginRightPaneResize[\s\S]*applyRightPaneWidth\(\)[\s\S]*schedulePaneLayoutResizeUpdate\(\)/)
   assert.match(html, /id="scrollbar-row-cover"[\s\S]*id="hover-scrollbar-row-cover"/)
   assert.match(renderer, /positionScrollbarRowCover\([\s\S]*elements\.scrollbarRowCover[\s\S]*elements\.hoverScrollbarRowCover/)
+  assert.match(renderer, /tree\.scrollHeight <= elements\.tree\.clientHeight[\s\S]*scrollbarRowCover\.hidden = true[\s\S]*hoverScrollbarRowCover\.hidden = true/)
   assert.match(styles, /\.left-pane \{[^}]*grid-column: 1;/)
   assert.match(styles, /\.center-pane \{[^}]*grid-column: 2;/)
   assert.match(styles, /\.right-pane \{[^}]*grid-column: 3;/)

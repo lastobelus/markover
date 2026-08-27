@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it'
 
-import type { DiffRenderer } from './contracts'
+import type { DiffRenderer, SyntaxHighlightToken } from './contracts'
 import type {
   StartupInfo,
   StartupPhase,
@@ -608,6 +608,38 @@ function loadSourceDiffModule(): Promise<DiffRenderer> {
   return sourceDiffModule
 }
 
+function syntaxTokenElement(token: SyntaxHighlightToken): HTMLSpanElement {
+  const span = document.createElement('span')
+  span.className = 'syntax-token'
+  if (token.fontStyle & 1) span.classList.add('is-italic')
+  if (token.fontStyle & 2) span.classList.add('is-bold')
+  if (token.fontStyle & 4) span.classList.add('is-underlined')
+  span.style.setProperty('--syntax-light', token.lightColor)
+  span.style.setProperty('--syntax-dark', token.darkColor)
+  span.textContent = token.content
+  return span
+}
+
+function highlightCodeBlock(
+  code: HTMLElement,
+  source: string,
+  language: string | null
+): void {
+  if (!language) return
+  void loadSourceDiffModule()
+    .then((module) => module.highlight(source, language))
+    .then((result) => {
+      if (!result || !code.isConnected || code.textContent !== source) return
+      const fragment = document.createDocumentFragment()
+      result.lines.forEach((line, index) => {
+        if (index > 0) fragment.append('\n')
+        for (const token of line) fragment.append(syntaxTokenElement(token))
+      })
+      code.replaceChildren(fragment)
+    })
+    .catch(() => undefined)
+}
+
 const inlineMarkdown = MarkdownIt('commonmark', {
   html: false,
   linkify: false,
@@ -1041,6 +1073,12 @@ function positionScrollbarRowCover(
 }
 
 function updateScrollbarRowCover(): void {
+  if (elements.tree.scrollHeight <= elements.tree.clientHeight) {
+    elements.scrollbarRowCover.hidden = true
+    elements.hoverScrollbarRowCover.hidden = true
+    return
+  }
+
   const selectedRow = elements.tree.querySelector<HTMLElement>(
     `[data-node-id="${state.selectedId}"]`
   )
@@ -1133,8 +1171,10 @@ function renderNode(
   } else if (node.type === 'code') {
     content.className = 'block-content code'
     const code = document.createElement('code')
-    code.textContent = node.text || '(empty code block)'
+    const source = node.text || '(empty code block)'
+    code.textContent = source
     content.append(code)
+    highlightCodeBlock(code, source, node.language || null)
   } else if (node.type === 'blockquote' || node.type === 'table') {
     content.className = `block-content ${node.type}`
     content.innerHTML = inlineMarkdown.render(node.raw)
