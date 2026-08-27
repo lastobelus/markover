@@ -42,7 +42,16 @@
   --left-pane-background: var(--neutral-soft);
   --center-pane-background: var(--paper);
   --right-pane-background: var(--neutral-soft);
+  --app-scrollbar-thumb-background: rgb(var(--ink-rgb) / 22%);
+  --app-scrollbar-thumb-hover-background: rgb(var(--ink-rgb) / 36%);
   --document-tree-scrollbar-track-background: var(--right-pane-background);
+  --documents-list-scrollbar-track-background: var(--left-pane-background);
+  --annotation-views-scrollbar-track-background: var(--right-pane-background);
+  --review-context-scrollbar-track-background: var(--surface);
+  --theme-token-inspector-scrollbar-track-background:
+    var(--theme-token-inspector-background);
+  --document-tree-code-background: rgb(var(--accent-rgb) / 12%);
+  --document-tree-code-foreground: var(--accent-deep);
   --selection-bridge-background: var(--right-pane-background);
   --keyboard-help-background: color-mix(
     in srgb,
@@ -175,6 +184,8 @@
   --thumbnail: #39312d;
   --shadow: rgb(0 0 0 / 42%);
   --code: #11100f;
+  --document-tree-code-background: var(--code);
+  --document-tree-code-foreground: var(--ink);
   --status-editing: color-mix(in srgb, var(--markover-primary) 70%, white);
   --status-outline: rgb(var(--ink-rgb) / 42%);
   --source-error: #ef6b5a;
@@ -1011,6 +1022,9 @@ p {
 }
 
 .documents-list-tree {
+  --app-scrollbar-track-background:
+    var(--documents-list-scrollbar-track-background);
+
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -1856,7 +1870,14 @@ button.review-list-row-pr:hover {
   background: var(--center-pane-background);
 }
 
+.center-pane:not(.has-tree-scrollbar) {
+  --tree-gutter: 0px;
+}
+
 .tree {
+  --app-scrollbar-track-background:
+    var(--document-tree-scrollbar-track-background);
+
   min-height: 0;
   flex: 1;
   overflow: auto;
@@ -1875,23 +1896,52 @@ button.review-list-row-pr:hover {
   background-position: right var(--tree-gutter) top 0;
 }
 
-.tree::-webkit-scrollbar {
+:is(
+  .tree,
+  .documents-list-tree,
+  .annotation-list-view,
+  .selected-annotation-view,
+  .review-context-drawer,
+  .theme-token-inspector-tokens
+)::-webkit-scrollbar {
   width: 15px;
+  height: 15px;
 }
 
-.tree::-webkit-scrollbar-track {
-  background: var(--document-tree-scrollbar-track-background);
+:is(
+  .tree,
+  .documents-list-tree,
+  .annotation-list-view,
+  .selected-annotation-view,
+  .review-context-drawer,
+  .theme-token-inspector-tokens
+)::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track-background);
 }
 
-.tree::-webkit-scrollbar-thumb {
+:is(
+  .tree,
+  .documents-list-tree,
+  .annotation-list-view,
+  .selected-annotation-view,
+  .review-context-drawer,
+  .theme-token-inspector-tokens
+)::-webkit-scrollbar-thumb {
   border: 4px solid transparent;
   border-radius: 999px;
-  background: rgb(var(--ink-rgb) / 22%);
+  background: var(--app-scrollbar-thumb-background);
   background-clip: content-box;
 }
 
-.tree::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--ink-rgb) / 36%);
+:is(
+  .tree,
+  .documents-list-tree,
+  .annotation-list-view,
+  .selected-annotation-view,
+  .review-context-drawer,
+  .theme-token-inspector-tokens
+)::-webkit-scrollbar-thumb:hover {
+  background: var(--app-scrollbar-thumb-hover-background);
   background-clip: content-box;
 }
 
@@ -1913,6 +1963,10 @@ button.review-list-row-pr:hover {
   border-left: 1px solid var(--selection-line);
   background: var(--document-tree-scrollbar-track-background);
   content: "";
+}
+
+.center-pane:not(.has-tree-scrollbar) > .pane-header::after {
+  display: none;
 }
 
 .pinned-selection {
@@ -2049,6 +2103,11 @@ button.review-list-row-pr:hover {
   font: 600 9px/1 var(--font-mono);
 }
 
+.block-kind .lucide-icon {
+  width: 12px;
+  height: 12px;
+}
+
 .block-content {
   min-width: 0;
   padding: 1px 10px 0 2px;
@@ -2130,10 +2189,16 @@ button.review-list-row-pr:hover {
   border-top: 1px solid var(--line);
 }
 
+.block-content.code {
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: var(--document-tree-code-background);
+}
+
 .block-content.code code {
   display: block;
   overflow: hidden;
-  color: #f0ede5;
+  color: var(--document-tree-code-foreground);
   font: 11px/1.5 var(--font-mono);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -2173,22 +2238,21 @@ button.review-list-row-pr:hover {
   white-space: pre-wrap;
 }
 
-.block-row:has(.block-content.code) {
-  background: var(--code);
+.block-row:hover .block-content.code {
+  background: color-mix(
+    in srgb,
+    var(--document-tree-code-background) 92%,
+    var(--document-tree-code-foreground)
+  );
 }
 
-.block-row:has(.block-content.code):hover {
-  background:
-    linear-gradient(rgb(255 255 255 / 11%), rgb(255 255 255 / 11%)),
-    var(--code);
-}
-
-.block-row.is-selected:has(.block-content.code) {
-  border-color: var(--accent);
-  background:
-    linear-gradient(rgb(var(--accent-rgb) / 20%), rgb(var(--accent-rgb) / 20%)),
-    var(--code);
-  box-shadow: none;
+.block-row.is-selected .block-content.code {
+  background: color-mix(
+    in srgb,
+    var(--document-tree-code-background) 84%,
+    var(--accent)
+  );
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .pinned-selection .block-row.is-selected:has(.block-content.code) {
@@ -2677,13 +2741,21 @@ kbd {
 }
 
 .selected-annotation-view {
+  --app-scrollbar-track-background:
+    var(--annotation-views-scrollbar-track-background);
+
   display: flex;
   min-height: 0;
   flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
   flex-direction: column;
 }
 
 .annotation-list-view {
+  --app-scrollbar-track-background:
+    var(--annotation-views-scrollbar-track-background);
+
   width: 100%;
   min-width: 0;
   min-height: 0;
@@ -3352,6 +3424,9 @@ body.is-control-pressed .attachment-remove:hover {
 }
 
 .review-context-drawer {
+  --app-scrollbar-track-background:
+    var(--review-context-scrollbar-track-background);
+
   position: fixed;
   top: 0;
   right: 0;
@@ -4872,6 +4947,9 @@ html[data-inbox-prototype="true"] #inbox-prototype[hidden] {
 }
 
 .theme-token-inspector-tokens {
+  --app-scrollbar-track-background:
+    var(--theme-token-inspector-scrollbar-track-background);
+
   display: grid;
   min-height: 0;
   overflow-y: auto;

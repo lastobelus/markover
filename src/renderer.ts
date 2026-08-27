@@ -1020,6 +1020,10 @@ function scrollToSelectedRow(): void {
 }
 
 function updatePinnedSelection(): void {
+  elements.centerPane.classList.toggle(
+    'has-tree-scrollbar',
+    elements.tree.scrollHeight > elements.tree.clientHeight
+  )
   const selectedRow = elements.tree.querySelector<HTMLElement>(
     `[data-node-id="${state.selectedId}"]`
   )
@@ -1103,7 +1107,8 @@ function renderNode(
 
   const kind = document.createElement('span')
   kind.className = 'block-kind'
-  kind.textContent = nodeKindLabel(node)
+  if (node.type === 'code') kind.append(markoverIcon('code-xml'))
+  else kind.textContent = nodeKindLabel(node)
   row.append(kind)
 
   const content = document.createElement('div')
@@ -4960,6 +4965,17 @@ document.addEventListener('keydown', (event) => {
   }
 
   if (
+    document.activeElement === elements.centerPane &&
+    (event.key === 'PageUp' || event.key === 'PageDown')
+  ) {
+    event.preventDefault()
+    elements.tree.scrollBy({
+      top: elements.tree.clientHeight * (event.key === 'PageUp' ? -1 : 1)
+    })
+    return
+  }
+
+  if (
     document.activeElement !== elements.centerPane ||
     !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
   ) {
@@ -5436,7 +5452,15 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
     ['Components', [
       t('--review-navigation-bg'),
       t('--review-navigation-active-bg'),
+      t('--app-scrollbar-thumb-background'),
+      t('--app-scrollbar-thumb-hover-background'),
       t('--document-tree-scrollbar-track-background'),
+      t('--documents-list-scrollbar-track-background'),
+      t('--annotation-views-scrollbar-track-background'),
+      t('--review-context-scrollbar-track-background'),
+      t('--theme-token-inspector-scrollbar-track-background'),
+      t('--document-tree-code-background'),
+      t('--document-tree-code-foreground'),
       t('--selection-bridge-background'),
       t('--keyboard-help-background'),
       t('--theme-token-inspector-background'),

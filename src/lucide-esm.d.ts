@@ -3,6 +3,7 @@ declare module 'lucide/dist/esm/lucide/src/lucide.js' {
     ChevronDown,
     ChevronRight,
     Clock,
+    CodeXml,
     FileText,
     Folder,
     GitBranch,

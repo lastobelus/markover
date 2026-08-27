@@ -195,7 +195,7 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
   assert.match(
     renderer,
-    /reviewTrashDialog\.addEventListener\('close',[\s\S]*finishReviewTrashConfirmation\(false\)/
+    /reviewTrashDialog\.addEventListener\('close',[\s\S]*completeReviewTrashConfirmation\(false\)/
   )
   assert.match(renderer, /imagePreviewReturnFocus = document\.activeElement/)
   assert.match(renderer, /imagePreview\.showModal\(\)[\s\S]*imagePreviewClose\.focus\(\)/)

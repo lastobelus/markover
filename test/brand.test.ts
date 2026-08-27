@@ -196,6 +196,30 @@ test('the floating theme-token inspector uses canonical structure and component 
   assert.match(styles, /--danger-button-bg: var\(--source-error\);/)
   assert.match(styles, /--danger-button-text: var\(--primary-contrast\);/)
   assert.match(styles, /data-appearance="dark"[\s\S]*--danger-button-text: var\(--code\);/)
+  assert.match(styles, /--document-tree-code-background: rgb\(var\(--accent-rgb\) \/ 12%\);/)
+  assert.match(styles, /--document-tree-code-foreground: var\(--accent-deep\);/)
+  assert.match(styles, /data-appearance="dark"[\s\S]*--document-tree-code-background: var\(--code\);/)
+  assert.match(styles, /\.block-content\.code \{[^}]*background: var\(--document-tree-code-background\);/)
+  assert.match(styles, /\.block-content\.code code \{[^}]*overflow-wrap: anywhere;[^}]*white-space: pre-wrap;/)
+  assert.doesNotMatch(styles, /\.block-row:has\(\.block-content\.code\) \{[^}]*background:/)
+  assert.match(renderer, /node\.type === 'code'\) kind\.append\(markoverIcon\('code-xml'\)\)/)
+  assert.match(styles, /\.block-kind \.lucide-icon \{[^}]*width: 12px;[^}]*height: 12px;/)
+  for (const token of [
+    '--app-scrollbar-thumb-background',
+    '--app-scrollbar-thumb-hover-background',
+    '--document-tree-scrollbar-track-background',
+    '--documents-list-scrollbar-track-background',
+    '--annotation-views-scrollbar-track-background',
+    '--review-context-scrollbar-track-background',
+    '--theme-token-inspector-scrollbar-track-background'
+  ]) {
+    assert.match(renderer, new RegExp(`t\\('${token}'\\)`))
+  }
+  assert.match(
+    styles,
+    /:is\([\s\S]*\.tree,[\s\S]*\.documents-list-tree,[\s\S]*\.annotation-list-view,[\s\S]*\.selected-annotation-view,[\s\S]*\.review-context-drawer,[\s\S]*\.theme-token-inspector-tokens[\s\S]*\)::-webkit-scrollbar-thumb \{[\s\S]*background: var\(--app-scrollbar-thumb-background\);/
+  )
+  assert.match(styles, /\.selected-annotation-view \{[^}]*overflow-y: auto;/)
   assert.match(styles, /\.theme-token-inspector \{[\s\S]*color: var\(--theme-token-inspector-foreground\);[\s\S]*background: var\(--theme-token-inspector-background\);/)
 })
 
@@ -266,6 +290,10 @@ test('the working header aligns the brand and exact review identity', () => {
   assert.match(renderer, /resizeLeftPaneFromKeyboard[\s\S]*ArrowLeft[\s\S]*ArrowRight[\s\S]*shiftKey \? 48 : 16/)
   assert.match(renderer, /leftPaneResizer\.addEventListener\(\s*'keydown',[\s\S]*resizeLeftPaneFromKeyboard/)
   assert.match(renderer, /event\.key === 'F6'[\s\S]*MarkoverNavigation\.nextPane/)
+  assert.match(
+    renderer,
+    /event\.key === 'PageUp'[\s\S]*event\.key === 'PageDown'[\s\S]*elements\.tree\.scrollBy[\s\S]*elements\.tree\.clientHeight/
+  )
   assert.doesNotMatch(
     renderer,
     /document\.addEventListener\('keydown',[\s\S]*if \(event\.key === 'Tab'\) \{\s*event\.preventDefault\(\)/
@@ -277,6 +305,9 @@ test('the working header aligns the brand and exact review identity', () => {
   assert.match(renderer, /beginRightPaneResize[\s\S]*applyRightPaneWidth\(\)[\s\S]*schedulePaneLayoutResizeUpdate\(\)/)
   assert.doesNotMatch(html, /id="scrollbar-row-cover"/)
   assert.doesNotMatch(renderer, /ScrollbarRowCover/)
+  assert.match(renderer, /centerPane\.classList\.toggle\([\s\S]*'has-tree-scrollbar'[\s\S]*tree\.scrollHeight > elements\.tree\.clientHeight/)
+  assert.match(styles, /\.center-pane:not\(\.has-tree-scrollbar\) \{\s*--tree-gutter: 0px;/)
+  assert.match(styles, /\.center-pane:not\(\.has-tree-scrollbar\) > \.pane-header::after \{\s*display: none;/)
   assert.match(styles, /\.block-row\.is-selected::after \{[^}]*linear-gradient\(/)
   assert.match(styles, /\.left-pane \{[^}]*grid-column: 1;/)
   assert.match(styles, /\.center-pane \{[^}]*grid-column: 2;/)
