@@ -240,6 +240,8 @@ const elements = {
 
 replaceMarkoverIcon(elements.leftPaneCollapse, 'panel-left-close')
 replaceMarkoverIcon(elements.leftPaneOpen, 'panel-left')
+replaceMarkoverIcon(elements.settingsClose, 'x', 'settings-close-icon')
+replaceMarkoverIcon(elements.fixedContractClose, 'x', 'settings-close-icon')
 
 const state: RendererState = {
   attachmentPreviewUrls: new Map<string, string>(),

@@ -667,7 +667,6 @@
       <form id="settings-form" method="dialog">
         <header class="settings-header">
           <div>
-            <span class="eyebrow">Markover</span>
             <h2>Settings</h2>
           </div>
           <button
@@ -678,6 +677,9 @@
           >×</button>
         </header>
         <div class="settings-content">
+          <section class="settings-group" aria-labelledby="settings-appearance-title">
+            <h3 id="settings-appearance-title" class="settings-section-title">Appearance &amp; layout</h3>
+            <div class="settings-group-fields">
           <label class="settings-field">
             <span><strong>Palette</strong><small>Choose the accent family used throughout Markover.</small></span>
             <select name="palette">
@@ -724,11 +726,16 @@
               <option value="annotated">Annotated only</option>
             </select>
           </label>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-review-workflow-title">
+            <h3 id="settings-review-workflow-title" class="settings-section-title">Review workflow</h3>
+            <div class="settings-group-fields">
           <label class="settings-field settings-switch-field">
             <span><strong>Confirm screenshot removal</strong><small>Ask before removing an attached screenshot and its marker.</small></span>
             <input name="confirmAttachmentRemoval" type="checkbox" role="switch">
           </label>
-          <h3 class="settings-section-title">Incoming reviews</h3>
           <label class="settings-field">
             <span><strong>When an agent adds a review</strong><small>Choose whether the new review replaces the one you are reading or editing.</small></span>
             <select name="incomingReviewActivationPolicy">
@@ -758,7 +765,12 @@
               inputmode="numeric"
             >
           </label>
-          <h3 class="settings-section-title">Agent handoff</h3>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-agent-collaboration-title">
+            <h3 id="settings-agent-collaboration-title" class="settings-section-title">Agent collaboration</h3>
+            <div class="settings-group-fields">
           <div class="settings-field settings-policy-field">
             <div class="settings-policy-copy">
               <label for="agent-interpretation-policy"><strong>Interpretation policy</strong><small>This editable policy is copied into newly opened reviews.</small></label>
@@ -766,7 +778,6 @@
             </div>
             <textarea id="agent-interpretation-policy" name="agentInterpretationPolicy" rows="5"></textarea>
           </div>
-          <h3 class="settings-section-title">Agent Review</h3>
           <label class="settings-field">
             <span><strong>Agent review permissions</strong><small>Choose whether reviewer agents may add annotations only or also propose source replacements. The current value is frozen when an agent claims a review.</small></span>
             <select name="agentReviewMode">
@@ -774,16 +785,21 @@
               <option value="annotations-and-source-proposals">Annotations and source proposals</option>
             </select>
           </label>
-          <h3 class="settings-section-title">Privacy</h3>
-          <label class="settings-field settings-switch-field">
-            <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex or Claude session records for the review's handoff key. Nothing is uploaded.</small></span>
-            <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-thread-titles-title">
+            <h3 id="settings-thread-titles-title" class="settings-section-title">Thread titles</h3>
+            <div class="settings-group-fields">
+          <label class="settings-field">
+            <span><strong>Inbox title</strong><small>Choose whether Inbox leads with the review purpose or the current requesting-thread title. Projects always names the requesting thread when available.</small></span>
+            <select name="inboxTitlePreference">
+              <option value="review-purpose">Review purpose</option>
+              <option value="requesting-thread-title">Requesting-thread title</option>
+            </select>
           </label>
-          <label class="settings-field settings-switch-field">
-            <span><strong>Allow the authorized remote Markover client</strong><small>Let an exactly authorized Tailscale host send requested reviews to this canonical Markover. This remains off by default and never enables Funnel.</small></span>
-            <input name="remoteCanonicalGatewayEnabled" type="checkbox" role="switch">
-          </label>
-          <h3 class="settings-section-title">T3 requesting-thread titles</h3>
+          <section class="settings-provider-group" aria-labelledby="settings-t3-titles-title">
+          <h4 id="settings-t3-titles-title" class="settings-subsection-title">T3</h4>
           <label class="settings-field settings-switch-field">
             <span><strong>Read current titles from T3</strong><small>Use T3's local metadata database to show renamed requesting threads. This integration is off by default and keeps titles in memory only.</small></span>
             <input name="t3ThreadTitlesEnabled" type="checkbox" role="switch">
@@ -807,7 +823,9 @@
               disabled
             >Refresh titles now</button>
           </div>
-          <h3 class="settings-section-title">Codex requesting-thread titles</h3>
+          </section>
+          <section class="settings-provider-group" aria-labelledby="settings-codex-titles-title">
+          <h4 id="settings-codex-titles-title" class="settings-subsection-title">Codex</h4>
           <label class="settings-field settings-switch-field">
             <span><strong>Read current titles from Codex</strong><small>Use Codex app-server's exact thread-ID lookup to show names set through Codex. This integration is off by default and keeps titles in memory only.</small></span>
             <input name="codexThreadTitlesEnabled" type="checkbox" role="switch">
@@ -831,7 +849,9 @@
               disabled
             >Refresh Codex titles now</button>
           </div>
-          <h3 class="settings-section-title">Claude Code requesting-thread titles</h3>
+          </section>
+          <section class="settings-provider-group" aria-labelledby="settings-claude-titles-title">
+          <h4 id="settings-claude-titles-title" class="settings-subsection-title">Claude Code</h4>
           <label class="settings-field settings-switch-field">
             <span><strong>Read current titles from Claude Code</strong><small>Use exact session IDs and Claude Code's local custom-title records to show names set through Claude Code. This integration is off by default and keeps titles in memory only.</small></span>
             <input name="claudeThreadTitlesEnabled" type="checkbox" role="switch">
@@ -845,19 +865,33 @@
               disabled
             >Refresh Claude Code titles now</button>
           </div>
-          <h3 class="settings-section-title">Thread-title display</h3>
-          <label class="settings-field">
-            <span><strong>Inbox title</strong><small>Choose whether Inbox leads with the review purpose or the current requesting-thread title. Projects always names the requesting thread when available.</small></span>
-            <select name="inboxTitlePreference">
-              <option value="review-purpose">Review purpose</option>
-              <option value="requesting-thread-title">Requesting-thread title</option>
-            </select>
+          </section>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-privacy-access-title">
+            <h3 id="settings-privacy-access-title" class="settings-section-title">Privacy &amp; access</h3>
+            <div class="settings-group-fields">
+          <label class="settings-field settings-switch-field">
+            <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex or Claude session records for the review's handoff key. Nothing is uploaded.</small></span>
+            <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
           </label>
-          <h3 class="settings-section-title">Diagnostics</h3>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Allow the authorized remote Markover client</strong><small>Let an exactly authorized Tailscale host send requested reviews to this canonical Markover. This remains off by default and never enables Funnel.</small></span>
+            <input name="remoteCanonicalGatewayEnabled" type="checkbox" role="switch">
+          </label>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-diagnostics-title">
+            <h3 id="settings-diagnostics-title" class="settings-section-title">Diagnostics</h3>
+            <div class="settings-group-fields">
           <label class="settings-field settings-switch-field">
             <span><strong>Log rejected API requests</strong><small>Write sanitized request method, path, and rejection reason to stderr. Request contents and credentials are never logged.</small></span>
             <input name="logRejectedApiRequests" type="checkbox" role="switch">
           </label>
+            </div>
+          </section>
         </div>
         <footer class="settings-footer">
           <button id="settings-reset" class="button button-secondary" type="button">

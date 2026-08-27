@@ -442,11 +442,12 @@ test('settings store loads offline manual edits after restart', async (t) => {
 })
 
 test('settings are discoverable from the native menu and wired to a complete dialog', async () => {
-  const [main, preload, renderer, html] = await Promise.all([
+  const [main, preload, renderer, html, styles] = await Promise.all([
     read('src/main.ts'),
     read('src/preload.ts'),
     read('src/renderer.ts'),
-    read('src/index.html')
+    read('src/index.html'),
+    read('src/styles.css')
   ])
 
   assert.match(main, /app\.setName\(addressedInstance\.branding\.appName\)/)
@@ -467,8 +468,29 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(preload, /getSettings:/)
   assert.match(preload, /onSettingsOpen:/)
   assert.match(renderer, /function applySettings\([\s\S]*next: unknown,[\s\S]*options: \{ initial\?: boolean \} = \{\}[\s\S]*\): void/)
+  assert.match(renderer, /replaceMarkoverIcon\(elements\.settingsClose, 'x', 'settings-close-icon'\)/)
+  assert.match(renderer, /replaceMarkoverIcon\(elements\.fixedContractClose, 'x', 'settings-close-icon'\)/)
   assert.match(html, /<dialog id="settings-dialog"/)
-  assert.match(html, /<h3 class="settings-section-title">Agent Review<\/h3>/)
+  assert.match(html, />Appearance &amp; layout<\/h3>/)
+  assert.match(html, />Review workflow<\/h3>/)
+  assert.match(html, />Agent collaboration<\/h3>/)
+  assert.match(html, />Thread titles<\/h3>/)
+  assert.match(html, />Privacy &amp; access<\/h3>/)
+  assert.match(html, />Diagnostics<\/h3>/)
+  assert.match(html, /class="settings-subsection-title">T3<\/h4>/)
+  assert.match(html, /class="settings-subsection-title">Codex<\/h4>/)
+  assert.match(html, /class="settings-subsection-title">Claude Code<\/h4>/)
+  assert.match(html, />Thread titles<\/h3>[\s\S]*name="inboxTitlePreference"[\s\S]*>T3<\/h4>/)
+  assert.doesNotMatch(html, /<span class="eyebrow">Markover<\/span>/)
+  assert.match(styles, /#settings-dialog\s*\{[^}]*background: var\(--neutral-soft\)/)
+  assert.match(styles, /\.settings-content\s*\{[^}]*background: var\(--paper\)/)
+  assert.match(styles, /\.settings-group \+ \.settings-group\s*\{[^}]*border-top: 1px solid var\(--line\)/)
+  assert.match(styles, /\.settings-footer\s*\{[^}]*background: var\(--neutral-soft\)/)
+  assert.match(styles, /\.settings-content::-webkit-scrollbar-track\s*\{[^}]*background: var\(--neutral-soft\)/)
+  assert.match(styles, /\.settings-content::-webkit-scrollbar-thumb\s*\{[^}]*rgb\(var\(--ink-rgb\) \/ 22%\)/)
+  assert.match(styles, /\.settings-close-icon\s*\{[^}]*width: 16px;[^}]*height: 16px;/)
+  assert.doesNotMatch(styles, /\.settings-group-fields\s*\{[^}]*border:/)
+  assert.doesNotMatch(styles, /\.settings-field\s*\{[^}]*border-bottom:/)
   assert.match(html, /<select name="agentReviewMode">/)
   assert.match(html, /Annotations only \(default\)/)
   assert.match(html, /Annotations and source proposals/)

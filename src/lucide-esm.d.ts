@@ -15,6 +15,7 @@ declare module 'lucide/dist/esm/lucide/src/lucide.js' {
     PanelLeftClose,
     PenLine,
     Server,
+    X,
     createElement
   } from 'lucide'
   export type { IconNode } from 'lucide'

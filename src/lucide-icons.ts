@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PenLine,
   Server,
+  X,
   createElement as createLucideElement,
   type IconNode
 } from 'lucide/dist/esm/lucide/src/lucide.js'
@@ -33,7 +34,8 @@ const icons = {
   'panel-left': PanelLeft,
   'panel-left-close': PanelLeftClose,
   'pen-line': PenLine,
-  server: Server
+  server: Server,
+  x: X
 } satisfies Record<string, IconNode>
 
 export type MarkoverIconName = keyof typeof icons
