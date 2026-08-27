@@ -1,6 +1,80 @@
-import { FileDiff, parseDiffFromFile } from '@pierre/diffs'
+import {
+  FileDiff,
+  getSharedHighlighter,
+  parseDiffFromFile
+} from '@pierre/diffs'
 
-import type { DiffStats } from './contracts.js'
+import type {
+  DiffStats,
+  SyntaxHighlightResult,
+  SyntaxHighlightToken
+} from './contracts.js'
+
+const MAX_HIGHLIGHT_CHARACTERS = 20_000
+const LANGUAGE_ALIASES: Readonly<Record<string, string>> = {
+  js: 'javascript',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  ts: 'typescript',
+  mts: 'typescript',
+  cts: 'typescript',
+  py: 'python',
+  rb: 'ruby',
+  sh: 'bash',
+  shell: 'shellscript',
+  yml: 'yaml',
+  md: 'markdown',
+  plain: 'text',
+  plaintext: 'text',
+  txt: 'text'
+}
+
+function syntaxLanguage(value: string): string | null {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return null
+  return LANGUAGE_ALIASES[normalized] || normalized
+}
+
+async function highlight(
+  source: string,
+  languageLabel: string
+): Promise<SyntaxHighlightResult | null> {
+  const language = syntaxLanguage(languageLabel)
+  if (!language || source.length > MAX_HIGHLIGHT_CHARACTERS) return null
+  try {
+    const highlighter = await getSharedHighlighter({
+      themes: ['pierre-light', 'pierre-dark'],
+      langs: [language],
+      preferredHighlighter: 'shiki-js'
+    })
+    const lines = highlighter.codeToTokensWithThemes(source, {
+      lang: language,
+      themes: {
+        light: 'pierre-light',
+        dark: 'pierre-dark'
+      }
+    })
+    const highlightedLines: SyntaxHighlightToken[][] = []
+    for (const line of lines) {
+      const highlightedLine: SyntaxHighlightToken[] = []
+      for (const token of line) {
+        const light = token.variants.light
+        const dark = token.variants.dark
+        if (!light?.color || !dark?.color) return null
+        highlightedLine.push({
+          content: token.content,
+          lightColor: light.color,
+          darkColor: dark.color,
+          fontStyle: light.fontStyle || 0
+        })
+      }
+      highlightedLines.push(highlightedLine)
+    }
+    return { lines: highlightedLines }
+  } catch {
+    return null
+  }
+}
 
 const PIERRE_CSS = `
   [data-diffs] {
@@ -63,4 +137,4 @@ function render(
   }
 }
 
-export { render, stats }
+export { highlight, render, stats }

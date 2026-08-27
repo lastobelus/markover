@@ -2106,6 +2106,26 @@ button.review-list-row-pr:hover {
   white-space: nowrap;
 }
 
+.syntax-token {
+  color: var(--syntax-light);
+}
+
+:root[data-appearance="dark"] .syntax-token {
+  color: var(--syntax-dark);
+}
+
+.syntax-token.is-italic {
+  font-style: italic;
+}
+
+.syntax-token.is-bold {
+  font-weight: 700;
+}
+
+.syntax-token.is-underlined {
+  text-decoration: underline;
+}
+
 .block-content:not(.code) code {
   padding: 1px 4px;
   border-radius: 4px;

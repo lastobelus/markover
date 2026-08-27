@@ -17,7 +17,22 @@ export interface DiffStats {
   deletions: number
 }
 
+export interface SyntaxHighlightToken {
+  content: string
+  lightColor: string
+  darkColor: string
+  fontStyle: number
+}
+
+export interface SyntaxHighlightResult {
+  lines: SyntaxHighlightToken[][]
+}
+
 export interface DiffRenderer {
+  highlight(
+    source: string,
+    language: string
+  ): Promise<SyntaxHighlightResult | null>
   render(
     container: HTMLElement,
     original: string,
