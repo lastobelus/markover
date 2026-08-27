@@ -2107,10 +2107,6 @@ button.review-list-row-pr:hover {
 }
 
 .syntax-token {
-  color: var(--syntax-light);
-}
-
-:root[data-appearance="dark"] .syntax-token {
   color: var(--syntax-dark);
 }
 
