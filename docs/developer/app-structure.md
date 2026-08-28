@@ -16,7 +16,7 @@ App shell
 | Structure | TypeScript stem | CSS name | Theme-token prefix | Current content |
 | --- | --- | --- | --- | --- |
 | App shell | `appShell` | `.app-shell` | `--app-shell-*` | App header and pane layout |
-| App header | `appHeader` | `.app-header` | `--app-header-*` | App-level identity, actions, navigation, and status |
+| App header | `appHeader` | `.app-header` | `--app-header-*` | App-level identity, actions, and status |
 | Pane layout | `paneLayout` | `.pane-layout` | `--pane-layout-*` | Left, center, and right panes |
 | Left pane | `leftPane` | `.left-pane` | `--left-pane-*` | Review navigation and documents list |
 | Center pane | `centerPane` | `.center-pane` | `--center-pane-*` | Document tree |
@@ -32,9 +32,10 @@ requirement that every structure define a theme token.
 Content keeps content-specific names. Review navigation, documents list, document tree, annotation views, source card, and similar components describe what appears inside a structural region. They do not rename that region. User-facing labels and accessibility names should describe the task or content when that is more useful than a positional name.
 
 The app shell's DOM boundary contains the app header and the app empty state or
-pane layout. The current app header owns its bar, durability warning, and review
-navigation strip. Dialogs, popovers, toasts, startup screens, and prototype
-surfaces are outside the shell even when they visually overlay it.
+pane layout. The current app header owns its bar and durability warning. The
+left pane owns the review navigation strip and documents list. Dialogs,
+popovers, toasts, startup screens, and prototype surfaces are outside the shell
+even when they visually overlay it.
 
 Use **pane layout** for the visual container. Markover already uses **workspace** for app-private persisted state, and development tooling also uses workspace for filesystem and execution contexts.
 
