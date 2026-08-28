@@ -129,6 +129,10 @@ test('picker cancellation and failed creation cannot reuse a pending candidate',
   )
   assert.match(
     main,
+    /const window = mainWindow[\s\S]*window && !window\.isDestroyed\(\)[\s\S]*dialog\.showOpenDialog\(window, options\)[\s\S]*dialog\.showOpenDialog\(options\)/
+  )
+  assert.match(
+    main,
     /const candidate = pendingLocalReviewCandidate\s*pendingLocalReviewCandidate = null\s*if \(!candidate\)/
   )
   assert.doesNotMatch(creationBoundary, /activeManagedReview|installApplicationMenu/)

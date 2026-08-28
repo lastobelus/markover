@@ -48,7 +48,7 @@ the semantic tokens rather than naming the current contents.
 
 | Structural token | Current base mapping |
 | --- | --- |
-| `--app-shell-background` | `--hover-line` |
+| `--app-shell-background` | `--ground` |
 | `--app-header-background` | `--app-shell-background` |
 | `--left-pane-background` | `--neutral-soft` |
 | `--center-pane-background` | `--paper` |

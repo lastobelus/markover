@@ -208,6 +208,7 @@ const elements = {
   reviewBatchNoNotes: requiredElement<HTMLButtonElement>('#review-batch-no-notes'),
   reviewFilter: requiredElement<HTMLSelectElement>('#review-filter'),
   reviewIdActivation: requiredElement<HTMLFormElement>('#review-id-activation'),
+  reviewIdCopy: requiredElement<HTMLButtonElement>('#review-id-copy'),
   reviewIdInput: requiredElement<HTMLInputElement>('#review-id-input'),
   reviewNavigationInbox: requiredElement<HTMLButtonElement>('#review-navigation-inbox'),
   reviewNavigationProjects: requiredElement<HTMLButtonElement>('#review-navigation-projects'),
@@ -1641,6 +1642,7 @@ function renderSourcePanel(node: ReviewNode): void {
   sourceDiffCleanup?.()
   sourceDiffCleanup = null
   elements.sourceDiff.replaceChildren()
+  elements.sourceDiff.classList.remove('is-loading')
 
   const editable = isCurrentReviewEditable() && node.sourceEditable !== false
   const editing = editable && state.sourceEditingId === node.id
@@ -1682,12 +1684,15 @@ function renderSourcePanel(node: ReviewNode): void {
       const renderKey = `${state.reviewId || 'local'}:${node.id}:${node.sourceEdit.current}`
       elements.sourceDiff.dataset.renderKey = renderKey
       elements.sourceDiff.textContent = 'Loading diff…'
+      elements.sourceDiff.classList.add('is-loading')
       void loadSourceDiffModule().then((diffs) => {
         if (elements.sourceDiff.dataset.renderKey !== renderKey) return
         renderDiffStats(
           elements.sourceDiffStats,
           diffs.stats(node.sourceEdit?.original || '', node.sourceEdit?.current || '')
         )
+        elements.sourceDiff.classList.remove('is-loading')
+        elements.sourceDiff.replaceChildren()
         sourceDiffCleanup = diffs.render(
           elements.sourceDiff,
           node.sourceEdit?.original || '',
@@ -1697,6 +1702,7 @@ function renderSourcePanel(node: ReviewNode): void {
       }).catch((error: unknown) => {
         if (elements.sourceDiff.dataset.renderKey !== renderKey) return
         console.error('Failed to load source diff renderer', error)
+        elements.sourceDiff.classList.remove('is-loading')
         elements.sourceDiff.textContent = `Diff unavailable: ${error instanceof Error ? error.message : String(error)}`
       })
     }
@@ -2367,6 +2373,8 @@ function renderReviewContext(): void {
   elements.documentReviewId.hidden = !review
   if (!review) {
     elements.documentReviewId.textContent = ''
+    elements.reviewIdActivation.hidden = true
+    elements.documentReviewId.setAttribute('aria-expanded', 'false')
     elements.sourceState.hidden = true
     elements.sourceCardState.hidden = true
     elements.sourceCardState.textContent = ''
@@ -2388,8 +2396,9 @@ function renderReviewContext(): void {
     elements.reviewContextFields.contains(document.activeElement)
   elements.reviewContextFields.replaceChildren()
   elements.documentReviewId.textContent = review.id
-  elements.documentReviewId.ariaLabel = `Copy review ID ${review.id}`
-  elements.documentReviewId.title = `Copy review ID ${review.id}`
+  elements.documentReviewId.ariaLabel = `Show controls for review ID ${review.id}`
+  elements.documentReviewId.title = `Show controls for review ID ${review.id}`
+  if (!elements.reviewIdActivation.hidden) elements.reviewIdInput.value = review.id
   const reviewIdCopy = addReviewContextCopyField('Review ID', review.id)
   const row = reviewRowById(review.id)
   const inventory = row ? reviewMetadataInventory(row) : null
@@ -2956,19 +2965,34 @@ function showReviewResolutionConfirmation(
       ? 'Record that you reviewed the selected reviews and have no notes.'
       : 'Record that the selected reviews were accepted without review.'
   for (const review of request.reviews) {
-    const details = document.createElement('details')
-    details.className = 'review-resolution-summary'
-    details.open = request.reviews.length === 1
-    const summary = document.createElement('summary')
+    const expandable = review.blocks.length > 0
+    const item = document.createElement(expandable ? 'details' : 'div')
+    item.className = 'review-resolution-summary'
+    if (item instanceof HTMLDetailsElement) {
+      item.open = request.reviews.length === 1
+    }
+    const summary = document.createElement(expandable ? 'summary' : 'div')
+    if (!expandable) summary.className = 'review-resolution-row-header'
+    const copy = document.createElement('span')
+    copy.className = 'review-resolution-row-copy'
     const title = document.createElement('strong')
     title.textContent = review.documentName
     const description = document.createElement('span')
     const preview = review.blocks[0]
-      ? resolutionBlockPreview(review.blocks[0])
-      : 'No feedback artifacts'
-    description.textContent = `${review.contextSummary} · ${String(review.blocks.length)} feedback block${review.blocks.length === 1 ? '' : 's'} · ${preview}`
-    summary.append(title, description)
-    details.append(summary)
+    description.textContent = preview
+      ? `${review.contextSummary} · ${String(review.blocks.length)} feedback block${review.blocks.length === 1 ? '' : 's'} · ${resolutionBlockPreview(preview)}`
+      : review.contextSummary
+    copy.append(title, description)
+    if (expandable) {
+      const annotationCount = document.createElement('span')
+      annotationCount.className = 'review-resolution-annotation-count'
+      annotationCount.textContent = String(review.blocks.length)
+      annotationCount.title = `${String(review.blocks.length)} annotation${review.blocks.length === 1 ? '' : 's'}`
+      annotationCount.setAttribute('aria-label', annotationCount.title)
+      summary.append(annotationCount)
+    }
+    summary.append(copy)
+    item.append(summary)
     const blocks = document.createElement('div')
     blocks.className = 'review-resolution-blocks'
     for (const block of review.blocks) {
@@ -2994,11 +3018,8 @@ function showReviewResolutionConfirmation(
       }
       blocks.append(item)
     }
-    if (!review.blocks.length) {
-      blocks.append(createEmptyReviewMessage('No feedback will be abandoned.'))
-    }
-    details.append(blocks)
-    elements.reviewResolutionSummaries.append(details)
+    if (expandable) item.append(blocks)
+    elements.reviewResolutionSummaries.append(item)
   }
   elements.reviewResolutionConfirm.textContent = feedbackReviewCount
     ? `Abandon feedback in ${String(feedbackReviewCount)} review${feedbackReviewCount === 1 ? '' : 's'}`
@@ -4756,13 +4777,37 @@ elements.reviewContextButton.addEventListener('click', () => {
 elements.reviewContextClose.addEventListener('click', () => {
   closeReviewContext()
 })
+function setReviewIdControlsOpen(open: boolean): void {
+  elements.reviewIdActivation.hidden = !open
+  elements.documentReviewId.setAttribute('aria-expanded', String(open))
+  if (!open) return
+  elements.reviewIdInput.value = state.reviewId || ''
+  requestAnimationFrame(() => {
+    elements.reviewIdInput.focus()
+    elements.reviewIdInput.select()
+  })
+}
+
 elements.documentReviewId.addEventListener('click', () => {
   if (!state.reviewId) return
-  bridge.copyText(state.reviewId)
+  setReviewIdControlsOpen(elements.reviewIdActivation.hasAttribute('hidden'))
+})
+elements.reviewIdCopy.addEventListener('click', () => {
+  const reviewId = elements.reviewIdInput.value.trim()
+  if (!reviewId) return
+  bridge.copyText(reviewId)
+  setReviewIdControlsOpen(false)
+  elements.documentReviewId.focus()
   showToast('Review ID copied')
 })
 elements.reviewIdInput.addEventListener('input', () => {
   elements.reviewIdInput.setCustomValidity('')
+})
+elements.reviewIdActivation.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  setReviewIdControlsOpen(false)
+  elements.documentReviewId.focus()
 })
 elements.reviewIdActivation.addEventListener('submit', (event) => {
   event.preventDefault()
@@ -4779,7 +4824,8 @@ elements.reviewIdActivation.addEventListener('submit', (event) => {
   }
   void activateReview(reviewId).then((outcome) => {
     if (outcome === 'activated' || outcome === 'already-active') {
-      elements.reviewIdInput.value = ''
+      setReviewIdControlsOpen(false)
+      elements.documentReviewId.focus()
     } else if (outcome === 'blocked') {
       showToast('Finish or cancel the source edit before opening another review')
     }
@@ -5422,10 +5468,15 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
   /* Theme tokens hold palette values; the inspector flags duplicate computed values. */
   const THEME: readonly Group[] = [
     ['Theme · brand', [t('--markover-primary'), t('--markover-secondary'), t('--brand-soft')]],
-    ['Theme · ground', [t('--paper'), t('--surface'), t('--neutral-soft')]],
+    ['Theme · ground', [
+      t('--ground'),
+      t('--paper'),
+      t('--surface'),
+      t('--neutral-soft')
+    ]],
     ['Theme · ink', [t('--ink'), t('--muted'), t('--primary-contrast'), t('--secondary-contrast')]],
-    ['Theme · rules', [t('--line'), t('--hover-line'), t('--selection-line')]],
-    ['Theme · material', [t('--input'), t('--input-muted'), t('--thumbnail'), t('--code'), t('--shadow')]],
+    ['Theme · rules', [t('--line'), t('--selection-line')]],
+    ['Theme · material', [t('--input'), t('--thumbnail'), t('--code'), t('--shadow')]],
     ['Theme · status', [t('--status-revised'), t('--status-progress'), t('--source-error')]]
   ]
 
@@ -5461,6 +5512,7 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
       t('--theme-token-inspector-scrollbar-track-background'),
       t('--document-tree-code-background'),
       t('--document-tree-code-foreground'),
+      t('--document-tree-row-hover-border'),
       t('--selection-bridge-background'),
       t('--keyboard-help-background'),
       t('--theme-token-inspector-background'),
@@ -5497,16 +5549,16 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
 
   const inspector = document.querySelector<HTMLElement>('#theme-token-inspector')
   const close = document.querySelector<HTMLButtonElement>('#theme-token-inspector-close')
-  const appHeaderBackground = document.querySelector<HTMLSelectElement>('#theme-token-inspector-app-header-background')
   const showDocumentChecksum = document.querySelector<HTMLInputElement>('#theme-token-inspector-show-document-checksum')
+  const showIncomingReview = document.querySelector<HTMLButtonElement>('#theme-token-inspector-show-incoming-review')
   const list = document.querySelector<HTMLElement>('#theme-token-inspector-tokens')
 
   if (
     startupInfo.development &&
     inspector &&
     close &&
-    appHeaderBackground &&
     showDocumentChecksum &&
+    showIncomingReview &&
     list
   ) {
     inspector.hidden = false
@@ -5547,22 +5599,6 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
     addGroups(THEME)
     addGroups(SEMANTIC)
 
-    const defaultOption = document.createElement('option')
-    defaultOption.value = ''
-    defaultOption.textContent = '(theme default)'
-    appHeaderBackground.append(defaultOption)
-    for (const groups of [THEME, SEMANTIC]) {
-      for (const [, tokens] of groups) {
-        for (const token of tokens) {
-          if (token.name === '--app-header-background') continue
-          const option = document.createElement('option')
-          option.value = token.name
-          option.textContent = token.name
-          appHeaderBackground.append(option)
-        }
-      }
-    }
-
     /* Display each rendered colour once. Theme rows are ordered first, so a
        semantic role that resolves to a theme colour names that canonical token. */
     const refresh = (): void => {
@@ -5582,18 +5618,26 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
       }
     }
 
-    appHeaderBackground.addEventListener('change', () => {
-      if (appHeaderBackground.value) {
-        root.style.setProperty('--app-header-background', `var(${appHeaderBackground.value})`)
-      } else {
-        root.style.removeProperty('--app-header-background')
-      }
-      refresh()
-    })
-
     showDocumentChecksum.addEventListener('change', () => {
       elements.checksum.hidden = !showDocumentChecksum.checked
     })
+
+    const showIncomingReviewPreview = (): void => {
+      elements.incomingReviewDialogMessage.textContent =
+        '“new-review.md” is ready. Open it instead of the current review?'
+      if (!elements.incomingReviewDialog.open) {
+        elements.incomingReviewDialog.showModal()
+      }
+      elements.incomingReviewDialogKeep.focus()
+    }
+
+    showIncomingReview.addEventListener('click', showIncomingReviewPreview)
+
+    const incomingReviewPreviewKey = 'markover-dev-incoming-review-preview-v3'
+    if (!sessionStorage.getItem(incomingReviewPreviewKey)) {
+      sessionStorage.setItem(incomingReviewPreviewKey, 'shown')
+      setTimeout(showIncomingReviewPreview, 250)
+    }
 
     close.addEventListener('click', () => { inspector.hidden = true })
 

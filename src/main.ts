@@ -15,6 +15,7 @@ import {
   type Event as ElectronEvent,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
+  type OpenDialogOptions,
   type WebContents
 } from 'electron'
 import { createHash } from 'node:crypto'
@@ -1074,13 +1075,17 @@ async function saveAttachment(
 
 async function openMarkdown(): Promise<MarkoverDocument | null> {
   pendingLocalReviewCandidate = null
-  const result = await dialog.showOpenDialog({
+  const options: OpenDialogOptions = {
     properties: ['openFile'],
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] },
       { name: 'All files', extensions: ['*'] }
     ]
-  })
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showOpenDialog(window, options)
+    : await dialog.showOpenDialog(options)
 
   if (result.canceled || result.filePaths.length === 0) return null
 

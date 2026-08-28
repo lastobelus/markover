@@ -83,7 +83,7 @@ test('core review controls expose names, relationships, states, and values', () 
   assert.ok(documentReviewId)
   assert.equal(reviewIdInput.getAttribute('pattern'), 'mko_[A-Za-z0-9]{6,32}')
   assert.equal(reviewIdInput.getAttribute('aria-describedby'), 'review-id-activation-hint')
-  assert.equal(documentReviewId.getAttribute('aria-label'), 'Copy review ID')
+  assert.equal(documentReviewId.getAttribute('aria-label'), 'Show review ID controls')
 })
 
 test('status changes and tree selection have a dedicated polite announcement path', () => {
@@ -141,7 +141,8 @@ test('keyboard access reaches native controls and retains an explicit pane short
     renderer,
     /reviewIdActivation\.addEventListener\('submit'[\s\S]*reviewIdInput\.reportValidity\(\)[\s\S]*activateReview\(reviewId\)/
   )
-  assert.match(renderer, /documentReviewId\.addEventListener\('click'[\s\S]*bridge\.copyText\(state\.reviewId\)/)
+  assert.match(renderer, /documentReviewId\.addEventListener\('click'[\s\S]*setReviewIdControlsOpen\(elements\.reviewIdActivation\.hasAttribute\('hidden'\)\)/)
+  assert.match(renderer, /reviewIdCopy\.addEventListener\('click'[\s\S]*bridge\.copyText\(reviewId\)[\s\S]*setReviewIdControlsOpen\(false\)[\s\S]*documentReviewId\.focus\(\)/)
   assert.match(renderer, /reviewIdDescription\.textContent = `Review ID \$\{row\.reviewId\}`[\s\S]*button\.setAttribute\('aria-describedby', reviewIdDescription\.id\)/)
   assert.match(
     renderer,

@@ -295,7 +295,7 @@
           hidden
         >i</button>
         <div id="standard-actions" class="action-group">
-          <button id="open-button" class="button button-secondary">Open Markdown</button>
+          <button id="open-button" class="button button-tertiary">Open Markdown</button>
           <button id="copy-tree-button" class="button button-primary">Copy feedback JSON</button>
         </div>
       </div>
@@ -309,25 +309,7 @@
       hidden
     ></div>
 
-    <div id="review-tab-strip" class="review-tab-strip" hidden>
-      <form id="review-id-activation" class="review-id-activation">
-        <label class="visually-hidden" for="review-id-input">Open an exact review ID</label>
-        <input
-          id="review-id-input"
-          type="text"
-          inputmode="text"
-          autocomplete="off"
-          spellcheck="false"
-          pattern="mko_[A-Za-z0-9]{6,32}"
-          placeholder="Exact review ID"
-          aria-describedby="review-id-activation-hint"
-        >
-        <span id="review-id-activation-hint" class="visually-hidden">
-          Enter a complete review ID such as mko_8f3a2c.
-        </span>
-        <button type="submit">Open</button>
-      </form>
-    </div>
+    <div id="review-tab-strip" class="review-tab-strip" hidden></div>
     </header>
 
     <main id="app-empty-state" class="app-empty-state">
@@ -425,13 +407,35 @@
             ></button>
             <span class="eyebrow">Document tree</span>
           </div>
-          <button
-            id="document-review-id"
-            class="document-review-id"
-            type="button"
-            aria-label="Copy review ID"
-            hidden
-          ></button>
+          <div class="document-review-control">
+            <button
+              id="document-review-id"
+              class="document-review-id"
+              type="button"
+              aria-label="Show review ID controls"
+              aria-expanded="false"
+              aria-controls="review-id-activation"
+              hidden
+            ></button>
+            <form id="review-id-activation" class="review-id-activation" hidden>
+              <label class="visually-hidden" for="review-id-input">Open or copy an exact review ID</label>
+              <input
+                id="review-id-input"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                spellcheck="false"
+                pattern="mko_[A-Za-z0-9]{6,32}"
+                placeholder="Exact review ID"
+                aria-describedby="review-id-activation-hint"
+              >
+              <span id="review-id-activation-hint" class="visually-hidden">
+                Enter a complete review ID such as mko_8f3a2c.
+              </span>
+              <button type="submit">Open</button>
+              <button id="review-id-copy" type="button">Copy</button>
+            </form>
+          </div>
           <div class="document-tree-header-actions">
             <div class="document-tree-view-toggle" role="group" aria-label="Document tree view">
               <button id="tree-view-all" class="is-active" type="button">All</button>
@@ -913,13 +917,13 @@
           <div>
             <span class="eyebrow">Incoming review</span>
             <h2 id="incoming-review-dialog-title">Open the new review?</h2>
+            <p id="incoming-review-dialog-message"></p>
           </div>
         </header>
-        <p id="incoming-review-dialog-message"></p>
         <footer class="settings-footer">
           <button
             id="incoming-review-dialog-open"
-            class="button button-secondary"
+            class="button button-tertiary"
             type="button"
           >Open New Review</button>
           <button
@@ -966,14 +970,14 @@
           <div>
             <span class="eyebrow">Complete reviews</span>
             <h2 id="review-resolution-title">Resolve selected reviews?</h2>
+            <p id="review-resolution-message"></p>
           </div>
         </header>
         <div class="settings-content review-resolution-content">
-          <p id="review-resolution-message"></p>
           <div id="review-resolution-summaries" class="review-resolution-summaries"></div>
         </div>
         <footer class="settings-footer">
-          <button id="review-resolution-cancel" class="button button-secondary" type="button">Cancel</button>
+          <button id="review-resolution-cancel" class="button button-tertiary" type="button">Cancel</button>
           <button id="review-resolution-confirm" class="button button-primary" type="button">Resolve</button>
         </footer>
       </div>
@@ -996,7 +1000,7 @@
           <p id="review-trash-detail">The complete review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.</p>
         </div>
         <footer class="review-trash-actions">
-          <button id="review-trash-cancel" class="button button-secondary" type="button">Cancel</button>
+          <button id="review-trash-cancel" class="button button-tertiary" type="button">Cancel</button>
           <button id="review-trash-confirm" class="button button-danger" type="button">Move to Trash</button>
         </footer>
       </div>
@@ -1008,14 +1012,13 @@
         <span>Theme tokens</span>
         <button id="theme-token-inspector-close" type="button" aria-label="Hide theme-token inspector">&times;</button>
       </header>
-      <label class="theme-token-inspector-field">
-        <span>App header background</span>
-        <select id="theme-token-inspector-app-header-background"></select>
-      </label>
       <label class="theme-token-inspector-toggle">
         <input id="theme-token-inspector-show-document-checksum" type="checkbox">
         <span>Show document checksum</span>
       </label>
+      <button id="theme-token-inspector-show-incoming-review" class="theme-token-inspector-action" type="button">
+        Show incoming-review dialog
+      </button>
       <div id="theme-token-inspector-tokens" class="theme-token-inspector-tokens"></div>
     </div>
 

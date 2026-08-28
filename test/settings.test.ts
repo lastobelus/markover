@@ -487,7 +487,7 @@ test('settings are discoverable from the native menu and wired to a complete dia
   assert.match(styles, /\.settings-group \+ \.settings-group\s*\{[^}]*border-top: 1px solid var\(--line\)/)
   assert.match(styles, /\.settings-footer\s*\{[^}]*background: var\(--neutral-soft\)/)
   assert.match(styles, /\.settings-content::-webkit-scrollbar-track\s*\{[^}]*background: var\(--neutral-soft\)/)
-  assert.match(styles, /\.settings-content::-webkit-scrollbar-thumb\s*\{[^}]*rgb\(var\(--ink-rgb\) \/ 22%\)/)
+  assert.match(styles, /\*::-webkit-scrollbar-thumb\s*\{[^}]*var\(--app-scrollbar-thumb-background\)/)
   assert.match(styles, /\.settings-close-icon\s*\{[^}]*width: 16px;[^}]*height: 16px;/)
   assert.doesNotMatch(styles, /\.settings-group-fields\s*\{[^}]*border:/)
   assert.doesNotMatch(styles, /\.settings-field\s*\{[^}]*border-bottom:/)

@@ -21,6 +21,15 @@ test('source preview wraps, grows to twelve lines, and remains collapsible', () 
   assert.match(styles, /\.selected-source \{[^}]*overflow-wrap: anywhere;[^}]*white-space: pre-wrap;/)
 })
 
+test('source diff replaces its centered loading state before rendering', () => {
+  const renderer = read('src/renderer.ts')
+  const styles = read('src/styles.css')
+
+  assert.match(renderer, /sourceDiff\.textContent = 'Loading diff…'[\s\S]*sourceDiff\.classList\.add\('is-loading'\)/)
+  assert.match(renderer, /sourceDiff\.classList\.remove\('is-loading'\)[\s\S]*sourceDiff\.replaceChildren\(\)[\s\S]*sourceDiffCleanup = diffs\.render/)
+  assert.match(styles, /\.source-diff\.is-loading \{[^}]*display: grid;[^}]*place-items: center;/)
+})
+
 test('frontmatter parent source is read-only while entries use plain monospace styling', () => {
   const renderer = read('src/renderer.ts')
   const styles = read('src/styles.css')
@@ -49,6 +58,7 @@ test('saved invalid YAML marks the closed source card without blocking edits', (
   assert.match(renderer, /MarkoverAnnotationBlock\.popoverPosition\(/)
   assert.match(renderer, /if \(!elements\.sourceErrorTooltip\.hidden\) showSourceErrorTooltip\(\)/)
   assert.match(styles, /\.source-panel\.has-yaml-error \{[^}]*border-color: var\(--source-error\);[^}]*box-shadow:/)
+  assert.match(styles, /\.source-panel \{[^}]*margin: 6px 13px 0 10px;/)
   assert.match(styles, /\.source-panel\.has-yaml-error \.source-header \{[^}]*background:/)
   assert.match(styles, /\.source-error-tooltip \{[^}]*position: fixed;[^}]*pointer-events: none;/)
 })
