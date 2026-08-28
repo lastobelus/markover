@@ -5515,6 +5515,7 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
       t('--document-tree-row-hover-border'),
       t('--selection-bridge-background'),
       t('--keyboard-help-background'),
+      t('--annotation-readonly-background'),
       t('--theme-token-inspector-background'),
       t('--theme-token-inspector-border-color'),
       t('--theme-token-inspector-shadow-color'),

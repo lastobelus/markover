@@ -54,6 +54,7 @@
   --document-tree-row-hover-border: var(--ground);
   --selection-bridge-background: var(--right-pane-background);
   --keyboard-help-background: var(--neutral-soft);
+  --annotation-readonly-background: var(--center-pane-background);
   --theme-token-inspector-background: var(--surface);
   --theme-token-inspector-border-color: var(--line);
   --theme-token-inspector-shadow-color: var(--shadow);
@@ -3199,7 +3200,7 @@ kbd {
   border-radius: 11px;
   outline: none;
   color: var(--ink);
-  background: var(--center-pane-background);
+  background: var(--annotation-readonly-background);
   font-size: var(--annotation-font-size);
   line-height: 1.55;
 }
