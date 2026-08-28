@@ -16,6 +16,11 @@ interface Rect {
   height: number
 }
 
+interface DisplayGeometry {
+  bounds: Rect
+  workArea: Rect
+}
+
 interface Size {
   width: number
   height: number
@@ -66,6 +71,39 @@ export function clampWindowBounds(
     workArea.y + workArea.height - height
   )
   return { x, y, width, height, maximized: bounds.maximized }
+}
+
+/**
+ * Restores a window to the connected display it previously occupied. If its
+ * display is gone, the primary work area is the predictable fallback.
+ */
+export function workAreaForWindowBounds(
+  bounds: WindowBounds,
+  displays: readonly DisplayGeometry[],
+  primaryWorkArea: Rect
+): Rect {
+  let bestWorkArea: Rect | null = null
+  let bestIntersectionArea = 0
+
+  for (const display of displays) {
+    const intersectionWidth = Math.max(
+      0,
+      Math.min(bounds.x + bounds.width, display.bounds.x + display.bounds.width)
+        - Math.max(bounds.x, display.bounds.x)
+    )
+    const intersectionHeight = Math.max(
+      0,
+      Math.min(bounds.y + bounds.height, display.bounds.y + display.bounds.height)
+        - Math.max(bounds.y, display.bounds.y)
+    )
+    const intersectionArea = intersectionWidth * intersectionHeight
+    if (intersectionArea > bestIntersectionArea) {
+      bestIntersectionArea = intersectionArea
+      bestWorkArea = display.workArea
+    }
+  }
+
+  return bestWorkArea ?? primaryWorkArea
 }
 
 /**

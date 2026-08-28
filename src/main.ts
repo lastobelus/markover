@@ -127,7 +127,8 @@ import { SettingsStore } from './settings-store'
 import { t3ThreadTitleSnapshot } from './t3-thread-titles'
 import {
   WindowBoundsStore,
-  clampWindowBounds
+  clampWindowBounds,
+  workAreaForWindowBounds
 } from './window-bounds'
 import { WorkspaceStore } from './workspace-store'
 import { smokeReviewTree } from './smoke-fixture'
@@ -1131,12 +1132,20 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
-  const workAreaRect = screen.getPrimaryDisplay().workArea
-  const workArea = screen.getPrimaryDisplay().workAreaSize
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const savedBounds = smokeMode ? null : windowBoundsStore?.bounds ?? null
+  const workAreaRect = savedBounds
+    ? workAreaForWindowBounds(
+      savedBounds,
+      screen.getAllDisplays(),
+      primaryDisplay.workArea
+    )
+    : primaryDisplay.workArea
+  const workArea = { width: workAreaRect.width, height: workAreaRect.height }
   const minimumSize = minimumWindowSize(startupSettings.zoomPercent, workArea)
-  const rememberedBounds = smokeMode || !windowBoundsStore?.bounds
+  const rememberedBounds = !savedBounds
     ? null
-    : clampWindowBounds(windowBoundsStore.bounds, workAreaRect, minimumSize)
+    : clampWindowBounds(savedBounds, workAreaRect, minimumSize)
   const window = new BrowserWindow({
     width: rememberedBounds?.width ?? Math.min(1180, workArea.width),
     height: rememberedBounds?.height ?? Math.min(760, workArea.height),

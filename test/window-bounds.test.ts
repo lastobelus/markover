@@ -7,7 +7,8 @@ import test from 'node:test'
 import {
   WindowBoundsStore,
   clampWindowBounds,
-  parseWindowBounds
+  parseWindowBounds,
+  workAreaForWindowBounds
 } from '../src/window-bounds'
 
 const workArea = { x: 0, y: 25, width: 1440, height: 875 }
@@ -69,6 +70,35 @@ test('fits remembered bounds back onto the current work area', () => {
   assert.equal(tiny.width, minimum.width)
   assert.equal(tiny.height, minimum.height)
   assert.equal(tiny.maximized, true)
+})
+
+test('restores bounds to the connected display they occupied', () => {
+  const primary = {
+    bounds: { x: 0, y: 0, width: 1440, height: 900 },
+    workArea
+  }
+  const secondary = {
+    bounds: { x: 1440, y: 0, width: 1920, height: 1080 },
+    workArea: { x: 1440, y: 25, width: 1920, height: 1055 }
+  }
+
+  assert.equal(
+    workAreaForWindowBounds(
+      { x: 1600, y: 100, width: 1000, height: 700, maximized: false },
+      [primary, secondary],
+      primary.workArea
+    ),
+    secondary.workArea
+  )
+
+  assert.equal(
+    workAreaForWindowBounds(
+      { x: 5000, y: 100, width: 1000, height: 700, maximized: false },
+      [primary, secondary],
+      primary.workArea
+    ),
+    primary.workArea
+  )
 })
 
 test('round-trips through the store and survives a missing or broken file', async () => {
