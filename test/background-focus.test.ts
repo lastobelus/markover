@@ -223,7 +223,7 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
-    /if \(elements\.settingsDialog\.open \|\| elements\.incomingReviewDialog\.open\) return/
+    /if \([\s\S]*elements\.settingsDialog\.open \|\|[\s\S]*elements\.incomingReviewDialog\.open \|\|[\s\S]*elements\.reviewTrashDialog\.open[\s\S]*\) return/
   )
 })
 

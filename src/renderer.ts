@@ -4973,7 +4973,11 @@ document.addEventListener('keydown', (event) => {
     document.body.classList.add('is-control-pressed')
   }
 
-  if (elements.settingsDialog.open || elements.incomingReviewDialog.open) return
+  if (
+    elements.settingsDialog.open ||
+    elements.incomingReviewDialog.open ||
+    elements.reviewTrashDialog.open
+  ) return
 
   if (event.key === 'Escape' && elements.imagePreview.open) {
     event.preventDefault()
