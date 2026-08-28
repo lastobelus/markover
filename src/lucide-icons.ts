@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  CodeXml,
   FileText,
   Folder,
   GitBranch,
@@ -12,7 +13,10 @@ import {
   MessagesSquare,
   PanelLeft,
   PanelLeftClose,
+  PenLine,
   Server,
+  TriangleAlert,
+  X,
   createElement as createLucideElement,
   type IconNode
 } from 'lucide/dist/esm/lucide/src/lucide.js'
@@ -21,6 +25,7 @@ const icons = {
   'chevron-down': ChevronDown,
   'chevron-right': ChevronRight,
   clock: Clock,
+  'code-xml': CodeXml,
   'file-text': FileText,
   folder: Folder,
   'git-branch': GitBranch,
@@ -31,7 +36,10 @@ const icons = {
   'messages-square': MessagesSquare,
   'panel-left': PanelLeft,
   'panel-left-close': PanelLeftClose,
-  server: Server
+  'pen-line': PenLine,
+  server: Server,
+  'triangle-alert': TriangleAlert,
+  x: X
 } satisfies Record<string, IconNode>
 
 export type MarkoverIconName = keyof typeof icons

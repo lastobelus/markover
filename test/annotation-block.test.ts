@@ -24,6 +24,9 @@ const styles = fs.readFileSync(
   path.join(__dirname, '../app/src/styles.css'),
   'utf8'
 )
+const renderer = fs.readFileSync(path.join(__dirname, '../../src/renderer.ts'), 'utf8')
+const icons = fs.readFileSync(path.join(__dirname, '../../src/lucide-icons.ts'), 'utf8')
+const annotationBlock = fs.readFileSync(path.join(__dirname, '../../src/annotation-block.ts'), 'utf8')
 
 test('builds one annotation view model for previews and list entries', () => {
   assert.deepEqual(model({
@@ -239,6 +242,11 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
     },
     onEdit: (node) => {
       calls.push(`edit:${node.id}`)
+    },
+    renderEditIcon: () => {
+      const icon = window.document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      icon.classList.add('lucide-icon')
+      return icon
     }
   })
 
@@ -251,6 +259,7 @@ test('annotation lists reuse rendered annotation blocks and track selection', ()
     element(element(selectedBlock.querySelector('.rendered-annotation-edit')).parentElement).className,
     'rendered-annotation-body has-edit'
   )
+  assert.ok(selectedBlock.querySelector('.rendered-annotation-edit .lucide-icon'))
   assert.equal(
     element(selectedBlock.querySelector<HTMLImageElement>('.rendered-annotation-attachment img')).src,
     'file:///tmp/img-2.png'
@@ -296,13 +305,29 @@ test('annotation list truncation indicators reflect measured content overflow', 
 
 test('annotation list cards use scannable titles, compact thumbnails, and primary edit actions', () => {
   assert.match(styles, /\.rendered-annotation-identity strong \{[^}]*font-size: 14px;/)
+  assert.match(styles, /\.rendered-annotation > header \{[^}]*min-height: 26px;[^}]*align-items: end;/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation > header \{[^}]*padding-bottom: 0;/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation-identity strong \{[^}]*color: var\(--muted\);[^}]*font-size: 12px;/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation:is\(\.is-selected, :hover\) \.rendered-annotation-identity strong \{[^}]*color: var\(--brand-orange\);/)
+  assert.match(styles, /\.rendered-annotation-body \{[^}]*padding: 4px 10px;/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation-body \{[^}]*font-size: 10px;/)
   assert.match(styles, /\.rendered-annotation-overflow \{[^}]*font-size: 15px;/)
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment \{[^}]*padding: 0;/)
   assert.match(styles, /\.rendered-annotation--list \.rendered-annotation-attachment span \{[^}]*display: none;/)
-  assert.match(styles, /\.rendered-annotation-edit \{[^}]*color: var\(--primary-button-text\);[^}]*background: var\(--primary-button-bg\);/)
+  assert.match(styles, /\.rendered-annotation-edit \{[^}]*width: 20px;[^}]*height: 20px;[^}]*border: 0;[^}]*color: var\(--muted\);[^}]*background: transparent;/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation-edit \{[^}]*visibility: hidden;[^}]*opacity: 0;[^}]*pointer-events: none;/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation:is\(\.is-selected, :hover\) \.rendered-annotation-edit \{[^}]*visibility: visible;[^}]*opacity: 1;[^}]*pointer-events: auto;/)
+  assert.match(styles, /\.rendered-annotation-edit \.lucide-icon \{[^}]*width: 14px;[^}]*height: 14px;/)
+  assert.match(icons, /PenLine/)
+  assert.match(renderer, /renderEditIcon: \(\) => markoverIcon\('pen-line'\)/)
+  assert.doesNotMatch(annotationBlock, /✎/)
   assert.match(styles, /\.annotation-list-view \{[^}]*min-width: 0;[^}]*overflow-x: hidden;/)
   assert.match(styles, /\.annotation-list \{[^}]*grid-template-columns: minmax\(0, 1fr\);/)
-  assert.match(styles, /\.annotation-list \.rendered-annotation \{[^}]*min-width: 0;[^}]*overflow: hidden;/)
-  assert.match(styles, /\.annotation-list \.rendered-annotation\.is-selected \{[^}]*box-shadow: inset -3px 0 0 var\(--brand-orange\);/)
-  assert.match(styles, /\.annotation-list-view:focus \.rendered-annotation\.is-selected \{[^}]*box-shadow: inset -4px 0 0 var\(--brand-orange\);/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation \{[^}]*min-width: 0;[^}]*padding-right: 2px;[^}]*padding-left: 4px;[^}]*overflow: hidden;/)
+  assert.doesNotMatch(styles, /\.annotation-list \.rendered-annotation \{[^}]*border-bottom:/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation\.is-selectable:hover \{[^}]*linear-gradient\([\s\S]*var\(--right-pane-background\),[\s\S]*var\(--paper\) 10px/)
+  assert.match(styles, /\.annotation-list \.rendered-annotation\.is-selected \{[^}]*linear-gradient\([\s\S]*var\(--right-pane-background\),[\s\S]*var\(--surface\) 10px/)
+  assert.doesNotMatch(styles, /\.annotation-list(?:-view:focus)? \.rendered-annotation\.is-selected \{[^}]*box-shadow:/)
+  assert.doesNotMatch(styles, /\.annotation-list \.rendered-annotation\.is-selected::before/)
+  assert.doesNotMatch(styles, /\.annotation-sneak-peek \{[^}]*border-top:/)
 })

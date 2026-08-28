@@ -83,7 +83,7 @@ test('core review controls expose names, relationships, states, and values', () 
   assert.ok(documentReviewId)
   assert.equal(reviewIdInput.getAttribute('pattern'), 'mko_[A-Za-z0-9]{6,32}')
   assert.equal(reviewIdInput.getAttribute('aria-describedby'), 'review-id-activation-hint')
-  assert.equal(documentReviewId.getAttribute('aria-label'), 'Copy review ID')
+  assert.equal(documentReviewId.getAttribute('aria-label'), 'Show review ID controls')
 })
 
 test('status changes and tree selection have a dedicated polite announcement path', () => {
@@ -141,12 +141,30 @@ test('keyboard access reaches native controls and retains an explicit pane short
     renderer,
     /reviewIdActivation\.addEventListener\('submit'[\s\S]*reviewIdInput\.reportValidity\(\)[\s\S]*activateReview\(reviewId\)/
   )
-  assert.match(renderer, /documentReviewId\.addEventListener\('click'[\s\S]*bridge\.copyText\(state\.reviewId\)/)
+  assert.match(renderer, /documentReviewId\.addEventListener\('click'[\s\S]*setReviewIdControlsOpen\(elements\.reviewIdActivation\.hasAttribute\('hidden'\)\)/)
+  assert.match(renderer, /reviewIdCopy\.addEventListener\('click'[\s\S]*bridge\.copyText\(reviewId\)[\s\S]*setReviewIdControlsOpen\(false\)[\s\S]*documentReviewId\.focus\(\)/)
   assert.match(renderer, /reviewIdDescription\.textContent = `Review ID \$\{row\.reviewId\}`[\s\S]*button\.setAttribute\('aria-describedby', reviewIdDescription\.id\)/)
   assert.match(
     renderer,
     /const isAnnotated = hasAnnotation\(node\)[\s\S]*if \(wasAnnotated !== isAnnotated\) \{[\s\S]*annotationState\.textContent = isAnnotated/
   )
+})
+
+test('left pane tabs expose their controlled review panel', () => {
+  const html = read('src/index.html')
+  const renderer = read('src/renderer.ts')
+  const dom = new JSDOM(html)
+  const tablist = dom.window.document.querySelector('[aria-label="Review organization"]')
+  const collapse = dom.window.document.querySelector('#left-pane-collapse')
+
+  assert.ok(tablist)
+  assert.ok(collapse)
+  assert.equal(tablist.querySelectorAll(':scope > [role="tab"]').length, 2)
+  assert.equal(tablist.contains(collapse), false)
+  assert.match(html, /id="review-navigation-inbox"[\s\S]*role="tab"[\s\S]*aria-controls="documents-list-tree"/)
+  assert.match(html, /id="review-navigation-projects"[\s\S]*role="tab"[\s\S]*aria-controls="documents-list-tree"/)
+  assert.match(html, /id="documents-list-tree"[\s\S]*role="tabpanel"[\s\S]*aria-labelledby="review-navigation-inbox"/)
+  assert.match(renderer, /documentsListTree\.setAttribute\([\s\S]*'aria-labelledby',[\s\S]*review-navigation-inbox[\s\S]*review-navigation-projects/)
 })
 
 test('attachment preview and destructive workflow restore a useful focus target', () => {
@@ -164,6 +182,22 @@ test('attachment preview and destructive workflow restore a useful focus target'
   )
 
   const renderer = read('src/renderer.ts')
+  const trashDialog = document.querySelector('#review-trash-dialog')
+  assert.ok(trashDialog)
+  assert.equal(trashDialog.tagName, 'DIALOG')
+  assert.equal(trashDialog.getAttribute('aria-labelledby'), 'review-trash-title')
+  assert.equal(
+    trashDialog.getAttribute('aria-describedby'),
+    'review-trash-safety review-trash-message review-trash-detail'
+  )
+  assert.match(
+    renderer,
+    /reviewTrashDialog\.showModal\(\)[\s\S]*reviewTrashCancel\.focus\(\)/
+  )
+  assert.match(
+    renderer,
+    /reviewTrashDialog\.addEventListener\('close',[\s\S]*completeReviewTrashConfirmation\(false\)/
+  )
   assert.match(renderer, /imagePreviewReturnFocus = document\.activeElement/)
   assert.match(renderer, /imagePreview\.showModal\(\)[\s\S]*imagePreviewClose\.focus\(\)/)
   assert.match(renderer, /imagePreview\.addEventListener\('close',[\s\S]*returnFocus\?\.isConnected[\s\S]*returnFocus\.focus/)

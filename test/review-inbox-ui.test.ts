@@ -9,13 +9,13 @@ const read = (relativePath: string): string => fs.readFileSync(
   'utf8'
 )
 
-test('production review navigation shares the strip with exact-ID activation', () => {
+test('the document-tree review ID reveals exact-ID controls', () => {
   const html = read('src/index.html')
   const styles = read('src/styles.css')
 
   assert.match(
     html,
-    /id="review-tab-strip"[\s\S]*id="review-navigation-inbox"[\s\S]*id="review-navigation-projects"[\s\S]*id="review-id-activation"[\s\S]*id="review-id-input"/
+    /class="document-review-control"[\s\S]*id="document-review-id"[\s\S]*aria-expanded="false"[\s\S]*id="review-id-activation"[\s\S]*id="review-id-input"[\s\S]*id="review-id-copy"/
   )
   assert.match(
     styles,
@@ -25,6 +25,7 @@ test('production review navigation shares the strip with exact-ID activation', (
 })
 
 test('production inbox shares responsibility filters and retains All history', () => {
+  const html = read('src/index.html')
   const renderer = read('src/renderer.ts')
   const icons = read('src/lucide-icons.ts')
   const registry = read('src/review-icon-registry.ts')
@@ -39,8 +40,17 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /projection\.filterCounts\['needs-me'\]/)
   assert.match(renderer, /elements\.reviewFilter\.addEventListener\('change'/)
   assert.match(renderer, /selectedReviewIds\.clear\(\)[\s\S]*setReviewNavigationMode\('projects'\)/)
-  assert.match(read('src/index.html'), /id="review-filter"[\s\S]*value="needs-me"[\s\S]*value="with-agent"[\s\S]*value="completed"[\s\S]*value="all"/)
-  assert.match(styles, /\.review-filter \{/)
+  const leftPane = html.slice(
+    html.indexOf('<aside id="left-pane"'),
+    html.indexOf('</aside>', html.indexOf('<aside id="left-pane"'))
+  )
+  assert.match(html, /id="review-filter"[\s\S]*value="needs-me"[\s\S]*value="with-agent"[\s\S]*value="completed"[\s\S]*value="all"/)
+  assert.doesNotMatch(leftPane, /id="review-list-count"|class="eyebrow">Reviews/)
+  assert.match(styles, /\.review-filter \{[^}]*color: var\(--muted\);/)
+  assert.match(styles, /\.review-selection \{[^}]*top: 50%;[^}]*margin: 0;[^}]*transform: translateY\(-50%\);/)
+  assert.match(html, /class="review-trash-heading">[\s\S]*id="review-trash-icon"[\s\S]*id="review-trash-title"/)
+  assert.match(styles, /\.review-trash-heading \{[^}]*align-items: center;[^}]*justify-content: center;[^}]*gap: 16px;/)
+  assert.match(styles, /\.review-trash-actions \{[^}]*grid-template-columns: 1fr 1fr;/)
   assert.match(renderer, /historyGroup\.className = 'review-history-group'/)
   assert.match(renderer, /historySummary\.innerHTML = `<span>History<\/span>/)
   assert.match(
@@ -52,6 +62,13 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /`is-\$\{row\.pullRequestStatus \|\| 'linked'\}`/)
   assert.match(renderer, /PR #\$\{row\.pullRequestNumber\}: \$\{row\.pullRequestStatus\}\./)
   assert.doesNotMatch(renderer, /reported by \$\{source\} \$\{age\}/)
+  const filteredInboxStart = renderer.indexOf("if (filter !== 'all')")
+  const filteredInbox = renderer.slice(
+    filteredInboxStart,
+    renderer.indexOf('\n  const fragment =', filteredInboxStart + 1)
+  )
+  assert.doesNotMatch(filteredInbox, /review-list-section-heading|shown/)
+  assert.match(filteredInbox, /setAttribute\('aria-label', `\$\{label\} reviews`\)/)
   assert.match(registry, /aliases: \['codex', 'openai'\]/)
   assert.match(registry, /aliases: \['claude', 'claudeagent', 'anthropic'\]/)
   assert.match(registry, /aliases: \['t3code'\]/)
@@ -120,7 +137,7 @@ test('review activation uses one active review and exposes exact IDs', () => {
   )
   assert.match(renderer, /label: 'Review ID',[\s\S]*text: row\.reviewId[\s\S]*markoverIcon\('hash'\)/)
   assert.match(renderer, /reviewIdDescription\.textContent = `Review ID \$\{row\.reviewId\}`[\s\S]*button\.setAttribute\('aria-describedby', reviewIdDescription\.id\)/)
-  assert.match(html, /id="document-review-id"[\s\S]*aria-label="Copy review ID"/)
+  assert.match(html, /id="document-review-id"[\s\S]*aria-label="Show review ID controls"/)
   assert.doesNotMatch(html, /id="document-tabs"|document-tab-close/)
   assert.doesNotMatch(renderer, /openReviewIds|closeDocumentTab|createDocumentTab/)
   assert.doesNotMatch(workspace, /openReviewIds/)
@@ -160,6 +177,10 @@ test('hover and review information share complete metadata and error presentatio
   assert.match(renderer, /reviewContextIssues\.textContent = inventory\.issues\.join/)
   assert.match(renderer, /createMetadataStateMarker\(row\)/)
   assert.match(html, /id="document-source-state"/)
+  assert.match(html, /id="source-card-state" class="source-card-state" hidden/)
+  assert.match(renderer, /row\.sourceState === 'changed' \? 'Source changed' : null/)
+  assert.match(renderer, /sourceCardState\.hidden = sourceCardState === null/)
+  assert.match(styles, /\.source-card-state \{[^}]*color: var\(--source-error\);/)
   assert.match(html, /id="review-context-issues"[\s\S]*role="status"/)
   assert.match(styles, /\.review-hover-entry\.is-error,[\s\S]*var\(--source-error\)/)
   assert.match(styles, /\.review-context-fields dd\.is-error,[\s\S]*var\(--source-error\)/)

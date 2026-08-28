@@ -3,6 +3,7 @@ declare module 'lucide/dist/esm/lucide/src/lucide.js' {
     ChevronDown,
     ChevronRight,
     Clock,
+    CodeXml,
     FileText,
     Folder,
     GitBranch,
@@ -13,7 +14,10 @@ declare module 'lucide/dist/esm/lucide/src/lucide.js' {
     MessagesSquare,
     PanelLeft,
     PanelLeftClose,
+    PenLine,
     Server,
+    TriangleAlert,
+    X,
     createElement
   } from 'lucide'
   export type { IconNode } from 'lucide'

@@ -273,14 +273,7 @@
         <img
           id="brand-mark"
           class="brand-mark"
-          src="../design/brand/markover-mark.svg"
-          alt=""
-          aria-hidden="true"
-        >
-        <img
-          id="brand-logotype"
-          class="brand-logotype"
-          src="../design/brand/markover-logotype.svg"
+          src="../design/brand/markover-lockup.svg"
           alt=""
           aria-hidden="true"
         >
@@ -289,7 +282,7 @@
       <div class="document-actions">
         <div class="document-meta">
           <strong id="document-name">sample.md</strong>
-          <span id="document-checksum">Loading…</span>
+          <span id="document-checksum" hidden>Loading…</span>
           <span id="document-source-state" class="document-source-state" hidden></span>
         </div>
         <button
@@ -302,7 +295,7 @@
           hidden
         >i</button>
         <div id="standard-actions" class="action-group">
-          <button id="open-button" class="button button-secondary">Open Markdown</button>
+          <button id="open-button" class="button button-tertiary">Open Markdown</button>
           <button id="copy-tree-button" class="button button-primary">Copy feedback JSON</button>
         </div>
       </div>
@@ -316,39 +309,7 @@
       hidden
     ></div>
 
-    <div id="review-tab-strip" class="review-tab-strip" hidden>
-      <nav class="review-navigation-tabs" aria-label="Review organization">
-        <button
-          id="review-navigation-inbox"
-          class="review-navigation-tab is-active"
-          type="button"
-          aria-pressed="true"
-        >Inbox <span id="review-inbox-count" class="review-inbox-count">0</span></button>
-        <button
-          id="review-navigation-projects"
-          class="review-navigation-tab"
-          type="button"
-          aria-pressed="false"
-        >Projects</button>
-      </nav>
-      <form id="review-id-activation" class="review-id-activation">
-        <label class="visually-hidden" for="review-id-input">Open an exact review ID</label>
-        <input
-          id="review-id-input"
-          type="text"
-          inputmode="text"
-          autocomplete="off"
-          spellcheck="false"
-          pattern="mko_[A-Za-z0-9]{6,32}"
-          placeholder="Exact review ID"
-          aria-describedby="review-id-activation-hint"
-        >
-        <span id="review-id-activation-hint" class="visually-hidden">
-          Enter a complete review ID such as mko_8f3a2c.
-        </span>
-        <button type="submit">Open</button>
-      </form>
-    </div>
+    <div id="review-tab-strip" class="review-tab-strip" hidden></div>
     </header>
 
     <main id="app-empty-state" class="app-empty-state">
@@ -366,18 +327,26 @@
 
     <main id="pane-layout" class="pane-layout" hidden>
       <aside id="left-pane" class="left-pane" hidden>
-        <header class="documents-list-header">
-          <div class="pane-header-leading">
-            <span class="eyebrow">Reviews</span>
-            <span id="review-list-count" class="review-list-count"></span>
-          </div>
-          <label class="visually-hidden" for="review-filter">Filter reviews</label>
-          <select id="review-filter" class="review-filter" aria-label="Filter reviews">
-            <option value="needs-me">Needs me</option>
-            <option value="with-agent">With agent</option>
-            <option value="completed">Completed</option>
-            <option value="all">All</option>
-          </select>
+        <div class="review-navigation-bar">
+          <nav class="review-navigation-tabs pane-view-tabs" role="tablist" aria-label="Review organization">
+            <button
+              id="review-navigation-inbox"
+              class="review-navigation-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="documents-list-tree"
+            >Inbox <span id="review-inbox-count" class="review-inbox-count">(0)</span></button>
+            <button
+              id="review-navigation-projects"
+              class="review-navigation-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="documents-list-tree"
+              tabindex="-1"
+            >Projects</button>
+          </nav>
           <button
             id="left-pane-collapse"
             class="left-pane-disclosure"
@@ -386,6 +355,15 @@
             aria-label="Collapse left pane"
             aria-expanded="true"
           ></button>
+        </div>
+        <header class="documents-list-header">
+          <label class="visually-hidden" for="review-filter">Filter reviews</label>
+          <select id="review-filter" class="review-filter" aria-label="Filter reviews">
+            <option value="needs-me">Needs me</option>
+            <option value="with-agent">With agent</option>
+            <option value="completed">Completed</option>
+            <option value="all">All</option>
+          </select>
         </header>
         <div id="review-batch-actions" class="review-batch-actions" hidden>
           <span id="review-batch-count">0 selected</span>
@@ -393,7 +371,12 @@
           <button id="review-batch-accept" type="button" disabled>Accept unreviewed</button>
           <button id="review-batch-close" class="review-batch-close" type="button" aria-label="Exit batch status mode" title="Exit batch status mode">×</button>
         </div>
-        <div id="documents-list-tree" class="documents-list-tree"></div>
+        <div
+          id="documents-list-tree"
+          class="documents-list-tree"
+          role="tabpanel"
+          aria-labelledby="review-navigation-inbox"
+        ></div>
         <div
           id="left-pane-resizer"
           class="left-pane-resizer"
@@ -424,13 +407,35 @@
             ></button>
             <span class="eyebrow">Document tree</span>
           </div>
-          <button
-            id="document-review-id"
-            class="document-review-id"
-            type="button"
-            aria-label="Copy review ID"
-            hidden
-          ></button>
+          <div class="document-review-control">
+            <button
+              id="document-review-id"
+              class="document-review-id"
+              type="button"
+              aria-label="Show review ID controls"
+              aria-expanded="false"
+              aria-controls="review-id-activation"
+              hidden
+            ></button>
+            <form id="review-id-activation" class="review-id-activation" hidden>
+              <label class="visually-hidden" for="review-id-input">Open or copy an exact review ID</label>
+              <input
+                id="review-id-input"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                spellcheck="false"
+                pattern="mko_[A-Za-z0-9]{6,32}"
+                placeholder="Exact review ID"
+                aria-describedby="review-id-activation-hint"
+              >
+              <span id="review-id-activation-hint" class="visually-hidden">
+                Enter a complete review ID such as mko_8f3a2c.
+              </span>
+              <button type="submit">Open</button>
+              <button id="review-id-copy" type="button">Copy</button>
+            </form>
+          </div>
           <div class="document-tree-header-actions">
             <div class="document-tree-view-toggle" role="group" aria-label="Document tree view">
               <button id="tree-view-all" class="is-active" type="button">All</button>
@@ -440,12 +445,6 @@
           </div>
         </div>
         <div id="pinned-selection" class="pinned-selection" hidden></div>
-        <div id="scrollbar-row-cover" class="scrollbar-row-cover" hidden></div>
-        <div
-          id="hover-scrollbar-row-cover"
-          class="scrollbar-row-cover is-hovered"
-          hidden
-        ></div>
         <div id="tree" class="tree"></div>
         <div class="keyboard-help">
           <kbd>↑</kbd><kbd>↓</kbd> siblings
@@ -466,7 +465,7 @@
           aria-valuemin="360"
           tabindex="0"
         ></div>
-        <div class="annotation-view-tabs" role="tablist" aria-label="Right pane view">
+        <div class="annotation-view-tabs pane-view-tabs" role="tablist" aria-label="Right pane view">
           <button
             id="annotation-view-selected"
             class="is-active"
@@ -517,6 +516,7 @@
               <span id="source-toggle-icon" class="source-toggle-icon"></span>
             </button>
             <div class="source-header-actions">
+              <span id="source-card-state" class="source-card-state" hidden></span>
               <span id="source-diff-stats" class="source-diff-stats" hidden></span>
               <button id="source-revert" class="source-action" type="button" hidden>Revert</button>
               <button id="source-edit" class="source-action" type="button">Edit</button>
@@ -671,7 +671,6 @@
       <form id="settings-form" method="dialog">
         <header class="settings-header">
           <div>
-            <span class="eyebrow">Markover</span>
             <h2>Settings</h2>
           </div>
           <button
@@ -682,6 +681,9 @@
           >×</button>
         </header>
         <div class="settings-content">
+          <section class="settings-group" aria-labelledby="settings-appearance-title">
+            <h3 id="settings-appearance-title" class="settings-section-title">Appearance &amp; layout</h3>
+            <div class="settings-group-fields">
           <label class="settings-field">
             <span><strong>Palette</strong><small>Choose the accent family used throughout Markover.</small></span>
             <select name="palette">
@@ -728,11 +730,16 @@
               <option value="annotated">Annotated only</option>
             </select>
           </label>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-review-workflow-title">
+            <h3 id="settings-review-workflow-title" class="settings-section-title">Review workflow</h3>
+            <div class="settings-group-fields">
           <label class="settings-field settings-switch-field">
             <span><strong>Confirm screenshot removal</strong><small>Ask before removing an attached screenshot and its marker.</small></span>
             <input name="confirmAttachmentRemoval" type="checkbox" role="switch">
           </label>
-          <h3 class="settings-section-title">Incoming reviews</h3>
           <label class="settings-field">
             <span><strong>When an agent adds a review</strong><small>Choose whether the new review replaces the one you are reading or editing.</small></span>
             <select name="incomingReviewActivationPolicy">
@@ -762,7 +769,12 @@
               inputmode="numeric"
             >
           </label>
-          <h3 class="settings-section-title">Agent handoff</h3>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-agent-collaboration-title">
+            <h3 id="settings-agent-collaboration-title" class="settings-section-title">Agent collaboration</h3>
+            <div class="settings-group-fields">
           <div class="settings-field settings-policy-field">
             <div class="settings-policy-copy">
               <label for="agent-interpretation-policy"><strong>Interpretation policy</strong><small>This editable policy is copied into newly opened reviews.</small></label>
@@ -770,7 +782,6 @@
             </div>
             <textarea id="agent-interpretation-policy" name="agentInterpretationPolicy" rows="5"></textarea>
           </div>
-          <h3 class="settings-section-title">Agent Review</h3>
           <label class="settings-field">
             <span><strong>Agent review permissions</strong><small>Choose whether reviewer agents may add annotations only or also propose source replacements. The current value is frozen when an agent claims a review.</small></span>
             <select name="agentReviewMode">
@@ -778,16 +789,21 @@
               <option value="annotations-and-source-proposals">Annotations and source proposals</option>
             </select>
           </label>
-          <h3 class="settings-section-title">Privacy</h3>
-          <label class="settings-field settings-switch-field">
-            <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex or Claude session records for the review's handoff key. Nothing is uploaded.</small></span>
-            <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-thread-titles-title">
+            <h3 id="settings-thread-titles-title" class="settings-section-title">Thread titles</h3>
+            <div class="settings-group-fields">
+          <label class="settings-field">
+            <span><strong>Inbox title</strong><small>Choose whether Inbox leads with the review purpose or the current requesting-thread title. Projects always names the requesting thread when available.</small></span>
+            <select name="inboxTitlePreference">
+              <option value="review-purpose">Review purpose</option>
+              <option value="requesting-thread-title">Requesting-thread title</option>
+            </select>
           </label>
-          <label class="settings-field settings-switch-field">
-            <span><strong>Allow the authorized remote Markover client</strong><small>Let an exactly authorized Tailscale host send requested reviews to this canonical Markover. This remains off by default and never enables Funnel.</small></span>
-            <input name="remoteCanonicalGatewayEnabled" type="checkbox" role="switch">
-          </label>
-          <h3 class="settings-section-title">T3 requesting-thread titles</h3>
+          <section class="settings-provider-group" aria-labelledby="settings-t3-titles-title">
+          <h4 id="settings-t3-titles-title" class="settings-subsection-title">T3</h4>
           <label class="settings-field settings-switch-field">
             <span><strong>Read current titles from T3</strong><small>Use T3's local metadata database to show renamed requesting threads. This integration is off by default and keeps titles in memory only.</small></span>
             <input name="t3ThreadTitlesEnabled" type="checkbox" role="switch">
@@ -811,7 +827,9 @@
               disabled
             >Refresh titles now</button>
           </div>
-          <h3 class="settings-section-title">Codex requesting-thread titles</h3>
+          </section>
+          <section class="settings-provider-group" aria-labelledby="settings-codex-titles-title">
+          <h4 id="settings-codex-titles-title" class="settings-subsection-title">Codex</h4>
           <label class="settings-field settings-switch-field">
             <span><strong>Read current titles from Codex</strong><small>Use Codex app-server's exact thread-ID lookup to show names set through Codex. This integration is off by default and keeps titles in memory only.</small></span>
             <input name="codexThreadTitlesEnabled" type="checkbox" role="switch">
@@ -835,7 +853,9 @@
               disabled
             >Refresh Codex titles now</button>
           </div>
-          <h3 class="settings-section-title">Claude Code requesting-thread titles</h3>
+          </section>
+          <section class="settings-provider-group" aria-labelledby="settings-claude-titles-title">
+          <h4 id="settings-claude-titles-title" class="settings-subsection-title">Claude Code</h4>
           <label class="settings-field settings-switch-field">
             <span><strong>Read current titles from Claude Code</strong><small>Use exact session IDs and Claude Code's local custom-title records to show names set through Claude Code. This integration is off by default and keeps titles in memory only.</small></span>
             <input name="claudeThreadTitlesEnabled" type="checkbox" role="switch">
@@ -849,19 +869,33 @@
               disabled
             >Refresh Claude Code titles now</button>
           </div>
-          <h3 class="settings-section-title">Thread-title display</h3>
-          <label class="settings-field">
-            <span><strong>Inbox title</strong><small>Choose whether Inbox leads with the review purpose or the current requesting-thread title. Projects always names the requesting thread when available.</small></span>
-            <select name="inboxTitlePreference">
-              <option value="review-purpose">Review purpose</option>
-              <option value="requesting-thread-title">Requesting-thread title</option>
-            </select>
+          </section>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-privacy-access-title">
+            <h3 id="settings-privacy-access-title" class="settings-section-title">Privacy &amp; access</h3>
+            <div class="settings-group-fields">
+          <label class="settings-field settings-switch-field">
+            <span><strong>Discover agent thread from local session logs</strong><small>When no explicit thread ID is provided, search recent local Codex or Claude session records for the review's handoff key. Nothing is uploaded.</small></span>
+            <input name="discoverAgentThreadFromLocalSessions" type="checkbox" role="switch">
           </label>
-          <h3 class="settings-section-title">Diagnostics</h3>
+          <label class="settings-field settings-switch-field">
+            <span><strong>Allow the authorized remote Markover client</strong><small>Let an exactly authorized Tailscale host send requested reviews to this canonical Markover. This remains off by default and never enables Funnel.</small></span>
+            <input name="remoteCanonicalGatewayEnabled" type="checkbox" role="switch">
+          </label>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settings-diagnostics-title">
+            <h3 id="settings-diagnostics-title" class="settings-section-title">Diagnostics</h3>
+            <div class="settings-group-fields">
           <label class="settings-field settings-switch-field">
             <span><strong>Log rejected API requests</strong><small>Write sanitized request method, path, and rejection reason to stderr. Request contents and credentials are never logged.</small></span>
             <input name="logRejectedApiRequests" type="checkbox" role="switch">
           </label>
+            </div>
+          </section>
         </div>
         <footer class="settings-footer">
           <button id="settings-reset" class="button button-secondary" type="button">
@@ -883,13 +917,13 @@
           <div>
             <span class="eyebrow">Incoming review</span>
             <h2 id="incoming-review-dialog-title">Open the new review?</h2>
+            <p id="incoming-review-dialog-message"></p>
           </div>
         </header>
-        <p id="incoming-review-dialog-message"></p>
         <footer class="settings-footer">
           <button
             id="incoming-review-dialog-open"
-            class="button button-secondary"
+            class="button button-tertiary"
             type="button"
           >Open New Review</button>
           <button
@@ -936,18 +970,57 @@
           <div>
             <span class="eyebrow">Complete reviews</span>
             <h2 id="review-resolution-title">Resolve selected reviews?</h2>
+            <p id="review-resolution-message"></p>
           </div>
         </header>
         <div class="settings-content review-resolution-content">
-          <p id="review-resolution-message"></p>
           <div id="review-resolution-summaries" class="review-resolution-summaries"></div>
         </div>
         <footer class="settings-footer">
-          <button id="review-resolution-cancel" class="button button-secondary" type="button">Cancel</button>
+          <button id="review-resolution-cancel" class="button button-tertiary" type="button">Cancel</button>
           <button id="review-resolution-confirm" class="button button-primary" type="button">Resolve</button>
         </footer>
       </div>
     </dialog>
+
+    <dialog
+      id="review-trash-dialog"
+      class="review-trash-dialog"
+      aria-labelledby="review-trash-title"
+      aria-describedby="review-trash-safety review-trash-message review-trash-detail"
+    >
+      <div class="review-trash-layout">
+        <div class="review-trash-heading">
+          <div id="review-trash-icon" class="review-trash-icon"></div>
+          <h2 id="review-trash-title">Move this review to Trash?</h2>
+        </div>
+        <div class="review-trash-copy">
+          <p id="review-trash-safety" class="review-trash-safety">Your original Markdown document will not be changed or deleted.</p>
+          <p id="review-trash-message">This removes the review from Markover.</p>
+          <p id="review-trash-detail">The complete review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.</p>
+        </div>
+        <footer class="review-trash-actions">
+          <button id="review-trash-cancel" class="button button-tertiary" type="button">Cancel</button>
+          <button id="review-trash-confirm" class="button button-danger" type="button">Move to Trash</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <!-- TEMPORARY theme-token inspector. Remove with its styles and wiring. -->
+    <div id="theme-token-inspector" class="theme-token-inspector" hidden>
+      <header>
+        <span>Theme tokens</span>
+        <button id="theme-token-inspector-close" type="button" aria-label="Hide theme-token inspector">&times;</button>
+      </header>
+      <label class="theme-token-inspector-toggle">
+        <input id="theme-token-inspector-show-document-checksum" type="checkbox">
+        <span>Show document checksum</span>
+      </label>
+      <button id="theme-token-inspector-show-incoming-review" class="theme-token-inspector-action" type="button">
+        Show incoming-review dialog
+      </button>
+      <div id="theme-token-inspector-tokens" class="theme-token-inspector-tokens"></div>
+    </div>
 
     <script type="module" src="renderer.js"></script>
   </body>

@@ -20,7 +20,7 @@ import { isWorkspaceState } from './workspace-state'
 
 const REVIEW_ID_PATTERN = /^mko_[a-zA-Z0-9]{6,32}$/
 const ATTACHMENT_ID_PATTERN = /^img-[1-9]\d*$/
-const REQUEST_ID_PATTERN = /^(?:activation|resolution|snapshot|status)-[1-9]\d*$/
+const REQUEST_ID_PATTERN = /^(?:activation|resolution|snapshot|status|trash)-[1-9]\d*$/
 const CHECKSUM_PATTERN = /^sha256:[a-f0-9]{64}$/
 
 const SETTINGS_KEYS = [
@@ -148,6 +148,7 @@ export interface RendererSendArguments {
   'review:status-response': [ReviewStatusResponse]
   'review:activation-response': [ReviewActivationResponse]
   'review:resolution-confirmation-response': [ReviewResolutionConfirmationResponse]
+  'review:trash-confirmation-response': [ReviewTrashConfirmationResponse]
   'clipboard:write': [string]
   'review:activate': [string]
   'review:autosave': [string, ReviewTree]
@@ -168,6 +169,7 @@ export interface MainEventArguments {
   'review:shutdown-state': [boolean]
   'review:activation-request': [ReviewActivationRequest]
   'review:resolution-confirmation-request': [ReviewResolutionConfirmationRequest]
+  'review:trash-confirmation-request': [ReviewTrashConfirmationRequest]
   'review:trashed': [ReviewTrashedEvent]
   'development:element-callout': [DevelopmentElementCalloutCommand]
 }
@@ -744,6 +746,23 @@ function isResolutionConfirmationResponse(
     typeof value.confirmed === 'boolean'
 }
 
+function isTrashConfirmationRequest(
+  value: unknown
+): value is ReviewTrashConfirmationRequest {
+  return hasExactKeys(value, ['requestId', 'reviewId', 'pendingAgent']) &&
+    isRequestId(value.requestId) &&
+    isReviewId(value.reviewId) &&
+    typeof value.pendingAgent === 'boolean'
+}
+
+function isTrashConfirmationResponse(
+  value: unknown
+): value is ReviewTrashConfirmationResponse {
+  return hasExactKeys(value, ['requestId', 'confirmed']) &&
+    isRequestId(value.requestId) &&
+    typeof value.confirmed === 'boolean'
+}
+
 function isActivationOutcome(value: unknown): value is ReviewActivationOutcome {
   return value === 'activated' ||
     value === 'already-active' ||
@@ -907,6 +926,9 @@ export function assertRendererSendArguments(
     case 'review:resolution-confirmation-response':
       valid = singleArgument(args, isResolutionConfirmationResponse)
       break
+    case 'review:trash-confirmation-response':
+      valid = singleArgument(args, isTrashConfirmationResponse)
+      break
     case 'clipboard:write':
       valid = singleArgument(args, (value) => typeof value === 'string')
       break
@@ -1031,6 +1053,9 @@ export function assertMainEventArguments(
       break
     case 'review:resolution-confirmation-request':
       valid = singleArgument(args, isResolutionConfirmationRequest)
+      break
+    case 'review:trash-confirmation-request':
+      valid = singleArgument(args, isTrashConfirmationRequest)
       break
     case 'review:trashed': valid = singleArgument(args, isReviewTrashedEvent); break
     case 'development:element-callout':

@@ -16,7 +16,7 @@ App shell
 | Structure | TypeScript stem | CSS name | Theme-token prefix | Current content |
 | --- | --- | --- | --- | --- |
 | App shell | `appShell` | `.app-shell` | `--app-shell-*` | App header and pane layout |
-| App header | `appHeader` | `.app-header` | `--app-header-*` | App-level identity, actions, navigation, and status |
+| App header | `appHeader` | `.app-header` | `--app-header-*` | App-level identity, actions, and status |
 | Pane layout | `paneLayout` | `.pane-layout` | `--pane-layout-*` | Left, center, and right panes |
 | Left pane | `leftPane` | `.left-pane` | `--left-pane-*` | Review navigation and documents list |
 | Center pane | `centerPane` | `.center-pane` | `--center-pane-*` | Document tree |
@@ -32,9 +32,10 @@ requirement that every structure define a theme token.
 Content keeps content-specific names. Review navigation, documents list, document tree, annotation views, source card, and similar components describe what appears inside a structural region. They do not rename that region. User-facing labels and accessibility names should describe the task or content when that is more useful than a positional name.
 
 The app shell's DOM boundary contains the app header and the app empty state or
-pane layout. The current app header owns its bar, durability warning, and review
-navigation strip. Dialogs, popovers, toasts, startup screens, and prototype
-surfaces are outside the shell even when they visually overlay it.
+pane layout. The current app header owns its bar and durability warning. The
+left pane owns the review navigation strip and documents list. Dialogs,
+popovers, toasts, startup screens, and prototype surfaces are outside the shell
+even when they visually overlay it.
 
 Use **pane layout** for the visual container. Markover already uses **workspace** for app-private persisted state, and development tooling also uses workspace for filesystem and execution contexts.
 
@@ -46,13 +47,19 @@ Theme primitives hold palette and appearance values. Structural semantic tokens
 map those values to the first-level regions, and structural selectors consume
 the semantic tokens rather than naming the current contents.
 
-| Structural token | Current mapping |
+| Structural token | Current base mapping |
 | --- | --- |
-| `--app-shell-background` | `--paper` |
+| `--app-shell-background` | `--ground` |
 | `--app-header-background` | `--app-shell-background` |
-| `--left-pane-background` | `rgb(var(--surface-rgb) / 42%)` |
+| `--left-pane-background` | `--neutral-soft` |
 | `--center-pane-background` | `--paper` |
-| `--right-pane-background` | `--accent-soft` |
+| `--right-pane-background` | `--neutral-soft` |
+
+Palette and appearance overrides may replace a base mapping with a literal or
+another theme role. For example, Olive light maps the app shell to a
+palette-specific literal.
+The floating theme-token inspector reports each token's live computed custom-
+property value so these overrides remain truthful.
 
 Use full property suffixes such as `-background` for structural tokens. Child
 content and component tokens keep their existing names until their vocabulary

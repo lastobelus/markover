@@ -521,6 +521,7 @@ declare global {
     onInlineImage?: ((source: string, label: string) => void) | undefined
     onSelect?: ((node: TNode) => void) | undefined
     onEdit?: ((node: TNode) => void) | null | undefined
+    renderEditIcon?: (() => Element) | undefined
     renderTitle?: ((title: string) => string) | undefined
     renderMarkdown: (value: string) => string
   }
@@ -685,6 +686,17 @@ declare global {
     confirmed: boolean
   }
 
+  interface ReviewTrashConfirmationRequest {
+    requestId: string
+    reviewId: string
+    pendingAgent: boolean
+  }
+
+  interface ReviewTrashConfirmationResponse {
+    requestId: string
+    confirmed: boolean
+  }
+
   type ReviewActivationOutcome =
     | 'activated'
     | 'already-active'
@@ -833,6 +845,11 @@ declare global {
     onReviewResolutionConfirmation: (
       callback: (
         request: ReviewResolutionConfirmationRequest
+      ) => boolean | Promise<boolean>
+    ) => void
+    onReviewTrashConfirmation: (
+      callback: (
+        request: ReviewTrashConfirmationRequest
       ) => boolean | Promise<boolean>
     ) => void
     getReviewAutosaveStatus: () => Promise<ReviewAutosaveStatus>

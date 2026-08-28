@@ -139,6 +139,24 @@ async function respondToReviewResolutionConfirmation(
   } satisfies ReviewResolutionConfirmationResponse)
 }
 
+async function respondToReviewTrashConfirmation(
+  callback: (
+    request: ReviewTrashConfirmationRequest
+  ) => boolean | Promise<boolean>,
+  request: ReviewTrashConfirmationRequest
+): Promise<void> {
+  let confirmed = false
+  try {
+    confirmed = await callback(request)
+  } catch (error) {
+    console.error('Markover could not show review Trash confirmation.', error)
+  }
+  send('review:trash-confirmation-response', {
+    requestId: request.requestId,
+    confirmed
+  } satisfies ReviewTrashConfirmationResponse)
+}
+
 async function respondToDevelopmentElementCallout(
   callback: (
     command: DevelopmentElementCalloutCommand
@@ -283,6 +301,14 @@ const bridge = {
       'review:resolution-confirmation-request',
       (request: ReviewResolutionConfirmationRequest) => {
         void respondToReviewResolutionConfirmation(callback, request)
+      }
+    )
+  },
+  onReviewTrashConfirmation: (callback) => {
+    listen(
+      'review:trash-confirmation-request',
+      (request: ReviewTrashConfirmationRequest) => {
+        void respondToReviewTrashConfirmation(callback, request)
       }
     )
   },

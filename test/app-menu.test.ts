@@ -240,14 +240,20 @@ test('non-macOS Help preserves Settings after the public commands', () => {
 
 test('review deletion copy distinguishes review data from the original document', () => {
   const main = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+  const html = fs.readFileSync(path.join(root, 'src/index.html'), 'utf8')
+  const renderer = fs.readFileSync(path.join(root, 'src/renderer.ts'), 'utf8')
   assert.match(
-    main,
-    /message: \[[\s\S]*?'Your original Markdown document will not be changed or deleted\.'[\s\S]*?\]\.join\('\\n'\)/
+    html,
+    /id="review-trash-safety"[^>]*>Your original Markdown document will not be changed or deleted\.</
   )
-  assert.doesNotMatch(
-    main,
-    /detail: \[[\s\S]*?'Your original Markdown document will not be changed or deleted\.'/
+  assert.match(
+    renderer,
+    /The entire \$\{request\.reviewId\} review directory, including its feedback and review attachments, will move to the macOS Trash\. Existing review links will no longer open the review\./
   )
+  assert.match(main, /requestReviewTrashConfirmation\([\s\S]*policy === 'pending-agent'/)
+  const confirmation = /async function confirmReviewTrash\([\s\S]*?\n}/.exec(main)?.[0]
+  assert.ok(confirmation)
+  assert.doesNotMatch(confirmation, /dialog\.showMessageBox/)
 })
 
 test('review deletion confirms before pausing or saving managed mutations', () => {

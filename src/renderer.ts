@@ -68,7 +68,6 @@ interface RendererState {
   documentName: string
   documentPath: string | null
   finishAttachmentLabelEdit: ((commit?: boolean) => void) | null
-  hoveredId: string | null
   reviewId: string | null
   selectedId: string | null
   annotatedOnly: boolean
@@ -140,7 +139,6 @@ const elements = {
   annotationViewList: requiredElement<HTMLButtonElement>('#annotation-view-list'),
   annotationViewSelected: requiredElement<HTMLButtonElement>('#annotation-view-selected'),
   attachmentList: requiredElement('#attachment-list'),
-  brandLogotype: requiredElement<HTMLImageElement>('#brand-logotype'),
   brandMark: requiredElement<HTMLImageElement>('#brand-mark'),
   checksum: requiredElement('#document-checksum'),
   copyTreeButton: requiredElement<HTMLButtonElement>('#copy-tree-button'),
@@ -170,9 +168,8 @@ const elements = {
   selectedAnnotationView: requiredElement('#selected-annotation-view'),
   selectedSource: requiredElement('#selected-source'),
   selectedTitle: requiredElement('#selected-title'),
-  scrollbarRowCover: requiredElement('#scrollbar-row-cover'),
-  hoverScrollbarRowCover: requiredElement('#hover-scrollbar-row-cover'),
   sourceCancel: requiredElement<HTMLButtonElement>('#source-cancel'),
+  sourceCardState: requiredElement('#source-card-state'),
   sourceContent: requiredElement('#source-content'),
   sourceDiff: requiredElement('#source-diff'),
   sourceDiffStats: requiredElement('#source-diff-stats'),
@@ -211,8 +208,8 @@ const elements = {
   reviewBatchNoNotes: requiredElement<HTMLButtonElement>('#review-batch-no-notes'),
   reviewFilter: requiredElement<HTMLSelectElement>('#review-filter'),
   reviewIdActivation: requiredElement<HTMLFormElement>('#review-id-activation'),
+  reviewIdCopy: requiredElement<HTMLButtonElement>('#review-id-copy'),
   reviewIdInput: requiredElement<HTMLInputElement>('#review-id-input'),
-  reviewListCount: requiredElement('#review-list-count'),
   reviewNavigationInbox: requiredElement<HTMLButtonElement>('#review-navigation-inbox'),
   reviewNavigationProjects: requiredElement<HTMLButtonElement>('#review-navigation-projects'),
   reviewResolutionCancel: requiredElement<HTMLButtonElement>('#review-resolution-cancel'),
@@ -221,6 +218,12 @@ const elements = {
   reviewResolutionMessage: requiredElement('#review-resolution-message'),
   reviewResolutionSummaries: requiredElement('#review-resolution-summaries'),
   reviewResolutionTitle: requiredElement('#review-resolution-title'),
+  reviewTrashCancel: requiredElement<HTMLButtonElement>('#review-trash-cancel'),
+  reviewTrashConfirm: requiredElement<HTMLButtonElement>('#review-trash-confirm'),
+  reviewTrashDetail: requiredElement('#review-trash-detail'),
+  reviewTrashDialog: requiredElement<HTMLDialogElement>('#review-trash-dialog'),
+  reviewTrashIcon: requiredElement('#review-trash-icon'),
+  reviewTrashMessage: requiredElement('#review-trash-message'),
   reviewTabStrip: requiredElement('#review-tab-strip'),
   appEmptyStateLockup: requiredElement<HTMLImageElement>('#app-empty-state-lockup'),
   fixedContractClose: requiredElement<HTMLButtonElement>('#fixed-contract-close'),
@@ -244,13 +247,15 @@ const elements = {
 
 replaceMarkoverIcon(elements.leftPaneCollapse, 'panel-left-close')
 replaceMarkoverIcon(elements.leftPaneOpen, 'panel-left')
+replaceMarkoverIcon(elements.settingsClose, 'x', 'settings-close-icon')
+replaceMarkoverIcon(elements.fixedContractClose, 'x', 'settings-close-icon')
+replaceMarkoverIcon(elements.reviewTrashIcon, 'triangle-alert', 'review-trash-icon-svg')
 
 const state: RendererState = {
   attachmentPreviewUrls: new Map<string, string>(),
   documentName: 'sample.md',
   documentPath: null,
   finishAttachmentLabelEdit: null,
-  hoveredId: null,
   reviewId: null,
   selectedId: null,
   annotatedOnly: false,
@@ -291,6 +296,7 @@ let developmentElementCallouts: DevelopmentElementCallouts | null = null
 let statusAnnouncementFrame: number | null = null
 let imagePreviewReturnFocus: HTMLElement | null = null
 let resolutionDialogCompletion: ((confirmed: boolean) => void) | null = null
+let trashDialogCompletion: ((confirmed: boolean) => void) | null = null
 let preferences = MarkoverSettings.normalizeSettings()
 let resolvedAppearance: ResolvedAppearance = 'light'
 let t3ThreadTitles: T3ThreadTitleSnapshot = {
@@ -564,6 +570,7 @@ const BRIDGE_METHODS = [
   'openPullRequest',
   'openReviewContextMenu',
   'onReviewResolutionConfirmation',
+  'onReviewTrashConfirmation',
   'onReviewBatchModeRequested',
   'readClipboardImage',
   'reportRendererInitialized',
@@ -809,6 +816,7 @@ function createRenderedAnnotation(
     onAttachment: options.mode === 'peek' ? null : openImagePreview,
     onEdit: options.onEdit,
     onSelect: options.onSelect,
+    renderEditIcon: () => markoverIcon('pen-line'),
     renderTitle: (title) => inlineMarkdown.renderInline(title),
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
   })
@@ -1013,6 +1021,10 @@ function scrollToSelectedRow(): void {
 }
 
 function updatePinnedSelection(): void {
+  elements.centerPane.classList.toggle(
+    'has-tree-scrollbar',
+    elements.tree.scrollHeight > elements.tree.clientHeight
+  )
   const selectedRow = elements.tree.querySelector<HTMLElement>(
     `[data-node-id="${state.selectedId}"]`
   )
@@ -1020,7 +1032,6 @@ function updatePinnedSelection(): void {
   if (!selectedRow || !selectedRow.getClientRects().length) {
     elements.pinnedSelection.hidden = true
     elements.pinnedSelection.replaceChildren()
-    updateScrollbarRowCover()
     return
   }
 
@@ -1029,7 +1040,6 @@ function updatePinnedSelection(): void {
   elements.pinnedSelection.hidden = !shouldPin
   if (!shouldPin) {
     elements.pinnedSelection.replaceChildren()
-    updateScrollbarRowCover()
     return
   }
 
@@ -1041,60 +1051,6 @@ function updatePinnedSelection(): void {
     button.tabIndex = -1
   })
   elements.pinnedSelection.replaceChildren(pinnedRow)
-  updateScrollbarRowCover()
-}
-
-function positionScrollbarRowCover(
-  cover: HTMLElement,
-  row: HTMLElement | null,
-  hovered: boolean
-): void {
-  if (!row || !row.getClientRects().length) {
-    cover.hidden = true
-    return
-  }
-
-  const rowRect = row.getBoundingClientRect()
-  const treeRect = elements.tree.getBoundingClientRect()
-  if (rowRect.bottom <= treeRect.top || rowRect.top >= treeRect.bottom) {
-    cover.hidden = true
-    return
-  }
-
-  const paneRect = elements.centerPane.getBoundingClientRect()
-  cover.className = [
-    'scrollbar-row-cover',
-    hovered ? 'is-hovered' : '',
-    row.querySelector('.block-content.code') ? 'is-code' : ''
-  ].filter(Boolean).join(' ')
-  cover.style.top = `${rowRect.top - paneRect.top}px`
-  cover.style.height = `${rowRect.height}px`
-  cover.hidden = false
-}
-
-function updateScrollbarRowCover(): void {
-  if (elements.tree.scrollHeight <= elements.tree.clientHeight) {
-    elements.scrollbarRowCover.hidden = true
-    elements.hoverScrollbarRowCover.hidden = true
-    return
-  }
-
-  const selectedRow = elements.tree.querySelector<HTMLElement>(
-    `[data-node-id="${state.selectedId}"]`
-  )
-  const hoveredRow = state.hoveredId
-    ? elements.tree.querySelector<HTMLElement>(`[data-node-id="${state.hoveredId}"]`)
-    : null
-  positionScrollbarRowCover(
-    elements.scrollbarRowCover,
-    elements.pinnedSelection.hidden ? selectedRow : null,
-    false
-  )
-  positionScrollbarRowCover(
-    elements.hoverScrollbarRowCover,
-    hoveredRow && hoveredRow !== selectedRow ? hoveredRow : null,
-    true
-  )
 }
 
 function renderNode(
@@ -1152,7 +1108,8 @@ function renderNode(
 
   const kind = document.createElement('span')
   kind.className = 'block-kind'
-  kind.textContent = nodeKindLabel(node)
+  if (node.type === 'code') kind.append(markoverIcon('code-xml'))
+  else kind.textContent = nodeKindLabel(node)
   row.append(kind)
 
   const content = document.createElement('div')
@@ -1240,14 +1197,6 @@ function renderNode(
 
   row.addEventListener('click', () => {
     selectNode(node.id, true)
-  })
-  row.addEventListener('mouseenter', () => {
-    state.hoveredId = node.id
-    updateScrollbarRowCover()
-  })
-  row.addEventListener('mouseleave', () => {
-    if (state.hoveredId === node.id) state.hoveredId = null
-    updateScrollbarRowCover()
   })
   row.addEventListener('dblclick', () => {
     if (!state.annotatedOnly && node.children.length) {
@@ -1693,6 +1642,7 @@ function renderSourcePanel(node: ReviewNode): void {
   sourceDiffCleanup?.()
   sourceDiffCleanup = null
   elements.sourceDiff.replaceChildren()
+  elements.sourceDiff.classList.remove('is-loading')
 
   const editable = isCurrentReviewEditable() && node.sourceEditable !== false
   const editing = editable && state.sourceEditingId === node.id
@@ -1734,12 +1684,15 @@ function renderSourcePanel(node: ReviewNode): void {
       const renderKey = `${state.reviewId || 'local'}:${node.id}:${node.sourceEdit.current}`
       elements.sourceDiff.dataset.renderKey = renderKey
       elements.sourceDiff.textContent = 'Loading diff…'
+      elements.sourceDiff.classList.add('is-loading')
       void loadSourceDiffModule().then((diffs) => {
         if (elements.sourceDiff.dataset.renderKey !== renderKey) return
         renderDiffStats(
           elements.sourceDiffStats,
           diffs.stats(node.sourceEdit?.original || '', node.sourceEdit?.current || '')
         )
+        elements.sourceDiff.classList.remove('is-loading')
+        elements.sourceDiff.replaceChildren()
         sourceDiffCleanup = diffs.render(
           elements.sourceDiff,
           node.sourceEdit?.original || '',
@@ -1749,6 +1702,7 @@ function renderSourcePanel(node: ReviewNode): void {
       }).catch((error: unknown) => {
         if (elements.sourceDiff.dataset.renderKey !== renderKey) return
         console.error('Failed to load source diff renderer', error)
+        elements.sourceDiff.classList.remove('is-loading')
         elements.sourceDiff.textContent = `Diff unavailable: ${error instanceof Error ? error.message : String(error)}`
       })
     }
@@ -1890,6 +1844,7 @@ function renderAnnotationList(): void {
     onInlineImage: openSourceImagePreview,
     onSelect: selectAnnotationFromList,
     onEdit: isCurrentReviewEditable() ? editAnnotationFromList : null,
+    renderEditIcon: () => markoverIcon('pen-line'),
     renderTitle: (title) => inlineMarkdown.renderInline(title),
     renderMarkdown: (feedback) => inlineMarkdown.render(feedback)
   })
@@ -1905,7 +1860,7 @@ function renderAnnotationList(): void {
   }
 }
 
-function renderAnnotationPaneView(node: ReviewNode): void {
+function renderAnnotationViewState(node: ReviewNode): void {
   const nodes = annotatedNodes()
   if (state.annotationView === 'list' && !nodes.length) {
     state.annotationView = 'selected'
@@ -1976,7 +1931,7 @@ function renderAnnotation(node: ReviewNode): void {
     ? 'Annotated'
     : 'Not annotated'
   renderAttachmentList(node)
-  renderAnnotationPaneView(node)
+  renderAnnotationViewState(node)
   renderReviewEditability()
   updateAnnotationCount()
 }
@@ -2350,6 +2305,10 @@ function renderActiveMetadataState(
   elements.sourceState.hidden = !stateLabel
   elements.sourceState.textContent = stateLabel || ''
   elements.sourceState.title = issues.join(' ')
+  const sourceCardState = row.sourceState === 'changed' ? 'Source changed' : null
+  elements.sourceCardState.hidden = sourceCardState === null
+  elements.sourceCardState.textContent = sourceCardState || ''
+  elements.sourceCardState.title = sourceCardState ? issues.join(' ') : ''
   elements.reviewContextButton.classList.toggle('has-metadata-error', issues.length > 0)
   elements.reviewContextButton.ariaLabel = issues.length
     ? `Show review context. ${issues.join(' ')}`
@@ -2414,7 +2373,11 @@ function renderReviewContext(): void {
   elements.documentReviewId.hidden = !review
   if (!review) {
     elements.documentReviewId.textContent = ''
+    elements.reviewIdActivation.hidden = true
+    elements.documentReviewId.setAttribute('aria-expanded', 'false')
     elements.sourceState.hidden = true
+    elements.sourceCardState.hidden = true
+    elements.sourceCardState.textContent = ''
     elements.reviewContextIssues.hidden = true
     elements.reviewContextButton.classList.remove('has-metadata-error')
     closeReviewContext(false)
@@ -2433,8 +2396,9 @@ function renderReviewContext(): void {
     elements.reviewContextFields.contains(document.activeElement)
   elements.reviewContextFields.replaceChildren()
   elements.documentReviewId.textContent = review.id
-  elements.documentReviewId.ariaLabel = `Copy review ID ${review.id}`
-  elements.documentReviewId.title = `Copy review ID ${review.id}`
+  elements.documentReviewId.ariaLabel = `Show controls for review ID ${review.id}`
+  elements.documentReviewId.title = `Show controls for review ID ${review.id}`
+  if (!elements.reviewIdActivation.hidden) elements.reviewIdInput.value = review.id
   const reviewIdCopy = addReviewContextCopyField('Review ID', review.id)
   const row = reviewRowById(review.id)
   const inventory = row ? reviewMetadataInventory(row) : null
@@ -2452,6 +2416,8 @@ function renderReviewContext(): void {
     elements.reviewContextIssues.hidden = true
     elements.reviewContextIssues.textContent = ''
     elements.sourceState.hidden = true
+    elements.sourceCardState.hidden = true
+    elements.sourceCardState.textContent = ''
     elements.reviewContextButton.classList.remove('has-metadata-error')
     elements.reviewContextButton.ariaLabel = 'Show review context'
   }
@@ -2945,6 +2911,30 @@ function finishResolutionConfirmation(confirmed: boolean): void {
   complete(confirmed)
 }
 
+function completeReviewTrashConfirmation(confirmed: boolean): void {
+  const complete = trashDialogCompletion
+  if (!complete) return
+  trashDialogCompletion = null
+  if (elements.reviewTrashDialog.open) elements.reviewTrashDialog.close()
+  complete(confirmed)
+}
+
+function showReviewTrashConfirmation(
+  request: ReviewTrashConfirmationRequest
+): Promise<boolean> {
+  if (trashDialogCompletion) completeReviewTrashConfirmation(false)
+  elements.reviewTrashMessage.textContent = request.pendingAgent
+    ? 'The agent may still be using this review. Its next read or update will fail.'
+    : 'This removes the review from Markover.'
+  elements.reviewTrashMessage.classList.toggle('is-warning', request.pendingAgent)
+  elements.reviewTrashDetail.textContent = `The entire ${request.reviewId} review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.`
+  elements.reviewTrashDialog.showModal()
+  elements.reviewTrashCancel.focus()
+  return new Promise<boolean>((resolve) => {
+    trashDialogCompletion = resolve
+  })
+}
+
 function resolutionBlockPreview(
   block: ReviewResolutionSummaryBlock
 ): string {
@@ -2975,19 +2965,34 @@ function showReviewResolutionConfirmation(
       ? 'Record that you reviewed the selected reviews and have no notes.'
       : 'Record that the selected reviews were accepted without review.'
   for (const review of request.reviews) {
-    const details = document.createElement('details')
-    details.className = 'review-resolution-summary'
-    details.open = request.reviews.length === 1
-    const summary = document.createElement('summary')
+    const expandable = review.blocks.length > 0
+    const item = document.createElement(expandable ? 'details' : 'div')
+    item.className = 'review-resolution-summary'
+    if (item instanceof HTMLDetailsElement) {
+      item.open = request.reviews.length === 1
+    }
+    const summary = document.createElement(expandable ? 'summary' : 'div')
+    if (!expandable) summary.className = 'review-resolution-row-header'
+    const copy = document.createElement('span')
+    copy.className = 'review-resolution-row-copy'
     const title = document.createElement('strong')
     title.textContent = review.documentName
     const description = document.createElement('span')
     const preview = review.blocks[0]
-      ? resolutionBlockPreview(review.blocks[0])
-      : 'No feedback artifacts'
-    description.textContent = `${review.contextSummary} · ${String(review.blocks.length)} feedback block${review.blocks.length === 1 ? '' : 's'} · ${preview}`
-    summary.append(title, description)
-    details.append(summary)
+    description.textContent = preview
+      ? `${review.contextSummary} · ${String(review.blocks.length)} feedback block${review.blocks.length === 1 ? '' : 's'} · ${resolutionBlockPreview(preview)}`
+      : review.contextSummary
+    copy.append(title, description)
+    if (expandable) {
+      const annotationCount = document.createElement('span')
+      annotationCount.className = 'review-resolution-annotation-count'
+      annotationCount.textContent = String(review.blocks.length)
+      annotationCount.title = `${String(review.blocks.length)} annotation${review.blocks.length === 1 ? '' : 's'}`
+      annotationCount.setAttribute('aria-label', annotationCount.title)
+      summary.append(annotationCount)
+    }
+    summary.append(copy)
+    item.append(summary)
     const blocks = document.createElement('div')
     blocks.className = 'review-resolution-blocks'
     for (const block of review.blocks) {
@@ -3013,11 +3018,8 @@ function showReviewResolutionConfirmation(
       }
       blocks.append(item)
     }
-    if (!review.blocks.length) {
-      blocks.append(createEmptyReviewMessage('No feedback will be abandoned.'))
-    }
-    details.append(blocks)
-    elements.reviewResolutionSummaries.append(details)
+    if (expandable) item.append(blocks)
+    elements.reviewResolutionSummaries.append(item)
   }
   elements.reviewResolutionConfirm.textContent = feedbackReviewCount
     ? `Abandon feedback in ${String(feedbackReviewCount)} review${feedbackReviewCount === 1 ? '' : 's'}`
@@ -3261,18 +3263,16 @@ function renderInboxReviews(
 ): DocumentFragment {
   if (filter !== 'all') {
     const fragment = document.createDocumentFragment()
-    const heading = document.createElement('div')
-    heading.className = 'review-list-section-heading'
     const label = filter === 'needs-me'
       ? 'Needs me'
       : filter === 'with-agent'
         ? 'With agent'
         : 'Completed'
     const rows = [...editing, ...history]
-    heading.innerHTML = `<strong>${label}</strong><span>${String(rows.length)} shown</span>`
-    fragment.append(heading)
     const list = document.createElement('div')
     list.className = 'review-list-rows'
+    list.setAttribute('role', 'group')
+    list.setAttribute('aria-label', `${label} reviews`)
     list.append(...rows.map(createReviewListRow))
     if (!rows.length) {
       list.append(createEmptyReviewMessage(`No ${label.toLowerCase()} reviews.`))
@@ -3525,8 +3525,14 @@ function setReviewNavigationMode(
   reviewNavigationMode = mode
   elements.reviewNavigationInbox.classList.toggle('is-active', mode === 'inbox')
   elements.reviewNavigationProjects.classList.toggle('is-active', mode === 'projects')
-  elements.reviewNavigationInbox.setAttribute('aria-pressed', String(mode === 'inbox'))
-  elements.reviewNavigationProjects.setAttribute('aria-pressed', String(mode === 'projects'))
+  elements.reviewNavigationInbox.setAttribute('aria-selected', String(mode === 'inbox'))
+  elements.reviewNavigationProjects.setAttribute('aria-selected', String(mode === 'projects'))
+  elements.reviewNavigationInbox.tabIndex = mode === 'inbox' ? 0 : -1
+  elements.reviewNavigationProjects.tabIndex = mode === 'projects' ? 0 : -1
+  elements.documentsListTree.setAttribute(
+    'aria-labelledby',
+    mode === 'inbox' ? 'review-navigation-inbox' : 'review-navigation-projects'
+  )
   renderDocumentsList()
   if (persist) {
     persistWorkspaceState()
@@ -3595,12 +3601,12 @@ function renderDocumentsList(): void {
   renderReviewBatchActions()
   scheduleDocumentsListClockRefresh(sessions)
   elements.leftPane.hidden = !hasReviews
+  elements.leftPaneResizer.hidden = !hasReviews
   elements.leftPaneCollapse.hidden = sessions.length === 0
   elements.leftPaneOpen.hidden = !hasReviews || !leftPaneCollapsed
   elements.paneLayout.classList.toggle('has-left-pane', hasReviews)
   elements.reviewTabStrip.hidden = sessions.length === 0
-  elements.reviewInboxCount.textContent = String(projection.filterCounts['needs-me'])
-  elements.reviewInboxCount.hidden = projection.filterCounts['needs-me'] === 0
+  elements.reviewInboxCount.textContent = `(${String(projection.filterCounts['needs-me'])})`
   const filterLabels: Record<ReviewInboxFilter, string> = {
     'needs-me': 'Needs me',
     'with-agent': 'With agent',
@@ -3612,13 +3618,6 @@ function renderDocumentsList(): void {
     option.textContent = `${filterLabels[value]} (${String(projection.filterCounts[value])})`
   }
   elements.reviewFilter.value = reviewFilter
-  elements.reviewListCount.textContent = reviewNavigationMode === 'inbox'
-    ? `${projection.filterCounts[reviewFilter]} ${filterLabels[reviewFilter].toLowerCase()}${incompatibleReviews.length
-      ? ` · ${incompatibleReviews.length} incompatible`
-      : ''}`
-    : `${projection.projects.length} projects${incompatibleReviews.length
-      ? ` · ${incompatibleReviews.length} incompatible`
-      : ''}`
   applyLeftPaneWidth()
   applyRightPaneWidth()
   elements.documentsListTree.replaceChildren()
@@ -3644,6 +3643,10 @@ function applyLeftPaneWidth(): void {
     '--left-pane-width',
     `${leftPaneWidth}px`
   )
+  elements.appHeader.style.setProperty(
+    '--left-pane-column-width',
+    leftPaneCollapsed ? '0px' : `${leftPaneWidth}px`
+  )
   elements.reviewTabStrip.style.setProperty(
     '--left-pane-width',
     leftPaneCollapsed ? '0px' : `${leftPaneWidth}px`
@@ -3668,17 +3671,17 @@ function applyLeftPaneWidth(): void {
 function applyRightPaneWidth(): void {
   const currentWidth = rightPaneWidth ??
     elements.rightPane.getBoundingClientRect().width
-  const leftPaneWidthForLayout = elements.leftPane.getBoundingClientRect().width
+  const leftWidth = elements.leftPane.getBoundingClientRect().width
   const paneLayoutWidth = elements.paneLayout.clientWidth || window.innerWidth
   const clampedWidth = MarkoverReviewSessions.clampRightPaneWidth(
     currentWidth,
     paneLayoutWidth,
-    leftPaneWidthForLayout
+    leftWidth
   )
   const maximumWidth = MarkoverReviewSessions.clampRightPaneWidth(
     Number.POSITIVE_INFINITY,
     paneLayoutWidth,
-    leftPaneWidthForLayout
+    leftWidth
   )
   if (rightPaneWidth !== null) {
     rightPaneWidth = clampedWidth
@@ -3687,6 +3690,10 @@ function applyRightPaneWidth(): void {
       `${rightPaneWidth}px`
     )
   }
+  elements.appHeader.style.setProperty(
+    '--right-pane-column-width',
+    `${clampedWidth}px`
+  )
   elements.rightPaneResizer.setAttribute(
     'aria-valuenow',
     String(Math.round(clampedWidth))
@@ -3763,12 +3770,7 @@ async function themeBrandAssets(): Promise<void> {
     const primary = palette.getPropertyValue('--markover-primary').trim()
     const secondary = palette.getPropertyValue('--markover-secondary').trim()
     elements.brandMark.src = themedBrandSource(
-      brandAssetSources.mark,
-      primary,
-      secondary
-    )
-    elements.brandLogotype.src = themedBrandSource(
-      brandAssetSources.logotype,
+      brandAssetSources.lockup,
       primary,
       secondary
     )
@@ -4280,6 +4282,9 @@ async function activateReview(
     }
   }
   if (!finishActiveSourceEdit()) return 'blocked'
+  if (elements.reviewTrashDialog.open) {
+    completeReviewTrashConfirmation(false)
+  }
   configureManagedMode()
 
   captureActiveSession()
@@ -4296,7 +4301,6 @@ async function activateReview(
   state.sourceDrafts = session.sourceDrafts
   state.sourceEditingId = session.sourceEditingId
   state.attachmentPreviewUrls = session.attachmentPreviewUrls
-  state.hoveredId = null
   bridge.activateReview(reviewId)
 
   elements.name.textContent = session.documentName
@@ -4776,13 +4780,37 @@ elements.reviewContextButton.addEventListener('click', () => {
 elements.reviewContextClose.addEventListener('click', () => {
   closeReviewContext()
 })
+function setReviewIdControlsOpen(open: boolean): void {
+  elements.reviewIdActivation.hidden = !open
+  elements.documentReviewId.setAttribute('aria-expanded', String(open))
+  if (!open) return
+  elements.reviewIdInput.value = state.reviewId || ''
+  requestAnimationFrame(() => {
+    elements.reviewIdInput.focus()
+    elements.reviewIdInput.select()
+  })
+}
+
 elements.documentReviewId.addEventListener('click', () => {
   if (!state.reviewId) return
-  bridge.copyText(state.reviewId)
+  setReviewIdControlsOpen(elements.reviewIdActivation.hasAttribute('hidden'))
+})
+elements.reviewIdCopy.addEventListener('click', () => {
+  const reviewId = elements.reviewIdInput.value.trim()
+  if (!reviewId) return
+  bridge.copyText(reviewId)
+  setReviewIdControlsOpen(false)
+  elements.documentReviewId.focus()
   showToast('Review ID copied')
 })
 elements.reviewIdInput.addEventListener('input', () => {
   elements.reviewIdInput.setCustomValidity('')
+})
+elements.reviewIdActivation.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  setReviewIdControlsOpen(false)
+  elements.documentReviewId.focus()
 })
 elements.reviewIdActivation.addEventListener('submit', (event) => {
   event.preventDefault()
@@ -4799,7 +4827,8 @@ elements.reviewIdActivation.addEventListener('submit', (event) => {
   }
   void activateReview(reviewId).then((outcome) => {
     if (outcome === 'activated' || outcome === 'already-active') {
-      elements.reviewIdInput.value = ''
+      setReviewIdControlsOpen(false)
+      elements.documentReviewId.focus()
     } else if (outcome === 'blocked') {
       showToast('Finish or cancel the source edit before opening another review')
     }
@@ -4819,6 +4848,36 @@ elements.reviewNavigationProjects.addEventListener('click', () => {
   selectedReviewIds.clear()
   setReviewNavigationMode('projects')
 })
+function moveReviewNavigationTabFromKeyboard(event: KeyboardEvent): void {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  const currentMode = event.currentTarget === elements.reviewNavigationInbox
+    ? 'inbox'
+    : 'projects'
+  const targetMode = event.key === 'Home'
+    ? 'inbox'
+    : event.key === 'End'
+      ? 'projects'
+      : currentMode === 'inbox'
+        ? 'projects'
+        : 'inbox'
+  event.preventDefault()
+  selectedReviewIds.clear()
+  setReviewNavigationMode(targetMode)
+  requestAnimationFrame(() => {
+    const target = targetMode === 'inbox'
+      ? elements.reviewNavigationInbox
+      : elements.reviewNavigationProjects
+    target.focus()
+  })
+}
+elements.reviewNavigationInbox.addEventListener(
+  'keydown',
+  moveReviewNavigationTabFromKeyboard
+)
+elements.reviewNavigationProjects.addEventListener(
+  'keydown',
+  moveReviewNavigationTabFromKeyboard
+)
 elements.reviewFilter.addEventListener('change', () => {
   const value = elements.reviewFilter.value
   if (
@@ -4872,6 +4931,15 @@ elements.reviewResolutionConfirm.addEventListener('click', () => {
 elements.reviewResolutionDialog.addEventListener('close', () => {
   finishResolutionConfirmation(false)
 })
+elements.reviewTrashCancel.addEventListener('click', () => {
+  completeReviewTrashConfirmation(false)
+})
+elements.reviewTrashConfirm.addEventListener('click', () => {
+  completeReviewTrashConfirmation(true)
+})
+elements.reviewTrashDialog.addEventListener('close', () => {
+  completeReviewTrashConfirmation(false)
+})
 elements.leftPaneResizer.addEventListener(
   'pointerdown',
   beginLeftPaneResize
@@ -4908,7 +4976,11 @@ document.addEventListener('keydown', (event) => {
     document.body.classList.add('is-control-pressed')
   }
 
-  if (elements.settingsDialog.open || elements.incomingReviewDialog.open) return
+  if (
+    elements.settingsDialog.open ||
+    elements.incomingReviewDialog.open ||
+    elements.reviewTrashDialog.open
+  ) return
 
   if (event.key === 'Escape' && elements.imagePreview.open) {
     event.preventDefault()
@@ -4942,6 +5014,17 @@ document.addEventListener('keydown', (event) => {
     )
     elements.rightPane.classList.remove('focus-within')
     focusPane(pane)
+    return
+  }
+
+  if (
+    document.activeElement === elements.centerPane &&
+    (event.key === 'PageUp' || event.key === 'PageDown')
+  ) {
+    event.preventDefault()
+    elements.tree.scrollBy({
+      top: elements.tree.clientHeight * (event.key === 'PageUp' ? -1 : 1)
+    })
     return
   }
 
@@ -5145,6 +5228,7 @@ async function rendererSmokeResult(): Promise<{
 async function initialize(): Promise<void> {
   const startupInfo = await bridge.getStartupInfo()
   startupUi.development(startupInfo.development)
+  installThemeTokenInspector(startupInfo)
   if (startupInfo.elementCallouts) {
     const callouts = installDevelopmentElementCallouts(document, {
       copyText: bridge.copyText,
@@ -5221,6 +5305,9 @@ async function initialize(): Promise<void> {
   })
   bridge.onReviewResolutionConfirmation((request) => (
     showReviewResolutionConfirmation(request)
+  ))
+  bridge.onReviewTrashConfirmation((request) => (
+    showReviewTrashConfirmation(request)
   ))
   bridge.onReviewBatchModeRequested(() => {
     if (!batchResolutionMode) {
@@ -5377,3 +5464,195 @@ void initialize().catch(async (error: unknown) => {
   }
   console.error('Markover renderer startup failed', error)
 })
+
+/* TEMPORARY theme-token inspector. Remove with its markup and styles. */
+function installThemeTokenInspector(startupInfo: StartupInfo): void {
+  interface TokenRow { readonly name: string }
+  type Group = readonly [string, readonly TokenRow[]]
+
+  const t = (name: string): TokenRow => ({ name })
+
+  /* Theme tokens hold palette values; the inspector flags duplicate computed values. */
+  const THEME: readonly Group[] = [
+    ['Theme · brand', [t('--markover-primary'), t('--markover-secondary'), t('--brand-soft')]],
+    ['Theme · ground', [
+      t('--ground'),
+      t('--paper'),
+      t('--surface'),
+      t('--neutral-soft')
+    ]],
+    ['Theme · ink', [t('--ink'), t('--muted'), t('--primary-contrast'), t('--secondary-contrast')]],
+    ['Theme · rules', [t('--line'), t('--selection-line')]],
+    ['Theme · material', [t('--input'), t('--thumbnail'), t('--code'), t('--shadow')]],
+    ['Theme · status', [t('--status-revised'), t('--status-progress'), t('--source-error')]]
+  ]
+
+  /* Semantic tokens name roles and resolve through theme or semantic tokens. */
+  const SEMANTIC: readonly Group[] = [
+    ['Accent', [
+      t('--brand-orange'),
+      t('--brand-burgundy'),
+      t('--accent'),
+      t('--accent-deep'),
+      t('--accent-soft'),
+      t('--focus')
+    ]],
+    ['Window', [
+      t('--window-background')
+    ]],
+    ['App structure', [
+      t('--app-shell-background'),
+      t('--app-header-background'),
+      t('--left-pane-background'),
+      t('--center-pane-background'),
+      t('--right-pane-background')
+    ]],
+    ['Components', [
+      t('--review-navigation-bg'),
+      t('--review-navigation-active-bg'),
+      t('--app-scrollbar-thumb-background'),
+      t('--app-scrollbar-thumb-hover-background'),
+      t('--document-tree-scrollbar-track-background'),
+      t('--documents-list-scrollbar-track-background'),
+      t('--annotation-views-scrollbar-track-background'),
+      t('--review-context-scrollbar-track-background'),
+      t('--theme-token-inspector-scrollbar-track-background'),
+      t('--document-tree-code-background'),
+      t('--document-tree-code-foreground'),
+      t('--document-tree-row-hover-border'),
+      t('--selection-bridge-background'),
+      t('--keyboard-help-background'),
+      t('--annotation-readonly-background'),
+      t('--theme-token-inspector-background'),
+      t('--theme-token-inspector-border-color'),
+      t('--theme-token-inspector-shadow-color'),
+      t('--theme-token-inspector-foreground'),
+      t('--theme-token-inspector-muted-foreground'),
+      t('--theme-token-inspector-control-background')
+    ]],
+    ['Buttons', [
+      t('--primary-button-bg'),
+      t('--primary-button-hover'),
+      t('--primary-button-text'),
+      t('--primary-button-hover-text'),
+      t('--danger-button-bg'),
+      t('--danger-button-hover'),
+      t('--danger-button-text')
+    ]],
+    ['Pane labels', [
+      t('--pane-label-base'),
+      t('--pane-label-highlight'),
+      t('--pane-label-color'),
+      t('--pane-label-hover'),
+      t('--pane-label-inactive')
+    ]],
+    ['Status', [
+      t('--status-editing'),
+      t('--status-pending'),
+      t('--status-done'),
+      t('--status-other'),
+      t('--status-outline')
+    ]]
+  ]
+
+  const inspector = document.querySelector<HTMLElement>('#theme-token-inspector')
+  const close = document.querySelector<HTMLButtonElement>('#theme-token-inspector-close')
+  const showDocumentChecksum = document.querySelector<HTMLInputElement>('#theme-token-inspector-show-document-checksum')
+  const showIncomingReview = document.querySelector<HTMLButtonElement>('#theme-token-inspector-show-incoming-review')
+  const list = document.querySelector<HTMLElement>('#theme-token-inspector-tokens')
+
+  if (
+    startupInfo.development &&
+    inspector &&
+    close &&
+    showDocumentChecksum &&
+    showIncomingReview &&
+    list
+  ) {
+    inspector.hidden = false
+    elements.checksum.hidden = !showDocumentChecksum.checked
+    const root = document.documentElement
+    const renderedRows: Array<{ name: string; value: HTMLElement }> = []
+    const colorProbe = document.createElement('i')
+    colorProbe.hidden = true
+    inspector.append(colorProbe)
+
+    const addGroups = (groups: readonly Group[]): void => {
+      for (const [group, tokens] of groups) {
+        const heading = document.createElement('div')
+        heading.className = 'theme-token-inspector-group'
+        heading.textContent = group
+        list.append(heading)
+
+        for (const token of tokens) {
+          const row = document.createElement('div')
+          row.className = 'theme-token-inspector-token'
+
+          const swatch = document.createElement('i')
+          swatch.className = 'theme-token-inspector-swatch'
+          swatch.style.background = `var(${token.name})`
+
+          const label = document.createElement('code')
+          label.textContent = token.name
+
+          const value = document.createElement('span')
+          renderedRows.push({ name: token.name, value })
+
+          row.append(swatch, label, value)
+          list.append(row)
+        }
+      }
+    }
+
+    addGroups(THEME)
+    addGroups(SEMANTIC)
+
+    /* Display each rendered colour once. Theme rows are ordered first, so a
+       semantic role that resolves to a theme colour names that canonical token. */
+    const refresh = (): void => {
+      const computed = getComputedStyle(root)
+      const owners = new Map<string, string>()
+      for (const row of renderedRows) {
+        const customPropertyValue = computed.getPropertyValue(row.name).trim()
+        colorProbe.style.backgroundColor = `var(${row.name})`
+        const renderedColor = getComputedStyle(colorProbe).backgroundColor
+        const colorKey = renderedColor || customPropertyValue
+        const owner = owners.get(colorKey)
+        row.value.textContent = owner || customPropertyValue || renderedColor
+        row.value.title = owner
+          ? `${owner} · ${customPropertyValue || renderedColor}`
+          : customPropertyValue || renderedColor
+        if (!owner) owners.set(colorKey, row.name)
+      }
+    }
+
+    showDocumentChecksum.addEventListener('change', () => {
+      elements.checksum.hidden = !showDocumentChecksum.checked
+    })
+
+    const showIncomingReviewPreview = (): void => {
+      elements.incomingReviewDialogMessage.textContent =
+        '“new-review.md” is ready. Open it instead of the current review?'
+      if (!elements.incomingReviewDialog.open) {
+        elements.incomingReviewDialog.showModal()
+      }
+      elements.incomingReviewDialogKeep.focus()
+    }
+
+    showIncomingReview.addEventListener('click', showIncomingReviewPreview)
+
+    const incomingReviewPreviewKey = 'markover-dev-incoming-review-preview-v3'
+    if (!sessionStorage.getItem(incomingReviewPreviewKey)) {
+      sessionStorage.setItem(incomingReviewPreviewKey, 'shown')
+      setTimeout(showIncomingReviewPreview, 250)
+    }
+
+    close.addEventListener('click', () => { inspector.hidden = true })
+
+    new MutationObserver(refresh).observe(root, {
+      attributeFilter: ['data-palette', 'data-appearance', 'data-colorization']
+    })
+
+    refresh()
+  }
+}

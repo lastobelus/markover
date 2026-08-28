@@ -15,6 +15,7 @@ import {
   type Event as ElectronEvent,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
+  type OpenDialogOptions,
   type WebContents
 } from 'electron'
 import { createHash } from 'node:crypto'
@@ -124,6 +125,11 @@ import {
 } from './service-endpoint'
 import { SettingsStore } from './settings-store'
 import { t3ThreadTitleSnapshot } from './t3-thread-titles'
+import {
+  WindowBoundsStore,
+  clampWindowBounds,
+  workAreaForWindowBounds
+} from './window-bounds'
 import { WorkspaceStore } from './workspace-store'
 import { smokeReviewTree } from './smoke-fixture'
 import {
@@ -176,6 +182,11 @@ interface PendingActivation {
 }
 
 interface PendingResolutionConfirmation {
+  resolve: (confirmed: boolean) => void
+  timeout: ReturnType<typeof setTimeout>
+}
+
+interface PendingTrashConfirmation {
   resolve: (confirmed: boolean) => void
   timeout: ReturnType<typeof setTimeout>
 }
@@ -279,12 +290,14 @@ let remoteGatewayQueue: Promise<void> = Promise.resolve()
 let serviceRepairQueue: Promise<void> = Promise.resolve()
 let settingsStore: SettingsStore | null = null
 let workspaceStore: WorkspaceStore | null = null
+let windowBoundsStore: WindowBoundsStore | null = null
 let zoomWriter: Promise<void> = Promise.resolve()
 let managedAutosave: ReviewAutosave | null = null
 let snapshotSequence = 0
 let statusSequence = 0
 let activationSequence = 0
 let resolutionSequence = 0
+let trashConfirmationSequence = 0
 let elementCalloutSequence = 0
 let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
 let startupDiagnostic: StartupDiagnostic | null = null
@@ -311,6 +324,7 @@ const pendingResolutionConfirmations = new Map<
   string,
   PendingResolutionConfirmation
 >()
+const pendingTrashConfirmations = new Map<string, PendingTrashConfirmation>()
 const pendingElementCallouts = new Map<string, PendingElementCallout>()
 const pendingManagedReviewNotifications = new Map<string, MarkoverDocument>()
 const reviewProjectContexts = new Map<string, Promise<ReviewProjectContext>>()
@@ -817,33 +831,11 @@ async function confirmReviewTrash(
 ): Promise<ReviewDeletionPolicy | null> {
   const artifact = await requireReviewStore().load(reviewId)
   const policy = reviewDeletionPolicy(artifact.review.status)
-  const pendingAgent = policy === 'pending-agent'
-  const options = {
-    type: 'warning' as const,
-    buttons: ['Move to Trash', 'Cancel'],
-    defaultId: 1,
-    cancelId: 1,
-    noLink: true,
-    message: [
-      pendingAgent
-        ? 'Move this review to Trash while it is with the agent?'
-        : 'Move this review to Trash?',
-      '',
-      'Your original Markdown document will not be changed or deleted.'
-    ].join('\n'),
-    detail: [
-      pendingAgent
-        ? 'The agent may still be using this review. Its next read or update will fail.'
-        : 'This removes the review from Markover.',
-      '',
-      `The entire ${reviewId} review directory, including its feedback and review attachments, will move to the macOS Trash. Existing review links will no longer open the review.`
-    ].join('\n')
-  }
-  const window = mainWindow
-  const result = window && !window.isDestroyed()
-    ? await dialog.showMessageBox(window, options)
-    : await dialog.showMessageBox(options)
-  return result.response === 0 ? policy : null
+  const confirmed = await requestReviewTrashConfirmation(
+    reviewId,
+    policy === 'pending-agent'
+  )
+  return confirmed ? policy : null
 }
 
 async function moveReviewToTrash(reviewId: string): Promise<void> {
@@ -1084,13 +1076,17 @@ async function saveAttachment(
 
 async function openMarkdown(): Promise<MarkoverDocument | null> {
   pendingLocalReviewCandidate = null
-  const result = await dialog.showOpenDialog({
+  const options: OpenDialogOptions = {
     properties: ['openFile'],
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] },
       { name: 'All files', extensions: ['*'] }
     ]
-  })
+  }
+  const window = mainWindow
+  const result = window && !window.isDestroyed()
+    ? await dialog.showOpenDialog(window, options)
+    : await dialog.showOpenDialog(options)
 
   if (result.canceled || result.filePaths.length === 0) return null
 
@@ -1136,11 +1132,26 @@ function createWindow(
   const startupSettings = settingsEnvelope(
     settingsStore?.settings || DEFAULT_SETTINGS
   )
-  const workArea = screen.getPrimaryDisplay().workAreaSize
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const savedBounds = smokeMode ? null : windowBoundsStore?.bounds ?? null
+  const workAreaRect = savedBounds
+    ? workAreaForWindowBounds(
+      savedBounds,
+      screen.getAllDisplays(),
+      primaryDisplay.workArea
+    )
+    : primaryDisplay.workArea
+  const workArea = { width: workAreaRect.width, height: workAreaRect.height }
   const minimumSize = minimumWindowSize(startupSettings.zoomPercent, workArea)
+  const rememberedBounds = !savedBounds
+    ? null
+    : clampWindowBounds(savedBounds, workAreaRect, minimumSize)
   const window = new BrowserWindow({
-    width: Math.min(1180, workArea.width),
-    height: Math.min(760, workArea.height),
+    width: rememberedBounds?.width ?? Math.min(1180, workArea.width),
+    height: rememberedBounds?.height ?? Math.min(760, workArea.height),
+    ...(rememberedBounds
+      ? { x: rememberedBounds.x, y: rememberedBounds.y }
+      : {}),
     minWidth: minimumSize.width,
     minHeight: minimumSize.height,
     show: show && !showWithoutActivating,
@@ -1158,6 +1169,32 @@ function createWindow(
     }
   })
   mainWindow = window
+  if (rememberedBounds?.maximized) window.maximize()
+  let boundsWriteTimer: NodeJS.Timeout | null = null
+  const recordWindowBounds = (): void => {
+    if (smokeMode || !windowBoundsStore || window.isDestroyed()) return
+    if (window.isFullScreen() || window.isMinimized()) return
+    const normal = window.getNormalBounds()
+    windowBoundsStore.save({
+      x: normal.x,
+      y: normal.y,
+      width: normal.width,
+      height: normal.height,
+      maximized: window.isMaximized()
+    })
+  }
+  const scheduleWindowBoundsWrite = (): void => {
+    if (boundsWriteTimer) clearTimeout(boundsWriteTimer)
+    boundsWriteTimer = setTimeout(recordWindowBounds, 250)
+  }
+  window.on('resize', scheduleWindowBoundsWrite)
+  window.on('move', scheduleWindowBoundsWrite)
+  window.on('maximize', scheduleWindowBoundsWrite)
+  window.on('unmaximize', scheduleWindowBoundsWrite)
+  window.on('close', () => {
+    if (boundsWriteTimer) clearTimeout(boundsWriteTimer)
+    recordWindowBounds()
+  })
   let currentDisplayId = screen.getDisplayMatching(window.getBounds()).id
   const applyCurrentWindowZoom = (): void => {
     if (window.isDestroyed()) return
@@ -1665,6 +1702,30 @@ async function requestReviewResolutionConfirmation(
       outcome,
       reviews: artifacts.map(reviewResolutionSummary)
     } satisfies ReviewResolutionConfirmationRequest)
+  })
+}
+
+async function requestReviewTrashConfirmation(
+  reviewId: string,
+  pendingAgent: boolean
+): Promise<boolean> {
+  focusMainWindow()
+  const window = mainWindow
+  if (!window) throw new Error('Markover window could not be created.')
+  await waitForRendererReady(window)
+  trashConfirmationSequence += 1
+  const requestId = `trash-${String(trashConfirmationSequence)}`
+  return new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => {
+      pendingTrashConfirmations.delete(requestId)
+      resolve(false)
+    }, 5 * 60 * 1000)
+    pendingTrashConfirmations.set(requestId, { resolve, timeout })
+    sendMainEvent(window.webContents, 'review:trash-confirmation-request', {
+      requestId,
+      reviewId,
+      pendingAgent
+    } satisfies ReviewTrashConfirmationRequest)
   })
 }
 
@@ -2312,6 +2373,11 @@ if (!hasSingleInstanceLock) {
     )
     workspaceStore = privateWorkspaceStore
     await privateWorkspaceStore.load()
+    const boundsStore = new WindowBoundsStore(
+      path.join(app.getPath('userData'), 'window.json')
+    )
+    windowBoundsStore = boundsStore
+    await boundsStore.load()
     managedAutosave = new ReviewAutosave(requireReviewStore(), {
       maximumDelayMs: initialSettings.autosaveMaximumDelayMs,
       onFailure(reviewId, error) {
@@ -2671,6 +2737,16 @@ if (!hasSingleInstanceLock) {
       if (!pending) return
       clearTimeout(pending.timeout)
       pendingResolutionConfirmations.delete(response.requestId)
+      pending.resolve(response.confirmed)
+    })
+    privilegedIpc.on('review:trash-confirmation-response', (
+      _event: IpcMainEvent,
+      response: ReviewTrashConfirmationResponse
+    ) => {
+      const pending = pendingTrashConfirmations.get(response.requestId)
+      if (!pending) return
+      clearTimeout(pending.timeout)
+      pendingTrashConfirmations.delete(response.requestId)
       pending.resolve(response.confirmed)
     })
     privilegedIpc.on('clipboard:write', (_event: IpcMainEvent, text: string) => {
