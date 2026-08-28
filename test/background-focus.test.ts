@@ -215,6 +215,10 @@ test('warning and notice UI keep the current review safe and target the latest a
   )
   assert.match(
     renderer,
+    /async function activateReview[\s\S]*if \(!finishActiveSourceEdit\(\)\) return 'blocked'[\s\S]*if \(elements\.reviewTrashDialog\.open\) \{[\s\S]*completeReviewTrashConfirmation\(false\)[\s\S]*reviewSessions\.activate\(reviewId\)/
+  )
+  assert.match(
+    renderer,
     /function openImagePreview[\s\S]*imagePreview\.showModal\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)[\s\S]*function closeImagePreview[\s\S]*imagePreview\.close\(\)[\s\S]*scheduleIncomingReviewNoticeDismissal\(\)/
   )
   assert.match(

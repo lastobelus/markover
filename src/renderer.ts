@@ -4282,6 +4282,9 @@ async function activateReview(
     }
   }
   if (!finishActiveSourceEdit()) return 'blocked'
+  if (elements.reviewTrashDialog.open) {
+    completeReviewTrashConfirmation(false)
+  }
   configureManagedMode()
 
   captureActiveSession()
