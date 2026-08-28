@@ -55,7 +55,8 @@ the semantic tokens rather than naming the current contents.
 | `--right-pane-background` | `--neutral-soft` |
 
 Palette and appearance overrides may replace a base mapping with a literal or
-another theme role. For example, Olive light maps the app shell to `#dde1d2`.
+another theme role. For example, Olive light maps the app shell to a
+palette-specific literal.
 The floating theme-token inspector reports each token's live computed custom-
 property value so these overrides remain truthful.
 
