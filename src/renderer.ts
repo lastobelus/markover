@@ -277,6 +277,7 @@ const INBOX_HISTORY_PAGE_SIZE = 10
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let reviewHoverTimer: ReturnType<typeof setTimeout> | null = null
 let canonicalUpdateHoverTimer: ReturnType<typeof setTimeout> | null = null
+let canonicalUpdatePollTimer: ReturnType<typeof setTimeout> | null = null
 let canonicalUpdateStatus: CanonicalUpdateStatus = {
   state: 'hidden',
   detail: '',
@@ -2828,6 +2829,8 @@ function showCanonicalUpdateTooltip(): void {
 }
 
 function renderCanonicalUpdateStatus(status: CanonicalUpdateStatus): void {
+  if (canonicalUpdatePollTimer) clearTimeout(canonicalUpdatePollTimer)
+  canonicalUpdatePollTimer = null
   canonicalUpdateStatus = status
   const hidden = status.state === 'hidden'
   elements.canonicalUpdateFooter.hidden = hidden
@@ -2846,6 +2849,12 @@ function renderCanonicalUpdateStatus(status: CanonicalUpdateStatus): void {
         ? 'Check for Markover updates'
         : canonicalUpdateHeading(status)
   )
+  if (status.state === 'starting') {
+    canonicalUpdatePollTimer = setTimeout(() => {
+      canonicalUpdatePollTimer = null
+      void refreshCanonicalUpdateStatus()
+    }, 1000)
+  }
   if (!elements.canonicalUpdateTooltip.hidden) showCanonicalUpdateTooltip()
 }
 
@@ -2880,7 +2889,10 @@ elements.canonicalUpdateButton.addEventListener('focus', showCanonicalUpdateTool
 elements.canonicalUpdateButton.addEventListener('blur', hideCanonicalUpdateTooltip)
 elements.canonicalUpdateButton.addEventListener('click', () => {
   void (async () => {
-    if (canonicalUpdateStatus.state !== 'available') {
+    if (
+      canonicalUpdateStatus.state !== 'available' &&
+      canonicalUpdateStatus.state !== 'unavailable'
+    ) {
       await refreshCanonicalUpdateStatus()
       return
     }

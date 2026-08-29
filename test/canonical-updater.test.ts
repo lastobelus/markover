@@ -51,6 +51,7 @@ interface FakeRepositoryOptions {
   divergent?: boolean
   behind?: number
   mergeFails?: boolean
+  dependencyInstallFails?: boolean
   refreshFails?: boolean
 }
 
@@ -87,6 +88,9 @@ async function fixture(
     commands,
     runCommand(command, args) {
       commands.push({ command, args: [...args] })
+      if (command === 'npm' && args.join(' ') === 'ci') {
+        return options.dependencyInstallFails ? fail() : ok()
+      }
       if (command === 'npm') return options.refreshFails ? fail() : ok()
       const joined = args.join(' ')
       if (joined === 'rev-parse --show-toplevel') return ok(checkout)
@@ -205,6 +209,9 @@ test('helper revalidates, fast-forwards exactly, and invokes managed refresh', a
     command === 'git' && args.join(' ') === 'merge --ff-only 2222222'
   ))
   assert(repo.commands.some(({ command, args }) =>
+    command === 'npm' && args.join(' ') === 'ci'
+  ))
+  assert(repo.commands.some(({ command, args }) =>
     command === 'npm' &&
     args.join(' ') === '--silent run markover -- canonical refresh'
   ))
@@ -231,6 +238,31 @@ test('helper persists only a strict error code when refresh fails', async (t) =>
     status: 'failed',
     error: 'REFRESH_FAILED'
   })
+})
+
+test('helper installs locked dependencies before managed refresh', async (t) => {
+  const repo = await fixture(t, { dependencyInstallFails: true })
+  let token = ''
+  await startCanonicalUpdate({
+    ...repo,
+    spawnDetached(_command, args) {
+      token = args[3] || ''
+      return new FakeDetachedChild()
+    }
+  })
+  assert.deepEqual(await runCanonicalUpdateHelper(
+    repo.descriptorPath,
+    token,
+    repo.runCommand
+  ), {
+    format: 'markover-canonical-update-attempt',
+    version: 1,
+    status: 'failed',
+    error: 'DEPENDENCY_INSTALL_FAILED'
+  })
+  assert.equal(repo.commands.some(({ command, args }) => (
+    command === 'npm' && args.includes('refresh')
+  )), false)
 })
 
 test('start accepts after local preflight without fetching remote state', async (t) => {
@@ -268,7 +300,7 @@ test('a refresh-failure retry still launches helper after fast-forward', async (
     token,
     repo.runCommand
   )).status, 'completed')
-  assert.equal(repo.commands.filter(({ command }) => command === 'npm').length, 2)
+  assert.equal(repo.commands.filter(({ command }) => command === 'npm').length, 4)
 })
 
 test('start recovers a private lock and result owned by a dead process', async (t) => {

@@ -84,6 +84,8 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /markoverIcon\('chevron-right', 'is-closed'\)/)
   assert.match(renderer, /replaceMarkoverIcon\(elements\.leftPaneCollapse, 'panel-left-close'\)/)
   assert.match(renderer, /replaceMarkoverIcon\(elements\.canonicalUpdateButton, 'refresh-cw'\)/)
+  assert.match(renderer, /status\.state === 'starting'[\s\S]*setTimeout\(\(\) => \{[\s\S]*refreshCanonicalUpdateStatus\(\)/)
+  assert.match(renderer, /canonicalUpdateStatus\.state !== 'available' &&[\s\S]*canonicalUpdateStatus\.state !== 'unavailable'/)
   assert.match(html, /id="canonical-update-footer"[\s\S]*id="canonical-update-button"[\s\S]*aria-describedby="canonical-update-tooltip"/)
   assert.match(styles, /\.canonical-update-footer \{[^}]*min-height: 40px;[^}]*justify-content: flex-end;/)
   assert.match(icons, /from 'lucide\/dist\/esm\/lucide\/src\/lucide\.js'/)

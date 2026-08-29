@@ -32,6 +32,7 @@ export type CanonicalUpdateErrorCode =
   | 'UPDATE_IN_PROGRESS'
   | 'HELPER_START_FAILED'
   | 'FAST_FORWARD_FAILED'
+  | 'DEPENDENCY_INSTALL_FAILED'
   | 'REFRESH_FAILED'
 
 export class CanonicalUpdateError extends Error {
@@ -533,6 +534,17 @@ export async function runCanonicalUpdateHelper(
         )
       }
     }
+    const installed = runCommand(
+      'npm',
+      ['ci'],
+      { cwd: checkout.descriptor.checkout, encoding: 'utf8' }
+    )
+    if (!successful(installed)) {
+      throw new CanonicalUpdateError(
+        'DEPENDENCY_INSTALL_FAILED',
+        'Markover could not install the updated locked dependencies.'
+      )
+    }
     const refreshed = runCommand(
       'npm',
       ['--silent', 'run', 'markover', '--', 'canonical', 'refresh'],
@@ -627,6 +639,7 @@ export async function readCanonicalUpdateAttempt(
     'UPDATE_IN_PROGRESS',
     'HELPER_START_FAILED',
     'FAST_FORWARD_FAILED',
+    'DEPENDENCY_INSTALL_FAILED',
     'REFRESH_FAILED'
   ]
   return allowed.includes(error as CanonicalUpdateErrorCode)
