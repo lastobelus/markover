@@ -130,7 +130,7 @@ test('Pages offers an accessible current-UI demo without surprise playback', () 
   assert.equal(video.getAttribute('poster'), './assets/markover-demo-poster.jpg')
   assert.equal(video.querySelector('source')?.getAttribute('src'), './assets/markover-focused-preview-demo.mp4')
   assert.equal(video.querySelector('source')?.getAttribute('type'), 'video/mp4')
-  assert.ok(document.querySelector('#demo-transcript')?.textContent?.includes('fixture-only CLI'))
+  assert.ok(document.querySelector('#demo-transcript')?.textContent.includes('fixture-only CLI'))
 })
 
 test('the launch movie is a fast-start silent H.264 MP4 with a real poster', () => {
