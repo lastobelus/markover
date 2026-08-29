@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -68,6 +68,15 @@ interface CompletedProcess {
   cancelled: boolean
   timedOut: boolean
 }
+
+interface KillableProcess {
+  pid?: number | undefined
+  exitCode: number | null
+  signalCode: NodeJS.Signals | null
+  kill: (signal?: NodeJS.Signals | number) => boolean
+}
+
+type KillProcess = (pid: number, signal: NodeJS.Signals) => boolean
 
 const BASE_REMOTE = 'origin'
 const BASE_BRANCH = 'main'
@@ -294,7 +303,19 @@ function logPath(root: string, head: string, startedAt: number): string {
   return path.join(root, 'tmp/local-ci', `${timestamp}-${head.slice(0, 12)}.log`)
 }
 
-function terminate(child: ChildProcess, signal: NodeJS.Signals): void {
+export function terminateProcessGroup(
+  child: KillableProcess,
+  signal: NodeJS.Signals,
+  killProcess: KillProcess = (pid, processSignal) => process.kill(pid, processSignal)
+): void {
+  if (child.pid !== undefined) {
+    try {
+      killProcess(-child.pid, signal)
+      return
+    } catch {
+      // The process group may have exited between the state check and signal.
+    }
+  }
   if (child.exitCode !== null || child.signalCode !== null) return
   child.kill(signal)
 }
@@ -308,6 +329,7 @@ async function runCi(
   const output = fs.createWriteStream(outputPath, { flags: 'w' })
   const child = spawn('npm', ['run', 'ci:local'], {
     cwd: root,
+    detached: true,
     env: process.env,
     stdio: ['ignore', 'pipe', 'pipe']
   })
@@ -317,14 +339,14 @@ async function runCi(
   let timedOut = false
   const cancel = (): void => {
     cancelled = true
-    terminate(child, 'SIGTERM')
+    terminateProcessGroup(child, 'SIGTERM')
   }
   process.once('SIGINT', cancel)
   process.once('SIGTERM', cancel)
   const deadline = setTimeout(() => {
     timedOut = true
-    terminate(child, 'SIGTERM')
-    setTimeout(() => { terminate(child, 'SIGKILL') }, 1_000).unref()
+    terminateProcessGroup(child, 'SIGTERM')
+    setTimeout(() => { terminateProcessGroup(child, 'SIGKILL') }, 1_000).unref()
   }, timeoutMilliseconds)
   try {
     return await new Promise<CompletedProcess>((resolve, reject) => {

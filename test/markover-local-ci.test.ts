@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import test from 'node:test'
 
 import {
@@ -10,6 +12,7 @@ import {
   normalizeRepository,
   parseSmokeResult,
   parseTestCounts,
+  terminateProcessGroup,
   type LocalCiIdentity
 } from '../scripts/markover-local-ci'
 
@@ -200,4 +203,93 @@ test('puts compact JSON on the final summary line', () => {
   })
   assert.match(summary, /^\[run-local-ci\] Summary: \{"outcome":"head-changed"/)
   assert.equal(summary.includes('\n'), false)
+})
+
+test('terminates the detached CI process group with a direct-child fallback', () => {
+  const groupSignals: Array<[number, NodeJS.Signals]> = []
+  const directSignals: Array<NodeJS.Signals | number | undefined> = []
+  const child: {
+    pid: number
+    exitCode: number | null
+    signalCode: NodeJS.Signals | null
+    kill: (signal?: NodeJS.Signals | number) => boolean
+  } = {
+    pid: 1234,
+    exitCode: null,
+    signalCode: null,
+    kill: (signal?: NodeJS.Signals | number): boolean => {
+      directSignals.push(signal)
+      return true
+    }
+  }
+
+  terminateProcessGroup(child, 'SIGTERM', (pid, signal) => {
+    groupSignals.push([pid, signal])
+    return true
+  })
+  assert.deepEqual(groupSignals, [[-1234, 'SIGTERM']])
+  assert.deepEqual(directSignals, [])
+
+  terminateProcessGroup(child, 'SIGKILL', () => {
+    throw new Error('group already exited')
+  })
+  assert.deepEqual(directSignals, ['SIGKILL'])
+
+  child.exitCode = 0
+  terminateProcessGroup(child, 'SIGKILL', (pid, signal) => {
+    groupSignals.push([pid, signal])
+    return true
+  })
+  assert.deepEqual(groupSignals, [[-1234, 'SIGTERM'], [-1234, 'SIGKILL']])
+  assert.deepEqual(directSignals, ['SIGKILL'])
+})
+
+test('kills a signal-resistant descendant after the direct child exits', {
+  timeout: 5_000
+}, async (context) => {
+  const descendantScript = [
+    "process.on('SIGTERM', () => {})",
+    "process.stdout.write('descendant-ready\\n')",
+    'setInterval(() => {}, 1_000)'
+  ].join(';')
+  const parentScript = [
+    "const { spawn } = require('node:child_process')",
+    `const child = spawn(process.execPath, ['-e', ${JSON.stringify(descendantScript)}], { stdio: ['ignore', 'inherit', 'inherit'] })`,
+    "process.stdout.write(`descendant-pid:${child.pid}\\n`)",
+    'setInterval(() => {}, 1_000)'
+  ].join(';')
+  const parent = spawn(process.execPath, ['-e', parentScript], {
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  context.after(() => {
+    if (parent.pid === undefined) return
+    try {
+      process.kill(-parent.pid, 'SIGKILL')
+    } catch {
+      // The process group is already gone.
+    }
+  })
+
+  let output = ''
+  const ready = new Promise<number>((resolve, reject) => {
+    const deadline = setTimeout(() => { reject(new Error('descendant did not start')) }, 2_000)
+    parent.stdout.setEncoding('utf8')
+    parent.stdout.on('data', (chunk: string) => {
+      output += chunk
+      const match = /descendant-pid:(\d+)\ndescendant-ready\n/.exec(output)
+      if (match?.[1] === undefined) return
+      clearTimeout(deadline)
+      resolve(Number.parseInt(match[1], 10))
+    })
+  })
+  const descendantPid = await ready
+
+  terminateProcessGroup(parent, 'SIGTERM')
+  await once(parent, 'exit')
+  assert.notEqual(parent.signalCode, null)
+
+  terminateProcessGroup(parent, 'SIGKILL')
+  await once(parent, 'close')
+  assert.throws(() => { process.kill(descendantPid, 0) }, { code: 'ESRCH' })
 })
