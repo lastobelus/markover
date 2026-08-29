@@ -131,7 +131,7 @@ test('still automation is opt-in, loopback-only, and scoped to the capture app',
   const source = fs.readFileSync(path.join(root, 'scripts', 'capture-stills.ts'), 'utf8')
   assert.match(source, /prepareCaptureState\(\{ checkout, source \}\)/)
   assert.match(source, /--remote-debugging-address=127\.0\.0\.1/)
-  assert.match(source, /markover-internal:\/\/app\/src\/index\.html/)
+  assert.match(source, /markover-app:\/\/app\/src\/index\.html/)
   assert.doesNotMatch(
     fs.readFileSync(path.join(root, 'src', 'main.ts'), 'utf8'),
     /remote-debugging/

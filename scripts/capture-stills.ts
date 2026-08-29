@@ -212,7 +212,7 @@ async function pageTarget(port: number): Promise<CdpTarget> {
       if (response.ok) {
         const targets = await response.json() as CdpTarget[]
         const target = targets.find(({ type, url }) => (
-          type === 'page' && url.startsWith('markover-internal://app/src/index.html')
+          type === 'page' && url.startsWith('markover-app://app/src/index.html')
         ))
         if (target) return target
       }
@@ -349,6 +349,7 @@ async function run(): Promise<void> {
   })
   const staging = await fs.mkdtemp(path.join(checkout, '.capture-stills-'))
   let client: CdpClient | null = null
+  let readyToPublish = false
   try {
     const target = await pageTarget(port)
     client = await CdpClient.connect(target.webSocketDebuggerUrl)
@@ -405,12 +406,14 @@ async function run(): Promise<void> {
     await waitFor(client, `document.querySelector('#review-context-fields')?.children.length`)
     await client.evaluate(`document.querySelector('#review-context-drawer').scrollTop = 0`)
     await capture(client, path.join(staging, 'markover-review-context@2x.png'))
+    readyToPublish = true
   } finally {
     client?.close()
     await stop(child)
+    await prepareCaptureState({ checkout, source, serviceRunning: () => Promise.resolve(false) })
+    if (!readyToPublish) await fs.rm(staging, { recursive: true, force: true })
   }
 
-  await prepareCaptureState({ checkout, source, serviceRunning: () => Promise.resolve(false) })
   const assets = path.join(checkout, 'docs', 'user', 'assets')
   for (const filename of [
     'markover-review-editor@2x.png',
