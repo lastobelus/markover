@@ -76,3 +76,21 @@ Status: accepted.
 Avoid timeless language for proposed or transient architecture, expanding truth context
 by default, moving it below the Tiny Story, hiding it entirely in the footer, or
 speculating about an unknown future design.
+
+## Loop 5: Optional Diagram-Design Reference
+
+Status: accepted.
+
+- Consult the canonical shared diagram-design skill only after deciding that a diagram
+  is useful; do not add it to the common ELI5 context.
+- Let diagram-design guide diagram type, density, layout grammar, SVG primitives, and
+  connector routing while ELI5 guidance continues to own the document, truth context,
+  Markover visual language, accessibility, responsive containment, and verification.
+- Treat `doc/design/markover-design-brief.md` as the repository-owned, already-onboarded
+  Diagram Design profile. Resolve visual roles from it without inspecting or mutating a
+  machine profile, project marker, or installed style guide.
+- Keep diagram-design optional. Never install, fetch, update, vendor, copy, or register it
+  during an ELI5 task, and preserve the existing diagram guidance as the quiet fallback.
+- Proceed directly to diagram type selection without an onboarding pause. Keep
+  standalone shells, remote fonts, export flows, and separate artifact handoff outside
+  the accepted accessible inline SVG and non-interactive diagram model.
