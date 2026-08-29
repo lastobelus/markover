@@ -248,17 +248,24 @@ async function run(): Promise<void> {
       width
     })
     await waitFor(client, `document.querySelector('#pane-layout')?.getClientRects().length`)
-    await installOverlay(client)
     await click(client, '#review-navigation-inbox')
     await chooseNeedsMe(client)
-    await click(client, '.block-row[data-node-id="block-1"]')
-    await click(client, '#annotation-view-selected')
+    await click(client, '[data-review-id="mko_capture03"] .review-list-row-open')
+    await waitFor(client, `document.querySelector('#document-review-id')?.textContent === 'mko_capture03'`)
+    await installOverlay(client)
     const frames = new DemoFrames(client, framesDirectory)
     let pointer: Point = { x: 1780, y: 80 }
     await setPointer(client, pointer)
 
+    await setCaption(client, 'Open one review from the inbox.')
+    const primaryReview = await pointFor(client, '[data-review-id="mko_capture01"] .review-list-row-open')
+    pointer = await frames.move(pointer, primaryReview)
+    await click(client, '[data-review-id="mko_capture01"] .review-list-row-open')
+    await waitFor(client, `document.querySelector('#document-review-id')?.textContent === 'mko_capture01'`)
+    await click(client, '.block-row[data-node-id="block-1"]')
+    await click(client, '#annotation-view-selected')
     await setCaption(client, 'Review agent-written Markdown as a document tree.')
-    const posterPath = await frames.hold(6)
+    const posterPath = await frames.hold(5)
 
     const attachment = await pointFor(client, '.attachment-item[data-attachment-id="img-1"]')
     pointer = await frames.move(pointer, attachment)

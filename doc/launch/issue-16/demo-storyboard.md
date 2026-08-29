@@ -14,13 +14,14 @@
 
 ## Timeline
 
-### 0:00–0:07 — Begin with the review inbox
+### 0:00–0:07 — Open one review from the inbox
 
-Show the prepared Inbox with **Needs me** active and open **Launch readiness
-brief**. Let the three-pane Ember Light layout establish the review, selected
-document block, and feedback pane.
+Show the prepared Inbox with **Needs me** active, then open **Launch readiness
+brief** from its review row. Let the three-pane Ember Light layout establish
+the selected document block and feedback pane.
 
-Caption: **Review agent-written Markdown as a document tree.**
+Captions: **Open one review from the inbox.** then **Review agent-written
+Markdown as a document tree.**
 
 ### 0:07–0:19 — Add feedback with visual context
 
