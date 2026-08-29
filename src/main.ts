@@ -456,12 +456,17 @@ async function canonicalUpdateStatus(): Promise<CanonicalUpdateStatus> {
     const changelist = commit
       ? selectCanonicalUpdateChangelist(manifest, commit)
       : null
+    if (changelist === null) {
+      return {
+        state: 'unknown',
+        detail: 'Markover cannot determine whether the published update is newer. Check again shortly.',
+        pullRequests: []
+      }
+    }
     return {
       state: 'available',
-      detail: changelist === null
-        ? 'An update is available. Its pull-request changelist is unavailable.'
-        : `${String(changelist.length)} merged pull request${changelist.length === 1 ? '' : 's'} available.`,
-      pullRequests: (changelist ?? []).slice(-50).map(({ number, title }) => ({
+      detail: `${String(changelist.length)} merged pull request${changelist.length === 1 ? '' : 's'} available.`,
+      pullRequests: changelist.slice(-50).map(({ number, title }) => ({
         number,
         title
       }))

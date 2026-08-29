@@ -733,6 +733,7 @@ declare global {
     | 'checking'
     | 'current'
     | 'available'
+    | 'unknown'
     | 'starting'
     | 'unavailable'
 

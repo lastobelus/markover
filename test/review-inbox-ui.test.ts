@@ -89,6 +89,8 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /!canonicalUpdateCacheRecheckScheduled[\s\S]*canonicalUpdateCacheRecheckScheduled = true[\s\S]*scheduleCanonicalUpdateCacheRecheck\(\)/)
   assert.match(renderer, /function scheduleCanonicalUpdateCacheRecheck[\s\S]*setTimeout\(\(\) => \{[\s\S]*refreshCanonicalUpdateStatus\(\)[\s\S]*3250/)
   assert.match(renderer, /await refreshCanonicalUpdateStatus\(\)[\s\S]*canonicalUpdateStatus\.state === 'current'[\s\S]*scheduleCanonicalUpdateCacheRecheck\(\)/)
+  assert.match(renderer, /case 'unknown': return 'Update status unknown'/)
+  assert.match(main, /changelist === null[\s\S]*state: 'unknown'[\s\S]*cannot determine whether the published update is newer/)
   assert.match(main, /const cached = await readCanonicalUpdateManifestCache[\s\S]*if \(cached\) \{[\s\S]*void refreshCanonicalUpdateManifestCache\(\)[\s\S]*return cached/)
   assert.match(main, /function canonicalUpdateHelperPath[\s\S]*archivePath\.endsWith\('\.asar'\)[\s\S]*`\$\{archivePath\}\.unpacked`[\s\S]*startCanonicalUpdate\(\{[\s\S]*helperPath: canonicalUpdateHelperPath\(\)/)
   assert.match(main, /parseCanonicalInstanceDescriptor\(value\)\?\.blessedBranch === 'main'/)

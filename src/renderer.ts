@@ -2796,6 +2796,7 @@ function canonicalUpdateHeading(status: CanonicalUpdateStatus): string {
     case 'checking': return 'Checking for updates'
     case 'starting': return 'Updating Markover'
     case 'current': return 'Markover is up to date'
+    case 'unknown': return 'Update status unknown'
     case 'unavailable': return 'Update unavailable'
     case 'hidden': return ''
   }
@@ -2907,7 +2908,10 @@ elements.canonicalUpdateButton.addEventListener('click', () => {
       canonicalUpdateStatus.state !== 'unavailable'
     ) {
       await refreshCanonicalUpdateStatus()
-      if (canonicalUpdateStatus.state === 'current') {
+      if (
+        canonicalUpdateStatus.state === 'current' ||
+        canonicalUpdateStatus.state === 'unknown'
+      ) {
         scheduleCanonicalUpdateCacheRecheck()
       }
       return

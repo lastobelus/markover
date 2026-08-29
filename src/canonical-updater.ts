@@ -78,6 +78,7 @@ export interface CanonicalUpdateStatus {
     | 'checking'
     | 'current'
     | 'available'
+    | 'unknown'
     | 'starting'
     | 'unavailable'
   detail: string

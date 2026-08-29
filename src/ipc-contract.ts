@@ -615,6 +615,7 @@ function isCanonicalUpdateStatus(
       value.state === 'checking' ||
       value.state === 'current' ||
       value.state === 'available' ||
+      value.state === 'unknown' ||
       value.state === 'starting' ||
       value.state === 'unavailable'
     ) &&
