@@ -235,9 +235,14 @@ test('invalid setup arguments exit with one classified final summary', () => {
 
 test('setup prepares the checkout-pinned Electron runtime', async () => {
   const calls: Array<{ executable: string, args: string[] }> = []
-  const result = await action.prepareCheckout(async (executable, args) => {
+  const result = await action.prepareCheckout((executable, args) => {
     calls.push({ executable, args })
-    return { code: 0, error: null, output: '', signal: null }
+    return Promise.resolve({
+      code: 0,
+      error: null,
+      output: '',
+      signal: null
+    })
   })
   assert.equal(result.code, 0, result.detail ?? result.output)
   assert.deepEqual(calls, [
