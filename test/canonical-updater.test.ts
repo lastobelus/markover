@@ -167,16 +167,29 @@ test('inspection refuses wrong branch, untracked files, wrong origin, and diverg
 
 test('detached start is single-flight while the app remains alive', async (t) => {
   const repo = await fixture(t)
-  const spawns: Array<{ command: string; args: readonly string[] }> = []
-  const spawnDetached = (command: string, args: readonly string[]) => {
-    spawns.push({ command, args })
+  const spawns: Array<{
+    command: string
+    args: readonly string[]
+    environment: NodeJS.ProcessEnv
+  }> = []
+  const spawnDetached = (
+    command: string,
+    args: readonly string[],
+    spawnOptions: {
+      detached: true
+      env: NodeJS.ProcessEnv
+      stdio: 'ignore'
+    }
+  ) => {
+    spawns.push({ command, args, environment: spawnOptions.env })
     return new FakeDetachedChild()
   }
   const options = {
     ...repo,
     helperPath: '/app/canonical-updater.js',
-    nodeExecutable: '/node',
-    npmCliPath: '/npm-cli.js',
+    helperEnvironment: { PATH: '/usr/bin' },
+    nodeExecutable: '/toolchain/bin/node',
+    npmCliPath: '/toolchain/lib/node_modules/npm/bin/npm-cli.js',
     spawnDetached
   }
   assert.equal((await startCanonicalUpdate(options)).status, 'updating')
@@ -188,12 +201,13 @@ test('detached start is single-flight while the app remains alive', async (t) =>
   assert.equal(spawns.length, 1)
   const spawned = spawns[0]
   assert(spawned)
-  assert.equal(spawned.command, '/node')
+  assert.equal(spawned.command, '/toolchain/bin/node')
   assert.equal(spawned.args[0], '/app/canonical-updater.js')
   assert.equal(spawned.args[1], '--canonical-update-helper')
   assert.equal(spawned.args[2], repo.descriptorPath)
   assert.match(spawned.args[3] || '', /^[a-f0-9]{48}$/)
-  assert.equal(spawned.args[4], '/npm-cli.js')
+  assert.equal(spawned.args[4], '/toolchain/lib/node_modules/npm/bin/npm-cli.js')
+  assert.equal(spawned.environment.PATH, `/toolchain/bin${path.delimiter}/usr/bin`)
 })
 
 test('helper revalidates, fast-forwards exactly, and invokes managed refresh', async (t) => {

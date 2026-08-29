@@ -449,6 +449,19 @@ async function releaseOwnedLock(lockPath: string, token: string): Promise<void> 
   }
 }
 
+function helperEnvironmentWithToolchain(
+  environment: NodeJS.ProcessEnv,
+  nodeExecutable: string
+): NodeJS.ProcessEnv {
+  const selected = { ...environment }
+  if (!path.isAbsolute(nodeExecutable)) return selected
+  const toolchainDirectory = path.dirname(nodeExecutable)
+  selected.PATH = selected.PATH
+    ? `${toolchainDirectory}${path.delimiter}${selected.PATH}`
+    : toolchainDirectory
+  return selected
+}
+
 export async function startCanonicalUpdate({
   descriptorPath = canonicalDescriptorPath(),
   helperEnvironment = process.env,
@@ -487,7 +500,7 @@ export async function startCanonicalUpdate({
       ],
       {
         detached: true,
-        env: { ...helperEnvironment },
+        env: helperEnvironmentWithToolchain(helperEnvironment, nodeExecutable),
         stdio: 'ignore'
       }
     )
