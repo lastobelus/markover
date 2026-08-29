@@ -86,6 +86,7 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /replaceMarkoverIcon\(elements\.leftPaneCollapse, 'panel-left-close'\)/)
   assert.match(renderer, /replaceMarkoverIcon\(elements\.canonicalUpdateButton, 'refresh-cw'\)/)
   assert.match(renderer, /status\.state === 'starting'[\s\S]*setTimeout\(\(\) => \{[\s\S]*refreshCanonicalUpdateStatus\(\)/)
+  assert.match(renderer, /!canonicalUpdateCacheRecheckScheduled[\s\S]*canonicalUpdateCacheRecheckScheduled = true[\s\S]*setTimeout\(\(\) => \{[\s\S]*refreshCanonicalUpdateStatus\(\)[\s\S]*3250/)
   assert.match(main, /const cached = await readCanonicalUpdateManifestCache[\s\S]*if \(cached\) \{[\s\S]*void refreshCanonicalUpdateManifestCache\(\)[\s\S]*return cached/)
   assert.match(renderer, /canonicalUpdateStatus\.state !== 'available' &&[\s\S]*canonicalUpdateStatus\.state !== 'unavailable'/)
   assert.match(html, /id="canonical-update-footer"[\s\S]*id="canonical-update-button"[\s\S]*aria-describedby="canonical-update-tooltip"/)

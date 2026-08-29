@@ -278,6 +278,7 @@ let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let reviewHoverTimer: ReturnType<typeof setTimeout> | null = null
 let canonicalUpdateHoverTimer: ReturnType<typeof setTimeout> | null = null
 let canonicalUpdatePollTimer: ReturnType<typeof setTimeout> | null = null
+let canonicalUpdateCacheRecheckScheduled = false
 let canonicalUpdateStatus: CanonicalUpdateStatus = {
   state: 'hidden',
   detail: '',
@@ -2854,6 +2855,14 @@ function renderCanonicalUpdateStatus(status: CanonicalUpdateStatus): void {
       canonicalUpdatePollTimer = null
       void refreshCanonicalUpdateStatus()
     }, 1000)
+  } else if (
+    !canonicalUpdateCacheRecheckScheduled &&
+    status.state !== 'checking'
+  ) {
+    canonicalUpdateCacheRecheckScheduled = true
+    setTimeout(() => {
+      void refreshCanonicalUpdateStatus()
+    }, 3250)
   }
   if (!elements.canonicalUpdateTooltip.hidden) showCanonicalUpdateTooltip()
 }
