@@ -6,15 +6,25 @@
     <title>Markover — Brand usage mockups</title>
     <style>
       :root {
-        --orange: #c94e1f;
-        --burgundy: #6d211f;
+        --markover-primary: #c94e1f;
+        --markover-secondary: #6d211f;
+        --orange: var(--markover-primary);
+        --burgundy: var(--markover-secondary);
         --ink: #26211e;
-        --muted: #756d67;
-        --paper: #eee8e0;
+        --muted: #6f6761;
+        --ground: #e8e2d8;
+        --paper: #f7f4ee;
+        --neutral-soft: #ece9e2;
         --surface: #fffdf9;
         --line: #ddd5cc;
         --soft: #f5e3da;
-        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --code: #262b2b;
+        --app-shell-background: var(--ground);
+        --app-header-background: var(--app-shell-background);
+        --left-pane-background: var(--neutral-soft);
+        --center-pane-background: var(--paper);
+        --right-pane-background: var(--neutral-soft);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
         color: var(--ink);
         background: var(--paper);
       }
@@ -45,7 +55,7 @@
       .docs { grid-column: 1 / -1; }
       .desktop { grid-column: 1 / -1; }
 
-      .icons-stage { min-height: 375px; display: grid; place-items: center; padding: 32px; background: radial-gradient(circle at 20% 14%, rgb(201 78 31 / 13%), transparent 36%), #f7f2eb; }
+      .icons-stage { min-height: 375px; display: grid; place-items: center; padding: 32px; background: var(--paper); }
       .icon-row { display: flex; align-items: end; gap: 18px; }
       .app-icon-wrap { text-align: center; }
       .app-icon { width: 148px; height: 148px; display: grid; place-items: center; padding: 31px 24px; border-radius: 34px; background: #fffaf4; box-shadow: inset 0 0 0 1px rgb(109 33 31 / 11%), 0 22px 38px rgb(75 42 33 / 18%), 0 2px 5px rgb(75 42 33 / 12%); }
@@ -66,7 +76,7 @@
       .badges { display: flex; justify-content: center; gap: 7px; }
       .badge { padding: 5px 9px; border: 1px solid #afb8c1; border-radius: 999px; color: #57606a; background: #f6f8fa; font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-      .hero-stage { min-height: 510px; background: #fbf7f1; }
+      .hero-stage { min-height: 510px; background: var(--ground); }
       .site-nav { display: flex; align-items: center; justify-content: space-between; padding: 21px 28px; border-bottom: 1px solid var(--line); }
       .nav-brand { display: flex; align-items: center; gap: 9px; }
       .nav-brand .mark { width: 32px; }
@@ -80,22 +90,26 @@
       .hero-actions button { padding: 10px 15px; border-radius: 9px; border: 1px solid var(--burgundy); font-weight: 700; }
       .hero-actions .primary { color: white; background: var(--burgundy); }
       .hero-actions .secondary { color: var(--burgundy); background: transparent; }
-      .mini-app { overflow: hidden; border: 1px solid #d4ccc3; border-radius: 13px; background: white; box-shadow: 0 22px 45px rgb(79 50 39 / 15%); }
-      .mini-titlebar { height: 25px; background: #ece7e0; }
-      .mini-body { display: grid; grid-template-columns: 1fr .82fr; min-height: 210px; }
-      .mini-tree { padding: 21px 18px; border-right: 1px solid #ded8cf; }
+      .mini-app { overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: var(--app-shell-background); box-shadow: 0 22px 45px rgb(38 33 30 / 15%); }
+      .mini-titlebar { height: 25px; background: var(--ground); }
+      .mini-app-header { min-height: 42px; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgb(38 33 30 / 5%); background: var(--app-header-background); font-size: 10px; font-weight: 700; }
+      .mini-app-header span { color: var(--muted); font: 8px/1.2 ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; }
+      .mini-body { display: grid; grid-template-columns: .7fr 1.1fr .8fr; min-height: 210px; border-top: 1px solid var(--line); }
+      .mini-left, .mini-tree, .mini-note { padding: 21px 14px; }
+      .mini-left { background: var(--left-pane-background); }
+      .mini-tree { border-inline: 1px solid var(--line); background: var(--center-pane-background); }
       .line { height: 9px; margin-bottom: 13px; border-radius: 999px; background: #d8d1ca; }
       .line.accent { width: 86%; background: var(--orange); opacity: .78; }
       .line.short { width: 61%; }
       .line.indent { width: 72%; margin-left: 14%; }
-      .mini-note { padding: 22px 17px; background: #fffaf5; }
-      .note-area { height: 88px; margin-top: 16px; border: 1px solid #ded8cf; border-radius: 8px; background: white; }
+      .mini-note { background: var(--right-pane-background); }
+      .note-area { height: 88px; margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 
-      .docs-comparison { display: grid; grid-template-columns: .8fr 1.2fr; gap: 22px; padding: 30px; background: #f3eee7; }
+      .docs-comparison { display: grid; grid-template-columns: .8fr 1.2fr; gap: 22px; padding: 30px; background: var(--ground); }
       .docs-window { min-height: 440px; display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: white; box-shadow: 0 12px 28px rgb(75 42 33 / 8%); }
       .docs-window.collapsed { grid-template-columns: 92px 1fr; }
       .docs-window.expanded { grid-template-columns: 270px 1fr; }
-      .docs-rail { padding: 23px 17px; border-right: 1px solid var(--line); background: #fbf8f4; }
+      .docs-rail { padding: 23px 17px; border-right: 1px solid var(--line); background: var(--neutral-soft); }
       .docs-rail > img { width: 41px; margin: 0 auto 40px; }
       .docs-expanded-brand { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
       .docs-expanded-brand .brand-row { display: flex; align-items: center; gap: 9px; }
@@ -110,16 +124,16 @@
       .docs-copy { padding: 41px 31px; }
       .docs-copy h3 { margin: 12px 0 17px; font-size: 29px; letter-spacing: -.03em; }
       .docs-copy p { color: var(--muted); font-size: 14px; line-height: 1.6; }
-      .code { margin-top: 23px; padding: 16px; border-radius: 10px; color: #f8f4ef; background: #2c2927; font: 11px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+      .code { margin-top: 23px; padding: 16px; border-radius: 10px; color: #f8f4ef; background: var(--code); font: 11px/1.65 ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
       .rule { height: 1px; margin: 24px 0; background: var(--line); }
 
-      .desktop-stage { padding: 34px; background: #e9e4dc; }
-      .app-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+      .desktop-stage { padding: 34px; background: var(--ground); }
+      .app-comparison { display: grid; grid-template-columns: 1fr; gap: 22px; }
       .app-variant { min-width: 0; }
       .variant-caption { margin: 0 0 9px 3px; color: var(--muted); font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; text-transform: uppercase; }
-      .window { overflow: hidden; border: 1px solid #d0c8bd; border-radius: 14px; background: #f4f1ea; box-shadow: 0 28px 55px rgb(67 49 39 / 19%); }
-      .titlebar { height: 29px; background: #e1ddd6; }
-      .app-header { min-height: 84px; padding: 18px 22px 14px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+      .window { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--app-shell-background); box-shadow: 0 28px 55px rgb(38 33 30 / 19%); }
+      .titlebar { height: 29px; background: var(--ground); }
+      .app-header { min-height: 70px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: var(--app-header-background); }
       .app-brand { display: flex; align-items: center; gap: 12px; }
       .app-brand .mark { width: 42px; }
       .app-brand .small-word { width: auto; height: 19px; }
@@ -129,14 +143,17 @@
       .document-meta span { color: var(--muted); font: 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
       .app-button { padding: 9px 12px; border: 1px solid #d8d0c7; border-radius: 8px; color: #5c554f; background: #fffdfa; font-size: 11px; font-weight: 700; }
       .app-button.primary { border-color: var(--orange); color: white; background: var(--orange); }
-      .pane-layout { display: grid; grid-template-columns: 1.2fr .8fr; min-height: 270px; border-top: 1px solid var(--line); }
+      .pane-layout { display: grid; grid-template-columns: .72fr 1.12fr .8fr; min-height: 270px; border-top: 1px solid var(--line); }
       .pane-layout > div { padding: 27px; }
-      .pane-layout > div + div { border-left: 1px solid var(--line); background: #fffdfa; }
+      .pane-layout > div + div { border-left: 1px solid var(--line); }
+      .pane-layout .left-pane { background: var(--left-pane-background); }
+      .pane-layout .center-pane { background: var(--center-pane-background); }
+      .pane-layout .right-pane { background: var(--right-pane-background); }
       .pane-layout .active-row { width: 78%; background: var(--soft); box-shadow: inset 4px 0 var(--orange); }
       .empty-example { margin-top: 24px; }
-      .empty-window { overflow: hidden; border: 1px solid #d0c8bd; border-radius: 14px; background: #f4f1ea; box-shadow: 0 20px 40px rgb(67 49 39 / 13%); }
+      .empty-window { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--ground); box-shadow: 0 20px 40px rgb(38 33 30 / 13%); }
       .empty-header { min-height: 62px; display: flex; align-items: center; justify-content: flex-end; padding: 14px 18px; border-bottom: 1px solid var(--line); }
-      .empty-state { min-height: 230px; display: grid; place-items: center; text-align: center; background: radial-gradient(circle at center, rgb(201 78 31 / 8%), transparent 45%); }
+      .empty-state { min-height: 230px; display: grid; place-items: center; text-align: center; background: var(--paper); }
       .empty-state img { width: 330px; max-width: 70%; margin: 0 auto; }
       .empty-state p { margin-top: 13px; color: var(--muted); font-size: 13px; }
 
@@ -153,8 +170,8 @@
       <header class="board-header">
         <div>
           <div class="kicker">Markover / visual assets pass</div>
-          <h1>One identity, six contexts.</h1>
-          <p class="intro">Usage mockups built from the final Affinity vectors. Public surfaces use the complete lockup; dense product navigation uses the mark and logotype as separate responsive pieces.</p>
+          <h1>One identity, five contexts.</h1>
+          <p class="intro">Current Ember Light usage built from the canonical vectors. Public surfaces use the complete lockup; dense product navigation uses the mark and logotype as separate responsive pieces.</p>
         </div>
         <div class="palette"><span class="swatch orange"></span><span>#c94e1f</span><span class="swatch burgundy"></span><span>#6d211f</span></div>
       </header>
@@ -203,8 +220,10 @@
               </div>
               <div class="mini-app">
                 <div class="mini-titlebar"></div>
+                <div class="mini-app-header"><strong>Markover</strong><span>launch-readiness.md · Needs me</span></div>
                 <div class="mini-body">
-                  <div class="mini-tree"><div class="line accent"></div><div class="line short"></div><div class="line indent"></div><div class="line"></div><div class="line indent short"></div><div class="line"></div></div>
+                  <div class="mini-left"><span class="eyebrow">Documents</span><div class="line accent" style="margin-top:17px"></div><div class="line short"></div><div class="line"></div></div>
+                  <div class="mini-tree"><span class="eyebrow">Document tree</span><div class="line accent" style="margin-top:17px"></div><div class="line short"></div><div class="line indent"></div><div class="line"></div><div class="line indent short"></div></div>
                   <div class="mini-note"><div class="eyebrow">Selected block</div><div class="line short" style="margin-top:17px"></div><div class="note-area"></div></div>
                 </div>
               </div>
@@ -234,19 +253,11 @@
           <div class="desktop-stage">
             <div class="app-comparison">
               <div class="app-variant">
-                <div class="variant-caption">A / mark + restrained logotype</div>
+                <div class="variant-caption">Current / restrained identity with three-pane workspace</div>
                 <div class="window">
                   <div class="titlebar"></div>
-                  <header class="app-header"><div class="app-brand"><img class="mark" src="assets/markover-mark.svg" alt=""><img class="small-word" src="assets/markover-logotype.svg" alt="Markover"></div><div class="document-actions"><div class="document-meta"><strong>visual-assets-pass.md</strong><span>mko_8f3a2c · editing</span></div><button class="app-button primary">Copy feedback</button></div></header>
-                  <div class="pane-layout"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
-                </div>
-              </div>
-              <div class="app-variant">
-                <div class="variant-caption">B / mark only</div>
-                <div class="window">
-                  <div class="titlebar"></div>
-                  <header class="app-header"><div class="app-brand"><img class="mark" src="assets/markover-mark.svg" alt="Markover"></div><div class="document-actions"><div class="document-meta"><strong>visual-assets-pass.md</strong><span>mko_8f3a2c · editing</span></div><button class="app-button primary">Copy feedback</button></div></header>
-                  <div class="pane-layout"><div><div class="line active-row"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
+                  <header class="app-header"><div class="app-brand"><img class="mark" src="assets/markover-mark.svg" alt=""><img class="small-word" src="assets/markover-logotype.svg" alt="Markover"></div><div class="document-actions"><div class="document-meta"><strong>launch-readiness.md</strong><span>Atlas Studio · Needs me</span></div><button class="app-button">Review context</button></div></header>
+                  <div class="pane-layout"><div class="left-pane"><span class="eyebrow">Documents</span><div class="line active-row" style="margin-top:20px"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div class="center-pane"><span class="eyebrow">Document tree</span><div class="line active-row" style="margin-top:20px"></div><div class="line"></div><div class="line" style="width:68%"></div></div><div class="right-pane"><span class="eyebrow">Selected block</span><div class="line" style="margin-top:20px;width:52%"></div><div class="note-area"></div></div></div>
                 </div>
               </div>
             </div>

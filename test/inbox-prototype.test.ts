@@ -68,9 +68,19 @@ test('prototype styling is query-gated and has narrow and medium width bounds', 
 
 test('the durable prototype launcher preserves the fixture query in-browser', async () => {
   const launcher = await fs.readFile('review-inbox-prototype.html', 'utf8')
+  const document = await prototypeDocument()
   assert.match(
     launcher,
     /url=build\/app\/src\/index\.html\?inboxPrototype=1&amp;palette=ocean&amp;appearance=light/
+  )
+  assert.match(launcher, /Archived pre-#195 Markover Inbox UI prototype/)
+  assert.equal(
+    document.querySelector('#inbox-prototype')?.getAttribute('aria-label'),
+    'Archived pre-#195 UI prototype'
+  )
+  assert.equal(
+    document.querySelector('.inbox-prototype-development-badge')?.textContent,
+    'Archived pre-#195 UI prototype'
   )
   assert.doesNotMatch(launcher, /(?:\.\.\/|file:|localhost|127\.0\.0\.1)/)
 })
