@@ -209,6 +209,32 @@ test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(readmeLeader, /<text class="tagline" x="100" y="164">Structured review for Markdown\.<\/text>/)
 })
 
+test('public surfaces inherit the current Ember Light visual roles', () => {
+  assert.match(styles, /--muted: #6f6761;/)
+  assert.match(styles, /--ground: #e8e2d8;/)
+  assert.match(styles, /--paper: #f7f4ee;/)
+  assert.match(styles, /--neutral-soft: #ece9e2;/)
+  assert.match(styles, /--code: #262b2b;/)
+  assert.match(styles, /font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;/)
+  assert.doesNotMatch(styles, /Inter|Segoe UI|#eee8e0|#756d67|#2c2927/)
+  assert.match(readmeLeader, /fill: #6f6761;/)
+  assert.match(readmeLeader, /"SF Pro Text", system-ui, sans-serif/)
+  assert.doesNotMatch(readmeLeader, /Segoe UI|#756d67/)
+
+  for (const page of [
+    html,
+    guide,
+    agents,
+    privacy,
+    limitations,
+    compatibility,
+    remoteAccess
+  ]) {
+    assert.match(page, /<meta name="theme-color" content="#e8e2d8">/)
+    assert.doesNotMatch(page, /#eee8e0/)
+  }
+})
+
 test('privacy and local-data claims stay linked to the public workflow', () => {
   assert.match(html, /href="\.\/privacy\/">Privacy/)
   assert.match(guide, /href="\.\.\/privacy\/">Privacy and local data/)

@@ -3,20 +3,22 @@
   --brand-orange: #c94e1f;
   --brand-burgundy: #6d211f;
   --ink: #26211e;
-  --muted: #756d67;
-  --paper: #eee8e0;
+  --muted: #6f6761;
+  --ground: #e8e2d8;
+  --paper: #f7f4ee;
+  --neutral-soft: #ece9e2;
   --surface: #fffdf9;
   --line: #ddd5cc;
   --brand-soft: #f5e3da;
-  --code: #2c2927;
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --code: #262b2b;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   color: var(--ink);
   background: var(--paper);
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--paper); }
+body { margin: 0; background: var(--ground); }
 img { display: block; max-width: 100%; }
 a { color: inherit; text-underline-offset: .18em; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
