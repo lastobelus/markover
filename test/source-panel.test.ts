@@ -62,3 +62,11 @@ test('saved invalid YAML marks the closed source card without blocking edits', (
   assert.match(styles, /\.source-panel\.has-yaml-error \.source-header \{[^}]*background:/)
   assert.match(styles, /\.source-error-tooltip \{[^}]*position: fixed;[^}]*pointer-events: none;/)
 })
+
+test('editable and read-only feedback share the source card width', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.source-panel \{[^}]*margin: 6px 13px 0 10px;/)
+  assert.match(styles, /#annotation-input \{[^}]*margin: 0 13px 0 10px;/)
+  assert.match(styles, /\.annotation-readonly \{[^}]*margin: 0 13px 0 10px;/)
+})
