@@ -298,7 +298,7 @@ async function settle(client: CdpClient): Promise<void> {
     if (active instanceof HTMLElement) active.blur();
   })()`)
   await waitFor(client, `document.querySelector('#incoming-review-notice')?.hasAttribute('hidden')`)
-  await waitFor(client, `!document.querySelector('#toast')?.getClientRects().length`)
+  await waitFor(client, `document.querySelector('#toast')?.getAttribute('aria-hidden') === 'true'`)
 }
 
 async function capture(client: CdpClient, outputPath: string): Promise<void> {
