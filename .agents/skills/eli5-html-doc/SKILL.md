@@ -126,7 +126,7 @@ Direct language, short paragraphs, scannable structure. Aim for a serious editor
 with warmth, not a developer dashboard or a marketing page.
 
 When the artifact represents Markover, follow
-`doc/design/2026-08-01__brand-implementation-brief.md` and start from these light-theme
+`doc/design/markover-design-brief.md` and start from these light-theme
 tokens:
 
 ```css
@@ -134,8 +134,10 @@ tokens:
   --brand-orange: #c94e1f;
   --brand-burgundy: #6d211f;
   --ink: #26211e;
-  --muted: #756d67;
-  --paper: #eee8e0;
+  --muted: #6f6761;
+  --ground: #e8e2d8;
+  --paper: #f7f4ee;
+  --neutral-soft: #ece9e2;
   --surface: #fffdf9;
   --line: #ddd5cc;
   --brand-soft: #f5e3da;

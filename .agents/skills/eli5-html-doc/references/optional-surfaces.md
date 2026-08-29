@@ -10,8 +10,14 @@ Use a diagram only when prose would leave an important relationship fuzzy. Prefe
 top-to-bottom flow for complex relationships, and left-to-right only for a short linear
 sequence.
 
-After deciding that a diagram is useful, check for the optional shared diagram-design
-skill at
+After deciding that a diagram is useful, read the **Explanatory diagrams** section of
+`doc/design/markover-design-brief.md`. Its semantic-role and typography tables are the
+repository-owned Diagram Design profile for Markover ELI5s. Treat that profile as
+completed onboarding: resolve the diagram's visual roles from it and proceed directly
+to type selection, without inspecting or changing a home-directory profile, project
+marker, or installed style guide.
+
+Then check for the optional shared diagram-design skill at
 `~/.local/share/agent-contexts/vendor/diagram-design/skills/diagram-design/SKILL.md`.
 When that file is readable, read it completely and resolve its relative references from
 the directory that contains it. Load only the reference for the selected diagram type,
@@ -21,13 +27,14 @@ reference is absent or unreadable, continue quietly with the guidance below. Do 
 install, fetch, update, copy, vendor, or register diagram-design as part of an ELI5 task.
 
 Use diagram-design for diagram type selection, information density, layout grammar, SVG
-primitives, and connector routing. This skill still owns the enclosing explanation,
-truth context, Markover visual language, accessibility, responsive containment,
-self-contained inline output, and verification. Those ELI5 requirements win whenever
-the two sources differ. In particular, skip diagram-design's first-run onboarding or
-style-confirmation pause, standalone page shell, remote fonts, export workflow, and
-separate-artifact handoff. Render the result as accessible inline SVG inside the ELI5,
-and preserve the accepted non-interactive diagram model below.
+primitives, and connector routing. Use the repository-owned profile instead of the
+shared skill's profile resolution, first-run setup, default skin, or remote fonts. This
+skill still owns the enclosing explanation, truth context, Markover visual language,
+accessibility, responsive containment, self-contained inline output, and verification.
+Those ELI5 requirements win whenever the two sources differ. Keep diagram-design's
+standalone page shell, export workflow, and separate-artifact handoff outside the ELI5.
+Render the result as accessible inline SVG inside the ELI5, and preserve the accepted
+non-interactive diagram model below.
 
 - Render the final diagram as accessible inline SVG with a title or an adjacent
   explanation. If a complex topology is easier to author as Mermaid, keep that source as

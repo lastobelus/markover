@@ -86,8 +86,11 @@ Status: accepted.
 - Let diagram-design guide diagram type, density, layout grammar, SVG primitives, and
   connector routing while ELI5 guidance continues to own the document, truth context,
   Markover visual language, accessibility, responsive containment, and verification.
+- Treat `doc/design/markover-design-brief.md` as the repository-owned, already-onboarded
+  Diagram Design profile. Resolve visual roles from it without inspecting or mutating a
+  machine profile, project marker, or installed style guide.
 - Keep diagram-design optional. Never install, fetch, update, vendor, copy, or register it
   during an ELI5 task, and preserve the existing diagram guidance as the quiet fallback.
-- Skip diagram-design onboarding pauses, standalone shells, remote fonts, export flows,
-  and separate artifact handoff. Keep the accepted accessible inline SVG and
-  non-interactive diagram model.
+- Proceed directly to diagram type selection without an onboarding pause. Keep
+  standalone shells, remote fonts, export flows, and separate artifact handoff outside
+  the accepted accessible inline SVG and non-interactive diagram model.

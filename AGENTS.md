@@ -4,6 +4,10 @@
 
 Markover is a macOS app for reviewing Markdown as a document tree and returning block-level feedback to an agent.
 
+Before changing the product's visual design, brand presentation, public site,
+screenshots, movies, or explanatory diagrams, read
+`doc/design/markover-design-brief.md`.
+
 Before changing the top-level app layout, its structural names, or semantic
 theme tokens, read `docs/developer/app-structure.md`.
 
