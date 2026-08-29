@@ -53,13 +53,18 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(agents, /explicitly acknowledge every question/)
   assert.match(agents, /source edits as context-dependent proposals/)
   assert.match(agents, /back-and-forth human QA/)
-  assert.match(agents, /keep\s+`npm run dev` running from the owning checkout/)
-  assert.match(agents, /after the loop reports `ready`/)
   assert.match(agents, /single action named `Run Local\s+CI`/)
   assert.match(agents, /list_project_actions/)
   assert.match(agents, /run_project_action_and_resume/)
   assert.match(agents, /require the final\s+JSON summary to match the expected repository, head, base, and command\s+version/)
   assert.match(agents, /Keep focused checks and `Wait for PR`\s+independent/)
+  assert.match(agents, /unique eligible `Start Dev Build` action/)
+  assert.match(agents, /end the turn immediately/)
+  assert.match(
+    agents,
+    /only the user can accept what it looks\s+like or how it behaves/
+  )
+  assert.match(agents, /missing or disabled[\s\S]*fall back to `npm run dev`/)
   assert.match(agents, /help payload's `pullRequestStatus`\s+contract/)
   assert.match(
     agents,
@@ -90,6 +95,8 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(development, /Agent-facing instructions must preserve the contract/)
   assert.match(development, /substantive engagement with discussion and concerns/)
   assert.match(development, /npm run dev -- --instance dev/)
+  assert.match(development, /Start Dev Build/)
+  assert.match(development, /awaiting-human/)
   assert.match(development, /existing Electron process/)
   assert.match(development, /size, position, visibility, and focus remain unchanged/)
   assert.match(development, /restart\s+required/)

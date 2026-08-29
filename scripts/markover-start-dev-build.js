@@ -155,6 +155,7 @@ function stateMatches(state, expected) {
     state.version === 1 &&
     path.resolve(state.checkout || '') === expected.checkout &&
     state.head === expected.head.commit &&
+    state.dirty === expected.head.dirty &&
     state.identityKey === expected.target.identityKey &&
     state.scheme === expected.target.scheme &&
     processIsAlive(state.watcherPid)
@@ -427,7 +428,8 @@ module.exports = {
   parseArguments,
   pathsFor,
   stateMatches,
-  summary
+  summary,
+  waitForWatcher
 }
 
 if (require.main === module) {

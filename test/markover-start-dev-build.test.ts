@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { EventEmitter } from 'node:events'
+import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
@@ -28,6 +32,11 @@ interface ActionModule {
     context: Record<string, unknown>,
     terminal: Record<string, unknown>
   ) => Record<string, unknown>
+  waitForWatcher: (
+    context: Record<string, unknown>,
+    child: EventEmitter,
+    timeoutMilliseconds: number
+  ) => Promise<Record<string, unknown>>
 }
 
 const action = require(path.resolve(
@@ -86,6 +95,7 @@ test('matches only a live watcher for the exact checkout, head, and instance', (
   const expected = { checkout, head, target }
   assert.equal(action.stateMatches(state(), expected), true)
   assert.equal(action.stateMatches(state({ head: '2'.repeat(40) }), expected), false)
+  assert.equal(action.stateMatches(state({ dirty: true }), expected), false)
   assert.equal(action.stateMatches(state({ identityKey: 'pr-217' }), expected), false)
   assert.equal(action.stateMatches(state({ watcherPid: 999_999_999 }), expected), false)
 })
@@ -188,4 +198,77 @@ test('summary carries the exact mechanical identity without visual approval', ()
     instance: target,
     visualAcceptance: 'awaiting-human'
   })
+})
+
+test('invalid setup arguments exit with one classified final summary', () => {
+  const result = spawnSync(
+    process.execPath,
+    [path.resolve(__dirname, '../../scripts/markover-start-dev-build.js'), '--instance', 'invalid'],
+    { encoding: 'utf8' }
+  )
+  assert.equal(result.status, 1)
+  const lines = result.stdout.trim().split('\n')
+  assert.equal(lines.length, 1)
+  assert.match(lines[0] ?? '', /^\[start-dev-build\] Summary: /)
+  const value = JSON.parse((lines[0] ?? '').replace(
+    '[start-dev-build] Summary: ',
+    ''
+  )) as { outcome: string, stage: string }
+  assert.deepEqual(
+    { outcome: value.outcome, stage: value.stage },
+    { outcome: 'startup-failed', stage: 'setup' }
+  )
+})
+
+test('watch wait classifies process exit and timeout', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markover-dev-action-'))
+  t.after(() => fs.rm(directory, { recursive: true, force: true }))
+  const paths = {
+    root: directory,
+    log: path.join(directory, 'action.log'),
+    state: path.join(directory, 'state.json'),
+    endpoint: null
+  }
+  await fs.writeFile(paths.log, 'launching\nlast line\n')
+  const context = { awaitHuman: true, checkout, head, target, paths }
+
+  await fs.writeFile(
+    paths.log,
+    'markover dev bootstrap: watcher bundle failed\n' +
+      'markover dev bootstrap: Keeping the bootstrap watcher active.\n'
+  )
+  assert.deepEqual(
+    await action.waitForWatcher(context, new EventEmitter(), 1_000),
+    {
+      outcome: 'build-failed',
+      stage: 'build',
+      detail: 'The development watcher did not compile.',
+      tail: [
+        'markover dev bootstrap: watcher bundle failed',
+        'markover dev bootstrap: Keeping the bootstrap watcher active.'
+      ]
+    }
+  )
+
+  await fs.writeFile(paths.log, 'launching\nlast line\n')
+  const exited = new EventEmitter()
+  const exitResult = action.waitForWatcher(context, exited, 1_000)
+  setImmediate(() => exited.emit('exit', 7, null))
+  assert.deepEqual(await exitResult, {
+    outcome: 'process-exited',
+    stage: 'startup',
+    detail: 'The watcher exited with 7.',
+    exitCode: 7,
+    signal: null,
+    tail: ['launching', 'last line']
+  })
+
+  const timedOut = await action.waitForWatcher(
+    context,
+    new EventEmitter(),
+    1
+  )
+  assert.equal(timedOut.outcome, 'timed-out')
+  assert.equal(timedOut.stage, 'readiness')
+  assert.deepEqual(timedOut.tail, ['launching', 'last line'])
 })
