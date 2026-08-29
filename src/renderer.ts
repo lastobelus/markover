@@ -2860,9 +2860,7 @@ function renderCanonicalUpdateStatus(status: CanonicalUpdateStatus): void {
     status.state !== 'checking'
   ) {
     canonicalUpdateCacheRecheckScheduled = true
-    setTimeout(() => {
-      void refreshCanonicalUpdateStatus()
-    }, 3250)
+    scheduleCanonicalUpdateCacheRecheck()
   }
   if (!elements.canonicalUpdateTooltip.hidden) showCanonicalUpdateTooltip()
 }
@@ -2886,6 +2884,12 @@ async function refreshCanonicalUpdateStatus(): Promise<void> {
   }
 }
 
+function scheduleCanonicalUpdateCacheRecheck(): void {
+  setTimeout(() => {
+    void refreshCanonicalUpdateStatus()
+  }, 3250)
+}
+
 elements.canonicalUpdateButton.addEventListener('mouseenter', () => {
   if (canonicalUpdateHoverTimer) clearTimeout(canonicalUpdateHoverTimer)
   canonicalUpdateHoverTimer = setTimeout(() => {
@@ -2903,6 +2907,9 @@ elements.canonicalUpdateButton.addEventListener('click', () => {
       canonicalUpdateStatus.state !== 'unavailable'
     ) {
       await refreshCanonicalUpdateStatus()
+      if (canonicalUpdateStatus.state === 'current') {
+        scheduleCanonicalUpdateCacheRecheck()
+      }
       return
     }
     renderCanonicalUpdateStatus({
