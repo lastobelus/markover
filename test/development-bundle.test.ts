@@ -160,7 +160,9 @@ test('packager options address app, helpers, scheme, icon, and owned output', as
   }, {
     appBundleId: `${DEVELOPMENT_BUNDLE_ID_PREFIX}.pr169`,
     arch: 'arm64',
-    asar: true,
+    asar: {
+      unpack: '**/{canonical-updater,instance,local-client,service-endpoint}.js'
+    },
     dir: path.join(checkout, 'build', 'app'),
     electronVersion: '43.2.0',
     helperBundleId: `${DEVELOPMENT_BUNDLE_ID_PREFIX}.pr169.helper`,

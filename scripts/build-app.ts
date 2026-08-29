@@ -158,7 +158,16 @@ async function main(): Promise<void> {
     version: stagedManifest.version,
     commit,
     dirty,
-    rendererSha256: await sha256(rendererPath)
+    rendererSha256: await sha256(rendererPath),
+    updateNodeExecutable: process.execPath,
+    updateNpmCliPath: process.env.npm_execpath
+  }
+  if (
+    !path.isAbsolute(buildIdentity.updateNodeExecutable) ||
+    typeof buildIdentity.updateNpmCliPath !== 'string' ||
+    !path.isAbsolute(buildIdentity.updateNpmCliPath)
+  ) {
+    throw new Error('Application build requires an absolute Node and npm toolchain.')
   }
   await fs.writeFile(
     path.join(appDirectory, 'build-identity.json'),

@@ -4,17 +4,11 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'docs/**'
-      - '.github/workflows/pages.yml'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'scripts/copy-build-assets.ts'
-      - 'tsconfig.json'
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
   pages: write
   id-token: write
 
@@ -47,6 +41,11 @@ jobs:
 
       - name: Build documentation
         run: npm run build --silent
+
+      - name: Generate canonical update manifest
+        run: node build/scripts/generate-canonical-update-manifest.js
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5

@@ -728,6 +728,31 @@ declare global {
     blurredAt: number | null
   }
 
+  type CanonicalUpdateState =
+    | 'hidden'
+    | 'checking'
+    | 'current'
+    | 'available'
+    | 'unknown'
+    | 'starting'
+    | 'unavailable'
+
+  interface CanonicalUpdatePullRequest {
+    number: number
+    title: string
+  }
+
+  interface CanonicalUpdateStatus {
+    state: CanonicalUpdateState
+    detail: string
+    pullRequests: CanonicalUpdatePullRequest[]
+  }
+
+  interface CanonicalUpdateStartResult {
+    status: 'accepted' | 'rejected'
+    detail: string
+  }
+
   type T3ThreadTitleStatus = 'disabled' | 'available' | 'unavailable'
 
   interface T3ThreadTitle {
@@ -868,6 +893,8 @@ declare global {
       state: MarkoverWorkspaceState
     ) => Promise<MarkoverWorkspaceState>
     getWindowFocusState: () => Promise<MarkoverWindowFocusState>
+    getCanonicalUpdateStatus: () => Promise<CanonicalUpdateStatus>
+    startCanonicalUpdate: () => Promise<CanonicalUpdateStartResult>
     onWindowFocusChanged: (
       callback: (state: MarkoverWindowFocusState) => void
     ) => void

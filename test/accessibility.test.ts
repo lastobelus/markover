@@ -84,6 +84,16 @@ test('core review controls expose names, relationships, states, and values', () 
   assert.equal(reviewIdInput.getAttribute('pattern'), 'mko_[A-Za-z0-9]{6,32}')
   assert.equal(reviewIdInput.getAttribute('aria-describedby'), 'review-id-activation-hint')
   assert.equal(documentReviewId.getAttribute('aria-label'), 'Show review ID controls')
+
+  const updateFooter = document.querySelector('#canonical-update-footer')
+  const updateButton = document.querySelector('#canonical-update-button')
+  const updateTooltip = document.querySelector('#canonical-update-tooltip')
+  assert.ok(updateFooter)
+  assert.ok(updateButton)
+  assert.ok(updateTooltip)
+  assert.equal(updateFooter.parentElement?.id, 'right-pane')
+  assert.equal(updateButton.getAttribute('aria-describedby'), 'canonical-update-tooltip')
+  assert.equal(updateTooltip.getAttribute('role'), 'tooltip')
 })
 
 test('status changes and tree selection have a dedicated polite announcement path', () => {

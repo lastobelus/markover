@@ -138,6 +138,9 @@ const elements = {
   annotationState: requiredElement('#annotation-state'),
   annotationViewList: requiredElement<HTMLButtonElement>('#annotation-view-list'),
   annotationViewSelected: requiredElement<HTMLButtonElement>('#annotation-view-selected'),
+  canonicalUpdateButton: requiredElement<HTMLButtonElement>('#canonical-update-button'),
+  canonicalUpdateFooter: requiredElement('#canonical-update-footer'),
+  canonicalUpdateTooltip: requiredElement('#canonical-update-tooltip'),
   attachmentList: requiredElement('#attachment-list'),
   brandMark: requiredElement<HTMLImageElement>('#brand-mark'),
   checksum: requiredElement('#document-checksum'),
@@ -247,6 +250,7 @@ const elements = {
 
 replaceMarkoverIcon(elements.leftPaneCollapse, 'panel-left-close')
 replaceMarkoverIcon(elements.leftPaneOpen, 'panel-left')
+replaceMarkoverIcon(elements.canonicalUpdateButton, 'refresh-cw')
 replaceMarkoverIcon(elements.settingsClose, 'x', 'settings-close-icon')
 replaceMarkoverIcon(elements.fixedContractClose, 'x', 'settings-close-icon')
 replaceMarkoverIcon(elements.reviewTrashIcon, 'triangle-alert', 'review-trash-icon-svg')
@@ -272,6 +276,14 @@ let incompatibleReviews: MarkoverIncompatibleReview[] = []
 const INBOX_HISTORY_PAGE_SIZE = 10
 let documentsListClockTimer: ReturnType<typeof setTimeout> | null = null
 let reviewHoverTimer: ReturnType<typeof setTimeout> | null = null
+let canonicalUpdateHoverTimer: ReturnType<typeof setTimeout> | null = null
+let canonicalUpdatePollTimer: ReturnType<typeof setTimeout> | null = null
+let canonicalUpdateCacheRecheckScheduled = false
+let canonicalUpdateStatus: CanonicalUpdateStatus = {
+  state: 'hidden',
+  detail: '',
+  pullRequests: []
+}
 let leftPaneCollapsed = false
 let localOpenInProgress = false
 let leftPaneWidth = 390
@@ -2771,6 +2783,160 @@ function bindReviewHoverCard(
     }
   })
 }
+
+function hideCanonicalUpdateTooltip(): void {
+  if (canonicalUpdateHoverTimer) clearTimeout(canonicalUpdateHoverTimer)
+  canonicalUpdateHoverTimer = null
+  elements.canonicalUpdateTooltip.hidden = true
+}
+
+function canonicalUpdateHeading(status: CanonicalUpdateStatus): string {
+  switch (status.state) {
+    case 'available': return 'Update Markover'
+    case 'checking': return 'Checking for updates'
+    case 'starting': return 'Updating Markover'
+    case 'current': return 'Markover is up to date'
+    case 'unknown': return 'Update status unknown'
+    case 'unavailable': return 'Update unavailable'
+    case 'hidden': return ''
+  }
+}
+
+function showCanonicalUpdateTooltip(): void {
+  if (canonicalUpdateStatus.state === 'hidden') return
+  const heading = document.createElement('strong')
+  heading.textContent = canonicalUpdateHeading(canonicalUpdateStatus)
+  const detail = document.createElement('span')
+  detail.textContent = canonicalUpdateStatus.detail
+  const changelist = document.createElement('ol')
+  changelist.hidden = canonicalUpdateStatus.pullRequests.length === 0
+  for (const pullRequest of canonicalUpdateStatus.pullRequests) {
+    const item = document.createElement('li')
+    item.textContent = `#${String(pullRequest.number)} ${pullRequest.title}`
+    changelist.append(item)
+  }
+  elements.canonicalUpdateTooltip.replaceChildren(heading, detail, changelist)
+  elements.canonicalUpdateTooltip.hidden = false
+  const anchor = elements.canonicalUpdateButton.getBoundingClientRect()
+  const tooltip = elements.canonicalUpdateTooltip.getBoundingClientRect()
+  const inset = 10
+  elements.canonicalUpdateTooltip.style.left = `${Math.max(
+    inset,
+    Math.min(anchor.right - tooltip.width, window.innerWidth - tooltip.width - inset)
+  )}px`
+  elements.canonicalUpdateTooltip.style.top = `${Math.max(
+    inset,
+    anchor.top - tooltip.height - 8
+  )}px`
+}
+
+function renderCanonicalUpdateStatus(status: CanonicalUpdateStatus): void {
+  if (canonicalUpdatePollTimer) clearTimeout(canonicalUpdatePollTimer)
+  canonicalUpdatePollTimer = null
+  canonicalUpdateStatus = status
+  const hidden = status.state === 'hidden'
+  elements.canonicalUpdateFooter.hidden = hidden
+  if (hidden) {
+    hideCanonicalUpdateTooltip()
+    return
+  }
+  const busy = status.state === 'checking' || status.state === 'starting'
+  elements.canonicalUpdateButton.disabled = busy
+  elements.canonicalUpdateButton.classList.toggle('is-busy', busy)
+  elements.canonicalUpdateButton.setAttribute(
+    'aria-label',
+    status.state === 'available'
+      ? 'Install Markover update'
+      : status.state === 'current'
+        ? 'Check for Markover updates'
+        : canonicalUpdateHeading(status)
+  )
+  if (status.state === 'starting') {
+    canonicalUpdatePollTimer = setTimeout(() => {
+      canonicalUpdatePollTimer = null
+      void refreshCanonicalUpdateStatus()
+    }, 1000)
+  } else if (
+    !canonicalUpdateCacheRecheckScheduled &&
+    status.state !== 'checking'
+  ) {
+    canonicalUpdateCacheRecheckScheduled = true
+    scheduleCanonicalUpdateCacheRecheck()
+  }
+  if (!elements.canonicalUpdateTooltip.hidden) showCanonicalUpdateTooltip()
+}
+
+async function refreshCanonicalUpdateStatus(): Promise<void> {
+  if (canonicalUpdateStatus.state !== 'hidden') {
+    renderCanonicalUpdateStatus({
+      state: 'checking',
+      detail: 'Checking the cached pull-request changelist.',
+      pullRequests: canonicalUpdateStatus.pullRequests
+    })
+  }
+  try {
+    renderCanonicalUpdateStatus(await bridge.getCanonicalUpdateStatus())
+  } catch (error) {
+    renderCanonicalUpdateStatus({
+      state: 'unavailable',
+      detail: error instanceof Error ? error.message : 'Could not check for updates.',
+      pullRequests: []
+    })
+  }
+}
+
+function scheduleCanonicalUpdateCacheRecheck(): void {
+  setTimeout(() => {
+    void refreshCanonicalUpdateStatus()
+  }, 3250)
+}
+
+elements.canonicalUpdateButton.addEventListener('mouseenter', () => {
+  if (canonicalUpdateHoverTimer) clearTimeout(canonicalUpdateHoverTimer)
+  canonicalUpdateHoverTimer = setTimeout(() => {
+    canonicalUpdateHoverTimer = null
+    showCanonicalUpdateTooltip()
+  }, 280)
+})
+elements.canonicalUpdateButton.addEventListener('mouseleave', hideCanonicalUpdateTooltip)
+elements.canonicalUpdateButton.addEventListener('focus', showCanonicalUpdateTooltip)
+elements.canonicalUpdateButton.addEventListener('blur', hideCanonicalUpdateTooltip)
+elements.canonicalUpdateButton.addEventListener('click', () => {
+  void (async () => {
+    if (
+      canonicalUpdateStatus.state !== 'available' &&
+      canonicalUpdateStatus.state !== 'unavailable' &&
+      canonicalUpdateStatus.state !== 'unknown'
+    ) {
+      await refreshCanonicalUpdateStatus()
+      if (canonicalUpdateStatus.state === 'current') {
+        scheduleCanonicalUpdateCacheRecheck()
+      }
+      return
+    }
+    renderCanonicalUpdateStatus({
+      ...canonicalUpdateStatus,
+      state: 'starting',
+      detail: 'Preparing the guarded canonical update.'
+    })
+    try {
+      const result = await bridge.startCanonicalUpdate()
+      if (result.status === 'rejected') {
+        renderCanonicalUpdateStatus({
+          state: 'unavailable',
+          detail: result.detail,
+          pullRequests: canonicalUpdateStatus.pullRequests
+        })
+      }
+    } catch (error) {
+      renderCanonicalUpdateStatus({
+        state: 'unavailable',
+        detail: error instanceof Error ? error.message : 'Could not start the update.',
+        pullRequests: canonicalUpdateStatus.pullRequests
+      })
+    }
+  })()
+})
 
 function hoverProviderVisual(
   row: Pick<ReviewInboxRow, 'local' | 'provider' | 'threadHostKind'>
@@ -5440,6 +5606,7 @@ async function initialize(): Promise<void> {
   startupUi.phase('ready')
   startupUi.ready()
   showStartupWarnings(userFacingStartupWarnings(ready.warnings))
+  void refreshCanonicalUpdateStatus()
   if (startupInfo.smoke) {
     if (ready.warnings.length) smokeRuntimeClean = false
     await bridge.reportSmokeResult(await rendererSmokeResult())
@@ -5563,6 +5730,7 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
 
   if (
     startupInfo.development &&
+    startupInfo.elementCallouts &&
     inspector &&
     close &&
     showDocumentChecksum &&

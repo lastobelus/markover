@@ -14,6 +14,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   PenLine,
+  RefreshCw,
   Server,
   TriangleAlert,
   X,
@@ -37,6 +38,7 @@ const icons = {
   'panel-left': PanelLeft,
   'panel-left-close': PanelLeftClose,
   'pen-line': PenLine,
+  'refresh-cw': RefreshCw,
   server: Server,
   'triangle-alert': TriangleAlert,
   x: X

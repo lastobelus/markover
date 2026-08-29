@@ -349,7 +349,7 @@
           </nav>
           <button
             id="left-pane-collapse"
-            class="left-pane-disclosure"
+            class="left-pane-disclosure pane-icon-button"
             type="button"
             title="Collapse left pane"
             aria-label="Collapse left pane"
@@ -398,7 +398,7 @@
           <div class="pane-header-leading">
             <button
               id="left-pane-open"
-              class="left-pane-disclosure"
+              class="left-pane-disclosure pane-icon-button"
               type="button"
               title="Expand left pane"
               aria-label="Expand left pane"
@@ -587,6 +587,15 @@
         >
           <div id="annotation-list" class="annotation-list"></div>
         </section>
+        <footer id="canonical-update-footer" class="canonical-update-footer" hidden>
+          <button
+            id="canonical-update-button"
+            class="canonical-update-button pane-icon-button"
+            type="button"
+            aria-label="Check for Markover updates"
+            aria-describedby="canonical-update-tooltip"
+          ></button>
+        </footer>
       </aside>
     </main>
     </div>
@@ -657,6 +666,12 @@
     <div
       id="review-hover-card"
       class="review-hover-card"
+      role="tooltip"
+      hidden
+    ></div>
+    <div
+      id="canonical-update-tooltip"
+      class="canonical-update-tooltip"
       role="tooltip"
       hidden
     ></div>
