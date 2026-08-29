@@ -7,7 +7,7 @@ import test from 'node:test'
 
 const projectRoot = path.resolve(__dirname, '../..')
 
-test('T3 imports setup and resumable PR wait actions', async () => {
+test('T3 imports setup and resumable validation actions', async () => {
   const projectFile: unknown = JSON.parse(await fs.readFile(
     path.join(projectRoot, 't3.json'),
     'utf8'
@@ -24,6 +24,11 @@ test('T3 imports setup and resumable PR wait actions', async () => {
       {
         name: 'Wait for PR',
         command: 'npm run build --silent && node build/scripts/markover-wait-for-pr.js',
+        icon: 'test'
+      },
+      {
+        name: 'Run Local CI',
+        command: 'node scripts/markover-local-ci-bootstrap.js',
         icon: 'test'
       }
     ]

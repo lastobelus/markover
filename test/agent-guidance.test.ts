@@ -55,6 +55,11 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(agents, /back-and-forth human QA/)
   assert.match(agents, /keep\s+`npm run dev` running from the owning checkout/)
   assert.match(agents, /after the loop reports `ready`/)
+  assert.match(agents, /single action named `Run Local\s+CI`/)
+  assert.match(agents, /list_project_actions/)
+  assert.match(agents, /run_project_action_and_resume/)
+  assert.match(agents, /require the final\s+JSON summary to match the expected repository, head, base, and command\s+version/)
+  assert.match(agents, /Keep focused checks and `Wait for PR`\s+independent/)
   assert.match(agents, /help payload's `pullRequestStatus`\s+contract/)
   assert.match(
     agents,

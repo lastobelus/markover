@@ -293,7 +293,9 @@ running process takes precedence only within the addressed identity:
 
 ## Checks
 
-Run the full local pre-PR gate before committing a completed slice:
+After focused checks pass, commit the completed slice so the evidence can bind
+to a clean exact head. Agents run the full local pre-PR gate through the saved
+resumable **Run Local CI** Project Action; humans can run the same gate directly:
 
 ```sh
 npm run ci:local

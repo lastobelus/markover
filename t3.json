@@ -11,6 +11,11 @@
       "name": "Wait for PR",
       "command": "npm run build --silent && node build/scripts/markover-wait-for-pr.js",
       "icon": "test"
+    },
+    {
+      "name": "Run Local CI",
+      "command": "node scripts/markover-local-ci-bootstrap.js",
+      "icon": "test"
     }
   ]
 }

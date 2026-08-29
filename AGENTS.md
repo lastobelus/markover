@@ -240,9 +240,29 @@ user for a QA window before launching or focusing Markover, then keep
 `npm run dev -- --instance dev` when the pull-request instance must be explicit.
 Make the next change only after the loop reports `ready`, invite the user to
 check that exact instance, and keep the same loop alive across feedback rounds.
-Run one loop per addressed instance; finish deterministic checks separately
-with `npm run ci:local`. If the loop reports a failed build or startup, fix the
-cause and let the next edit drive recovery rather than starting another app.
+Run one loop per addressed instance; finish focused deterministic checks
+separately. If the loop reports a failed build or startup, fix the cause and
+let the next edit drive recovery rather than starting another app.
+
+## Full local CI
+
+After focused checks pass, commit the completed slice so its worktree is clean,
+then use the saved `Run Local CI` Project Action for the full local gate:
+
+1. Call `list_project_actions` and select the single action named `Run Local
+   CI`; never guess its ID.
+2. Require `resumeEligible: true`, call `run_project_action_and_resume` with the
+   returned ID, and end the turn immediately.
+3. On resume, check the validated status and exit code, then require the final
+   JSON summary to match the expected repository, head, base, and command
+   version. Treat `head-changed`, `base-changed`, or `dirty-worktree` as stale
+   evidence; handle `failed`, `cancelled`, or `timed-out` from its bounded log
+   tail; continue only from `passed` with test counts and a passing smoke result.
+
+If the action is missing or disabled, report the missing name or
+`disabledReason`, run `npm run ci:local` directly for this checkpoint, and say
+that resumable execution was unavailable. Keep focused checks and `Wait for PR`
+independent; neither action launches the other.
 
 ## Git checkpoints
 
