@@ -186,12 +186,14 @@ test('detached start is single-flight while the app remains alive', async (t) =>
       error.code === 'UPDATE_IN_PROGRESS'
   )
   assert.equal(spawns.length, 1)
-  assert.equal(spawns[0]?.command, '/node')
-  assert.equal(spawns[0]?.args[0], '/app/canonical-updater.js')
-  assert.equal(spawns[0]?.args[1], '--canonical-update-helper')
-  assert.equal(spawns[0]?.args[2], repo.descriptorPath)
-  assert.match(spawns[0]?.args[3] || '', /^[a-f0-9]{48}$/)
-  assert.equal(spawns[0]?.args[4], '/npm-cli.js')
+  const spawned = spawns[0]
+  assert(spawned)
+  assert.equal(spawned.command, '/node')
+  assert.equal(spawned.args[0], '/app/canonical-updater.js')
+  assert.equal(spawned.args[1], '--canonical-update-helper')
+  assert.equal(spawned.args[2], repo.descriptorPath)
+  assert.match(spawned.args[3] || '', /^[a-f0-9]{48}$/)
+  assert.equal(spawned.args[4], '/npm-cli.js')
 })
 
 test('helper revalidates, fast-forwards exactly, and invokes managed refresh', async (t) => {
