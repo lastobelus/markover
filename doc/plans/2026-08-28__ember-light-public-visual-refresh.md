@@ -51,8 +51,10 @@ and live GitHub repository metadata.
 
 ## Public visual contract
 
-The public visual system follows the current Ember Light application rather
-than inventing a separate marketing palette:
+`doc/design/markover-design-brief.md` is the canonical current visual brief for
+this stack and later product-facing material. The dated August 1 brand brief
+remains historical. The public visual system follows the current Ember Light
+application rather than inventing a separate marketing palette:
 
 | Role | Current Ember Light value or source |
 | --- | --- |
@@ -70,6 +72,13 @@ The Pages site may map these roles to web-specific component tokens, but the
 rendered hierarchy must remain recognizably the same: App header above a
 three-pane layout, neutral left and right panes around a paper center pane,
 restrained Ember accents, and the current typography and spacing character.
+
+Merged PR #209 establishes that canonical brief, routes relevant agent work to
+it from `AGENTS.md`, and provides Markover's repository-owned Diagram Design
+profile. ELI5 threads use that profile without a setup wizard, consult the
+optional shared skill for diagram grammar when it is available, and fall back
+quietly when it is not. This umbrella consumes that foundation without copying
+or depending on a machine-local profile.
 
 ## Delivery shape
 
@@ -269,6 +278,7 @@ the repository.
 | #18 | Downstream broad-announcement work; stays out of scope |
 | #13 and #80 | Preserve truthful signing/notarization and Intel-support boundaries in refreshed copy; do not absorb implementation |
 | #181 | Product modal redesign remains separate unless a selected public capture later requires that modal |
+| #209 | Merged prerequisite that owns the canonical design brief and repository-owned Diagram Design onboarding; this umbrella consumes it without duplicating its edits |
 
 No other open roadmap issue directly owns screenshots, movies, banners,
 branding, GitHub Pages presentation, tutorials, or onboarding.
