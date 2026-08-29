@@ -10,6 +10,25 @@ Use a diagram only when prose would leave an important relationship fuzzy. Prefe
 top-to-bottom flow for complex relationships, and left-to-right only for a short linear
 sequence.
 
+After deciding that a diagram is useful, check for the optional shared diagram-design
+skill at
+`~/.local/share/agent-contexts/vendor/diagram-design/skills/diagram-design/SKILL.md`.
+When that file is readable, read it completely and resolve its relative references from
+the directory that contains it. Load only the reference for the selected diagram type,
+plus `semantic-patterns.md` when the design needs those patterns; read another reference
+only when the chosen design explicitly requires it. If the shared skill or a required
+reference is absent or unreadable, continue quietly with the guidance below. Do not
+install, fetch, update, copy, vendor, or register diagram-design as part of an ELI5 task.
+
+Use diagram-design for diagram type selection, information density, layout grammar, SVG
+primitives, and connector routing. This skill still owns the enclosing explanation,
+truth context, Markover visual language, accessibility, responsive containment,
+self-contained inline output, and verification. Those ELI5 requirements win whenever
+the two sources differ. In particular, skip diagram-design's first-run onboarding or
+style-confirmation pause, standalone page shell, remote fonts, export workflow, and
+separate-artifact handoff. Render the result as accessible inline SVG inside the ELI5,
+and preserve the accepted non-interactive diagram model below.
+
 - Render the final diagram as accessible inline SVG with a title or an adjacent
   explanation. If a complex topology is easier to author as Mermaid, keep that source as
   optional context and render the diagram without a Mermaid runtime.
