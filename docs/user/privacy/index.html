@@ -111,9 +111,10 @@
         <p>Ordinary review handling has no telemetry, analytics, cloud synchronization, or automatic upload of review content. The only review-ingress exception is the remote client you explicitly enable and authorize through Tailscale; it sends the review you requested to this Mac's canonical store.</p>
         <ul>
           <li>Installing or updating through the launcher can download packages and release files from npm or GitHub.</li>
+          <li>The configured canonical development app automatically checks one fixed Markover GitHub Pages JSON file for newer merged pull requests. That request sends no review content. Markover validates and keeps the last valid pull-request changelist in owner-only application data so the update tooltip can open promptly; installing an update still requires your click.</li>
           <li>Inline Markdown image syntax is inert by default. Only an embedded <code>data:</code> image can open through its explicit preview control. Relative paths, local file paths, and HTTP(S) URLs remain unavailable; choosing their controls makes no network request.</li>
         </ul>
-        <p>Launcher installation and updates are user-triggered connections, so Markover does not claim that it never connects to the internet.</p>
+        <p>Launcher installation and update installation are user-triggered connections. The bounded canonical changelist check is automatic, so Markover does not claim that it never connects to the internet.</p>
       </section>
 
       <section id="retention">

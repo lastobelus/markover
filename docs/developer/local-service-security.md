@@ -238,8 +238,13 @@ approval.
 ## Network boundary
 
 Ordinary review handling has no telemetry, analytics, cloud synchronization,
-or automatic review upload. Deliberate installation or update actions may
-download release material from npm or GitHub. Inline Markdown image syntax is
+or automatic review upload. The configured canonical app may
+automatically fetch the exact allowlisted Markover GitHub Pages update-manifest
+URL. The main process bounds and validates that pull-request metadata, stores
+only the last valid manifest in owner-only application data, and treats it as
+display-only; it neither contains review data nor authorizes a Git mutation.
+Deliberate installation or update actions may download release material from
+npm or GitHub. Inline Markdown image syntax is
 inert by default. Only an embedded `data:` image can open through its explicit
 preview control. Relative paths, local file paths, HTTP(S) URLs, and malformed
 sources remain unavailable; choosing their controls makes no network request.

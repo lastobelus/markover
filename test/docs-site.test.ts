@@ -140,25 +140,23 @@ test('the Pages gallery opens lazily and navigates with controls or arrows', () 
   assert.equal(position.textContent, '4 / 4')
 })
 
-test('Pages deploys built docs when a documentation build input changes', () => {
+test('Pages deploys built docs and the update manifest for every main push', () => {
   assert.match(
     pagesWorkflow,
-    /push:\s+branches:\s+- main\s+paths:/
+    /push:\s+branches:\s+- main\s+workflow_dispatch:/
   )
-  for (const buildInput of [
-    'docs/**',
-    '.github/workflows/pages.yml',
-    'package.json',
-    'package-lock.json',
-    'scripts/copy-build-assets.ts',
-    'tsconfig.json'
-  ]) {
-    assert.equal(pagesWorkflow.includes(`- '${buildInput}'`), true)
-  }
+  assert.doesNotMatch(pagesWorkflow, /\n\s+paths:/)
   assert.match(pagesWorkflow, /workflow_dispatch:/)
-  assert.match(pagesWorkflow, /contents: read\s+pages: write\s+id-token: write/)
+  assert.match(
+    pagesWorkflow,
+    /contents: read\s+pull-requests: read\s+pages: write\s+id-token: write/
+  )
   assert.match(pagesWorkflow, /run: npm ci/)
   assert.match(pagesWorkflow, /run: npm run build --silent/)
+  assert.match(
+    pagesWorkflow,
+    /run: node build\/scripts\/generate-canonical-update-manifest\.js/
+  )
   assert.match(pagesWorkflow, /actions\/configure-pages@[0-9a-f]{40} # v5/)
   assert.match(pagesWorkflow, /actions\/upload-pages-artifact@[0-9a-f]{40} # v4/)
   assert.match(pagesWorkflow, /path: build\/docs\/user/)

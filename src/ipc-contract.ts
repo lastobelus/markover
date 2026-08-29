@@ -96,6 +96,8 @@ export interface RendererInvokeArguments {
   'workspace:get': []
   'workspace:update': [MarkoverWorkspaceState]
   'window:focus-state:get': []
+  'canonical-update:status': []
+  'canonical-update:start': []
   'review:initial-document': []
   'review:list': []
   'review:t3-thread-titles:get': []
@@ -129,6 +131,8 @@ export interface RendererInvokeResults {
   'workspace:get': MarkoverWorkspaceState
   'workspace:update': MarkoverWorkspaceState
   'window:focus-state:get': MarkoverWindowFocusState
+  'canonical-update:status': CanonicalUpdateStatus
+  'canonical-update:start': CanonicalUpdateStartResult
   'review:initial-document': MarkoverDocument | null
   'review:list': MarkoverReviewListItem[]
   'review:t3-thread-titles:get': T3ThreadTitleSnapshot
@@ -592,6 +596,44 @@ function isWindowFocusState(value: unknown): value is MarkoverWindowFocusState {
   return value.blurredAt === null || isPositiveInteger(value.blurredAt)
 }
 
+function isCanonicalUpdatePullRequest(
+  value: unknown
+): value is CanonicalUpdatePullRequest {
+  return hasExactKeys(value, ['number', 'title']) &&
+    isPositiveInteger(value.number) &&
+    typeof value.title === 'string' &&
+    value.title.trim().length > 0 &&
+    value.title.length <= 200
+}
+
+function isCanonicalUpdateStatus(
+  value: unknown
+): value is CanonicalUpdateStatus {
+  return hasExactKeys(value, ['state', 'detail', 'pullRequests']) &&
+    (
+      value.state === 'hidden' ||
+      value.state === 'checking' ||
+      value.state === 'current' ||
+      value.state === 'available' ||
+      value.state === 'starting' ||
+      value.state === 'unavailable'
+    ) &&
+    typeof value.detail === 'string' &&
+    value.detail.length <= 500 &&
+    Array.isArray(value.pullRequests) &&
+    value.pullRequests.length <= 50 &&
+    value.pullRequests.every(isCanonicalUpdatePullRequest)
+}
+
+function isCanonicalUpdateStartResult(
+  value: unknown
+): value is CanonicalUpdateStartResult {
+  return hasExactKeys(value, ['status', 'detail']) &&
+    (value.status === 'accepted' || value.status === 'rejected') &&
+    typeof value.detail === 'string' &&
+    value.detail.length <= 500
+}
+
 function isReviewStatusRequest(value: unknown): value is ReviewStatusRequest {
   return hasExactKeys(value, ['requestId', 'reviewId', 'status']) &&
     isRequestId(value.requestId) &&
@@ -863,6 +905,8 @@ export function assertRendererInvokeArguments(
     case 'settings:get':
     case 'workspace:get':
     case 'window:focus-state:get':
+    case 'canonical-update:status':
+    case 'canonical-update:start':
     case 'review:initial-document':
     case 'review:list':
     case 'review:t3-thread-titles:get':
@@ -997,6 +1041,8 @@ export function assertRendererInvokeResult(
       valid = isWorkspaceState(value)
       break
     case 'window:focus-state:get': valid = isWindowFocusState(value); break
+    case 'canonical-update:status': valid = isCanonicalUpdateStatus(value); break
+    case 'canonical-update:start': valid = isCanonicalUpdateStartResult(value); break
     case 'review:list':
       valid = Array.isArray(value) && value.every((item) => (
         isDocument(item) || isIncompatibleReview(item)

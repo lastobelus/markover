@@ -12,6 +12,8 @@ export const runtimeModuleNames = [
   'attachment-limits',
   'async-mutation-tracker',
   'claude-thread-titles',
+  'canonical-update-manifest',
+  'canonical-updater',
   'codex-thread-titles',
   'development-control',
   'development-config',

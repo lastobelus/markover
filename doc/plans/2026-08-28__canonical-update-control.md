@@ -25,6 +25,7 @@ The renderer keeps `connect-src 'none'`; it receives only validated status throu
 ## Implementation surfaces
 
 - Right-pane footer markup, shared pane icon-button styling, Lucide registration, accessible tooltip, reduced-motion busy animation, and renderer state handling.
+- Restore the temporary theme-token inspector to explicit development-watch instances so canonical and packaged builds never show the debug palette.
 - Strict update-status and start-update IPC contracts in the preload/main boundary.
 - A detached, single-flight canonical updater built around configured-checkout discovery, guarded Git operations, and the existing refresh command.
 - Manifest schema, decoding, cache, changelist selection, and bounded HTTPS retrieval in the main process.

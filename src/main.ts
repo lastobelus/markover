@@ -31,6 +31,19 @@ import { AsyncMutationTracker } from './async-mutation-tracker'
 import { claudeThreadTitleSnapshot } from './claude-thread-titles'
 import { codexThreadTitleSnapshot } from './codex-thread-titles'
 import {
+  canonicalUpdateManifestCachePath,
+  fetchCanonicalUpdateManifest,
+  readCanonicalUpdateManifestCache,
+  selectCanonicalUpdateChangelist,
+  writeCanonicalUpdateManifestCache,
+  type CanonicalUpdateManifest
+} from './canonical-update-manifest'
+import {
+  CanonicalUpdateError,
+  readCanonicalUpdateAttempt,
+  startCanonicalUpdate
+} from './canonical-updater'
+import {
   DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT,
   DEVELOPMENT_WATCH_ENVIRONMENT,
   developmentRendererRoot,
@@ -48,6 +61,7 @@ import {
 import {
   CANONICAL_INSTANCE_SCHEME,
   RESOLVED_INSTANCE_ENVIRONMENT,
+  canonicalDescriptorPath,
   resolveInstance,
   runtimeInstanceFromEnvironment
 } from './instance'
@@ -303,6 +317,7 @@ let brandAssetsPromise: Promise<MarkoverBrandAssets> | null = null
 let startupDiagnostic: StartupDiagnostic | null = null
 let startupBuildIdentity: BuildIdentity | null = null
 let startupInfo: StartupInfo | null = null
+let canonicalUpdateManifestRequest: Promise<CanonicalUpdateManifest | null> | null = null
 let startupReady = false
 let rendererInitializationHandled = false
 let rendererStartupFailed = false
@@ -339,6 +354,115 @@ const reviewUrlDispatcher = new ReviewUrlDispatcher<PendingReviewUrl>(
     process.stderr.write(`markover review link: ${errorMessage(error)}\n`)
   }
 )
+
+function canonicalUpdateEligible(): boolean {
+  return addressedInstance.identity.kind === 'canonical' &&
+    !smokeMode &&
+    Boolean(checkoutDirectory) &&
+    Boolean(startupBuildIdentity?.commit) &&
+    startupBuildIdentity?.dirty === false
+}
+
+async function loadCanonicalUpdateManifest(): Promise<CanonicalUpdateManifest | null> {
+  if (canonicalUpdateManifestRequest) return canonicalUpdateManifestRequest
+  const cachePath = canonicalUpdateManifestCachePath(addressedInstance.stateRoot)
+  canonicalUpdateManifestRequest = (async () => {
+    const cached = await readCanonicalUpdateManifestCache(cachePath).catch(() => null)
+    try {
+      const fetched = await fetchCanonicalUpdateManifest()
+      await writeCanonicalUpdateManifestCache(cachePath, fetched)
+      return fetched
+    } catch {
+      return cached
+    }
+  })().finally(() => {
+    canonicalUpdateManifestRequest = null
+  })
+  return canonicalUpdateManifestRequest
+}
+
+async function canonicalUpdateStatus(): Promise<CanonicalUpdateStatus> {
+  if (!canonicalUpdateEligible()) {
+    return { state: 'hidden', detail: '', pullRequests: [] }
+  }
+  const descriptorPath = canonicalDescriptorPath()
+  const attempt = await readCanonicalUpdateAttempt(descriptorPath)
+  if (attempt?.status === 'updating') {
+    return {
+      state: 'starting',
+      detail: 'The guarded canonical update is in progress.',
+      pullRequests: []
+    }
+  }
+  try {
+    const manifest = await loadCanonicalUpdateManifest()
+    if (!manifest) {
+      return {
+        state: 'unavailable',
+        detail: 'The pull-request changelist is currently unavailable.',
+        pullRequests: []
+      }
+    }
+    const commit = startupBuildIdentity?.commit
+    if (commit === manifest.headCommit) {
+      return {
+        state: 'current',
+        detail: 'The canonical app matches the latest published main build.',
+        pullRequests: []
+      }
+    }
+    const changelist = commit
+      ? selectCanonicalUpdateChangelist(manifest, commit)
+      : null
+    return {
+      state: 'available',
+      detail: changelist === null
+        ? 'An update is available. Its pull-request changelist is unavailable.'
+        : `${String(changelist.length)} merged pull request${changelist.length === 1 ? '' : 's'} available.`,
+      pullRequests: (changelist ?? []).slice(-50).map(({ number, title }) => ({
+        number,
+        title
+      }))
+    }
+  } catch (error) {
+    return {
+      state: 'unavailable',
+      detail: error instanceof CanonicalUpdateError
+        ? error.message
+        : 'Markover could not check for canonical updates.',
+      pullRequests: []
+    }
+  }
+}
+
+async function beginCanonicalUpdate(): Promise<CanonicalUpdateStartResult> {
+  if (!canonicalUpdateEligible()) {
+    return { status: 'rejected', detail: 'Canonical update is unavailable.' }
+  }
+  try {
+    const attempt = await startCanonicalUpdate({
+      descriptorPath: canonicalDescriptorPath(),
+      helperEnvironment: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      nodeExecutable: process.execPath
+    })
+    return attempt.status === 'updating'
+      ? {
+          status: 'accepted',
+          detail: 'Markover is updating and will reopen when the refresh completes.'
+        }
+      : {
+          status: 'rejected',
+          detail: 'The canonical app is already up to date.'
+        }
+  } catch (error) {
+    return {
+      status: 'rejected',
+      detail: error instanceof CanonicalUpdateError
+        ? error.message
+        : 'Markover could not start the canonical update.'
+    }
+  }
+}
 const privilegedIpc = new PrivilegedIpc(ipcMain, {
   activeWebContents: () => (
     mainWindow && !mainWindow.isDestroyed()
@@ -2612,6 +2736,8 @@ if (!hasSingleInstanceLock) {
       state: MarkoverWorkspaceState
     ) => privateWorkspaceStore.replace(state))
     privilegedIpc.handle('window:focus-state:get', currentWindowFocusState)
+    privilegedIpc.handle('canonical-update:status', canonicalUpdateStatus)
+    privilegedIpc.handle('canonical-update:start', beginCanonicalUpdate)
     privilegedIpc.handle('review:initial-document', async () => (
       activeManagedReview && managedDocument(
         activeManagedReview,

@@ -256,8 +256,8 @@ test('the floating theme-token inspector uses canonical structure and component 
   assert.match(styles, /--document-tree-row-hover-border: var\(--ground\);/)
   assert.match(styles, /\.block-row:hover \{[^}]*border-color: var\(--document-tree-row-hover-border\);/)
   assert.doesNotMatch(`${renderer}\n${styles}`, /--hover-line/)
-  assert.match(styles, /\.left-pane-disclosure \{[^}]*color: var\(--pane-label-inactive\);/)
-  assert.match(styles, /\.left-pane-disclosure:hover \{[^}]*color: var\(--pane-label-color\);[^}]*background: var\(--paper\);/)
+  assert.match(styles, /\.pane-icon-button \{[^}]*color: var\(--pane-label-inactive\);/)
+  assert.match(styles, /\.pane-icon-button:hover:not\(:disabled\) \{[^}]*color: var\(--pane-label-color\);[^}]*background: var\(--paper\);/)
   assert.match(
     styles,
     /\.annotation-list \.rendered-annotation\.is-selectable:hover \{[^}]*linear-gradient\([\s\S]*var\(--right-pane-background\),[\s\S]*var\(--paper\) 10px/
@@ -327,6 +327,10 @@ test('the working header aligns the brand and exact review identity', () => {
   assert.match(styles, /\.document-meta \{[^}]*right: var\(--right-pane-column-width, 360px\);[^}]*left: var\(--left-pane-column-width, 0px\);[^}]*align-items: center;/)
   assert.match(renderer, /appHeader\.style\.setProperty\(\s*'--left-pane-column-width'/)
   assert.match(renderer, /appHeader\.style\.setProperty\(\s*'--right-pane-column-width'/)
+  assert.match(
+    renderer,
+    /function installThemeTokenInspector\(startupInfo: StartupInfo\)[\s\S]*startupInfo\.development &&[\s\S]*startupInfo\.elementCallouts &&[\s\S]*inspector\.hidden = false/
+  )
   assert.doesNotMatch(renderer, /checksum\.slice\(/)
   assert.doesNotMatch(renderer, /rightPaneEyebrow/)
   assert.ok(

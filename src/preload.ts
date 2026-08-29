@@ -325,6 +325,8 @@ const bridge = {
   getWorkspaceState: () => invoke('workspace:get'),
   updateWorkspaceState: (state) => invoke('workspace:update', state),
   getWindowFocusState: () => invoke('window:focus-state:get'),
+  getCanonicalUpdateStatus: () => invoke('canonical-update:status'),
+  startCanonicalUpdate: () => invoke('canonical-update:start'),
   onWindowFocusChanged: (callback) => {
     listen('window:focus-state', (state: MarkoverWindowFocusState) => {
       callback(state)
