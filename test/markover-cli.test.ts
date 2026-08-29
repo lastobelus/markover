@@ -8,6 +8,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  buildCanonicalCheckout,
   checksum,
   ensureService,
   executeCommand,
@@ -86,6 +87,39 @@ function application(
     expectedExecutablePaths: [installed, generated]
   }
 }
+
+test('canonical build installs its pinned Electron binary before packaging', async () => {
+  const calls: Array<{ command: string; args: readonly string[] }> = []
+  const instance = {
+    identity: { kind: 'canonical', key: 'canonical' },
+    checkout: '/canonical',
+    branding: { appName: 'Markover' },
+    scheme: 'markover'
+  } as unknown as ResolvedInstance
+  const bundle = canonicalBundle()
+  const run = ((command: string, args: readonly string[]) => {
+    calls.push({ command, args })
+    return {
+      error: undefined,
+      status: 0,
+      stdout: command === process.execPath ? JSON.stringify(bundle) : '',
+      stderr: ''
+    }
+  }) as unknown as typeof spawnSync
+
+  assert.deepEqual(await buildCanonicalCheckout(instance, run), bundle)
+  assert.deepEqual(calls, [
+    {
+      command: '/canonical/node_modules/.bin/install-electron',
+      args: ['--no']
+    },
+    { command: 'npm', args: ['run', 'build', '--silent'] },
+    {
+      command: process.execPath,
+      args: ['/canonical/build/scripts/build-canonical-bundle.js']
+    }
+  ])
+})
 
 test('parses lifecycle commands and PR observations', () => {
   assert.deepEqual(

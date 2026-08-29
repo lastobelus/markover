@@ -1330,18 +1330,29 @@ function commandFailure(result: ReturnType<typeof spawnSync>): string {
     `command exited ${String(result.status ?? 1)}`
 }
 
-function buildCanonicalCheckout(
-  instance: ResolvedInstance
+export function buildCanonicalCheckout(
+  instance: ResolvedInstance,
+  run: typeof spawnSync = spawnSync
 ): Promise<AddressedDevelopmentBundle> {
   if (!instance.checkout) throw new Error('Canonical checkout is unavailable.')
-  const result = spawnSync('npm', ['run', 'build', '--silent'], {
+  const electronResult = run(
+    path.join(instance.checkout, 'node_modules', '.bin', 'install-electron'),
+    ['--no'],
+    { cwd: instance.checkout, encoding: 'utf8' }
+  )
+  if (electronResult.error || electronResult.status !== 0) {
+    throw new Error(
+      `Canonical Electron install failed: ${commandFailure(electronResult)}`
+    )
+  }
+  const result = run('npm', ['run', 'build', '--silent'], {
     cwd: instance.checkout,
     encoding: 'utf8'
   })
   if (result.error || result.status !== 0) {
     throw new Error(`Canonical build failed: ${commandFailure(result)}`)
   }
-  const bundleResult = spawnSync(
+  const bundleResult = run(
     process.execPath,
     [path.join(instance.checkout, 'build', 'scripts', 'build-canonical-bundle.js')],
     { cwd: instance.checkout, encoding: 'utf8' }
