@@ -75,6 +75,8 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(babysit, /end the turn immediately/)
   assert.match(babysit, /markover-review-head/)
   assert.match(babysit, /markover-review-handled/)
+  assert.match(babysit, /worktree branch to resolve to the[\s\S]*target PR, head, and base/)
+  assert.match(babysit, /multiple actions are[\s\S]*ask the user which one to use/)
   assert.doesNotMatch(babysit, /While anything is pending,[\s\S]*foreground `sleep 100`/)
   assert.match(mergeReference, /machine-readable\s+help[\s\S]*`pullRequestStatus`/)
   assert.match(mergeReference, /Run `done`/)

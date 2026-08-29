@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   assertWaitStart,
+  CI_COMPLETION_TIMEOUT_MILLISECONDS,
   CI_REGISTRATION_TIMEOUT_MILLISECONDS,
   decideWaitForPr,
   decideWaitTimeout,
@@ -73,6 +74,7 @@ function observation(input: {
   localHead?: string
   localBranch?: string
   clean?: boolean
+  merge?: string | null
 } = {}): WaitObservation {
   return {
     pullRequest: {
@@ -85,7 +87,9 @@ function observation(input: {
       baseRefName: input.baseRefName ?? 'main',
       mergeable: input.mergeable ?? 'MERGEABLE',
       mergeStateStatus: input.mergeStateStatus ?? 'CLEAN',
-      potentialMergeCommit: { oid: MERGE }
+      potentialMergeCommit: input.merge === null
+        ? null
+        : { oid: input.merge ?? MERGE }
     },
     ci: input.ci ?? pendingCi,
     review: input.review ?? pendingReview,
@@ -156,6 +160,40 @@ test('waits for both exact CI and current-head review', () => {
   )
 })
 
+test('requires the current clean merge revision to match the CI receipt', () => {
+  const baseline = observation({ review: handledReview })
+  assert.equal(
+    decideWaitForPr(
+      baseline,
+      observation({ ci: satisfiedCi, review: handledReview, merge: '4'.repeat(40) })
+    ).reason,
+    'merge-revision-changed'
+  )
+  assert.deepEqual(
+    decideWaitForPr(
+      baseline,
+      observation({ ci: satisfiedCi, review: handledReview, merge: null })
+    ),
+    { kind: 'wait', reason: 'mergeability-pending' }
+  )
+  for (const mergeStateStatus of ['UNSTABLE', 'HAS_HOOKS', 'BLOCKED']) {
+    assert.equal(
+      decideWaitForPr(
+        baseline,
+        observation({ ci: satisfiedCi, review: handledReview, mergeStateStatus })
+      ).reason,
+      'merge-blocked'
+    )
+  }
+  assert.equal(
+    decideWaitForPr(
+      baseline,
+      observation({ ci: satisfiedCi, review: handledReview })
+    ).reason,
+    'ready'
+  )
+})
+
 test('wakes for actionable CI, review, merge, and target changes', () => {
   const baseline = observation()
   const cases: Array<[WaitObservation, string]> = [
@@ -198,10 +236,18 @@ test('fails fast at launch for dirty or mismatched local state', () => {
 })
 
 test('bounds registration, merge recomputation, and review waits', () => {
+  assert.equal(waitTimeoutClass('ci-pending'), 'ci-completion')
   assert.equal(waitTimeoutClass('ci-registration'), 'ci-registration')
   assert.equal(waitTimeoutClass('mergeability-pending'), 'merge-recompute')
   assert.equal(waitTimeoutClass('review-pending'), 'review')
-  assert.equal(waitTimeoutClass('ci-pending'), null)
+  assert.equal(
+    decideWaitTimeout('ci-pending', CI_COMPLETION_TIMEOUT_MILLISECONDS - 1),
+    null
+  )
+  assert.equal(
+    decideWaitTimeout('ci-pending', CI_COMPLETION_TIMEOUT_MILLISECONDS)?.reason,
+    'ci-timeout'
+  )
   assert.equal(
     decideWaitTimeout('ci-registration', CI_REGISTRATION_TIMEOUT_MILLISECONDS - 1),
     null

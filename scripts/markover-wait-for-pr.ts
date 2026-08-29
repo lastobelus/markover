@@ -15,6 +15,7 @@ const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])
 const POLL_INTERVAL_MILLISECONDS = 60_000
 const COMMAND_TIMEOUT_MILLISECONDS = 30_000
 export const CI_REGISTRATION_TIMEOUT_MILLISECONDS = 10 * 60_000
+export const CI_COMPLETION_TIMEOUT_MILLISECONDS = 15 * 60_000
 export const MERGE_RECOMPUTE_TIMEOUT_MILLISECONDS = 10 * 60_000
 export const REVIEW_TIMEOUT_MILLISECONDS = 30 * 60_000
 
@@ -105,10 +106,12 @@ export type WaitDecision =
         | 'base-changed'
         | 'ci-configuration'
         | 'ci-failed'
+        | 'ci-timeout'
         | 'ci-registration-timeout'
         | 'head-changed'
         | 'local-head-changed'
         | 'merge-blocked'
+        | 'merge-revision-changed'
         | 'merge-recompute-timeout'
         | 'pr-changed'
         | 'pr-closed'
@@ -468,16 +471,30 @@ export function decideWaitForPr(
   if (
     current.ci.state === 'satisfied' &&
     !current.review.pending &&
-    current.review.ready &&
-    pullRequest.mergeStateStatus === 'BLOCKED'
+    current.review.ready
   ) {
-    return {
-      kind: 'wake',
-      reason: 'merge-blocked',
-      detail: `Pull request #${pullRequest.number} is blocked by a repository merge requirement.`
+    const currentMergeSha = pullRequest.potentialMergeCommit?.oid
+    if (!currentMergeSha) return { kind: 'wait', reason: 'mergeability-pending' }
+    if (currentMergeSha !== current.ci.testedMergeSha) {
+      return {
+        kind: 'wake',
+        reason: 'merge-revision-changed',
+        detail: `GitHub CI tested merge ${current.ci.testedMergeSha}, but the current merge revision is ${currentMergeSha}.`
+      }
+    }
+    if (pullRequest.mergeStateStatus !== 'CLEAN') {
+      return {
+        kind: 'wake',
+        reason: 'merge-blocked',
+        detail: `Pull request #${pullRequest.number} is not cleanly mergeable (${pullRequest.mergeStateStatus}).`
+      }
     }
   }
-  if (current.ci.state === 'satisfied' && !current.review.pending && current.review.ready) {
+  if (
+    current.ci.state === 'satisfied' &&
+    !current.review.pending &&
+    current.review.ready
+  ) {
     return {
       kind: 'wake',
       reason: 'ready',
@@ -493,17 +510,27 @@ export function decideWaitForPr(
 
 export function waitTimeoutClass(
   reason: Extract<WaitDecision, { kind: 'wait' }>['reason']
-): 'ci-registration' | 'merge-recompute' | 'review' | null {
+): 'ci-completion' | 'ci-registration' | 'merge-recompute' | 'review' {
+  if (reason === 'ci-pending') return 'ci-completion'
   if (reason === 'ci-registration') return 'ci-registration'
   if (reason === 'mergeability-pending') return 'merge-recompute'
-  if (reason === 'review-pending') return 'review'
-  return null
+  return 'review'
 }
 
 export function decideWaitTimeout(
   reason: Extract<WaitDecision, { kind: 'wait' }>['reason'],
   elapsedMilliseconds: number
 ): WaitDecision | null {
+  if (
+    reason === 'ci-pending' &&
+    elapsedMilliseconds >= CI_COMPLETION_TIMEOUT_MILLISECONDS
+  ) {
+    return {
+      kind: 'wake',
+      reason: 'ci-timeout',
+      detail: `GitHub CI did not complete within ${CI_COMPLETION_TIMEOUT_MILLISECONDS / 60_000} minutes.`
+    }
+  }
   if (
     reason === 'ci-registration' &&
     elapsedMilliseconds >= CI_REGISTRATION_TIMEOUT_MILLISECONDS
@@ -792,7 +819,7 @@ async function main(): Promise<void> {
 
   let current = baseline
   let previousSummary = ''
-  let pendingClass: ReturnType<typeof waitTimeoutClass> = null
+  let pendingClass: ReturnType<typeof waitTimeoutClass> | null = null
   let pendingSince = Date.now()
   for (;;) {
     let decision = decideWaitForPr(baseline, current)
