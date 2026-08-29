@@ -26,6 +26,7 @@ test('the document-tree review ID reveals exact-ID controls', () => {
 
 test('production inbox shares responsibility filters and retains All history', () => {
   const html = read('src/index.html')
+  const main = read('src/main.ts')
   const renderer = read('src/renderer.ts')
   const icons = read('src/lucide-icons.ts')
   const registry = read('src/review-icon-registry.ts')
@@ -85,6 +86,7 @@ test('production inbox shares responsibility filters and retains All history', (
   assert.match(renderer, /replaceMarkoverIcon\(elements\.leftPaneCollapse, 'panel-left-close'\)/)
   assert.match(renderer, /replaceMarkoverIcon\(elements\.canonicalUpdateButton, 'refresh-cw'\)/)
   assert.match(renderer, /status\.state === 'starting'[\s\S]*setTimeout\(\(\) => \{[\s\S]*refreshCanonicalUpdateStatus\(\)/)
+  assert.match(main, /const cached = await readCanonicalUpdateManifestCache[\s\S]*if \(cached\) \{[\s\S]*void refreshCanonicalUpdateManifestCache\(\)[\s\S]*return cached/)
   assert.match(renderer, /canonicalUpdateStatus\.state !== 'available' &&[\s\S]*canonicalUpdateStatus\.state !== 'unavailable'/)
   assert.match(html, /id="canonical-update-footer"[\s\S]*id="canonical-update-button"[\s\S]*aria-describedby="canonical-update-tooltip"/)
   assert.match(styles, /\.canonical-update-footer \{[^}]*min-height: 40px;[^}]*justify-content: flex-end;/)

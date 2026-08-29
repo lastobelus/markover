@@ -368,22 +368,31 @@ function canonicalUpdateEligible(): boolean {
     startupBuildIdentity?.dirty === false
 }
 
-async function loadCanonicalUpdateManifest(): Promise<CanonicalUpdateManifest | null> {
+async function refreshCanonicalUpdateManifestCache(): Promise<CanonicalUpdateManifest | null> {
   if (canonicalUpdateManifestRequest) return canonicalUpdateManifestRequest
   const cachePath = canonicalUpdateManifestCachePath(addressedInstance.stateRoot)
   canonicalUpdateManifestRequest = (async () => {
-    const cached = await readCanonicalUpdateManifestCache(cachePath).catch(() => null)
     try {
       const fetched = await fetchCanonicalUpdateManifest()
       await writeCanonicalUpdateManifestCache(cachePath, fetched)
       return fetched
     } catch {
-      return cached
+      return null
     }
   })().finally(() => {
     canonicalUpdateManifestRequest = null
   })
   return canonicalUpdateManifestRequest
+}
+
+async function loadCanonicalUpdateManifest(): Promise<CanonicalUpdateManifest | null> {
+  const cachePath = canonicalUpdateManifestCachePath(addressedInstance.stateRoot)
+  const cached = await readCanonicalUpdateManifestCache(cachePath).catch(() => null)
+  if (cached) {
+    void refreshCanonicalUpdateManifestCache()
+    return cached
+  }
+  return refreshCanonicalUpdateManifestCache()
 }
 
 async function canonicalUpdateStatus(): Promise<CanonicalUpdateStatus> {
