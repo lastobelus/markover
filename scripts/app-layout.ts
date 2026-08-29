@@ -183,6 +183,10 @@ export async function verifyAppLayout(appDirectory: string): Promise<void> {
     ) ||
     typeof Reflect.get(buildIdentity, 'dirty') !== 'boolean' ||
     Reflect.get(buildIdentity, 'rendererSha256') !== rendererSha256 ||
+    typeof Reflect.get(buildIdentity, 'updateNodeExecutable') !== 'string' ||
+    !path.isAbsolute(Reflect.get(buildIdentity, 'updateNodeExecutable') as string) ||
+    typeof Reflect.get(buildIdentity, 'updateNpmCliPath') !== 'string' ||
+    !path.isAbsolute(Reflect.get(buildIdentity, 'updateNpmCliPath') as string) ||
     Reflect.get(buildIdentity, 'version') !== Reflect.get(manifest, 'version')
   ) {
     throw new Error('Staged build identity is invalid.')

@@ -45,6 +45,26 @@ export class CanonicalUpdateError extends Error {
   }
 }
 
+export function canonicalUpdateFailureDetail(
+  code: CanonicalUpdateErrorCode
+): string {
+  const details: Record<CanonicalUpdateErrorCode, string> = {
+    CONFIGURATION_UNAVAILABLE: 'Canonical update configuration is unavailable. Retry after repairing the canonical setup.',
+    CHECKOUT_INVALID: 'The canonical checkout is unavailable. Retry after repairing the canonical setup.',
+    WRONG_BRANCH: 'The canonical checkout is on the wrong branch. Retry after restoring its blessed branch.',
+    DIRTY_CHECKOUT: 'The canonical checkout has local changes. Retry after making it clean.',
+    UNTRUSTED_ORIGIN: 'The canonical checkout does not use the official origin.',
+    FETCH_FAILED: 'The update check failed. Check the network connection, then retry.',
+    DIVERGED: 'The canonical checkout cannot be fast-forwarded safely.',
+    UPDATE_IN_PROGRESS: 'The previous update did not release its lock. Retry to recover it.',
+    HELPER_START_FAILED: 'The update helper could not start. Retry after repairing the canonical toolchain.',
+    FAST_FORWARD_FAILED: 'The canonical checkout could not be fast-forwarded. Retry after checking it.',
+    DEPENDENCY_INSTALL_FAILED: 'The locked dependencies could not be installed. Check the canonical checkout, then retry.',
+    REFRESH_FAILED: 'The updated app could not be refreshed. Retry the update.'
+  }
+  return details[code]
+}
+
 export interface CanonicalUpdateInspection {
   format: 'markover-canonical-update-inspection'
   version: 1
@@ -117,6 +137,7 @@ export interface StartCanonicalUpdateOptions extends CanonicalUpdateOptions {
   helperEnvironment?: NodeJS.ProcessEnv
   helperPath?: string
   nodeExecutable?: string
+  npmCliPath?: string
   processIsAlive?: (pid: number) => boolean
   spawnDetached?: DetachedSpawner
 }
@@ -433,6 +454,7 @@ export async function startCanonicalUpdate({
   helperEnvironment = process.env,
   helperPath,
   nodeExecutable = 'node',
+  npmCliPath = process.env.npm_execpath || 'npm',
   processIsAlive = defaultProcessIsAlive,
   spawnDetached = spawn,
   runCommand = spawnSync
@@ -456,7 +478,13 @@ export async function startCanonicalUpdate({
   try {
     const child = spawnDetached(
       nodeExecutable,
-      [selectedHelperPath, '--canonical-update-helper', descriptorPath, lock.token],
+      [
+        selectedHelperPath,
+        '--canonical-update-helper',
+        descriptorPath,
+        lock.token,
+        npmCliPath
+      ],
       {
         detached: true,
         env: { ...helperEnvironment },
@@ -514,7 +542,9 @@ function asCanonicalUpdateError(error: unknown): CanonicalUpdateError {
 export async function runCanonicalUpdateHelper(
   descriptorPath: string,
   token: string,
-  runCommand: CommandRunner = spawnSync
+  runCommand: CommandRunner = spawnSync,
+  nodeExecutable = process.execPath,
+  npmCliPath = process.env.npm_execpath || 'npm'
 ): Promise<CanonicalUpdateAttempt> {
   const paths = updateStatePaths(descriptorPath)
   try {
@@ -535,8 +565,8 @@ export async function runCanonicalUpdateHelper(
       }
     }
     const installed = runCommand(
-      'npm',
-      ['ci'],
+      nodeExecutable,
+      [npmCliPath, 'ci'],
       { cwd: checkout.descriptor.checkout, encoding: 'utf8' }
     )
     if (!successful(installed)) {
@@ -546,8 +576,8 @@ export async function runCanonicalUpdateHelper(
       )
     }
     const refreshed = runCommand(
-      'npm',
-      ['--silent', 'run', 'markover', '--', 'canonical', 'refresh'],
+      nodeExecutable,
+      [npmCliPath, '--silent', 'run', 'markover', '--', 'canonical', 'refresh'],
       { cwd: checkout.descriptor.checkout, encoding: 'utf8' }
     )
     if (!successful(refreshed)) {
@@ -655,8 +685,15 @@ export async function readCanonicalUpdateAttempt(
 if (require.main === module && process.argv[2] === '--canonical-update-helper') {
   const descriptorPath = process.argv[3]
   const token = process.argv[4]
-  if (descriptorPath && token) {
-    void runCanonicalUpdateHelper(descriptorPath, token).then((result) => {
+  const npmCliPath = process.argv[5]
+  if (descriptorPath && token && npmCliPath) {
+    void runCanonicalUpdateHelper(
+      descriptorPath,
+      token,
+      spawnSync,
+      process.execPath,
+      npmCliPath
+    ).then((result) => {
       process.exitCode = result.status === 'completed' ? 0 : 1
     })
   } else {

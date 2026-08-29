@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import {
   CanonicalUpdateError,
+  canonicalUpdateFailureDetail,
   inspectCanonicalUpdate,
   readCanonicalUpdateAttempt,
   runCanonicalUpdateHelper,
@@ -88,10 +89,10 @@ async function fixture(
     commands,
     runCommand(command, args) {
       commands.push({ command, args: [...args] })
-      if (command === 'npm' && args.join(' ') === 'ci') {
+      if (args.at(-1) === 'ci') {
         return options.dependencyInstallFails ? fail() : ok()
       }
-      if (command === 'npm') return options.refreshFails ? fail() : ok()
+      if (args.includes('refresh')) return options.refreshFails ? fail() : ok()
       const joined = args.join(' ')
       if (joined === 'rev-parse --show-toplevel') return ok(checkout)
       if (joined === 'check-ref-format --branch main') return ok('main')
@@ -175,6 +176,7 @@ test('detached start is single-flight while the app remains alive', async (t) =>
     ...repo,
     helperPath: '/app/canonical-updater.js',
     nodeExecutable: '/node',
+    npmCliPath: '/npm-cli.js',
     spawnDetached
   }
   assert.equal((await startCanonicalUpdate(options)).status, 'updating')
@@ -185,7 +187,11 @@ test('detached start is single-flight while the app remains alive', async (t) =>
   )
   assert.equal(spawns.length, 1)
   assert.equal(spawns[0]?.command, '/node')
-  assert.equal(spawns[0].args[0], '/app/canonical-updater.js')
+  assert.equal(spawns[0]?.args[0], '/app/canonical-updater.js')
+  assert.equal(spawns[0]?.args[1], '--canonical-update-helper')
+  assert.equal(spawns[0]?.args[2], repo.descriptorPath)
+  assert.match(spawns[0]?.args[3] || '', /^[a-f0-9]{48}$/)
+  assert.equal(spawns[0]?.args[4], '/npm-cli.js')
 })
 
 test('helper revalidates, fast-forwards exactly, and invokes managed refresh', async (t) => {
@@ -209,11 +215,11 @@ test('helper revalidates, fast-forwards exactly, and invokes managed refresh', a
     command === 'git' && args.join(' ') === 'merge --ff-only 2222222'
   ))
   assert(repo.commands.some(({ command, args }) =>
-    command === 'npm' && args.join(' ') === 'ci'
+    command === process.execPath && args.at(-1) === 'ci'
   ))
   assert(repo.commands.some(({ command, args }) =>
-    command === 'npm' &&
-    args.join(' ') === '--silent run markover -- canonical refresh'
+    command === process.execPath &&
+    args.slice(1).join(' ') === '--silent run markover -- canonical refresh'
   ))
 })
 
@@ -261,7 +267,7 @@ test('helper installs locked dependencies before managed refresh', async (t) => 
     error: 'DEPENDENCY_INSTALL_FAILED'
   })
   assert.equal(repo.commands.some(({ command, args }) => (
-    command === 'npm' && args.includes('refresh')
+    command === process.execPath && args.includes('refresh')
   )), false)
 })
 
@@ -300,7 +306,13 @@ test('a refresh-failure retry still launches helper after fast-forward', async (
     token,
     repo.runCommand
   )).status, 'completed')
-  assert.equal(repo.commands.filter(({ command }) => command === 'npm').length, 4)
+  assert.equal(repo.commands.filter(({ command }) => command === process.execPath).length, 4)
+})
+
+test('persisted helper failures map to concise retry guidance', () => {
+  assert.match(canonicalUpdateFailureDetail('FETCH_FAILED'), /network.*retry/i)
+  assert.match(canonicalUpdateFailureDetail('DEPENDENCY_INSTALL_FAILED'), /dependencies.*retry/i)
+  assert.match(canonicalUpdateFailureDetail('REFRESH_FAILED'), /refreshed.*retry/i)
 })
 
 test('start recovers a private lock and result owned by a dead process', async (t) => {

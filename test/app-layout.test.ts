@@ -34,7 +34,9 @@ async function fixture(t: TestContext): Promise<string> {
       version: '1.0.0',
       commit: null,
       dirty: false,
-      rendererSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      rendererSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      updateNodeExecutable: '/opt/toolchain/node',
+      updateNpmCliPath: '/opt/toolchain/npm-cli.js'
     })
   )
   await fs.writeFile(

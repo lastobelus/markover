@@ -40,6 +40,7 @@ import {
 } from './canonical-update-manifest'
 import {
   CanonicalUpdateError,
+  canonicalUpdateFailureDetail,
   readCanonicalUpdateAttempt,
   startCanonicalUpdate
 } from './canonical-updater'
@@ -318,6 +319,10 @@ let startupDiagnostic: StartupDiagnostic | null = null
 let startupBuildIdentity: BuildIdentity | null = null
 let startupInfo: StartupInfo | null = null
 let canonicalUpdateManifestRequest: Promise<CanonicalUpdateManifest | null> | null = null
+let canonicalUpdateToolchain: {
+  nodeExecutable: string
+  npmCliPath: string
+} | null = null
 let startupReady = false
 let rendererInitializationHandled = false
 let rendererStartupFailed = false
@@ -394,6 +399,13 @@ async function canonicalUpdateStatus(): Promise<CanonicalUpdateStatus> {
       pullRequests: []
     }
   }
+  if (attempt?.status === 'failed') {
+    return {
+      state: 'unavailable',
+      detail: canonicalUpdateFailureDetail(attempt.error),
+      pullRequests: []
+    }
+  }
   try {
     const manifest = await loadCanonicalUpdateManifest()
     if (!manifest) {
@@ -439,11 +451,18 @@ async function beginCanonicalUpdate(): Promise<CanonicalUpdateStartResult> {
   if (!canonicalUpdateEligible()) {
     return { status: 'rejected', detail: 'Canonical update is unavailable.' }
   }
+  if (!canonicalUpdateToolchain) {
+    return {
+      status: 'rejected',
+      detail: 'Canonical update requires a repaired canonical toolchain.'
+    }
+  }
   try {
     const attempt = await startCanonicalUpdate({
       descriptorPath: canonicalDescriptorPath(),
       helperEnvironment: process.env,
-      nodeExecutable: process.env.npm_node_execpath || 'node'
+      nodeExecutable: canonicalUpdateToolchain.nodeExecutable,
+      npmCliPath: canonicalUpdateToolchain.npmCliPath
     })
     return {
       status: 'accepted',
@@ -544,6 +563,17 @@ async function loadBuildIdentity(): Promise<BuildIdentity> {
   ) {
     throw new Error('Markover build identity is invalid.')
   }
+  canonicalUpdateToolchain = (
+    typeof value.updateNodeExecutable === 'string' &&
+    path.isAbsolute(value.updateNodeExecutable) &&
+    typeof value.updateNpmCliPath === 'string' &&
+    path.isAbsolute(value.updateNpmCliPath)
+  )
+    ? {
+        nodeExecutable: value.updateNodeExecutable,
+        npmCliPath: value.updateNpmCliPath
+      }
+    : null
   return {
     version: value.version,
     commit: value.commit,
