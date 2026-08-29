@@ -256,6 +256,117 @@ test('public surfaces inherit the current Ember Light visual roles', () => {
   }
 })
 
+test('every public page offers a persistent system-aware Ember appearance switch', () => {
+  const pages = [
+    ['index.html', html],
+    ['guide/index.html', guide],
+    ['agents/index.html', agents],
+    ['privacy/index.html', privacy],
+    ['limitations/index.html', limitations],
+    ['compatibility/index.html', compatibility],
+    ['remote-access/index.html', remoteAccess]
+  ] as const
+
+  for (const [relativePath, source] of pages) {
+    const document = new JSDOM(source).window.document
+    const groups = [...document.querySelectorAll<HTMLElement>('.theme-switcher')]
+    assert.equal(groups.length, relativePath === 'index.html' ? 1 : 2)
+    for (const group of groups) {
+      assert.equal(group.getAttribute('role'), 'group')
+      assert.equal(group.getAttribute('aria-label'), 'Appearance')
+      const buttons = [...group.querySelectorAll<HTMLButtonElement>('button')]
+      assert.deepEqual(buttons.map((button) => button.dataset.appearanceChoice), ['light', 'dark'])
+      assert.deepEqual(buttons.map((button) => button.getAttribute('aria-pressed')), ['false', 'false'])
+      assert.deepEqual(buttons.map((button) => button.querySelector('svg')?.getAttribute('aria-hidden')), ['true', 'true'])
+    }
+
+    const initializer = source.indexOf("localStorage.getItem('markover-pages-appearance')")
+    const stylesheet = source.indexOf('rel="stylesheet"')
+    assert.ok(initializer > -1 && initializer < stylesheet, `${relativePath} should resolve appearance before CSS`)
+    assert.match(source, /prefers-color-scheme: dark/)
+    assert.match(source, /appearance === 'dark' \? '#242221' : '#e8e2d8'/)
+    assert.match(source, relativePath === 'index.html'
+      ? /<script src="\.\/site\.js"><\/script>/
+      : /<script src="\.\.\/site\.js"><\/script>/)
+  }
+
+  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: #e5b8a8;[^}]*--brand-burgundy: #e5b8a8;[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #4a3a34;[^}]*--code: #0e0e0e;/)
+  assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
+  assert.match(styles, /\.theme-choice:focus-visible/)
+  assert.doesNotMatch(styles, /data-appearance="dark"[^}]*filter:/)
+
+  for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {
+    const light = fs.readFileSync(path.join(userDirectory, 'assets', `${name}.svg`), 'utf8')
+    const dark = fs.readFileSync(path.join(userDirectory, 'assets', `${name}-dark.svg`), 'utf8')
+    assert.equal(
+      dark,
+      light.replaceAll('#c94e1f', '#e5b8a8').replaceAll('#6d211f', '#dfdedd'),
+      `${name}-dark.svg should preserve canonical geometry and change only semantic inks`
+    )
+  }
+  assert.match(scriptSource, /appearance === 'dark' \? '-dark\.svg' : '\.svg'/)
+})
+
+test('the Pages appearance control applies and persists an explicit choice', () => {
+  const dom = new JSDOM(html, {
+    runScripts: 'outside-only',
+    url: 'https://example.test/'
+  })
+  const { document } = dom.window
+  Object.defineProperty(dom.window, 'matchMedia', {
+    value: () => ({
+      matches: false,
+      addEventListener: () => undefined
+    })
+  })
+  dom.window.localStorage.setItem('markover-pages-appearance', 'dark')
+  dom.window.eval(script)
+
+  assert.equal(document.documentElement.dataset.appearance, 'dark')
+  assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#242221')
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.getAttribute('aria-pressed'), 'true')
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype-dark\.svg$/)
+
+  const light = document.querySelector<HTMLButtonElement>('[data-appearance-choice="light"]')
+  assert.ok(light)
+  light.click()
+  assert.equal(dom.window.localStorage.getItem('markover-pages-appearance'), 'light')
+  assert.equal(document.documentElement.dataset.appearance, 'light')
+  assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#e8e2d8')
+  assert.equal(light.getAttribute('aria-pressed'), 'true')
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype\.svg$/)
+})
+
+test('the Pages appearance follows the system only until a user chooses', () => {
+  const dom = new JSDOM(html, {
+    runScripts: 'outside-only',
+    url: 'https://example.test/'
+  })
+  let changeListener: ((event: { matches: boolean }) => void) | undefined
+  Object.defineProperty(dom.window, 'matchMedia', {
+    value: () => ({
+      matches: true,
+      addEventListener: (
+        type: string,
+        listener: (event: { matches: boolean }) => void
+      ) => {
+        if (type === 'change') changeListener = listener
+      }
+    })
+  })
+  dom.window.localStorage.setItem('markover-pages-appearance', 'sepia')
+  dom.window.eval(script)
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'dark')
+
+  assert.ok(changeListener)
+  changeListener({ matches: false })
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'light')
+
+  dom.window.document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.click()
+  changeListener({ matches: false })
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'dark')
+})
+
 test('the Pages hero depicts the current App header and three-pane layout', () => {
   const document = new JSDOM(html).window.document
   const frame = document.querySelector('.product-frame')

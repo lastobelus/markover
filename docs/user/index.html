@@ -4,6 +4,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#e8e2d8">
+    <script>
+      (() => {
+        const root = document.documentElement
+        let appearance = null
+        try {
+          const stored = localStorage.getItem('markover-pages-appearance')
+          if (stored === 'light' || stored === 'dark') appearance = stored
+        } catch {}
+        if (!appearance) {
+          appearance = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+        }
+        root.dataset.appearance = appearance
+        root.style.colorScheme = appearance
+        document.querySelector('meta[name="theme-color"]')
+          ?.setAttribute('content', appearance === 'dark' ? '#242221' : '#e8e2d8')
+      })()
+    </script>
     <meta name="description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
     <title>Markover — Early macOS preview</title>
     <link rel="canonical" href="https://lastobelus.github.io/markover/">
@@ -37,6 +56,14 @@
         <a href="./privacy/">Privacy</a>
         <a href="./limitations/">Limitations</a>
         <a href="https://github.com/lastobelus/markover">GitHub</a>
+        <div class="theme-switcher" role="group" aria-label="Appearance">
+          <button class="theme-choice" type="button" data-appearance-choice="light" aria-label="Use light appearance" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+          </button>
+          <button class="theme-choice" type="button" data-appearance-choice="dark" aria-label="Use dark appearance" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.4 8.4 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>
+          </button>
+        </div>
         <a class="button button-small button-deep" href="./guide/#start">Try it</a>
       </nav>
     </header>

@@ -23,6 +23,21 @@
   background: var(--paper);
 }
 
+:root[data-appearance="dark"] {
+  color-scheme: dark;
+  --brand-orange: #e5b8a8;
+  --brand-burgundy: #e5b8a8;
+  --ink: #dfdedd;
+  --muted: #aaa8a6;
+  --ground: #242221;
+  --paper: #161514;
+  --neutral-soft: #110e0a;
+  --surface: #0b0808;
+  --line: #4a3a34;
+  --brand-soft: #2b2422;
+  --code: #0e0e0e;
+}
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--ground); }
@@ -56,6 +71,13 @@ a { color: inherit; text-underline-offset: .18em; }
 .site-nav { display: flex; align-items: center; gap: 25px; font-size: 14px; }
 .site-nav > a:not(.button) { text-decoration: none; }
 .site-nav > a:not(.button):hover { color: var(--brand-burgundy); }
+
+.theme-switcher { display: inline-flex; align-items: center; gap: 2px; }
+.theme-choice { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; }
+.theme-choice svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
+.theme-choice:hover { color: var(--ink); background: var(--surface); }
+.theme-choice[aria-pressed="true"] { color: var(--ink); background: var(--brand-soft); }
+.theme-choice:focus-visible { outline: 2px solid var(--brand-orange); outline-offset: 2px; }
 
 .button {
   display: inline-flex;
@@ -181,6 +203,8 @@ a { color: inherit; text-underline-offset: .18em; }
 .docs-nav a:hover { color: var(--ink); background: var(--ground); }
 .docs-nav a[aria-current="page"] { color: var(--brand-burgundy); background: var(--brand-soft); font-weight: 750; }
 .docs-github { margin-top: auto; color: var(--muted); font-size: 11px; }
+.docs-sidebar > .theme-switcher { margin-top: auto; }
+.docs-sidebar > .theme-switcher + .docs-github { margin-top: 14px; }
 .docs-mobile-header { display: none; }
 .docs-content { width: min(780px, calc(100% - 64px)); margin: 0 auto; padding: 86px 0 130px; }
 .docs-content > h1 { margin: 14px 0 0; font-size: clamp(46px, 6vw, 68px); line-height: 1; letter-spacing: -.05em; }
@@ -216,9 +240,11 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
 }
 
 @media (max-width: 720px) {
-  .site-header { width: min(100% - 32px, 1180px); min-height: 74px; }
+  .site-header { width: min(100% - 32px, 1180px); min-height: 74px; gap: 8px; }
+  .site-brand { gap: 6px; }
   .site-brand .brand-mark { width: 32px; }
   .site-brand .brand-logotype { width: 120px; }
+  .site-nav { gap: 4px; }
   .site-nav > a:not(.button) { display: none; }
   .hero, .demo-section, .feature-grid, .workflow, .site-footer { width: min(100% - 32px, 1180px); }
   .hero { padding: 55px 0 76px; gap: 52px; }
@@ -250,10 +276,40 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
   .docs-mobile-header { min-height: 66px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: var(--neutral-soft); }
   .docs-mobile-header a { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 750; text-decoration: none; }
   .docs-mobile-header img { width: 29px; }
+  .docs-mobile-actions { display: flex; align-items: center; gap: 8px; }
+  .docs-mobile-actions .theme-choice { width: 32px; height: 32px; }
   .docs-content { width: min(100% - 36px, 780px); padding: 56px 0 90px; }
   .docs-lede { margin-bottom: 44px; font-size: 17px; }
 }
 
+@media (max-width: 360px) {
+  .site-brand .brand-mark { width: 26px; }
+  .site-brand .brand-logotype { width: 92px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+}
+
+:root[data-appearance="dark"] .product-frame {
+  box-shadow: 0 28px 60px rgb(0 0 0 / 38%);
+}
+
+:root[data-appearance="dark"] .product-preview-trigger:hover .product-frame {
+  box-shadow: 0 32px 68px rgb(0 0 0 / 48%);
+}
+
+:root[data-appearance="dark"] .preview-invitation {
+  border-color: rgb(229 184 168 / 24%);
+  color: var(--ink);
+  background: rgb(41 33 30 / 94%);
+  box-shadow: 0 5px 18px rgb(0 0 0 / 30%);
+}
+
+:root[data-appearance="dark"] .button-deep:hover {
+  background: #f1cabc;
+}
+
+:root[data-appearance="dark"] .gallery-position {
+  color: rgb(22 21 20 / 72%);
 }
