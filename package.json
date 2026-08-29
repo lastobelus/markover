@@ -10,6 +10,7 @@
   "scripts": {
     "build": "npm run clean && tsc -p tsconfig.build.json && node build/scripts/copy-build-assets.js && node build/scripts/build-app.js",
     "build:icon:mac": "npm run build --silent && node build/scripts/build-macos-icon.js",
+    "build:launch-art": "npm run build --silent && node build/scripts/build-launch-art.js",
     "build:cli": "npm run build --silent && node build/scripts/build-cli.js",
     "capture:cli": "npm run build --silent && node build/scripts/capture-cli.js",
     "capture:demo": "npm run build --silent && node build/scripts/capture-demo.js",

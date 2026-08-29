@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">Markover — Structured review for Markdown</title>
+  <desc id="description">Ember Light repository preview for Markover.</desc>
+  <rect width="1280" height="640" fill="#e8e2d8"/>
+  <rect x="84" y="78" width="1112" height="484" rx="34" fill="#f7f4ee" stroke="#ddd5cc" stroke-width="2"/>
+  <image href="../../../design/brand/markover-lockup.svg" x="164" y="176" width="760" height="170" preserveAspectRatio="xMinYMid meet"/>
+  <text x="168" y="408" fill="#6d211f" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif" font-size="42" font-weight="650">Structured review for Markdown.</text>
+  <text x="168" y="474" fill="#6f6761" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace" font-size="24">Local-first · macOS · early preview</text>
+  <rect x="1072" y="174" width="12" height="298" rx="6" fill="#c94e1f"/>
+</svg>

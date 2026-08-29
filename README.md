@@ -15,10 +15,12 @@
 </p>
 
 Markover is an **Early macOS preview** for reviewing Markdown as a document
-tree and returning block-level feedback to an agent.
+tree and returning block-level feedback to an agent. It is free and
+MIT-licensed, requires no account, and keeps ordinary review data in your
+macOS account.
 
 <p align="center">
-  <img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover in Ember Light showing the review inbox, a launch brief in the center document tree, and precise feedback with two labeled attachments.">
+  <a href="https://lastobelus.github.io/markover/#demo"><img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover in Ember Light showing the review inbox, a launch brief in the center document tree, and precise feedback with two labeled attachments."></a>
 </p>
 
 ## Features
@@ -63,6 +65,9 @@ npx --yes \
   markover open ./DOCUMENT.md \
   --summary "Explain why this document exists and what feedback would help."
 ```
+
+The public npm package named `markover` is unrelated to this project. Use the
+exact GitHub release-package URL above.
 
 The command downloads the Apple Silicon app on first use. Native Intel releases
 are deferred to the Broad announcement roadmap in

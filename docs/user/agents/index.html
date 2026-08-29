@@ -6,6 +6,22 @@
     <meta name="theme-color" content="#e8e2d8">
     <meta name="description" content="Exact open, get, edit, and interpretation guidance for agents using Markover.">
     <title>For agents — Markover documentation</title>
+    <link rel="canonical" href="https://lastobelus.github.io/markover/agents/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Markover">
+    <meta property="og:title" content="For agents — Markover documentation">
+    <meta property="og:description" content="Exact open, get, edit, and interpretation guidance for agents using Markover.">
+    <meta property="og:url" content="https://lastobelus.github.io/markover/agents/">
+    <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="For agents — Markover documentation">
+    <meta name="twitter:description" content="Exact open, get, edit, and interpretation guidance for agents using Markover.">
+    <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../styles.css">
   </head>
@@ -21,6 +37,7 @@
         <p>Agents</p>
         <a href="#overview" aria-current="page">Agent workflow</a>
         <a href="#open">Open a review</a>
+        <a href="#identity-examples">Identity examples</a>
         <a href="#wait">Wait for the reviewer</a>
         <a href="#get">Retrieve the handoff</a>
         <a href="#format">Validate the format</a>
@@ -65,6 +82,30 @@
         <p>Give the reviewer all three opening aids: a best-effort <code>[Open in Markover](&lt;reviewUrl&gt;)</code> link, the raw review ID, and this Terminal fallback alone on its own line:</p>
         <pre><code>open 'markover://review/mko_8f3a2c'</code></pre>
         <p>Custom-scheme links work through macOS, but thread-hosts including T3 Code and the Codex app may strip or decline them. The standalone command is the reliable handoff.</p>
+      </section>
+
+      <section id="identity-examples">
+        <h2>Use the identity your agent can actually observe</h2>
+        <p>These routes are supported when their environment variable is present and nonblank. Keep the thread host and model provider as separate facts, use the local machine name, and omit any host-owned thread ID you cannot observe.</p>
+        <h3>T3 Code with Codex</h3>
+        <pre><code>npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover open ./DOCUMENT.md \
+  --summary "Review these decisions before implementation." \
+  --thread-id "$CODEX_THREAD_ID" \
+  --thread-host-kind t3code \
+  --thread-host-provider codex \
+  --thread-host-machine "$(hostname)"</code></pre>
+        <h3>Claude Code with Claude</h3>
+        <pre><code>npx --yes \
+  --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
+  markover open ./DOCUMENT.md \
+  --summary "Review these decisions before implementation." \
+  --thread-id "$CLAUDE_CODE_SESSION_ID" \
+  --thread-host-kind claude \
+  --thread-host-provider claude \
+  --thread-host-machine "$(hostname)"</code></pre>
+        <p>When neither exact identifier is available, generate a fresh high-entropy <code>--handoff-key</code> for that one review instead of inventing thread metadata.</p>
       </section>
 
       <section id="wait">
