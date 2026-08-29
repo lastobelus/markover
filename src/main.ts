@@ -470,6 +470,7 @@ async function beginCanonicalUpdate(): Promise<CanonicalUpdateStartResult> {
     const attempt = await startCanonicalUpdate({
       descriptorPath: canonicalDescriptorPath(),
       helperEnvironment: process.env,
+      helperPath: path.join(__dirname, 'canonical-updater.js'),
       nodeExecutable: canonicalUpdateToolchain.nodeExecutable,
       npmCliPath: canonicalUpdateToolchain.npmCliPath
     })
