@@ -244,6 +244,35 @@ async function runCaptured(executable, args) {
   })
 }
 
+async function prepareCheckout() {
+  const steps = [
+    {
+      executable: './scripts/setup-worktree.sh',
+      args: [],
+      failure: 'Worktree setup'
+    },
+    {
+      executable: './node_modules/.bin/install-electron',
+      args: ['--no'],
+      failure: 'Electron setup'
+    }
+  ]
+  let output = ''
+  for (const step of steps) {
+    const result = await runCaptured(step.executable, step.args)
+    output += result.output
+    if (result.error || result.code !== 0) {
+      return {
+        ...result,
+        output,
+        detail: result.error?.message ||
+          `${step.failure} exited with ${result.signal || String(result.code)}.`
+      }
+    }
+  }
+  return { code: 0, signal: null, output, error: null, detail: null }
+}
+
 async function readLog(filePath) {
   try {
     return await fsp.readFile(filePath, 'utf8')
@@ -376,13 +405,12 @@ async function main(args = process.argv.slice(2)) {
     }
   }
 
-  const setup = await runCaptured('./scripts/setup-worktree.sh', [])
+  const setup = await prepareCheckout()
   if (setup.error || setup.code !== 0) {
     printSummary(summary(context, {
       outcome: 'startup-failed',
       stage: 'setup',
-      detail: setup.error?.message ||
-        `Worktree setup exited with ${setup.signal || String(setup.code)}.`,
+      detail: setup.detail,
       tail: boundedTail(setup.output)
     }))
     return 1
@@ -427,6 +455,7 @@ module.exports = {
   outcomeFromState,
   parseArguments,
   pathsFor,
+  prepareCheckout,
   stateMatches,
   summary,
   waitForWatcher

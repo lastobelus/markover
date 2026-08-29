@@ -24,6 +24,11 @@ interface ActionModule {
     root: string
     state: string
   }
+  prepareCheckout: () => Promise<{
+    code: number | null
+    detail: string | null
+    output: string
+  }>
   stateMatches: (
     state: Record<string, unknown>,
     expected: Record<string, unknown>
@@ -218,6 +223,15 @@ test('invalid setup arguments exit with one classified final summary', () => {
     { outcome: value.outcome, stage: value.stage },
     { outcome: 'startup-failed', stage: 'setup' }
   )
+})
+
+test('setup prepares the checkout-pinned Electron runtime', async () => {
+  const result = await action.prepareCheckout()
+  assert.equal(result.code, 0, result.detail ?? result.output)
+  await fs.access(path.resolve(
+    __dirname,
+    '../../node_modules/electron/dist/LICENSES.chromium.html'
+  ))
 })
 
 test('watch wait classifies process exit and timeout', async (t) => {
