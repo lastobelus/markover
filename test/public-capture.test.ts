@@ -118,7 +118,7 @@ async function captureFixture(t: test.TestContext): Promise<{
     checkout: root,
     generatedAt: new Date('2026-08-29T12:00:00.000Z'),
     root: captureRoot,
-    serviceRunning: async () => false,
+    serviceRunning: () => Promise.resolve(false),
     source: { commit: 'a'.repeat(40), dirty: false }
   })
   return { root: captureRoot, prepared }
@@ -225,7 +225,7 @@ test('capture fixture is deterministic, populated, and ready for the four media 
     checkout: root,
     generatedAt: new Date('2026-08-29T12:00:00.000Z'),
     root: first.root,
-    serviceRunning: async () => false,
+    serviceRunning: () => Promise.resolve(false),
     source: { commit: 'a'.repeat(40), dirty: false }
   })
   const resetStore = new ReviewStore(path.join(first.root, 'reviews'))
@@ -234,7 +234,7 @@ test('capture fixture is deterministic, populated, and ready for the four media 
   ))
   const resetSettings = await new SettingsStore(path.join(first.root, 'settings.json')).read()
   const resetWorkspace = await new WorkspaceStore(path.join(first.root, 'workspace.json')).load()
-  const resetReceipt = JSON.parse(await fsp.readFile(
+  const resetReceipt: unknown = JSON.parse(await fsp.readFile(
     path.join(first.root, 'session.json'),
     'utf8'
   ))
@@ -255,7 +255,7 @@ test('capture reset requires its exact marker and a stopped service', async (t) 
   await assert.rejects(prepareCaptureState({
     checkout: root,
     root: captureRoot,
-    serviceRunning: async () => false,
+    serviceRunning: () => Promise.resolve(false),
     source: { commit: 'b'.repeat(40), dirty: false }
   }), /unrecognized capture root/)
   assert.equal(fs.existsSync(path.join(captureRoot, 'keep.txt')), true)
@@ -264,14 +264,14 @@ test('capture reset requires its exact marker and a stopped service', async (t) 
   const first = await prepareCaptureState({
     checkout: root,
     root: captureRoot,
-    serviceRunning: async () => false,
+    serviceRunning: () => Promise.resolve(false),
     source: { commit: 'b'.repeat(40), dirty: false }
   })
   assert.equal(fs.existsSync(path.join(captureRoot, CAPTURE_ROOT_MARKER)), true)
   await assert.rejects(prepareCaptureState({
     checkout: root,
     root: captureRoot,
-    serviceRunning: async () => true,
+    serviceRunning: () => Promise.resolve(true),
     source: { commit: 'b'.repeat(40), dirty: false }
   }), /capture instance is running/)
   assert.equal(first.receipt.commit, 'b'.repeat(40))

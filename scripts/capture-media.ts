@@ -267,10 +267,11 @@ function attachmentSvg(title: string, accent: string, detail: string): Buffer {
 }
 
 function nodeByText(tree: ReviewTree, text: string): ReviewNode {
-  let match: ReviewNode | null = null
+  const matches: ReviewNode[] = []
   visitNodes(tree.root, (node) => {
-    if (!match && node.text.includes(text)) match = node
+    if (node.text.includes(text)) matches.push(node)
   })
+  const match = matches[0]
   if (!match) throw new Error(`Capture fixture node not found: ${text}`)
   return match
 }
@@ -749,7 +750,11 @@ export function captureLaunchEnvironment(
     [SUPPRESS_PROTOCOL_REGISTRATION_ENVIRONMENT]: '1'
   }
   delete childEnvironment.ELECTRON_RUN_AS_NODE
-  for (const key of sessionEnvironmentKeys) delete childEnvironment[key]
+  delete childEnvironment.CLAUDE_CODE_SESSION_ID
+  delete childEnvironment.CLAUDE_SESSION_ID
+  delete childEnvironment.CODEX_THREAD_ID
+  delete childEnvironment.T3CODE_THREAD_ID
+  delete childEnvironment.T3_THREAD_ID
   return childEnvironment
 }
 

@@ -8,14 +8,6 @@ import {
 import { main as markoverMain } from './markover'
 import { probeService } from '../src/local-client'
 
-const sessionEnvironmentKeys = [
-  'CLAUDE_CODE_SESSION_ID',
-  'CLAUDE_SESSION_ID',
-  'CODEX_THREAD_ID',
-  'T3CODE_THREAD_ID',
-  'T3_THREAD_ID'
-] as const
-
 async function requireCaptureService(): Promise<void> {
   const endpointPath = path.join(CAPTURE_ROOT, 'service.json')
   try {
@@ -26,7 +18,11 @@ async function requireCaptureService(): Promise<void> {
 }
 
 async function main(args = process.argv.slice(2)): Promise<void> {
-  for (const key of sessionEnvironmentKeys) delete process.env[key]
+  delete process.env.CLAUDE_CODE_SESSION_ID
+  delete process.env.CLAUDE_SESSION_ID
+  delete process.env.CODEX_THREAD_ID
+  delete process.env.T3CODE_THREAD_ID
+  delete process.env.T3_THREAD_ID
   process.env.MARKOVER_INVOCATION = 'npm --silent run capture:cli --'
   await Promise.all([
     import('node:fs/promises').then(({ access }) => access(path.join(
@@ -43,7 +39,7 @@ async function main(args = process.argv.slice(2)): Promise<void> {
   await markoverMain(args, {
     endpointPath: path.join(CAPTURE_ROOT, 'service.json'),
     ensure: requireCaptureService,
-    loadRemoteProfile: async () => null,
+    loadRemoteProfile: () => Promise.resolve(null),
     settingsPath: path.join(CAPTURE_ROOT, 'settings.json')
   })
 }
