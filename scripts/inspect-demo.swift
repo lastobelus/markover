@@ -39,7 +39,8 @@ for seconds in checkpoints where seconds < durationSeconds {
     at: CMTime(seconds: seconds, preferredTimescale: 600),
     actualTime: nil
   )
-  let name = String(format: "checkpoint-%05.1f.png", seconds).replacingOccurrences(of: ".", with: "-")
+  let stamp = String(format: "%05.1f", seconds).replacingOccurrences(of: ".", with: "-")
+  let name = "checkpoint-\(stamp).png"
   let url = outputDirectory.appendingPathComponent(name)
   guard let destination = CGImageDestinationCreateWithURL(
     url as CFURL,
