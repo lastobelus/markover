@@ -463,10 +463,12 @@ async function canonicalUpdateStatus(): Promise<CanonicalUpdateStatus> {
         pullRequests: []
       }
     }
+    const visibleChangelist = changelist.slice(-50)
+    const omittedCount = changelist.length - visibleChangelist.length
     return {
       state: 'available',
-      detail: `${String(changelist.length)} merged pull request${changelist.length === 1 ? '' : 's'} available.`,
-      pullRequests: changelist.slice(-50).map(({ number, title }) => ({
+      detail: `${String(changelist.length)} merged pull request${changelist.length === 1 ? '' : 's'} available.${omittedCount > 0 ? ` Showing the latest 50; ${String(omittedCount)} earlier ${omittedCount === 1 ? 'change is' : 'changes are'} omitted.` : ''}`,
+      pullRequests: visibleChangelist.map(({ number, title }) => ({
         number,
         title
       }))

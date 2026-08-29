@@ -2905,13 +2905,11 @@ elements.canonicalUpdateButton.addEventListener('click', () => {
   void (async () => {
     if (
       canonicalUpdateStatus.state !== 'available' &&
-      canonicalUpdateStatus.state !== 'unavailable'
+      canonicalUpdateStatus.state !== 'unavailable' &&
+      canonicalUpdateStatus.state !== 'unknown'
     ) {
       await refreshCanonicalUpdateStatus()
-      if (
-        canonicalUpdateStatus.state === 'current' ||
-        canonicalUpdateStatus.state === 'unknown'
-      ) {
+      if (canonicalUpdateStatus.state === 'current') {
         scheduleCanonicalUpdateCacheRecheck()
       }
       return
