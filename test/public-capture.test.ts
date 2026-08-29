@@ -13,6 +13,7 @@ import {
   captureSource,
   prepareCaptureState
 } from '../scripts/capture-media'
+import { pngWithDensity, screenshotSpec } from '../scripts/capture-stills'
 import {
   addressedDevelopmentBundle
 } from '../scripts/development-bundle'
@@ -105,6 +106,36 @@ test('public capture contract fixes the isolated Ember Light staging boundary', 
   assert.equal(capture.fixture.repositories.every((repository) => (
     repository.startsWith('https://github.com/markover-demo/')
   )), true)
+})
+
+test('still capture preserves the exact Pages PNG dimensions and density contract', () => {
+  const source = fs.readFileSync(path.join(
+    root,
+    'docs',
+    'user',
+    'assets',
+    'markover-review-editor@2x.png'
+  ))
+  const output = pngWithDensity(source)
+  assert.deepEqual(screenshotSpec(output), {
+    width: 2360,
+    height: 1520,
+    colorType: 2,
+    pixelsPerMetreX: 5669,
+    pixelsPerMetreY: 5669,
+    unit: 1
+  })
+})
+
+test('still automation is opt-in, loopback-only, and scoped to the capture app', () => {
+  const source = fs.readFileSync(path.join(root, 'scripts', 'capture-stills.ts'), 'utf8')
+  assert.match(source, /prepareCaptureState\(\{ checkout, source \}\)/)
+  assert.match(source, /--remote-debugging-address=127\.0\.0\.1/)
+  assert.match(source, /markover-internal:\/\/app\/src\/index\.html/)
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(root, 'src', 'main.ts'), 'utf8'),
+    /remote-debugging/
+  )
 })
 
 async function captureFixture(t: test.TestContext): Promise<{
