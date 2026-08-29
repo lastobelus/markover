@@ -7,9 +7,36 @@ import test from 'node:test'
 import {
   CanonicalUpdateError,
   inspectCanonicalUpdate,
+  readCanonicalUpdateAttempt,
   runCanonicalUpdateHelper,
   startCanonicalUpdate
 } from '../src/canonical-updater'
+
+class FakeDetachedChild {
+  readonly pid = 123
+
+  constructor(private readonly spawnError: Error | null = null) {}
+
+  once(event: 'spawn', listener: () => void): this
+  once(event: 'error', listener: (error: Error) => void): this
+  once(
+    event: 'spawn' | 'error',
+    listener: (() => void) | ((error: Error) => void)
+  ): this {
+    if (event === 'spawn' && !this.spawnError) {
+      queueMicrotask(listener as () => void)
+    }
+    const spawnError = this.spawnError
+    if (event === 'error' && spawnError) {
+      queueMicrotask(() => {
+        listener(spawnError)
+      })
+    }
+    return this
+  }
+
+  unref(): void {}
+}
 
 interface FakeResult {
   status: number
@@ -138,11 +165,7 @@ test('detached start is single-flight while the app remains alive', async (t) =>
   const spawns: Array<{ command: string; args: readonly string[] }> = []
   const spawnDetached = (command: string, args: readonly string[]) => {
     spawns.push({ command, args })
-    return {
-      pid: 123,
-      once() { return this },
-      unref() {}
-    }
+    return new FakeDetachedChild()
   }
   const options = {
     ...repo,
@@ -168,10 +191,7 @@ test('helper revalidates, fast-forwards exactly, and invokes managed refresh', a
     ...repo,
     spawnDetached(_command, args) {
       token = args[3] || ''
-      return {
-        once() { return this },
-        unref() {}
-      }
+      return new FakeDetachedChild()
     }
   })
   assert(token)
@@ -197,10 +217,7 @@ test('helper persists only a strict error code when refresh fails', async (t) =>
     ...repo,
     spawnDetached(_command, args) {
       token = args[3] || ''
-      return {
-        once() { return this },
-        unref() {}
-      }
+      return new FakeDetachedChild()
     }
   })
   const result = await runCanonicalUpdateHelper(
@@ -214,4 +231,108 @@ test('helper persists only a strict error code when refresh fails', async (t) =>
     status: 'failed',
     error: 'REFRESH_FAILED'
   })
+})
+
+test('start accepts after local preflight without fetching remote state', async (t) => {
+  const repo = await fixture(t)
+  await startCanonicalUpdate({
+    ...repo,
+    spawnDetached() { return new FakeDetachedChild() }
+  })
+  assert.equal(repo.commands.some(({ args }) => args[0] === 'fetch'), false)
+  assert.equal(repo.commands.some(({ args }) => args.includes('FETCH_HEAD')), false)
+})
+
+test('a refresh-failure retry still launches helper after fast-forward', async (t) => {
+  const mutable: FakeRepositoryOptions = { behind: 2, refreshFails: true }
+  const repo = await fixture(t, mutable)
+  let token = ''
+  const spawnDetached = (_command: string, args: readonly string[]) => {
+    token = args[3] || ''
+    return new FakeDetachedChild()
+  }
+  await startCanonicalUpdate({ ...repo, spawnDetached })
+  assert.equal((await runCanonicalUpdateHelper(
+    repo.descriptorPath,
+    token,
+    repo.runCommand
+  )).status, 'failed')
+
+  mutable.behind = 0
+  mutable.refreshFails = false
+  token = ''
+  await startCanonicalUpdate({ ...repo, spawnDetached })
+  assert(token)
+  assert.equal((await runCanonicalUpdateHelper(
+    repo.descriptorPath,
+    token,
+    repo.runCommand
+  )).status, 'completed')
+  assert.equal(repo.commands.filter(({ command }) => command === 'npm').length, 2)
+})
+
+test('start recovers a private lock and result owned by a dead process', async (t) => {
+  const repo = await fixture(t)
+  const stateRoot = path.dirname(repo.descriptorPath)
+  await fs.writeFile(
+    path.join(stateRoot, 'canonical-update.lock'),
+    JSON.stringify({ version: 1, token: 'orphan', pid: 999 })
+  )
+  await fs.writeFile(
+    path.join(stateRoot, 'canonical-update.json'),
+    JSON.stringify({
+      format: 'markover-canonical-update-attempt',
+      version: 1,
+      status: 'updating'
+    })
+  )
+  assert.equal(await readCanonicalUpdateAttempt(
+    repo.descriptorPath,
+    () => false
+  ), null)
+  await fs.writeFile(
+    path.join(stateRoot, 'canonical-update.lock'),
+    JSON.stringify({ version: 1, token: 'orphan', pid: 999 })
+  )
+  await fs.writeFile(
+    path.join(stateRoot, 'canonical-update.json'),
+    JSON.stringify({
+      format: 'markover-canonical-update-attempt',
+      version: 1,
+      status: 'updating'
+    })
+  )
+  assert.equal((await startCanonicalUpdate({
+    ...repo,
+    processIsAlive: () => false,
+    spawnDetached() { return new FakeDetachedChild() }
+  })).status, 'updating')
+})
+
+test('start rejects an asynchronous helper spawn failure before acceptance', async (t) => {
+  const repo = await fixture(t)
+  await assert.rejects(
+    startCanonicalUpdate({
+      ...repo,
+      spawnDetached() {
+        return new FakeDetachedChild(new Error('private spawn detail'))
+      }
+    }),
+    (error: unknown) => error instanceof CanonicalUpdateError &&
+      error.code === 'HELPER_START_FAILED' &&
+      !error.message.includes('private spawn detail')
+  )
+  assert.deepEqual(await readCanonicalUpdateAttempt(repo.descriptorPath), {
+    format: 'markover-canonical-update-attempt',
+    version: 1,
+    status: 'failed',
+    error: 'HELPER_START_FAILED'
+  })
+  await fs.access(path.join(
+    path.dirname(repo.descriptorPath),
+    'canonical-update.lock'
+  )).then(
+    () => assert.fail('spawn failure retained its lock'),
+    () => {}
+  )
 })

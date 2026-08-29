@@ -442,18 +442,15 @@ async function beginCanonicalUpdate(): Promise<CanonicalUpdateStartResult> {
   try {
     const attempt = await startCanonicalUpdate({
       descriptorPath: canonicalDescriptorPath(),
-      helperEnvironment: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-      nodeExecutable: process.execPath
+      helperEnvironment: process.env,
+      nodeExecutable: process.env.npm_node_execpath || 'node'
     })
-    return attempt.status === 'updating'
-      ? {
-          status: 'accepted',
-          detail: 'Markover is updating and will reopen when the refresh completes.'
-        }
-      : {
-          status: 'rejected',
-          detail: 'The canonical app is already up to date.'
-        }
+    return {
+      status: 'accepted',
+      detail: attempt.status === 'updating'
+        ? 'Markover is updating and will reopen when the refresh completes.'
+        : 'Markover accepted the canonical update.'
+    }
   } catch (error) {
     return {
       status: 'rejected',

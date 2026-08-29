@@ -92,6 +92,7 @@ type CommandRunner = (
 
 interface DetachedChild {
   pid?: number | undefined
+  once(event: 'spawn', listener: () => void): DetachedChild
   once(event: 'error', listener: (error: Error) => void): DetachedChild
   unref(): void
 }
@@ -115,10 +116,15 @@ export interface StartCanonicalUpdateOptions extends CanonicalUpdateOptions {
   helperEnvironment?: NodeJS.ProcessEnv
   helperPath?: string
   nodeExecutable?: string
+  processIsAlive?: (pid: number) => boolean
   spawnDetached?: DetachedSpawner
 }
 
-interface ValidatedCheckout {
+interface ValidatedLocalCheckout {
+  descriptor: CanonicalInstanceDescriptor
+}
+
+interface ValidatedFetchedCheckout extends ValidatedLocalCheckout {
   descriptor: CanonicalInstanceDescriptor
   remoteHead: string
   commitsBehind: number
@@ -179,11 +185,10 @@ async function readDescriptor(
   return descriptor
 }
 
-async function validateCheckout(
+async function validateLocalCheckout(
   descriptorPath: string,
-  runCommand: CommandRunner,
-  fetch: boolean
-): Promise<ValidatedCheckout> {
+  runCommand: CommandRunner
+): Promise<ValidatedLocalCheckout> {
   const descriptor = await readDescriptor(descriptorPath)
   let checkout: string
   try {
@@ -242,23 +247,30 @@ async function validateCheckout(
       'The canonical checkout does not use the official origin.'
     )
   }
-  if (fetch) {
-    const fetched = command(
-      checkout,
-      [
-        'fetch',
-        '--no-tags',
-        'origin',
-        `refs/heads/${descriptor.blessedBranch}`
-      ],
-      runCommand
+  return { descriptor: { ...descriptor, checkout } }
+}
+
+function fetchCanonicalState(
+  local: ValidatedLocalCheckout,
+  runCommand: CommandRunner
+): ValidatedFetchedCheckout {
+  const { descriptor } = local
+  const checkout = descriptor.checkout
+  const fetched = command(
+    checkout,
+    [
+      'fetch',
+      '--no-tags',
+      'origin',
+      `refs/heads/${descriptor.blessedBranch}`
+    ],
+    runCommand
+  )
+  if (!successful(fetched)) {
+    throw new CanonicalUpdateError(
+      'FETCH_FAILED',
+      'Markover could not check the official canonical branch.'
     )
-    if (!successful(fetched)) {
-      throw new CanonicalUpdateError(
-        'FETCH_FAILED',
-        'Markover could not check the official canonical branch.'
-      )
-    }
   }
   const head = command(checkout, ['rev-parse', 'HEAD'], runCommand)
   const remoteHead = command(checkout, ['rev-parse', 'FETCH_HEAD'], runCommand)
@@ -292,7 +304,7 @@ async function validateCheckout(
     )
   }
   return {
-    descriptor: { ...descriptor, checkout },
+    descriptor,
     remoteHead: output(remoteHead),
     commitsBehind
   }
@@ -302,7 +314,8 @@ export async function inspectCanonicalUpdate({
   descriptorPath = canonicalDescriptorPath(),
   runCommand = spawnSync
 }: CanonicalUpdateOptions = {}): Promise<CanonicalUpdateInspection> {
-  const checkout = await validateCheckout(descriptorPath, runCommand, true)
+  const local = await validateLocalCheckout(descriptorPath, runCommand)
+  const checkout = fetchCanonicalState(local, runCommand)
   return {
     format: 'markover-canonical-update-inspection',
     version: 1,
@@ -345,14 +358,26 @@ async function writePrivateJson(filePath: string, value: unknown): Promise<void>
   }
 }
 
-async function acquireLock(lockPath: string): Promise<UpdateLock> {
+function defaultProcessIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return Reflect.get(error as object, 'code') === 'EPERM'
+  }
+}
+
+async function acquireLock(
+  paths: { lock: string; result: string },
+  processIsAlive: (pid: number) => boolean
+): Promise<UpdateLock> {
   const lock = {
     version: 1 as const,
     token: randomBytes(24).toString('hex'),
     pid: process.pid
   }
   try {
-    await fs.writeFile(lockPath, `${JSON.stringify(lock)}\n`, {
+    await fs.writeFile(paths.lock, `${JSON.stringify(lock)}\n`, {
       encoding: 'utf8',
       flag: 'wx',
       mode: 0o600
@@ -361,10 +386,36 @@ async function acquireLock(lockPath: string): Promise<UpdateLock> {
   } catch (error) {
     if (Reflect.get(error as object, 'code') !== 'EEXIST') throw error
   }
-  throw new CanonicalUpdateError(
-    'UPDATE_IN_PROGRESS',
-    'A canonical update is already in progress.'
-  )
+  const existing = await (async () => {
+    try {
+      return parseLock(JSON.parse(
+        await fs.readFile(paths.lock, 'utf8')
+      ) as unknown)
+    } catch {
+      return null
+    }
+  })()
+  if (existing && processIsAlive(existing.pid)) {
+    throw new CanonicalUpdateError(
+      'UPDATE_IN_PROGRESS',
+      'A canonical update is already in progress.'
+    )
+  }
+  await fs.unlink(paths.lock).catch(() => {})
+  await fs.unlink(paths.result).catch(() => {})
+  try {
+    await fs.writeFile(paths.lock, `${JSON.stringify(lock)}\n`, {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: 0o600
+    })
+    return lock
+  } catch {
+    throw new CanonicalUpdateError(
+      'UPDATE_IN_PROGRESS',
+      'A canonical update is already in progress.'
+    )
+  }
 }
 
 async function releaseOwnedLock(lockPath: string, token: string): Promise<void> {
@@ -381,26 +432,20 @@ export async function startCanonicalUpdate({
   helperEnvironment = process.env,
   helperPath,
   nodeExecutable = 'node',
+  processIsAlive = defaultProcessIsAlive,
   spawnDetached = spawn,
   runCommand = spawnSync
 }: StartCanonicalUpdateOptions = {}): Promise<CanonicalUpdateAttempt> {
-  const inspection = await validateCheckout(descriptorPath, runCommand, true)
-  if (inspection.commitsBehind === 0) {
-    return {
-      format: 'markover-canonical-update-attempt',
-      version: 1,
-      status: 'completed'
-    }
-  }
+  const local = await validateLocalCheckout(descriptorPath, runCommand)
   const paths = updateStatePaths(descriptorPath)
   const selectedHelperPath = helperPath || path.join(
-    inspection.descriptor.checkout,
+    local.descriptor.checkout,
     'build',
     'src',
     'canonical-updater.js'
   )
   await fs.mkdir(path.dirname(paths.lock), { recursive: true, mode: 0o700 })
-  const lock = await acquireLock(paths.lock)
+  const lock = await acquireLock(paths, processIsAlive)
   const updating: CanonicalUpdateAttempt = {
     format: 'markover-canonical-update-attempt',
     version: 1,
@@ -417,19 +462,19 @@ export async function startCanonicalUpdate({
         stdio: 'ignore'
       }
     )
-    child.once('error', () => {
-      const failed: CanonicalUpdateAttempt = {
-        format: 'markover-canonical-update-attempt',
-        version: 1,
-        status: 'failed',
-        error: 'HELPER_START_FAILED'
-      }
-      void writePrivateJson(paths.result, failed).finally(() =>
-        releaseOwnedLock(paths.lock, lock.token)
-      )
+    await new Promise<void>((resolve, reject) => {
+      child.once('spawn', resolve)
+      child.once('error', reject)
     })
     child.unref()
   } catch {
+    const failed: CanonicalUpdateAttempt = {
+      format: 'markover-canonical-update-attempt',
+      version: 1,
+      status: 'failed',
+      error: 'HELPER_START_FAILED'
+    }
+    await writePrivateJson(paths.result, failed).catch(() => {})
     await releaseOwnedLock(paths.lock, lock.token)
     throw new CanonicalUpdateError(
       'HELPER_START_FAILED',
@@ -473,7 +518,8 @@ export async function runCanonicalUpdateHelper(
   const paths = updateStatePaths(descriptorPath)
   try {
     await claimHelperLock(paths.lock, token)
-    const checkout = await validateCheckout(descriptorPath, runCommand, true)
+    const local = await validateLocalCheckout(descriptorPath, runCommand)
+    const checkout = fetchCanonicalState(local, runCommand)
     if (checkout.commitsBehind > 0) {
       const merged = command(
         checkout.descriptor.checkout,
@@ -521,12 +567,13 @@ export async function runCanonicalUpdateHelper(
 }
 
 export async function readCanonicalUpdateAttempt(
-  descriptorPath = canonicalDescriptorPath()
+  descriptorPath = canonicalDescriptorPath(),
+  processIsAlive: (pid: number) => boolean = defaultProcessIsAlive
 ): Promise<CanonicalUpdateAttempt | null> {
-  const { result } = updateStatePaths(descriptorPath)
+  const paths = updateStatePaths(descriptorPath)
   let value: unknown
   try {
-    value = JSON.parse(await fs.readFile(result, 'utf8')) as unknown
+    value = JSON.parse(await fs.readFile(paths.result, 'utf8')) as unknown
   } catch {
     return null
   }
@@ -539,7 +586,28 @@ export async function readCanonicalUpdateAttempt(
   ) return null
   const record = value as Record<string, unknown>
   const status = record.status
-  if (status === 'updating' || status === 'completed') {
+  if (status === 'updating') {
+    const lock = await (async () => {
+      try {
+        return parseLock(JSON.parse(
+          await fs.readFile(paths.lock, 'utf8')
+        ) as unknown)
+      } catch {
+        return null
+      }
+    })()
+    if (!lock || !processIsAlive(lock.pid)) {
+      await fs.unlink(paths.lock).catch(() => {})
+      await fs.unlink(paths.result).catch(() => {})
+      return null
+    }
+    return {
+      format: 'markover-canonical-update-attempt',
+      version: 1,
+      status
+    }
+  }
+  if (status === 'completed') {
     return {
       format: 'markover-canonical-update-attempt',
       version: 1,
