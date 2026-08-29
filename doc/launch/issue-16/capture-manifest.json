@@ -1,6 +1,10 @@
 {
   "format": "markover-public-capture",
   "version": 1,
+  "stills": {
+    "command": "npm run capture:stills",
+    "sourceCommit": "354c9ef023fc181745413fa5f5746bfbc9b447c9"
+  },
   "status": "foundation",
   "source": {
     "redesignPullRequest": 195,
@@ -41,21 +45,25 @@
   "screenshots": [
     {
       "filename": "markover-review-editor@2x.png",
+      "sha256": "f348ca99e5164449cd53d85f0e7a27c2e1aaceeff0da094c2259daef9d817820",
       "state": "inbox-needs-me-editor-with-two-labeled-attachments",
       "consumers": ["README.md", "docs/user/index.html"]
     },
     {
       "filename": "markover-annotation-browser@2x.png",
+      "sha256": "4f4f5c7dc4e1c08db5744a29eef0563dd026cb7f9eb420ceb90d339c58917f4d",
       "state": "projects-all-annotations-with-attachment-context",
       "consumers": ["docs/user/index.html"]
     },
     {
       "filename": "markover-source-edit@2x.png",
+      "sha256": "71481cd78aaeda5a00f29e72ac3532efb1f41e4d9bf01137b60093e691518f43",
       "state": "expanded-source-card-with-word-level-proposal",
       "consumers": ["docs/user/index.html"]
     },
     {
       "filename": "markover-review-context@2x.png",
+      "sha256": "1686cebf6e1f5a93932ff397eda7d1e4b41ed1cce0f3a09c9bfc811448a950d7",
       "state": "review-context-with-sanitized-project-and-thread-metadata",
       "consumers": ["docs/user/index.html"]
     }
