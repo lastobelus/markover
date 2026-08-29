@@ -320,6 +320,7 @@ let startupDiagnostic: StartupDiagnostic | null = null
 let startupBuildIdentity: BuildIdentity | null = null
 let startupInfo: StartupInfo | null = null
 let canonicalUpdateManifestRequest: Promise<CanonicalUpdateManifest | null> | null = null
+let canonicalUpdateManifestLiveCheckFailed = false
 let canonicalUpdateToolchain: {
   nodeExecutable: string
   npmCliPath: string
@@ -396,8 +397,10 @@ async function refreshCanonicalUpdateManifestCache(): Promise<CanonicalUpdateMan
     try {
       const fetched = await fetchCanonicalUpdateManifest()
       await writeCanonicalUpdateManifestCache(cachePath, fetched)
+      canonicalUpdateManifestLiveCheckFailed = false
       return fetched
     } catch {
+      canonicalUpdateManifestLiveCheckFailed = true
       return null
     }
   })().finally(() => {
@@ -411,7 +414,7 @@ async function loadCanonicalUpdateManifest(): Promise<CanonicalUpdateManifest | 
   const cached = await readCanonicalUpdateManifestCache(cachePath).catch(() => null)
   if (cached) {
     void refreshCanonicalUpdateManifestCache()
-    return cached
+    return canonicalUpdateManifestLiveCheckFailed ? null : cached
   }
   return refreshCanonicalUpdateManifestCache()
 }
