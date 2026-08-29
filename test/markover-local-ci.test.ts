@@ -38,6 +38,17 @@ const passedLog = [
   '{"format":"markover-smoke","version":1,"ok":true,"checks":{"a":true,"b":true}}'
 ].join('\n')
 
+const specReporterCounts = [
+  'ℹ tests 931',
+  'ℹ suites 0',
+  'ℹ pass 931',
+  'ℹ fail 0',
+  'ℹ cancelled 0',
+  'ℹ skipped 0',
+  'ℹ todo 0',
+  'ℹ duration_ms 28191.453584'
+].join('\n')
+
 test('normalizes common GitHub remote URLs', () => {
   assert.equal(
     normalizeRepository('git@github.com:lastobelus/markover.git'),
@@ -59,6 +70,14 @@ test('parses exact Node test counts and Markover smoke evidence', () => {
     todo: 1
   })
   assert.deepEqual(parseSmokeResult(passedLog), { ok: true, checks: 2 })
+  assert.deepEqual(parseTestCounts(specReporterCounts), {
+    tests: 931,
+    passed: 931,
+    failed: 0,
+    skipped: 0,
+    cancelled: 0,
+    todo: 0
+  })
   assert.equal(parseTestCounts('no TAP footer'), null)
   assert.equal(parseSmokeResult('{"format":"markover-smoke","version":1}'), null)
 })

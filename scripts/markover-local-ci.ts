@@ -151,7 +151,7 @@ function count(value: string | undefined): number {
 
 export function parseTestCounts(log: string): LocalCiTestCounts | null {
   const fields = new Map<string, string>()
-  for (const match of log.matchAll(/^# (tests|pass|fail|skipped|cancelled|todo) (\d+)$/gm)) {
+  for (const match of log.matchAll(/^(?:#|ℹ) (tests|pass|fail|skipped|cancelled|todo) (\d+)$/gm)) {
     fields.set(match[1] ?? '', match[2] ?? '')
   }
   if (!fields.has('tests') || !fields.has('pass') || !fields.has('fail')) return null
