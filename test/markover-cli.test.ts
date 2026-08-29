@@ -2234,7 +2234,12 @@ test('get independently rejects a successful unknown-version service response', 
   const identity = createServiceIdentity()
   const service = http.createServer((request, response) => {
     const body = request.url === '/health'
-      ? { status: 'ok', version: 2, instanceId: identity.instanceId }
+      ? {
+          status: 'ok',
+          version: 2,
+          instanceId: identity.instanceId,
+          startupReady: false
+        }
       : { format: 'markover-review', version: 2 }
     const contents = `${JSON.stringify(body)}\n`
     response.writeHead(200, {
