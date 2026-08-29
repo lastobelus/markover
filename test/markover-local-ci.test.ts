@@ -13,6 +13,7 @@ import {
   parseSmokeResult,
   parseTestCounts,
   terminateProcessGroup,
+  terminateProcessGroupWithEscalation,
   type LocalCiIdentity
 } from '../scripts/markover-local-ci'
 
@@ -285,11 +286,9 @@ test('kills a signal-resistant descendant after the direct child exits', {
   })
   const descendantPid = await ready
 
-  terminateProcessGroup(parent, 'SIGTERM')
-  await once(parent, 'exit')
-  assert.notEqual(parent.signalCode, null)
-
-  terminateProcessGroup(parent, 'SIGKILL')
+  const escalation = terminateProcessGroupWithEscalation(parent, 50)
   await once(parent, 'close')
+  clearTimeout(escalation)
+  assert.notEqual(parent.signalCode, null)
   assert.throws(() => { process.kill(descendantPid, 0) }, { code: 'ESRCH' })
 })

@@ -320,6 +320,18 @@ export function terminateProcessGroup(
   child.kill(signal)
 }
 
+export function terminateProcessGroupWithEscalation(
+  child: KillableProcess,
+  escalationDelayMilliseconds = 1_000
+): NodeJS.Timeout {
+  terminateProcessGroup(child, 'SIGTERM')
+  const escalation = setTimeout(() => {
+    terminateProcessGroup(child, 'SIGKILL')
+  }, escalationDelayMilliseconds)
+  escalation.unref()
+  return escalation
+}
+
 async function runCi(
   root: string,
   outputPath: string,
@@ -337,16 +349,19 @@ async function runCi(
   child.stderr.pipe(output, { end: false })
   let cancelled = false
   let timedOut = false
+  let terminationEscalation: NodeJS.Timeout | undefined
+  const terminate = (): void => {
+    terminationEscalation ??= terminateProcessGroupWithEscalation(child)
+  }
   const cancel = (): void => {
     cancelled = true
-    terminateProcessGroup(child, 'SIGTERM')
+    terminate()
   }
   process.once('SIGINT', cancel)
   process.once('SIGTERM', cancel)
   const deadline = setTimeout(() => {
     timedOut = true
-    terminateProcessGroup(child, 'SIGTERM')
-    setTimeout(() => { terminateProcessGroup(child, 'SIGKILL') }, 1_000).unref()
+    terminate()
   }, timeoutMilliseconds)
   try {
     return await new Promise<CompletedProcess>((resolve, reject) => {
@@ -357,6 +372,7 @@ async function runCi(
     })
   } finally {
     clearTimeout(deadline)
+    if (terminationEscalation !== undefined) clearTimeout(terminationEscalation)
     process.removeListener('SIGINT', cancel)
     process.removeListener('SIGTERM', cancel)
   }
