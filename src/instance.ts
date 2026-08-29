@@ -13,6 +13,8 @@ import {
 
 export const CANONICAL_INSTANCE_KEY = 'canonical'
 export const CANONICAL_INSTANCE_SCHEME = 'markover'
+export const CAPTURE_INSTANCE_KEY = 'capture'
+export const CAPTURE_INSTANCE_SCHEME = 'markover-capture'
 export const DEVELOPMENT_BUNDLE_ID_PREFIX =
   'com.lastobelus.markover.development'
 export const CANONICAL_DESCRIPTOR_NAME = 'canonical-instance.json'
@@ -39,6 +41,11 @@ export interface CanonicalInstanceIdentity {
   key: typeof CANONICAL_INSTANCE_KEY
 }
 
+export interface CaptureInstanceIdentity {
+  kind: 'capture'
+  key: typeof CAPTURE_INSTANCE_KEY
+}
+
 export interface DevelopmentInstanceIdentity {
   kind: 'development'
   key: `pr-${number}`
@@ -47,6 +54,7 @@ export interface DevelopmentInstanceIdentity {
 
 export type AddressedInstanceIdentity =
   | CanonicalInstanceIdentity
+  | CaptureInstanceIdentity
   | DevelopmentInstanceIdentity
 
 export interface InstanceBranding {
@@ -188,6 +196,9 @@ export function parseRuntimeInstanceIdentity(
   if (!isRecord(value) || value.version !== 1) return null
   if (value.kind === 'canonical' && value.key === CANONICAL_INSTANCE_KEY) {
     return { kind: 'canonical', key: CANONICAL_INSTANCE_KEY }
+  }
+  if (value.kind === 'capture' && value.key === CAPTURE_INSTANCE_KEY) {
+    return { kind: 'capture', key: CAPTURE_INSTANCE_KEY }
   }
   if (
     value.kind !== 'development' ||
@@ -344,6 +355,26 @@ function serviceContract(root: string): ResolvedInstance['service'] {
   }
 }
 
+export function captureResolvedInstance(
+  checkout: string,
+  stateRoot: string
+): ResolvedInstance {
+  const resolvedCheckout = path.resolve(checkout)
+  const resolvedStateRoot = path.resolve(stateRoot)
+  return {
+    version: 1,
+    identity: { kind: 'capture', key: CAPTURE_INSTANCE_KEY },
+    stateRoot: resolvedStateRoot,
+    checkout: resolvedCheckout,
+    service: serviceContract(resolvedStateRoot),
+    scheme: CAPTURE_INSTANCE_SCHEME,
+    process: { status: 'stopped' },
+    coldStart: { eligible: true, blockedBy: null },
+    branding: canonicalBranding(),
+    pullRequest: null
+  }
+}
+
 function canonicalRuntimeInstance(
   options: ServiceDirectoryOptions = {}
 ): ResolvedInstance {
@@ -424,6 +455,14 @@ export function parseResolvedInstance(value: unknown): ResolvedInstance | null {
       value.scheme !== CANONICAL_INSTANCE_SCHEME ||
       value.pullRequest !== null ||
       (value.checkout !== null && typeof value.checkout !== 'string')
+    ) return null
+  } else if (identity.kind === 'capture') {
+    if (
+      value.scheme !== CAPTURE_INSTANCE_SCHEME ||
+      value.pullRequest !== null ||
+      typeof value.checkout !== 'string' ||
+      !path.isAbsolute(value.checkout) ||
+      JSON.stringify(value.branding) !== JSON.stringify(canonicalBranding())
     ) return null
   } else {
     if (

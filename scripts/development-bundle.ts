@@ -21,6 +21,7 @@ import {
   parseMacosArchitecture
 } from './macos-release-contract'
 import {
+  CAPTURE_INSTANCE_KEY,
   DEVELOPMENT_BUNDLE_ID_PREFIX,
   developmentGeneratedRoot,
   type ResolvedInstance
@@ -81,6 +82,9 @@ function requiredCheckout(instance: ResolvedInstance): string {
 function identityBundleId(instance: ResolvedInstance): string {
   if (instance.identity.kind === 'canonical') {
     return `${DEVELOPMENT_BUNDLE_ID_PREFIX}.canonical`
+  }
+  if (instance.identity.kind === 'capture') {
+    return `${DEVELOPMENT_BUNDLE_ID_PREFIX}.${CAPTURE_INSTANCE_KEY}`
   }
   positivePullRequestNumber(instance.identity.pullRequestNumber)
   return `${DEVELOPMENT_BUNDLE_ID_PREFIX}.pr${String(

@@ -12,6 +12,7 @@
     "command": "npm run capture:stage",
     "stateRoot": "/tmp/markover-public-capture",
     "appName": "Markover",
+    "scheme": "markover-capture",
     "palette": "ember",
     "appearance": "light",
     "registersProtocol": false,
@@ -29,7 +30,8 @@
     "projectRoot": "/tmp/markover-public-capture/projects",
     "repositories": [
       "https://github.com/markover-demo/atlas-studio.git",
-      "https://github.com/markover-demo/ember-handbook.git"
+      "https://github.com/markover-demo/field-research.git",
+      "https://github.com/markover-demo/review-protocol.git"
     ],
     "machine": "capture-mac",
     "threadHost": "t3code",
