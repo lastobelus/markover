@@ -6,7 +6,6 @@ import {
 } from './markover-github-ci'
 
 const GITHUB_REPOSITORY = process.env.MARKOVER_GITHUB_REPOSITORY ?? 'lastobelus/markover'
-const BASE_BRANCH = 'main'
 const CODEX_LOGINS = new Set([
   'chatgpt-codex-connector',
   'chatgpt-codex-connector[bot]'
@@ -121,7 +120,6 @@ export type WaitDecision =
         | 'review-timeout'
         | 'review-unhandled'
         | 'review-unresolved'
-        | 'unexpected-base'
         | 'worktree-changed'
       detail: string
     }
@@ -143,12 +141,13 @@ export function pullRequestViewArgs(
 }
 
 export function samePullRequestRevision(
-  initial: Pick<PullRequestState, 'number' | 'headRefOid' | 'baseRefOid'>,
-  final: Pick<PullRequestState, 'number' | 'headRefOid' | 'baseRefOid'>
+  initial: Pick<PullRequestState, 'number' | 'headRefOid' | 'baseRefOid' | 'baseRefName'>,
+  final: Pick<PullRequestState, 'number' | 'headRefOid' | 'baseRefOid' | 'baseRefName'>
 ): boolean {
   return initial.number === final.number &&
     initial.headRefOid === final.headRefOid &&
-    initial.baseRefOid === final.baseRefOid
+    initial.baseRefOid === final.baseRefOid &&
+    initial.baseRefName === final.baseRefName
 }
 
 const REVIEW_THREADS_QUERY = `query($owner:String!,$name:String!,$number:Int!,$endCursor:String){
@@ -330,11 +329,21 @@ export function deriveReviewState(input: {
     : input.triggerReactions
   const cleanReaction = newestReaction(reactions, '+1')
   const eyesReaction = newestReaction(reactions, 'eyes')
+  const cleanReactionAt = timestamp(cleanReaction?.created_at)
+  const completedSummaryAt = timestamp(
+    completedSummary?.updated_at ?? completedSummary?.created_at
+  )
+  const cleanReactionBindsReview = latestTrigger !== null || (
+    completedSummary !== null &&
+    cleanReactionAt > 0 &&
+    completedSummaryAt > 0 &&
+    cleanReactionAt >= completedSummaryAt
+  )
   const cleanReactionMatches = cleanReaction !== null &&
-    (latestTrigger !== null || completedSummary !== null) &&
+    cleanReactionBindsReview &&
     (eyesReaction === null ||
-      timestamp(cleanReaction.created_at) > timestamp(eyesReaction.created_at) ||
-      (timestamp(cleanReaction.created_at) === timestamp(eyesReaction.created_at) &&
+      cleanReactionAt > timestamp(eyesReaction.created_at) ||
+      (cleanReactionAt === timestamp(eyesReaction.created_at) &&
         cleanReaction.id >= eyesReaction.id))
   if (cleanReactionMatches) {
     const key = `reaction:${cleanReaction.id}`
@@ -405,13 +414,6 @@ export function decideWaitForPr(
       detail: `Pull request #${pullRequest.number} is still a draft.`
     }
   }
-  if (pullRequest.baseRefName !== BASE_BRANCH) {
-    return {
-      kind: 'wake',
-      reason: 'unexpected-base',
-      detail: `Pull request #${pullRequest.number} targets ${pullRequest.baseRefName}, not ${BASE_BRANCH}.`
-    }
-  }
   if (pullRequest.headRefOid !== baseline.pullRequest.headRefOid) {
     return {
       kind: 'wake',
@@ -419,11 +421,14 @@ export function decideWaitForPr(
       detail: `PR head changed from ${baseline.pullRequest.headRefOid} to ${pullRequest.headRefOid}.`
     }
   }
-  if (pullRequest.baseRefOid !== baseline.pullRequest.baseRefOid) {
+  if (
+    pullRequest.baseRefName !== baseline.pullRequest.baseRefName ||
+    pullRequest.baseRefOid !== baseline.pullRequest.baseRefOid
+  ) {
     return {
       kind: 'wake',
       reason: 'base-changed',
-      detail: `PR base changed from ${baseline.pullRequest.baseRefOid} to ${pullRequest.baseRefOid}.`
+      detail: `PR base changed from ${baseline.pullRequest.baseRefName}@${baseline.pullRequest.baseRefOid} to ${pullRequest.baseRefName}@${pullRequest.baseRefOid}.`
     }
   }
   if (

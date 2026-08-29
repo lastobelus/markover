@@ -137,6 +137,10 @@ test('binds observations to one exact PR head and base', () => {
   ), false)
   assert.equal(samePullRequestRevision(
     initial,
+    observation({ baseRefName: 'feature/parent' }).pullRequest
+  ), false)
+  assert.equal(samePullRequestRevision(
+    initial,
     observation({ number: 211 }).pullRequest
   ), false)
 })
@@ -157,6 +161,18 @@ test('waits for both exact CI and current-head review', () => {
       observation({ ci: satisfiedCi, review: handledReview })
     ).reason,
     'ready'
+  )
+})
+
+test('accepts a snapshotted stacked base and wakes if that target changes', () => {
+  const stacked = observation({ baseRefName: 'feature/parent' })
+  assert.deepEqual(
+    decideWaitForPr(stacked, observation({ baseRefName: 'feature/parent' })),
+    { kind: 'wait', reason: 'review-pending' }
+  )
+  assert.equal(
+    decideWaitForPr(stacked, observation({ baseRefName: 'feature/other-parent' })).reason,
+    'base-changed'
   )
 })
 
@@ -217,7 +233,6 @@ test('wakes for actionable CI, review, merge, and target changes', () => {
     [observation({ mergeStateStatus: 'BEHIND' }), 'merge-blocked'],
     [observation({ state: 'CLOSED' }), 'pr-closed'],
     [observation({ isDraft: true }), 'pr-draft'],
-    [observation({ baseRefName: 'release' }), 'unexpected-base'],
     [observation({ clean: false }), 'worktree-changed'],
     [observation({ localHead: '6'.repeat(40) }), 'local-head-changed']
   ]
@@ -355,6 +370,37 @@ test('accepts the current Codex summary plus pull-request thumbs-up', () => {
   assert.deepEqual(
     { requestPresent: review.requestPresent, pending: review.pending, ready: review.ready },
     { requestPresent: true, pending: false, ready: true }
+  )
+})
+
+test('rejects a pull-request thumbs-up that predates the current review summary', () => {
+  const review = deriveReviewState({
+    headSha: HEAD,
+    formalReviews: [],
+    issueComments: [{
+      id: 20,
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      body: [
+        '<!-- codex-pull-request-review-summary -->',
+        '| Review | Status | Commit | Review trigger |',
+        '| --- | --- | --- | --- |',
+        `| Code Review | ✅ Completed | \`${HEAD.slice(0, 7)}\` | Draft marked ready |`
+      ].join('\n'),
+      created_at: '2026-08-29T10:05:00Z',
+      updated_at: '2026-08-29T10:05:00Z'
+    }],
+    reviewComments: [],
+    triggerReactions: [],
+    pullRequestReactions: [{
+      id: 21,
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      content: '+1',
+      created_at: '2026-08-29T10:04:59Z'
+    }]
+  })
+  assert.deepEqual(
+    { requestPresent: review.requestPresent, pending: review.pending, ready: review.ready },
+    { requestPresent: true, pending: true, ready: false }
   )
 })
 
