@@ -163,7 +163,7 @@ export async function addressedPackagerOptions(
     appBundleId: address.appBundleId,
     appCategoryType: APP_CATEGORY,
     arch,
-    asar: true,
+    asar: { unpack: '**/canonical-updater.js' },
     dir: path.join(checkout, 'build', 'app'),
     electronVersion: await electronVersion(checkout),
     helperBundleId: address.helperBundleId,

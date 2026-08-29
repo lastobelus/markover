@@ -63,6 +63,7 @@ import {
   CANONICAL_INSTANCE_SCHEME,
   RESOLVED_INSTANCE_ENVIRONMENT,
   canonicalDescriptorPath,
+  parseCanonicalInstanceDescriptor,
   resolveInstance,
   runtimeInstanceFromEnvironment
 } from './instance'
@@ -368,6 +369,26 @@ function canonicalUpdateEligible(): boolean {
     startupBuildIdentity?.dirty === false
 }
 
+async function canonicalMainUpdateEligible(): Promise<boolean> {
+  if (!canonicalUpdateEligible()) return false
+  try {
+    const value: unknown = JSON.parse(await fs.readFile(
+      canonicalDescriptorPath(),
+      'utf8'
+    ))
+    return parseCanonicalInstanceDescriptor(value)?.blessedBranch === 'main'
+  } catch {
+    return false
+  }
+}
+
+function canonicalUpdateHelperPath(): string {
+  const archivePath = path.dirname(__dirname)
+  return archivePath.endsWith('.asar')
+    ? path.join(`${archivePath}.unpacked`, 'src', 'canonical-updater.js')
+    : path.join(__dirname, 'canonical-updater.js')
+}
+
 async function refreshCanonicalUpdateManifestCache(): Promise<CanonicalUpdateManifest | null> {
   if (canonicalUpdateManifestRequest) return canonicalUpdateManifestRequest
   const cachePath = canonicalUpdateManifestCachePath(addressedInstance.stateRoot)
@@ -396,7 +417,7 @@ async function loadCanonicalUpdateManifest(): Promise<CanonicalUpdateManifest | 
 }
 
 async function canonicalUpdateStatus(): Promise<CanonicalUpdateStatus> {
-  if (!canonicalUpdateEligible()) {
+  if (!await canonicalMainUpdateEligible()) {
     return { state: 'hidden', detail: '', pullRequests: [] }
   }
   const descriptorPath = canonicalDescriptorPath()
@@ -457,7 +478,7 @@ async function canonicalUpdateStatus(): Promise<CanonicalUpdateStatus> {
 }
 
 async function beginCanonicalUpdate(): Promise<CanonicalUpdateStartResult> {
-  if (!canonicalUpdateEligible()) {
+  if (!await canonicalMainUpdateEligible()) {
     return { status: 'rejected', detail: 'Canonical update is unavailable.' }
   }
   if (!canonicalUpdateToolchain) {
@@ -470,7 +491,7 @@ async function beginCanonicalUpdate(): Promise<CanonicalUpdateStartResult> {
     const attempt = await startCanonicalUpdate({
       descriptorPath: canonicalDescriptorPath(),
       helperEnvironment: process.env,
-      helperPath: path.join(__dirname, 'canonical-updater.js'),
+      helperPath: canonicalUpdateHelperPath(),
       nodeExecutable: canonicalUpdateToolchain.nodeExecutable,
       npmCliPath: canonicalUpdateToolchain.npmCliPath
     })
