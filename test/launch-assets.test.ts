@@ -130,7 +130,12 @@ test('Pages offers an accessible current-UI demo without surprise playback', () 
   assert.equal(video.getAttribute('poster'), './assets/markover-demo-poster.jpg')
   assert.equal(video.querySelector('source')?.getAttribute('src'), './assets/markover-focused-preview-demo.mp4')
   assert.equal(video.querySelector('source')?.getAttribute('type'), 'video/mp4')
-  assert.ok(document.querySelector('#demo-transcript')?.textContent.includes('fixture-only CLI'))
+  const transcript = document.querySelector('#demo-transcript')
+  const disclosure = document.querySelector('.demo-disclosure')
+  assert.ok(transcript)
+  assert.ok(transcript.textContent.includes('fixture-only CLI'))
+  assert.ok(disclosure)
+  assert.equal(transcript.nextElementSibling, disclosure)
 })
 
 test('the launch movie is a fast-start silent H.264 MP4 with a real poster', () => {
@@ -199,6 +204,12 @@ test('README uses one linked product image and states the preview boundary', () 
   assert.match(readme, /free and\s+MIT-licensed, requires no account/)
   assert.match(readme, /public npm package named `markover` is unrelated/)
   assert.match(readme, /--package=https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz/)
+})
+
+test('the public feature indices have deliberate visual weight', () => {
+  const styles = fs.readFileSync(path.join(userDirectory, 'styles.css'), 'utf8')
+  assert.match(styles, /\.feature-number \{[^}]*font: 750 16\.5px\/1\.2/)
+  assert.match(styles, /\.workflow li::before \{[^}]*font: 750 16\.5px\/1\.2/)
 })
 
 test('agent-specific examples use only observable supported identities', () => {
