@@ -39,14 +39,6 @@ function applyAppearance(appearance: PublicAppearance): void {
         String(button.dataset.appearanceChoice === appearance)
       )
     })
-  document.querySelectorAll<HTMLImageElement>(
-    '.brand-mark, .brand-logotype, .brand-lockup-logo, .mock-app-brand img, .docs-mobile-header img'
-  ).forEach((image) => {
-    image.src = image.src.replace(
-      /(?:-dark)?\.svg$/,
-      appearance === 'dark' ? '-dark.svg' : '.svg'
-    )
-  })
 }
 
 const appearanceButtons = document.querySelectorAll<HTMLButtonElement>(

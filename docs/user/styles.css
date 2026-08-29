@@ -25,15 +25,15 @@
 
 :root[data-appearance="dark"] {
   color-scheme: dark;
-  --brand-orange: #e5b8a8;
-  --brand-burgundy: #e5b8a8;
+  --brand-orange: var(--markover-primary);
+  --brand-burgundy: var(--markover-secondary);
   --ink: #dfdedd;
   --muted: #aaa8a6;
   --ground: #242221;
   --paper: #161514;
   --neutral-soft: #110e0a;
   --surface: #0b0808;
-  --line: #4a3a34;
+  --line: #212121;
   --brand-soft: #2b2422;
   --code: #0e0e0e;
 }
@@ -300,16 +300,23 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
 }
 
 :root[data-appearance="dark"] .preview-invitation {
-  border-color: rgb(229 184 168 / 24%);
+  border-color: rgb(201 78 31 / 32%);
   color: var(--ink);
   background: rgb(41 33 30 / 94%);
   box-shadow: 0 5px 18px rgb(0 0 0 / 30%);
 }
 
 :root[data-appearance="dark"] .button-deep:hover {
-  background: #f1cabc;
+  background: var(--markover-secondary);
 }
 
-:root[data-appearance="dark"] .gallery-position {
-  color: rgb(22 21 20 / 72%);
+:root[data-appearance="dark"] .button-deep {
+  border-color: var(--markover-primary);
+  color: #000;
+  background: var(--markover-primary);
+}
+
+:root[data-appearance="dark"] .button-outline {
+  border-color: var(--markover-primary);
+  color: var(--markover-primary);
 }

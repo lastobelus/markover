@@ -290,21 +290,17 @@ test('every public page offers a persistent system-aware Ember appearance switch
       : /<script src="\.\.\/site\.js"><\/script>/)
   }
 
-  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: #e5b8a8;[^}]*--brand-burgundy: #e5b8a8;[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #4a3a34;[^}]*--code: #0e0e0e;/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: var\(--markover-primary\);[^}]*--brand-burgundy: var\(--markover-secondary\);[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #212121;[^}]*--code: #0e0e0e;/)
   assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
   assert.match(styles, /\.theme-choice:focus-visible/)
-  assert.doesNotMatch(styles, /data-appearance="dark"[^}]*filter:/)
-
   for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {
-    const light = fs.readFileSync(path.join(userDirectory, 'assets', `${name}.svg`), 'utf8')
-    const dark = fs.readFileSync(path.join(userDirectory, 'assets', `${name}-dark.svg`), 'utf8')
     assert.equal(
-      dark,
-      light.replaceAll('#c94e1f', '#e5b8a8').replaceAll('#6d211f', '#dfdedd'),
-      `${name}-dark.svg should preserve canonical geometry and change only semantic inks`
+      fs.existsSync(path.join(userDirectory, 'assets', `${name}-dark.svg`)),
+      false,
+      'Ember Dark should use the same canonical brand artwork as the app'
     )
   }
-  assert.match(scriptSource, /appearance === 'dark' \? '-dark\.svg' : '\.svg'/)
+  assert.doesNotMatch(scriptSource, /-dark\.svg|replace\([^)]*\.svg/)
 })
 
 test('the Pages appearance control applies and persists an explicit choice', () => {
@@ -325,7 +321,7 @@ test('the Pages appearance control applies and persists an explicit choice', () 
   assert.equal(document.documentElement.dataset.appearance, 'dark')
   assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#242221')
   assert.equal(document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.getAttribute('aria-pressed'), 'true')
-  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype-dark\.svg$/)
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype\.svg$/)
 
   const light = document.querySelector<HTMLButtonElement>('[data-appearance-choice="light"]')
   assert.ok(light)
