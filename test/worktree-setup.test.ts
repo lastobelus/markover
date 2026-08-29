@@ -7,19 +7,26 @@ import test from 'node:test'
 
 const projectRoot = path.resolve(__dirname, '../..')
 
-test('T3 imports one automatic Setup Worktree action', async () => {
+test('T3 imports setup and resumable PR wait actions', async () => {
   const projectFile: unknown = JSON.parse(await fs.readFile(
     path.join(projectRoot, 't3.json'),
     'utf8'
   ))
   assert.deepEqual(projectFile, {
     $schema: 'https://t3.codes/schema/t3.json',
-    scripts: [{
-      name: 'Setup Worktree',
-      command: './scripts/setup-worktree.sh',
-      icon: 'configure',
-      runOnWorktreeCreate: true
-    }]
+    scripts: [
+      {
+        name: 'Setup Worktree',
+        command: './scripts/setup-worktree.sh',
+        icon: 'configure',
+        runOnWorktreeCreate: true
+      },
+      {
+        name: 'Wait for PR',
+        command: 'npm run build --silent && node build/scripts/markover-wait-for-pr.js',
+        icon: 'test'
+      }
+    ]
   })
 })
 

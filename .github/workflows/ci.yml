@@ -1,4 +1,6 @@
 name: CI
+run-name: >-
+  CI ${{ github.event_name }} PR #${{ github.event.pull_request.number || 0 }} head ${{ github.event.pull_request.head.sha || github.sha }} base ${{ github.event.pull_request.base.sha || github.event.before }} merge ${{ github.sha }}
 
 on:
   pull_request:

@@ -6,6 +6,11 @@
       "command": "./scripts/setup-worktree.sh",
       "icon": "configure",
       "runOnWorktreeCreate": true
+    },
+    {
+      "name": "Wait for PR",
+      "command": "npm run build --silent && node build/scripts/markover-wait-for-pr.js",
+      "icon": "test"
     }
   ]
 }
