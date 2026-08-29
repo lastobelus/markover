@@ -24,7 +24,15 @@ interface ActionModule {
     root: string
     state: string
   }
-  prepareCheckout: () => Promise<{
+  prepareCheckout: (run?: (
+    executable: string,
+    args: string[]
+  ) => Promise<{
+    code: number | null
+    error: Error | null
+    output: string
+    signal: string | null
+  }>) => Promise<{
     code: number | null
     detail: string | null
     output: string
@@ -226,12 +234,16 @@ test('invalid setup arguments exit with one classified final summary', () => {
 })
 
 test('setup prepares the checkout-pinned Electron runtime', async () => {
-  const result = await action.prepareCheckout()
+  const calls: Array<{ executable: string, args: string[] }> = []
+  const result = await action.prepareCheckout(async (executable, args) => {
+    calls.push({ executable, args })
+    return { code: 0, error: null, output: '', signal: null }
+  })
   assert.equal(result.code, 0, result.detail ?? result.output)
-  await fs.access(path.resolve(
-    __dirname,
-    '../../node_modules/electron/dist/LICENSES.chromium.html'
-  ))
+  assert.deepEqual(calls, [
+    { executable: './scripts/setup-worktree.sh', args: [] },
+    { executable: './node_modules/.bin/install-electron', args: ['--no'] }
+  ])
 })
 
 test('watch wait classifies process exit and timeout', async (t) => {

@@ -244,7 +244,7 @@ async function runCaptured(executable, args) {
   })
 }
 
-async function prepareCheckout() {
+async function prepareCheckout(run = runCaptured) {
   const steps = [
     {
       executable: './scripts/setup-worktree.sh',
@@ -259,7 +259,7 @@ async function prepareCheckout() {
   ]
   let output = ''
   for (const step of steps) {
-    const result = await runCaptured(step.executable, step.args)
+    const result = await run(step.executable, step.args)
     output += result.output
     if (result.error || result.code !== 0) {
       return {
