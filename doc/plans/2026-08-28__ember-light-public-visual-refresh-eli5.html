@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ember Light public visual refresh</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --brand-orange: #c94e1f;
+      --brand-burgundy: #6d211f;
+      --ink: #26211e;
+      --muted: #6f6761;
+      --ground: #e8e2d8;
+      --paper: #f7f4ee;
+      --quiet: #ece9e2;
+      --surface: #fffdf9;
+      --line: #d8d1c7;
+      --soft: #f5e3da;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--ground);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: var(--brand-burgundy); text-underline-offset: .18em; }
+    main { width: min(1060px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 80px; }
+    .eyebrow { margin: 0 0 12px; color: var(--brand-orange); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { max-width: 820px; margin: 0; font-size: clamp(42px, 7vw, 72px); line-height: .98; letter-spacing: -.05em; }
+    .lede { max-width: 760px; margin: 24px 0 34px; color: var(--muted); font-size: 19px; line-height: 1.65; }
+    details, .card, .stack, .matrix, .boundary { border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: 0 14px 34px rgb(76 59 48 / 8%); }
+    details { margin-bottom: 32px; }
+    summary { display: flex; justify-content: space-between; gap: 20px; padding: 16px 19px; cursor: pointer; font-weight: 750; }
+    summary span { color: var(--muted); font-size: 13px; font-weight: 650; }
+    details > div { padding: 0 19px 20px; color: var(--muted); line-height: 1.6; }
+    section { margin-top: 54px; }
+    h2 { margin: 0 0 18px; font-size: 29px; letter-spacing: -.03em; }
+    h3 { margin: 0 0 8px; font-size: 18px; }
+    p { line-height: 1.65; }
+    .tiny-story { display: grid; grid-template-columns: repeat(3, 1fr); overflow: hidden; }
+    .tiny-story article { min-height: 190px; padding: 24px; background: var(--paper); }
+    .tiny-story article:nth-child(2) { background: var(--surface); }
+    .tiny-story article + article { border-left: 1px solid var(--line); }
+    .number { display: block; margin-bottom: 34px; color: var(--brand-orange); font-size: 11px; font-weight: 800; letter-spacing: .1em; }
+    .tiny-story p, .card p, .boundary li { color: var(--muted); }
+    .stack { padding: 22px; overflow-x: auto; background: var(--surface); }
+    .stack svg { display: block; width: 100%; min-width: 720px; height: auto; }
+    .stack-note { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .card { padding: 22px; }
+    .card .tag { display: inline-block; margin-bottom: 16px; padding: 5px 8px; border-radius: 999px; color: var(--brand-burgundy); background: var(--soft); font-size: 11px; font-weight: 800; }
+    .card ul, .boundary ul { margin: 14px 0 0; padding-left: 20px; }
+    .card li { margin: 8px 0; color: var(--muted); line-height: 1.5; }
+    .matrix { overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; background: var(--paper); }
+    th, td { padding: 14px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; line-height: 1.45; }
+    th { color: var(--brand-burgundy); background: var(--soft); font-size: 12px; letter-spacing: .03em; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 750; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .9em; }
+    .boundary { padding: 22px 24px; border-left: 5px solid var(--brand-orange); }
+    .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .checks .card:first-child { background: var(--quiet); }
+    footer { margin-top: 58px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    footer details { box-shadow: none; background: transparent; }
+    footer summary { padding-inline: 0; }
+    footer details > div { padding-inline: 0; }
+    @media (max-width: 720px) {
+      main { padding-top: 36px; }
+      .tiny-story, .grid, .checks { grid-template-columns: 1fr; }
+      .tiny-story article + article { border-top: 1px solid var(--line); border-left: 0; }
+      .tiny-story article { min-height: 0; }
+      .number { margin-bottom: 20px; }
+      .matrix { overflow-x: auto; }
+      table { min-width: 660px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Proposed stack after PR #195</p>
+    <h1>Make every public picture look like the product again.</h1>
+    <p class="lede">Markover's application has a new Ember Light interface, but the website, README, screenshots, banner, and launch assets still show the old one. This plan updates the sources first, captures the real app second, and publishes only after everything agrees.</p>
+
+    <details>
+      <summary>Where this is true <span>Proposed · August 28, 2026</span></summary>
+      <div>
+        <p>This page explains the draft umbrella plan based on merged <a href="https://github.com/lastobelus/markover/pull/195">PR #195</a>, open roadmap <a href="https://github.com/lastobelus/markover/issues/16">issue #16</a>, and the stale preparation in <a href="https://github.com/lastobelus/markover/pull/51">PR #51</a>. The exact stack may be refined in review, but its stable boundary is public visuals and reproducible media capture—not application behavior or announcement operations.</p>
+      </div>
+    </details>
+
+    <section>
+      <h2>The tiny story</h2>
+      <div class="tiny-story card">
+        <article>
+          <span class="number">01 · NOW</span>
+          <h3>The app moved on</h3>
+          <p>The real product has a shorter header, left-side review navigation, three panes, and updated Ember Light surfaces.</p>
+        </article>
+        <article>
+          <span class="number">02 · GAP</span>
+          <h3>The public story did not</h3>
+          <p>Four screenshots, the Pages mockup, README leader, and GitHub preview still describe the retired interface. No demo exists.</p>
+        </article>
+        <article>
+          <span class="number">03 · FIX</span>
+          <h3>One staged source, many truthful outputs</h3>
+          <p>A sanitized real-app fixture feeds current screenshots and a short movie; the same Ember roles shape Pages, README, and social cards.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>How the pull requests fit</h2>
+      <div class="stack">
+        <svg viewBox="0 0 940 220" role="img" aria-labelledby="stack-title stack-desc">
+          <title id="stack-title">Four child pull requests feed one umbrella pull request</title>
+          <desc id="stack-desc">Capture foundation comes first, followed by the public Ember Light theme, current screenshots, then the demo and live launch assets. All merge into the umbrella before the umbrella merges to main.</desc>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#6d211f"></path>
+            </marker>
+          </defs>
+          <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+            <rect x="12" y="20" width="168" height="84" rx="13" fill="#ece9e2" stroke="#d8d1c7"></rect>
+            <text x="28" y="49" font-size="12" font-weight="800" fill="#c94e1f">SLICE 1</text>
+            <text x="28" y="76" font-size="17" font-weight="750" fill="#26211e">Capture foundation</text>
+            <rect x="202" y="20" width="168" height="84" rx="13" fill="#f7f4ee" stroke="#d8d1c7"></rect>
+            <text x="218" y="49" font-size="12" font-weight="800" fill="#c94e1f">SLICE 2</text>
+            <text x="218" y="76" font-size="17" font-weight="750" fill="#26211e">Public theme</text>
+            <rect x="392" y="20" width="168" height="84" rx="13" fill="#fffdf9" stroke="#d8d1c7"></rect>
+            <text x="408" y="49" font-size="12" font-weight="800" fill="#c94e1f">SLICE 3</text>
+            <text x="408" y="76" font-size="17" font-weight="750" fill="#26211e">Screenshots</text>
+            <rect x="582" y="20" width="168" height="84" rx="13" fill="#f5e3da" stroke="#d8d1c7"></rect>
+            <text x="598" y="49" font-size="12" font-weight="800" fill="#c94e1f">SLICE 4</text>
+            <text x="598" y="76" font-size="17" font-weight="750" fill="#26211e">Demo + launch</text>
+            <line x1="180" y1="62" x2="197" y2="62" stroke="#6d211f" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="370" y1="62" x2="387" y2="62" stroke="#6d211f" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="560" y1="62" x2="577" y2="62" stroke="#6d211f" stroke-width="2" marker-end="url(#arrow)"></line>
+            <path d="M666 108 V144 H470" fill="none" stroke="#6d211f" stroke-width="2" marker-end="url(#arrow)"></path>
+            <rect x="292" y="142" width="356" height="60" rx="13" fill="#6d211f"></rect>
+            <text x="470" y="168" text-anchor="middle" font-size="12" font-weight="800" fill="#fffdf9">UMBRELLA PR</text>
+            <text x="470" y="189" text-anchor="middle" font-size="16" font-weight="750" fill="#fffdf9">Aggregate review, then merge to main</text>
+          </g>
+        </svg>
+        <p class="stack-note">Each child is independently reviewable. Later media depends on the visual and staging decisions below it, so the stack stays linear.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>What each slice contributes</h2>
+      <div class="grid">
+        <article class="card">
+          <span class="tag">FOUNDATION</span>
+          <h3>Safe, repeatable staging</h3>
+          <ul>
+            <li>Disposable state—never the user's real reviews.</li>
+            <li>Invented projects, paths, thread IDs, attachments, and Git metadata.</li>
+            <li>Production branding with no development badge.</li>
+            <li>Exact commit, window, theme, and output manifest.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag">THEME</span>
+          <h3>One Ember Light language</h3>
+          <ul>
+            <li>SF/system typography and current ground, paper, and quiet panes.</li>
+            <li>A responsive three-pane HTML hero—not a fake raster.</li>
+            <li>Updated README leader, social cards, and undated brand references.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag">STILLS</span>
+          <h3>Four real application states</h3>
+          <ul>
+            <li>Editor with labeled attachments.</li>
+            <li>All annotations in Projects navigation.</li>
+            <li>Exact source proposal diff.</li>
+            <li>Sanitized review context.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag">MOTION</span>
+          <h3>One complete review loop</h3>
+          <ul>
+            <li>30–60 seconds, silent, captioned, 1080p H.264.</li>
+            <li>Open, annotate, show attachment, propose edit, retrieve handoff.</li>
+            <li>Pages embed and transcript; README poster link.</li>
+            <li>Verified GitHub description, homepage, topics, card, and pins.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>The capture matrix</h2>
+      <div class="matrix">
+        <table>
+          <thead><tr><th>Stable asset</th><th>What the current image must prove</th></tr></thead>
+          <tbody>
+            <tr><td><code>review-editor@2x</code></td><td>Inbox and Needs me, current header and three panes, selected block, feedback, and labeled attachments.</td></tr>
+            <tr><td><code>annotation-browser@2x</code></td><td>Projects navigation and a useful set of rendered annotations in the current right pane.</td></tr>
+            <tr><td><code>source-edit@2x</code></td><td>The current Source card and stacked word-level proposal without altering the review target.</td></tr>
+            <tr><td><code>review-context@2x</code></td><td>The current context surface with safe review, repository, pull-request, and agent metadata.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>How we know it is real</h2>
+      <div class="checks">
+        <article class="card">
+          <h3>Machines verify</h3>
+          <p>Dimensions, density, hashes, asset references, social-card size, video codec/frame rate/duration/fast-start, documentation tests, local CI, and clean diffs.</p>
+        </article>
+        <article class="card">
+          <h3>People verify</h3>
+          <p>Current #195 chrome, Ember Light fidelity, legibility, private-data absence, video pacing, README light/dark rendering, Pages desktop/narrow layouts, and live GitHub previews.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>What stays outside</h2>
+      <div class="boundary">
+        <ul>
+          <li>No product behavior changes just to improve a capture.</li>
+          <li>No screenshot service, recording daemon, generic fixture framework, or compatibility path.</li>
+          <li>No real review data, private metadata, or AI-edited application pixels.</li>
+          <li>No rewriting clearly dated historical design artifacts.</li>
+          <li>No announcement posting or feedback operation; those remain with issues #17 and #18.</li>
+          <li>No early closure of issue #84's late human editorial pass.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Roadmap handoff</h2>
+      <div class="grid">
+        <article class="card"><h3>#16 comes in</h3><p>The umbrella owns the public visual assets, demo, README examples, social cards, and verified repository metadata.</p></article>
+        <article class="card"><h3>#51 is superseded</h3><p>Its useful generator, manifest, storyboard, and transcript ideas are rebuilt on current main; its old UI outputs are discarded.</p></article>
+        <article class="card"><h3>#84 stays late</h3><p>This stack gives the later editorial pass current screenshots, links, commands, and responsive layouts without pretending post-preview feedback already happened.</p></article>
+        <article class="card"><h3>#17 and #18 stay downstream</h3><p>They consume the finished kit for announcement operations. They do not own the asset implementation.</p></article>
+      </div>
+    </section>
+
+    <footer>
+      <p><strong>Canonical plan:</strong> <code>doc/plans/2026-08-28__ember-light-public-visual-refresh.md</code></p>
+      <details>
+        <summary>Prompt/context <span>Why this page exists</span></summary>
+        <div>
+          <p>The user asked to update GitHub Pages, README, banner, screenshots, movies, and other visual roadmap work after #195, using an umbrella PR, subagents, stacked PRs, and computer control. Repository and GitHub inventory found four stale screenshots, no movie, no reproducible capture state, issue #16 as the direct roadmap owner, issue #84 as a late editorial dependency, and PR #51 as stale preparation to salvage.</p>
+        </div>
+      </details>
+    </footer>
+  </main>
+</body>
+</html>
