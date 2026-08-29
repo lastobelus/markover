@@ -2259,6 +2259,7 @@ async function startAndPublishService(): Promise<void> {
         `markover authorization: ${event.method} ${event.pathname} (${event.reason})\n`
       )
     },
+    startupReady: () => startupReady,
     windowVisible: () => mainWindow?.isVisible() === true
   })
   try {

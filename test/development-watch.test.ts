@@ -396,6 +396,7 @@ test('a failed build keeps watching and the next valid change applies', async ()
   let builds = 0
   let restarts = 0
   const failures: unknown[] = []
+  const failureStages: string[] = []
   const controller = new DevelopmentWatchController({
     build() {
       builds += 1
@@ -407,8 +408,9 @@ test('a failed build keeps watching and the next valid change applies', async ()
       restarts += 1
       return Promise.resolve()
     },
-    reportError(error) {
+    reportError(error, stage) {
       failures.push(error)
+      failureStages.push(stage)
     }
   }, { debounceMilliseconds: 2 })
 
@@ -422,6 +424,7 @@ test('a failed build keeps watching and the next valid change applies', async ()
   await controller.waitForIdle()
   assert.equal(builds, 2)
   assert.equal(restarts, 1)
+  assert.deepEqual(failureStages, ['build'])
   controller.close()
 })
 
@@ -650,7 +653,7 @@ test('restart waits for the addressed process before launching the same target',
       },
       probe(endpointPath) {
         events.push(`ready:${endpointPath}`)
-        return Promise.resolve()
+        return Promise.resolve({ startupReady: true })
       },
       readProcessEndpoint() {
         return Promise.resolve({ pid: 90210 })
@@ -794,7 +797,7 @@ test('a watcher-owned process without a service quits through its control channe
         }
       },
       probe() {
-        return Promise.resolve()
+        return Promise.resolve({ startupReady: true })
       },
       resolve() {
         return Promise.resolve(canonicalInstance('stopped'))
@@ -842,7 +845,7 @@ test('an owned process falls back to control when its quit route fails', async (
         }
       },
       probe() {
-        return Promise.resolve()
+        return Promise.resolve({ startupReady: true })
       },
       quit(endpointPath) {
         events.push(`quit:${endpointPath}`)
@@ -900,7 +903,7 @@ test('stop owns a pre-service process before unavailable PR resolution', async (
       probe() {
         probeCalls += 1
         return probeCalls === 1
-          ? Promise.resolve()
+          ? Promise.resolve({ startupReady: true })
           : Promise.reject(new Error('service unavailable'))
       },
       resolve() {
@@ -952,7 +955,7 @@ test('restart validates remote inputs before stopping the accepted process', asy
         }
       },
       probe() {
-        return Promise.resolve()
+        return Promise.resolve({ startupReady: true })
       },
       readProcessEndpoint() {
         return Promise.resolve({ pid: 90211 })
@@ -1003,7 +1006,7 @@ test('an asynchronous spawn error stays inside the recoverable cycle', async () 
         }
       },
       probe() {
-        return Promise.resolve()
+        return Promise.resolve({ startupReady: true })
       },
       resolve() {
         return Promise.resolve(canonicalInstance('stopped'))
@@ -1015,6 +1018,34 @@ test('an asynchronous spawn error stays inside the recoverable cycle', async () 
   await manager.restart()
 
   assert.equal(launches, 2)
+})
+
+test('readiness requires the explicit startup-ready health phase', async () => {
+  let probes = 0
+  const manager = new DevelopmentInstanceManager(
+    canonicalInstance('stopped'),
+    [],
+    {
+      checkoutDirectory: '/checkouts/markover',
+      prepare: () => Promise.resolve(),
+      launch() {
+        return { exitCode: null, pid: 90211, signalCode: null }
+      },
+      probe() {
+        probes += 1
+        return Promise.resolve({ startupReady: probes > 1 })
+      },
+      resolve() {
+        return Promise.resolve(canonicalInstance('stopped'))
+      },
+      wait() {
+        return Promise.resolve()
+      }
+    }
+  )
+
+  await manager.restart()
+  assert.equal(probes, 2)
 })
 
 test('watcher refuses a running instance owned by another checkout', () => {

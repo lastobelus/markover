@@ -130,6 +130,7 @@ async function serviceFixture(
     onUnauthorized: options.onUnauthorized,
     interpretationPolicy: options.interpretationPolicy,
     agentReviewMode: options.agentReviewMode,
+    startupReady: options.startupReady,
     windowVisible: options.windowVisible
   })
   await publishServiceConnection({
@@ -288,8 +289,10 @@ test('receipt recovery returns the original review without replaying created', a
 
 test('serves health and a complete open/get/edit workflow', async (t) => {
   const activations: string[] = []
+  let startupReady = false
   const { changes, endpointPath, identity } = await serviceFixture(t, {
     interpretationPolicy: () => 'Use the policy captured at open.',
+    startupReady: () => startupReady,
     windowVisible: () => true,
     onActivate(reviewId) {
       activations.push(reviewId)
@@ -304,12 +307,17 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
       version: 2,
       instanceId: identity.instanceId,
       executablePath: process.execPath,
+      startupReady: false,
       windowVisible: true
     }
   )
   const service = await probeService(endpointPath)
   assert.equal(service.executablePath, process.execPath)
+  assert.equal(service.startupReady, false)
   assert.equal(service.windowVisible, true)
+
+  startupReady = true
+  assert.equal((await probeService(endpointPath)).startupReady, true)
 
   const opened = await requestJson(endpointPath, 'POST', '/reviews', {
     tree: tree(),
@@ -366,6 +374,62 @@ test('serves health and a complete open/get/edit workflow', async (t) => {
     changes.map((change) => change.action),
     ['created', 'handoff', 'handoff', 'edit']
   )
+})
+
+test('service probes require explicit boolean startup readiness', async (t) => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'markover-startup-readiness-test-')
+  )
+  const endpointPath = path.join(directory, 'service.json')
+  const identity = createServiceIdentity()
+  let startupReady: unknown
+  const fakeService = http.createServer((_request, response) => {
+    const contents = `${JSON.stringify({
+      status: 'ok',
+      version: 2,
+      instanceId: identity.instanceId,
+      startupReady
+    })}\n`
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': Buffer.byteLength(contents)
+    })
+    response.end(contents)
+  })
+  await new Promise<void>((resolve) => fakeService.listen(0, '127.0.0.1', resolve))
+  const address = fakeService.address()
+  assert.ok(address && typeof address === 'object')
+  await publishServiceConnection({
+    endpointPath,
+    identity,
+    port: address.port,
+    pid: 1234
+  })
+  t.after(async () => {
+    await new Promise<void>((resolve, reject) => {
+      fakeService.close((error) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+    await fs.rm(directory, { recursive: true, force: true })
+  })
+
+  await assert.rejects(
+    probeService(endpointPath),
+    (error: unknown) => (
+      error instanceof LocalServiceError && error.code === 'INVALID_RESPONSE'
+    )
+  )
+  startupReady = 'yes'
+  await assert.rejects(
+    probeService(endpointPath),
+    (error: unknown) => (
+      error instanceof LocalServiceError && error.code === 'INVALID_RESPONSE'
+    )
+  )
+  startupReady = false
+  assert.equal((await probeService(endpointPath)).startupReady, false)
 })
 
 test('claims and atomically submits a complete agent review', async (t) => {
@@ -1111,6 +1175,7 @@ test('gates every current non-health route with real HTTP', async (t) => {
     version: 2,
     instanceId: fixture.identity.instanceId,
     executablePath: process.execPath,
+    startupReady: false,
     windowVisible: false
   })
   assert.deepEqual(await fixture.store.list(), [])
@@ -1145,6 +1210,7 @@ test('categorizes invalid, stale, and rejected service credentials', async (t) =
       version: 2,
       instanceId: fixture.identity.instanceId,
       executablePath: process.execPath,
+      startupReady: false,
       windowVisible: false
     }
   )
@@ -1267,7 +1333,8 @@ test('health identity mismatch prevents secret request transmission', async (t) 
       const contents = `${JSON.stringify({
         status: 'ok',
         version: 2,
-        instanceId: createServiceIdentity().instanceId
+        instanceId: createServiceIdentity().instanceId,
+        startupReady: false
       })}\n`
       response.writeHead(200, {
         'content-type': 'application/json',
@@ -1324,7 +1391,12 @@ test('authenticated requests never cache a successful health preflight', async (
       url: request.url
     })
     const body = request.url === '/health'
-      ? { status: 'ok', version: 2, instanceId: identity.instanceId }
+      ? {
+          status: 'ok',
+          version: 2,
+          instanceId: identity.instanceId,
+          startupReady: false
+        }
       : { reviews: [] }
     const contents = `${JSON.stringify(body)}\n`
     response.writeHead(200, {
@@ -1380,7 +1452,8 @@ test('aborted authenticated responses are uncertain requests', async (t) => {
       const contents = `${JSON.stringify({
         status: 'ok',
         version: 2,
-        instanceId: identity.instanceId
+        instanceId: identity.instanceId,
+        startupReady: false
       })}\n`
       response.writeHead(200, {
         'content-type': 'application/json',

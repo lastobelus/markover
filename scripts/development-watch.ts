@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { realpathSync, watch, type FSWatcher } from 'node:fs'
 import path from 'node:path'
 
@@ -8,7 +8,11 @@ import {
   DEVELOPMENT_CONTROL_QUIT,
   DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT,
   DEVELOPMENT_WATCH_ENVIRONMENT,
-  developmentRendererRoot
+  developmentRendererRoot,
+  developmentWatchStatePath,
+  writeDevelopmentWatchState,
+  type DevelopmentWatchStage,
+  type DevelopmentWatchState
 } from '../src/development-control'
 import {
   LocalServiceError,
@@ -80,7 +84,10 @@ export interface DevelopmentProcess {
 export interface DevelopmentWatchOperations {
   apply: () => Promise<void>
   build: () => Promise<void>
-  reportError?: ((error: unknown) => void) | undefined
+  reportError?: ((
+    error: unknown,
+    stage: Exclude<DevelopmentWatchStage, 'readiness'>
+  ) => Promise<void> | void) | undefined
 }
 
 export interface DevelopmentWatchControllerOptions {
@@ -110,7 +117,10 @@ export class DevelopmentWatchController {
   private readonly build: () => Promise<void>
   private readonly clearTimer: typeof clearTimeout
   private readonly debounceMilliseconds: number
-  private readonly reportError: (error: unknown) => void
+  private readonly reportError: (
+    error: unknown,
+    stage: Exclude<DevelopmentWatchStage, 'readiness'>
+  ) => Promise<void> | void
   private readonly apply: () => Promise<void>
   private readonly setTimer: typeof setTimeout
   private closed = false
@@ -177,11 +187,13 @@ export class DevelopmentWatchController {
     if (this.closed || this.running !== null) return
     const targetRevision = this.revision
     this.running = (async () => {
+      let stage: Exclude<DevelopmentWatchStage, 'readiness'> = 'build'
       try {
         await this.build()
+        stage = 'startup'
         await this.apply()
       } catch (error) {
-        this.reportError(error)
+        await this.reportError(error, stage)
       } finally {
         this.completedRevision = targetRevision
       }
@@ -688,8 +700,12 @@ export class DevelopmentInstanceManager {
         )
       }
       try {
-        await this.probe(endpointPath)
-        return
+        const readiness = await this.probe(endpointPath)
+        if (
+          readiness !== null &&
+          typeof readiness === 'object' &&
+          Reflect.get(readiness, 'startupReady') === true
+        ) return
       } catch (error) {
         lastError = error
       }
@@ -749,6 +765,31 @@ export interface DevelopmentLoopOptions {
   externalWatch?: boolean
 }
 
+function gitState(): { head: string, dirty: boolean } {
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: projectDirectory,
+    encoding: 'utf8'
+  })
+  const status = spawnSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=all'],
+    { cwd: projectDirectory, encoding: 'utf8' }
+  )
+  if (head.status !== 0 || !head.stdout.trim() || status.status !== 0) {
+    throw new Error('Cannot read the development watcher Git identity.')
+  }
+  return {
+    head: head.stdout.trim(),
+    dirty: Boolean(status.stdout.trim())
+  }
+}
+
+function errorCode(error: unknown): string | null {
+  if (error === null || typeof error !== 'object') return null
+  const code: unknown = (error as { code?: unknown }).code
+  return typeof code === 'string' ? code : null
+}
+
 export async function main(
   args = process.argv.slice(2),
   {
@@ -762,21 +803,81 @@ export async function main(
     initialInstance,
     parsed.appArguments
   )
+  const statePath = developmentWatchStatePath(
+    projectDirectory,
+    initialInstance.identity.key
+  )
+  const state = (
+    partial: Pick<DevelopmentWatchState, 'phase' | 'stage'> &
+      Partial<Pick<
+        DevelopmentWatchState,
+        'error' | 'outcome' | 'service'
+      >>
+  ): DevelopmentWatchState => ({
+    version: 1,
+    checkout: projectDirectory,
+    ...gitState(),
+    identityKey: initialInstance.identity.key,
+    scheme: initialInstance.scheme,
+    watcherPid: process.pid,
+    updatedAt: new Date().toISOString(),
+    outcome: null,
+    error: null,
+    service: null,
+    ...partial
+  })
+  const publish = async (receipt: DevelopmentWatchState): Promise<void> => {
+    try {
+      await writeDevelopmentWatchState(statePath, receipt)
+    } catch (error) {
+      process.stderr.write(
+        `markover dev ${manager.identityKey}: cannot publish watcher state: ${errorMessage(error)}\n`
+      )
+    }
+  }
   const controller = new DevelopmentWatchController({
     async apply() {
+      await publish(state({ phase: 'starting', stage: 'startup' }))
       const outcome = await manager.apply()
+      const endpoint = await readEndpoint(initialInstance.service.endpointPath)
+      const readiness = await probeService(initialInstance.service.endpointPath)
+      if (!readiness.startupReady) {
+        throw new Error(
+          `${manager.identityKey} responded before startup reached ready.`
+        )
+      }
+      await publish(state({
+        phase: 'ready',
+        stage: 'readiness',
+        outcome,
+        service: {
+          instanceId: endpoint.instanceId,
+          pid: endpoint.pid,
+          port: endpoint.port,
+          startupReady: true
+        }
+      }))
       if (outcome === 'unchanged') return
       process.stderr.write(
         `markover dev ${manager.identityKey}: ready (${outcome}).\n`
       )
     },
     async build() {
+      await publish(state({ phase: 'building', stage: 'build' }))
       process.stderr.write(
         `markover dev ${manager.identityKey}: rebuilding.\n`
       )
       await manager.build()
     },
-    reportError(error) {
+    async reportError(error, stage) {
+      await publish(state({
+        phase: stage === 'build' ? 'build-failed' : 'startup-failed',
+        stage,
+        error: {
+          code: errorCode(error),
+          message: errorMessage(error)
+        }
+      }))
       process.stderr.write(
         `markover dev ${manager.identityKey}: ${errorMessage(error)} Keeping the watcher active.\n`
       )
@@ -809,6 +910,7 @@ export async function main(
     try {
       await controller.waitForIdle()
       if (signal !== 'SIGHUP') await manager.stop()
+      await publish(state({ phase: 'stopped', stage: 'startup' }))
     } catch (error) {
       process.stderr.write(
         `markover dev ${manager.identityKey}: shutdown failed: ${errorMessage(error)}\n`
