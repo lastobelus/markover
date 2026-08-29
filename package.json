@@ -12,6 +12,7 @@
     "build:icon:mac": "npm run build --silent && node build/scripts/build-macos-icon.js",
     "build:cli": "npm run build --silent && node build/scripts/build-cli.js",
     "capture:cli": "npm run build --silent && node build/scripts/capture-cli.js",
+    "capture:demo": "npm run build --silent && node build/scripts/capture-demo.js",
     "capture:stage": "npm run build --silent && node build/scripts/capture-media.js",
     "capture:stills": "npm run build --silent && node build/scripts/capture-stills.js",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
