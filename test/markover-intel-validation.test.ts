@@ -30,6 +30,32 @@ function host(overrides: Partial<IntelValidationHost> = {}): IntelValidationHost
   }
 }
 
+function serviceConnection(executablePath: string, startupReady = true) {
+  return {
+    credential: { version: 1 as const, instanceId: 'a', token: 'b' },
+    endpoint: {
+      version: 2 as const,
+      instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
+      port: 58139,
+      pid: 90371
+    },
+    executablePath,
+    startupReady,
+    windowVisible: false
+  }
+}
+
+function smokeExecutable(temporaryDirectory: string): string {
+  return path.join(
+    temporaryDirectory,
+    'markover-packaged-smoke-123',
+    'Markover.app',
+    'Contents',
+    'MacOS',
+    'Markover'
+  )
+}
+
 test('requires a native Intel macOS environment and supported Node', () => {
   assert.equal(environmentFailure('darwin', 'x64', host()), null)
   assert.match(environmentFailure('linux', 'x64', host()) || '', /requires macOS/)
@@ -66,14 +92,7 @@ test('refuses to disturb an existing Markover process', () => {
 test('recognizes only the temporary packaged smoke executable', () => {
   const temporaryDirectory = '/private/var/folders/markover-test'
   assert.equal(isPackagedSmokeExecutable(
-    path.join(
-      temporaryDirectory,
-      'markover-packaged-smoke-123',
-      'Markover.app',
-      'Contents',
-      'MacOS',
-      'Markover'
-    ),
+    smokeExecutable(temporaryDirectory),
     temporaryDirectory
   ), true)
   assert.equal(isPackagedSmokeExecutable(
@@ -93,25 +112,9 @@ test('gracefully stops only an interrupted packaged smoke process', async () => 
   const detail = await cleanupInterruptedPackagedSmoke({
     endpointPath: '/tmp/service.json',
     temporaryDirectory,
-    probe: () => Promise.resolve({
-      credential: { version: 1, instanceId: 'a', token: 'b' },
-      endpoint: {
-        version: 2,
-        instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
-        port: 58139,
-        pid: 90371
-      },
-      executablePath: path.join(
-        temporaryDirectory,
-        'markover-packaged-smoke-123',
-        'Markover.app',
-        'Contents',
-        'MacOS',
-        'Markover'
-      ),
-      startupReady: true,
-      windowVisible: false
-    }),
+    probe: () => Promise.resolve(serviceConnection(
+      smokeExecutable(temporaryDirectory)
+    )),
     quit: () => {
       quitCalls += 1
       alive = false
@@ -138,25 +141,10 @@ test('waits for an interrupted packaged smoke app to publish its endpoint', asyn
     probe: () => {
       probes += 1
       if (probes === 1) return Promise.reject(new Error('not ready'))
-      return Promise.resolve({
-        credential: { version: 1, instanceId: 'a', token: 'b' },
-        endpoint: {
-          version: 2,
-          instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
-          port: 58139,
-          pid: 90371
-        },
-        executablePath: path.join(
-          temporaryDirectory,
-          'markover-packaged-smoke-123',
-          'Markover.app',
-          'Contents',
-          'MacOS',
-          'Markover'
-        ),
-        startupReady: false,
-        windowVisible: false
-      })
+      return Promise.resolve(serviceConnection(
+        smokeExecutable(temporaryDirectory),
+        false
+      ))
     },
     quit: () => {
       alive = false
@@ -172,18 +160,9 @@ test('does not quit an unrelated running Markover app after interruption', async
   let quitCalls = 0
   const detail = await cleanupInterruptedPackagedSmoke({
     temporaryDirectory: '/private/var/folders/markover-test',
-    probe: () => Promise.resolve({
-      credential: { version: 1, instanceId: 'a', token: 'b' },
-      endpoint: {
-        version: 2,
-        instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
-        port: 58139,
-        pid: 90371
-      },
-      executablePath: '/Applications/Markover.app/Contents/MacOS/Markover',
-      startupReady: true,
-      windowVisible: false
-    }),
+    probe: () => Promise.resolve(serviceConnection(
+      '/Applications/Markover.app/Contents/MacOS/Markover'
+    )),
     quit: () => {
       quitCalls += 1
       return Promise.resolve()
