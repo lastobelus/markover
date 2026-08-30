@@ -10,7 +10,7 @@
     "redesignPullRequest": 195,
     "designBrief": "doc/design/markover-design-brief.md",
     "fixtureRevision": 1,
-    "captureCommit": "2836e197ca7e88a96dfc63d51851254663d42a8b"
+    "captureCommit": "4abf64ad667ad27bbc2e1b3d25a145e5a0eb36e6"
   },
   "staging": {
     "command": "npm run capture:stage",
@@ -70,7 +70,7 @@
   ],
   "movie": {
     "path": "docs/user/assets/markover-focused-preview-demo.mp4",
-    "sha256": "f9adbf7eadca81b50b4e9168338c2e1c7b47cc8c14fa407d9083174b4e4f982f",
+    "sha256": "34ab9293f4278af9920d6176a36d4fb7da7824f4b83d453ec72aa21c400332f9",
     "poster": {
       "path": "docs/user/assets/markover-demo-poster.jpg",
       "sha256": "800d960723c05fe1ca0dcf3f07568fdec924e0fb91e2e88b653ec6b90e765d8a"
