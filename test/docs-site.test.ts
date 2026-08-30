@@ -320,7 +320,7 @@ test('every public page offers a persistent system-aware Ember appearance switch
     )
   }
   assert.ok(contrastRatio('#000000', '#c94e1f') >= 4.5)
-  assert.match(styles, /:root\[data-appearance="dark"\] \.button-deep:hover \{[^}]*border-color: var\(--brand-orange\);[^}]*background: var\(--brand-orange\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.button-deep:hover \{[^}]*border-color: var\(--brand-burgundy\);[^}]*background: var\(--brand-orange\);/)
   assert.match(styles, /:root\[data-appearance="dark"\] \.button-outline \{[^}]*border-color: var\(--brand-burgundy\);[^}]*color: var\(--brand-burgundy\);/)
   assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
   assert.match(styles, /\.theme-choice:focus-visible/)
