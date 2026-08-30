@@ -242,6 +242,7 @@ test('the floating theme-token inspector uses canonical structure and component 
   assert.match(styles, /\.instance-badge \{[^}]*border: 1px solid var\(--line\);[^}]*background: var\(--paper\);/)
   assert.match(html, /id="theme-token-inspector-show-incoming-review"[^>]*>\s*Show incoming-review dialog/)
   assert.match(renderer, /showIncomingReview\.addEventListener\('click', showIncomingReviewPreview\)/)
+  assert.doesNotMatch(renderer, /incomingReviewPreviewKey|setTimeout\(showIncomingReviewPreview/)
   assert.match(styles, /\.review-filter \{[^}]*background-color: var\(--paper\);/)
   assert.match(styles, /\.selected-location \{[^}]*background: var\(--paper\);/)
   assert.match(styles, /\.review-context-button \{[^}]*border: 1px solid var\(--markover-primary\);[^}]*color: var\(--markover-primary\);[^}]*background: var\(--surface\);/)

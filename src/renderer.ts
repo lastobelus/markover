@@ -5809,12 +5809,6 @@ function installThemeTokenInspector(startupInfo: StartupInfo): void {
 
     showIncomingReview.addEventListener('click', showIncomingReviewPreview)
 
-    const incomingReviewPreviewKey = 'markover-dev-incoming-review-preview-v3'
-    if (!sessionStorage.getItem(incomingReviewPreviewKey)) {
-      sessionStorage.setItem(incomingReviewPreviewKey, 'shown')
-      setTimeout(showIncomingReviewPreview, 250)
-    }
-
     close.addEventListener('click', () => { inspector.hidden = true })
 
     new MutationObserver(refresh).observe(root, {
