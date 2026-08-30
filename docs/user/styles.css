@@ -157,7 +157,7 @@ a { color: inherit; text-underline-offset: .18em; }
 .feature-grid { width: min(1180px, calc(100% - 48px)); margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 16px 42px rgb(74 43 34 / 7%); }
 .feature-grid article { min-height: 270px; padding: 34px; }
 .feature-grid article + article { border-left: 1px solid var(--line); }
-.feature-number { color: var(--brand-orange); font: 750 16.5px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.feature-number { color: var(--brand-burgundy); font: 750 16.5px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .feature-grid h2 { margin: 58px 0 12px; font-size: 25px; letter-spacing: -.025em; }
 .feature-grid p { margin: 0; color: var(--muted); line-height: 1.65; }
 
@@ -165,7 +165,7 @@ a { color: inherit; text-underline-offset: .18em; }
 .workflow h2 { margin: 13px 0 0; font-size: 42px; line-height: 1.05; letter-spacing: -.04em; }
 .workflow ol { margin: 0; padding: 0; list-style: none; counter-reset: workflow; }
 .workflow li { counter-increment: workflow; padding: 20px 0; display: grid; grid-template-columns: 40px minmax(0, 1fr); border-top: 1px solid var(--line); color: var(--muted); line-height: 1.6; }
-.workflow li::before { content: "0" counter(workflow); grid-column: 1; color: var(--brand-orange); font: 750 16.5px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.workflow li::before { content: "0" counter(workflow); grid-column: 1; color: var(--brand-burgundy); font: 750 16.5px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .workflow li p { grid-column: 2; margin: 0; }
 .workflow li span { color: var(--ink); font-weight: 750; }
 

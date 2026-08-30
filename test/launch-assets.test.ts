@@ -208,8 +208,8 @@ test('README uses one linked product image and states the preview boundary', () 
 
 test('the public feature indices have deliberate visual weight', () => {
   const styles = fs.readFileSync(path.join(userDirectory, 'styles.css'), 'utf8')
-  assert.match(styles, /\.feature-number \{[^}]*font: 750 16\.5px\/1\.2/)
-  assert.match(styles, /\.workflow li::before \{[^}]*font: 750 16\.5px\/1\.2/)
+  assert.match(styles, /\.feature-number \{[^}]*color: var\(--brand-burgundy\);[^}]*font: 750 16\.5px\/1\.2/)
+  assert.match(styles, /\.workflow li::before \{[^}]*color: var\(--brand-burgundy\);[^}]*font: 750 16\.5px\/1\.2/)
 })
 
 test('agent-specific examples use only observable supported identities', () => {
