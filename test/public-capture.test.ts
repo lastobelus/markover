@@ -153,6 +153,7 @@ test('demo automation records the real capture renderer to the launch contract',
   assert.match(capture, /const height = 1080/)
   assert.match(capture, /const framesPerSecond = 30/)
   assert.match(capture, /capture-cli\.js[\s\S]*'get',[\s\S]*'mko_capture01'/)
+  assert.match(capture, /data-review-id="mko_capture03"[\s\S]*control\.click\(\)/)
   assert.match(capture, /\.block-row\[data-node-id=[^\]]*block-2/)
   assert.match(capture, /#annotation-view-list/)
   assert.match(capture, /PresetPassthrough/)

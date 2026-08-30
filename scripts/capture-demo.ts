@@ -255,7 +255,11 @@ async function run(): Promise<void> {
     await waitFor(client, `document.querySelector('#pane-layout')?.getClientRects().length`)
     await click(client, '#review-navigation-inbox')
     await chooseNeedsMe(client)
-    await click(client, '[data-review-id="mko_capture03"] .review-list-row-open')
+    await client.evaluate(`(() => {
+      const control = document.querySelector('[data-review-id="mko_capture03"] .review-list-row-open');
+      if (!(control instanceof HTMLButtonElement)) throw new Error('Missing setup review control.');
+      control.click();
+    })()`)
     await waitFor(client, `document.querySelector('#document-review-id')?.textContent === 'mko_capture03'`)
     await installOverlay(client)
     const frames = new DemoFrames(client, framesDirectory)
