@@ -85,6 +85,21 @@ test('the Pages preview offers a navigable high-density screenshot gallery', () 
   assert.match(scriptSource, /event\.key === 'ArrowRight'/)
 })
 
+test('README and Pages share one strongest product image', () => {
+  const readmeScreenshots = [...readme.matchAll(
+    /docs\/user\/assets\/(markover-[a-z-]+@2x\.png)/g
+  )].map((match) => match[1])
+  assert.deepEqual(readmeScreenshots, ['markover-review-editor@2x.png'])
+  assert.match(
+    readme,
+    /alt="Markover in Ember Light showing the review inbox, a launch brief in the center document tree, and precise feedback with two labeled attachments\."/
+  )
+  assert.match(
+    html,
+    /href="\.\/assets\/markover-review-editor@2x\.png"/
+  )
+})
+
 test('the Pages gallery opens lazily and navigates with controls or arrows', () => {
   const dom = new JSDOM(html, {
     runScripts: 'outside-only',

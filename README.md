@@ -18,11 +18,7 @@ Markover is an **Early macOS preview** for reviewing Markdown as a document
 tree and returning block-level feedback to an agent.
 
 <p align="center">
-  <img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover showing a document inbox, structured Markdown, and an annotation with labeled screenshots.">
-</p>
-
-<p align="center">
-  <img src="./docs/user/assets/markover-annotation-browser@2x.png" width="920" alt="Markover showing every rendered annotation in the active document.">
+  <img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover in Ember Light showing the review inbox, a launch brief in the center document tree, and precise feedback with two labeled attachments.">
 </p>
 
 ## Features
