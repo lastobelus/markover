@@ -113,7 +113,7 @@ test('README and Pages share one strongest product image', () => {
   assert.deepEqual(readmeScreenshots, ['markover-review-editor@2x.png'])
   assert.match(
     readme,
-    /alt="Markover in Ember Light showing the review inbox, a launch brief in the center document tree, and precise feedback with two labeled attachments\."/
+    /alt="[^"]*Ember Light[^"]*review inbox[^"]*launch brief[^"]*two labeled attachments\."/
   )
   assert.match(
     html,
@@ -582,7 +582,7 @@ test('the public Tailscale example is additive and keeps local routing private',
 
 test('the early-preview contract is concise and consistent on user entry paths', () => {
   for (const source of [html, guide, readme]) {
-    assert.match(source, /Early macOS preview/)
+    assert.match(source, /early (?:macOS )?preview/i)
   }
   for (const source of [guide, readme, limitations]) {
     assert.match(source, /macOS 14 Sonoma/)

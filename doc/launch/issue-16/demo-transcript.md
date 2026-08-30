@@ -1,9 +1,12 @@
 # Markover focused-preview demo transcript
 
-The 44-second silent demo uses burned-in captions and only invented fixture data.
-
 This file is the canonical transcript. The inline transcript on the Pages demo
-section must match it verbatim; update both together when the demo changes.
+section must match the text between the markers below; update both together
+when the demo changes.
+
+<!-- pages-transcript:start -->
+
+The 44-second silent demo uses burned-in captions and only invented fixture data.
 
 Markover starts with a sanitized participant guide, then opens the
 launch-readiness review from the **Needs me** inbox. The Ember Light theme's
@@ -18,8 +21,11 @@ without changing the source document. The reviewer switches to **Projects** and
 Finally, the CLI (running against demo fixture data) returns structured JSON
 containing the review status, block feedback, attachment IDs and labels, and
 source proposal. The demo ends on the Markover lockup, “Structured review for
-Markdown,” the free, MIT-licensed macOS early-preview boundary, and the
-repository address.
+Markdown,” and the repository address.
+
+<!-- pages-transcript:end -->
+
+The end card also states the free, MIT-licensed macOS early-preview boundary.
 
 No canonical review, private path, real repository, real pull request, real
 thread identity, credential, notification, unrelated application chrome, or
