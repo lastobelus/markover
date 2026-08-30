@@ -212,6 +212,13 @@ test('the public feature indices have deliberate visual weight', () => {
   assert.match(styles, /\.workflow li::before \{[^}]*color: var\(--brand-burgundy\);[^}]*font: 750 16\.5px\/1\.2/)
 })
 
+test('Ember orange stays out of normal-size public text', () => {
+  const styles = fs.readFileSync(path.join(userDirectory, 'styles.css'), 'utf8')
+  assert.doesNotMatch(styles, /color: var\(--brand-orange\)/)
+  assert.match(styles, /\.eyebrow \{[^}]*color: var\(--brand-burgundy\);[^}]*font: 750 12px\/1\.2/)
+  assert.match(styles, /\.docs-nav p \{[^}]*color: var\(--brand-burgundy\);[^}]*font: 750 10px\/1\.2/)
+})
+
 test('agent-specific examples use only observable supported identities', () => {
   const agents = fs.readFileSync(path.join(userDirectory, 'agents/index.html'), 'utf8')
   assert.match(agents, /--thread-id "\$CODEX_THREAD_ID"[\s\S]*?--thread-host-kind t3code[\s\S]*?--thread-host-provider codex/)

@@ -55,7 +55,7 @@ a { color: inherit; text-underline-offset: .18em; }
 .brand-lockup-vertical .brand-lockup-tagline { font-size: 13px; line-height: 1.15; white-space: nowrap; }
 .site-nav { display: flex; align-items: center; gap: 25px; font-size: 14px; }
 .site-nav > a:not(.button) { text-decoration: none; }
-.site-nav > a:not(.button):hover { color: var(--brand-orange); }
+.site-nav > a:not(.button):hover { color: var(--brand-burgundy); }
 
 .button {
   display: inline-flex;
@@ -83,7 +83,7 @@ a { color: inherit; text-underline-offset: .18em; }
   align-items: center;
   gap: 74px;
 }
-.eyebrow { margin: 0; color: var(--brand-orange); font: 750 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
+.eyebrow { margin: 0; color: var(--brand-burgundy); font: 750 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
 .hero h1 { max-width: 700px; margin: 15px 0 0; font-size: clamp(46px, 4.8vw, 70px); line-height: 1.03; letter-spacing: -.035em; }
 .hero-summary { max-width: 620px; margin: 25px 0 0; color: var(--muted); font-size: 19px; line-height: 1.6; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 31px; }
@@ -176,7 +176,7 @@ a { color: inherit; text-underline-offset: .18em; }
 .docs-sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 31px 28px 24px; border-right: 1px solid var(--line); background: var(--neutral-soft); }
 .docs-brand { padding-bottom: 24px; border-bottom: 1px solid var(--line); }
 .docs-nav { margin-top: 24px; }
-.docs-nav p { margin: 22px 10px 8px; color: var(--brand-orange); font: 750 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .09em; text-transform: uppercase; }
+.docs-nav p { margin: 22px 10px 8px; color: var(--brand-burgundy); font: 750 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .09em; text-transform: uppercase; }
 .docs-nav a { display: block; margin: 2px 0; padding: 9px 10px; border-radius: 7px; color: var(--muted); font-size: 13px; text-decoration: none; }
 .docs-nav a:hover { color: var(--ink); background: var(--ground); }
 .docs-nav a[aria-current="page"] { color: var(--brand-burgundy); background: var(--brand-soft); font-weight: 750; }
