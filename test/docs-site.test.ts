@@ -320,10 +320,20 @@ test('every public page offers a persistent system-aware Ember appearance switch
     )
   }
   assert.ok(contrastRatio('#000000', '#c94e1f') >= 4.5)
+  assert.ok(contrastRatio('#dfdedd', '#6d211f') >= 4.5)
+  assert.ok(contrastRatio('#ffffff', '#6d211f') >= 4.5)
   assert.match(styles, /:root\[data-appearance="dark"\] \.button-deep:hover \{[^}]*border-color: var\(--brand-burgundy\);[^}]*background: var\(--brand-orange\);/)
   assert.match(styles, /:root\[data-appearance="dark"\] \.button-outline \{[^}]*border-color: var\(--brand-burgundy\);[^}]*color: var\(--brand-burgundy\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.product-dialog-header,[^}]*\.gallery-control:hover \{[^}]*background: var\(--markover-secondary\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.gallery-position,[^}]*\.dialog-close:hover \{[^}]*color: var\(--ink\);/)
+  assert.equal(
+    [...styles.matchAll(/background:\s*var\(--brand-(?:orange|burgundy)\)/g)].length,
+    5,
+    'every branded public background must remain covered by the dark pairing checks'
+  )
   assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
   assert.match(styles, /\.theme-choice:focus-visible/)
+  assert.match(styles, /\.docs-sidebar \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;[^}]*scrollbar-gutter: stable;/)
   for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {
     assert.equal(
       fs.existsSync(path.join(userDirectory, 'assets', `${name}-dark.svg`)),
