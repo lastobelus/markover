@@ -105,8 +105,9 @@ a { color: inherit; text-underline-offset: .18em; }
   align-items: center;
   gap: 74px;
 }
+.hero-copy { container-type: inline-size; }
 .eyebrow { margin: 0; color: var(--brand-burgundy); font: 750 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; }
-.hero h1 { max-width: 700px; margin: 15px 0 0; font-size: clamp(46px, 4.8vw, 70px); line-height: 1.03; letter-spacing: -.035em; }
+.hero h1 { max-width: 700px; margin: 15px 0 0; font-size: clamp(38px, min(4.8vw, 10cqi), 70px); font-weight: 600; line-height: 1.03; letter-spacing: -.035em; white-space: nowrap; }
 .hero-summary { max-width: 620px; margin: 25px 0 0; color: var(--muted); font-size: 19px; line-height: 1.6; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 31px; }
 
@@ -258,7 +259,7 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
   .site-brand .brand-logotype { width: 120px; }
   .hero, .demo-section, .feature-grid, .workflow, .site-footer { width: min(100% - 32px, 1180px); }
   .hero { padding: 55px 0 76px; gap: 52px; }
-  .hero h1 { font-size: clamp(41px, 11.5vw, 56px); }
+  .hero h1 { font-size: clamp(29px, 10cqi, 56px); }
   .hero-summary { font-size: 17px; }
   .demo-section { margin-bottom: 64px; padding: 28px 22px; gap: 28px; }
   .demo-copy h2 { font-size: 34px; }
