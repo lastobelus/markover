@@ -358,7 +358,7 @@ test('public capture contract preserves the four current media states', () => {
   const capture = manifest()
   assert.deepEqual(capture.stills, {
     command: 'npm run capture:stills',
-    sourceCommit: '354c9ef023fc181745413fa5f5746bfbc9b447c9'
+    sourceCommit: 'e6b14ea6843c7990fa3303a1c01db77a75d28827'
   })
   assert.deepEqual(capture.screenshots.map(({ filename }) => filename), [
     'markover-review-editor@2x.png',

@@ -3,7 +3,7 @@
   "version": 1,
   "stills": {
     "command": "npm run capture:stills",
-    "sourceCommit": "354c9ef023fc181745413fa5f5746bfbc9b447c9"
+    "sourceCommit": "e6b14ea6843c7990fa3303a1c01db77a75d28827"
   },
   "status": "foundation",
   "source": {
