@@ -113,6 +113,13 @@ interface InterruptedSmokeCleanupDependencies {
   wait?: (milliseconds: number) => Promise<void>
 }
 
+interface ActionCancellation {
+  isCancelled(): boolean
+  activate(terminate: () => void): void
+  deactivate(terminate: () => void): void
+  dispose(): void
+}
+
 const BASE_REF = 'origin/main'
 const FORMAT = 'run-intel-validation'
 
@@ -345,13 +352,40 @@ function exitCode(outcome: IntelValidationOutcome): number {
   return 1
 }
 
+function installActionCancellation(): ActionCancellation {
+  let cancelled = false
+  let activeTermination: (() => void) | null = null
+  const cancel = (): void => {
+    cancelled = true
+    activeTermination?.()
+  }
+  process.on('SIGINT', cancel)
+  process.on('SIGTERM', cancel)
+  return {
+    isCancelled() { return cancelled },
+    activate(terminate) {
+      activeTermination = terminate
+      if (cancelled) terminate()
+    },
+    deactivate(terminate) {
+      if (activeTermination === terminate) activeTermination = null
+    },
+    dispose() {
+      activeTermination = null
+      process.removeListener('SIGINT', cancel)
+      process.removeListener('SIGTERM', cancel)
+    }
+  }
+}
+
 async function runStage(
   root: string,
   directory: string,
   name: IntelValidationStageName,
   executable: string,
   args: readonly string[],
-  deadline: number
+  deadline: number,
+  cancellation: ActionCancellation
 ): Promise<StageResult> {
   const startedAt = Date.now()
   const outputPath = stageLogPath(directory, name)
@@ -364,18 +398,12 @@ async function runStage(
   })
   child.stdout.pipe(output, { end: false })
   child.stderr.pipe(output, { end: false })
-  let cancelled = false
   let timedOut = false
   let escalation: NodeJS.Timeout | undefined
   const terminate = (): void => {
     escalation ??= terminateProcessGroupWithEscalation(child)
   }
-  const cancel = (): void => {
-    cancelled = true
-    terminate()
-  }
-  process.once('SIGINT', cancel)
-  process.once('SIGTERM', cancel)
+  cancellation.activate(terminate)
   const remaining = Math.max(1, deadline - Date.now())
   const timeout = setTimeout(() => {
     timedOut = true
@@ -390,7 +418,7 @@ async function runStage(
     })
     return {
       code,
-      cancelled,
+      cancelled: cancellation.isCancelled(),
       timedOut,
       durationMs: Date.now() - startedAt,
       log: await fsp.readFile(outputPath, 'utf8')
@@ -398,8 +426,7 @@ async function runStage(
   } finally {
     clearTimeout(timeout)
     if (escalation) clearTimeout(escalation)
-    process.removeListener('SIGINT', cancel)
-    process.removeListener('SIGTERM', cancel)
+    cancellation.deactivate(terminate)
   }
 }
 
@@ -446,12 +473,14 @@ async function main(): Promise<void> {
   const root = commandText(process.cwd(), 'git', ['rev-parse', '--show-toplevel'])
   const baseline = readLocalCiIdentity(root)
   const stages: IntelValidationStage[] = []
+  const cancellation = installActionCancellation()
   let host: IntelValidationHost | undefined
   process.stdout.write(`[${FORMAT}] Baseline ${JSON.stringify({
     ...baseline,
     commandVersion: INTEL_VALIDATION_COMMAND_VERSION
   })}\n`)
   const finish = (summary: IntelValidationSummary): void => {
+    cancellation.dispose()
     process.stdout.write(`${formatIntelValidationSummary(summary)}\n`)
     process.exitCode = exitCode(summary.outcome)
   }
@@ -467,9 +496,17 @@ async function main(): Promise<void> {
       await readRunningMarkoverFailure()
     stages.push({
       name: 'environment',
-      status: failure ? 'failed' : 'passed',
+      status: failure || cancellation.isCancelled() ? 'failed' : 'passed',
       durationMs: Date.now() - environmentStarted
     })
+    if (cancellation.isCancelled()) {
+      finish({
+        outcome: 'cancelled',
+        ...commonSummary(baseline, startedAt, stages, host),
+        failingStage: 'environment'
+      })
+      return
+    }
     if (failure) {
       finish({
         outcome: 'environment-failed',
@@ -491,6 +528,10 @@ async function main(): Promise<void> {
   }
 
   const directory = artifactRoot(root, baseline.head, startedAt)
+  if (cancellation.isCancelled()) {
+    finish({ outcome: 'cancelled', ...commonSummary(baseline, startedAt, stages, host) })
+    return
+  }
   await fsp.mkdir(directory, { recursive: true })
   const configuredTimeout = Number.parseInt(
     process.env.MARKOVER_INTEL_VALIDATION_TIMEOUT_MS ?? '',
@@ -555,8 +596,19 @@ async function main(): Promise<void> {
 
   let tests: LocalCiTestCounts | undefined
   let localSmoke: LocalCiSmokeResult | undefined
+  let artifact: IntelValidationSummary['artifact']
   let digest = ''
   for (const step of commands) {
+    if (cancellation.isCancelled()) {
+      finish({
+        outcome: 'cancelled',
+        ...commonSummary(baseline, startedAt, stages, host),
+        tests,
+        localSmoke,
+        artifact
+      })
+      return
+    }
     process.stdout.write(`[${FORMAT}] Starting ${step.name}.\n`)
     const result = await runStage(
       root,
@@ -564,7 +616,8 @@ async function main(): Promise<void> {
       step.name,
       step.executable,
       step.args,
-      deadline
+      deadline,
+      cancellation
     )
     let passed = result.code === 0 && !result.cancelled && !result.timedOut
     let stageDetail: string | undefined
@@ -592,25 +645,35 @@ async function main(): Promise<void> {
         stageDetail = compactDetail(error)
       }
     }
+    if (step.name === 'local-ci' && passed) {
+      tests = parseTestCounts(result.log) ?? undefined
+      localSmoke = parseSmokeResult(result.log) ?? undefined
+      if (!tests || !localSmoke?.ok) {
+        passed = false
+        stageDetail = 'Local CI exited without complete test and smoke evidence.'
+      }
+    }
+    if (step.name === 'smoke' && passed) {
+      try {
+        const smokeEvidence: unknown = JSON.parse(
+          await fsp.readFile(evidence, 'utf8')
+        )
+        const { reviewId } = validatePackagedSmokeEvidence(smokeEvidence, {
+          head: baseline.head,
+          sha256: digest
+        })
+        artifact = { archive, checksum, sha256: digest, evidence, reviewId }
+      } catch (error) {
+        passed = false
+        stageDetail = compactDetail(error)
+      }
+    }
+    if (cancellation.isCancelled()) passed = false
     stages.push({
       name: step.name,
       status: passed ? 'passed' : 'failed',
       durationMs: result.durationMs
     })
-    if (step.name === 'local-ci' && passed) {
-      tests = parseTestCounts(result.log) ?? undefined
-      localSmoke = parseSmokeResult(result.log) ?? undefined
-      if (!tests || !localSmoke?.ok) {
-        printTail(step.name, result.log)
-        finish({
-          outcome: 'ci-failed',
-          ...commonSummary(baseline, startedAt, stages, host),
-          failingStage: step.name,
-          detail: 'Local CI exited without complete test and smoke evidence.'
-        })
-        return
-      }
-    }
     if (!passed) {
       printTail(step.name, result.log)
       finish({
@@ -630,22 +693,13 @@ async function main(): Promise<void> {
     process.stdout.write(`[${FORMAT}] Passed ${step.name}.\n`)
   }
 
-  let artifact: IntelValidationSummary['artifact']
-  try {
-    const smokeEvidence: unknown = JSON.parse(await fsp.readFile(evidence, 'utf8'))
-    const { reviewId } = validatePackagedSmokeEvidence(smokeEvidence, {
-      head: baseline.head,
-      sha256: digest
-    })
-    artifact = { archive, checksum, sha256: digest, evidence, reviewId }
-  } catch (error) {
+  if (cancellation.isCancelled()) {
     finish({
-      outcome: 'smoke-failed',
+      outcome: 'cancelled',
       ...commonSummary(baseline, startedAt, stages, host),
-      failingStage: 'smoke',
-      detail: compactDetail(error),
       tests,
-      localSmoke
+      localSmoke,
+      artifact
     })
     return
   }
@@ -659,6 +713,16 @@ async function main(): Promise<void> {
       ...commonSummary(baseline, startedAt, stages, host),
       failingStage: 'final-identity',
       detail: compactDetail(error),
+      tests,
+      localSmoke,
+      artifact
+    })
+    return
+  }
+  if (cancellation.isCancelled()) {
+    finish({
+      outcome: 'cancelled',
+      ...commonSummary(baseline, startedAt, stages, host),
       tests,
       localSmoke,
       artifact
