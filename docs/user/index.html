@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#eee8e0">
+    <meta name="theme-color" content="#e8e2d8">
     <meta name="description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
     <title>Markover — Early macOS preview</title>
     <link rel="icon" href="./assets/markover-mark.svg" type="image/svg+xml">
@@ -40,25 +40,38 @@
         <a class="product-preview-trigger" href="./assets/markover-review-editor@2x.png" aria-haspopup="dialog" aria-controls="product-preview">
           <div class="product-frame" aria-hidden="true">
             <div class="window-titlebar"><span></span><span></span><span></span></div>
-            <div class="product-toolbar">
-              <img src="./assets/markover-mark.svg" alt="">
-              <div class="document-identity"><strong>proposal.md</strong><span>mko_8f3a2c · editing</span></div>
-              <span class="mock-action">Copy feedback JSON</span>
-            </div>
-            <div class="product-workspace">
-              <div class="tree-preview">
-                <p class="pane-label">Document tree</p>
-                <div class="tree-row selected"><i></i><span></span></div>
-                <div class="tree-row"><i></i><span></span></div>
-                <div class="tree-row nested"><i></i><span></span></div>
-                <div class="tree-row nested short"><i></i><span></span></div>
-                <div class="tree-row"><i></i><span></span></div>
+            <div class="app-shell">
+              <div class="app-header">
+                <div class="mock-app-brand">
+                  <img src="./assets/markover-lockup.svg" alt="">
+                </div>
+                <div class="mock-review-identity">
+                  <strong>launch-readiness.md</strong>
+                  <span>Atlas Studio</span>
+                </div>
+                <span class="mock-status">Needs me</span>
               </div>
-              <div class="feedback-preview">
-                <p class="pane-label">Selected block</p>
-                <div class="source-line"></div>
-                <div class="feedback-box"><span>Clarify this decision before implementation.</span></div>
-                <div class="annotation-state"><b></b> Annotated</div>
+              <div class="pane-layout">
+                <div class="left-pane">
+                  <div class="mock-review-navigation"><strong>Inbox</strong><span>Projects</span></div>
+                  <p class="pane-label">Documents</p>
+                  <div class="mock-document selected"><b>Launch readiness</b><span>4 notes</span></div>
+                  <div class="mock-document"><b>Release notes</b><span>With agent</span></div>
+                  <div class="mock-document"><b>Participant guide</b><span>1 note</span></div>
+                </div>
+                <div class="center-pane">
+                  <p class="pane-label">Document tree</p>
+                  <div class="mock-block selected"><strong>Launch readiness brief</strong></div>
+                  <div class="mock-block"><span>Ship a focused pilot to the design-partner group.</span></div>
+                  <div class="mock-block nested"><strong>Success criteria</strong></div>
+                  <div class="mock-block nested"><span>Every handoff names an owner.</span></div>
+                </div>
+                <div class="right-pane">
+                  <p class="pane-label">Selected block</p>
+                  <div class="mock-source-card"><span>Source</span><b>Heading 1</b></div>
+                  <div class="feedback-box">Tighten the opening before the pilot and name the audience explicitly.</div>
+                  <div class="annotation-state"><b></b> 2 labeled attachments</div>
+                </div>
               </div>
             </div>
           </div>

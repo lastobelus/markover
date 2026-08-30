@@ -209,6 +209,70 @@ test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(readmeLeader, /<text class="tagline" x="100" y="164">Structured review for Markdown\.<\/text>/)
 })
 
+test('public surfaces inherit the current Ember Light visual roles', () => {
+  assert.match(styles, /--muted: #6f6761;/)
+  assert.match(styles, /--ground: #e8e2d8;/)
+  assert.match(styles, /--paper: #f7f4ee;/)
+  assert.match(styles, /--neutral-soft: #ece9e2;/)
+  assert.match(styles, /--code: #262b2b;/)
+  assert.match(styles, /--app-shell-background: var\(--ground\);/)
+  assert.match(styles, /--app-header-background: var\(--app-shell-background\);/)
+  assert.match(styles, /--left-pane-background: var\(--neutral-soft\);/)
+  assert.match(styles, /--center-pane-background: var\(--paper\);/)
+  assert.match(styles, /--right-pane-background: var\(--neutral-soft\);/)
+  assert.match(styles, /font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;/)
+  assert.doesNotMatch(styles, /Inter|Segoe UI|#eee8e0|#756d67|#2c2927/)
+  assert.match(readmeLeader, /fill: #6f6761;/)
+  assert.match(readmeLeader, /\.tagline \{ fill: #b7aaa3; \}/)
+  assert.match(readmeLeader, /"SF Pro Text", system-ui, sans-serif/)
+  assert.doesNotMatch(readmeLeader, /Segoe UI|#756d67/)
+
+  for (const page of [
+    html,
+    guide,
+    agents,
+    privacy,
+    limitations,
+    compatibility,
+    remoteAccess
+  ]) {
+    assert.match(page, /<meta name="theme-color" content="#e8e2d8">/)
+    assert.doesNotMatch(page, /#eee8e0/)
+  }
+})
+
+test('the Pages hero depicts the current App header and three-pane layout', () => {
+  const document = new JSDOM(html).window.document
+  const frame = document.querySelector('.product-frame')
+  assert.ok(frame)
+  const shell = frame.querySelector(':scope > .window-titlebar + .app-shell')
+  assert.ok(shell)
+  const appHeader = shell.querySelector(':scope > .app-header')
+  assert.ok(appHeader)
+  assert.equal(
+    appHeader.querySelector<HTMLImageElement>('.mock-app-brand img')?.getAttribute('src'),
+    './assets/markover-lockup.svg'
+  )
+  assert.equal(appHeader.querySelector('.mock-app-brand span'), null)
+  const paneLayout = shell.querySelector(':scope > .pane-layout')
+  assert.ok(paneLayout)
+  assert.deepEqual(
+    [...paneLayout.children].map((element) => element.className),
+    ['left-pane', 'center-pane', 'right-pane']
+  )
+  assert.match(paneLayout.querySelector('.left-pane')?.textContent || '', /Inbox/)
+  assert.match(paneLayout.querySelector('.center-pane')?.textContent || '', /Document tree/)
+  assert.match(paneLayout.querySelector('.right-pane')?.textContent || '', /Selected block/)
+  assert.doesNotMatch(html, /product-toolbar|product-workspace|tree-preview|feedback-preview|checksum/i)
+
+  assert.match(styles, /\.left-pane \{ background: var\(--left-pane-background\); \}/)
+  assert.match(styles, /\.center-pane \{[^}]*background: var\(--center-pane-background\);/)
+  assert.match(styles, /\.right-pane \{ background: var\(--right-pane-background\); \}/)
+  assert.match(styles, /\.mock-app-brand img \{ width: 92px; \}/)
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.left-pane \{ display: none; \}/)
+  assert.doesNotMatch(styles, /backdrop-filter|linear-gradient|radial-gradient/)
+})
+
 test('privacy and local-data claims stay linked to the public workflow', () => {
   assert.match(html, /href="\.\/privacy\/">Privacy/)
   assert.match(guide, /href="\.\.\/privacy\/">Privacy and local data/)
