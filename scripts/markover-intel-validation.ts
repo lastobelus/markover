@@ -4,6 +4,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 
 import {
@@ -17,6 +18,7 @@ import {
   type LocalCiTestCounts
 } from './markover-local-ci'
 import { parseServiceEndpoint, serviceEndpointPath } from '../src/service-endpoint'
+import { probeService, requestServiceQuit } from '../src/local-client'
 
 export const INTEL_VALIDATION_COMMAND_VERSION = 1
 export const INTEL_VALIDATION_TIMEOUT_MILLISECONDS = 45 * 60_000
@@ -99,6 +101,16 @@ interface PackagedSmokeEvidence {
   cleanMachine: boolean
   artifact: { architecture?: unknown; sha256?: unknown; trustMode?: unknown }
   review: { id?: unknown; preserved?: unknown }
+}
+
+interface InterruptedSmokeCleanupDependencies {
+  endpointPath?: string
+  isProcessAlive?: (pid: number) => boolean
+  now?: () => number
+  probe?: typeof probeService
+  quit?: typeof requestServiceQuit
+  temporaryDirectory?: string
+  wait?: (milliseconds: number) => Promise<void>
 }
 
 const BASE_REF = 'origin/main'
@@ -185,6 +197,70 @@ export function runningMarkoverFailure(
   const endpoint = parseServiceEndpoint(value)
   if (!endpoint || !isProcessAlive(endpoint.pid)) return null
   return `Quit the running Markover app (PID ${String(endpoint.pid)}) before Intel validation; the action will not stop an existing app.`
+}
+
+export function isPackagedSmokeExecutable(
+  executablePath: string | null,
+  temporaryDirectory = os.tmpdir()
+): boolean {
+  if (executablePath === null) return false
+  const relative = path.relative(temporaryDirectory, executablePath)
+  const [directory] = relative.split(path.sep)
+  return Boolean(
+    directory?.startsWith('markover-packaged-smoke-') &&
+    !relative.startsWith(`..${path.sep}`) &&
+    relative.endsWith(
+      path.join('Markover.app', 'Contents', 'MacOS', 'Markover')
+    )
+  )
+}
+
+export async function cleanupInterruptedPackagedSmoke({
+  endpointPath = serviceEndpointPath(),
+  isProcessAlive = (pid: number): boolean => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (error) {
+      if (
+        error !== null && typeof error === 'object' &&
+        Reflect.get(error, 'code') === 'ESRCH'
+      ) return false
+      throw error
+    }
+  },
+  now = Date.now,
+  probe = probeService,
+  quit = requestServiceQuit,
+  temporaryDirectory = os.tmpdir(),
+  wait = (milliseconds: number) => new Promise((resolve) => {
+    setTimeout(resolve, milliseconds)
+  })
+}: InterruptedSmokeCleanupDependencies = {}): Promise<string | null> {
+  const discoveryDeadline = now() + 5_000
+  let connection
+  for (;;) {
+    try {
+      connection = await probe(endpointPath)
+      break
+    } catch {
+      if (now() >= discoveryDeadline) return null
+      await wait(100)
+    }
+  }
+  if (!isPackagedSmokeExecutable(connection.executablePath, temporaryDirectory)) {
+    return null
+  }
+  const pid = connection.endpoint.pid
+  await quit(endpointPath)
+  const deadline = now() + 30_000
+  while (isProcessAlive(pid) && now() < deadline) await wait(100)
+  if (isProcessAlive(pid)) {
+    throw new Error(
+      `Packaged smoke process ${String(pid)} did not quit after interruption.`
+    )
+  }
+  return `Stopped interrupted packaged smoke process ${String(pid)}.`
 }
 
 async function readRunningMarkoverFailure(): Promise<string | null> {
@@ -492,6 +568,17 @@ async function main(): Promise<void> {
     )
     let passed = result.code === 0 && !result.cancelled && !result.timedOut
     let stageDetail: string | undefined
+    if (
+      step.name === 'smoke' &&
+      (result.cancelled || result.timedOut)
+    ) {
+      try {
+        const cleanup = await cleanupInterruptedPackagedSmoke()
+        if (cleanup) process.stdout.write(`[${FORMAT}] ${cleanup}\n`)
+      } catch (error) {
+        stageDetail = compactDetail(error)
+      }
+    }
     if (step.name === 'archive' && passed) {
       try {
         digest = await sha256(archive)

@@ -4,8 +4,10 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  cleanupInterruptedPackagedSmoke,
   environmentFailure,
   formatIntelValidationSummary,
+  isPackagedSmokeExecutable,
   INTEL_VALIDATION_COMMAND_VERSION,
   runningMarkoverFailure,
   validatePackagedSmokeEvidence,
@@ -59,6 +61,136 @@ test('refuses to disturb an existing Markover process', () => {
   )
   assert.equal(runningMarkoverFailure(endpoint, () => false), null)
   assert.equal(runningMarkoverFailure({ version: 1 }, () => true), null)
+})
+
+test('recognizes only the temporary packaged smoke executable', () => {
+  const temporaryDirectory = '/private/var/folders/markover-test'
+  assert.equal(isPackagedSmokeExecutable(
+    path.join(
+      temporaryDirectory,
+      'markover-packaged-smoke-123',
+      'Markover.app',
+      'Contents',
+      'MacOS',
+      'Markover'
+    ),
+    temporaryDirectory
+  ), true)
+  assert.equal(isPackagedSmokeExecutable(
+    '/Applications/Markover.app/Contents/MacOS/Markover',
+    temporaryDirectory
+  ), false)
+  assert.equal(isPackagedSmokeExecutable(
+    path.join(temporaryDirectory, 'other', 'Markover.app', 'Contents', 'MacOS', 'Markover'),
+    temporaryDirectory
+  ), false)
+})
+
+test('gracefully stops only an interrupted packaged smoke process', async () => {
+  const temporaryDirectory = '/private/var/folders/markover-test'
+  let alive = true
+  let quitCalls = 0
+  const detail = await cleanupInterruptedPackagedSmoke({
+    endpointPath: '/tmp/service.json',
+    temporaryDirectory,
+    probe: () => Promise.resolve({
+      credential: { version: 1, instanceId: 'a', token: 'b' },
+      endpoint: {
+        version: 2,
+        instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
+        port: 58139,
+        pid: 90371
+      },
+      executablePath: path.join(
+        temporaryDirectory,
+        'markover-packaged-smoke-123',
+        'Markover.app',
+        'Contents',
+        'MacOS',
+        'Markover'
+      ),
+      startupReady: true,
+      windowVisible: false
+    }),
+    quit: () => {
+      quitCalls += 1
+      alive = false
+      return Promise.resolve()
+    },
+    isProcessAlive: () => alive
+  })
+  assert.equal(detail, 'Stopped interrupted packaged smoke process 90371.')
+  assert.equal(quitCalls, 1)
+})
+
+test('waits for an interrupted packaged smoke app to publish its endpoint', async () => {
+  const temporaryDirectory = '/private/var/folders/markover-test'
+  let probes = 0
+  let currentTime = 0
+  let alive = true
+  const detail = await cleanupInterruptedPackagedSmoke({
+    temporaryDirectory,
+    now: () => currentTime,
+    wait: (milliseconds) => {
+      currentTime += milliseconds
+      return Promise.resolve()
+    },
+    probe: () => {
+      probes += 1
+      if (probes === 1) return Promise.reject(new Error('not ready'))
+      return Promise.resolve({
+        credential: { version: 1, instanceId: 'a', token: 'b' },
+        endpoint: {
+          version: 2,
+          instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
+          port: 58139,
+          pid: 90371
+        },
+        executablePath: path.join(
+          temporaryDirectory,
+          'markover-packaged-smoke-123',
+          'Markover.app',
+          'Contents',
+          'MacOS',
+          'Markover'
+        ),
+        startupReady: false,
+        windowVisible: false
+      })
+    },
+    quit: () => {
+      alive = false
+      return Promise.resolve()
+    },
+    isProcessAlive: () => alive
+  })
+  assert.equal(probes, 2)
+  assert.equal(detail, 'Stopped interrupted packaged smoke process 90371.')
+})
+
+test('does not quit an unrelated running Markover app after interruption', async () => {
+  let quitCalls = 0
+  const detail = await cleanupInterruptedPackagedSmoke({
+    temporaryDirectory: '/private/var/folders/markover-test',
+    probe: () => Promise.resolve({
+      credential: { version: 1, instanceId: 'a', token: 'b' },
+      endpoint: {
+        version: 2,
+        instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
+        port: 58139,
+        pid: 90371
+      },
+      executablePath: '/Applications/Markover.app/Contents/MacOS/Markover',
+      startupReady: true,
+      windowVisible: false
+    }),
+    quit: () => {
+      quitCalls += 1
+      return Promise.resolve()
+    }
+  })
+  assert.equal(detail, null)
+  assert.equal(quitCalls, 0)
 })
 
 test('accepts only exact local packaged smoke evidence', () => {
