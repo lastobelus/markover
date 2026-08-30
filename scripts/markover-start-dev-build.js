@@ -267,6 +267,16 @@ function summary(context, terminal) {
   }
 }
 
+function dirtyAdoptionFailure(state, context, tail) {
+  if (!stateMatches(state, context) || context.head.dirty !== true) return null
+  return {
+    outcome: 'startup-failed',
+    stage: 'readiness',
+    detail: `Cannot adopt watcher PID ${String(state.watcherPid)} for a dirty checkout because its receipt does not identify the exact source contents.`,
+    tail
+  }
+}
+
 function printSummary(value) {
   process.stdout.write(`[start-dev-build] Summary: ${JSON.stringify(value)}\n`)
 }
@@ -328,11 +338,18 @@ async function readLog(filePath) {
   }
 }
 
-async function waitForWatcher(context, child, timeoutMilliseconds) {
+async function waitForWatcher(
+  context,
+  child,
+  timeoutMilliseconds,
+  adoptedWatcherPid = null
+) {
   const startedAt = Date.now()
   let exit = null
-  child.once('error', (error) => { exit = { error, code: null, signal: null } })
-  child.once('exit', (code, signal) => { exit = { error: null, code, signal } })
+  if (child !== null) {
+    child.once('error', (error) => { exit = { error, code: null, signal: null } })
+    child.once('exit', (code, signal) => { exit = { error: null, code, signal } })
+  }
   while (Date.now() - startedAt < timeoutMilliseconds) {
     const [state, log] = await Promise.all([
       readJson(context.paths.state),
@@ -346,6 +363,19 @@ async function waitForWatcher(context, child, timeoutMilliseconds) {
         tail
       )
       if (terminal) return terminal
+    }
+    if (
+      adoptedWatcherPid !== null &&
+      !processIsAlive(adoptedWatcherPid)
+    ) {
+      return {
+        outcome: 'process-exited',
+        stage: 'startup',
+        detail: `Adopted watcher PID ${String(adoptedWatcherPid)} exited while waiting for readiness.`,
+        exitCode: null,
+        signal: null,
+        tail
+      }
     }
     if (
       log.includes('markover dev bootstrap:') &&
@@ -412,10 +442,16 @@ async function main(args = process.argv.slice(2)) {
 
   const existing = await readJson(context.paths.state)
   if (stateMatches(existing, context)) {
+    const tail = boundedTail(await readLog(context.paths.log))
+    const adoptionFailure = dirtyAdoptionFailure(existing, context, tail)
+    if (adoptionFailure) {
+      printSummary(summary(context, adoptionFailure))
+      return 1
+    }
     const terminal = await outcomeFromState(
       existing,
       parsed.awaitHuman,
-      boundedTail(await readLog(context.paths.log))
+      tail
     )
     if (terminal) {
       printSummary(summary(context, terminal))
@@ -425,8 +461,9 @@ async function main(args = process.argv.slice(2)) {
     }
     const terminalAfterWait = await waitForWatcher(
       context,
-      { once() {} },
-      parsed.timeoutMilliseconds
+      null,
+      parsed.timeoutMilliseconds,
+      existing.watcherPid
     )
     printSummary(summary(context, terminalAfterWait))
     return terminalAfterWait.outcome === 'ready' ||
@@ -502,6 +539,7 @@ async function main(args = process.argv.slice(2)) {
 
 module.exports = {
   boundedTail,
+  dirtyAdoptionFailure,
   outcomeFromState,
   parseArguments,
   pathsFor,

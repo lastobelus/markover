@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -8,6 +8,11 @@ import test from 'node:test'
 
 interface ActionModule {
   boundedTail: (contents: string) => string[]
+  dirtyAdoptionFailure: (
+    state: Record<string, unknown>,
+    context: Record<string, unknown>,
+    tail: string[]
+  ) => Record<string, unknown> | null
   outcomeFromState: (
     state: Record<string, unknown>,
     awaitHuman: boolean,
@@ -48,8 +53,9 @@ interface ActionModule {
   ) => Record<string, unknown>
   waitForWatcher: (
     context: Record<string, unknown>,
-    child: EventEmitter,
-    timeoutMilliseconds: number
+    child: EventEmitter | null,
+    timeoutMilliseconds: number,
+    adoptedWatcherPid?: number | null
   ) => Promise<Record<string, unknown>>
 }
 
@@ -112,6 +118,34 @@ test('matches only a live watcher for the exact checkout, head, and instance', (
   assert.equal(action.stateMatches(state({ dirty: true }), expected), false)
   assert.equal(action.stateMatches(state({ identityKey: 'pr-217' }), expected), false)
   assert.equal(action.stateMatches(state({ watcherPid: 999_999_999 }), expected), false)
+})
+
+test('refuses to adopt a watcher when dirty contents cannot be identified', () => {
+  const dirtyHead = { ...head, dirty: true }
+  const dirtyState = state({ dirty: true })
+  const context = { checkout, head: dirtyHead, target }
+  assert.equal(action.stateMatches(dirtyState, context), true)
+  assert.deepEqual(
+    action.dirtyAdoptionFailure(dirtyState, context, ['watch tail']),
+    {
+      outcome: 'startup-failed',
+      stage: 'readiness',
+      detail: `Cannot adopt watcher PID ${String(process.pid)} for a dirty checkout because its receipt does not identify the exact source contents.`,
+      tail: ['watch tail']
+    }
+  )
+  assert.equal(
+    action.dirtyAdoptionFailure(state(), { checkout, head, target }, []),
+    null
+  )
+  assert.equal(
+    action.dirtyAdoptionFailure(
+      state({ head: '2'.repeat(40), dirty: true }),
+      context,
+      []
+    ),
+    null
+  )
 })
 
 test('healthy QA readiness remains explicitly awaiting human', async () => {
@@ -377,4 +411,26 @@ test('watch wait classifies process exit and timeout', async (t) => {
   assert.equal(timedOut.outcome, 'timed-out')
   assert.equal(timedOut.stage, 'readiness')
   assert.deepEqual(timedOut.tail, ['launching', 'last line'])
+
+  const adopted = spawn(process.execPath, [
+    '-e',
+    'setInterval(() => {}, 1000)'
+  ])
+  assert.ok(adopted.pid)
+  t.after(() => { adopted.kill() })
+  const adoptedExit = action.waitForWatcher(
+    context,
+    null,
+    5_000,
+    adopted.pid
+  )
+  setTimeout(() => { adopted.kill('SIGTERM') }, 20)
+  assert.deepEqual(await adoptedExit, {
+    outcome: 'process-exited',
+    stage: 'startup',
+    detail: `Adopted watcher PID ${String(adopted.pid)} exited while waiting for readiness.`,
+    exitCode: null,
+    signal: null,
+    tail: ['launching', 'last line']
+  })
 })

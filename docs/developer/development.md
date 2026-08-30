@@ -174,7 +174,9 @@ The watcher publishes its current machine-readable receipt under
 `.markover/generated/<instance>/development-watch.json`. A later action run can
 adopt the same exact-head watcher instead of creating a duplicate. A live
 watcher or app with mismatched ownership returns `port-conflict` and is left
-running for the agent to interpret.
+running for the agent to interpret. A fresh action may launch dirty development
+work, but it will not adopt an already-running watcher for a dirty checkout
+whose exact contents cannot be proven by the receipt.
 
 After that startup, CSS, HTML, renderer, preload, and renderer-only dependency
 edits build into a separate worktree-local renderer directory. The directory is
