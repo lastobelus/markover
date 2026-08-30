@@ -1,0 +1,85 @@
+{
+  "format": "markover-public-capture",
+  "version": 1,
+  "status": "foundation",
+  "source": {
+    "redesignPullRequest": 195,
+    "designBrief": "doc/design/markover-design-brief.md",
+    "fixtureRevision": 1,
+    "captureCommit": null
+  },
+  "staging": {
+    "command": "npm run capture:stage",
+    "stateRoot": "/tmp/markover-public-capture",
+    "appName": "Markover",
+    "scheme": "markover-capture",
+    "palette": "ember",
+    "appearance": "light",
+    "registersProtocol": false,
+    "usesNetworkContent": false
+  },
+  "window": {
+    "logicalWidth": 1180,
+    "logicalHeight": 760,
+    "pixelWidth": 2360,
+    "pixelHeight": 1520,
+    "densityDpi": 144,
+    "scaleFactor": 2
+  },
+  "fixture": {
+    "projectRoot": "/tmp/markover-public-capture/projects",
+    "repositories": [
+      "https://github.com/markover-demo/atlas-studio.git",
+      "https://github.com/markover-demo/field-research.git",
+      "https://github.com/markover-demo/review-protocol.git"
+    ],
+    "machine": "capture-mac",
+    "threadHost": "t3code",
+    "provider": "codex",
+    "notifications": "disabled"
+  },
+  "screenshots": [
+    {
+      "filename": "markover-review-editor@2x.png",
+      "state": "inbox-needs-me-editor-with-two-labeled-attachments",
+      "consumers": ["README.md", "docs/user/index.html"]
+    },
+    {
+      "filename": "markover-annotation-browser@2x.png",
+      "state": "projects-all-annotations-with-attachment-context",
+      "consumers": ["docs/user/index.html"]
+    },
+    {
+      "filename": "markover-source-edit@2x.png",
+      "state": "expanded-source-card-with-word-level-proposal",
+      "consumers": ["docs/user/index.html"]
+    },
+    {
+      "filename": "markover-review-context@2x.png",
+      "state": "review-context-with-sanitized-project-and-thread-metadata",
+      "consumers": ["docs/user/index.html"]
+    }
+  ],
+  "movie": {
+    "minimumSeconds": 30,
+    "maximumSeconds": 60,
+    "width": 1920,
+    "height": 1080,
+    "framesPerSecond": 30,
+    "videoCodec": "h264",
+    "audio": false,
+    "fastStart": true,
+    "captions": "burned-in",
+    "transcript": "required"
+  },
+  "privacy": {
+    "allowOnlyInventedFixtureData": true,
+    "forbiddenContent": [
+      "real home-directory paths",
+      "real repositories or pull requests",
+      "real review or thread identifiers",
+      "credentials or authorization material",
+      "notifications or unrelated application chrome"
+    ]
+  }
+}
