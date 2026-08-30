@@ -470,10 +470,10 @@ export function packageVersion(value: unknown): string {
 
 async function main(): Promise<void> {
   const startedAt = Date.now()
+  const cancellation = installActionCancellation()
   const root = commandText(process.cwd(), 'git', ['rev-parse', '--show-toplevel'])
   const baseline = readLocalCiIdentity(root)
   const stages: IntelValidationStage[] = []
-  const cancellation = installActionCancellation()
   let host: IntelValidationHost | undefined
   process.stdout.write(`[${FORMAT}] Baseline ${JSON.stringify({
     ...baseline,
