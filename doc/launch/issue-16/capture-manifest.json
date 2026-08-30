@@ -5,12 +5,12 @@
     "command": "npm run capture:stills",
     "sourceCommit": "e6b14ea6843c7990fa3303a1c01db77a75d28827"
   },
-  "status": "foundation",
+  "status": "captured",
   "source": {
     "redesignPullRequest": 195,
     "designBrief": "doc/design/markover-design-brief.md",
     "fixtureRevision": 1,
-    "captureCommit": null
+    "captureCommit": "4abf64ad667ad27bbc2e1b3d25a145e5a0eb36e6"
   },
   "staging": {
     "command": "npm run capture:stage",
@@ -69,8 +69,17 @@
     }
   ],
   "movie": {
+    "path": "docs/user/assets/markover-focused-preview-demo.mp4",
+    "sha256": "34ab9293f4278af9920d6176a36d4fb7da7824f4b83d453ec72aa21c400332f9",
+    "poster": {
+      "path": "docs/user/assets/markover-demo-poster.jpg",
+      "sha256": "800d960723c05fe1ca0dcf3f07568fdec924e0fb91e2e88b653ec6b90e765d8a"
+    },
+    "captionSource": "doc/launch/issue-16/demo-captions.srt",
+    "transcript": "doc/launch/issue-16/demo-transcript.md",
     "minimumSeconds": 30,
     "maximumSeconds": 60,
+    "durationSeconds": 44,
     "width": 1920,
     "height": 1080,
     "framesPerSecond": 30,
@@ -78,7 +87,7 @@
     "audio": false,
     "fastStart": true,
     "captions": "burned-in",
-    "transcript": "required"
+    "inspectedCheckpointsSeconds": [0.5, 6.5, 14.5, 23.5, 31.5, 39.5, 43]
   },
   "privacy": {
     "allowOnlyInventedFixtureData": true,

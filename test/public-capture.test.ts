@@ -144,6 +144,24 @@ test('still automation is opt-in, loopback-only, and scoped to the capture app',
   )
 })
 
+test('demo automation records the real capture renderer to the launch contract', () => {
+  const capture = fs.readFileSync(path.join(root, 'scripts', 'capture-demo.ts'), 'utf8')
+  const encoder = fs.readFileSync(path.join(root, 'scripts', 'encode-demo.swift'), 'utf8')
+  assert.match(capture, /prepareCaptureState\(\{ checkout, source \}\)/)
+  assert.match(capture, /--remote-debugging-address=127\.0\.0\.1/)
+  assert.match(capture, /const width = 1920/)
+  assert.match(capture, /const height = 1080/)
+  assert.match(capture, /const framesPerSecond = 30/)
+  assert.match(capture, /capture-cli\.js[\s\S]*'get',[\s\S]*'mko_capture01'/)
+  assert.match(capture, /data-review-id="mko_capture03"[\s\S]*control\.click\(\)/)
+  assert.match(capture, /\.block-row\[data-node-id=[^\]]*block-2/)
+  assert.match(capture, /#annotation-view-list/)
+  assert.match(capture, /PresetPassthrough/)
+  assert.match(encoder, /AVVideoCodecType\.h264/)
+  assert.match(encoder, /AVVideoExpectedSourceFrameRateKey: 30/)
+  assert.doesNotMatch(encoder, /mediaType: \.audio/)
+})
+
 async function captureFixture(t: test.TestContext): Promise<{
   root: string
   prepared: Awaited<ReturnType<typeof prepareCaptureState>>

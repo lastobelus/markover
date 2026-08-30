@@ -6,6 +6,22 @@
     <meta name="theme-color" content="#e8e2d8">
     <meta name="description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
     <title>Markover — Early macOS preview</title>
+    <link rel="canonical" href="https://lastobelus.github.io/markover/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Markover">
+    <meta property="og:title" content="Markover — Early macOS preview">
+    <meta property="og:description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
+    <meta property="og:url" content="https://lastobelus.github.io/markover/">
+    <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Markover — Early macOS preview">
+    <meta name="twitter:description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
+    <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <link rel="icon" href="./assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./styles.css">
   </head>
@@ -78,6 +94,26 @@
           <span class="preview-invitation">Screenshot <span aria-hidden="true">↗</span></span>
           <span class="visually-hidden">Open a larger screenshot of the real Markover application</span>
         </a>
+      </section>
+
+      <section id="demo" class="demo-section" aria-labelledby="demo-title">
+        <div class="demo-copy">
+          <p class="eyebrow">44-second walkthrough</p>
+          <h2 id="demo-title">See the complete handoff.</h2>
+          <p>Open a review, inspect block-level feedback and attachments, propose an exact source change, scan every annotation, and return structured JSON to the agent.</p>
+        </div>
+        <div class="demo-media">
+          <video controls playsinline preload="metadata" poster="./assets/markover-demo-poster.jpg" width="1920" height="1080" aria-describedby="demo-transcript">
+            <source src="./assets/markover-focused-preview-demo.mp4" type="video/mp4">
+            Your browser does not support the video element.
+          </video>
+          <details id="demo-transcript">
+            <summary>Read the transcript</summary>
+            <p>Markover starts with a sanitized participant guide, then opens the launch-readiness review from the Needs me inbox. The reviewer sees agent-written Markdown as a document tree with precise feedback and two labeled images attached to one heading. On the opening paragraph, Markover displays an exact word-level source proposal without changing the source document. The reviewer switches to Projects and All annotations to scan the complete review. Finally, the fixture-only CLI returns structured JSON containing status, block feedback, attachment labels, and the source proposal. The demo ends on the Markover lockup and repository address.</p>
+            <p><a href="https://github.com/lastobelus/markover/blob/main/doc/launch/issue-16/demo-transcript.md">Open the standalone transcript</a></p>
+          </details>
+          <p class="demo-disclosure">Free and MIT-licensed early preview. No account required; ordinary review data stays in your macOS account. Requires Apple Silicon macOS 14+ and Node.js 22.13+ for the launcher.</p>
+        </div>
       </section>
 
       <section class="feature-grid" aria-label="What Markover does">
