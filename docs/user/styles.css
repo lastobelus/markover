@@ -97,9 +97,8 @@ a { color: inherit; text-underline-offset: .18em; }
 .window-titlebar span { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: .42; }
 .app-shell { background: var(--app-shell-background); }
 .app-header { min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 10px 13px; border-top: 1px solid rgb(38 33 30 / 5%); background: var(--app-header-background); }
-.mock-app-brand { display: flex; align-items: center; gap: 7px; }
-.mock-app-brand img { width: 27px; }
-.mock-app-brand span { font-size: 11px; font-weight: 760; }
+.mock-app-brand { display: flex; align-items: center; }
+.mock-app-brand img { width: 92px; }
 .mock-review-identity { min-width: 0; margin-left: auto; display: flex; flex-direction: column; text-align: right; }
 .mock-review-identity strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .mock-review-identity span { margin-top: 2px; color: var(--muted); font: 8px/1.2 ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; }

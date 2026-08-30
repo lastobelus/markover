@@ -247,7 +247,13 @@ test('the Pages hero depicts the current App header and three-pane layout', () =
   assert.ok(frame)
   const shell = frame.querySelector(':scope > .window-titlebar + .app-shell')
   assert.ok(shell)
-  assert.ok(shell.querySelector(':scope > .app-header'))
+  const appHeader = shell.querySelector(':scope > .app-header')
+  assert.ok(appHeader)
+  assert.equal(
+    appHeader.querySelector<HTMLImageElement>('.mock-app-brand img')?.getAttribute('src'),
+    './assets/markover-lockup.svg'
+  )
+  assert.equal(appHeader.querySelector('.mock-app-brand span'), null)
   const paneLayout = shell.querySelector(':scope > .pane-layout')
   assert.ok(paneLayout)
   assert.deepEqual(
@@ -262,6 +268,7 @@ test('the Pages hero depicts the current App header and three-pane layout', () =
   assert.match(styles, /\.left-pane \{ background: var\(--left-pane-background\); \}/)
   assert.match(styles, /\.center-pane \{[^}]*background: var\(--center-pane-background\);/)
   assert.match(styles, /\.right-pane \{ background: var\(--right-pane-background\); \}/)
+  assert.match(styles, /\.mock-app-brand img \{ width: 92px; \}/)
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.left-pane \{ display: none; \}/)
   assert.doesNotMatch(styles, /backdrop-filter|linear-gradient|radial-gradient/)
 })

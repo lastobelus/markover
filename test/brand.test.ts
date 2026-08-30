@@ -95,6 +95,8 @@ test('the undated brand usage board represents current Ember Light structure', (
   assert.match(board, /class="mini-app-header"/)
   assert.match(board, /class="mini-left"[\s\S]*class="mini-tree"[\s\S]*class="mini-note"/)
   assert.match(board, /class="app-header"[\s\S]*class="pane-layout"[\s\S]*class="left-pane"[\s\S]*class="center-pane"[\s\S]*class="right-pane"/)
+  assert.match(board, /Current \/ restrained identity with three-pane layout/)
+  assert.doesNotMatch(board, /three-pane workspace/)
   assert.doesNotMatch(board, /A \/ mark|B \/ mark|checksum|review-tab-strip/)
 
   for (const name of [
