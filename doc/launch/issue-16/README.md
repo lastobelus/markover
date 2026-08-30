@@ -71,6 +71,10 @@ Before publishing any visual:
   paths, credentials, authorization material, or unrelated application chrome;
 - run the deterministic checks documented by the media PR before upload.
 
+No canonical review, private path, real repository, real pull request, real
+thread identity, credential, notification, unrelated application chrome, or
+incidental audio may appear in any published still or recording.
+
 The marker file is the deletion boundary. The staging command refuses to
 replace an unmarked directory, a symlink, or a fixture whose capture service is
 still running.

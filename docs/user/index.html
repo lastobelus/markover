@@ -23,13 +23,13 @@
           ?.setAttribute('content', appearance === 'dark' ? '#242221' : '#e8e2d8')
       })()
     </script>
-    <meta name="description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
-    <title>Markover — Early macOS preview</title>
+    <meta name="description" content="Markover is a macOS app for reviewing Markdown block by block and returning structured feedback to a coding agent. Early preview.">
+    <title>Markover — Structured review for Markdown</title>
     <link rel="canonical" href="https://lastobelus.github.io/markover/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Markover">
-    <meta property="og:title" content="Markover — Early macOS preview">
-    <meta property="og:description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
+    <meta property="og:title" content="Markover — Structured review for Markdown">
+    <meta property="og:description" content="Markover is a macOS app for reviewing Markdown block by block and returning structured feedback to a coding agent. Early preview.">
     <meta property="og:url" content="https://lastobelus.github.io/markover/">
     <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
     <meta property="og:image:type" content="image/png">
@@ -37,8 +37,8 @@
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Markover — Early macOS preview">
-    <meta name="twitter:description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
+    <meta name="twitter:title" content="Markover — Structured review for Markdown">
+    <meta name="twitter:description" content="Markover is a macOS app for reviewing Markdown block by block and returning structured feedback to a coding agent. Early preview.">
     <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
     <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <link rel="icon" href="./assets/markover-mark.svg" type="image/svg+xml">
@@ -136,10 +136,13 @@
           </video>
           <details id="demo-transcript">
             <summary>Read the transcript</summary>
-            <p>Markover starts with a sanitized participant guide, then opens the launch-readiness review from the Needs me inbox. The reviewer sees agent-written Markdown as a document tree with precise feedback and two labeled images attached to one heading. On the opening paragraph, Markover displays an exact word-level source proposal without changing the source document. The reviewer switches to Projects and All annotations to scan the complete review. Finally, the fixture-only CLI returns structured JSON containing status, block feedback, attachment labels, and the source proposal. The demo ends on the Markover lockup and repository address.</p>
+            <p>The 44-second silent demo uses burned-in captions and only invented fixture data.</p>
+            <p>Markover starts with a sanitized participant guide, then opens the launch-readiness review from the <strong>Needs me</strong> inbox. The Ember Light theme's three-pane layout establishes the review. The reviewer sees agent-written Markdown as a document tree with feedback and two labeled images attached to one heading.</p>
+            <p>On the opening paragraph, Markover displays an exact word-level source proposal without changing the source document. The reviewer switches to <strong>Projects</strong> and <strong>All annotations</strong> to scan the complete review.</p>
+            <p>Finally, the CLI (running against demo fixture data) returns structured JSON containing the review status, block feedback, attachment IDs and labels, and source proposal. The demo ends on the Markover lockup, “Structured review for Markdown,” and the repository address.</p>
             <p><a href="https://github.com/lastobelus/markover/blob/main/doc/launch/issue-16/demo-transcript.md">Open the standalone transcript</a></p>
           </details>
-          <p class="demo-disclosure">Free and MIT-licensed early preview. No account required; ordinary review data stays in your macOS account. Requires Apple Silicon macOS 14+ and Node.js 22.13+ for the launcher.</p>
+          <p class="demo-disclosure">Free, MIT-licensed early preview. No account, no telemetry; review data stays on your Mac. Requires Apple Silicon, macOS 14+, and Node.js 22.13+ for the launcher.</p>
         </div>
       </section>
 
@@ -147,12 +150,12 @@
         <article>
           <span class="feature-number">01</span>
           <h2>Navigate structure</h2>
-          <p>Move through YAML frontmatter, headings, lists, paragraphs, code, tables and block quotes as a tree.</p>
+          <p>Move through YAML frontmatter, headings, lists, paragraphs, code, tables, and block quotes as a tree.</p>
         </article>
         <article>
           <span class="feature-number">02</span>
           <h2>Annotate precisely</h2>
-          <p>Attach feedback and screenshots to the exact Markdown block(s) that need attention.</p>
+          <p>Attach feedback and screenshots to the Markdown blocks that need attention.</p>
         </article>
         <article>
           <span class="feature-number">03</span>
@@ -163,12 +166,12 @@
 
       <section class="workflow">
         <div>
-          <p class="eyebrow">Agent-friendly by design</p>
-          <h2>A review has a clear owner.</h2>
+          <p class="eyebrow">The workflow</p>
+          <h2>At every step, someone owns the review.</h2>
         </div>
         <ol>
           <li><p><span>Agent</span> opens a Markdown document for review in Markover.</p></li>
-          <li><p><span>Reviewer</span> navigates, annotates, attaches a screenshot… then tells the agent “check markover”.</p></li>
+          <li><p><span>Reviewer</span> navigates, annotates, attaches a screenshot… then tells the agent “Check Markover”.</p></li>
           <li><p><span>Agent</span> retrieves one frozen structured handoff from Markover.</p></li>
         </ol>
       </section>
@@ -183,7 +186,7 @@
         <button class="gallery-control gallery-previous" type="button" aria-label="Previous screenshot">‹</button>
         <figure class="product-slide">
           <img data-src="./assets/markover-review-editor@2x.png" width="2360" height="1520" alt="Markover showing a multi-project document inbox, a structured launch brief, and an annotation editor with two labeled screenshot attachments.">
-          <figcaption><strong>Review in context.</strong> Switch among projects, navigate representative Markdown blocks, and attach labeled screenshots to precise feedback.</figcaption>
+          <figcaption><strong>Review in context.</strong> Switch among projects, navigate the document's blocks, and attach labeled screenshots to your feedback.</figcaption>
         </figure>
         <figure class="product-slide" hidden>
           <img data-src="./assets/markover-annotation-browser@2x.png" width="2360" height="1520" alt="Markover in Ember Light showing the Projects tree beside every rendered annotation in the active launch brief.">
@@ -195,7 +198,7 @@
         </figure>
         <figure class="product-slide" hidden>
           <img data-src="./assets/markover-review-context@2x.png" width="2360" height="1520" alt="Markover in Ember Light showing review context including review ID, branch, pull request, and agent thread metadata.">
-          <figcaption><strong>Keep the handoff discoverable.</strong> Review purpose, source, Git state, pull request, and agent-thread provenance stay one drawer away.</figcaption>
+          <figcaption><strong>See the review's context.</strong> Review purpose, source, Git state, pull request, and agent-thread provenance are one drawer away.</figcaption>
         </figure>
         <button class="gallery-control gallery-next" type="button" aria-label="Next screenshot">›</button>
       </div>

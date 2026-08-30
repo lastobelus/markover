@@ -7,31 +7,37 @@ different useful question.
 
 ## Coding-agent community
 
-I’m preparing an early macOS preview of Markover, a free MIT-licensed,
-local-first app for reviewing agent-written Markdown block by block. It needs
-no account: ordinary review data stays in your macOS account. I’m looking for
-Codex and coding-agent users willing to test one real document review and
-report where the open → annotate → structured handoff loop breaks down—not for
-stars. Apple Silicon macOS 14+ only for this preview. [Watch the 44-second
+I’m preparing an early macOS preview of Markover, a free, MIT-licensed app
+for reviewing agent-written Markdown block by block. It needs no account, and
+review data stays on your Mac. I’m looking for Codex and coding-agent users
+willing to test one real document review and report where the
+open → annotate → structured handoff loop breaks down. Apple Silicon
+macOS 14+ only for this preview. [Watch the 44-second
 workflow](https://lastobelus.github.io/markover/#demo).
 
 ## Design-partner invitation
 
 Could you try one document you already ask an agent to write, then review it
 in Markover instead of flattening feedback into chat? The early macOS preview
-is free, MIT licensed, local-first, and requires no account. I most need the
+is free, MIT licensed, requires no account, and keeps review data on your Mac. I most need the
 exact moment the workflow becomes slower or less clear than your current
 process, plus any feedback the agent misinterprets after retrieval. Apple
 Silicon macOS 14+ only. [Setup and limitations](https://lastobelus.github.io/markover/guide/).
 
 ## GitHub repository summary
 
-Markover is a local-first macOS app for reviewing agent-produced Markdown and
-returning structured, block-level feedback to the agent thread. The early
-preview is free and MIT licensed, requires no account, and currently supports
-Apple Silicon macOS 14+. Start with the [current UI and 44-second
-demo](https://lastobelus.github.io/markover/#demo), then report concrete
-workflow failures in [Discussions](https://github.com/lastobelus/markover/discussions).
+Markover is a macOS app for reviewing agent-produced Markdown and returning
+structured, block-level feedback to the agent thread. The early preview is
+free and MIT licensed, requires no account, keeps review data on your Mac, and
+currently supports Apple Silicon macOS 14+. Start with the [current UI and
+44-second demo](https://lastobelus.github.io/markover/#demo), then report
+concrete workflow failures in [Discussions](https://github.com/lastobelus/markover/discussions).
+
+One-line variant for the repository About field, which does not render
+Markdown links and truncates long descriptions:
+
+> macOS app for reviewing agent-written Markdown block by block and returning
+> structured feedback to the agent. Early preview; Apple Silicon, macOS 14+.
 
 Before publishing any draft, issue #17 must replace staging language with the
 verified release tag, previous known-good release, rollback threshold, support

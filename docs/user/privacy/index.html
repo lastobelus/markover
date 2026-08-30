@@ -91,7 +91,7 @@
     <main class="docs-content">
       <p class="eyebrow">Reference</p>
       <h1 id="overview">Privacy, storage, and recovery</h1>
-      <p class="docs-lede">Markover keeps ordinary review work on your Mac. This page explains the account boundary, stored data, deliberate network actions, backups, reinstall, deletion, and reset without requiring implementation knowledge.</p>
+      <p class="docs-lede">Markover keeps ordinary review work on your Mac. This page explains the account boundary, stored data, deliberate network actions, backups, reinstall, deletion, and reset.</p>
 
       <section id="local-only">
         <h2>Local means your macOS account</h2>
@@ -109,9 +109,9 @@
 
       <section id="remote-client">
         <h2>Optional remote client</h2>
-        <p><strong>Allow the authorized remote Markover client</strong> is off by default. When you enable it on canonical Markover, Tailscale Serve can carry review commands from the one tailnet host you authorize into the same Markover app, settings, and review store on this Mac. The gateway binds only to loopback and requires the exact Tailscale application capability plus cryptographic proof of a separate secret protected to your account on each Mac. The secret itself is not sent with requests. Markover does not configure your tailnet policy, drive Tailscale login, expose a Tailscale-IP listener, or enable Funnel.</p>
+        <p><strong>Allow the authorized remote Markover client</strong> is off by default. When you enable it, Tailscale Serve can carry review commands from the one tailnet host you authorize into the same Markover app, settings, and review store on this Mac. The gateway binds only to loopback and requires the exact Tailscale application capability plus cryptographic proof of a separate secret protected to your account on each Mac. The secret itself is not sent with requests. Markover does not configure your tailnet policy, drive Tailscale login, expose a Tailscale-IP listener, or enable Funnel.</p>
         <p>The remote path can receive the complete requested Markdown source, its source path, checksum, review purpose, and agent-supplied Git, pull-request, and thread provenance. Lifecycle commands can return review source, feedback, source-edit proposals, attachment metadata, and provenance to that authorized host. A remote handoff replaces each checked screenshot's canonical file path with a short-lived private HTTPS URL scoped to that attachment and running gateway. Downloading it requires the Tailscale authorization; Markover verifies the managed file's location, length, type, and checksum before returning authenticated bytes. Restarting the gateway invalidates outstanding attachment URLs.</p>
-        <p>A remotely supplied source path is only a locator for the returning agent. Canonical Markover marks its source and project state unavailable and does not read that path or run Git beside it, even if the same absolute path exists on this Mac.</p>
+        <p>A remotely supplied source path is only a locator for the returning agent. Markover marks its source and project state unavailable and does not read that path or run Git beside it, even if the same absolute path exists on this Mac.</p>
         <div class="callout"><strong>Your Tailscale hostname is public certificate metadata.</strong> Tailscale HTTPS certificate issuance records the canonical machine name in public Certificate Transparency logs. Choose a machine name that contains no sensitive information.</div>
         <p>Disabling the setting closes Markover's private loopback gateway after its current bounded request finishes. The same Tailscale Serve configuration cannot reach Markover again until you re-enable it. Another ordinary macOS account can connect to loopback but cannot authenticate without the protected gateway credential; processes already running as you, administrators, and root remain inside the account trust boundary.</p>
       </section>
@@ -159,13 +159,13 @@
 
       <section id="network">
         <h2>When the internet may be used</h2>
-        <p>Ordinary review handling has no telemetry, analytics, cloud synchronization, or automatic upload of review content. The only review-ingress exception is the remote client you explicitly enable and authorize through Tailscale; it sends the review you requested to this Mac's canonical store.</p>
+        <p>Ordinary review handling has no telemetry, analytics, cloud synchronization, or automatic upload of review content. The only review-ingress exception is the remote client you explicitly enable and authorize through Tailscale; it sends the review you requested to this Mac's review store.</p>
         <ul>
           <li>Installing or updating through the launcher can download packages and release files from npm or GitHub.</li>
-          <li>The configured canonical development app automatically checks one fixed Markover GitHub Pages JSON file for newer merged pull requests. That request sends no review content. Markover validates and keeps the last valid pull-request changelist in owner-only application data so the update tooltip can open promptly; installing an update still requires your click.</li>
+          <li>Markover automatically checks one fixed Markover GitHub Pages JSON file for newer merged pull requests. That request sends no review content. Markover validates and keeps the last valid pull-request changelist in owner-only application data so the update tooltip can open promptly; installing an update still requires your click.</li>
           <li>Inline Markdown image syntax is inert by default. Only an embedded <code>data:</code> image can open through its explicit preview control. Relative paths, local file paths, and HTTP(S) URLs remain unavailable; choosing their controls makes no network request.</li>
         </ul>
-        <p>Launcher installation and update installation are user-triggered connections. The bounded canonical changelist check is automatic, so Markover does not claim that it never connects to the internet.</p>
+        <p>Launcher installation and update installation are user-triggered connections. The bounded changelist check is automatic, so Markover does not claim that it never connects to the internet.</p>
       </section>
 
       <section id="retention">
