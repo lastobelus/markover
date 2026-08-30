@@ -282,9 +282,21 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
   .docs-lede { margin-bottom: 44px; font-size: 17px; }
 }
 
+@media (max-width: 480px) {
+  .hero-actions { flex-wrap: nowrap; gap: 8px; }
+  .hero-actions .button { min-width: 0; padding-inline: 12px; font-size: 13px; white-space: nowrap; }
+  .app-header { grid-template-columns: minmax(0, 1fr) auto; display: grid; gap: 8px 10px; }
+  .mock-app-brand { grid-column: 1 / -1; }
+  .mock-review-identity { margin-left: 0; text-align: left; }
+  .demo-section { padding-inline: 16px; }
+  .demo-copy h2 { font-size: 28px; line-height: 1.08; letter-spacing: -.035em; }
+  .demo-media > .demo-disclosure { font-size: 8.5px; line-height: 1.5; }
+}
+
 @media (max-width: 360px) {
   .site-brand .brand-mark { width: 26px; }
   .site-brand .brand-logotype { width: 92px; }
+  .site-footer .brand-lockup-horizontal { flex-direction: column; align-items: flex-start; gap: 7px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -392,6 +392,11 @@ test('the Pages hero depicts the current App header and three-pane layout', () =
   assert.match(styles, /\.right-pane \{ background: var\(--right-pane-background\); \}/)
   assert.match(styles, /\.mock-app-brand img \{ width: 92px; \}/)
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.left-pane \{ display: none; \}/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.hero-actions \{ flex-wrap: nowrap;/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.mock-app-brand \{ grid-column: 1 \/ -1; \}/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-copy h2 \{ font-size: 28px;/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-media > \.demo-disclosure \{ font-size: 8\.5px; line-height: 1\.5; \}/)
+  assert.match(styles, /@media \(max-width: 360px\)[\s\S]*?\.site-footer \.brand-lockup-horizontal \{ flex-direction: column;/)
   assert.doesNotMatch(styles, /backdrop-filter|linear-gradient|radial-gradient/)
 })
 
