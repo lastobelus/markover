@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import os from 'node:os'
@@ -13,6 +14,7 @@ import {
   captureSource,
   prepareCaptureState
 } from '../scripts/capture-media'
+import { pngWithDensity, screenshotSpec } from '../scripts/capture-stills'
 import {
   addressedDevelopmentBundle
 } from '../scripts/development-bundle'
@@ -60,8 +62,13 @@ interface CaptureManifest {
   screenshots: Array<{
     consumers: string[]
     filename: string
+    sha256: string
     state: string
   }>
+  stills: {
+    command: string
+    sourceCommit: string
+  }
   staging: {
     appearance: string
     appName: string
@@ -105,6 +112,36 @@ test('public capture contract fixes the isolated Ember Light staging boundary', 
   assert.equal(capture.fixture.repositories.every((repository) => (
     repository.startsWith('https://github.com/markover-demo/')
   )), true)
+})
+
+test('still capture preserves the exact Pages PNG dimensions and density contract', () => {
+  const source = fs.readFileSync(path.join(
+    root,
+    'docs',
+    'user',
+    'assets',
+    'markover-review-editor@2x.png'
+  ))
+  const output = pngWithDensity(source)
+  assert.deepEqual(screenshotSpec(output), {
+    width: 2360,
+    height: 1520,
+    colorType: 2,
+    pixelsPerMetreX: 5669,
+    pixelsPerMetreY: 5669,
+    unit: 1
+  })
+})
+
+test('still automation is opt-in, loopback-only, and scoped to the capture app', () => {
+  const source = fs.readFileSync(path.join(root, 'scripts', 'capture-stills.ts'), 'utf8')
+  assert.match(source, /prepareCaptureState\(\{ checkout, source \}\)/)
+  assert.match(source, /--remote-debugging-address=127\.0\.0\.1/)
+  assert.match(source, /markover-app:\/\/app\/src\/index\.html/)
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(root, 'src', 'main.ts'), 'utf8'),
+    /remote-debugging/
+  )
 })
 
 async function captureFixture(t: test.TestContext): Promise<{
@@ -319,6 +356,10 @@ test('capture sanitization rejects an injected private value', async (t) => {
 
 test('public capture contract preserves the four current media states', () => {
   const capture = manifest()
+  assert.deepEqual(capture.stills, {
+    command: 'npm run capture:stills',
+    sourceCommit: 'e6b14ea6843c7990fa3303a1c01db77a75d28827'
+  })
   assert.deepEqual(capture.screenshots.map(({ filename }) => filename), [
     'markover-review-editor@2x.png',
     'markover-annotation-browser@2x.png',
@@ -326,6 +367,16 @@ test('public capture contract preserves the four current media states', () => {
     'markover-review-context@2x.png'
   ])
   assert.equal(capture.screenshots.every(({ state }) => state.length > 0), true)
+  for (const screenshot of capture.screenshots) {
+    const digest = createHash('sha256').update(fs.readFileSync(path.join(
+      root,
+      'docs',
+      'user',
+      'assets',
+      screenshot.filename
+    ))).digest('hex')
+    assert.equal(digest, screenshot.sha256)
+  }
   assert.deepEqual(capture.screenshots[0]?.consumers, [
     'README.md',
     'docs/user/index.html'
