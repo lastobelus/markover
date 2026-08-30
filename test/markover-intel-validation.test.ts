@@ -196,6 +196,13 @@ test('accepts only exact local packaged smoke evidence', () => {
   )
   assert.throws(
     () => validatePackagedSmokeEvidence(
+      { ...evidence, cleanMachine: null },
+      { head: HEAD, sha256: SHA256 }
+    ),
+    /does not match/
+  )
+  assert.throws(
+    () => validatePackagedSmokeEvidence(
       { ...evidence, sourceCommit: '3'.repeat(40) },
       { head: HEAD, sha256: SHA256 }
     ),

@@ -299,7 +299,7 @@ export function validatePackagedSmokeEvidence(
     evidence.status !== 'passed' ||
     evidence.sourceCommit !== expected.head ||
     evidence.evidenceKind !== 'local' ||
-    evidence.cleanMachine ||
+    evidence.cleanMachine !== false ||
     evidence.artifact.architecture !== 'x64' ||
     evidence.artifact.sha256 !== expected.sha256 ||
     evidence.artifact.trustMode !== 'ad-hoc' ||
@@ -677,7 +677,7 @@ async function main(): Promise<void> {
     if (!passed) {
       printTail(step.name, result.log)
       finish({
-        outcome: result.cancelled
+        outcome: cancellation.isCancelled()
           ? 'cancelled'
           : result.timedOut
             ? 'timed-out'
