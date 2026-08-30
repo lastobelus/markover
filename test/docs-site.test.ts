@@ -206,6 +206,7 @@ test('Pages deploys built docs and the update manifest for every main push', () 
 
 test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(html, /class="footer-brand brand-lockup brand-lockup-horizontal"/)
+  assert.match(html, /<nav class="footer-nav" aria-label="Footer navigation">/)
   assert.match(html, /class="brand-lockup-logo" src="\.\/assets\/markover-lockup\.svg"/)
   assert.match(html, /class="brand-lockup-tagline">Structured review for Markdown\.<\/span>/)
   assert.doesNotMatch(html, /class="footer-brand"[^>]*>[\s\S]*?<span>Markover<\/span>/)
@@ -290,7 +291,7 @@ test('every public page offers a persistent system-aware Ember appearance switch
       : /<script src="\.\.\/site\.js"><\/script>/)
   }
 
-  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: var\(--markover-primary\);[^}]*--brand-burgundy: var\(--markover-secondary\);[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #212121;[^}]*--code: #0e0e0e;/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: var\(--markover-primary\);[^}]*--brand-burgundy: var\(--markover-secondary\);[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #4a3a34;[^}]*--code: #0e0e0e;/)
   assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
   assert.match(styles, /\.theme-choice:focus-visible/)
   for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {
@@ -392,11 +393,13 @@ test('the Pages hero depicts the current App header and three-pane layout', () =
   assert.match(styles, /\.right-pane \{ background: var\(--right-pane-background\); \}/)
   assert.match(styles, /\.mock-app-brand img \{ width: 92px; \}/)
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.left-pane \{ display: none; \}/)
-  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.hero-actions \{ flex-wrap: nowrap;/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.hero-actions \{ justify-content: center; flex-wrap: nowrap;/)
   assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.mock-app-brand \{ grid-column: 1 \/ -1; \}/)
   assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-copy h2 \{ font-size: 28px;/)
   assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-media > \.demo-disclosure \{ font-size: 8\.5px; line-height: 1\.5; \}/)
-  assert.match(styles, /@media \(max-width: 360px\)[\s\S]*?\.site-footer \.brand-lockup-horizontal \{ flex-direction: column;/)
+  assert.match(styles, /\.site-footer \.brand-lockup-horizontal \.brand-lockup-logo \{ width: 150px; \}/)
+  assert.match(styles, /@media \(max-width: 1040px\)[\s\S]*?\.site-footer \{ grid-template-columns: 1fr; justify-items: center; \}/)
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?\.footer-nav \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/)
   assert.doesNotMatch(styles, /backdrop-filter|linear-gradient|radial-gradient/)
 })
 
