@@ -290,8 +290,9 @@ This is development-host evidence only. It does not satisfy clean-machine
 Intel/Sonoma acceptance, Safari quarantine, a visible Gatekeeper override,
 rollback, release publication, or public-support claims. If the action is
 missing or disabled, report its reason and run the same bounded sequence from
-`docs/developer/releasing.md` directly; do not substitute an Apple Silicon run
-or hosted CI for native Intel evidence.
+the exact clean Intel checkout with
+`node scripts/markover-intel-validation-bootstrap.js`; do not substitute an
+Apple Silicon run or hosted CI for native Intel evidence.
 
 ## Git checkpoints
 
