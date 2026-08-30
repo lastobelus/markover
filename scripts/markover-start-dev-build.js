@@ -161,7 +161,23 @@ function stateMatches(state, expected) {
     processIsAlive(state.watcherPid)
 }
 
-function outcomeFromState(state, awaitHuman, tail) {
+async function readReadyHealth(state) {
+  const response = await globalThis.fetch(
+    `http://127.0.0.1:${String(state.service.port)}/health`,
+    { signal: globalThis.AbortSignal.timeout(1_000) }
+  )
+  if (!response.ok) {
+    throw new Error(`Health route returned HTTP ${String(response.status)}.`)
+  }
+  return response.json()
+}
+
+async function outcomeFromState(
+  state,
+  awaitHuman,
+  tail,
+  probe = readReadyHealth
+) {
   if (state.phase === 'build-failed') {
     return {
       outcome: 'build-failed',
@@ -180,11 +196,41 @@ function outcomeFromState(state, awaitHuman, tail) {
       tail
     }
   }
+  if (state.phase === 'restart-required') {
+    return {
+      outcome: 'startup-failed',
+      stage: 'startup',
+      detail: state.error?.message ||
+        'The running app must restart before this source identity is ready.',
+      tail
+    }
+  }
   if (
     state.phase === 'ready' &&
     state.service?.startupReady === true &&
     processIsAlive(state.service.pid)
   ) {
+    try {
+      const health = await probe(state)
+      if (
+        !health ||
+        health.status !== 'ok' ||
+        health.version !== 2 ||
+        health.instanceId !== state.service.instanceId ||
+        health.startupReady !== true
+      ) {
+        throw new Error('The live health response did not match the ready receipt.')
+      }
+    } catch (error) {
+      return {
+        outcome: 'startup-failed',
+        stage: 'readiness',
+        detail: error instanceof Error
+          ? error.message
+          : 'The live readiness probe failed.',
+        tail
+      }
+    }
     return {
       outcome: awaitHuman ? 'awaiting-human' : 'ready',
       stage: 'readiness',
@@ -294,7 +340,11 @@ async function waitForWatcher(context, child, timeoutMilliseconds) {
     ])
     const tail = boundedTail(log)
     if (stateMatches(state, context)) {
-      const terminal = outcomeFromState(state, context.awaitHuman, tail)
+      const terminal = await outcomeFromState(
+        state,
+        context.awaitHuman,
+        tail
+      )
       if (terminal) return terminal
     }
     if (
@@ -362,7 +412,7 @@ async function main(args = process.argv.slice(2)) {
 
   const existing = await readJson(context.paths.state)
   if (stateMatches(existing, context)) {
-    const terminal = outcomeFromState(
+    const terminal = await outcomeFromState(
       existing,
       parsed.awaitHuman,
       boundedTail(await readLog(context.paths.log))

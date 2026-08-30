@@ -187,7 +187,9 @@ untouched, and the next valid edit retries normally.
 An edit used by Electron's main process or local backend prints the message
 `restart required` and leaves the running window untouched. Stop and restart
 the loop when that change should enter the application; the loop never turns a
-runtime edit into an automatic app restart. Watcher implementation updates hand
+runtime edit into an automatic app restart. Its receipt remains
+`restart-required`, and `Start Dev Build` reports `startup-failed` rather than
+presenting the stale running binary as ready. Watcher implementation updates hand
 the running app to the replacement watcher without quitting it. Generated
 output, dependency directories, Git metadata, and instance state do not trigger
 rebuilds. Keep only one loop per instance and use `npm start` for deterministic

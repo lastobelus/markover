@@ -15,6 +15,7 @@ export type DevelopmentWatchPhase =
   | 'build-failed'
   | 'building'
   | 'ready'
+  | 'restart-required'
   | 'starting'
   | 'startup-failed'
   | 'stopped'

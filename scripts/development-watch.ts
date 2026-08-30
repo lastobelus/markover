@@ -499,6 +499,10 @@ export class DevelopmentInstanceManager {
       : rendererChanged ? 'reload' : 'none'
   }
 
+  get restartRequired(): boolean {
+    return this.restartRequiredInputs.size > 0
+  }
+
   async apply(): Promise<'launched' | 'reloaded' | 'unchanged'> {
     const action = this.nextAction
     this.nextAction = 'none'
@@ -839,6 +843,18 @@ export async function main(
     async apply() {
       await publish(state({ phase: 'starting', stage: 'startup' }))
       const outcome = await manager.apply()
+      if (manager.restartRequired) {
+        await publish(state({
+          phase: 'restart-required',
+          stage: 'startup',
+          outcome,
+          error: {
+            code: 'RESTART_REQUIRED',
+            message: `${manager.identityKey} requires a restart before the current source state is ready.`
+          }
+        }))
+        return
+      }
       const endpoint = await readEndpoint(initialInstance.service.endpointPath)
       const readiness = await probeService(initialInstance.service.endpointPath)
       if (!readiness.startupReady) {

@@ -106,6 +106,10 @@ test('development watcher configures a private live renderer root', async () => 
     /environment: \{[\s\S]*\.\.\.process\.env,[\s\S]*\[DEVELOPMENT_WATCH_ENVIRONMENT\]: '1'/
   )
   assert.match(source, /\[DEVELOPMENT_RENDERER_ROOT_ENVIRONMENT\]/)
+  assert.match(
+    source,
+    /const outcome = await manager\.apply\(\)[\s\S]*if \(manager\.restartRequired\) \{[\s\S]*phase: 'restart-required'[\s\S]*code: 'RESTART_REQUIRED'[\s\S]*return[\s\S]*const endpoint = await readEndpoint/
+  )
 })
 
 test('invalid development arguments remain non-retryable bootstrap errors', () => {
@@ -613,10 +617,16 @@ test('a renderer-only edit reloads alongside runtime and shared edits', async ()
   manager.noteChange('src/shared.ts')
   await manager.build()
   assert.equal(await manager.apply(), 'reloaded')
+  assert.equal(manager.restartRequired, true)
+
+  manager.noteChange('src/styles.css')
+  await manager.build()
+  assert.equal(await manager.apply(), 'reloaded')
+  assert.equal(manager.restartRequired, true)
 
   assert.equal(applicationBuilds, 1)
-  assert.equal(rendererBuilds, 2)
-  assert.equal(reloads, 2)
+  assert.equal(rendererBuilds, 3)
+  assert.equal(reloads, 3)
 })
 
 test('restart waits for the addressed process before launching the same target', async () => {

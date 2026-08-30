@@ -11,8 +11,9 @@ interface ActionModule {
   outcomeFromState: (
     state: Record<string, unknown>,
     awaitHuman: boolean,
-    tail: string[]
-  ) => Record<string, unknown> | null
+    tail: string[],
+    probe?: (state: Record<string, unknown>) => Promise<unknown>
+  ) => Promise<Record<string, unknown> | null>
   parseArguments: (args: string[]) => {
     awaitHuman: boolean
     selector: string
@@ -113,8 +114,23 @@ test('matches only a live watcher for the exact checkout, head, and instance', (
   assert.equal(action.stateMatches(state({ watcherPid: 999_999_999 }), expected), false)
 })
 
-test('healthy QA readiness remains explicitly awaiting human', () => {
-  const outcome = action.outcomeFromState(state(), true, ['ignored'])
+test('healthy QA readiness remains explicitly awaiting human', async () => {
+  const probes: Record<string, unknown>[] = []
+  const healthyProbe = (candidate: Record<string, unknown>): Promise<unknown> => {
+    probes.push(candidate)
+    return Promise.resolve({
+      status: 'ok',
+      version: 2,
+      instanceId: '123e4567-e89b-42d3-a456-426614174000',
+      startupReady: true
+    })
+  }
+  const outcome = await action.outcomeFromState(
+    state(),
+    true,
+    ['ignored'],
+    healthyProbe
+  )
   assert.deepEqual(outcome, {
     outcome: 'awaiting-human',
     stage: 'readiness',
@@ -135,20 +151,30 @@ test('healthy QA readiness remains explicitly awaiting human', () => {
     visualAcceptance: 'awaiting-human',
     tail: []
   })
-  assert.equal(action.outcomeFromState(state(), false, [])?.outcome, 'ready')
+  assert.equal(probes.length, 1)
   assert.equal(
-    action.outcomeFromState(
+    (await action.outcomeFromState(
+      state(),
+      false,
+      [],
+      healthyProbe
+    ))?.outcome,
+    'ready'
+  )
+  assert.equal(
+    await action.outcomeFromState(
       state({ service: { pid: process.pid, startupReady: false } }),
       true,
-      []
+      [],
+      healthyProbe
     ),
     null
   )
 })
 
-test('classifies build, startup, and port failures with their bounded tail', () => {
+test('classifies build, startup, and port failures with their bounded tail', async () => {
   assert.deepEqual(
-    action.outcomeFromState(state({
+    await action.outcomeFromState(state({
       phase: 'build-failed',
       stage: 'build',
       error: { code: null, message: 'compile failed' }
@@ -161,21 +187,70 @@ test('classifies build, startup, and port failures with their bounded tail', () 
     }
   )
   assert.equal(
-    action.outcomeFromState(state({
+    (await action.outcomeFromState(state({
       phase: 'startup-failed',
       stage: 'startup',
       error: { code: 'EADDRINUSE', message: 'address in use' }
-    }), true, [])?.outcome,
+    }), true, []))?.outcome,
     'port-conflict'
   )
   assert.equal(
-    action.outcomeFromState(state({
+    (await action.outcomeFromState(state({
       phase: 'startup-failed',
       stage: 'startup',
       error: { code: null, message: 'launch failed' }
-    }), true, [])?.outcome,
+    }), true, []))?.outcome,
     'startup-failed'
   )
+  assert.deepEqual(
+    await action.outcomeFromState(state({
+      phase: 'restart-required',
+      stage: 'startup',
+      error: {
+        code: 'RESTART_REQUIRED',
+        message: 'pr-216 requires a restart before the current source state is ready.'
+      }
+    }), true, ['restart tail']),
+    {
+      outcome: 'startup-failed',
+      stage: 'startup',
+      detail: 'pr-216 requires a restart before the current source state is ready.',
+      tail: ['restart tail']
+    }
+  )
+})
+
+test('ready receipts require matching live health evidence', async () => {
+  const stale = await action.outcomeFromState(
+    state(),
+    true,
+    ['watch tail'],
+    () => Promise.resolve({
+      status: 'ok',
+      version: 2,
+      instanceId: 'stale-instance',
+      startupReady: true
+    })
+  )
+  assert.deepEqual(stale, {
+    outcome: 'startup-failed',
+    stage: 'readiness',
+    detail: 'The live health response did not match the ready receipt.',
+    tail: ['watch tail']
+  })
+
+  const unavailable = await action.outcomeFromState(
+    state(),
+    true,
+    ['watch tail'],
+    () => Promise.reject(new Error('health route unavailable'))
+  )
+  assert.deepEqual(unavailable, {
+    outcome: 'startup-failed',
+    stage: 'readiness',
+    detail: 'health route unavailable',
+    tail: ['watch tail']
+  })
 })
 
 test('tails and paths stay bounded and instance-local', () => {
