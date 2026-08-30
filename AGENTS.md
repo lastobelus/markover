@@ -270,6 +270,30 @@ If the action is missing or disabled, report the missing name or
 that resumable execution was unavailable. Keep focused checks and `Wait for PR`
 independent; neither action launches the other.
 
+## Native Intel validation
+
+When a pull request needs native Intel packaging evidence, run the saved action
+from its exact clean checkout on a physical Intel Mac:
+
+1. Call `list_project_actions` and select the single action named `Run Intel
+   Validation`; never guess its ID.
+2. Require `resumeEligible: true`, call `run_project_action_and_resume` with the
+   returned ID, and end the turn immediately.
+3. On resume, require the final JSON summary to match the expected repository,
+   head, base, command version, native `x86_64` host, local-CI counts, x64
+   archive checksum, preflight, and packaged-smoke evidence. Treat
+   `target-drifted` or `dirty-worktree` as stale. Repair a classified
+   environment, CI, package, preflight, or smoke failure in the agent thread
+   before launching a fresh action.
+
+This is development-host evidence only. It does not satisfy clean-machine
+Intel/Sonoma acceptance, Safari quarantine, a visible Gatekeeper override,
+rollback, release publication, or public-support claims. If the action is
+missing or disabled, report its reason and run the same bounded sequence from
+the exact clean Intel checkout with
+`node scripts/markover-intel-validation-bootstrap.js`; do not substitute an
+Apple Silicon run or hosted CI for native Intel evidence.
+
 ## Git checkpoints
 
 Commit completed work at natural checkpoints. In particular, when the user
