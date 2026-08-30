@@ -53,6 +53,27 @@ const pagesWorkflow = fs.readFileSync(
   'utf8'
 )
 
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (value: string): number => {
+    const channels = value.match(/[0-9a-f]{2}/gi)?.map((channel) => (
+      Number.parseInt(channel, 16) / 255
+    ))
+    assert.equal(channels?.length, 3)
+    const linear = channels.map((channel) => (
+      channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4
+    ))
+    return 0.2126 * (linear[0] ?? 0) +
+      0.7152 * (linear[1] ?? 0) +
+      0.0722 * (linear[2] ?? 0)
+  }
+  const foregroundLuminance = luminance(foreground)
+  const backgroundLuminance = luminance(background)
+  return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+    (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+}
+
 const screenshots = [
   'markover-review-editor@2x.png',
   'markover-annotation-browser@2x.png',
@@ -291,7 +312,16 @@ test('every public page offers a persistent system-aware Ember appearance switch
       : /<script src="\.\.\/site\.js"><\/script>/)
   }
 
-  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: var\(--markover-primary\);[^}]*--brand-burgundy: var\(--markover-secondary\);[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #4a3a34;[^}]*--code: #0e0e0e;/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: #e5b8a8;[^}]*--brand-burgundy: #e5b8a8;[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #4a3a34;[^}]*--code: #0e0e0e;/)
+  for (const darkSurface of ['#242221', '#161514', '#110e0a', '#0b0808', '#2b2422', '#0e0e0e']) {
+    assert.ok(
+      contrastRatio('#e5b8a8', darkSurface) >= 4.5,
+      `dark accent text on ${darkSurface} must meet 4.5:1`
+    )
+  }
+  assert.ok(contrastRatio('#000000', '#c94e1f') >= 4.5)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.button-deep:hover \{[^}]*border-color: var\(--brand-orange\);[^}]*background: var\(--brand-orange\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.button-outline \{[^}]*border-color: var\(--brand-burgundy\);[^}]*color: var\(--brand-burgundy\);/)
   assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
   assert.match(styles, /\.theme-choice:focus-visible/)
   for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {

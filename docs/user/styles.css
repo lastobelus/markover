@@ -25,8 +25,8 @@
 
 :root[data-appearance="dark"] {
   color-scheme: dark;
-  --brand-orange: var(--markover-primary);
-  --brand-burgundy: var(--markover-secondary);
+  --brand-orange: #e5b8a8;
+  --brand-burgundy: #e5b8a8;
   --ink: #dfdedd;
   --muted: #aaa8a6;
   --ground: #242221;
@@ -333,7 +333,8 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
 }
 
 :root[data-appearance="dark"] .button-deep:hover {
-  background: var(--markover-secondary);
+  border-color: var(--brand-orange);
+  background: var(--brand-orange);
 }
 
 :root[data-appearance="dark"] .button-deep {
@@ -343,6 +344,6 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
 }
 
 :root[data-appearance="dark"] .button-outline {
-  border-color: var(--markover-primary);
-  color: var(--markover-primary);
+  border-color: var(--brand-burgundy);
+  color: var(--brand-burgundy);
 }
