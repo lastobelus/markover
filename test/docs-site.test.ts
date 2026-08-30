@@ -411,6 +411,7 @@ test('the Pages hero depicts the current App header and three-pane layout', () =
   assert.equal(heroHeading.querySelectorAll('br').length, 1)
   assert.match(styles, /\.hero-copy \{ container-type: inline-size; \}/)
   assert.match(styles, /\.hero h1 \{[^}]*font-size: clamp\(38px, min\(4\.8vw, 10cqi\), 70px\);[^}]*font-weight: 600;[^}]*white-space: nowrap;/)
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.hero h1 \{ font-size: 56px; \}/)
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.hero h1 \{ font-size: clamp\(29px, 10cqi, 56px\); \}/)
   const frame = document.querySelector('.product-frame')
   assert.ok(frame)
