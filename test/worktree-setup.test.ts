@@ -35,6 +35,11 @@ test('T3 imports setup and resumable validation actions', async () => {
         name: 'Start Dev Build',
         command: 'node scripts/markover-start-dev-build.js --instance dev --await-human',
         icon: 'test'
+      },
+      {
+        name: 'Run Intel Validation',
+        command: 'node scripts/markover-intel-validation-bootstrap.js',
+        icon: 'test'
       }
     ]
   })
