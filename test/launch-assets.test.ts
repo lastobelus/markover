@@ -215,7 +215,7 @@ test('the public feature indices have deliberate visual weight', () => {
 test('agent-specific examples use only observable supported identities', () => {
   const agents = fs.readFileSync(path.join(userDirectory, 'agents/index.html'), 'utf8')
   assert.match(agents, /--thread-id "\$CODEX_THREAD_ID"[\s\S]*?--thread-host-kind t3code[\s\S]*?--thread-host-provider codex/)
-  assert.match(agents, /--thread-id "\$CLAUDE_CODE_SESSION_ID"[\s\S]*?--thread-host-kind claude[\s\S]*?--thread-host-provider claude/)
+  assert.match(agents, /--thread-id "\$CLAUDE_CODE_SESSION_ID"[\s\S]*?--thread-host-kind claude-code[\s\S]*?--thread-host-provider claude/)
   assert.match(agents, /generate a fresh high-entropy <code>--handoff-key<\/code>/)
   assert.doesNotMatch(agents, /--thread-host-thread-id (THREAD_ID|"\$CODEX_THREAD_ID"|"\$CLAUDE_CODE_SESSION_ID")/)
 })

@@ -102,7 +102,7 @@
   markover open ./DOCUMENT.md \
   --summary "Review these decisions before implementation." \
   --thread-id "$CLAUDE_CODE_SESSION_ID" \
-  --thread-host-kind claude \
+  --thread-host-kind claude-code \
   --thread-host-provider claude \
   --thread-host-machine "$(hostname)"</code></pre>
         <p>When neither exact identifier is available, generate a fresh high-entropy <code>--handoff-key</code> for that one review instead of inventing thread metadata.</p>
