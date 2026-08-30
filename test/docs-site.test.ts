@@ -278,6 +278,23 @@ test('public surfaces inherit the current Ember Light visual roles', () => {
   }
 })
 
+test('public level-one and level-two headings use a deliberate lighter weight', () => {
+  assert.match(styles, /h1, h2 \{ font-weight: 600; \}/)
+  for (const source of [
+    html,
+    guide,
+    agents,
+    privacy,
+    limitations,
+    compatibility,
+    remoteAccess
+  ]) {
+    const document = new JSDOM(source).window.document
+    assert.ok(document.querySelector('h1'))
+    assert.ok(document.querySelector('h2'))
+  }
+})
+
 test('every public page offers a persistent system-aware Ember appearance switch', () => {
   const pages = [
     ['index.html', html],
