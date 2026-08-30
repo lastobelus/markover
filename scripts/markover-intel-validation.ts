@@ -180,12 +180,12 @@ export function validatePackagedSmokeEvidence(
     evidence.status !== 'passed' ||
     evidence.sourceCommit !== expected.head ||
     evidence.evidenceKind !== 'local' ||
-    evidence.cleanMachine !== false ||
-    evidence.artifact?.architecture !== 'x64' ||
-    evidence.artifact?.sha256 !== expected.sha256 ||
-    evidence.artifact?.trustMode !== 'ad-hoc' ||
-    evidence.review?.preserved !== true ||
-    typeof evidence.review?.id !== 'string'
+    evidence.cleanMachine ||
+    evidence.artifact.architecture !== 'x64' ||
+    evidence.artifact.sha256 !== expected.sha256 ||
+    evidence.artifact.trustMode !== 'ad-hoc' ||
+    evidence.review.preserved !== true ||
+    typeof evidence.review.id !== 'string'
   ) throw new Error('Packaged smoke evidence does not match this Intel validation run.')
   return { reviewId: evidence.review.id }
 }
@@ -194,9 +194,9 @@ function sha256(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const hash = createHash('sha256')
     const stream = fs.createReadStream(filePath)
-    stream.on('data', (chunk) => hash.update(chunk))
+    stream.on('data', (chunk) => { hash.update(chunk) })
     stream.on('error', reject)
-    stream.on('end', () => resolve(hash.digest('hex')))
+    stream.on('end', () => { resolve(hash.digest('hex')) })
   })
 }
 
@@ -272,7 +272,9 @@ async function runStage(
   try {
     const code = await new Promise<number | null>((resolve, reject) => {
       child.once('error', reject)
-      child.once('close', (status) => output.end(() => resolve(status)))
+      child.once('close', (status) => {
+        output.end(() => { resolve(status) })
+      })
     })
     return {
       code,
@@ -317,6 +319,14 @@ function commonSummary(
     ...(host ? { host } : {}),
     stages
   }
+}
+
+export function packageVersion(value: unknown): string {
+  if (
+    value === null || typeof value !== 'object' || Array.isArray(value) ||
+    typeof Reflect.get(value, 'version') !== 'string'
+  ) throw new Error('package.json does not contain a version.')
+  return Reflect.get(value, 'version') as string
 }
 
 async function main(): Promise<void> {
@@ -377,9 +387,10 @@ async function main(): Promise<void> {
     ? configuredTimeout
     : INTEL_VALIDATION_TIMEOUT_MILLISECONDS
   const deadline = Date.now() + timeoutMilliseconds
-  const version = JSON.parse(
+  const packageJson: unknown = JSON.parse(
     await fsp.readFile(path.join(root, 'package.json'), 'utf8')
-  ).version as string
+  )
+  const version = packageVersion(packageJson)
   const architecture = 'x64'
   const archive = path.join(directory, `Markover-darwin-${architecture}.zip`)
   const checksum = `${archive}.sha256`
@@ -433,14 +444,6 @@ async function main(): Promise<void> {
   let localSmoke: LocalCiSmokeResult | undefined
   let digest = ''
   for (const step of commands) {
-    if (step.name === 'preflight') {
-      digest = await sha256(archive)
-      await fsp.writeFile(
-        checksum,
-        `${digest}  ${path.basename(archive)}\n`,
-        { encoding: 'utf8', flag: 'wx' }
-      )
-    }
     process.stdout.write(`[${FORMAT}] Starting ${step.name}.\n`)
     const result = await runStage(
       root,
@@ -450,7 +453,21 @@ async function main(): Promise<void> {
       step.args,
       deadline
     )
-    const passed = result.code === 0 && !result.cancelled && !result.timedOut
+    let passed = result.code === 0 && !result.cancelled && !result.timedOut
+    let stageDetail: string | undefined
+    if (step.name === 'archive' && passed) {
+      try {
+        digest = await sha256(archive)
+        await fsp.writeFile(
+          checksum,
+          `${digest}  ${path.basename(archive)}\n`,
+          { encoding: 'utf8', flag: 'wx' }
+        )
+      } catch (error) {
+        passed = false
+        stageDetail = compactDetail(error)
+      }
+    }
     stages.push({
       name: step.name,
       status: passed ? 'passed' : 'failed',
@@ -480,7 +497,9 @@ async function main(): Promise<void> {
             : outcomeForStage(step.name),
         ...commonSummary(baseline, startedAt, stages, host),
         failingStage: step.name,
-        detail: result.code === null ? undefined : `${step.name} exited ${String(result.code)}.`
+        detail: stageDetail ?? (
+          result.code === null ? undefined : `${step.name} exited ${String(result.code)}.`
+        )
       })
       return
     }

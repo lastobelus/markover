@@ -93,10 +93,16 @@ test('puts compact JSON on the final summary line', () => {
 
 test('keeps the importable action and agent launch contract wired', () => {
   const root = path.resolve(__dirname, '../..')
-  const action = JSON.parse(fs.readFileSync(path.join(root, 't3.json'), 'utf8'))
-    .scripts.find((candidate: { name?: string }) => (
-      candidate.name === 'Run Intel Validation'
-    ))
+  const definition: unknown = JSON.parse(
+    fs.readFileSync(path.join(root, 't3.json'), 'utf8')
+  )
+  assert.ok(definition !== null && typeof definition === 'object')
+  const scripts: unknown = Reflect.get(definition, 'scripts')
+  assert.ok(Array.isArray(scripts))
+  const action: unknown = (scripts as unknown[]).find((candidate: unknown) => (
+    candidate !== null && typeof candidate === 'object' &&
+    Reflect.get(candidate, 'name') === 'Run Intel Validation'
+  ))
   assert.deepEqual(action, {
     name: 'Run Intel Validation',
     command: 'node scripts/markover-intel-validation-bootstrap.js',
