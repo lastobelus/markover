@@ -16,6 +16,7 @@ import {
   type LocalCiSmokeResult,
   type LocalCiTestCounts
 } from './markover-local-ci'
+import { parseServiceEndpoint, serviceEndpointPath } from '../src/service-endpoint'
 
 export const INTEL_VALIDATION_COMMAND_VERSION = 1
 export const INTEL_VALIDATION_TIMEOUT_MILLISECONDS = 45 * 60_000
@@ -164,6 +165,41 @@ export function environmentFailure(
     ((version[0] ?? 0) === 22 && (version[1] ?? 0) < 13)
   ) return 'Intel validation requires Node 22.13.0 or newer.'
   return null
+}
+
+export function runningMarkoverFailure(
+  value: unknown,
+  isProcessAlive: (pid: number) => boolean = (pid: number): boolean => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (error) {
+      if (
+        error !== null && typeof error === 'object' &&
+        Reflect.get(error, 'code') === 'ESRCH'
+      ) return false
+      throw error
+    }
+  }
+): string | null {
+  const endpoint = parseServiceEndpoint(value)
+  if (!endpoint || !isProcessAlive(endpoint.pid)) return null
+  return `Quit the running Markover app (PID ${String(endpoint.pid)}) before Intel validation; the action will not stop an existing app.`
+}
+
+async function readRunningMarkoverFailure(): Promise<string | null> {
+  try {
+    const value: unknown = JSON.parse(
+      await fsp.readFile(serviceEndpointPath(), 'utf8')
+    )
+    return runningMarkoverFailure(value)
+  } catch (error) {
+    if (
+      error !== null && typeof error === 'object' &&
+      Reflect.get(error, 'code') === 'ENOENT'
+    ) return null
+    throw error
+  }
 }
 
 export function validatePackagedSmokeEvidence(
@@ -351,7 +387,8 @@ async function main(): Promise<void> {
   try {
     const environmentStarted = Date.now()
     host = readIntelValidationHost(root)
-    const failure = environmentFailure(process.platform, process.arch, host)
+    const failure = environmentFailure(process.platform, process.arch, host) ??
+      await readRunningMarkoverFailure()
     stages.push({
       name: 'environment',
       status: failure ? 'failed' : 'passed',

@@ -7,6 +7,7 @@ import {
   environmentFailure,
   formatIntelValidationSummary,
   INTEL_VALIDATION_COMMAND_VERSION,
+  runningMarkoverFailure,
   validatePackagedSmokeEvidence,
   type IntelValidationHost
 } from '../scripts/markover-intel-validation'
@@ -43,6 +44,21 @@ test('requires a native Intel macOS environment and supported Node', () => {
     /22\.13\.0 or newer/
   )
   assert.equal(environmentFailure('darwin', 'x64', host({ node: 'v26.8.1' })), null)
+})
+
+test('refuses to disturb an existing Markover process', () => {
+  const endpoint = {
+    version: 2,
+    instanceId: 'f1eeb5a7-c844-4b07-a19b-d5516d7a01e4',
+    port: 58139,
+    pid: 90371
+  }
+  assert.match(
+    runningMarkoverFailure(endpoint, () => true) || '',
+    /PID 90371.*will not stop an existing app/
+  )
+  assert.equal(runningMarkoverFailure(endpoint, () => false), null)
+  assert.equal(runningMarkoverFailure({ version: 1 }, () => true), null)
 })
 
 test('accepts only exact local packaged smoke evidence', () => {
