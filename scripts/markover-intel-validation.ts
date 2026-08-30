@@ -98,7 +98,7 @@ interface PackagedSmokeEvidence {
   status: string
   sourceCommit: string
   evidenceKind: string
-  cleanMachine: boolean
+  cleanMachine: unknown
   artifact: { architecture?: unknown; sha256?: unknown; trustMode?: unknown }
   review: { id?: unknown; preserved?: unknown }
 }
