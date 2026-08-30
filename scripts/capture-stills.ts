@@ -48,7 +48,7 @@ interface ScreenshotSpec {
   width: number
 }
 
-class CdpClient {
+export class CdpClient {
   private nextId = 1
   private readonly pending = new Map<number, PendingCommand>()
 
@@ -189,7 +189,7 @@ export function screenshotSpec(source: Buffer): ScreenshotSpec {
   return spec
 }
 
-async function reservePort(): Promise<number> {
+export async function reservePort(): Promise<number> {
   const server = net.createServer()
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
@@ -204,7 +204,7 @@ async function reservePort(): Promise<number> {
   return address.port
 }
 
-async function pageTarget(port: number): Promise<CdpTarget> {
+export async function pageTarget(port: number): Promise<CdpTarget> {
   const deadline = Date.now() + connectTimeoutMs
   while (Date.now() < deadline) {
     try {
@@ -224,7 +224,7 @@ async function pageTarget(port: number): Promise<CdpTarget> {
   throw new Error('Timed out waiting for the capture renderer.')
 }
 
-async function waitFor(client: CdpClient, expression: string): Promise<void> {
+export async function waitFor(client: CdpClient, expression: string): Promise<void> {
   const deadline = Date.now() + 10_000
   while (Date.now() < deadline) {
     if (await client.evaluate<boolean>(`Boolean(${expression})`)) return
@@ -233,7 +233,7 @@ async function waitFor(client: CdpClient, expression: string): Promise<void> {
   throw new Error(`Timed out waiting for capture state: ${expression}`)
 }
 
-async function click(client: CdpClient, selector: string): Promise<void> {
+export async function click(client: CdpClient, selector: string): Promise<void> {
   const point = await client.evaluate<{ x: number; y: number } | null>(`(() => {
     const element = document.querySelector(${JSON.stringify(selector)});
     if (!(element instanceof HTMLElement) || !element.getClientRects().length) return null;
@@ -249,7 +249,7 @@ async function click(client: CdpClient, selector: string): Promise<void> {
   })
 }
 
-async function chooseNeedsMe(client: CdpClient): Promise<void> {
+export async function chooseNeedsMe(client: CdpClient): Promise<void> {
   await client.evaluate(`(() => {
     const filter = document.querySelector('#review-filter');
     if (!(filter instanceof HTMLSelectElement)) throw new Error('Missing review filter.');
@@ -285,7 +285,7 @@ async function normalize(client: CdpClient): Promise<void> {
   })()`)
 }
 
-async function settle(client: CdpClient): Promise<void> {
+export async function settle(client: CdpClient): Promise<void> {
   await client.evaluate(`(async () => {
     await document.fonts.ready;
     const images = [...document.querySelectorAll('img')].filter((image) => image.getClientRects().length);
@@ -321,7 +321,7 @@ async function capture(client: CdpClient, outputPath: string): Promise<void> {
   await fs.writeFile(outputPath, output)
 }
 
-async function stop(child: ChildProcess): Promise<void> {
+export async function stop(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return
   child.kill('SIGTERM')
   await Promise.race([
