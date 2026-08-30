@@ -10,7 +10,7 @@
     "redesignPullRequest": 195,
     "designBrief": "doc/design/markover-design-brief.md",
     "fixtureRevision": 1,
-    "captureCommit": "00d93b74b427b96be9ed76dd66a0d7af493032e9"
+    "captureCommit": "2836e197ca7e88a96dfc63d51851254663d42a8b"
   },
   "staging": {
     "command": "npm run capture:stage",
