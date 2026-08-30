@@ -82,6 +82,7 @@ interface ServiceRecords {
 
 interface ServiceConnection extends ServiceRecords {
   executablePath: string | null
+  startupReady: boolean
   windowVisible: boolean | null
 }
 
@@ -253,7 +254,8 @@ async function readHealth(endpoint: ServiceEndpoint): Promise<unknown> {
     !isRecord(health) ||
     health.status !== 'ok' ||
     health.version !== 2 ||
-    typeof health.instanceId !== 'string'
+    typeof health.instanceId !== 'string' ||
+    typeof health.startupReady !== 'boolean'
   ) {
     throw new LocalServiceError(
       'INVALID_RESPONSE',
@@ -282,6 +284,7 @@ export async function probeService(
     executablePath: isRecord(health) && typeof health.executablePath === 'string'
       ? health.executablePath
       : null,
+    startupReady: isRecord(health) && health.startupReady === true,
     windowVisible: isRecord(health) && typeof health.windowVisible === 'boolean'
       ? health.windowVisible
       : null

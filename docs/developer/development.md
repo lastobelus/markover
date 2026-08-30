@@ -149,6 +149,35 @@ starts. If the selected instance is already running under this live loop, the
 new watcher attaches to it; an older non-live instance is replaced once so it
 can load the development renderer safely.
 
+### Resumable development startup
+
+Agents prepare a pull-request instance through the saved **Start Dev Build**
+Project Action. The checked-in definition runs the dependency-light
+`scripts/markover-start-dev-build.js` entrypoint, so setup or compilation can
+fail before the application build exists and still return one classified
+result. Agents list the saved actions, launch the unique eligible result, end
+their turn, and validate the resumed summary before continuing. A missing or
+disabled saved action is reported before falling back to the direct `npm run
+dev -- --instance dev` loop.
+
+The launcher owns only setup, build, startup, and readiness. It binds the run
+to the exact Git head and addressed instance, preserves a bounded diagnostic
+tail, and wakes with `build-failed`, `startup-failed`, `port-conflict`,
+`process-exited`, or `timed-out` when intervention is useful. Mechanical
+success includes the watcher PID, app PID, health URL, service instance ID, and
+an explicit startup-ready signal. The importable QA action returns
+`awaiting-human`: the machine is ready, while visual behavior remains
+unaccepted until the user checks it. A direct readiness-only invocation may
+return `ready`; that outcome also makes no visual claim.
+
+The watcher publishes its current machine-readable receipt under
+`.markover/generated/<instance>/development-watch.json`. A later action run can
+adopt the same exact-head watcher instead of creating a duplicate. A live
+watcher or app with mismatched ownership returns `port-conflict` and is left
+running for the agent to interpret. A fresh action may launch dirty development
+work, but it will not adopt an already-running watcher for a dirty checkout
+whose exact contents cannot be proven by the receipt.
+
 After that startup, CSS, HTML, renderer, preload, and renderer-only dependency
 edits build into a separate worktree-local renderer directory. The directory is
 published only after every asset succeeds, then the existing Electron process
@@ -160,7 +189,9 @@ untouched, and the next valid edit retries normally.
 An edit used by Electron's main process or local backend prints the message
 `restart required` and leaves the running window untouched. Stop and restart
 the loop when that change should enter the application; the loop never turns a
-runtime edit into an automatic app restart. Watcher implementation updates hand
+runtime edit into an automatic app restart. Its receipt remains
+`restart-required`, and `Start Dev Build` reports `startup-failed` rather than
+presenting the stale running binary as ready. Watcher implementation updates hand
 the running app to the replacement watcher without quitting it. Generated
 output, dependency directories, Git metadata, and instance state do not trigger
 rebuilds. Keep only one loop per instance and use `npm start` for deterministic

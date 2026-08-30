@@ -141,6 +141,7 @@ export interface LocalServiceOptions {
   onUnauthorized?: ((event: UnauthorizedRequest) => void) | undefined
   interpretationPolicy?: (() => string) | undefined
   agentReviewMode?: (() => AgentReviewMode) | undefined
+  startupReady?: (() => boolean) | undefined
   windowVisible?: (() => boolean) | undefined
 }
 
@@ -335,6 +336,7 @@ export async function startLocalService({
   onUnauthorized = () => {},
   interpretationPolicy,
   agentReviewMode = () => 'annotation-only',
+  startupReady = () => false,
   windowVisible = () => false
 }: LocalServiceOptions): Promise<LocalService> {
   if (
@@ -390,6 +392,7 @@ export async function startLocalService({
           version: 2,
           instanceId: identity.instanceId,
           executablePath: process.execPath,
+          startupReady: startupReady(),
           windowVisible: windowVisible()
         })
         return

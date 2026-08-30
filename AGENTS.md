@@ -235,14 +235,20 @@ return. Bounded-loss crash/restart durability is tracked separately in issue
 ## Human QA development loop
 
 When UI, interaction, or native-app work needs back-and-forth human QA, ask the
-user for a QA window before launching or focusing Markover, then keep
-`npm run dev` running from the owning checkout. Use
-`npm run dev -- --instance dev` when the pull-request instance must be explicit.
-Make the next change only after the loop reports `ready`, invite the user to
-check that exact instance, and keep the same loop alive across feedback rounds.
-Run one loop per addressed instance; finish focused deterministic checks
-separately. If the loop reports a failed build or startup, fix the cause and
-let the next edit drive recovery rather than starting another app.
+user for a QA window before launching or focusing Markover. Then list Project
+Actions, select the unique eligible `Start Dev Build` action, launch it with
+`run_project_action_and_resume`, and end the turn immediately. On resume,
+validate the exact head, instance, watcher PID, app PID, route, and startup-ready
+evidence before inviting the user to check that instance. `awaiting-human`
+means the machine is ready for visual QA; only the user can accept what it looks
+like or how it behaves.
+
+Keep the reported watcher alive across feedback rounds. Fix a reported build or
+startup failure and let that watcher retry on the next edit. If `Start Dev Build`
+is missing or disabled, report the reason and fall back to `npm run dev` from
+the owning checkout, using `npm run dev -- --instance dev` when the pull-request
+instance must be explicit. Run one loop per addressed instance and finish
+focused deterministic checks separately.
 
 ## Full local CI
 

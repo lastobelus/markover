@@ -30,6 +30,11 @@ test('T3 imports setup and resumable validation actions', async () => {
         name: 'Run Local CI',
         command: 'node scripts/markover-local-ci-bootstrap.js',
         icon: 'test'
+      },
+      {
+        name: 'Start Dev Build',
+        command: 'node scripts/markover-start-dev-build.js --instance dev --await-human',
+        icon: 'test'
       }
     ]
   })
