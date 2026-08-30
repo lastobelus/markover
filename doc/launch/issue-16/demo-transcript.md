@@ -14,8 +14,8 @@ without changing the source document. The reviewer switches to **Projects** and
 
 Finally, the fixture-only CLI returns structured JSON containing the review
 status, block feedback, attachment IDs and labels, and source proposal. The demo
-ends on the canonical Markover lockup, “Structured review for Markdown,” and
-the repository address.
+ends on the canonical Markover lockup, “Structured review for Markdown,” the
+free, MIT-licensed macOS early-preview boundary, and the repository address.
 
 No canonical review, private path, real repository, real pull request, real
 thread identity, credential, notification, unrelated application chrome, or

@@ -128,6 +128,8 @@ async function installOverlay(client: CdpClient): Promise<void> {
       #capture-demo-scene .end-card img { width: 600px; max-height: 180px; }
       #capture-demo-scene .end-card p { margin: 34px 0 0; color: #6f6761;
         font: 30px/1.35 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+      #capture-demo-scene .end-card .availability { margin-top: 12px; color: #6d211f;
+        font-size: 24px; font-weight: 650; }
       #capture-demo-scene .end-card code { display: block; margin-top: 30px; color: #6d211f;
         font: 24px/1.3 ui-monospace, "SF Mono", Menlo, monospace; }
     \`;
@@ -185,9 +187,12 @@ async function showEndCard(client: CdpClient): Promise<void> {
     logo.removeAttribute('id');
     const line = document.createElement('p');
     line.textContent = 'Structured review for Markdown';
+    const availability = document.createElement('p');
+    availability.className = 'availability';
+    availability.textContent = 'Free, MIT-licensed macOS early preview';
     const url = document.createElement('code');
     url.textContent = 'github.com/lastobelus/markover';
-    card.append(logo, line, url);
+    card.append(logo, line, availability, url);
     scene.append(card);
   })()`)
 }

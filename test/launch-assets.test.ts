@@ -139,6 +139,8 @@ test('Pages offers an accessible current-UI demo without surprise playback', () 
 })
 
 test('the launch movie is a fast-start silent H.264 MP4 with a real poster', () => {
+  const captureSource = fs.readFileSync(path.join(root, 'scripts/capture-demo.ts'), 'utf8')
+  assert.match(captureSource, /availability\.textContent = 'Free, MIT-licensed macOS early preview'/)
   const movie = fs.readFileSync(path.join(assetDirectory, 'markover-focused-preview-demo.mp4'))
   const boxes = topLevelMp4Boxes(movie)
   const moov = boxes.get('moov')

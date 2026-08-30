@@ -63,8 +63,8 @@ Caption: **Return one structured handoff to the agent.**
 
 ### 0:40–0:44 — End card
 
-Show the Markover lockup, **Structured review for Markdown**, and
-`github.com/lastobelus/markover`.
+Show the Markover lockup, **Structured review for Markdown**, **Free,
+MIT-licensed macOS early preview**, and `github.com/lastobelus/markover`.
 
 ## Pages transcript
 

@@ -24,4 +24,4 @@ Agent retrieves one structured handoff.
 
 7
 00:00:40,000 --> 00:00:44,000
-Markover — Structured review for Markdown.
+Markover — Free, MIT-licensed macOS early preview.
