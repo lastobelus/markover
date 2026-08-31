@@ -104,19 +104,26 @@
 
       <section id="open">
         <h2>Open one review</h2>
-        <p>Run <code>markover help</code> before a pull-request-associated <code>open</code>, <code>get</code>, <code>get-for-review</code>, <code>revise</code>, or <code>done</code>. Its machine-readable <code>pullRequestStatus</code> contract is the source of truth for the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</p>
-        <p>Give Markover one Markdown path and a short summary of why the document exists and what feedback would help:</p>
+        <p>Give Markover a Markdown path and a short summary of why the document exists and what feedback would help:</p>
+        <div class="callout"><strong>Pull-request-associated commands.</strong> Before an <code>open</code>, <code>get</code>, <code>get-for-review</code>, <code>revise</code>, or <code>done</code> that involves a pull request, run <code>markover help</code>. Its machine-readable <code>pullRequestStatus</code> contract defines the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</div>
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover open ./DOCUMENT.md \
   --summary "Review these decisions before implementation."</code></pre>
-        <p>When reliable thread metadata is available, pass the best observable requesting-thread or session ID with <code>--thread-id</code>. Use <code>--thread-host-kind</code> for the user-facing product or lookup namespace where the user would look for the thread, and <code>--thread-host-provider</code> for the LLM provider or model family in use rather than an intermediate harness. Pass <code>--thread-host-thread-id</code> only for a distinct host-owned identifier. Try the local <code>hostname</code> command and pass its result as <code>--thread-host-machine</code>. Use recommended product values when they match observable facts, preserve truthful unknown values, and omit anything unavailable rather than guessing.</p>
-        <p>On first use, the launcher downloads the Apple Silicon app; verifies its checksum, bundle identity, version, architecture, Sonoma floor, ad-hoc signature, and code seal; then atomically caches it. A successful command exits promptly with one JSON value:</p>
+        <p>When reliable thread metadata is available:</p>
+        <ul>
+          <li>Pass the best observable requesting-thread or session ID with <code>--thread-id</code>.</li>
+          <li>Use <code>--thread-host-kind</code> for the user-facing product or lookup namespace where the user would look for the thread, and <code>--thread-host-provider</code> for the LLM provider or model family in use — not an intermediate harness.</li>
+          <li>Pass <code>--thread-host-thread-id</code> only for a distinct host-owned identifier.</li>
+          <li>Run the local <code>hostname</code> command and pass its result as <code>--thread-host-machine</code>.</li>
+          <li>Use recommended product values when they match observable facts, preserve truthful unknown values, and omit anything unavailable rather than guessing.</li>
+        </ul>
+        <p>On first use, the launcher downloads the Apple Silicon app; verifies its checksum, bundle identity, version, architecture, minimum macOS version, ad-hoc signature, and code seal; then atomically caches it. A successful command exits promptly with one JSON value:</p>
         <pre><code>{"reviewId":"mko_8f3a2c","status":"editing","reviewUrl":"markover://review/mko_8f3a2c"}</code></pre>
         <div class="callout"><strong>Retain the review ID.</strong> It is the stable identifier for every later operation on this review.</div>
         <p>Give the reviewer all three opening aids: a best-effort <code>[Open in Markover](&lt;reviewUrl&gt;)</code> link, the raw review ID, and this Terminal fallback alone on its own line:</p>
         <pre><code>open 'markover://review/mko_8f3a2c'</code></pre>
-        <p>Custom-scheme links work through macOS, but thread-hosts including T3 Code and the Codex app may strip or decline them. The standalone command is the reliable handoff.</p>
+        <p>Custom-scheme links work through macOS, but some chat apps, including T3 Code and the Codex app, do not currently open them from Markdown. The standalone command is the reliable handoff.</p>
       </section>
 
       <section id="identity-examples">
@@ -185,7 +192,7 @@
         <h2>Check and resolve pending reviews</h2>
         <p>At any point, an agent can ask Markover for every unresolved review opened by its exact current requesting thread. The result contains review links, document purpose, responsibility, age timestamps, and pull-request association without exposing draft feedback or changing review state.</p>
         <pre><code>markover pending --thread-id THREAD_ID --thread-host-kind t3code --thread-host-provider codex</code></pre>
-        <p>Pending reviews are a soft gate: planning and implementation can continue, but the agent surfaces every result before merge or final thread completion. Silence and merge do not imply acceptance.</p>
+        <p>Pending reviews are a soft gate: planning and implementation can continue, but the agent surfaces every result before merging or finishing the thread. Silence and merge do not imply acceptance.</p>
         <pre><code>markover resolve mko_8f3a2c --outcome reviewed-no-notes
 markover resolve mko_8f3a2c --outcome accepted-unreviewed
 markover unresolve mko_8f3a2c</code></pre>
@@ -208,7 +215,7 @@ markover unresolve mko_8f3a2c</code></pre>
 # The reviewer updates feedback and permitted sourceEdit fields in review.json.
 markover submit mko_8f3a2c --input review.json</code></pre>
         <p>The review must be pristine when claimed: no existing feedback, attachments, or source proposals. The returned artifact contains dedicated reviewer instructions under <code>review.agentReviewer.agentGuidance</code>, the effective permission under <code>review.agentReviewer.mode</code>, and reviewer thread provenance when available. The agent returns the complete artifact as one atomic batch; Markover accepts all permitted findings or none.</p>
-        <p>While the agent is reviewing, the document is read only in Markover and labeled Agent reviewing. After submission it is labeled Reviewed, remains immutable, and appears in history. Markover shows a completion notice with an Open action, including explicit no-findings copy when the reviewer returned an empty result.</p>
+        <p>While the agent is reviewing, the document is read only in Markover and labeled Agent reviewing. After submission it is labeled Reviewed, remains immutable, and appears in history. Markover shows a completion notice with an Open action, including an explicit no-findings message when the reviewer returned an empty result.</p>
       </section>
 
       <section id="interpretation">

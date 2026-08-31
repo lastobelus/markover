@@ -17,7 +17,7 @@
 ### 0:00–0:07 — Open one review from the inbox
 
 Show the prepared Inbox with **Needs me** active, then open **Launch readiness
-brief** from its review row. Let the three-pane Ember Light layout establish
+brief** from its review row. Let the Ember Light Pane layout establish
 the selected document block and feedback pane.
 
 Captions: **Open one review from the inbox.** then **Review agent-written
@@ -29,7 +29,7 @@ Select the heading and reveal its feedback with the two fixture-owned images,
 **workflow overview** and **annotation details**. Keep their rewritten Markdown
 references visible long enough to read.
 
-Caption: **Attach labeled visual context to one exact block.**
+Caption: **Attach labeled screenshots to a single block.**
 
 ### 0:15–0:25 — Inspect an exact source change
 
@@ -68,11 +68,6 @@ MIT-licensed macOS early preview**, and `github.com/lastobelus/markover`.
 
 ## Pages transcript
 
-Markover opens a sanitized launch brief in an Ember Light review inbox. The
-reviewer selects one Markdown block, adds precise feedback, and keeps two
-labeled images attached to that context. On the opening paragraph, Markover
-shows an exact source proposal as a word-level diff without changing the source
-document. The reviewer switches to All annotations to scan the complete review,
-then returns to the agent's terminal. One fixture-only command retrieves a
-structured handoff containing the feedback, attachment labels, and source
-proposal.
+Pages uses the text of [demo-transcript.md](demo-transcript.md) verbatim. Do
+not maintain a separate transcript here; update that file and sync the site's
+inline copy when the demo is re-exported.
