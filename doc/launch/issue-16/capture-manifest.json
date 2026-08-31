@@ -3,7 +3,8 @@
   "version": 1,
   "stills": {
     "command": "npm run capture:stills",
-    "sourceCommit": "e6b14ea6843c7990fa3303a1c01db77a75d28827"
+    "sourceCommit": "b54b918fe7e6b0836afc80e98a8e9955cc68e9d3",
+    "sourceRef": "refs/tags/markover-media-stills-2026-08-31"
   },
   "status": "captured",
   "source": {
@@ -45,7 +46,7 @@
   "screenshots": [
     {
       "filename": "markover-review-editor@2x.png",
-      "sha256": "f348ca99e5164449cd53d85f0e7a27c2e1aaceeff0da094c2259daef9d817820",
+      "sha256": "a312042e3d54def226a929e0fbfaf30b8b53a795eb0cb2b2196e4f2a6e2e9999",
       "state": "inbox-needs-me-editor-with-two-labeled-attachments",
       "consumers": ["README.md", "docs/user/index.html"]
     },
@@ -63,7 +64,7 @@
     },
     {
       "filename": "markover-review-context@2x.png",
-      "sha256": "1686cebf6e1f5a93932ff397eda7d1e4b41ed1cce0f3a09c9bfc811448a950d7",
+      "sha256": "3fd1617c4aa07feb8b352b573bcb52c66dcfa56ef0b7f1329ec0d2c280d8a793",
       "state": "review-context-with-sanitized-project-and-thread-metadata",
       "consumers": ["docs/user/index.html"]
     }

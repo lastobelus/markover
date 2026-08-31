@@ -68,6 +68,7 @@ interface CaptureManifest {
   stills: {
     command: string
     sourceCommit: string
+    sourceRef: string
   }
   staging: {
     appearance: string
@@ -376,8 +377,16 @@ test('public capture contract preserves the four current media states', () => {
   const capture = manifest()
   assert.deepEqual(capture.stills, {
     command: 'npm run capture:stills',
-    sourceCommit: 'e6b14ea6843c7990fa3303a1c01db77a75d28827'
+    sourceCommit: 'b54b918fe7e6b0836afc80e98a8e9955cc68e9d3',
+    sourceRef: 'refs/tags/markover-media-stills-2026-08-31'
   })
+  assert.equal(
+    execFileSync('git', ['rev-parse', `${capture.stills.sourceRef}^{commit}`], {
+      cwd: root,
+      encoding: 'utf8'
+    }).trim(),
+    capture.stills.sourceCommit
+  )
   assert.deepEqual(capture.screenshots.map(({ filename }) => filename), [
     'markover-review-editor@2x.png',
     'markover-annotation-browser@2x.png',
