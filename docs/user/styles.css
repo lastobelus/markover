@@ -233,6 +233,8 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
 .docs-next a { color: var(--brand-burgundy); font-size: 18px; font-weight: 750; text-decoration: none; }
 
 @media (max-width: 900px) {
+  .site-nav { gap: 4px; }
+  .site-nav > a:not(.button) { display: none; }
   .hero { grid-template-columns: 1fr; padding-top: 64px; }
   .product-frame { max-width: 620px; transform: none; }
   .feature-grid { grid-template-columns: 1fr; }
@@ -254,8 +256,6 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
   .site-brand { gap: 6px; }
   .site-brand .brand-mark { width: 32px; }
   .site-brand .brand-logotype { width: 120px; }
-  .site-nav { gap: 4px; }
-  .site-nav > a:not(.button) { display: none; }
   .hero, .demo-section, .feature-grid, .workflow, .site-footer { width: min(100% - 32px, 1180px); }
   .hero { padding: 55px 0 76px; gap: 52px; }
   .hero h1 { font-size: clamp(41px, 11.5vw, 56px); }

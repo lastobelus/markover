@@ -432,6 +432,7 @@ test('the Pages hero depicts the current App header and three-pane layout', () =
   assert.match(styles, /\.center-pane \{[^}]*background: var\(--center-pane-background\);/)
   assert.match(styles, /\.right-pane \{ background: var\(--right-pane-background\); \}/)
   assert.match(styles, /\.mock-app-brand img \{ width: 92px; \}/)
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.site-nav \{ gap: 4px; \}[\s\S]*?\.site-nav > a:not\(\.button\) \{ display: none; \}/)
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.left-pane \{ display: none; \}/)
   assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.hero-actions \{ justify-content: center; flex-wrap: nowrap;/)
   assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.mock-app-brand \{ grid-column: 1 \/ -1; \}/)
