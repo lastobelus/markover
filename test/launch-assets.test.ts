@@ -141,6 +141,8 @@ test('Pages offers an accessible current-UI demo without surprise playback', () 
     /<!-- pages-transcript:start -->\s*([\s\S]*?)\s*<!-- pages-transcript:end -->/
   )?.[1]
   assert.ok(canonicalPagesText)
+  assert.match(canonicalPagesText, /App header and Pane layout with Left, Center, and Right panes/)
+  assert.doesNotMatch(canonicalPagesText, /three-pane/i)
   const normalizeTranscript = (value: string): string => value
     .replace(/\*\*/g, '')
     .replace(/\s+/g, ' ')

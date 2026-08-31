@@ -569,6 +569,8 @@ test('the public Tailscale example is additive and keeps local routing private',
   assert.match(remoteAccess, /tailscale serve status --json/)
   assert.match(remoteAccess, /tailscale funnel status --json/)
   assert.match(remoteAccess, /Tailscale 1\.92 or newer/)
+  assert.match(remoteAccess, /Mac running canonical Markover/)
+  assert.match(remoteAccess, /in canonical Markover only/)
   assert.match(remoteAccess, /tailscale version/)
   assert.match(remoteAccess, /--accept-app-caps=lastobelus\.com\/cap\/markover-remote-client/)
   assert.match(remoteAccess, /DEDICATED_HTTPS_PORT='replace-with-an-unused-port'/)
@@ -578,6 +580,8 @@ test('the public Tailscale example is additive and keeps local routing private',
   assert.match(remoteAccess, /Funnel has no grant for the Markover port/)
   assert.doesNotMatch(remoteAccess, /8443/)
   assert.doesNotMatch(remoteAccess, /https:\/\/[^<\s]*\.ts\.net/)
+  assert.match(privacy, /configured canonical development app automatically checks/)
+  assert.match(privacy, /bounded canonical changelist check is automatic/)
 })
 
 test('the early-preview contract is concise and consistent on user entry paths', () => {

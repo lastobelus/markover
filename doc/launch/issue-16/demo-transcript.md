@@ -9,10 +9,10 @@ when the demo changes.
 The 44-second silent demo uses burned-in captions and only invented fixture data.
 
 Markover starts with a sanitized participant guide, then opens the
-launch-readiness review from the **Needs me** inbox. The Ember Light theme's
-three-pane layout establishes the review. The reviewer sees agent-written
-Markdown as a document tree with feedback and two labeled images attached to
-one heading.
+launch-readiness review from the **Needs me** inbox. The current Ember Light
+App header and Pane layout with Left, Center, and Right panes establish the
+review. The reviewer sees agent-written Markdown as a document tree with
+feedback and two labeled images attached to one heading.
 
 On the opening paragraph, Markover displays an exact word-level source proposal
 without changing the source document. The reviewer switches to **Projects** and

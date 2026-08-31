@@ -17,7 +17,7 @@
 ### 0:00–0:07 — Open one review from the inbox
 
 Show the prepared Inbox with **Needs me** active, then open **Launch readiness
-brief** from its review row. Let the three-pane Ember Light layout establish
+brief** from its review row. Let the Ember Light Pane layout establish
 the selected document block and feedback pane.
 
 Captions: **Open one review from the inbox.** then **Review agent-written

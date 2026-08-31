@@ -103,7 +103,7 @@
       <section id="prepare">
         <h2>Before you configure Serve</h2>
         <ol>
-          <li>Install Tailscale 1.92 or newer on the Mac running Markover and on the remote client device. Sign both into the same tailnet. Run <code>tailscale version</code> on each device to check.</li>
+          <li>Install Tailscale 1.92 or newer on the Mac running canonical Markover and on the remote client device. Sign both into the same tailnet. Run <code>tailscale version</code> on each device to check.</li>
           <li>Choose one unused tailnet HTTPS port for Markover. A dedicated port avoids replacing an existing root handler or another application's route.</li>
           <li>Use Markover's fixed product endpoint, <code>http://127.0.0.1:39831</code>. Keep that target on loopback; do not bind Markover directly to a LAN or Tailscale address.</li>
           <li>Ask your tailnet administrator to authorize only the intended remote device to reach that HTTPS port and forward <code>lastobelus.com/cap/markover-remote-client</code>. See Tailscale's <a href="https://tailscale.com/docs/features/tailscale-serve#identity-headers">Serve identity headers</a> and <a href="https://tailscale.com/docs/reference/syntax/grants">grants reference</a>.</li>
@@ -139,7 +139,7 @@ tailscale funnel status --json</code></pre>
           <li>Every pre-existing Serve handler is unchanged.</li>
           <li>Funnel has no grant for the Markover port.</li>
         </ul>
-        <p>Enable <strong>Allow the authorized remote Markover client</strong> in Markover only when you want the gateway to accept requests. Disabling Markover closes its loopback gateway but deliberately leaves the Tailscale handler in place.</p>
+        <p>Enable <strong>Allow the authorized remote Markover client</strong> in canonical Markover only when you want the gateway to accept requests. Disabling Markover closes its loopback gateway but deliberately leaves the Tailscale handler in place.</p>
       </section>
 
       <section id="ownership">
