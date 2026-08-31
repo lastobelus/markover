@@ -7,6 +7,7 @@ import {
   cleanupInterruptedPackagedSmoke,
   environmentFailure,
   formatIntelValidationSummary,
+  intelValidationReport,
   isPackagedSmokeExecutable,
   INTEL_VALIDATION_COMMAND_VERSION,
   runningMarkoverFailure,
@@ -223,6 +224,24 @@ test('puts compact JSON on the final summary line', () => {
   })
   assert.match(summary, /^\[run-intel-validation\] Summary: \{"outcome":"target-drifted"/)
   assert.equal(summary.includes('\n'), false)
+})
+
+test('successful Intel report proves the native host state', () => {
+  const report = intelValidationReport({
+    outcome: 'passed',
+    repository: 'lastobelus/markover',
+    head: HEAD,
+    base: '3'.repeat(40),
+    baseRef: 'origin/main',
+    commandVersion: INTEL_VALIDATION_COMMAND_VERSION,
+    durationMs: 12,
+    host: host(),
+    stages: []
+  })
+  assert.ok(report)
+  assert.ok(report.facts)
+  assert.equal(report.facts.architecture, 'x86_64')
+  assert.equal(report.facts.translated, 'false')
 })
 
 test('keeps the importable action and agent launch contract wired', () => {

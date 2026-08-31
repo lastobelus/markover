@@ -447,7 +447,7 @@ export function formatIntelValidationSummary(summary: IntelValidationSummary): s
   return `[${FORMAT}] Summary: ${JSON.stringify(summary)}`
 }
 
-function intelValidationReport(
+export function intelValidationReport(
   summary: IntelValidationSummary
 ): ActionReport | undefined {
   const subject = {
@@ -459,8 +459,12 @@ function intelValidationReport(
     base: summary.base,
     baseRef: summary.baseRef,
     commandVersion: String(summary.commandVersion),
-    stages: String(summary.stages.length),
-    ...(summary.host ? { architecture: summary.host.architecture } : {})
+    ...(summary.host
+      ? {
+          architecture: summary.host.architecture,
+          translated: String(summary.host.translated)
+        }
+      : {})
   }
   if (summary.outcome === 'passed') {
     return {
