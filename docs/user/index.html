@@ -3,9 +3,44 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#eee8e0">
-    <meta name="description" content="Markover is an Early macOS preview for precise structured Markdown review and agent handoffs.">
-    <title>Markover — Early macOS preview</title>
+    <meta name="theme-color" content="#e8e2d8">
+    <script>
+      (() => {
+        const root = document.documentElement
+        let appearance = null
+        try {
+          const stored = localStorage.getItem('markover-pages-appearance')
+          if (stored === 'light' || stored === 'dark') appearance = stored
+        } catch {}
+        if (!appearance) {
+          appearance = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+        }
+        root.dataset.appearance = appearance
+        root.style.colorScheme = appearance
+        document.querySelector('meta[name="theme-color"]')
+          ?.setAttribute('content', appearance === 'dark' ? '#242221' : '#e8e2d8')
+      })()
+    </script>
+    <meta name="description" content="Markover is a macOS app for reviewing Markdown block by block and returning structured feedback to a coding agent. Early preview.">
+    <title>Markover — Structured review for Markdown</title>
+    <link rel="canonical" href="https://lastobelus.github.io/markover/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Markover">
+    <meta property="og:title" content="Markover — Structured review for Markdown">
+    <meta property="og:description" content="Markover is a macOS app for reviewing Markdown block by block and returning structured feedback to a coding agent. Early preview.">
+    <meta property="og:url" content="https://lastobelus.github.io/markover/">
+    <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Markover — Structured review for Markdown">
+    <meta name="twitter:description" content="Markover is a macOS app for reviewing Markdown block by block and returning structured feedback to a coding agent. Early preview.">
+    <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <link rel="icon" href="./assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./styles.css">
   </head>
@@ -21,6 +56,14 @@
         <a href="./privacy/">Privacy</a>
         <a href="./limitations/">Limitations</a>
         <a href="https://github.com/lastobelus/markover">GitHub</a>
+        <div class="theme-switcher" role="group" aria-label="Appearance">
+          <button class="theme-choice" type="button" data-appearance-choice="light" aria-label="Use light appearance" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+          </button>
+          <button class="theme-choice" type="button" data-appearance-choice="dark" aria-label="Use dark appearance" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.4 8.4 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>
+          </button>
+        </div>
         <a class="button button-small button-deep" href="./guide/#start">Try it</a>
       </nav>
     </header>
@@ -40,25 +83,38 @@
         <a class="product-preview-trigger" href="./assets/markover-review-editor@2x.png" aria-haspopup="dialog" aria-controls="product-preview">
           <div class="product-frame" aria-hidden="true">
             <div class="window-titlebar"><span></span><span></span><span></span></div>
-            <div class="product-toolbar">
-              <img src="./assets/markover-mark.svg" alt="">
-              <div class="document-identity"><strong>proposal.md</strong><span>mko_8f3a2c · editing</span></div>
-              <span class="mock-action">Copy feedback JSON</span>
-            </div>
-            <div class="product-workspace">
-              <div class="tree-preview">
-                <p class="pane-label">Document tree</p>
-                <div class="tree-row selected"><i></i><span></span></div>
-                <div class="tree-row"><i></i><span></span></div>
-                <div class="tree-row nested"><i></i><span></span></div>
-                <div class="tree-row nested short"><i></i><span></span></div>
-                <div class="tree-row"><i></i><span></span></div>
+            <div class="app-shell">
+              <div class="app-header">
+                <div class="mock-app-brand">
+                  <img src="./assets/markover-lockup.svg" alt="">
+                </div>
+                <div class="mock-review-identity">
+                  <strong>launch-readiness.md</strong>
+                  <span>Atlas Studio</span>
+                </div>
+                <span class="mock-status">Needs me</span>
               </div>
-              <div class="feedback-preview">
-                <p class="pane-label">Selected block</p>
-                <div class="source-line"></div>
-                <div class="feedback-box"><span>Clarify this decision before implementation.</span></div>
-                <div class="annotation-state"><b></b> Annotated</div>
+              <div class="pane-layout">
+                <div class="left-pane">
+                  <div class="mock-review-navigation"><strong>Inbox</strong><span>Projects</span></div>
+                  <p class="pane-label">Documents</p>
+                  <div class="mock-document selected"><b>Launch readiness</b><span>4 notes</span></div>
+                  <div class="mock-document"><b>Release notes</b><span>With agent</span></div>
+                  <div class="mock-document"><b>Participant guide</b><span>1 note</span></div>
+                </div>
+                <div class="center-pane">
+                  <p class="pane-label">Document tree</p>
+                  <div class="mock-block selected"><strong>Launch readiness brief</strong></div>
+                  <div class="mock-block"><span>Ship a focused pilot to the design-partner group.</span></div>
+                  <div class="mock-block nested"><strong>Success criteria</strong></div>
+                  <div class="mock-block nested"><span>Every handoff names an owner.</span></div>
+                </div>
+                <div class="right-pane">
+                  <p class="pane-label">Selected block</p>
+                  <div class="mock-source-card"><span>Source</span><b>Heading 1</b></div>
+                  <div class="feedback-box">Tighten the opening before the pilot and name the audience explicitly.</div>
+                  <div class="annotation-state"><b></b> 2 labeled attachments</div>
+                </div>
               </div>
             </div>
           </div>
@@ -67,16 +123,39 @@
         </a>
       </section>
 
+      <section id="demo" class="demo-section" aria-labelledby="demo-title">
+        <div class="demo-copy">
+          <p class="eyebrow">44-second walkthrough</p>
+          <h2 id="demo-title">See the complete handoff.</h2>
+          <p>Open a review, inspect block-level feedback and attachments, propose an exact source change, scan every annotation, and return structured JSON to the agent.</p>
+        </div>
+        <div class="demo-media">
+          <video controls playsinline preload="metadata" poster="./assets/markover-demo-poster.jpg" width="1920" height="1080" aria-describedby="demo-transcript">
+            <source src="./assets/markover-focused-preview-demo.mp4" type="video/mp4">
+            Your browser does not support the video element.
+          </video>
+          <details id="demo-transcript">
+            <summary>Read the transcript</summary>
+            <p>The 44-second silent demo uses burned-in captions and only invented fixture data.</p>
+            <p>Markover starts with a sanitized participant guide, then opens the launch-readiness review from the <strong>Needs me</strong> inbox. The current Ember Light App header and Pane layout with Left, Center, and Right panes establish the review. The reviewer sees agent-written Markdown as a document tree with feedback and two labeled images attached to one heading.</p>
+            <p>On the opening paragraph, Markover displays an exact word-level source proposal without changing the source document. The reviewer switches to <strong>Projects</strong> and <strong>All annotations</strong> to scan the complete review.</p>
+            <p>Finally, the CLI (running against demo fixture data) returns structured JSON containing the review status, block feedback, attachment IDs and labels, and source proposal. The demo ends on the Markover lockup, “Structured review for Markdown,” and the repository address.</p>
+            <p><a href="https://github.com/lastobelus/markover/blob/main/doc/launch/issue-16/demo-transcript.md">Open the standalone transcript</a></p>
+          </details>
+          <p class="demo-disclosure">Free, MIT-licensed early preview. No account, no telemetry; ordinary review data stays in your macOS account. Requires Apple Silicon, macOS 14+, and Node.js 22.13+ for the launcher.</p>
+        </div>
+      </section>
+
       <section class="feature-grid" aria-label="What Markover does">
         <article>
           <span class="feature-number">01</span>
           <h2>Navigate structure</h2>
-          <p>Move through YAML frontmatter, headings, lists, paragraphs, code, tables and block quotes as a tree.</p>
+          <p>Move through YAML frontmatter, headings, lists, paragraphs, code, tables, and block quotes as a tree.</p>
         </article>
         <article>
           <span class="feature-number">02</span>
           <h2>Annotate precisely</h2>
-          <p>Attach feedback and screenshots to the exact Markdown block(s) that need attention.</p>
+          <p>Attach feedback and screenshots to the Markdown blocks that need attention.</p>
         </article>
         <article>
           <span class="feature-number">03</span>
@@ -87,12 +166,12 @@
 
       <section class="workflow">
         <div>
-          <p class="eyebrow">Agent-friendly by design</p>
-          <h2>A review has a clear owner.</h2>
+          <p class="eyebrow">The workflow</p>
+          <h2>At every step, someone owns the review.</h2>
         </div>
         <ol>
           <li><p><span>Agent</span> opens a Markdown document for review in Markover.</p></li>
-          <li><p><span>Reviewer</span> navigates, annotates, attaches a screenshot… then tells the agent “check markover”.</p></li>
+          <li><p><span>Reviewer</span> navigates, annotates, attaches a screenshot… then tells the agent “Check Markover”.</p></li>
           <li><p><span>Agent</span> retrieves one frozen structured handoff from Markover.</p></li>
         </ol>
       </section>
@@ -107,19 +186,19 @@
         <button class="gallery-control gallery-previous" type="button" aria-label="Previous screenshot">‹</button>
         <figure class="product-slide">
           <img data-src="./assets/markover-review-editor@2x.png" width="2360" height="1520" alt="Markover showing a multi-project document inbox, a structured launch brief, and an annotation editor with two labeled screenshot attachments.">
-          <figcaption><strong>Review in context.</strong> Switch among projects, navigate representative Markdown blocks, and attach labeled screenshots to precise feedback.</figcaption>
+          <figcaption><strong>Review in context.</strong> Switch among projects, navigate the document's blocks, and attach labeled screenshots to your feedback.</figcaption>
         </figure>
         <figure class="product-slide" hidden>
-          <img data-src="./assets/markover-annotation-browser@2x.png" width="2360" height="1520" alt="Markover showing a read-only list of every rendered annotation in the active document.">
-          <figcaption><strong>Browse every annotation.</strong> Scan rendered feedback, jump between blocks, and return to editing with one click.</figcaption>
+          <img data-src="./assets/markover-annotation-browser@2x.png" width="2360" height="1520" alt="Markover in Ember Light showing the Projects tree beside every rendered annotation in the active launch brief.">
+          <figcaption><strong>Browse every annotation.</strong> Keep project and thread context visible while scanning rendered feedback, attachments, and exact block locations.</figcaption>
         </figure>
         <figure class="product-slide" hidden>
-          <img data-src="./assets/markover-source-edit@2x.png" width="2360" height="1520" alt="Markover showing a word-level stacked diff for a proposed source edit.">
+          <img data-src="./assets/markover-source-edit@2x.png" width="2360" height="1520" alt="Markover in Ember Light showing a word-level stacked diff for a proposed source edit.">
           <figcaption><strong>Propose exact source changes.</strong> Keep the immutable review target while showing the agent a precise word-level edit.</figcaption>
         </figure>
         <figure class="product-slide" hidden>
-          <img data-src="./assets/markover-review-context@2x.png" width="2360" height="1520" alt="Markover showing review context including review ID, branch, pull request, and agent thread metadata.">
-          <figcaption><strong>Keep the handoff discoverable.</strong> Review purpose, source, Git state, pull request, and agent-thread provenance stay one drawer away.</figcaption>
+          <img data-src="./assets/markover-review-context@2x.png" width="2360" height="1520" alt="Markover in Ember Light showing review context including review ID, branch, pull request, and agent thread metadata.">
+          <figcaption><strong>See the review's context.</strong> Review purpose, source, Git state, pull request, and agent-thread provenance are one drawer away.</figcaption>
         </figure>
         <button class="gallery-control gallery-next" type="button" aria-label="Next screenshot">›</button>
       </div>
@@ -130,11 +209,13 @@
         <img class="brand-lockup-logo" src="./assets/markover-lockup.svg" alt="Markover">
         <span class="brand-lockup-tagline">Structured review for Markdown.</span>
       </a>
-      <a href="./privacy/">Privacy and local data</a>
-      <a href="./limitations/">Limitations</a>
-      <a href="./agents/">For agents</a>
-      <a href="https://github.com/lastobelus/markover/discussions">Support</a>
-      <a class="footer-source" href="https://github.com/lastobelus/markover">Source on GitHub</a>
+      <nav class="footer-nav" aria-label="Footer navigation">
+        <a href="./privacy/">Privacy and local data</a>
+        <a href="./limitations/">Limitations</a>
+        <a href="./agents/">For agents</a>
+        <a href="https://github.com/lastobelus/markover/discussions">Support</a>
+        <a class="footer-source" href="https://github.com/lastobelus/markover">Source on GitHub</a>
+      </nav>
     </footer>
     <script src="./site.js"></script>
   </body>

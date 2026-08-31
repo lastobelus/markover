@@ -1,0 +1,27 @@
+1
+00:00:00,000 --> 00:00:01,000
+Open one review from the inbox.
+
+2
+00:00:01,000 --> 00:00:07,000
+Review agent-written Markdown as a document tree.
+
+3
+00:00:07,000 --> 00:00:15,000
+Attach labeled visual context to one exact block.
+
+4
+00:00:15,000 --> 00:00:25,000
+Propose an exact edit without changing the source document.
+
+5
+00:00:25,000 --> 00:00:32,000
+Scan the complete review before handing it back.
+
+6
+00:00:32,000 --> 00:00:40,000
+Agent retrieves one structured handoff.
+
+7
+00:00:40,000 --> 00:00:44,000
+Markover — Free, MIT-licensed macOS early preview.

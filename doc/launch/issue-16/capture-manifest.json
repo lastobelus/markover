@@ -1,0 +1,104 @@
+{
+  "format": "markover-public-capture",
+  "version": 1,
+  "stills": {
+    "command": "npm run capture:stills",
+    "sourceCommit": "b54b918fe7e6b0836afc80e98a8e9955cc68e9d3",
+    "sourceRef": "refs/tags/markover-media-stills-2026-08-31"
+  },
+  "status": "captured",
+  "source": {
+    "redesignPullRequest": 195,
+    "designBrief": "doc/design/markover-design-brief.md",
+    "fixtureRevision": 1,
+    "captureCommit": "f93c68b22102f510760f49085465f64840d0ac81",
+    "captureRef": "refs/tags/markover-media-demo-2026-08-31"
+  },
+  "staging": {
+    "command": "npm run capture:stage",
+    "stateRoot": "/tmp/markover-public-capture",
+    "appName": "Markover",
+    "scheme": "markover-capture",
+    "palette": "ember",
+    "appearance": "light",
+    "registersProtocol": false,
+    "usesNetworkContent": false
+  },
+  "window": {
+    "logicalWidth": 1180,
+    "logicalHeight": 760,
+    "pixelWidth": 2360,
+    "pixelHeight": 1520,
+    "densityDpi": 144,
+    "scaleFactor": 2
+  },
+  "fixture": {
+    "projectRoot": "/tmp/markover-public-capture/projects",
+    "repositories": [
+      "https://github.com/markover-demo/atlas-studio.git",
+      "https://github.com/markover-demo/field-research.git",
+      "https://github.com/markover-demo/review-protocol.git"
+    ],
+    "machine": "capture-mac",
+    "threadHost": "t3code",
+    "provider": "codex",
+    "notifications": "disabled"
+  },
+  "screenshots": [
+    {
+      "filename": "markover-review-editor@2x.png",
+      "sha256": "a312042e3d54def226a929e0fbfaf30b8b53a795eb0cb2b2196e4f2a6e2e9999",
+      "state": "inbox-needs-me-editor-with-two-labeled-attachments",
+      "consumers": ["README.md", "docs/user/index.html"]
+    },
+    {
+      "filename": "markover-annotation-browser@2x.png",
+      "sha256": "4f4f5c7dc4e1c08db5744a29eef0563dd026cb7f9eb420ceb90d339c58917f4d",
+      "state": "projects-all-annotations-with-attachment-context",
+      "consumers": ["docs/user/index.html"]
+    },
+    {
+      "filename": "markover-source-edit@2x.png",
+      "sha256": "71481cd78aaeda5a00f29e72ac3532efb1f41e4d9bf01137b60093e691518f43",
+      "state": "expanded-source-card-with-word-level-proposal",
+      "consumers": ["docs/user/index.html"]
+    },
+    {
+      "filename": "markover-review-context@2x.png",
+      "sha256": "3fd1617c4aa07feb8b352b573bcb52c66dcfa56ef0b7f1329ec0d2c280d8a793",
+      "state": "review-context-with-sanitized-project-and-thread-metadata",
+      "consumers": ["docs/user/index.html"]
+    }
+  ],
+  "movie": {
+    "path": "docs/user/assets/markover-focused-preview-demo.mp4",
+    "sha256": "6b6db818391d526dcc22467923c35d29d1959e211d4facab89ec932127315197",
+    "poster": {
+      "path": "docs/user/assets/markover-demo-poster.jpg",
+      "sha256": "800d960723c05fe1ca0dcf3f07568fdec924e0fb91e2e88b653ec6b90e765d8a"
+    },
+    "captionSource": "doc/launch/issue-16/demo-captions.srt",
+    "transcript": "doc/launch/issue-16/demo-transcript.md",
+    "minimumSeconds": 30,
+    "maximumSeconds": 60,
+    "durationSeconds": 44,
+    "width": 1920,
+    "height": 1080,
+    "framesPerSecond": 30,
+    "videoCodec": "h264",
+    "audio": false,
+    "fastStart": true,
+    "captions": "burned-in",
+    "inspectedCheckpointsSeconds": [0.5, 6.5, 14.5, 23.5, 31.5, 39.5, 43]
+  },
+  "privacy": {
+    "allowOnlyInventedFixtureData": true,
+    "forbiddenContent": [
+      "real home-directory paths",
+      "real repositories or pull requests",
+      "real review or thread identifiers",
+      "credentials or authorization material",
+      "notifications or unrelated application chrome"
+    ]
+  }
+}

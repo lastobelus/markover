@@ -3,9 +3,44 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#eee8e0">
+    <meta name="theme-color" content="#e8e2d8">
+    <script>
+      (() => {
+        const root = document.documentElement
+        let appearance = null
+        try {
+          const stored = localStorage.getItem('markover-pages-appearance')
+          if (stored === 'light' || stored === 'dark') appearance = stored
+        } catch {}
+        if (!appearance) {
+          appearance = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+        }
+        root.dataset.appearance = appearance
+        root.style.colorScheme = appearance
+        document.querySelector('meta[name="theme-color"]')
+          ?.setAttribute('content', appearance === 'dark' ? '#242221' : '#e8e2d8')
+      })()
+    </script>
     <meta name="description" content="Open, annotate, and return a structured Markdown review with Markover.">
     <title>Getting started — Markover documentation</title>
+    <link rel="canonical" href="https://lastobelus.github.io/markover/guide/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Markover">
+    <meta property="og:title" content="Getting started — Markover documentation">
+    <meta property="og:description" content="Open, annotate, and return a structured Markdown review with Markover.">
+    <meta property="og:url" content="https://lastobelus.github.io/markover/guide/">
+    <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Getting started — Markover documentation">
+    <meta name="twitter:description" content="Open, annotate, and return a structured Markdown review with Markover.">
+    <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../styles.css">
   </head>
@@ -36,11 +71,27 @@
         <a href="https://github.com/lastobelus/markover/blob/main/docs/developer/README.md">Developer documentation</a>
         <a href="https://github.com/lastobelus/markover">Source</a>
       </nav>
+      <div class="theme-switcher" role="group" aria-label="Appearance">
+        <button class="theme-choice" type="button" data-appearance-choice="light" aria-label="Use light appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+        </button>
+        <button class="theme-choice" type="button" data-appearance-choice="dark" aria-label="Use dark appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.4 8.4 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>
+        </button>
+      </div>
       <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
     </aside>
 
     <header class="docs-mobile-header">
       <a href="../"><img src="../assets/markover-mark.svg" alt=""><span>Markover docs</span></a>
+      <div class="theme-switcher" role="group" aria-label="Appearance">
+        <button class="theme-choice" type="button" data-appearance-choice="light" aria-label="Use light appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+        </button>
+        <button class="theme-choice" type="button" data-appearance-choice="dark" aria-label="Use dark appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.4 8.4 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>
+        </button>
+      </div>
       <a href="https://github.com/lastobelus/markover">GitHub</a>
     </header>
 
@@ -51,9 +102,9 @@
 
       <section id="before-you-try">
         <h2>Before you try the early preview</h2>
-        <p><strong>Markover is an Early macOS preview.</strong> It supports macOS 14 Sonoma or newer on Apple Silicon Macs and requires Node.js 22.13.0 or newer for the bootstrap command. Native Intel releases are deferred to the <a href="https://github.com/lastobelus/markover/issues/80">Broad announcement roadmap</a>. You do not need to clone the repository or install an npm package globally.</p>
+        <p><strong>Markover is in early preview.</strong> It supports macOS 14 Sonoma or newer on Apple Silicon Macs and requires Node.js 22.13.0 or newer for the launcher. Native Intel releases are deferred; see <a href="https://github.com/lastobelus/markover/issues/80">issue #80</a>.</p>
         <div class="callout"><strong>Not Apple-verified.</strong> Markover uses a hardened ad-hoc code signature, but it has no authenticated Developer ID publisher and is not notarized. Gatekeeper is expected to block its first launch.</div>
-        <p>Ordinary review work stays in your macOS account. Markover has no telemetry, analytics, cloud sync, or automatic review upload. Unreleased prototype formats may change directly. Released review schemas are converted automatically with an original backup; unknown future versions remain untouched until a compatible Markover release opens them.</p>
+        <p>Ordinary review work stays in your macOS account. Markover has no telemetry, analytics, cloud sync, or automatic review upload. Data formats from unreleased prototype builds may change without migration support. Released review schemas are converted automatically with an original backup; unknown future versions remain untouched until a compatible Markover release opens them.</p>
         <p>Before relying on Markover, read <a href="../limitations/">Markdown support and preview limitations</a> and <a href="../privacy/">Privacy, storage, and recovery</a>. Advanced users can follow the <a href="../remote-access/">tailnet-only Tailscale Serve example</a> for a manually authorized remote client. Ask usage questions in <a href="https://github.com/lastobelus/markover/discussions">GitHub Discussions</a>.</p>
       </section>
 
@@ -61,7 +112,7 @@
         <h2>Start a review with an agent</h2>
         <p>Tell your agent which Markdown file you want to review and why the review is useful. The agent opens that file in Markover and gives you a review ID, a best-effort <strong>Open in Markover</strong> link, and a standalone Terminal command. You do not need to clone the repository, install an npm package globally, or run the agent's launcher command yourself.</p>
         <p>To start without an agent, choose <strong>File → Open Markdown…</strong>. Markover creates a managed local review from the selected snapshot, saves feedback and attachments separately, and restores that review after restart. The original Markdown file is never changed or deleted.</p>
-        <div class="callout"><strong>If the link does not open.</strong> Copy the standalone <code>open 'markover://…'</code> command the agent provides, paste it into Terminal, and press Return. Some thread-hosts do not dispatch custom-scheme links directly. Markover focuses and follows <strong>Settings → Incoming reviews → When you open a review link</strong>; links switch immediately by default.</div>
+        <div class="callout"><strong>If the link does not open.</strong> Copy the standalone <code>open 'markover://…'</code> command the agent provides, paste it into Terminal, and press Return. Some chat apps do not open custom-scheme links directly. Whether Markover switches to the incoming review immediately is controlled by <strong>Settings → Incoming reviews → When you open a review link</strong>; the default is to switch immediately.</div>
         <div class="callout"><strong>Keep the agent thread available.</strong> When your feedback is ready, return to the same conversation and say “Check Markover.”</div>
         <p>Agents and tool authors should follow the separate <a href="../agents/">agent workflow</a> for exact commands, review-ID handling, and feedback interpretation.</p>
       </section>
@@ -88,7 +139,7 @@
 
       <section id="durability">
         <h2>Durability and recovery</h2>
-        <p>While Markover is responsive and local storage is healthy, managed review changes are durably saved within a two-second window by default. A normal quit first captures the latest editable reviews and finishes their saves. Exact agent handoffs and reopened reviews are committed before Markover reports success.</p>
+        <p>While Markover is responsive and local storage is healthy, managed review changes are durably saved within a two-second window by default. A normal quit first captures the latest editable reviews and finishes their saves. Agent handoffs and reopened reviews are fully saved before Markover reports success.</p>
         <p>After an app crash or restart, Markover restores both reviews still being edited and reviews already inflight with an agent. You do not need to retrieve or drain agent reviews before restarting. Attachment bytes are flushed before saved review JSON can refer to them; a crash can leave harmless unreferenced attachment bytes, but not a durable broken reference.</p>
         <div class="callout"><strong>What the two-second window does not cover.</strong> The guarantee applies to an app-process crash. Power loss, operating-system or hardware failure, and unhealthy or unusually slow storage are outside it. A persistent autosave warning means Markover is retrying or waiting and the normal bound is suspended until storage recovers.</div>
         <p>See <a href="../privacy/#durability">Privacy, storage, and recovery</a> for the advanced autosave setting, quit choices after a save problem, and backup guidance.</p>
@@ -106,7 +157,7 @@
         <table class="docs-table">
           <thead><tr><th>Key</th><th>Action</th></tr></thead>
           <tbody>
-            <tr><td>Up / Down</td><td>Move between sibling blocks; climb outward at a boundary</td></tr>
+            <tr><td>Up / Down</td><td>Move between sibling blocks; at the first or last sibling, continue at the parent's level</td></tr>
             <tr><td>Left</td><td>Select the parent block</td></tr>
             <tr><td>Right</td><td>Select the first child, then the next available sibling</td></tr>
             <tr><td>Tab / Shift-Tab</td><td>Move among the left, center, and right panes</td></tr>
@@ -122,5 +173,6 @@
         <a href="../limitations/">Markdown and limitations →</a>
       </nav>
     </main>
+    <script src="../site.js"></script>
   </body>
 </html>

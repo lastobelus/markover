@@ -53,6 +53,27 @@ const pagesWorkflow = fs.readFileSync(
   'utf8'
 )
 
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (value: string): number => {
+    const channels = value.match(/[0-9a-f]{2}/gi)?.map((channel) => (
+      Number.parseInt(channel, 16) / 255
+    ))
+    assert.equal(channels?.length, 3)
+    const linear = channels.map((channel) => (
+      channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4
+    ))
+    return 0.2126 * (linear[0] ?? 0) +
+      0.7152 * (linear[1] ?? 0) +
+      0.0722 * (linear[2] ?? 0)
+  }
+  const foregroundLuminance = luminance(foreground)
+  const backgroundLuminance = luminance(background)
+  return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+    (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+}
+
 const screenshots = [
   'markover-review-editor@2x.png',
   'markover-annotation-browser@2x.png',
@@ -83,6 +104,21 @@ test('the Pages preview offers a navigable high-density screenshot gallery', () 
   assert.match(scriptSource, /function showSlide\(index: number\): void/)
   assert.match(scriptSource, /event\.key === 'ArrowLeft'/)
   assert.match(scriptSource, /event\.key === 'ArrowRight'/)
+})
+
+test('README and Pages share one strongest product image', () => {
+  const readmeScreenshots = [...readme.matchAll(
+    /docs\/user\/assets\/(markover-[a-z-]+@2x\.png)/g
+  )].map((match) => match[1])
+  assert.deepEqual(readmeScreenshots, ['markover-review-editor@2x.png'])
+  assert.match(
+    readme,
+    /alt="[^"]*Ember Light[^"]*review inbox[^"]*launch brief[^"]*two labeled attachments\."/
+  )
+  assert.match(
+    html,
+    /href="\.\/assets\/markover-review-editor@2x\.png"/
+  )
 })
 
 test('the Pages gallery opens lazily and navigates with controls or arrows', () => {
@@ -191,6 +227,7 @@ test('Pages deploys built docs and the update manifest for every main push', () 
 
 test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(html, /class="footer-brand brand-lockup brand-lockup-horizontal"/)
+  assert.match(html, /<nav class="footer-nav" aria-label="Footer navigation">/)
   assert.match(html, /class="brand-lockup-logo" src="\.\/assets\/markover-lockup\.svg"/)
   assert.match(html, /class="brand-lockup-tagline">Structured review for Markdown\.<\/span>/)
   assert.doesNotMatch(html, /class="footer-brand"[^>]*>[\s\S]*?<span>Markover<\/span>/)
@@ -207,6 +244,250 @@ test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(readme, /alt="Markover — Structured review for Markdown\."/)
   assert.match(readmeLeader, /<desc[^>]*>Structured review for Markdown\.<\/desc>/)
   assert.match(readmeLeader, /<text class="tagline" x="100" y="164">Structured review for Markdown\.<\/text>/)
+})
+
+test('public surfaces inherit the current Ember Light visual roles', () => {
+  assert.match(styles, /--muted: #6f6761;/)
+  assert.match(styles, /--ground: #e8e2d8;/)
+  assert.match(styles, /--paper: #f7f4ee;/)
+  assert.match(styles, /--neutral-soft: #ece9e2;/)
+  assert.match(styles, /--code: #262b2b;/)
+  assert.match(styles, /--app-shell-background: var\(--ground\);/)
+  assert.match(styles, /--app-header-background: var\(--app-shell-background\);/)
+  assert.match(styles, /--left-pane-background: var\(--neutral-soft\);/)
+  assert.match(styles, /--center-pane-background: var\(--paper\);/)
+  assert.match(styles, /--right-pane-background: var\(--neutral-soft\);/)
+  assert.match(styles, /font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;/)
+  assert.doesNotMatch(styles, /Inter|Segoe UI|#eee8e0|#756d67|#2c2927/)
+  assert.match(readmeLeader, /fill: #6f6761;/)
+  assert.match(readmeLeader, /\.tagline \{ fill: #b7aaa3; \}/)
+  assert.match(readmeLeader, /"SF Pro Text", system-ui, sans-serif/)
+  assert.doesNotMatch(readmeLeader, /Segoe UI|#756d67/)
+
+  for (const page of [
+    html,
+    guide,
+    agents,
+    privacy,
+    limitations,
+    compatibility,
+    remoteAccess
+  ]) {
+    assert.match(page, /<meta name="theme-color" content="#e8e2d8">/)
+    assert.doesNotMatch(page, /#eee8e0/)
+  }
+})
+
+test('public level-one and level-two headings use a deliberate lighter weight', () => {
+  assert.match(styles, /h1, h2 \{ font-weight: 600; \}/)
+  for (const source of [
+    html,
+    guide,
+    agents,
+    privacy,
+    limitations,
+    compatibility,
+    remoteAccess
+  ]) {
+    const document = new JSDOM(source).window.document
+    assert.ok(document.querySelector('h1'))
+    assert.ok(document.querySelector('h2'))
+  }
+})
+
+test('every public page offers a persistent system-aware Ember appearance switch', () => {
+  const pages = [
+    ['index.html', html],
+    ['guide/index.html', guide],
+    ['agents/index.html', agents],
+    ['privacy/index.html', privacy],
+    ['limitations/index.html', limitations],
+    ['compatibility/index.html', compatibility],
+    ['remote-access/index.html', remoteAccess]
+  ] as const
+
+  for (const [relativePath, source] of pages) {
+    const document = new JSDOM(source).window.document
+    const groups = [...document.querySelectorAll<HTMLElement>('.theme-switcher')]
+    assert.equal(groups.length, relativePath === 'index.html' ? 1 : 2)
+    for (const group of groups) {
+      assert.equal(group.getAttribute('role'), 'group')
+      assert.equal(group.getAttribute('aria-label'), 'Appearance')
+      const buttons = [...group.querySelectorAll<HTMLButtonElement>('button')]
+      assert.deepEqual(buttons.map((button) => button.dataset.appearanceChoice), ['light', 'dark'])
+      assert.deepEqual(buttons.map((button) => button.getAttribute('aria-pressed')), ['false', 'false'])
+      assert.deepEqual(buttons.map((button) => button.querySelector('svg')?.getAttribute('aria-hidden')), ['true', 'true'])
+    }
+
+    const initializer = source.indexOf("localStorage.getItem('markover-pages-appearance')")
+    const stylesheet = source.indexOf('rel="stylesheet"')
+    assert.ok(initializer > -1 && initializer < stylesheet, `${relativePath} should resolve appearance before CSS`)
+    assert.match(source, /prefers-color-scheme: dark/)
+    assert.match(source, /appearance === 'dark' \? '#242221' : '#e8e2d8'/)
+    assert.match(source, relativePath === 'index.html'
+      ? /<script src="\.\/site\.js"><\/script>/
+      : /<script src="\.\.\/site\.js"><\/script>/)
+  }
+
+  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: #e5b8a8;[^}]*--brand-burgundy: #e5b8a8;[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #4a3a34;[^}]*--code: #0e0e0e;/)
+  for (const darkSurface of ['#242221', '#161514', '#110e0a', '#0b0808', '#2b2422', '#0e0e0e']) {
+    assert.ok(
+      contrastRatio('#e5b8a8', darkSurface) >= 4.5,
+      `dark accent text on ${darkSurface} must meet 4.5:1`
+    )
+  }
+  assert.ok(contrastRatio('#000000', '#c94e1f') >= 4.5)
+  assert.ok(contrastRatio('#dfdedd', '#6d211f') >= 4.5)
+  assert.ok(contrastRatio('#ffffff', '#6d211f') >= 4.5)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.button-deep:hover \{[^}]*border-color: var\(--brand-burgundy\);[^}]*background: var\(--brand-orange\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.button-outline \{[^}]*border-color: var\(--brand-burgundy\);[^}]*color: var\(--brand-burgundy\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.product-dialog-header,[^}]*\.gallery-control:hover \{[^}]*background: var\(--markover-secondary\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.gallery-position,[^}]*\.dialog-close:hover \{[^}]*color: var\(--ink\);/)
+  assert.equal(
+    [...styles.matchAll(/background:\s*var\(--brand-(?:orange|burgundy)\)/g)].length,
+    5,
+    'every branded public background must remain covered by the dark pairing checks'
+  )
+  assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
+  assert.match(styles, /\.theme-choice:focus-visible/)
+  assert.match(styles, /\.docs-sidebar \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;[^}]*scrollbar-gutter: stable;/)
+  for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {
+    const lightAsset = fs.readFileSync(
+      path.join(userDirectory, 'assets', `${name}.svg`),
+      'utf8'
+    )
+    const darkAsset = fs.readFileSync(
+      path.join(userDirectory, 'assets', `${name}-dark.svg`),
+      'utf8'
+    )
+    assert.equal(
+      fs.existsSync(path.join(userDirectory, 'assets', `${name}-dark.svg`)),
+      true,
+      'Ember Dark should ship its legible canonical-geometry brand variant'
+    )
+    assert.doesNotMatch(darkAsset, /#c94e1f|#6d211f/)
+    assert.match(darkAsset, /#e5b8a8/)
+    assert.equal(
+      darkAsset.replaceAll('#e5b8a8', '#c94e1f').replaceAll('#dfdedd', '#6d211f'),
+      lightAsset,
+      'dark brand variants may change fills but not canonical geometry'
+    )
+  }
+  assert.match(scriptSource, /function applyBrandAppearance\(appearance: PublicAppearance\)/)
+  assert.match(scriptSource, /lightSource\.replace\(\/\\\.svg\$\/, '-dark\.svg'\)/)
+})
+
+test('the Pages appearance control applies and persists an explicit choice', () => {
+  const dom = new JSDOM(html, {
+    runScripts: 'outside-only',
+    url: 'https://example.test/'
+  })
+  const { document } = dom.window
+  Object.defineProperty(dom.window, 'matchMedia', {
+    value: () => ({
+      matches: false,
+      addEventListener: () => undefined
+    })
+  })
+  dom.window.localStorage.setItem('markover-pages-appearance', 'dark')
+  dom.window.eval(script)
+
+  assert.equal(document.documentElement.dataset.appearance, 'dark')
+  assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#242221')
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.getAttribute('aria-pressed'), 'true')
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype-dark\.svg$/)
+  assert.equal(
+    [...document.querySelectorAll<HTMLImageElement>('img[src*="markover-"][src$=".svg"]')]
+      .every((image) => image.src.endsWith('-dark.svg')),
+    true
+  )
+
+  const light = document.querySelector<HTMLButtonElement>('[data-appearance-choice="light"]')
+  assert.ok(light)
+  light.click()
+  assert.equal(dom.window.localStorage.getItem('markover-pages-appearance'), 'light')
+  assert.equal(document.documentElement.dataset.appearance, 'light')
+  assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#e8e2d8')
+  assert.equal(light.getAttribute('aria-pressed'), 'true')
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype\.svg$/)
+})
+
+test('the Pages appearance follows the system only until a user chooses', () => {
+  const dom = new JSDOM(html, {
+    runScripts: 'outside-only',
+    url: 'https://example.test/'
+  })
+  let changeListener: ((event: { matches: boolean }) => void) | undefined
+  Object.defineProperty(dom.window, 'matchMedia', {
+    value: () => ({
+      matches: true,
+      addEventListener: (
+        type: string,
+        listener: (event: { matches: boolean }) => void
+      ) => {
+        if (type === 'change') changeListener = listener
+      }
+    })
+  })
+  dom.window.localStorage.setItem('markover-pages-appearance', 'sepia')
+  dom.window.eval(script)
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'dark')
+
+  assert.ok(changeListener)
+  changeListener({ matches: false })
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'light')
+
+  dom.window.document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.click()
+  changeListener({ matches: false })
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'dark')
+})
+
+test('the Pages hero depicts the current App header and three-pane layout', () => {
+  const document = new JSDOM(html).window.document
+  const heroHeading = document.querySelector('.hero-copy > h1')
+  assert.ok(heroHeading)
+  assert.equal(heroHeading.querySelectorAll('br').length, 1)
+  assert.match(styles, /\.hero-copy \{ container-type: inline-size; \}/)
+  assert.match(styles, /\.hero h1 \{[^}]*font-size: clamp\(38px, min\(4\.8vw, 10cqi\), 70px\);[^}]*font-weight: 600;[^}]*white-space: nowrap;/)
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.hero h1 \{ font-size: 56px; \}/)
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.hero h1 \{ font-size: clamp\(29px, 10cqi, 56px\); \}/)
+  const frame = document.querySelector('.product-frame')
+  assert.ok(frame)
+  const shell = frame.querySelector(':scope > .window-titlebar + .app-shell')
+  assert.ok(shell)
+  const appHeader = shell.querySelector(':scope > .app-header')
+  assert.ok(appHeader)
+  assert.equal(
+    appHeader.querySelector<HTMLImageElement>('.mock-app-brand img')?.getAttribute('src'),
+    './assets/markover-lockup.svg'
+  )
+  assert.equal(appHeader.querySelector('.mock-app-brand span'), null)
+  const paneLayout = shell.querySelector(':scope > .pane-layout')
+  assert.ok(paneLayout)
+  assert.deepEqual(
+    [...paneLayout.children].map((element) => element.className),
+    ['left-pane', 'center-pane', 'right-pane']
+  )
+  assert.match(paneLayout.querySelector('.left-pane')?.textContent || '', /Inbox/)
+  assert.match(paneLayout.querySelector('.center-pane')?.textContent || '', /Document tree/)
+  assert.match(paneLayout.querySelector('.right-pane')?.textContent || '', /Selected block/)
+  assert.doesNotMatch(html, /product-toolbar|product-workspace|tree-preview|feedback-preview|checksum/i)
+
+  assert.match(styles, /\.left-pane \{ background: var\(--left-pane-background\); \}/)
+  assert.match(styles, /\.center-pane \{[^}]*background: var\(--center-pane-background\);/)
+  assert.match(styles, /\.right-pane \{ background: var\(--right-pane-background\); \}/)
+  assert.match(styles, /\.mock-app-brand img \{ width: 92px; \}/)
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.site-nav \{ gap: 4px; \}[\s\S]*?\.site-nav > a:not\(\.button\) \{ display: none; \}/)
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.left-pane \{ display: none; \}/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.hero-actions \{ justify-content: center; flex-wrap: nowrap;/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.mock-app-brand \{ grid-column: 1 \/ -1; \}/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-copy h2 \{ font-size: 28px;/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-section \{ width: min\(100% - 16px, 1180px\); padding-inline: 12px; \}/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-media > \.demo-disclosure \{ font-size: 12px; line-height: 1\.45; letter-spacing: -\.01em; \}/)
+  assert.match(styles, /\.site-footer \.brand-lockup-horizontal \.brand-lockup-logo \{ width: 150px; \}/)
+  assert.match(styles, /@media \(max-width: 1040px\)[\s\S]*?\.site-footer \{ grid-template-columns: 1fr; justify-items: center; \}/)
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?\.footer-nav \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/)
+  assert.doesNotMatch(styles, /backdrop-filter|linear-gradient|radial-gradient/)
 })
 
 test('privacy and local-data claims stay linked to the public workflow', () => {
@@ -323,6 +604,7 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(agents, /id="revise"[\s\S]*markover revise/)
   assert.match(agents, /id="done"[\s\S]*markover done/)
   assert.match(agents, /pullRequestStatus/)
+  assert.ok(agents.indexOf('pullRequestStatus') < agents.indexOf('markover open ./DOCUMENT.md'))
   assert.match(agents, /review\.agentGuidance\.fixedContract/)
   assert.match(agents, /thread-host-kind/)
   assert.match(agents, /Validate the handoff before reading it/)
@@ -334,6 +616,8 @@ test('the public Tailscale example is additive and keeps local routing private',
   assert.match(remoteAccess, /tailscale serve status --json/)
   assert.match(remoteAccess, /tailscale funnel status --json/)
   assert.match(remoteAccess, /Tailscale 1\.92 or newer/)
+  assert.match(remoteAccess, /Mac running canonical Markover/)
+  assert.match(remoteAccess, /in canonical Markover only/)
   assert.match(remoteAccess, /tailscale version/)
   assert.match(remoteAccess, /--accept-app-caps=lastobelus\.com\/cap\/markover-remote-client/)
   assert.match(remoteAccess, /DEDICATED_HTTPS_PORT='replace-with-an-unused-port'/)
@@ -343,12 +627,15 @@ test('the public Tailscale example is additive and keeps local routing private',
   assert.match(remoteAccess, /Funnel has no grant for the Markover port/)
   assert.doesNotMatch(remoteAccess, /8443/)
   assert.doesNotMatch(remoteAccess, /https:\/\/[^<\s]*\.ts\.net/)
+  assert.match(privacy, /configured canonical development app automatically checks/)
+  assert.match(privacy, /bounded canonical changelist check is automatic/)
 })
 
 test('the early-preview contract is concise and consistent on user entry paths', () => {
   for (const source of [html, guide, readme]) {
-    assert.match(source, /Early macOS preview/)
+    assert.match(source, /early (?:macOS )?preview/i)
   }
+  assert.match(html, /ordinary review data stays in your macOS account/)
   for (const source of [guide, readme, limitations]) {
     assert.match(source, /macOS 14 Sonoma/)
     assert.match(source, /Apple Silicon Macs/)

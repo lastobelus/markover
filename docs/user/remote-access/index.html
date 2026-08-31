@@ -3,9 +3,44 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#eee8e0">
+    <meta name="theme-color" content="#e8e2d8">
+    <script>
+      (() => {
+        const root = document.documentElement
+        let appearance = null
+        try {
+          const stored = localStorage.getItem('markover-pages-appearance')
+          if (stored === 'light' || stored === 'dark') appearance = stored
+        } catch {}
+        if (!appearance) {
+          appearance = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+        }
+        root.dataset.appearance = appearance
+        root.style.colorScheme = appearance
+        document.querySelector('meta[name="theme-color"]')
+          ?.setAttribute('content', appearance === 'dark' ? '#242221' : '#e8e2d8')
+      })()
+    </script>
     <meta name="description" content="Example tailnet-only Tailscale Serve setup for advanced Markover remote access.">
     <title>Tailscale Serve example — Markover documentation</title>
+    <link rel="canonical" href="https://lastobelus.github.io/markover/remote-access/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Markover">
+    <meta property="og:title" content="Tailscale Serve example — Markover documentation">
+    <meta property="og:description" content="Example tailnet-only Tailscale Serve setup for advanced Markover remote access.">
+    <meta property="og:url" content="https://lastobelus.github.io/markover/remote-access/">
+    <meta property="og:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Markover — Structured review for Markdown.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Tailscale Serve example — Markover documentation">
+    <meta name="twitter:description" content="Example tailnet-only Tailscale Serve setup for advanced Markover remote access.">
+    <meta name="twitter:image" content="https://lastobelus.github.io/markover/assets/markover-pages-social-card.png">
+    <meta name="twitter:image:alt" content="Markover — Structured review for Markdown.">
     <link rel="icon" href="../assets/markover-mark.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../styles.css">
   </head>
@@ -34,11 +69,27 @@
         <a href="https://github.com/lastobelus/markover/blob/main/docs/developer/README.md">Developer documentation</a>
         <a href="https://github.com/lastobelus/markover">Source</a>
       </nav>
+      <div class="theme-switcher" role="group" aria-label="Appearance">
+        <button class="theme-choice" type="button" data-appearance-choice="light" aria-label="Use light appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+        </button>
+        <button class="theme-choice" type="button" data-appearance-choice="dark" aria-label="Use dark appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.4 8.4 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>
+        </button>
+      </div>
       <a class="docs-github" href="https://github.com/lastobelus/markover">View source on GitHub ↗</a>
     </aside>
 
     <header class="docs-mobile-header">
       <a href="../"><img src="../assets/markover-mark.svg" alt=""><span>Markover docs</span></a>
+      <div class="theme-switcher" role="group" aria-label="Appearance">
+        <button class="theme-choice" type="button" data-appearance-choice="light" aria-label="Use light appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+        </button>
+        <button class="theme-choice" type="button" data-appearance-choice="dark" aria-label="Use dark appearance" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.4 8.4 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>
+        </button>
+      </div>
       <a href="https://github.com/lastobelus/markover">GitHub</a>
     </header>
 
@@ -110,5 +161,6 @@ tailscale funnel status --json</code></pre>
         <a href="../privacy/#network">Privacy and network access →</a>
       </nav>
     </main>
+    <script src="../site.js"></script>
   </body>
 </html>

@@ -1,0 +1,61 @@
+{
+  "format": "markover-preview-launch",
+  "version": 1,
+  "desiredRepositoryMetadata": {
+    "description": "Local-first macOS app for reviewing agent-produced Markdown and returning structured, block-level feedback to the agent thread.",
+    "homepage": "https://lastobelus.github.io/markover/",
+    "topics": [
+      "markdown",
+      "document-review",
+      "annotations",
+      "ai-agents",
+      "coding-agents",
+      "codex",
+      "local-first",
+      "macos",
+      "electron",
+      "developer-tools"
+    ],
+    "socialPreview": "docs/user/assets/markover-github-social-preview.png",
+    "profilePins": [
+      "lastobelus/markover",
+      "lastobelus/lastCode"
+    ]
+  },
+  "assets": {
+    "strongestScreenshot": "docs/user/assets/markover-review-editor@2x.png",
+    "demo": {
+      "path": "docs/user/assets/markover-focused-preview-demo.mp4",
+      "sha256": "6b6db818391d526dcc22467923c35d29d1959e211d4facab89ec932127315197"
+    },
+    "poster": {
+      "path": "docs/user/assets/markover-demo-poster.jpg",
+      "sha256": "800d960723c05fe1ca0dcf3f07568fdec924e0fb91e2e88b653ec6b90e765d8a"
+    },
+    "githubSocialPreview": {
+      "path": "docs/user/assets/markover-github-social-preview.png",
+      "sha256": "ff34c863c45af754c59050b4999372468a82258ca080ca841efda8421f168757"
+    },
+    "pagesSocialCard": {
+      "path": "docs/user/assets/markover-pages-social-card.png",
+      "sha256": "2bc498658310cd16609916f8b09047fa2515ea254d911d273bf21253cc337779"
+    },
+    "transcript": "doc/launch/issue-16/demo-transcript.md",
+    "captions": "doc/launch/issue-16/demo-captions.srt",
+    "tailoredCopy": "doc/launch/issue-16/focused-preview-copy.md"
+  },
+  "liveVerification": {
+    "repositoryMetadataApplied": true,
+    "socialPreviewApplied": false,
+    "profilePinsApplied": false,
+    "pagesDeploymentVerified": false
+  },
+  "outstanding": {
+    "socialPreview": "Upload the prepared PNG in an owner-authenticated GitHub repository settings session.",
+    "profilePins": "Confirm the maintainer-profile change before pinning Markover and lastCode.",
+    "pagesDeployment": "Verify the canonical URLs, sharing card, demo playback, and narrow layout after the stack reaches main."
+  },
+  "focusedPreviewTag": null,
+  "releaseBlockers": [10, 11],
+  "announcementOwner": 17
+}

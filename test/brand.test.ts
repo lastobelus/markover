@@ -70,6 +70,52 @@ test('the branding mockup is a self-contained local artifact bundle', () => {
   }
 })
 
+test('the undated brand usage board represents current Ember Light structure', () => {
+  const board = read('design/brand/mockups/index.html')
+  for (const token of [
+    '--markover-primary: #c94e1f',
+    '--markover-secondary: #6d211f',
+    '--ink: #26211e',
+    '--muted: #6f6761',
+    '--ground: #e8e2d8',
+    '--paper: #f7f4ee',
+    '--neutral-soft: #ece9e2',
+    '--surface: #fffdf9',
+    '--line: #ddd5cc',
+    '--code: #262b2b',
+    '--app-shell-background: var(--ground)',
+    '--app-header-background: var(--app-shell-background)',
+    '--left-pane-background: var(--neutral-soft)',
+    '--center-pane-background: var(--paper)',
+    '--right-pane-background: var(--neutral-soft)'
+  ]) assert.match(board, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+
+  assert.match(board, /font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;/)
+  assert.doesNotMatch(board, /#eee8e0|#756d67|#2c2927|Inter|Segoe UI|gradient\(/)
+  assert.match(board, /class="mini-app-header"/)
+  assert.match(board, /class="mini-left"[\s\S]*class="mini-tree"[\s\S]*class="mini-note"/)
+  assert.match(board, /class="app-header"[\s\S]*class="pane-layout"[\s\S]*class="left-pane"[\s\S]*class="center-pane"[\s\S]*class="right-pane"/)
+  assert.match(board, /Current \/ restrained identity with three-pane layout/)
+  assert.doesNotMatch(board, /three-pane workspace/)
+  assert.doesNotMatch(board, /A \/ mark|B \/ mark|checksum|review-tab-strip/)
+
+  for (const name of [
+    'markover-mark.svg',
+    'markover-logotype.svg',
+    'markover-lockup.svg'
+  ]) {
+    const canonical = fs.readFileSync(path.join(root, 'design/brand', name))
+    assert.deepEqual(
+      fs.readFileSync(path.join(root, 'design/brand/mockups/assets', name)),
+      canonical
+    )
+    assert.deepEqual(
+      fs.readFileSync(path.join(root, 'docs/user/assets', name)),
+      canonical
+    )
+  }
+})
+
 test('the app composes external brand assets and exposes a true empty state', () => {
   const html = read('src/index.html')
   const renderer = read('src/renderer.ts')

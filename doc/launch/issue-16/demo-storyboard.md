@@ -1,0 +1,73 @@
+# Markover focused-preview demo storyboard
+
+## Recording setup
+
+- Prepare the exact clean capture commit with `npm run capture:stage`.
+- Record only the sanitized capture instance and a clean terminal at 1920×1080,
+  30 fps.
+- Keep Ember Light selected, notifications off, and all unrelated application
+  chrome out of frame.
+- Export a silent H.264 MP4 between 30 and 60 seconds with burned-in captions
+  and fast-start metadata.
+- Use calm, descriptive language. Do not imply release guarantees or platform
+  support beyond the current repository documentation.
+
+## Timeline
+
+### 0:00–0:07 — Open one review from the inbox
+
+Show the prepared Inbox with **Needs me** active, then open **Launch readiness
+brief** from its review row. Let the Ember Light Pane layout establish
+the selected document block and feedback pane.
+
+Captions: **Open one review from the inbox.** then **Review agent-written
+Markdown as a document tree.**
+
+### 0:07–0:15 — Inspect feedback with visual context
+
+Select the heading and reveal its feedback with the two fixture-owned images,
+**workflow overview** and **annotation details**. Keep their rewritten Markdown
+references visible long enough to read.
+
+Caption: **Attach labeled screenshots to a single block.**
+
+### 0:15–0:25 — Inspect an exact source change
+
+Select the opening paragraph and expand Source. Show the existing proposal that
+narrows the rollout from everyone to the design-partner group. Hold on the real
+word-level diff.
+
+Caption: **Propose an exact edit without changing the source document.**
+
+### 0:25–0:32 — Review every annotation together
+
+Switch to Projects and then **All annotations**. Briefly show the four varied
+annotations and their block context in the redesigned browser.
+
+Caption: **Scan the complete review before handing it back.**
+
+### 0:32–0:40 — Retrieve one structured handoff
+
+Return to the terminal and run:
+
+```sh
+npm --silent run capture:cli -- get mko_capture01 \
+  | jq -f doc/launch/issue-16/handoff-summary.jq
+```
+
+Show the projected status, feedback, attachment IDs and labels, and source
+proposal. The capture CLI addresses only the fixture service and does not start
+or inspect canonical Markover state.
+
+Caption: **Return one structured handoff to the agent.**
+
+### 0:40–0:44 — End card
+
+Show the Markover lockup, **Structured review for Markdown**, **Free,
+MIT-licensed macOS early preview**, and `github.com/lastobelus/markover`.
+
+## Pages transcript
+
+Pages uses the text of [demo-transcript.md](demo-transcript.md) verbatim. Do
+not maintain a separate transcript here; update that file and sync the site's
+inline copy when the demo is re-exported.
