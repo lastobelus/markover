@@ -4,6 +4,7 @@ const { spawn, spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const fsp = require('node:fs/promises')
 const path = require('node:path')
+const { createMarkoverActionReporter } = require('./lib/markover-action-kit.js')
 
 const projectDirectory = path.resolve(__dirname, '..')
 const FORMAT = 'markover-start-dev-build'
@@ -12,6 +13,7 @@ const DEFAULT_TIMEOUT_MILLISECONDS = 3 * 60_000
 const POLL_MILLISECONDS = 100
 const MAX_TAIL_LINES = 40
 const MAX_TAIL_CHARACTERS = 8_000
+const actionReporter = createMarkoverActionReporter({ label: 'start-dev-build' })
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
@@ -278,7 +280,42 @@ function dirtyAdoptionFailure(state, context, tail) {
 }
 
 function printSummary(value) {
-  process.stdout.write(`[start-dev-build] Summary: ${JSON.stringify(value)}\n`)
+  const succeeded = value.outcome === 'ready' || value.outcome === 'awaiting-human'
+  const instance = value.instance
+  const healthUrl = value.route?.healthUrl
+  actionReporter.terminal({
+    fallback: `[start-dev-build] Summary: ${JSON.stringify(value)}`,
+    ...(succeeded
+      ? {
+          report: {
+            outcome: 'success',
+            reason: value.outcome,
+            summary: value.outcome === 'awaiting-human'
+              ? `Development instance ${instance?.identityKey || 'dev'} is ready for human QA.`
+              : `Development instance ${instance?.identityKey || 'dev'} is ready.`,
+            subject: {
+              type: 'development-instance',
+              id: instance?.identityKey || 'dev',
+              ...(value.head?.commit ? { revision: value.head.commit } : {})
+            },
+            facts: {
+              dirty: String(value.head?.dirty ?? false),
+              visualAcceptance: value.visualAcceptance || 'not-evaluated',
+              ...(value.process?.watcherPid
+                ? { watcherPid: String(value.process.watcherPid) }
+                : {}),
+              ...(value.process?.appPid ? { appPid: String(value.process.appPid) } : {}),
+              ...(value.readiness?.serviceInstanceId
+                ? { serviceInstanceId: value.readiness.serviceInstanceId }
+                : {})
+            },
+            ...(healthUrl
+              ? { artifacts: [{ label: 'Health endpoint', url: healthUrl }] }
+              : {})
+          }
+        }
+      : {})
+  })
 }
 
 async function runCaptured(executable, args) {
@@ -438,6 +475,11 @@ async function main(args = process.argv.slice(2)) {
     target,
     paths: pathsFor(checkout, target.identityKey)
   }
+  actionReporter.progress({
+    state: 'working',
+    phase: 'setup',
+    summary: `Preparing development instance ${target.identityKey}`
+  })
   await fsp.mkdir(context.paths.root, { recursive: true })
 
   const existing = await readJson(context.paths.state)
@@ -459,6 +501,11 @@ async function main(args = process.argv.slice(2)) {
         ? 0
         : 1
     }
+    actionReporter.progress({
+      state: 'waiting',
+      phase: 'readiness',
+      summary: `Waiting for development instance ${target.identityKey}`
+    })
     const terminalAfterWait = await waitForWatcher(
       context,
       null,
@@ -526,6 +573,11 @@ async function main(args = process.argv.slice(2)) {
   )
   fs.closeSync(logDescriptor)
   child.unref()
+  actionReporter.progress({
+    state: 'waiting',
+    phase: 'readiness',
+    summary: `Waiting for development instance ${target.identityKey}`
+  })
   const terminal = await waitForWatcher(
     context,
     child,

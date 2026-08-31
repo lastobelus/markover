@@ -4,6 +4,10 @@ import {
   readGitHubCi,
   type GitHubCiEvidence
 } from './markover-github-ci'
+import {
+  createMarkoverActionReporter,
+  type ActionReport
+} from './lib/markover-action-kit.js'
 
 const GITHUB_REPOSITORY = process.env.MARKOVER_GITHUB_REPOSITORY ?? 'lastobelus/markover'
 const CODEX_LOGINS = new Set([
@@ -17,6 +21,7 @@ export const CI_REGISTRATION_TIMEOUT_MILLISECONDS = 10 * 60_000
 export const CI_COMPLETION_TIMEOUT_MILLISECONDS = 15 * 60_000
 export const MERGE_RECOMPUTE_TIMEOUT_MILLISECONDS = 10 * 60_000
 export const REVIEW_TIMEOUT_MILLISECONDS = 30 * 60_000
+const actionReporter = createMarkoverActionReporter({ label: 'wait-for-pr' })
 
 interface PullRequestState {
   number: number
@@ -813,6 +818,46 @@ export function formatWaitForPrFailureSummary(error: unknown): string {
   return `[wait-for-pr] Summary: failed: ${message || 'Unknown error.'}`
 }
 
+function waitForPrReport(
+  decision: Extract<WaitDecision, { kind: 'wake' }>,
+  observation: WaitObservation
+): ActionReport {
+  const pullRequest = observation.pullRequest
+  return {
+    outcome: decision.reason === 'ready' ? 'success' : 'attention',
+    reason: decision.reason,
+    summary: decision.reason === 'ready'
+      ? `Pull request #${String(pullRequest.number)} is ready to merge.`
+      : `Pull request #${String(pullRequest.number)} needs attention: ${decision.reason.replaceAll('-', ' ')}.`,
+    subject: {
+      type: 'pull-request',
+      id: String(pullRequest.number),
+      revision: pullRequest.headRefOid,
+      url: pullRequest.url
+    },
+    facts: {
+      base: pullRequest.baseRefOid,
+      ci: observation.ci.state,
+      reviewPending: String(observation.review.pending),
+      reviewReady: String(observation.review.ready),
+      reviewArtifacts: String(observation.review.terminalArtifacts.length),
+      ...(observation.review.terminalArtifacts.length > 0
+        ? {
+            reviewArtifactKeys: observation.review.terminalArtifacts
+              .map(({ key }) => key)
+              .join(', ')
+              .slice(0, 500)
+          }
+        : {}),
+      unresolvedThreads: String(observation.unresolvedReviewThreads),
+      ...(observation.ci.testedMergeSha
+        ? { testedMerge: observation.ci.testedMergeSha }
+        : {})
+    },
+    artifacts: [{ label: 'Pull request', url: pullRequest.url }]
+  }
+}
+
 const sleep = (durationMilliseconds: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, durationMilliseconds))
 
@@ -820,6 +865,11 @@ async function main(): Promise<void> {
   const branch = currentBranch()
   const baseline = readObservation(GITHUB_REPOSITORY, branch)
   assertWaitStart(baseline)
+  actionReporter.progress({
+    state: 'working',
+    phase: 'snapshot',
+    summary: `Checking pull request #${String(baseline.pullRequest.number)}`
+  })
   process.stdout.write(`[wait-for-pr] Baseline ${observationSummary(baseline)}\n`)
 
   let current = baseline
@@ -837,12 +887,20 @@ async function main(): Promise<void> {
       decision = decideWaitTimeout(decision.reason, Date.now() - pendingSince) ?? decision
     }
     if (decision.kind === 'wake') {
-      process.stdout.write(`${formatWaitForPrSummary(decision, current)}\n`)
+      actionReporter.terminal({
+        fallback: formatWaitForPrSummary(decision, current),
+        report: waitForPrReport(decision, current)
+      })
       return
     }
 
     const currentSummary = observationSummary(current)
     if (currentSummary !== previousSummary) {
+      actionReporter.progress({
+        state: 'waiting',
+        phase: decision.reason,
+        summary: `Waiting for pull request #${String(current.pullRequest.number)}: ${decision.reason.replaceAll('-', ' ')}`
+      })
       process.stdout.write(`[wait-for-pr] Waiting (${decision.reason}) ${currentSummary}\n`)
       previousSummary = currentSummary
     }
@@ -853,7 +911,10 @@ async function main(): Promise<void> {
 
 if (require.main === module) {
   void main().catch((error: unknown) => {
-    process.stderr.write(`${formatWaitForPrFailureSummary(error)}\n`)
+    actionReporter.terminal({
+      fallback: formatWaitForPrFailureSummary(error),
+      stream: 'stderr'
+    })
     process.exitCode = 1
   })
 }

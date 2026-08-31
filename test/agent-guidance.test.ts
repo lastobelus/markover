@@ -56,7 +56,7 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(agents, /single action named `Run Local\s+CI`/)
   assert.match(agents, /list_project_actions/)
   assert.match(agents, /run_project_action_and_resume/)
-  assert.match(agents, /require the final\s+JSON summary to match the expected repository, head, base, and command\s+version/)
+  assert.match(agents, /require the\s+structured terminal result to match the expected repository, head, base,\s+and command version/)
   assert.match(agents, /Keep focused checks and `Wait for PR`\s+independent/)
   assert.match(agents, /unique eligible `Start Dev Build` action/)
   assert.match(agents, /end the turn immediately/)

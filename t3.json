@@ -2,27 +2,32 @@
   "$schema": "https://t3.codes/schema/t3.json",
   "scripts": [
     {
+      "id": "markover-setup-worktree",
       "name": "Setup Worktree",
       "command": "./scripts/setup-worktree.sh",
       "icon": "configure",
       "runOnWorktreeCreate": true
     },
     {
+      "id": "markover-wait-for-pr",
       "name": "Wait for PR",
       "command": "npm run build --silent && node build/scripts/markover-wait-for-pr.js",
       "icon": "test"
     },
     {
+      "id": "markover-run-local-ci",
       "name": "Run Local CI",
       "command": "node scripts/markover-local-ci-bootstrap.js",
       "icon": "test"
     },
     {
+      "id": "markover-start-dev-build",
       "name": "Start Dev Build",
       "command": "node scripts/markover-start-dev-build.js --instance dev --await-human",
       "icon": "test"
     },
     {
+      "id": "markover-run-intel-validation",
       "name": "Run Intel Validation",
       "command": "node scripts/markover-intel-validation-bootstrap.js",
       "icon": "test"

@@ -45,7 +45,8 @@ async function main(): Promise<void> {
     'THIRD_PARTY_NOTICES.md',
     'favicon.svg',
     'package.json',
-    'packages/cli/package.json'
+    'packages/cli/package.json',
+    'scripts/lib/markover-action-kit.js'
   ]) {
     await copy(relativePath)
   }

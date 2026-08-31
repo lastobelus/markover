@@ -259,9 +259,10 @@ then use the saved `Run Local CI` Project Action for the full local gate:
    CI`; never guess its ID.
 2. Require `resumeEligible: true`, call `run_project_action_and_resume` with the
    returned ID, and end the turn immediately.
-3. On resume, check the validated status and exit code, then require the final
-   JSON summary to match the expected repository, head, base, and command
-   version. Treat `head-changed`, `base-changed`, or `dirty-worktree` as stale
+3. On resume, check the validated host status and exit code, then require the
+   structured terminal result to match the expected repository, head, base,
+   and command version. Treat `head-changed`, `base-changed`, or
+   `dirty-worktree` as stale
    evidence; handle `failed`, `cancelled`, or `timed-out` from its bounded log
    tail; continue only from `passed` with test counts and a passing smoke result.
 
@@ -279,8 +280,9 @@ from its exact clean checkout on a physical Intel Mac:
    Validation`; never guess its ID.
 2. Require `resumeEligible: true`, call `run_project_action_and_resume` with the
    returned ID, and end the turn immediately.
-3. On resume, require the final JSON summary to match the expected repository,
-   head, base, command version, native `x86_64` host, local-CI counts, x64
+3. On resume, check the validated host status and exit code, then require the
+   structured terminal result to match the expected repository, head, base,
+   command version, native `x86_64` host, local-CI counts, x64
    archive checksum, preflight, and packaged-smoke evidence. Treat
    `target-drifted` or `dirty-worktree` as stale. Repair a classified
    environment, CI, package, preflight, or smoke failure in the agent thread

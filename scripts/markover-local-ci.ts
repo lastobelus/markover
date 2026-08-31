@@ -4,6 +4,11 @@ import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import {
+  createMarkoverActionReporter,
+  type ActionReport
+} from './lib/markover-action-kit.js'
+
 export const LOCAL_CI_COMMAND_VERSION = 1
 export const LOCAL_CI_TIMEOUT_MILLISECONDS = 30 * 60_000
 export const LOCAL_CI_LOG_TAIL_LINES = 40
@@ -80,6 +85,7 @@ type KillProcess = (pid: number, signal: NodeJS.Signals) => boolean
 
 const BASE_REMOTE = 'origin'
 const BASE_BRANCH = 'main'
+const actionReporter = createMarkoverActionReporter({ label: 'run-local-ci' })
 
 function command(
   cwd: string,
@@ -298,6 +304,68 @@ export function formatLocalCiSummary(summary: LocalCiSummary): string {
   return `[run-local-ci] Summary: ${JSON.stringify(summary)}`
 }
 
+function localCiReport(summary: LocalCiSummary): ActionReport | undefined {
+  const subject = {
+    type: 'repository',
+    id: summary.repository,
+    revision: summary.head
+  }
+  const facts = {
+    base: summary.base,
+    baseRef: summary.baseRef,
+    commandVersion: String(summary.commandVersion)
+  }
+  if (summary.outcome === 'passed') {
+    return {
+      outcome: 'success',
+      reason: 'local-ci-passed',
+      summary: `Local CI passed ${String(summary.tests?.passed ?? 0)} tests and smoke (${String(summary.smoke?.checks ?? 0)} checks).`,
+      subject,
+      facts: {
+        ...facts,
+        tests: String(summary.tests?.tests ?? 0),
+        passed: String(summary.tests?.passed ?? 0),
+        failed: String(summary.tests?.failed ?? 0),
+        skipped: String(summary.tests?.skipped ?? 0),
+        smokeOk: String(summary.smoke?.ok ?? false),
+        smokeChecks: String(summary.smoke?.checks ?? 0)
+      }
+    }
+  }
+  if (
+    summary.outcome === 'dirty-worktree' ||
+    summary.outcome === 'head-changed' ||
+    summary.outcome === 'base-changed'
+  ) {
+    return {
+      outcome: 'attention',
+      reason: summary.outcome,
+      summary: summary.outcome === 'dirty-worktree'
+        ? 'Local CI needs a clean worktree.'
+        : `Local CI evidence is stale because ${summary.outcome.replace('-', ' ')}.`,
+      subject,
+      facts: {
+        ...facts,
+        ...(summary.finalHead ? { finalHead: summary.finalHead } : {}),
+        ...(summary.finalBase ? { finalBase: summary.finalBase } : {})
+      }
+    }
+  }
+  return undefined
+}
+
+function reportLocalCiSummary(
+  summary: LocalCiSummary,
+  stream: 'stdout' | 'stderr' = 'stdout'
+): void {
+  const report = localCiReport(summary)
+  actionReporter.terminal({
+    fallback: formatLocalCiSummary(summary),
+    ...(report ? { report } : {}),
+    stream
+  })
+}
+
 function logPath(root: string, head: string, startedAt: number): string {
   const timestamp = new Date(startedAt).toISOString().replace(/[:.]/g, '-')
   return path.join(root, 'tmp/local-ci', `${timestamp}-${head.slice(0, 12)}.log`)
@@ -389,6 +457,11 @@ async function main(): Promise<void> {
   const startedAt = Date.now()
   const root = requiredCommandText(process.cwd(), 'git', ['rev-parse', '--show-toplevel'])
   const baseline = readLocalCiIdentity(root)
+  actionReporter.progress({
+    state: 'working',
+    phase: 'preflight',
+    summary: 'Checking local CI target identity'
+  })
   process.stdout.write(`[run-local-ci] Baseline ${JSON.stringify(baseline)}\n`)
   if (!baseline.clean) {
     const summary: LocalCiSummary = {
@@ -400,7 +473,7 @@ async function main(): Promise<void> {
       commandVersion: baseline.commandVersion,
       durationMs: Date.now() - startedAt
     }
-    process.stdout.write(`${formatLocalCiSummary(summary)}\n`)
+    reportLocalCiSummary(summary)
     return
   }
 
@@ -412,6 +485,11 @@ async function main(): Promise<void> {
   const timeoutMilliseconds = Number.isFinite(configuredTimeout) && configuredTimeout > 0
     ? configuredTimeout
     : LOCAL_CI_TIMEOUT_MILLISECONDS
+  actionReporter.progress({
+    state: 'working',
+    phase: 'local-ci',
+    summary: 'Running the full local CI gate'
+  })
   const completed = await runCi(root, outputPath, timeoutMilliseconds)
   const log = fs.readFileSync(outputPath, 'utf8')
   let final: LocalCiIdentity
@@ -425,7 +503,7 @@ async function main(): Promise<void> {
     const detail = (error instanceof Error ? error.message : String(error))
       .replace(/\s+/g, ' ')
       .trim()
-    process.stdout.write(`${formatLocalCiSummary({
+    reportLocalCiSummary({
       outcome: 'failed',
       repository: baseline.repository,
       head: baseline.head,
@@ -435,7 +513,7 @@ async function main(): Promise<void> {
       durationMs: Date.now() - startedAt,
       failingGate: 'final-identity',
       detail
-    })}\n`)
+    })
     process.exitCode = 1
     return
   }
@@ -452,7 +530,7 @@ async function main(): Promise<void> {
   if (tail.length > 0) {
     process.stdout.write(`[run-local-ci] Log tail (${Math.min(LOCAL_CI_LOG_TAIL_LINES, tail.split('\n').length)} lines):\n${tail}\n`)
   }
-  process.stdout.write(`${formatLocalCiSummary(summary)}\n`)
+  reportLocalCiSummary(summary)
   process.exitCode = exitCode(summary)
 }
 
@@ -461,7 +539,7 @@ export async function runMain(): Promise<void> {
     const detail = (error instanceof Error ? error.message : String(error))
       .replace(/\s+/g, ' ')
       .trim()
-    process.stderr.write(`${formatLocalCiSummary({
+    reportLocalCiSummary({
       outcome: 'failed',
       repository: 'unknown',
       head: 'unknown',
@@ -471,7 +549,7 @@ export async function runMain(): Promise<void> {
       durationMs: 0,
       failingGate: 'preflight',
       detail: detail || 'Unknown error.'
-    })}\n`)
+    }, 'stderr')
     process.exitCode = 1
   })
 }

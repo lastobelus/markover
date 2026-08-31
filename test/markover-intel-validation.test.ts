@@ -238,6 +238,7 @@ test('keeps the importable action and agent launch contract wired', () => {
     Reflect.get(candidate, 'name') === 'Run Intel Validation'
   ))
   assert.deepEqual(action, {
+    id: 'markover-run-intel-validation',
     name: 'Run Intel Validation',
     command: 'node scripts/markover-intel-validation-bootstrap.js',
     icon: 'test'
