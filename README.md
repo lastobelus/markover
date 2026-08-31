@@ -20,7 +20,7 @@ into chat, feedback stays attached to the blocks it concerns, and the agent
 retrieves the whole review in a single structured handoff.
 
 Markover is in **early preview**. It is free and MIT-licensed, requires no
-account, and keeps review data on your Mac.
+account, and keeps ordinary review data in your macOS account.
 
 <p align="center">
   <a href="https://lastobelus.github.io/markover/#demo"><img src="./docs/user/assets/markover-review-editor@2x.png" width="920" alt="Markover in Ember Light showing the review inbox, a launch brief in the center document tree, and an annotation with two labeled attachments."></a>

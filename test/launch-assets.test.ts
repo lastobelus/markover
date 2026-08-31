@@ -230,6 +230,12 @@ test('README uses one linked product image and states the preview boundary', () 
   assert.match(readme, /free and MIT-licensed/i)
   assert.match(readme, /requires no\s+account/i)
   assert.match(launchCopy, /ordinary review data stays in your macOS account/)
+  assert.match(readme, /keeps ordinary review data in your macOS account/)
+  assert.equal((launchCopy.match(/ordinary review data/g) ?? []).length, 3)
+  assert.doesNotMatch(
+    `${readme}\n${launchCopy}`,
+    /(?:keeps\s+review data|(?<!ordinary\s)review data\s+(?:stays|stay|remains|is kept))/i
+  )
   assert.match(readme, /public npm package named `markover` is unrelated/)
   assert.match(readme, /--package=https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz/)
 })

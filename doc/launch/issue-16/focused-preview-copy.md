@@ -19,8 +19,9 @@ workflow](https://lastobelus.github.io/markover/#demo).
 
 Could you try one document you already ask an agent to write, then review it
 in Markover instead of flattening feedback into chat? The early macOS preview
-is free, MIT licensed, requires no account, and keeps review data on your Mac. I most need the
-exact moment the workflow becomes slower or less clear than your current
+is free, MIT licensed, requires no account, and keeps ordinary review data in
+your macOS account. I most need the exact moment the workflow becomes slower or
+less clear than your current
 process, plus any feedback the agent misinterprets after retrieval. Apple
 Silicon macOS 14+ only. [Setup and limitations](https://lastobelus.github.io/markover/guide/).
 
@@ -28,8 +29,9 @@ Silicon macOS 14+ only. [Setup and limitations](https://lastobelus.github.io/mar
 
 Markover is a macOS app for reviewing agent-produced Markdown and returning
 structured, block-level feedback to the agent thread. The early preview is
-free and MIT licensed, requires no account, keeps review data on your Mac, and
-currently supports Apple Silicon macOS 14+. Start with the [current UI and
+free and MIT licensed, requires no account, keeps ordinary review data in your
+macOS account, and currently supports Apple Silicon macOS 14+. Start with the
+[current UI and
 44-second demo](https://lastobelus.github.io/markover/#demo), then report
 concrete workflow failures in [Discussions](https://github.com/lastobelus/markover/discussions).
 
