@@ -113,7 +113,7 @@ test('README and Pages share one strongest product image', () => {
   assert.deepEqual(readmeScreenshots, ['markover-review-editor@2x.png'])
   assert.match(
     readme,
-    /alt="Markover in Ember Light showing the review inbox, a launch brief in the center document tree, and precise feedback with two labeled attachments\."/
+    /alt="[^"]*Ember Light[^"]*review inbox[^"]*launch brief[^"]*two labeled attachments\."/
   )
   assert.match(
     html,
@@ -558,6 +558,7 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(agents, /id="revise"[\s\S]*markover revise/)
   assert.match(agents, /id="done"[\s\S]*markover done/)
   assert.match(agents, /pullRequestStatus/)
+  assert.ok(agents.indexOf('pullRequestStatus') < agents.indexOf('markover open ./DOCUMENT.md'))
   assert.match(agents, /review\.agentGuidance\.fixedContract/)
   assert.match(agents, /thread-host-kind/)
   assert.match(agents, /Validate the handoff before reading it/)
@@ -569,6 +570,8 @@ test('the public Tailscale example is additive and keeps local routing private',
   assert.match(remoteAccess, /tailscale serve status --json/)
   assert.match(remoteAccess, /tailscale funnel status --json/)
   assert.match(remoteAccess, /Tailscale 1\.92 or newer/)
+  assert.match(remoteAccess, /Mac running canonical Markover/)
+  assert.match(remoteAccess, /in canonical Markover only/)
   assert.match(remoteAccess, /tailscale version/)
   assert.match(remoteAccess, /--accept-app-caps=lastobelus\.com\/cap\/markover-remote-client/)
   assert.match(remoteAccess, /DEDICATED_HTTPS_PORT='replace-with-an-unused-port'/)
@@ -578,12 +581,15 @@ test('the public Tailscale example is additive and keeps local routing private',
   assert.match(remoteAccess, /Funnel has no grant for the Markover port/)
   assert.doesNotMatch(remoteAccess, /8443/)
   assert.doesNotMatch(remoteAccess, /https:\/\/[^<\s]*\.ts\.net/)
+  assert.match(privacy, /configured canonical development app automatically checks/)
+  assert.match(privacy, /bounded canonical changelist check is automatic/)
 })
 
 test('the early-preview contract is concise and consistent on user entry paths', () => {
   for (const source of [html, guide, readme]) {
-    assert.match(source, /Early macOS preview/)
+    assert.match(source, /early (?:macOS )?preview/i)
   }
+  assert.match(html, /ordinary review data stays in your macOS account/)
   for (const source of [guide, readme, limitations]) {
     assert.match(source, /macOS 14 Sonoma/)
     assert.match(source, /Apple Silicon Macs/)

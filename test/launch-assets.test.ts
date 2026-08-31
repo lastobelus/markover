@@ -133,7 +133,29 @@ test('Pages offers an accessible current-UI demo without surprise playback', () 
   const transcript = document.querySelector('#demo-transcript')
   const disclosure = document.querySelector('.demo-disclosure')
   assert.ok(transcript)
-  assert.ok(transcript.textContent.includes('fixture-only CLI'))
+  const canonicalTranscript = fs.readFileSync(
+    path.join(issueDirectory, 'demo-transcript.md'),
+    'utf8'
+  )
+  const canonicalPagesText = canonicalTranscript.match(
+    /<!-- pages-transcript:start -->\s*([\s\S]*?)\s*<!-- pages-transcript:end -->/
+  )?.[1]
+  assert.ok(canonicalPagesText)
+  assert.match(canonicalPagesText, /App header and Pane layout with Left, Center, and Right panes/)
+  assert.doesNotMatch(canonicalPagesText, /three-pane/i)
+  const normalizeTranscript = (value: string): string => value
+    .replace(/\*\*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const inlinePagesText = [...transcript.querySelectorAll(':scope > p')]
+    .filter((paragraph) => !paragraph.querySelector('a'))
+    .map((paragraph) => paragraph.textContent)
+    .join(' ')
+  assert.equal(
+    normalizeTranscript(inlinePagesText),
+    normalizeTranscript(canonicalPagesText)
+  )
+  assert.match(transcript.textContent, /demo fixture data/)
   assert.ok(disclosure)
   assert.equal(transcript.nextElementSibling, disclosure)
 })
@@ -201,9 +223,19 @@ test('the launch manifest pins every binary and keeps release claims honest', ()
 
 test('README uses one linked product image and states the preview boundary', () => {
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8')
+  const launchCopy = fs.readFileSync(path.join(issueDirectory, 'focused-preview-copy.md'), 'utf8')
   assert.equal((readme.match(/markover-review-editor@2x\.png/g) ?? []).length, 1)
   assert.match(readme, /href="https:\/\/lastobelus\.github\.io\/markover\/#demo"/)
-  assert.match(readme, /free and\s+MIT-licensed, requires no account/)
+  assert.match(readme, /early preview/i)
+  assert.match(readme, /free and MIT-licensed/i)
+  assert.match(readme, /requires no\s+account/i)
+  assert.match(launchCopy, /ordinary review data stays in your macOS account/)
+  assert.match(readme, /keeps ordinary review data in your macOS account/)
+  assert.equal((launchCopy.match(/ordinary review data/g) ?? []).length, 3)
+  assert.doesNotMatch(
+    `${readme}\n${launchCopy}`,
+    /(?:keeps\s+review data|(?<!ordinary\s)review data\s+(?:stays|stay|remains|is kept))/i
+  )
   assert.match(readme, /public npm package named `markover` is unrelated/)
   assert.match(readme, /--package=https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz/)
 })
