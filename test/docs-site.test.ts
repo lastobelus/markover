@@ -53,6 +53,27 @@ const pagesWorkflow = fs.readFileSync(
   'utf8'
 )
 
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (value: string): number => {
+    const channels = value.match(/[0-9a-f]{2}/gi)?.map((channel) => (
+      Number.parseInt(channel, 16) / 255
+    ))
+    assert.equal(channels?.length, 3)
+    const linear = channels.map((channel) => (
+      channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4
+    ))
+    return 0.2126 * (linear[0] ?? 0) +
+      0.7152 * (linear[1] ?? 0) +
+      0.0722 * (linear[2] ?? 0)
+  }
+  const foregroundLuminance = luminance(foreground)
+  const backgroundLuminance = luminance(background)
+  return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+    (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+}
+
 const screenshots = [
   'markover-review-editor@2x.png',
   'markover-annotation-browser@2x.png',
@@ -206,6 +227,7 @@ test('Pages deploys built docs and the update manifest for every main push', () 
 
 test('public surfaces use the standardized tagged logo arrangements', () => {
   assert.match(html, /class="footer-brand brand-lockup brand-lockup-horizontal"/)
+  assert.match(html, /<nav class="footer-nav" aria-label="Footer navigation">/)
   assert.match(html, /class="brand-lockup-logo" src="\.\/assets\/markover-lockup\.svg"/)
   assert.match(html, /class="brand-lockup-tagline">Structured review for Markdown\.<\/span>/)
   assert.doesNotMatch(html, /class="footer-brand"[^>]*>[\s\S]*?<span>Markover<\/span>/)
@@ -256,6 +278,132 @@ test('public surfaces inherit the current Ember Light visual roles', () => {
   }
 })
 
+test('every public page offers a persistent system-aware Ember appearance switch', () => {
+  const pages = [
+    ['index.html', html],
+    ['guide/index.html', guide],
+    ['agents/index.html', agents],
+    ['privacy/index.html', privacy],
+    ['limitations/index.html', limitations],
+    ['compatibility/index.html', compatibility],
+    ['remote-access/index.html', remoteAccess]
+  ] as const
+
+  for (const [relativePath, source] of pages) {
+    const document = new JSDOM(source).window.document
+    const groups = [...document.querySelectorAll<HTMLElement>('.theme-switcher')]
+    assert.equal(groups.length, relativePath === 'index.html' ? 1 : 2)
+    for (const group of groups) {
+      assert.equal(group.getAttribute('role'), 'group')
+      assert.equal(group.getAttribute('aria-label'), 'Appearance')
+      const buttons = [...group.querySelectorAll<HTMLButtonElement>('button')]
+      assert.deepEqual(buttons.map((button) => button.dataset.appearanceChoice), ['light', 'dark'])
+      assert.deepEqual(buttons.map((button) => button.getAttribute('aria-pressed')), ['false', 'false'])
+      assert.deepEqual(buttons.map((button) => button.querySelector('svg')?.getAttribute('aria-hidden')), ['true', 'true'])
+    }
+
+    const initializer = source.indexOf("localStorage.getItem('markover-pages-appearance')")
+    const stylesheet = source.indexOf('rel="stylesheet"')
+    assert.ok(initializer > -1 && initializer < stylesheet, `${relativePath} should resolve appearance before CSS`)
+    assert.match(source, /prefers-color-scheme: dark/)
+    assert.match(source, /appearance === 'dark' \? '#242221' : '#e8e2d8'/)
+    assert.match(source, relativePath === 'index.html'
+      ? /<script src="\.\/site\.js"><\/script>/
+      : /<script src="\.\.\/site\.js"><\/script>/)
+  }
+
+  assert.match(styles, /:root\[data-appearance="dark"\] \{[^}]*--brand-orange: #e5b8a8;[^}]*--brand-burgundy: #e5b8a8;[^}]*--ink: #dfdedd;[^}]*--muted: #aaa8a6;[^}]*--ground: #242221;[^}]*--paper: #161514;[^}]*--neutral-soft: #110e0a;[^}]*--surface: #0b0808;[^}]*--line: #4a3a34;[^}]*--code: #0e0e0e;/)
+  for (const darkSurface of ['#242221', '#161514', '#110e0a', '#0b0808', '#2b2422', '#0e0e0e']) {
+    assert.ok(
+      contrastRatio('#e5b8a8', darkSurface) >= 4.5,
+      `dark accent text on ${darkSurface} must meet 4.5:1`
+    )
+  }
+  assert.ok(contrastRatio('#000000', '#c94e1f') >= 4.5)
+  assert.ok(contrastRatio('#dfdedd', '#6d211f') >= 4.5)
+  assert.ok(contrastRatio('#ffffff', '#6d211f') >= 4.5)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.button-deep:hover \{[^}]*border-color: var\(--brand-burgundy\);[^}]*background: var\(--brand-orange\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.button-outline \{[^}]*border-color: var\(--brand-burgundy\);[^}]*color: var\(--brand-burgundy\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.product-dialog-header,[^}]*\.gallery-control:hover \{[^}]*background: var\(--markover-secondary\);/)
+  assert.match(styles, /:root\[data-appearance="dark"\] \.gallery-position,[^}]*\.dialog-close:hover \{[^}]*color: var\(--ink\);/)
+  assert.equal(
+    [...styles.matchAll(/background:\s*var\(--brand-(?:orange|burgundy)\)/g)].length,
+    5,
+    'every branded public background must remain covered by the dark pairing checks'
+  )
+  assert.match(styles, /\.theme-choice\[aria-pressed="true"\]/)
+  assert.match(styles, /\.theme-choice:focus-visible/)
+  assert.match(styles, /\.docs-sidebar \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;[^}]*scrollbar-gutter: stable;/)
+  for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {
+    assert.equal(
+      fs.existsSync(path.join(userDirectory, 'assets', `${name}-dark.svg`)),
+      false,
+      'Ember Dark should use the same canonical brand artwork as the app'
+    )
+  }
+  assert.doesNotMatch(scriptSource, /-dark\.svg|replace\([^)]*\.svg/)
+})
+
+test('the Pages appearance control applies and persists an explicit choice', () => {
+  const dom = new JSDOM(html, {
+    runScripts: 'outside-only',
+    url: 'https://example.test/'
+  })
+  const { document } = dom.window
+  Object.defineProperty(dom.window, 'matchMedia', {
+    value: () => ({
+      matches: false,
+      addEventListener: () => undefined
+    })
+  })
+  dom.window.localStorage.setItem('markover-pages-appearance', 'dark')
+  dom.window.eval(script)
+
+  assert.equal(document.documentElement.dataset.appearance, 'dark')
+  assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#242221')
+  assert.equal(document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.getAttribute('aria-pressed'), 'true')
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype\.svg$/)
+
+  const light = document.querySelector<HTMLButtonElement>('[data-appearance-choice="light"]')
+  assert.ok(light)
+  light.click()
+  assert.equal(dom.window.localStorage.getItem('markover-pages-appearance'), 'light')
+  assert.equal(document.documentElement.dataset.appearance, 'light')
+  assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#e8e2d8')
+  assert.equal(light.getAttribute('aria-pressed'), 'true')
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype\.svg$/)
+})
+
+test('the Pages appearance follows the system only until a user chooses', () => {
+  const dom = new JSDOM(html, {
+    runScripts: 'outside-only',
+    url: 'https://example.test/'
+  })
+  let changeListener: ((event: { matches: boolean }) => void) | undefined
+  Object.defineProperty(dom.window, 'matchMedia', {
+    value: () => ({
+      matches: true,
+      addEventListener: (
+        type: string,
+        listener: (event: { matches: boolean }) => void
+      ) => {
+        if (type === 'change') changeListener = listener
+      }
+    })
+  })
+  dom.window.localStorage.setItem('markover-pages-appearance', 'sepia')
+  dom.window.eval(script)
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'dark')
+
+  assert.ok(changeListener)
+  changeListener({ matches: false })
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'light')
+
+  dom.window.document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.click()
+  changeListener({ matches: false })
+  assert.equal(dom.window.document.documentElement.dataset.appearance, 'dark')
+})
+
 test('the Pages hero depicts the current App header and three-pane layout', () => {
   const document = new JSDOM(html).window.document
   const frame = document.querySelector('.product-frame')
@@ -284,7 +432,15 @@ test('the Pages hero depicts the current App header and three-pane layout', () =
   assert.match(styles, /\.center-pane \{[^}]*background: var\(--center-pane-background\);/)
   assert.match(styles, /\.right-pane \{ background: var\(--right-pane-background\); \}/)
   assert.match(styles, /\.mock-app-brand img \{ width: 92px; \}/)
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.site-nav \{ gap: 4px; \}[\s\S]*?\.site-nav > a:not\(\.button\) \{ display: none; \}/)
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.left-pane \{ display: none; \}/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.hero-actions \{ justify-content: center; flex-wrap: nowrap;/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.mock-app-brand \{ grid-column: 1 \/ -1; \}/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-copy h2 \{ font-size: 28px;/)
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.demo-media > \.demo-disclosure \{ font-size: 8\.5px; line-height: 1\.5; \}/)
+  assert.match(styles, /\.site-footer \.brand-lockup-horizontal \.brand-lockup-logo \{ width: 150px; \}/)
+  assert.match(styles, /@media \(max-width: 1040px\)[\s\S]*?\.site-footer \{ grid-template-columns: 1fr; justify-items: center; \}/)
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?\.footer-nav \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/)
   assert.doesNotMatch(styles, /backdrop-filter|linear-gradient|radial-gradient/)
 })
 
