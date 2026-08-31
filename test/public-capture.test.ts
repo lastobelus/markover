@@ -65,6 +65,10 @@ interface CaptureManifest {
     sha256: string
     state: string
   }>
+  source: {
+    captureCommit: string
+    captureRef: string
+  }
   stills: {
     command: string
     sourceCommit: string
@@ -386,6 +390,15 @@ test('public capture contract preserves the four current media states', () => {
       encoding: 'utf8'
     }).trim(),
     capture.stills.sourceCommit
+  )
+  assert.equal(capture.source.captureCommit, 'f93c68b22102f510760f49085465f64840d0ac81')
+  assert.equal(capture.source.captureRef, 'refs/tags/markover-media-demo-2026-08-31')
+  assert.equal(
+    execFileSync('git', ['rev-parse', `${capture.source.captureRef}^{commit}`], {
+      cwd: root,
+      encoding: 'utf8'
+    }).trim(),
+    capture.source.captureCommit
   )
   assert.deepEqual(capture.screenshots.map(({ filename }) => filename), [
     'markover-review-editor@2x.png',
