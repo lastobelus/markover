@@ -558,6 +558,7 @@ test('user and developer documentation have explicit audience roots', () => {
   assert.match(agents, /id="revise"[\s\S]*markover revise/)
   assert.match(agents, /id="done"[\s\S]*markover done/)
   assert.match(agents, /pullRequestStatus/)
+  assert.ok(agents.indexOf('pullRequestStatus') < agents.indexOf('markover open ./DOCUMENT.md'))
   assert.match(agents, /review\.agentGuidance\.fixedContract/)
   assert.match(agents, /thread-host-kind/)
   assert.match(agents, /Validate the handoff before reading it/)
@@ -588,6 +589,7 @@ test('the early-preview contract is concise and consistent on user entry paths',
   for (const source of [html, guide, readme]) {
     assert.match(source, /early (?:macOS )?preview/i)
   }
+  assert.match(html, /ordinary review data stays in your macOS account/)
   for (const source of [guide, readme, limitations]) {
     assert.match(source, /macOS 14 Sonoma/)
     assert.match(source, /Apple Silicon Macs/)

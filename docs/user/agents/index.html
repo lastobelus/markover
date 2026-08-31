@@ -105,6 +105,7 @@
       <section id="open">
         <h2>Open one review</h2>
         <p>Give Markover a Markdown path and a short summary of why the document exists and what feedback would help:</p>
+        <div class="callout"><strong>Pull-request-associated commands.</strong> Before an <code>open</code>, <code>get</code>, <code>get-for-review</code>, <code>revise</code>, or <code>done</code> that involves a pull request, run <code>markover help</code>. Its machine-readable <code>pullRequestStatus</code> contract defines the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</div>
         <pre><code>npx --yes \
   --package=https://github.com/lastobelus/markover/releases/latest/download/markover-cli.tgz \
   markover open ./DOCUMENT.md \
@@ -123,7 +124,6 @@
         <p>Give the reviewer all three opening aids: a best-effort <code>[Open in Markover](&lt;reviewUrl&gt;)</code> link, the raw review ID, and this Terminal fallback alone on its own line:</p>
         <pre><code>open 'markover://review/mko_8f3a2c'</code></pre>
         <p>Custom-scheme links work through macOS, but some chat apps, including T3 Code and the Codex app, do not currently open them from Markdown. The standalone command is the reliable handoff.</p>
-        <div class="callout"><strong>Pull-request-associated commands.</strong> Before an <code>open</code>, <code>get</code>, <code>get-for-review</code>, <code>revise</code>, or <code>done</code> that involves a pull request, run <code>markover help</code>. Its machine-readable <code>pullRequestStatus</code> contract defines the live GitHub lookup, status mapping, flags, and lookup-failure behavior.</div>
       </section>
 
       <section id="identity-examples">

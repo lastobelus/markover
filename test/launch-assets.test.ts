@@ -223,11 +223,13 @@ test('the launch manifest pins every binary and keeps release claims honest', ()
 
 test('README uses one linked product image and states the preview boundary', () => {
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8')
+  const launchCopy = fs.readFileSync(path.join(issueDirectory, 'focused-preview-copy.md'), 'utf8')
   assert.equal((readme.match(/markover-review-editor@2x\.png/g) ?? []).length, 1)
   assert.match(readme, /href="https:\/\/lastobelus\.github\.io\/markover\/#demo"/)
   assert.match(readme, /early preview/i)
   assert.match(readme, /free and MIT-licensed/i)
   assert.match(readme, /requires no\s+account/i)
+  assert.match(launchCopy, /ordinary review data stays in your macOS account/)
   assert.match(readme, /public npm package named `markover` is unrelated/)
   assert.match(readme, /--package=https:\/\/github\.com\/lastobelus\/markover\/releases\/latest\/download\/markover-cli\.tgz/)
 })

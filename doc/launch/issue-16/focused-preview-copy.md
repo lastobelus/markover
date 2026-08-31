@@ -9,8 +9,8 @@ different useful question.
 
 I’m preparing an early macOS preview of Markover, a free, MIT-licensed app
 for reviewing agent-written Markdown block by block. It needs no account, and
-review data stays on your Mac. I’m looking for Codex and coding-agent users
-willing to test one real document review and report where the
+ordinary review data stays in your macOS account. I’m looking for Codex and
+coding-agent users willing to test one real document review and report where the
 open → annotate → structured handoff loop breaks down. Apple Silicon
 macOS 14+ only for this preview. [Watch the 44-second
 workflow](https://lastobelus.github.io/markover/#demo).
