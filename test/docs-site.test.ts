@@ -278,6 +278,23 @@ test('public surfaces inherit the current Ember Light visual roles', () => {
   }
 })
 
+test('public level-one and level-two headings use a deliberate lighter weight', () => {
+  assert.match(styles, /h1, h2 \{ font-weight: 600; \}/)
+  for (const source of [
+    html,
+    guide,
+    agents,
+    privacy,
+    limitations,
+    compatibility,
+    remoteAccess
+  ]) {
+    const document = new JSDOM(source).window.document
+    assert.ok(document.querySelector('h1'))
+    assert.ok(document.querySelector('h2'))
+  }
+})
+
 test('every public page offers a persistent system-aware Ember appearance switch', () => {
   const pages = [
     ['index.html', html],
@@ -406,6 +423,13 @@ test('the Pages appearance follows the system only until a user chooses', () => 
 
 test('the Pages hero depicts the current App header and three-pane layout', () => {
   const document = new JSDOM(html).window.document
+  const heroHeading = document.querySelector('.hero-copy > h1')
+  assert.ok(heroHeading)
+  assert.equal(heroHeading.querySelectorAll('br').length, 1)
+  assert.match(styles, /\.hero-copy \{ container-type: inline-size; \}/)
+  assert.match(styles, /\.hero h1 \{[^}]*font-size: clamp\(38px, min\(4\.8vw, 10cqi\), 70px\);[^}]*font-weight: 600;[^}]*white-space: nowrap;/)
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.hero h1 \{ font-size: 56px; \}/)
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.hero h1 \{ font-size: clamp\(29px, 10cqi, 56px\); \}/)
   const frame = document.querySelector('.product-frame')
   assert.ok(frame)
   const shell = frame.querySelector(':scope > .window-titlebar + .app-shell')
