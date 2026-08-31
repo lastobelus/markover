@@ -27,6 +27,27 @@ function systemAppearance(): PublicAppearance {
     : 'light'
 }
 
+function applyBrandAppearance(appearance: PublicAppearance): void {
+  document.querySelectorAll<HTMLImageElement>([
+    'img[src$="markover-mark.svg"]',
+    'img[src$="markover-mark-dark.svg"]',
+    'img[src$="markover-logotype.svg"]',
+    'img[src$="markover-logotype-dark.svg"]',
+    'img[src$="markover-lockup.svg"]',
+    'img[src$="markover-lockup-dark.svg"]'
+  ].join(', ')).forEach((image) => {
+    const source = image.getAttribute('src')
+    if (!source) return
+    const lightSource = source.replace(/-dark\.svg$/, '.svg')
+    image.setAttribute(
+      'src',
+      appearance === 'dark'
+        ? lightSource.replace(/\.svg$/, '-dark.svg')
+        : lightSource
+    )
+  })
+}
+
 function applyAppearance(appearance: PublicAppearance): void {
   document.documentElement.dataset.appearance = appearance
   document.documentElement.style.colorScheme = appearance
@@ -39,6 +60,7 @@ function applyAppearance(appearance: PublicAppearance): void {
         String(button.dataset.appearanceChoice === appearance)
       )
     })
+  applyBrandAppearance(appearance)
 }
 
 const appearanceButtons = document.querySelectorAll<HTMLButtonElement>(

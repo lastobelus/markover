@@ -352,13 +352,29 @@ test('every public page offers a persistent system-aware Ember appearance switch
   assert.match(styles, /\.theme-choice:focus-visible/)
   assert.match(styles, /\.docs-sidebar \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;[^}]*scrollbar-gutter: stable;/)
   for (const name of ['markover-mark', 'markover-logotype', 'markover-lockup']) {
+    const lightAsset = fs.readFileSync(
+      path.join(userDirectory, 'assets', `${name}.svg`),
+      'utf8'
+    )
+    const darkAsset = fs.readFileSync(
+      path.join(userDirectory, 'assets', `${name}-dark.svg`),
+      'utf8'
+    )
     assert.equal(
       fs.existsSync(path.join(userDirectory, 'assets', `${name}-dark.svg`)),
-      false,
-      'Ember Dark should use the same canonical brand artwork as the app'
+      true,
+      'Ember Dark should ship its legible canonical-geometry brand variant'
+    )
+    assert.doesNotMatch(darkAsset, /#c94e1f|#6d211f/)
+    assert.match(darkAsset, /#e5b8a8/)
+    assert.equal(
+      darkAsset.replaceAll('#e5b8a8', '#c94e1f').replaceAll('#dfdedd', '#6d211f'),
+      lightAsset,
+      'dark brand variants may change fills but not canonical geometry'
     )
   }
-  assert.doesNotMatch(scriptSource, /-dark\.svg|replace\([^)]*\.svg/)
+  assert.match(scriptSource, /function applyBrandAppearance\(appearance: PublicAppearance\)/)
+  assert.match(scriptSource, /lightSource\.replace\(\/\\\.svg\$\/, '-dark\.svg'\)/)
 })
 
 test('the Pages appearance control applies and persists an explicit choice', () => {
@@ -379,7 +395,12 @@ test('the Pages appearance control applies and persists an explicit choice', () 
   assert.equal(document.documentElement.dataset.appearance, 'dark')
   assert.equal(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content, '#242221')
   assert.equal(document.querySelector<HTMLButtonElement>('[data-appearance-choice="dark"]')?.getAttribute('aria-pressed'), 'true')
-  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype\.svg$/)
+  assert.match(document.querySelector<HTMLImageElement>('.brand-logotype')?.src ?? '', /markover-logotype-dark\.svg$/)
+  assert.equal(
+    [...document.querySelectorAll<HTMLImageElement>('img[src*="markover-"][src$=".svg"]')]
+      .every((image) => image.src.endsWith('-dark.svg')),
+    true
+  )
 
   const light = document.querySelector<HTMLButtonElement>('[data-appearance-choice="light"]')
   assert.ok(light)
