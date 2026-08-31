@@ -306,9 +306,9 @@ pre { overflow-x: auto; margin: 18px 0; padding: 19px 20px; border-radius: 11px;
   .app-header { grid-template-columns: minmax(0, 1fr) auto; display: grid; gap: 8px 10px; }
   .mock-app-brand { grid-column: 1 / -1; }
   .mock-review-identity { margin-left: 0; text-align: left; }
-  .demo-section { padding-inline: 16px; }
+  .demo-section { width: min(100% - 16px, 1180px); padding-inline: 12px; }
   .demo-copy h2 { font-size: 28px; line-height: 1.08; letter-spacing: -.035em; }
-  .demo-media > .demo-disclosure { font-size: 8.5px; line-height: 1.5; }
+  .demo-media > .demo-disclosure { font-size: 12px; line-height: 1.45; letter-spacing: -.01em; }
 }
 
 @media (max-width: 360px) {
