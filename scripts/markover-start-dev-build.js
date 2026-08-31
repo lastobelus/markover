@@ -279,42 +279,47 @@ function dirtyAdoptionFailure(state, context, tail) {
   }
 }
 
-function printSummary(value) {
+function actionReportFromSummary(value) {
   const succeeded = value.outcome === 'ready' || value.outcome === 'awaiting-human'
+  if (!succeeded) return null
   const instance = value.instance
   const healthUrl = value.route?.healthUrl
+  return {
+    outcome: 'success',
+    reason: value.outcome,
+    summary: value.outcome === 'awaiting-human'
+      ? `Development instance ${instance?.identityKey || 'dev'} is ready for human QA.`
+      : `Development instance ${instance?.identityKey || 'dev'} is ready.`,
+    subject: {
+      type: 'development-instance',
+      id: instance?.identityKey || 'dev',
+      ...(value.head?.commit ? { revision: value.head.commit } : {})
+    },
+    facts: {
+      dirty: String(value.head?.dirty ?? false),
+      visualAcceptance: value.visualAcceptance || 'not-evaluated',
+      health: value.readiness?.health || 'unknown',
+      startup: value.readiness?.startup || 'unknown',
+      scheme: value.route?.scheme || 'unknown',
+      ...(value.process?.watcherPid
+        ? { watcherPid: String(value.process.watcherPid) }
+        : {}),
+      ...(value.process?.appPid ? { appPid: String(value.process.appPid) } : {}),
+      ...(value.readiness?.serviceInstanceId
+        ? { serviceInstanceId: value.readiness.serviceInstanceId }
+        : {})
+    },
+    ...(healthUrl
+      ? { artifacts: [{ label: 'Health endpoint', url: healthUrl }] }
+      : {})
+  }
+}
+
+function printSummary(value) {
+  const report = actionReportFromSummary(value)
   actionReporter.terminal({
     fallback: `[start-dev-build] Summary: ${JSON.stringify(value)}`,
-    ...(succeeded
-      ? {
-          report: {
-            outcome: 'success',
-            reason: value.outcome,
-            summary: value.outcome === 'awaiting-human'
-              ? `Development instance ${instance?.identityKey || 'dev'} is ready for human QA.`
-              : `Development instance ${instance?.identityKey || 'dev'} is ready.`,
-            subject: {
-              type: 'development-instance',
-              id: instance?.identityKey || 'dev',
-              ...(value.head?.commit ? { revision: value.head.commit } : {})
-            },
-            facts: {
-              dirty: String(value.head?.dirty ?? false),
-              visualAcceptance: value.visualAcceptance || 'not-evaluated',
-              ...(value.process?.watcherPid
-                ? { watcherPid: String(value.process.watcherPid) }
-                : {}),
-              ...(value.process?.appPid ? { appPid: String(value.process.appPid) } : {}),
-              ...(value.readiness?.serviceInstanceId
-                ? { serviceInstanceId: value.readiness.serviceInstanceId }
-                : {})
-            },
-            ...(healthUrl
-              ? { artifacts: [{ label: 'Health endpoint', url: healthUrl }] }
-              : {})
-          }
-        }
-      : {})
+    ...(report ? { report } : {})
   })
 }
 
@@ -590,6 +595,7 @@ async function main(args = process.argv.slice(2)) {
 }
 
 module.exports = {
+  actionReportFromSummary,
   boundedTail,
   dirtyAdoptionFailure,
   outcomeFromState,

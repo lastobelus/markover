@@ -79,6 +79,7 @@ export interface ReviewArtifact {
 
 export interface ReviewState {
   terminalArtifacts: ReadonlyArray<ReviewArtifact>
+  actionableArtifactKey: string | null
   requestPresent: boolean
   pending: boolean
   ready: boolean
@@ -370,8 +371,13 @@ export function deriveReviewState(input: {
     completedSummary === null ? timestamp(summaryRequest?.updated_at) : 0
   )
   const requestPresent = latestTrigger !== null || summaryRequest !== null
+  const actionableArtifactKey = artifacts
+    .filter(({ key }) => !readyArtifacts.has(key))
+    .sort((left, right) => timestamp(right.observedAt) - timestamp(left.observedAt))[0]
+    ?.key ?? null
   return {
     terminalArtifacts: artifacts,
+    actionableArtifactKey,
     requestPresent,
     pending: requestPresent && !cleanReactionMatches && latestTerminalAt <= latestPendingAt,
     ready: artifacts.length > 0 && artifacts.every(({ key }) => readyArtifacts.has(key)),
@@ -818,7 +824,7 @@ export function formatWaitForPrFailureSummary(error: unknown): string {
   return `[wait-for-pr] Summary: failed: ${message || 'Unknown error.'}`
 }
 
-function waitForPrReport(
+export function waitForPrReport(
   decision: Extract<WaitDecision, { kind: 'wake' }>,
   observation: WaitObservation
 ): ActionReport {
@@ -841,13 +847,8 @@ function waitForPrReport(
       reviewPending: String(observation.review.pending),
       reviewReady: String(observation.review.ready),
       reviewArtifacts: String(observation.review.terminalArtifacts.length),
-      ...(observation.review.terminalArtifacts.length > 0
-        ? {
-            reviewArtifactKeys: observation.review.terminalArtifacts
-              .map(({ key }) => key)
-              .join(', ')
-              .slice(0, 500)
-          }
+      ...(observation.review.actionableArtifactKey
+        ? { reviewArtifactKey: observation.review.actionableArtifactKey }
         : {}),
       unresolvedThreads: String(observation.unresolvedReviewThreads),
       ...(observation.ci.testedMergeSha

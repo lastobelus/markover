@@ -7,6 +7,9 @@ import path from 'node:path'
 import test from 'node:test'
 
 interface ActionModule {
+  actionReportFromSummary: (
+    value: Record<string, unknown>
+  ) => Record<string, unknown> | null
   boundedTail: (contents: string) => string[]
   dirtyAdoptionFailure: (
     state: Record<string, unknown>,
@@ -320,6 +323,43 @@ test('summary carries the exact mechanical identity without visual approval', ()
     instance: target,
     visualAcceptance: 'awaiting-human'
   })
+})
+
+test('resumable result carries the verified readiness and exact route', () => {
+  const result = action.actionReportFromSummary(action.summary(
+    { head, target },
+    {
+      outcome: 'awaiting-human',
+      stage: 'readiness',
+      process: { watcherPid: 11, appPid: 12 },
+      route: {
+        healthUrl: 'http://127.0.0.1:43123/health',
+        scheme: 'markover-216:'
+      },
+      readiness: {
+        health: 'ok',
+        serviceInstanceId: 'instance-1',
+        startup: 'ready'
+      },
+      visualAcceptance: 'awaiting-human',
+      tail: []
+    }
+  ))
+  assert.ok(result)
+  assert.deepEqual(result.facts, {
+    dirty: 'false',
+    visualAcceptance: 'awaiting-human',
+    health: 'ok',
+    startup: 'ready',
+    scheme: 'markover-216:',
+    watcherPid: '11',
+    appPid: '12',
+    serviceInstanceId: 'instance-1'
+  })
+  assert.deepEqual(result.artifacts, [{
+    label: 'Health endpoint',
+    url: 'http://127.0.0.1:43123/health'
+  }])
 })
 
 test('invalid setup arguments exit with one classified final summary', () => {
