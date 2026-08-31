@@ -17,6 +17,10 @@ import {
   type LocalCiSmokeResult,
   type LocalCiTestCounts
 } from './markover-local-ci'
+import {
+  createMarkoverActionReporter,
+  type ActionReport
+} from './lib/markover-action-kit.js'
 import { parseServiceEndpoint, serviceEndpointPath } from '../src/service-endpoint'
 import { probeService, requestServiceQuit } from '../src/local-client'
 
@@ -122,6 +126,7 @@ interface ActionCancellation {
 
 const BASE_REF = 'origin/main'
 const FORMAT = 'run-intel-validation'
+const actionReporter = createMarkoverActionReporter({ label: FORMAT })
 
 function commandText(root: string, executable: string, args: readonly string[]): string {
   const result = spawnSync(executable, [...args], {
@@ -442,6 +447,74 @@ export function formatIntelValidationSummary(summary: IntelValidationSummary): s
   return `[${FORMAT}] Summary: ${JSON.stringify(summary)}`
 }
 
+export function intelValidationReport(
+  summary: IntelValidationSummary
+): ActionReport | undefined {
+  const subject = {
+    type: 'repository',
+    id: summary.repository,
+    revision: summary.head
+  }
+  const facts = {
+    base: summary.base,
+    baseRef: summary.baseRef,
+    commandVersion: String(summary.commandVersion),
+    ...(summary.host
+      ? {
+          architecture: summary.host.architecture,
+          translated: String(summary.host.translated)
+        }
+      : {})
+  }
+  if (summary.outcome === 'passed') {
+    return {
+      outcome: 'success',
+      reason: 'intel-validation-passed',
+      summary: `Intel validation passed ${String(summary.tests?.passed ?? 0)} tests and packaged smoke.`,
+      subject,
+      facts: {
+        ...facts,
+        stageResults: summary.stages
+          .map(({ name, status }) => `${name}:${status}`)
+          .join(','),
+        tests: String(summary.tests?.tests ?? 0),
+        passed: String(summary.tests?.passed ?? 0),
+        failed: String(summary.tests?.failed ?? 0),
+        localSmokeOk: String(summary.localSmoke?.ok ?? false),
+        localSmokeChecks: String(summary.localSmoke?.checks ?? 0),
+        ...(summary.artifact
+          ? {
+              archive: path.basename(summary.artifact.archive),
+              checksum: path.basename(summary.artifact.checksum),
+              evidence: path.basename(summary.artifact.evidence),
+              reviewId: summary.artifact.reviewId
+            }
+          : {}),
+        ...(summary.artifact ? { sha256: summary.artifact.sha256 } : {})
+      }
+    }
+  }
+  if (
+    summary.outcome === 'target-drifted' ||
+    summary.outcome === 'dirty-worktree'
+  ) {
+    return {
+      outcome: 'attention',
+      reason: summary.outcome,
+      summary: summary.outcome === 'dirty-worktree'
+        ? 'Intel validation needs a clean worktree.'
+        : 'Intel validation evidence is stale because the target changed.',
+      subject,
+      facts: {
+        ...facts,
+        ...(summary.finalHead ? { finalHead: summary.finalHead } : {}),
+        ...(summary.finalBase ? { finalBase: summary.finalBase } : {})
+      }
+    }
+  }
+  return undefined
+}
+
 function commonSummary(
   baseline: LocalCiIdentity,
   startedAt: number,
@@ -475,13 +548,22 @@ async function main(): Promise<void> {
   const baseline = readLocalCiIdentity(root)
   const stages: IntelValidationStage[] = []
   let host: IntelValidationHost | undefined
+  actionReporter.progress({
+    state: 'working',
+    phase: 'preflight',
+    summary: 'Checking Intel validation target and host'
+  })
   process.stdout.write(`[${FORMAT}] Baseline ${JSON.stringify({
     ...baseline,
     commandVersion: INTEL_VALIDATION_COMMAND_VERSION
   })}\n`)
   const finish = (summary: IntelValidationSummary): void => {
     cancellation.dispose()
-    process.stdout.write(`${formatIntelValidationSummary(summary)}\n`)
+    const report = intelValidationReport(summary)
+    actionReporter.terminal({
+      fallback: formatIntelValidationSummary(summary),
+      ...(report ? { report } : {})
+    })
     process.exitCode = exitCode(summary.outcome)
   }
   if (!baseline.clean) {
@@ -609,6 +691,11 @@ async function main(): Promise<void> {
       })
       return
     }
+    actionReporter.progress({
+      state: 'working',
+      phase: step.name,
+      summary: `Running Intel validation ${step.name}`
+    })
     process.stdout.write(`[${FORMAT}] Starting ${step.name}.\n`)
     const result = await runStage(
       root,
@@ -756,7 +843,8 @@ async function main(): Promise<void> {
 
 export async function runMain(): Promise<void> {
   await main().catch((error: unknown) => {
-    process.stderr.write(`${formatIntelValidationSummary({
+    actionReporter.terminal({
+      fallback: formatIntelValidationSummary({
       outcome: 'environment-failed',
       repository: 'unknown',
       head: 'unknown',
@@ -767,7 +855,9 @@ export async function runMain(): Promise<void> {
       stages: [],
       failingStage: 'environment',
       detail: compactDetail(error) || 'Unknown error.'
-    })}\n`)
+      }),
+      stream: 'stderr'
+    })
     process.exitCode = 1
   })
 }

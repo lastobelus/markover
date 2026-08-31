@@ -154,9 +154,10 @@ can load the development renderer safely.
 Agents prepare a pull-request instance through the saved **Start Dev Build**
 Project Action. The checked-in definition runs the dependency-light
 `scripts/markover-start-dev-build.js` entrypoint, so setup or compilation can
-fail before the application build exists and still return one classified
-result. Agents list the saved actions, launch the unique eligible result, end
-their turn, and validate the resumed summary before continuing. A missing or
+fail before the application build exists and still leave one classified
+diagnostic summary. Agents list the saved actions, launch the unique eligible
+result, end their turn, and validate the resumed structured result or host
+failure before continuing. A missing or
 disabled saved action is reported before falling back to the direct `npm run
 dev -- --instance dev` loop.
 

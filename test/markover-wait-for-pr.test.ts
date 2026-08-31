@@ -17,6 +17,7 @@ import {
   requiresReadyConfirmation,
   reviewThreadsArgs,
   samePullRequestRevision,
+  waitForPrReport,
   waitTimeoutClass,
   type ReviewState,
   type WaitObservation
@@ -31,6 +32,7 @@ const reviewRequest = (head = HEAD): string =>
 
 const pendingReview: ReviewState = {
   terminalArtifacts: [],
+  actionableArtifactKey: null,
   requestPresent: true,
   pending: true,
   ready: false,
@@ -39,6 +41,7 @@ const pendingReview: ReviewState = {
 
 const handledReview: ReviewState = {
   terminalArtifacts: [{ key: 'reaction:20', observedAt: '2026-08-29T10:05:00Z' }],
+  actionableArtifactKey: null,
   requestPresent: true,
   pending: false,
   ready: true,
@@ -219,6 +222,7 @@ test('wakes for actionable CI, review, merge, and target changes', () => {
     [observation({
       review: {
         terminalArtifacts: [{ key: 'review:2', observedAt: '2026-08-29T10:05:00Z' }],
+        actionableArtifactKey: 'review:2',
         requestPresent: true,
         pending: false,
         ready: false,
@@ -429,6 +433,17 @@ test('requires a handled marker for body-only top-level findings', () => {
     pullRequestReactions: []
   })
   assert.equal(finding.ready, false)
+  assert.equal(finding.actionableArtifactKey, 'review:30')
+  const observationWithFinding = observation({
+    ci: satisfiedCi,
+    review: finding
+  })
+  const findingDecision = decideWaitForPr(observation(), observationWithFinding)
+  assert.equal(findingDecision.kind, 'wake')
+  assert.equal(
+    waitForPrReport(findingDecision, observationWithFinding).facts?.reviewArtifactKey,
+    'review:30'
+  )
   const handled = deriveReviewState({
     headSha: HEAD,
     formalReviews,
@@ -447,6 +462,7 @@ test('requires a handled marker for body-only top-level findings', () => {
     pullRequestReactions: []
   })
   assert.equal(handled.ready, true)
+  assert.equal(handled.actionableArtifactKey, null)
 })
 
 test('confirms ready observations and emits concise final summaries', () => {
