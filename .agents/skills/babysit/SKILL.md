@@ -1,11 +1,11 @@
 ---
 name: babysit
-description: "Babysit a GitHub pull request through CI and automated review to green, or through a verified merge. Use when the user says 'babysit', names a pull request to babysit, or resumes a paused babysit."
+description: "Babysit a Markover pull request or identified stack through CI and review, and merge in dependency order when requested. Use for babysit and resumed babysit requests."
 ---
 
 # Babysit
 
-Babysitting drives one pull request to a finish line fixed before the first
+Babysitting drives one pull request or an identified stack to a finish line fixed before the first
 read. A **round** is one completed review of one head, its triage, and the
 single batch that triage produces; rounds are countable and few. The **slice
 boundary** recorded when the work started decides which findings belong to this
@@ -13,13 +13,16 @@ pull request.
 
 ## 1. Target, mode, and boundary
 
-Resolve the explicit pull request, otherwise the most recently worked-on or
-mentioned one, then the current branch's. Ask only when the target is
-ambiguous. For an explicit stack, preserve dependency order. Mark a draft ready.
+Resolve the explicit pull request or whole requested stack, otherwise the most
+recently worked-on or mentioned one, then the current branch's. Ask only when
+membership or ownership is materially ambiguous. For a stack, read
+[`references/stacked-prs.md`](references/stacked-prs.md) and preserve dependency
+order. Mark a draft ready.
 
 `babysit` stops at green and does not merge. `babysit & merge` or `babysit and
 merge` merges the exact green head with the repository's enabled method and
-verifies the merge.
+verifies the merge. A whole-stack merge request authorizes each identified
+member in dependency order; parent-relative green is not final main readiness.
 
 Read the slice boundary before the first fix: the addressed issue's acceptance
 criteria and this pull request's work-intent claim carry the observable evidence
@@ -42,11 +45,11 @@ actionable before waiting.
 When CI, mergeability, or current-head review remains pending, use the saved
 `Wait for PR` Project Action as the normal wait boundary:
 
-1. Before launch, require the clean current worktree branch to resolve to the
-   already-snapshotted target PR, head, and base. When an explicit target lives
-   in another checkout, move to that exact-target checkout or worktree before
-   launching; use the reported fallback when no safe exact-target checkout is
-   available.
+1. Before an ordinary launch, clear a prior explicit target and require the
+   clean Action checkout to resolve to the snapshotted PR, head, and base. For
+   a stack or remote observation, pin one explicit PR using the stack reference.
+   This selects observation only; fixes and validation still need an owned
+   checkout of that branch.
 2. If no exact-head review is active, trigger it once with a trusted comment
    whose body is exactly `@codex review`, a newline, and
    `<!-- markover-review-head: <full-head-sha> -->`. Do not duplicate an active
@@ -64,12 +67,14 @@ When CI, mergeability, or current-head review remains pending, use the saved
    fresh GitHub snapshot. Relaunch after a new head or when only passive gates
    remain.
 
-Only one resumable Action may be active for the thread. If multiple actions are
+Only one resumable Action may be active for the thread. Sequence waits for the
+whole stack through that one continuation. If multiple actions are
 named `Wait for PR`, show them and ask the user which one to use. If the action
 is missing or disabled, report the missing name or `disabledReason`, then fall
 back for this run to the repository polling rule: one foreground `sleep 100`
 before each fresh status read. The fallback is not evidence that the saved
-Action is configured.
+Action is configured. A completed Action process may still own the continuation;
+end the turn for its result before launching the next wait.
 
 ## 3. Run a round
 
@@ -126,7 +131,8 @@ The pull request is green when the current head has green CI, zero unresolved
 threads, a clean mergeable state, and a completed current-head review whose
 findings are all dispositioned. A `ready` Action result is a wake signal, not a
 merge receipt; verify those gates in one fresh GitHub snapshot before reporting
-green or merging. A narrow that changed no file, a folded finding
+green or merging. A `stacked-ready` result proves only the pinned parent-relative
+gate. Recheck CI and review after restacking a child onto `main`. A narrow that changed no file, a folded finding
 carried in an existing batch, a defer, and a decline disposition a finding
 without a new head, so they need no further review.
 

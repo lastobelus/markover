@@ -12,6 +12,8 @@ import {
   formatWaitForPrSummary,
   latestCodexReviewTrigger,
   MERGE_RECOMPUTE_TIMEOUT_MILLISECONDS,
+  parseWaitTarget,
+  prepareWaitTarget,
   pullRequestViewArgs,
   REVIEW_TIMEOUT_MILLISECONDS,
   requiresReadyConfirmation,
@@ -177,6 +179,40 @@ test('accepts a snapshotted stacked base and wakes if that target changes', () =
     decideWaitForPr(stacked, observation({ baseRefName: 'feature/other-parent' })).reason,
     'base-changed'
   )
+})
+
+test('pins a same-repository parent chain and labels only parent-relative readiness', () => {
+  const parent = {
+    ...observation({ number: 209, head: BASE }).pullRequest,
+    headRefName: 'feature/parent', headRepository: { nameWithOwner: 'lastobelus/markover' },
+    isCrossRepository: false
+  }
+  const child = {
+    ...observation({ baseRefName: 'feature/parent' }).pullRequest,
+    headRefName: 'feature/child', headRepository: { nameWithOwner: 'lastobelus/markover' },
+    isCrossRepository: false
+  }
+  const target = prepareWaitTarget(
+    'lastobelus/markover', 210, () => child,
+    (branch) => branch === 'feature/parent' ? [parent] : []
+  )
+  assert.deepEqual(target.parents.map(({ number }) => number), [209])
+  assert.deepEqual(parseWaitTarget(JSON.stringify(target)), target)
+  assert.throws(() => parseWaitTarget(JSON.stringify({ ...target, parents: [] })), /Invalid.*parent chain/)
+  assert.throws(() => prepareWaitTarget(
+    'lastobelus/markover', 210, () => child,
+    () => [{ ...parent, headRefOid: '4'.repeat(40) }]
+  ), /does not pin parent/)
+  assert.throws(() => prepareWaitTarget(
+    'lastobelus/markover', 210, () => ({ ...child, isCrossRepository: true }),
+    () => [parent]
+  ), /same-repository/)
+  const ready = observation({ ci: satisfiedCi, review: handledReview, baseRefName: 'feature/parent' })
+  ready.local = null
+  assert.doesNotThrow(() => { assertWaitStart(ready) })
+  const decision = decideWaitForPr(ready, ready, target)
+  assert.equal(decision.reason, 'stacked-ready')
+  assert.match(formatWaitForPrSummary(decision, ready, target), /"validation":"stacked"/)
 })
 
 test('requires the current clean merge revision to match the CI receipt', () => {
