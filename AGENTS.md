@@ -234,14 +234,19 @@ return. Bounded-loss crash/restart durability is tracked separately in issue
 
 ## Human QA development loop
 
-When UI, interaction, or native-app work needs back-and-forth human QA, ask the
-user for a QA window before launching or focusing Markover. Then list Project
-Actions, select the unique eligible `Start Dev Build` action, launch it with
-`run_project_action_and_resume`, and end the turn immediately. On resume,
-validate the exact head, instance, watcher PID, app PID, route, and startup-ready
-evidence before inviting the user to check that instance. `awaiting-human`
-means the machine is ready for visual QA; only the user can accept what it looks
-like or how it behaves.
+When UI, interaction, or native-app work needs human QA, prepare the build and
+ready-to-open instance without asking for or waiting on a QA window. Read the
+machine interaction policy. If launching or focusing Markover could interrupt
+the user and `application_focus=ask`, ask for that permission immediately before
+the foreground action; this is separate from asking the user to begin QA. Then
+list Project Actions, select the unique eligible `Start Dev Build` action,
+launch it with `run_project_action_and_resume`, and end the turn immediately.
+On resume, validate the exact head, instance, watcher PID, app PID, route, and
+startup-ready evidence. If `human_qa=request-window`, ask for a QA window only
+when the instance is ready and before beginning back-and-forth review. If it is
+`defer`, do not ask or wait; report the remaining human acceptance and leave the
+ready instance available. `awaiting-human` means the machine is ready for visual
+QA; only the user can accept what it looks like or how it behaves.
 
 Keep the reported watcher alive across feedback rounds. Fix a reported build or
 startup failure and let that watcher retry on the next edit. If `Start Dev Build`
