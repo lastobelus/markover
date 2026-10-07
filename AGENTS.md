@@ -243,8 +243,8 @@ list Project Actions, select the unique eligible `Start Dev Build` action,
 launch it with `run_project_action_and_resume`, and end the turn immediately.
 On resume, validate the exact head, instance, watcher PID, app PID, route, and
 startup-ready evidence. If `human_qa=request-window`, ask for a QA window only
-when the instance is ready and before beginning back-and-forth review. If it is
-`defer`, do not ask or wait; report the remaining human acceptance and leave the
+when the instance is ready and before beginning back-and-forth human QA review.
+If it is `defer`, do not ask or wait; report the remaining human acceptance and leave the
 ready instance available. `awaiting-human` means the machine is ready for visual
 QA; only the user can accept what it looks like or how it behaves.
 
