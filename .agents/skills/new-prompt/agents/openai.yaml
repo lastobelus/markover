@@ -1,0 +1,4 @@
+interface:
+  display_name: "New Prompt"
+  short_description: "Write context-delta prompts for other agents"
+  default_prompt: "Use $new-prompt to write a ready-to-paste prompt for a fresh agent continuing this work."
