@@ -1,4 +1,6 @@
 import * as childProcess from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 
 import {
   readGitHubCi,
@@ -34,7 +36,31 @@ interface PullRequestState {
   mergeable: string
   mergeStateStatus: string
   potentialMergeCommit?: { oid?: string } | null
+  headRefName?: string
+  headRepository?: { nameWithOwner?: string } | null
+  isCrossRepository?: boolean
 }
+
+interface PinnedPullRequest {
+  number: number
+  url: string
+  headRefName: string
+  headRefOid: string
+  baseRefName: string
+  baseRefOid: string
+  isDraft: boolean
+  headRepository: string
+}
+
+export interface WaitTarget {
+  version: 1
+  repository: string
+  pullRequest: PinnedPullRequest
+  parents: PinnedPullRequest[]
+}
+
+const TARGET_GIT_PATH = 'markover/wait-for-pr-target.json'
+const TARGET_FIELDS = 'number,url,state,isDraft,headRefName,headRefOid,baseRefName,baseRefOid,headRepository,isCrossRepository'
 
 interface GitHubActor {
   login?: string
@@ -97,7 +123,7 @@ export interface WaitObservation {
   ci: GitHubCiEvidence
   review: ReviewState
   unresolvedReviewThreads: number
-  local: LocalState
+  local: LocalState | null
 }
 
 export type WaitDecision =
@@ -122,6 +148,7 @@ export type WaitDecision =
         | 'pr-closed'
         | 'pr-draft'
         | 'ready'
+        | 'stacked-ready'
         | 'review-not-requested'
         | 'review-timeout'
         | 'review-unhandled'
@@ -387,17 +414,19 @@ export function deriveReviewState(input: {
 
 export function decideWaitForPr(
   baseline: WaitObservation,
-  current: WaitObservation
+  current: WaitObservation,
+  target: WaitTarget | null = null
 ): WaitDecision {
   const pullRequest = current.pullRequest
-  if (!current.local.clean) {
+  if (current.local && !current.local.clean) {
     return {
       kind: 'wake',
       reason: 'worktree-changed',
       detail: 'The worktree became dirty while waiting for pull request gates.'
     }
   }
-  if (current.local.branch !== baseline.local.branch || current.local.head !== baseline.local.head) {
+  if (current.local && baseline.local &&
+    (current.local.branch !== baseline.local.branch || current.local.head !== baseline.local.head)) {
     return {
       kind: 'wake',
       reason: 'local-head-changed',
@@ -513,8 +542,10 @@ export function decideWaitForPr(
   ) {
     return {
       kind: 'wake',
-      reason: 'ready',
-      detail: `GitHub CI and the handled Codex review are complete for pull request #${pullRequest.number}.`
+      reason: target?.parents.length ? 'stacked-ready' : 'ready',
+      detail: target?.parents.length
+        ? `CI and Codex review passed against the pinned parent for pull request #${pullRequest.number}; final main validation remains.`
+        : `GitHub CI and the handled Codex review are complete for pull request #${pullRequest.number}.`
     }
   }
   if (current.ci.state === 'pending' && current.ci.reason === 'run-registration') {
@@ -644,6 +675,130 @@ function runGitText(args: ReadonlyArray<string>): string {
   return result.stdout.trim()
 }
 
+function pinPullRequest(repository: string, value: PullRequestState): PinnedPullRequest {
+  const headRepository = value.headRepository?.nameWithOwner
+  if (value.state !== 'OPEN' || value.isCrossRepository !== false ||
+    headRepository?.toLowerCase() !== repository.toLowerCase() ||
+    !Number.isSafeInteger(value.number) || value.number <= 0 || !value.url ||
+    !value.headRefName || !value.baseRefName ||
+    !/^[0-9a-f]{40}$/.test(value.headRefOid) ||
+    !/^[0-9a-f]{40}$/.test(value.baseRefOid)) {
+    throw new Error('Wait for PR requires an open same-repository PR with complete head and base identities.')
+  }
+  return {
+    number: value.number, url: value.url, headRefName: value.headRefName,
+    headRefOid: value.headRefOid, baseRefName: value.baseRefName,
+    baseRefOid: value.baseRefOid, isDraft: value.isDraft,
+    headRepository
+  }
+}
+
+function targetView(repository: string, number: number): PullRequestState {
+  return runGitHubJson([
+    'pr', 'view', String(number), '--repo', repository, '--json', TARGET_FIELDS
+  ]) as PullRequestState
+}
+
+export function prepareWaitTarget(
+  repository: string,
+  number: number,
+  view: (number: number) => PullRequestState = (pr) => targetView(repository, pr),
+  list: (branch: string) => ReadonlyArray<PullRequestState> = (branch) =>
+    runGitHubJson(['pr', 'list', '--repo', repository, '--state', 'open', '--head', branch,
+      '--limit', '100', '--json', TARGET_FIELDS]) as ReadonlyArray<PullRequestState>
+): WaitTarget {
+  if (!Number.isSafeInteger(number) || number <= 0) throw new Error('Target requires a positive PR number.')
+  const pullRequest = pinPullRequest(repository, view(number))
+  const parents: PinnedPullRequest[] = []
+  const seen = new Set([number])
+  let child = pullRequest
+  while (child.baseRefName !== 'main') {
+    const matches = list(child.baseRefName).filter((candidate) =>
+      candidate.headRefName === child.baseRefName && candidate.state === 'OPEN' &&
+      candidate.isCrossRepository === false &&
+      candidate.headRepository?.nameWithOwner?.toLowerCase() === repository.toLowerCase())
+    if (matches.length !== 1) {
+      throw new Error(`Base ${child.baseRefName} resolves to ${matches.length} open same-repository parents; expected one.`)
+    }
+    const parent = pinPullRequest(repository, matches[0] as PullRequestState)
+    if (seen.has(parent.number)) throw new Error(`PR chain contains a cycle at #${parent.number}.`)
+    if (child.baseRefOid !== parent.headRefOid) {
+      throw new Error(`PR #${child.number} does not pin parent #${parent.number}'s current head.`)
+    }
+    parents.push(parent)
+    seen.add(parent.number)
+    child = parent
+  }
+  return { version: 1, repository, pullRequest, parents }
+}
+
+export function parseWaitTarget(contents: string): WaitTarget {
+  const value: unknown = JSON.parse(contents)
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Malformed Wait for PR target.')
+  if (typeof (value as Record<string, unknown>).repository !== 'string') {
+    throw new Error('Malformed Wait for PR target.')
+  }
+  const target = value as WaitTarget
+  const validPin = (entry: unknown): boolean => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false
+    const pin = entry as PinnedPullRequest
+    return Number.isSafeInteger(pin.number) && pin.number > 0 &&
+    typeof pin.url === 'string' && pin.url.length > 0 &&
+    typeof pin.headRefName === 'string' && pin.headRefName.length > 0 &&
+    typeof pin.baseRefName === 'string' && pin.baseRefName.length > 0 &&
+    typeof pin.headRepository === 'string' && pin.headRepository.toLowerCase() === target.repository.toLowerCase() &&
+    typeof pin.isDraft === 'boolean' &&
+    /^[0-9a-f]{40}$/.test(pin.headRefOid) && /^[0-9a-f]{40}$/.test(pin.baseRefOid)
+  }
+  if ((value as Record<string, unknown>).version !== 1 ||
+    !/^[^/]+\/[^/]+$/.test(target.repository) || !validPin(target.pullRequest) ||
+    !Array.isArray(target.parents) || !target.parents.every(validPin)) {
+    throw new Error('Malformed Wait for PR target.')
+  }
+  const chain = [target.pullRequest, ...target.parents]
+  const seen = new Set<number>()
+  if (!chain.every((pin, index) => {
+    if (seen.has(pin.number)) return false
+    seen.add(pin.number)
+    const parent = chain[index + 1]
+    return parent
+      ? pin.baseRefName === parent.headRefName && pin.baseRefOid === parent.headRefOid
+      : pin.baseRefName === 'main'
+  })) throw new Error('Invalid Wait for PR parent chain.')
+  return target
+}
+
+function waitTargetPath(): string {
+  return path.resolve(runGitText(['rev-parse', '--git-path', TARGET_GIT_PATH]))
+}
+
+function loadWaitTarget(): WaitTarget | null {
+  try { return parseWaitTarget(fs.readFileSync(waitTargetPath(), 'utf8')) } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+
+function saveWaitTarget(target: WaitTarget): string {
+  const file = waitTargetPath()
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+  const temporary = `${file}.tmp-${process.pid}`
+  try {
+    fs.writeFileSync(temporary, `${JSON.stringify(target, null, 2)}\n`, { mode: 0o600 })
+    fs.renameSync(temporary, file)
+  } finally { fs.rmSync(temporary, { force: true }) }
+  return file
+}
+
+function assertPinnedTarget(target: WaitTarget): void {
+  for (const pin of [target.pullRequest, ...target.parents]) {
+    const current = pinPullRequest(target.repository, targetView(target.repository, pin.number))
+    if (JSON.stringify(current) !== JSON.stringify(pin)) {
+      throw new Error(`Pinned Wait for PR target changed at PR #${pin.number}; select it again.`)
+    }
+  }
+}
+
 function currentBranch(): string {
   const branch = runGitText(['branch', '--show-current'])
   if (branch.length === 0) throw new Error('Wait for PR requires a checked-out branch.')
@@ -658,13 +813,15 @@ function readLocalState(): LocalState {
   }
 }
 
-function sameLocalState(left: LocalState, right: LocalState): boolean {
+function sameLocalState(left: LocalState | null, right: LocalState | null): boolean {
+  if (!left || !right) return left === right
   return left.branch === right.branch &&
     left.head === right.head &&
     left.clean === right.clean
 }
 
 export function assertWaitStart(observation: WaitObservation): void {
+  if (!observation.local) return
   if (!observation.local.clean) throw new Error('Wait for PR requires a clean worktree.')
   if (observation.local.head !== observation.pullRequest.headRefOid) {
     throw new Error(
@@ -730,9 +887,10 @@ export function requiresReadyConfirmation(observation: WaitObservation): boolean
     observation.unresolvedReviewThreads === 0
 }
 
-function readObservation(repository: string, branch: string): WaitObservation {
+function readObservation(repository: string, branch: string, target: WaitTarget | null): WaitObservation {
   for (;;) {
-    const initialLocal = readLocalState()
+    if (target) assertPinnedTarget(target)
+    const initialLocal = target ? null : readLocalState()
     const initialPullRequest = runGitHubJson(
       pullRequestViewArgs(repository, branch)
     ) as PullRequestState
@@ -741,7 +899,8 @@ function readObservation(repository: string, branch: string): WaitObservation {
     const pullRequest = runGitHubJson(
       pullRequestViewArgs(repository, branch)
     ) as PullRequestState
-    const local = readLocalState()
+    const local = target ? null : readLocalState()
+    if (target) assertPinnedTarget(target)
     if (
       !samePullRequestRevision(initialPullRequest, pullRequest) ||
       !sameLocalState(initialLocal, local)
@@ -761,7 +920,8 @@ function readObservation(repository: string, branch: string): WaitObservation {
     const confirmedPullRequest = runGitHubJson(
       pullRequestViewArgs(repository, branch)
     ) as PullRequestState
-    const confirmedLocal = readLocalState()
+    const confirmedLocal = target ? null : readLocalState()
+    if (target) assertPinnedTarget(target)
     if (
       !samePullRequestRevision(pullRequest, confirmedPullRequest) ||
       !sameLocalState(local, confirmedLocal) ||
@@ -799,7 +959,8 @@ function observationSummary(observation: WaitObservation): string {
 
 export function formatWaitForPrSummary(
   decision: Extract<WaitDecision, { kind: 'wake' }>,
-  observation: WaitObservation
+  observation: WaitObservation,
+  target: WaitTarget | null = null
 ): string {
   return `[wait-for-pr] Summary: ${JSON.stringify({
     reason: decision.reason,
@@ -808,6 +969,8 @@ export function formatWaitForPrSummary(
     url: observation.pullRequest.url,
     head: observation.pullRequest.headRefOid,
     base: observation.pullRequest.baseRefOid,
+    validation: target?.parents.length ? 'stacked' : 'canonical',
+    parentPr: target?.parents[0]?.number ?? null,
     testedMerge: observation.ci.testedMergeSha ?? null,
     ci: observation.ci,
     reviewPending: observation.review.pending,
@@ -826,14 +989,17 @@ export function formatWaitForPrFailureSummary(error: unknown): string {
 
 export function waitForPrReport(
   decision: Extract<WaitDecision, { kind: 'wake' }>,
-  observation: WaitObservation
+  observation: WaitObservation,
+  target: WaitTarget | null = null
 ): ActionReport {
   const pullRequest = observation.pullRequest
   return {
-    outcome: decision.reason === 'ready' ? 'success' : 'attention',
+    outcome: ['ready', 'stacked-ready'].includes(decision.reason) ? 'success' : 'attention',
     reason: decision.reason,
     summary: decision.reason === 'ready'
-      ? `Pull request #${String(pullRequest.number)} is ready to merge.`
+      ? `Pull request #${String(pullRequest.number)} passed its current-head gates.`
+      : decision.reason === 'stacked-ready'
+        ? `Pull request #${String(pullRequest.number)} passed against its pinned parent; final main validation remains.`
       : `Pull request #${String(pullRequest.number)} needs attention: ${decision.reason.replaceAll('-', ' ')}.`,
     subject: {
       type: 'pull-request',
@@ -843,6 +1009,8 @@ export function waitForPrReport(
     },
     facts: {
       base: pullRequest.baseRefOid,
+      validation: target?.parents.length ? 'stacked' : 'canonical',
+      ...(target?.parents[0] ? { parentPr: String(target.parents[0].number) } : {}),
       ci: observation.ci.state,
       reviewPending: String(observation.review.pending),
       reviewReady: String(observation.review.ready),
@@ -863,8 +1031,29 @@ const sleep = (durationMilliseconds: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, durationMilliseconds))
 
 async function main(): Promise<void> {
-  const branch = currentBranch()
-  const baseline = readObservation(GITHUB_REPOSITORY, branch)
+  const args = process.argv.slice(2)
+  if (args.length === 1 && args[0] === '--clear-target') {
+    fs.rmSync(waitTargetPath(), { force: true })
+    process.stdout.write('Cleared Wait for PR target.\n')
+    return
+  }
+  if (args.length === 2 && args[0] === '--target' && /^[1-9][0-9]*$/.test(args[1] ?? '')) {
+    const number = Number(args[1])
+    const target = prepareWaitTarget(GITHUB_REPOSITORY, number)
+    process.stdout.write(`Wait for PR target: ${JSON.stringify({
+      number, head: target.pullRequest.headRefOid, base: target.pullRequest.baseRefOid,
+      parents: target.parents.map(({ number: pr, headRefOid }) => ({ number: pr, head: headRefOid })),
+      file: saveWaitTarget(target)
+    })}\n`)
+    return
+  }
+  if (args.length > 0) throw new Error('Usage: markover-wait-for-pr [--target PR_NUMBER | --clear-target]')
+  const target = loadWaitTarget()
+  if (target && target.repository.toLowerCase() !== GITHUB_REPOSITORY.toLowerCase()) {
+    throw new Error(`Wait for PR target belongs to ${target.repository}, not ${GITHUB_REPOSITORY}.`)
+  }
+  const branch = target ? String(target.pullRequest.number) : currentBranch()
+  const baseline = readObservation(GITHUB_REPOSITORY, branch, target)
   assertWaitStart(baseline)
   actionReporter.progress({
     state: 'working',
@@ -878,7 +1067,7 @@ async function main(): Promise<void> {
   let pendingClass: ReturnType<typeof waitTimeoutClass> | null = null
   let pendingSince = Date.now()
   for (;;) {
-    let decision = decideWaitForPr(baseline, current)
+    let decision = decideWaitForPr(baseline, current, target)
     if (decision.kind === 'wait') {
       const nextPendingClass = waitTimeoutClass(decision.reason)
       if (pendingClass !== nextPendingClass) {
@@ -889,8 +1078,8 @@ async function main(): Promise<void> {
     }
     if (decision.kind === 'wake') {
       actionReporter.terminal({
-        fallback: formatWaitForPrSummary(decision, current),
-        report: waitForPrReport(decision, current)
+        fallback: formatWaitForPrSummary(decision, current, target),
+        report: waitForPrReport(decision, current, target)
       })
       return
     }
@@ -906,7 +1095,7 @@ async function main(): Promise<void> {
       previousSummary = currentSummary
     }
     await sleep(POLL_INTERVAL_MILLISECONDS)
-    current = readObservation(GITHUB_REPOSITORY, branch)
+    current = readObservation(GITHUB_REPOSITORY, branch, target)
   }
 }
 
