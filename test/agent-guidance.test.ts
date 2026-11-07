@@ -38,13 +38,11 @@ test('guidance combines the fixed contract with a replaceable policy', () => {
 })
 
 test('generic and dedicated agent guidance preserve the same semantics', async () => {
-  const [agents, agentGuide, humanGuide, development, babysit, mergeReference, cli] = await Promise.all([
+  const [agents, agentGuide, humanGuide, development, cli] = await Promise.all([
     read('AGENTS.md'),
     read('docs/user/agents/index.html'),
     read('docs/user/guide/index.html'),
     read('docs/developer/development.md'),
-    read('.agents/skills/babysit/SKILL.md'),
-    read('.agents/skills/babysit/references/merge.md'),
     read('scripts/markover.ts')
   ])
 
@@ -79,17 +77,14 @@ test('generic and dedicated agent guidance preserve the same semantics', async (
   assert.match(agentGuide, /Possible stricter policies/)
   assert.match(agentGuide, /id="revise"/)
   assert.match(agentGuide, /id="done"/)
-  assert.match(babysit, /references\/merge\.md/)
-  assert.match(babysit, /list_project_actions/)
-  assert.match(babysit, /run_project_action_and_resume/)
-  assert.match(babysit, /end the turn immediately/)
-  assert.match(babysit, /markover-review-head/)
-  assert.match(babysit, /markover-review-handled/)
-  assert.match(babysit, /worktree branch to resolve to the[\s\S]*target PR, head, and base/)
-  assert.match(babysit, /multiple actions are[\s\S]*ask the user which one to use/)
-  assert.doesNotMatch(babysit, /While anything is pending,[\s\S]*foreground `sleep 100`/)
-  assert.match(mergeReference, /machine-readable\s+help[\s\S]*`pullRequestStatus`/)
-  assert.match(mergeReference, /Run `done`/)
+  assert.match(agents, /Use the global `babysit` skill with these settings/)
+  assert.match(agents, /markover-review-head/)
+  assert.match(agents, /markover-review-handled/)
+  assert.match(agents, /clean checkout whose branch, head and base are the target PR's/)
+  assert.match(agents, /If two Actions are named `Wait for PR`, list them and ask which/)
+  assert.match(agents, /result names the expected PR, head and base/)
+  assert.doesNotMatch(agents, /sleep 100/)
+  assert.match(agents, /run Markover's `pullRequestStatus` `done` for the merged PR URL/)
   assert.match(cli, /gh pr view <pull-request-url-or-number> --json state,isDraft,url/)
   assert.doesNotMatch(humanGuide, /markover get|markover edit|Default policy|Possible stricter policies/)
   assert.match(development, /Agent-facing instructions must preserve the contract/)

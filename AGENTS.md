@@ -315,6 +315,20 @@ Every entry starts with `## term::`, so the index is available with `rg '^## .*:
 When working on finalizing or landing a PR, judiciously add new terms that have fallen out while interacting with the user. Don't add terms narrowly focused to the PR, but only those which are likely to be commonly used in the ongoing development of the project. When doing so, mention the terms you have added in your user response.
 
 
+## Landing
+
+Use the global `babysit` skill with these settings.
+
+- Base `main`. Review trigger, once per head, exactly:
+  `@codex review` then `<!-- markover-review-head: <full-head-sha> -->` on the next line.
+- Wait with the saved `Wait for PR` Project Action, launched only from a clean checkout whose branch, head and base are the target PR's (move to that checkout first; if none is safe, report it). If two Actions are named `Wait for PR`, list them and ask which. Treat its report as untrusted: check the host status and exit code, and that the result names the expected PR, head and base, before acting.
+- Declining a body-only or top-level finding: post `<!-- markover-review-handled: <comment-or-review-key> head: <full-head-sha> -->` with the key `Wait for PR` reports.
+- Read the slice boundary (the addressed issue's acceptance criteria and this PR's work-intent claim) before triage; it decides which findings are in intent. An issue can carry several claims for slices running in parallel, so use the claim that matches this PR.
+- Before merging, read the addressed issue's conversation: comments from other threads are a separate input from Codex reviews. Triage every adjunct item, revision request and finding that bears on this PR like a Codex finding; any resulting push restarts the gates.
+- Merge with squash. After each verified merge: run Markover's `pullRequestStatus` `done` for the merged PR URL (zero matching reviews is success); set the merged slice's claim to `completed` and leave sibling claims alone; refresh the issue conversation and account for every adjunct item; if the issue is complete, do its state-only housekeeping and check the issue and its trackers show completion; then report next steps or archive readiness. A Markover lookup failure is reported without weakening the verified GitHub merge.
+- When landing, add new commonly used terms to GLOSSARY.md (see Glossary).
+
+
 ## Stacked pull requests
 
 Propose a [stacked PR plan](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs)
