@@ -212,17 +212,13 @@ test('an overlapping slice is detected and handed to the user without an electio
 })
 
 test('merging one slice leaves its sibling claims alone', () => {
-  const merge = fs.readFileSync(
-    path.join(root, '.agents/skills/babysit/references/merge.md'),
-    'utf8'
-  )
   assert.match(
-    merge,
-    /Complete the claim for the merged slice[\s\S]*sibling claim alone/
+    agentsSource,
+    /set the merged slice's claim to `completed` and leave sibling claims alone/
   )
-  assert.doesNotMatch(merge, /`completed` as well/)
+  assert.doesNotMatch(agentsSource, /`completed` as well/)
   assert.match(
-    fs.readFileSync(path.join(root, '.agents/skills/babysit/SKILL.md'), 'utf8'),
+    agentsSource,
     /An issue can carry several claims for slices running in parallel/
   )
 })
